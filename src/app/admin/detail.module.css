@@ -1,0 +1,306 @@
+.section {
+  display: grid;
+  gap: 16px;
+}
+
+.grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.panel {
+  background: #fff;
+  border-radius: 18px;
+  border: 1px solid #e2e8f0;
+  padding: 16px;
+  display: grid;
+  gap: 8px;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.06);
+}
+
+.panelTitle {
+  margin: 0;
+  font-size: 16px;
+}
+
+.kpiValue {
+  font-size: 26px;
+  font-weight: 800;
+  margin: 6px 0 0;
+  color: #0f172a;
+}
+
+.hint {
+  font-size: 12px;
+  color: #64748b;
+}
+
+.placeholder {
+  height: 160px;
+  border-radius: 12px;
+  background: #f1f5f9;
+  border: 1px dashed #cbd5f5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #94a3b8;
+  font-size: 13px;
+}
+
+.list {
+  display: grid;
+  gap: 12px;
+}
+
+.listRow {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid #eef2f9;
+  background: #fbfcff;
+  font-size: 13px;
+}
+
+.listRow span {
+  color: #64748b;
+  font-size: 12px;
+}
+
+.actionButton {
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  padding: 8px 12px;
+  font-weight: 700;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.toolbar {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.searchField,
+.filterField {
+  display: grid;
+  gap: 6px;
+  font-size: 12px;
+  color: #64748b;
+  font-weight: 600;
+}
+
+.searchField input,
+.filterField select {
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  padding: 10px 12px;
+  font-size: 13px;
+  color: #0f172a;
+  background: #fff;
+}
+
+.table {
+  display: grid;
+  gap: 8px;
+}
+
+.tableHead {
+  display: grid;
+  grid-template-columns: 1.2fr 1.2fr 0.6fr 0.8fr 0.8fr 0.5fr 0.7fr;
+  gap: 12px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #94a3b8;
+  padding: 0 6px;
+}
+
+.tableRow {
+  display: grid;
+  grid-template-columns: 1.2fr 1.2fr 0.6fr 0.8fr 0.8fr 0.5fr 0.7fr;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid #eef2f9;
+  background: #fbfcff;
+  font-size: 13px;
+  align-items: center;
+}
+
+.tableCell {
+  display: grid;
+  gap: 4px;
+  color: #0f172a;
+}
+
+.subtle {
+  font-size: 12px;
+  color: #64748b;
+}
+
+.statusBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #eef2ff;
+  color: #1e3a8a;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  width: fit-content;
+}
+
+.linkButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #1e3a8a;
+  text-decoration: none;
+}
+
+.tabs {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.tabButton {
+  border-radius: 999px;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  color: #475569;
+}
+
+.tabActive {
+  background: #1e3a8a;
+  color: #fff;
+  border-color: #1e3a8a;
+}
+
+.cardGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.formGrid {
+  display: grid;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.formField {
+  display: grid;
+  gap: 6px;
+  font-size: 12px;
+  color: #64748b;
+}
+
+.input {
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  padding: 8px 10px;
+  font-size: 13px;
+  color: #0f172a;
+  background: #fff;
+}
+
+.actionRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.actionPrimary,
+.actionGhost {
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.actionPrimary {
+  background: #1e3a8a;
+  color: #fff;
+  border-color: #1e3a8a;
+}
+
+.actionGhost {
+  background: #fff;
+  color: #1e3a8a;
+}
+
+.dataItem {
+  display: grid;
+  gap: 6px;
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+}
+
+.dataItem span {
+  font-size: 12px;
+  color: #64748b;
+}
+
+.dataItem strong {
+  font-size: 14px;
+  color: #0f172a;
+}
+
+.emptyState {
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px dashed #cbd5f5;
+  background: #f8fafc;
+  font-size: 13px;
+  color: #94a3b8;
+}
+
+@media (max-width: 900px) {
+  .tableHead {
+    display: none;
+  }
+
+  .tableRow {
+    grid-template-columns: 1fr;
+  }
+}
+
+.progress {
+  width: 100%;
+  height: 8px;
+  border-radius: 999px;
+  background: #e2e8f0;
+  overflow: hidden;
+}
+
+.progressFill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(120deg, #2563eb, #60a5fa);
+}

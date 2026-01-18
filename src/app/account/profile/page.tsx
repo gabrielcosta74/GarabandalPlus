@@ -1,0 +1,210 @@
+"use client";
+
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import DashboardShell from '../../../components/dashboard/DashboardShell';
+import MemberProfileModal from '../../../components/member-profile/MemberProfileModal';
+import { supabaseBrowser } from '../../../lib/supabase-browser';
+import { User, MapPin, Shield, Edit2, KeyRound, LogOut, CheckCircle2 } from 'lucide-react';
+
+export default function AccountProfilePage() {
+  const [showProfile, setShowProfile] = useState(false);
+  const [profileData, setProfileData] = useState<Record<string, any> | null>(null);
+  const [userId, setUserId] = useState('');
+  const [userEmail, setUserEmail] = useState('');
+  const [securityMessage, setSecurityMessage] = useState('');
+  const [securityLoading, setSecurityLoading] = useState(false);
+  const [securityStatus, setSecurityStatus] = useState<'success' | 'error' | null>(null);
+  const router = useRouter();
+
+  useEffect(() => {
+    const loadProfile = async () => {
+      if (!supabaseBrowser) return;
+      const { data } = await supabaseBrowser.auth.getUser();
+      if (!data.user?.id) return;
+      setUserId(data.user.id);
+      setUserEmail(data.user.email ?? '');
+      const { data: member } = await supabaseBrowser
+        .from('membros')
+        .select('nome, email, telefone, address, postal_code, country, nif, is_membro, numero_socio, estado_quota, proxima_quota, avatar_url')
+        .eq('id', data.user.id)
+        .maybeSingle();
+      setProfileData(member ?? {});
+    };
+    loadProfile();
+  }, []);
+
+  const handlePasswordReset = async () => {
+    if (!supabaseBrowser || !userEmail) return;
+    setSecurityLoading(true);
+    setSecurityMessage('');
+    setSecurityStatus(null);
+    try {
+      const { error } = await supabaseBrowser.auth.resetPasswordForEmail(userEmail, {
+        redirectTo: `${window.location.origin}/account/profile`,
+      });
+      if (error) throw error;
+      setSecurityMessage('Enviámos um email com o link para alterar a palavra-passe.');
+      setSecurityStatus('success');
+    } catch (err) {
+      console.warn('Erro ao enviar email de password.', err);
+      setSecurityMessage('Não foi possível enviar o email. Tenta novamente.');
+      setSecurityStatus('error');
+    } finally {
+      setSecurityLoading(false);
+    }
+  };
+
+  const handleLogoutAll = async () => {
+    if (!supabaseBrowser) return;
+    setSecurityLoading(true);
+    setSecurityMessage('');
+    try {
+      await supabaseBrowser.auth.signOut({ scope: 'global' });
+      router.replace('/login');
+    } catch (err) {
+      console.warn('Erro ao terminar sessoes.', err);
+      setSecurityMessage('Não foi possível terminar todas as sessões.');
+      setSecurityStatus('error');
+      setSecurityLoading(false);
+    }
+  };
+
+  const SectionHeader = ({ icon: Icon, title, subtitle }: { icon: any, title: string, subtitle: string }) => (
+    <div className="flex items-start gap-4 mb-6">
+      <div className="w-10 h-10 rounded-xl bg-garabandal-gold/10 flex items-center justify-center flex-shrink-0 text-garabandal-dark">
+        <Icon className="w-5 h-5" />
+      </div>
+      <div>
+        <h3 className="font-serif text-lg font-bold text-gray-900">{title}</h3>
+        <p className="text-sm text-gray-500">{subtitle}</p>
+      </div>
+    </div>
+  );
+
+  const Field = ({ label, value }: { label: string, value?: string | null }) => (
+    <div className="bg-gray-50/50 rounded-xl p-3 border border-gray-100">
+      <label className="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-1">{label}</label>
+      <div className="text-sm font-medium text-gray-900 truncate">{value || '—'}</div>
+    </div>
+  );
+
+
+
+  const HeroSection = () => (
+    <div className="relative w-full h-80 rounded-3xl overflow-hidden mb-8 shadow-xl">
+      <div className="absolute inset-0 bg-gradient-to-br from-garabandal-dark via-slate-900 to-garabandal-gold/20">
+        <div className="absolute inset-0 opacity-20 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] mix-blend-overlay"></div>
+      </div>
+
+      <div className="relative z-10 h-full flex flex-col items-center justify-center text-center p-6 space-y-4">
+        <div className="relative group">
+          <div className="w-32 h-32 rounded-full p-1 bg-gradient-to-br from-garabandal-gold to-yellow-600 shadow-2xl">
+            <div className="w-full h-full rounded-full bg-slate-900 flex items-center justify-center overflow-hidden border-4 border-slate-900">
+              {profileData?.avatar_url ? (
+                <img src={profileData.avatar_url} alt="Profile" className="w-full h-full object-cover" />
+              ) : (
+                <span className="font-serif text-4xl text-garabandal-gold">{profileData?.nome?.charAt(0) || userEmail.charAt(0)}</span>
+              )}
+            </div>
+          </div>
+          <button
+            onClick={() => setShowProfile(true)}
+            className="absolute bottom-0 right-0 p-2.5 bg-white text-garabandal-dark rounded-full shadow-lg hover:bg-gray-100 transition-transform hover:scale-110 active:scale-95"
+          >
+            <Edit2 className="w-5 h-5" />
+          </button>
+        </div>
+
+        <div>
+          <h2 className="font-serif text-3xl font-bold text-white mb-1">{profileData?.nome || 'Membro Garabandal'}</h2>
+          <p className="text-garabandal-gold font-medium tracking-wide uppercase text-xs">Membro VIP • Nº {profileData?.numero_socio || '---'}</p>
+        </div>
+      </div>
+    </div>
+  );
+
+  return (
+    <DashboardShell
+      title="O Meu Perfil"
+      subtitle="Gere a tua identidade e preferências na comunidade."
+    >
+      <MemberProfileModal
+        visible={showProfile}
+        userId={userId}
+        initialData={profileData ?? {}}
+        onClose={() => setShowProfile(false)}
+        onSaved={() => {
+          setShowProfile(false);
+          window.location.reload();
+        }}
+      />
+
+      <HeroSection />
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Left Column - Personal Data */}
+        <div className="lg:col-span-2 space-y-6">
+          <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 relative overflow-hidden group">
+            <div className="absolute top-0 right-0 p-4 opacity-0 group-hover:opacity-100 transition-opacity">
+              <button onClick={() => setShowProfile(true)} className="text-gray-400 hover:text-garabandal-gold"><Edit2 className="w-5 h-5" /></button>
+            </div>
+
+            <SectionHeader icon={User} title="Dados Pessoais" subtitle="A tua identificação na plataforma." />
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6">
+              <Field label="Nome" value={profileData?.nome} />
+              <Field label="Email" value={profileData?.email || userEmail} />
+              <Field label="Telefone" value={profileData?.telefone} />
+              <Field label="NIF" value={profileData?.nif} />
+            </div>
+          </div>
+
+          <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+            <SectionHeader icon={MapPin} title="Morada de Envio" subtitle="Para onde enviamos as tuas encomendas." />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6">
+              <div className="sm:col-span-2">
+                <Field label="Endereço" value={profileData?.address} />
+              </div>
+              <Field label="Código Postal" value={profileData?.postal_code} />
+              <Field label="País" value={profileData?.country} />
+            </div>
+          </div>
+        </div>
+
+        {/* Right Column - Security & Actions */}
+        <div className="space-y-6">
+          <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+            <SectionHeader icon={Shield} title="Segurança" subtitle="Protege a tua conta." />
+
+            <div className="space-y-3 mt-6">
+              <button
+                onClick={handlePasswordReset}
+                disabled={securityLoading}
+                className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 hover:bg-gray-100 rounded-xl transition-colors text-sm font-medium text-gray-700 group"
+              >
+                <span className="flex items-center gap-3"><KeyRound className="w-4 h-4 text-gray-400 group-hover:text-gray-600" /> Alterar Password</span>
+              </button>
+
+              <button
+                onClick={handleLogoutAll}
+                disabled={securityLoading}
+                className="w-full flex items-center justify-between px-4 py-3 bg-red-50 hover:bg-red-100 rounded-xl transition-colors text-sm font-medium text-red-600 group"
+              >
+                <span className="flex items-center gap-3"><LogOut className="w-4 h-4" /> Terminar Sessões</span>
+              </button>
+            </div>
+
+            {securityMessage && (
+              <div className={`mt-4 p-3 rounded-lg text-xs font-bold flex items-start gap-2 ${securityStatus === 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                {securityStatus === 'success' ? <CheckCircle2 className="w-4 h-4 shrink-0" /> : <Shield className="w-4 h-4 shrink-0" />}
+                {securityMessage}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </DashboardShell>
+  );
+
+}

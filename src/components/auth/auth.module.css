@@ -1,0 +1,162 @@
+.page {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 48px 20px;
+  background: radial-gradient(circle at top, #eef4ff 0%, #f7f9fc 45%, #f2f4f8 100%);
+}
+
+.shell {
+  width: min(1100px, 100%);
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+  gap: 32px;
+  align-items: stretch;
+}
+
+.aside {
+  background: linear-gradient(160deg, #1c2d5c 0%, #203a7a 55%, #1b2a57 100%);
+  color: #f8fbff;
+  border-radius: 28px;
+  padding: 42px;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.2);
+}
+
+.aside::after {
+  content: "";
+  position: absolute;
+  top: -120px;
+  right: -120px;
+  width: 240px;
+  height: 240px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0));
+}
+
+.aside h1 {
+  font-size: 32px;
+  margin: 0 0 12px;
+  letter-spacing: 0.3px;
+}
+
+.aside p {
+  margin: 0 0 24px;
+  color: rgba(248, 251, 255, 0.85);
+  line-height: 1.5;
+}
+
+.features {
+  display: grid;
+  gap: 14px;
+}
+
+.feature {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.featureDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #7dd3fc;
+  margin-top: 6px;
+}
+
+.card {
+  background: #ffffff;
+  border-radius: 24px;
+  padding: 32px;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  box-shadow: 0 18px 50px rgba(15, 23, 42, 0.12);
+}
+
+.cardHeader h2 {
+  margin: 0 0 6px;
+  font-size: 26px;
+}
+
+.cardHeader p {
+  margin: 0 0 18px;
+  color: #5b6b84;
+}
+
+.field {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.field label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #2b3a55;
+}
+
+.field input {
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid #d6e0ef;
+  background: #f8fafc;
+}
+
+.field input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  margin-right: 8px;
+}
+
+.helper {
+  font-size: 12px;
+  color: #6b7a94;
+}
+
+.actions {
+  display: grid;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.primaryButton {
+  background: #1e63f0;
+  color: #fff;
+  border: none;
+  border-radius: 12px;
+  padding: 12px 16px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.secondaryLink {
+  text-align: center;
+  color: #1e63f0;
+  font-weight: 600;
+}
+
+.legal {
+  margin-top: 18px;
+  font-size: 12px;
+  color: #6b7a94;
+  text-align: center;
+}
+
+.error {
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #fee2e2;
+  color: #991b1b;
+  font-size: 13px;
+  margin-bottom: 12px;
+}
+
+@media (max-width: 900px) {
+  .shell {
+    grid-template-columns: 1fr;
+  }
+  .aside {
+    padding: 32px;
+  }
+}

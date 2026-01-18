@@ -1,0 +1,76 @@
+"use client";
+
+import { Suspense, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import MembershipHero from "../../components/membership/MembershipHero";
+import MembershipBenefits from "../../components/membership/MembershipBenefits";
+import MembershipImpact from "../../components/membership/MembershipImpact";
+import MembershipFAQ from "../../components/membership/MembershipFAQ";
+import MembershipModal from "../../components/membership/MembershipModal";
+
+function TornarMembroContent() {
+    const search = useSearchParams();
+    const joinParam = search.get("join");
+    const [modalOpen, setModalOpen] = useState(false);
+    const [impact, setImpact] = useState({ members: 0, raised: 0, goal: 2500 });
+
+    // Load impact stats from API
+    useEffect(() => {
+        const loadImpact = async () => {
+            try {
+                const res = await fetch("/api/membership/impact");
+                if (res.ok) {
+                    const data = await res.json();
+                    setImpact({
+                        members: Number(data.members || 0),
+                        raised: Number(data.raised || 0),
+                        goal: Number(data.goal || 2500),
+                    });
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        };
+        loadImpact();
+    }, []);
+
+    // Auto-open modal if ?join=1
+    useEffect(() => {
+        if (joinParam === "1") {
+            setModalOpen(true);
+        }
+    }, [joinParam]);
+
+    return (
+        <main className="min-h-screen bg-white">
+            <MembershipHero onJoinClick={() => setModalOpen(true)} />
+            <MembershipBenefits />
+            <MembershipImpact stats={impact} />
+            <MembershipFAQ />
+
+            <MembershipModal
+                isOpen={modalOpen}
+                onClose={() => setModalOpen(false)}
+                impact={impact}
+            />
+
+            {/* Mobile Sticky Bar */}
+            <div className="md:hidden fixed bottom-0 left-0 right-0 p-4 bg-white/90 backdrop-blur-md border-t border-gray-100 z-50">
+                <button
+                    onClick={() => setModalOpen(true)}
+                    className="w-full py-4 bg-garabandal-dark text-white rounded-xl font-bold uppercase tracking-widest shadow-lg"
+                >
+                    Tornar-me Membro · 25€
+                </button>
+            </div>
+        </main>
+    );
+}
+
+export default function MembershipClient() {
+    return (
+        <Suspense fallback={<div className="h-screen flex items-center justify-center">A carregar...</div>}>
+            <TornarMembroContent />
+        </Suspense>
+    );
+}

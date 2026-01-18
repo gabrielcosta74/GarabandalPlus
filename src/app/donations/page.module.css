@@ -1,0 +1,851 @@
+.page {
+  font-family: "Manrope", "Inter", system-ui, sans-serif;
+  color: #0f172a;
+  background: #f7f8fb;
+  overflow-x: hidden;
+}
+
+.hero {
+  max-width: 1160px;
+  margin: 0 auto;
+  padding: 64px 20px 40px;
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+  gap: 32px;
+  align-items: center;
+}
+
+.heroCopy h1 {
+  font-size: 44px;
+  margin: 8px 0 12px;
+  line-height: 1.05;
+}
+
+.heroCopy p {
+  color: #4b5563;
+  font-size: 18px;
+  max-width: 520px;
+}
+
+.eyebrow {
+  display: inline-flex;
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: #2563eb;
+}
+
+.heroActions {
+  margin-top: 24px;
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.ctaPrimary {
+  background: linear-gradient(135deg, #1d4ed8, #38bdf8);
+  color: #0b1020;
+  padding: 12px 20px;
+  border-radius: 999px;
+  font-weight: 800;
+  border: none;
+  text-decoration: none;
+  box-shadow: 0 18px 38px rgba(37, 99, 235, 0.28);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.ctaPrimary:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.ctaGhost {
+  padding: 12px 20px;
+  border-radius: 999px;
+  border: 1px solid #cbd5f5;
+  color: #1e3a8a;
+  font-weight: 700;
+  text-decoration: none;
+  background: #ffffff;
+}
+
+.progressCard {
+  position: relative;
+  border-radius: 24px;
+  overflow: hidden;
+  min-height: 360px;
+  background: #0f172a;
+  color: #f8fafc;
+  box-shadow: 0 30px 60px rgba(15, 23, 42, 0.35);
+}
+
+.progressBackdrop {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(120deg, rgba(15, 23, 42, 0.82), rgba(15, 23, 42, 0.55)),
+    url("/images/aldeiadacasa.webp") center/cover no-repeat;
+}
+
+.progressContent {
+  position: relative;
+  z-index: 1;
+  padding: 28px;
+  display: grid;
+  gap: 16px;
+}
+
+.progressTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 14px;
+  opacity: 0.9;
+}
+
+.progressNumbers {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.progressNumbers p {
+  margin: 0;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #94a3b8;
+}
+
+.progressNumbers strong {
+  font-size: 22px;
+}
+
+.progressBar {
+  width: 100%;
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  overflow: hidden;
+}
+
+.progressFill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #38bdf8, #2563eb);
+}
+
+.progressNote {
+  margin: 0;
+  color: #e2e8f0;
+  font-size: 14px;
+}
+
+.quickDonate,
+.story,
+.allocation,
+.progressSection,
+.trustSection,
+.faq {
+  max-width: 1160px;
+  margin: 0 auto;
+  padding: 40px 20px;
+}
+
+.sectionHead h2 {
+  margin: 0;
+  font-size: 28px;
+}
+
+.sectionHead p {
+  margin: 6px 0 0;
+  color: #6b7280;
+}
+
+.donateGrid {
+  margin-top: 24px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 0.7fr);
+  gap: 24px;
+}
+
+.donatePanel {
+  background: #ffffff;
+  border-radius: 20px;
+  padding: 22px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 18px 42px rgba(15, 23, 42, 0.08);
+  display: grid;
+  gap: 16px;
+}
+
+.paymentMethods {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: #1e3a8a;
+  font-weight: 700;
+}
+
+.paymentMethods span {
+  background: rgba(37, 99, 235, 0.08);
+  border: 1px solid rgba(37, 99, 235, 0.2);
+  padding: 6px 10px;
+  border-radius: 999px;
+}
+
+.amountRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.amountChip {
+  padding: 10px 14px;
+  border-radius: 999px;
+  border: 1px solid #dbe3f2;
+  background: #f8fafc;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.amountChipActive {
+  border-color: #2563eb;
+  background: rgba(37, 99, 235, 0.12);
+  color: #1e3a8a;
+}
+
+.inputLabel {
+  display: grid;
+  gap: 8px;
+  font-size: 13px;
+  color: #4b5563;
+}
+
+.inputLabel input {
+  border-radius: 12px;
+  padding: 12px 14px;
+  border: 1px solid #dbe3f2;
+  font-size: 15px;
+}
+
+.toggleRow {
+  display: inline-flex;
+  gap: 8px;
+  background: #f1f5f9;
+  border-radius: 999px;
+  padding: 4px;
+  width: fit-content;
+}
+
+.toggleBtn {
+  border: none;
+  background: transparent;
+  padding: 8px 14px;
+  border-radius: 999px;
+  font-weight: 700;
+  cursor: pointer;
+  color: #6b7280;
+}
+
+.toggleActive {
+  background: #2563eb;
+  color: #fff;
+}
+
+.paymentGrid {
+  display: grid;
+  gap: 10px;
+}
+
+.paymentCard {
+  border-radius: 16px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  padding: 12px;
+  display: grid;
+  grid-template-columns: 48px 1fr;
+  gap: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.paymentCardActive {
+  border-color: #2563eb;
+  background: rgba(37, 99, 235, 0.08);
+}
+
+.paymentCard span {
+  display: block;
+  color: #64748b;
+  font-size: 13px;
+}
+
+.paymentIcon {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+}
+
+.paymentIcon img {
+  max-width: 32px;
+  max-height: 28px;
+  object-fit: contain;
+}
+
+.donateSummary {
+  background: #0f172a;
+  color: #f8fafc;
+  border-radius: 20px;
+  padding: 22px;
+  display: grid;
+  gap: 14px;
+  box-shadow: 0 20px 45px rgba(15, 23, 42, 0.3);
+}
+
+.donateSummary h3 {
+  margin: 0;
+}
+
+.summaryRow {
+  display: flex;
+  justify-content: space-between;
+  color: #cbd5f5;
+}
+
+.trust {
+  display: grid;
+  gap: 6px;
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+.error {
+  color: #fecaca;
+  font-size: 13px;
+}
+
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(8px);
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  z-index: 80;
+}
+
+.modalShell {
+  width: min(720px, 100%);
+  background: #ffffff;
+  border-radius: 24px;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  box-shadow: 0 30px 80px rgba(15, 23, 42, 0.25);
+  overflow: hidden;
+  max-height: min(84vh, 760px);
+  display: flex;
+  flex-direction: column;
+}
+
+.modalHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.modalHeader span {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: #2563eb;
+  font-weight: 700;
+}
+
+.modalHeader h3 {
+  margin: 6px 0 0;
+  font-size: 20px;
+}
+
+.modalHeader button {
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  border-radius: 999px;
+  padding: 6px 12px;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.modalBody {
+  padding: 20px;
+  display: grid;
+  gap: 16px;
+  overflow-y: auto;
+}
+
+.donorForm {
+  display: grid;
+  gap: 12px;
+}
+
+.donorGrid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+}
+
+.donorFull {
+  grid-column: 1 / -1;
+}
+
+.donorForm label {
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
+  color: #475569;
+  font-weight: 600;
+}
+
+.helper {
+  font-size: 11px;
+  color: #64748b;
+}
+
+.saveProfile {
+  grid-column: 1 / -1;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  color: #475569;
+}
+
+.saveProfile input {
+  accent-color: #1d4ed8;
+}
+
+.donorForm input,
+.donorForm select,
+.donorForm textarea {
+  width: 100%;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  padding: 10px 12px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #0f172a;
+  background: #fff;
+}
+
+.donorForm textarea {
+  min-height: 90px;
+  resize: vertical;
+}
+
+.donorMessage {
+  grid-column: 1 / -1;
+}
+
+.modalSummary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+}
+
+.modalSummary div {
+  border-radius: 14px;
+  border: 1px solid #e2e8f0;
+  padding: 12px;
+  background: #f8fafc;
+}
+
+.modalSummary span {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.modalSummary strong {
+  display: block;
+  margin-top: 4px;
+}
+
+.modalActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.modalFootnote {
+  font-size: 12px;
+  color: #6b7280;
+  margin: 0;
+}
+
+.storyHead {
+  display: grid;
+  gap: 6px;
+}
+
+.storyPanels {
+  margin-top: 24px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+
+.storyPanel {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  border-radius: 28px;
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 30px 60px rgba(15, 23, 42, 0.16);
+  background: #0f172a;
+}
+
+.storyPanel img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.storyPanel figcaption {
+  position: absolute;
+  left: 16px;
+  bottom: 16px;
+  max-width: min(320px, calc(100% - 32px));
+  background: rgba(15, 23, 42, 0.65);
+  color: #f8fafc;
+  padding: 14px 16px;
+  border-radius: 16px;
+  display: grid;
+  gap: 6px;
+  backdrop-filter: blur(8px);
+}
+
+.storyPanel figcaption strong {
+  font-size: 16px;
+}
+
+.storyPanel figcaption span {
+  font-size: 13px;
+  color: #e2e8f0;
+}
+
+.afterPanel {
+  background-attachment: scroll;
+}
+
+.storyPanelWide {
+  grid-column: 1 / -1;
+  aspect-ratio: 21 / 9;
+}
+
+.storyTextWide {
+  margin-top: 20px;
+  max-width: 820px;
+  color: #4b5563;
+  line-height: 1.7;
+}
+
+.allocation {
+  background: #f8fafc;
+  border-top: 1px solid #e2e8f0;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.cardGrid {
+  margin-top: 24px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+.infoCard {
+  background: #fff;
+  border-radius: 16px;
+  padding: 16px;
+  border: 1px solid #e2e8f0;
+  display: grid;
+  gap: 6px;
+}
+
+.infoCard p {
+  margin: 0;
+  color: #6b7280;
+}
+
+.phaseLine {
+  margin-top: 20px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  font-size: 13px;
+  color: #64748b;
+  font-weight: 600;
+  align-items: center;
+}
+
+.phaseLine span {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  padding: 6px 10px;
+  border-radius: 999px;
+}
+
+.phaseActive {
+  background: rgba(37, 99, 235, 0.1);
+  border-color: rgba(37, 99, 235, 0.35);
+  color: #1e3a8a;
+}
+
+.phaseNote {
+  background: transparent;
+  border: none;
+  padding: 0;
+  color: #94a3b8;
+  font-weight: 500;
+}
+
+.progressSection {
+  background: #0f172a;
+  color: #f8fafc;
+  border-radius: 32px;
+  margin: 40px auto;
+}
+
+.progressSection .sectionHead p {
+  color: #cbd5f5;
+}
+
+.progressMini {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.progressMini strong {
+  font-size: 20px;
+}
+
+.progressMini span {
+  color: #94a3b8;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.milestones {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px;
+  margin-top: 18px;
+  font-size: 13px;
+}
+
+.milestone {
+  background: rgba(15, 23, 42, 0.55);
+  border-radius: 12px;
+  padding: 10px 12px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+.progressFootnote {
+  margin-top: 14px;
+  font-size: 13px;
+  color: #cbd5f5;
+}
+
+.trustSection {
+  background: #ffffff;
+}
+
+.testimonialGrid {
+  margin-top: 24px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.quoteCard {
+  background: #f8fafc;
+  border-radius: 16px;
+  padding: 18px;
+  border: 1px solid #e2e8f0;
+  display: grid;
+  gap: 10px;
+}
+
+.quoteCard p {
+  margin: 0;
+  color: #475569;
+}
+
+.quoteCard span {
+  font-size: 13px;
+  color: #64748b;
+  font-weight: 700;
+}
+
+.trustBanner {
+  margin-top: 18px;
+  padding: 16px 18px;
+  border-radius: 16px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.trustBanner strong {
+  display: block;
+}
+
+.trustBanner span {
+  color: #64748b;
+  font-size: 13px;
+}
+
+.trustBanner a {
+  color: #1e3a8a;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.faqGrid {
+  margin-top: 20px;
+  display: grid;
+  gap: 10px;
+}
+
+.faqItem {
+  background: #fff;
+  border-radius: 14px;
+  border: 1px solid #e2e8f0;
+  padding: 12px 16px;
+}
+
+.faqItem summary {
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.faqItem p {
+  margin: 8px 0 0;
+  color: #6b7280;
+}
+
+.footer {
+  background: #0b1020;
+  color: #f8fafc;
+  padding: 40px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.footerActions {
+  display: grid;
+  gap: 8px;
+}
+
+.footerMeta {
+  color: #94a3b8;
+  font-size: 12px;
+}
+
+@media (max-width: 1024px) {
+  .hero,
+  .donateGrid,
+  .storyPanels {
+    grid-template-columns: 1fr;
+  }
+
+  .heroCopy h1 {
+    font-size: 36px;
+  }
+
+  .progressCard {
+    min-height: 320px;
+  }
+
+  .storyPanel {
+    aspect-ratio: 16 / 10;
+  }
+
+  .storyPanelWide {
+    aspect-ratio: 16 / 9;
+  }
+}
+
+@media (max-width: 640px) {
+  .hero {
+    padding-top: 48px;
+  }
+
+  .progressContent {
+    padding: 22px;
+  }
+
+  .donateSummary {
+    order: 2;
+  }
+
+  .donatePanel {
+    order: 1;
+  }
+
+  .modalShell {
+    border-radius: 18px;
+  }
+
+  .storyPanel {
+    aspect-ratio: auto;
+    background: #fff;
+    overflow: hidden;
+  }
+
+  .storyPanel img {
+    aspect-ratio: 4 / 3;
+    height: auto;
+  }
+
+  .storyPanel figcaption {
+    position: static;
+    background: #fff;
+    color: #1f2937;
+    border-radius: 0;
+    padding: 10px 12px 12px;
+    max-width: none;
+    backdrop-filter: none;
+  }
+
+  .storyPanel figcaption strong {
+    font-size: 14px;
+  }
+
+  .storyPanel figcaption span {
+    font-size: 12px;
+    color: #6b7280;
+  }
+}

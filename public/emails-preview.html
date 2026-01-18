@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="pt">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Email Design System - Apostolado</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Merriweather:serif&display=swap"
+    rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            serif: ['Merriweather', 'serif'],
+          },
+          colors: {
+            garabandal: {
+              gold: '#D97706',
+              dark: '#0F172A',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    .email-preview-frame {
+      background: #f1f5f9;
+      width: 100%;
+      height: 100%;
+      overflow-y: auto;
+      padding: 40px;
+      display: flex;
+      justify-content: center;
+    }
+
+    .nav-item.active {
+      background-color: #1e293b;
+      color: #ffffff;
+      border-left: 3px solid #f59e0b;
+    }
+
+    /* Scrollbar styles */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: #0f172a;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: #334155;
+      border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: #475569;
+    }
+  </style>
+</head>
+
+<body class="bg-slate-900 h-screen flex overflow-hidden text-slate-300 font-sans">
+
+  <!-- Sidebar -->
+  <aside class="w-80 bg-slate-950 border-r border-white/5 flex flex-col z-20 shrink-0">
+    <div class="p-6 border-b border-white/5">
+      <h1 class="text-white font-bold text-lg tracking-tight flex items-center gap-2">
+        <span
+          class="w-8 h-8 rounded-lg bg-orange-600 flex items-center justify-center text-white font-serif font-bold">A</span>
+        Email System
+      </h1>
+      <p class="text-xs text-slate-500 mt-2">Templates de Email do Apostolado</p>
+    </div>
+
+    <nav class="flex-1 overflow-y-auto py-6">
+      <div class="px-6 mb-2 text-xs font-bold uppercase tracking-wider text-slate-600">Membros & Quotas</div>
+      <ul>
+        <li><button onclick="setView('member-welcome')"
+            class="nav-item w-full text-left px-6 py-3 text-sm hover:bg-slate-900 transition-colors flex items-center gap-2">👋
+            Inscrição (Cliente)</button></li>
+        <li><button onclick="setView('member-admin')"
+            class="nav-item w-full text-left px-6 py-3 text-sm hover:bg-slate-900 transition-colors flex items-center gap-2">👔
+            Inscrição (Admin)</button></li>
+        <li><button onclick="setView('member-diploma')"
+            class="nav-item w-full text-left px-6 py-3 text-sm hover:bg-slate-900 transition-colors flex items-center gap-2">📜
+            Diploma de Membro</button></li>
+        <li><button onclick="setView('member-reminder')"
+            class="nav-item w-full text-left px-6 py-3 text-sm hover:bg-slate-900 transition-colors flex items-center gap-2">⏰
+            Lembrete de Quota</button></li>
+        <li><button onclick="setView('member-overdue')"
+            class="nav-item w-full text-left px-6 py-3 text-sm hover:bg-slate-900 transition-colors flex items-center gap-2">⚠️
+            Quota em Atraso</button></li>
+      </ul>
+
+      <div class="px-6 mb-2 mt-6 text-xs font-bold uppercase tracking-wider text-slate-600">Loja Online</div>
+      <ul>
+        <li><button onclick="setView('store-confirm')"
+            class="nav-item w-full text-left px-6 py-3 text-sm hover:bg-slate-900 transition-colors flex items-center gap-2">🛍️
+            Compra Confirmada</button></li>
+        <li><button onclick="setView('store-admin')"
+            class="nav-item w-full text-left px-6 py-3 text-sm hover:bg-slate-900 transition-colors flex items-center gap-2">📦
+            Nova Encomenda (Admin)</button></li>
+        <li><button onclick="setView('store-preparing')"
+            class="nav-item w-full text-left px-6 py-3 text-sm hover:bg-slate-900 transition-colors flex items-center gap-2">⚙️
+            Em Preparação</button></li>
+        <li><button onclick="setView('store-shipped')"
+            class="nav-item w-full text-left px-6 py-3 text-sm hover:bg-slate-900 transition-colors flex items-center gap-2">🚚
+            Encomenda Enviada</button></li>
+      </ul>
+
+      <div class="px-6 mb-2 mt-6 text-xs font-bold uppercase tracking-wider text-slate-600">Donativos & Fiscal</div>
+      <ul>
+        <li><button onclick="setView('donation-receipt')"
+            class="nav-item w-full text-left px-6 py-3 text-sm hover:bg-slate-900 transition-colors flex items-center gap-2">❤️
+            Recibo Donativo</button></li>
+        <li><button onclick="setView('fact-client')"
+            class="nav-item w-full text-left px-6 py-3 text-sm hover:bg-slate-900 transition-colors flex items-center gap-2">🧾
+            Fatura (Cliente)</button></li>
+      </ul>
+    </nav>
+
+    <div class="p-4 border-t border-white/5 text-xs text-slate-600 text-center">
+      v2.0.0 · Design System
+    </div>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="flex-1 flex flex-col bg-slate-900 relative">
+    <!-- Toolbar -->
+    <header
+      class="h-16 border-b border-white/5 flex items-center justify-between px-6 bg-slate-950/50 backdrop-blur-sm shrink-0">
+      <div id="preview-title" class="text-white font-medium">Selecione um template</div>
+      <div class="flex items-center gap-2 bg-slate-800 p-1 rounded-lg">
+        <button onclick="setDevice('desktop')"
+          class="p-2 rounded hover:bg-slate-700 text-slate-400 hover:text-white transition" title="Desktop"><svg
+            class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z">
+            </path>
+          </svg></button>
+        <button onclick="setDevice('mobile')"
+          class="p-2 rounded hover:bg-slate-700 text-slate-400 hover:text-white transition" title="Mobile"><svg
+            class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+          </svg></button>
+      </div>
+    </header>
+
+    <!-- Preview Canvas -->
+    <div class="flex-1 overflow-hidden relative bg-[#0f172a] flex items-center justify-center p-8">
+      <div id="device-frame"
+        class="w-full max-w-[700px] h-full transition-all duration-300 ease-in-out bg-white rounded-xl shadow-2xl overflow-hidden border border-slate-800 flex flex-col">
+        <!-- Browser mockup header -->
+        <div class="h-8 bg-slate-100 border-b border-slate-200 flex items-center px-4 space-x-2 shrink-0">
+          <div class="w-3 h-3 rounded-full bg-red-400"></div>
+          <div class="w-3 h-3 rounded-full bg-yellow-400"></div>
+          <div class="w-3 h-3 rounded-full bg-green-400"></div>
+          <div
+            class="ml-4 flex-1 h-5 bg-white rounded border border-slate-200 text-[10px] text-slate-400 flex items-center px-2 truncate">
+            suporte@apostoladodegarabandal.com
+          </div>
+        </div>
+        <!-- Email Content Area -->
+        <div id="email-content" class="flex-1 overflow-y-auto bg-slate-50">
+          <!-- Dynamic Content Loaded Here -->
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Template Data (Hidden) -->
+  <script>
+    const headerStyle = 'background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); padding: 32px 40px; text-align: center;';
+    const brandRow = '<div style="margin-bottom: 24px;"><img src="/images/nossasenhoragarabandal.jpg" alt="Nossa Senhora de Garabandal" style="width: 80px; height: 80px; border-radius: 50%; border: 3px solid rgba(255,255,255,0.2); object-fit: cover; box-shadow: 0 4px 6px rgba(0,0,0,0.3);"></div>';
+    const h1Style = "color: #ffffff; margin: 0; font-family: 'Merriweather', serif; font-size: 24px; line-height: 1.4;";
+    const subStyle = 'color: #94a3b8; margin: 12px 0 0; font-size: 16px;';
+    const bodyStyle = 'padding: 40px; background: #ffffff; color: #334155; font-size: 15px; line-height: 1.6;';
+    const cardStyle = 'background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; margin-bottom: 24px; font-size: 14px;';
+    const btnStyle = 'background: #d97706; color: #ffffff; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; display: inline-block;';
+    const footerStyle = 'background: #f1f5f9; padding: 32px 40px; text-align: center; color: #64748b; font-size: 12px;';
+    const footerSignature = '<p style="margin-top: 16px; font-weight: 600; color: #0f172a;">Associação do Apostolado de Garabandal</p>';
+
+    const templates = {
+      'member-welcome': {
+        title: 'Inscrição de Membro (Cliente)',
+        html: `
+                    <div style="${headerStyle}">
+                        ${brandRow}
+                        <h1 style="${h1Style}">Bem-vindo à Família</h1>
+                        <p style="${subStyle}">A sua inscrição como membro foi confirmada.</p>
+                    </div>
+                    <div style="${bodyStyle}">
+                        <p style="margin-bottom: 24px;">Olá <strong>Maria Silva</strong>,</p>
+                        <p style="margin-bottom: 32px;">É com grande alegria que o recebemos no Apostolado. A sua participação ajuda-nos a manter viva a chama de Garabandal. Segue abaixo o seu cartão digital de membro.</p>
+                        
+                        <div style="${cardStyle}">
+                            <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
+                                <span style="color:#64748b; font-weight:600; text-transform:uppercase; font-size:11px; letter-spacing:0.5px;">Número de Sócio</span>
+                                <strong style="color:#0f172a;">#120</strong>
+                            </div>
+                            <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
+                                <span style="color:#64748b; font-weight:600; text-transform:uppercase; font-size:11px; letter-spacing:0.5px;">Validade</span>
+                                <strong style="color:#0f172a;">31 Jan 2026</strong>
+                            </div>
+                            <div style="display:flex; justify-content:space-between;">
+                                <span style="color:#64748b; font-weight:600; text-transform:uppercase; font-size:11px; letter-spacing:0.5px;">Estado</span>
+                                <span style="background:#dcfce7; color:#166534; padding:2px 8px; border-radius:99px; font-size:11px; font-weight:600;">Ativo</span>
+                            </div>
+                        </div>
+
+                        <div style="text-align: center;">
+                            <a href="#" style="${btnStyle}">Aceder à Área de Membro</a>
+                        </div>
+                    </div>
+                    <div style="${footerStyle}">
+                        <p>Mensagem enviada automaticamente. Se tiver dúvidas, responda a este email.</p>
+                        ${footerSignature}
+                    </div>
+                `
+      },
+      'member-admin': {
+        title: 'Nova Inscrição (Admin)',
+        html: `
+                    <div style="${headerStyle}">
+                        ${brandRow}
+                        <h1 style="${h1Style}">Nova Inscrição</h1>
+                        <p style="${subStyle}">Um novo membro juntou-se ao Apostolado.</p>
+                    </div>
+                    <div style="${bodyStyle}">
+                        <div style="${cardStyle}">
+                            <strong>Membro:</strong> Maria Silva<br>
+                            <strong>Email:</strong> maria@exemplo.com<br>
+                            <strong>Valor:</strong> 25.00€<br>
+                            <strong>Método:</strong> Stripe
+                        </div>
+                        <p>O recibo foi emitido automaticamente.</p>
+                    </div>
+                     <div style="${footerStyle}">
+                        <p>Documento interno.</p>
+                        ${footerSignature}
+                    </div>
+                `
+      },
+      'member-diploma': {
+        title: 'Diploma de Membro',
+        html: `
+                     <div style="${headerStyle}">
+                        ${brandRow}
+                        <h1 style="${h1Style}">O Seu Diploma</h1>
+                        <p style="${subStyle}">Símbolo da sua união com Garabandal.</p>
+                    </div>
+                    <div style="${bodyStyle}">
+                        <p style="margin-bottom: 24px;">Olá <strong>Maria Silva</strong>,</p>
+                        <p>Segue em anexo o seu Diploma de Membro Oficial do Apostolado de Garabandal.</p>
+                        <p style="color:#64748b; font-size:14px;">Este documento certifica a sua dedicação e compromisso com a nossa missão.</p>
+                    </div>
+                     <div style="${footerStyle}">
+                        <p>Guarde este documento com carinho.</p>
+                        ${footerSignature}
+                    </div>
+                `
+      },
+      'member-reminder': {
+        title: 'Lembrete de Quota',
+        html: `
+                     <div style="${headerStyle}">
+                        ${brandRow}
+                        <h1 style="${h1Style}">Lembrete de Anuidade</h1>
+                        <p style="${subStyle}">A sua quota vence em breve.</p>
+                    </div>
+                    <div style="${bodyStyle}">
+                        <p>Caro(a) membro,</p>
+                        <p style="margin-bottom:24px;">Lembramos que a sua quota anual vence em <strong>31 de Janeiro</strong>.</p>
+                        <div style="${cardStyle}">
+                             <div style="display:flex; justify-content:space-between;">
+                                <span style="color:#64748b;">Valor a regularizar</span>
+                                <strong style="color:#0f172a;">25.00€</strong>
+                            </div>
+                        </div>
+                        <div style="text-align: center;">
+                            <a href="#" style="${btnStyle}">Renovar Quota</a>
+                        </div>
+                    </div>
+                    <div style="${footerStyle}">
+                        <p>Se tiver dúvidas, responda a este email.</p>
+                        ${footerSignature}
+                    </div>
+                `
+      },
+      'member-overdue': {
+        title: 'Quota em Atraso',
+        html: `
+                     <div style="${headerStyle}">
+                        ${brandRow}
+                        <h1 style="${h1Style}">Quota em Atraso</h1>
+                        <p style="color: #fca5a5; margin: 12px 0 0; font-size: 16px;">Regularize a sua situação.</p>
+                    </div>
+                    <div style="${bodyStyle}">
+                        <p>Caro(a) membro,</p>
+                        <p>A sua quota anual encontra-se expirada. Para continuar a ter acesso aos conteúdos exclusivos, por favor proceda ao pagamento.</p>
+                        <div style="text-align: center; margin-top:32px;">
+                            <a href="#" style="${btnStyle} background-color:#ef4444;">Regularizar Agora</a>
+                        </div>
+                    </div>
+                    <div style="${footerStyle}">
+                        <p>Se precisar de ajuda, contacte-nos.</p>
+                        ${footerSignature}
+                    </div>
+                `
+      },
+      'store-confirm': {
+        title: 'Compra Confirmada',
+        html: `
+                    <div style="${headerStyle}">
+                        ${brandRow}
+                        <h1 style="${h1Style}">Obrigado pela sua encomenda</h1>
+                        <p style="${subStyle}">Ref: STORE_123456</p>
+                    </div>
+                    <div style="${bodyStyle}">
+                       <p style="margin-bottom: 24px;">Confirmamos o pagamento da sua encomenda. Abaixo estão os detalhes.</p>
+                       <table style="width: 100%; border-collapse: collapse; margin-bottom: 32px;">
+                           <tr style="border-bottom: 1px solid #e2e8f0;">
+                               <td style="padding: 12px 0;"><strong>Livro O Aviso</strong> <span style="color: #64748b;">x 1</span></td>
+                               <td style="text-align: right;">15.00€</td>
+                           </tr>
+                           <tr style="border-bottom: 1px solid #e2e8f0;">
+                               <td style="padding: 12px 0;"><strong>Terço de Garabandal</strong> <span style="color: #64748b;">x 2</span></td>
+                               <td style="text-align: right;">20.00€</td>
+                           </tr>
+                           <tr>
+                               <td style="padding: 12px 0; font-weight: 700;">Total</td>
+                               <td style="padding: 12px 0; text-align: right; font-weight: 700; color: #0f172a; font-size: 18px;">35.00€</td>
+                           </tr>
+                       </table>
+                       <p style="font-size:13px; color:#64748b;">Irá receber um email com o tracking assim que a encomenda for enviada.</p>
+                       <div style="text-align: center; margin-top:32px;">
+                         <a href="#" style="${btnStyle} background: #0f172a;">Ver Detalhes</a>
+                       </div>
+                    </div>
+                    <div style="${footerStyle}">
+                        <p>Obrigado pela sua preferência.</p>
+                        ${footerSignature}
+                    </div>
+                `
+      },
+      'store-admin': {
+        title: 'Nova Encomenda (Admin)',
+        html: `
+                    <div style="${headerStyle} background: #000;">
+                        ${brandRow}
+                        <h1 style="${h1Style}">Nova Venda na Loja</h1>
+                        <p style="${subStyle}">Prepare o envio dos artigos.</p>
+                    </div>
+                     <div style="${bodyStyle}">
+                        <div style="${cardStyle}">
+                            <strong>Cliente:</strong> João Ninguém<br>
+                            <strong>Morada:</strong> Rua da Igreja, 12, Braga<br>
+                            <strong>Itens:</strong> 3 produtos
+                        </div>
+                        <a href="#" style="${btnStyle} background: #334155; width:100%; text-align:center; box-sizing:border-box;">Abrir Painel Admin</a>
+                    </div>
+                     <div style="${footerStyle}">
+                        <p>Notificação interna.</p>
+                        ${footerSignature}
+                    </div>
+                `
+      },
+      'store-preparing': {
+        title: 'Em Preparação',
+        html: `
+                    <div style="${headerStyle}">
+                        ${brandRow}
+                        <h1 style="${h1Style}">Estamos a preparar o envio</h1>
+                        <p style="${subStyle}">A sua encomenda está a ser embalada.</p>
+                    </div>
+                    <div style="${bodyStyle}">
+                        <p>A nossa equipa já está a tratar de tudo. Prometemos ser breves!</p>
+                        <div style="text-align:center; margin:30px 0;">
+                            <span style="font-size:40px;">📦</span>
+                        </div>
+                    </div>
+                    <div style="${footerStyle}">
+                        <p>Obrigado pela sua paciência.</p>
+                        ${footerSignature}
+                    </div>
+                `
+      },
+      'store-shipped': {
+        title: 'Encomenda Enviada',
+        html: `
+                     <div style="${headerStyle}">
+                        ${brandRow}
+                        <h1 style="${h1Style}">A caminho!</h1>
+                        <p style="${subStyle}">A sua encomenda foi entregue aos correios.</p>
+                    </div>
+                    <div style="${bodyStyle}">
+                        <p>Boas notícias! A sua encomenda já saiu das nossas instalações.</p>
+                        <div style="${cardStyle}">
+                            <strong style="display:block; color:#64748b; font-size:12px; margin-bottom:4px;">CÓDIGO DE RASTREIO (CTT)</strong>
+                            <code style="font-size:18px; color:#0f172a;">DB123456789PT</code>
+                        </div>
+                        <div style="text-align: center;">
+                            <a href="#" style="${btnStyle}">Seguir Encomenda</a>
+                        </div>
+                    </div>
+                    <div style="${footerStyle}">
+                        <p>Acompanhe a sua encomenda.</p>
+                        ${footerSignature}
+                    </div>
+                `
+      },
+      'donation-receipt': {
+        title: 'Recibo de Donativo',
+        html: `
+                    <div style="${headerStyle}">
+                        ${brandRow}
+                        <h1 style="${h1Style}">Obrigado do Fundo do Coração</h1>
+                        <p style="${subStyle}">Nossa Senhora de Garabandal rogai por nós.</p>
+                    </div>
+                    <div style="${bodyStyle}">
+                        <p>O seu donativo foi recebido com sucesso. É graças a pessoas como você que conseguimos levar esta mensagem mais longe.</p>
+                        <div style="${cardStyle}">
+                             <div style="display:flex; justify-content:space-between;">
+                                <span style="color:#64748b;">Valor Ofertado</span>
+                                <strong style="color:#0f172a;">50.00€</strong>
+                            </div>
+                        </div>
+                    </div>
+                    <div style="${footerStyle}">
+                        <p>Obrigado por ajudar a missão.</p>
+                        ${footerSignature}
+                    </div>
+                `
+      },
+      'fact-client': {
+        title: 'Fatura Disponível',
+        html: `
+                    <div style="${headerStyle}">
+                        ${brandRow}
+                        <h1 style="${h1Style}">Documento Fiscal</h1>
+                        <p style="${subStyle}">A sua fatura-recibo está pronta.</p>
+                    </div>
+                    <div style="${bodyStyle}">
+                        <p>Conforme solicitado, enviamos em anexo o documento fiscal referente à sua última transação.</p>
+                        <div style="text-align: center; margin-top:24px;">
+                            <a href="#" style="${btnStyle} background: #475569;">Descarregar PDF</a>
+                        </div>
+                    </div>
+                    <div style="${footerStyle}">
+                        <p>Documento gerado automaticamente.</p>
+                        ${footerSignature}
+                    </div>
+                `
+      }
+    };
+
+    // Default to first
+    let currentTemplate = 'member-welcome';
+
+    function setView(id) {
+      currentTemplate = id;
+
+      // Update Nav UI
+      document.querySelectorAll('.nav-item').forEach(el => {
+        el.classList.remove('active');
+        if (el.getAttribute('onclick').includes(id)) el.classList.add('active');
+      });
+
+      // Update Title
+      const template = templates[id];
+      document.getElementById('preview-title').textContent = template ? template.title : 'Desconhecido';
+
+      // Update Content
+      const container = document.getElementById('email-content');
+      if (template) {
+        container.innerHTML = template.html;
+      } else {
+        container.innerHTML = '<div class="p-10 text-center text-slate-400">Template em desenvolvimento...</div>';
+      }
+    }
+
+    function setDevice(mode) {
+      const frame = document.getElementById('device-frame');
+      if (mode === 'mobile') {
+        frame.style.maxWidth = '375px';
+      } else {
+        frame.style.maxWidth = '700px';
+      }
+    }
+
+    // Init
+    setView('member-welcome');
+
+  </script>
+</body>
+
+</html>
