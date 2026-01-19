@@ -3,23 +3,9 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { ReactNode, useEffect, useState } from 'react';
-import styles from './AdminShell.module.css';
 import { supabaseBrowser } from '../../lib/supabase-browser';
-
-const navItems = [
-  { href: '/admin', label: 'Dashboard' },
-  { href: '/admin/courses', label: 'Cursos' },
-  { href: '/admin/membros', label: 'Membros' },
-  { href: '/admin/intentions', label: 'Intenções' },
-  { href: '/admin/events', label: 'Eventos' }, // Added
-  { href: '/admin/transacoes', label: 'Transacoes' },
-  { href: '/admin/encomendas', label: 'Encomendas' },
-  { href: '/admin/loja', label: 'Loja/Stock' },
-  { href: '/admin/factpt', label: 'fact.pt' },
-  { href: '/admin/relatorios', label: 'Relatorios' },
-  { href: '/admin/auditoria', label: 'Auditoria' },
-  { href: '/admin/configuracoes', label: 'Configuracoes' },
-];
+import AdminSidebar from '../../components/admin/AdminSidebar';
+import { Menu } from 'lucide-react';
 
 type AdminShellProps = {
   title: string;
@@ -36,8 +22,7 @@ export default function AdminShell({
   showBackLink = true,
   children,
 }: AdminShellProps) {
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-  const pathname = usePathname();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -67,86 +52,60 @@ export default function AdminShell({
     };
   }, [router]);
 
-  return (
-    <main className={styles.root}>
-      <button
-        className={`${styles.overlay} ${sidebarOpen ? styles.overlayOpen : ''}`}
-        type="button"
-        aria-label="Fechar menu"
-        onClick={() => setSidebarOpen(false)}
-      />
-      <div className={`${styles.layout} ${!sidebarOpen ? styles.layoutCollapsed : ''}`}>
-        <aside className={`${styles.sidebar} ${sidebarOpen ? styles.sidebarOpen : styles.sidebarCollapsed}`}>
-          <div className={styles.brand}>
-            <span className={styles.brandMark}>AG</span>
-            <div>
-              <strong>Admin</strong>
-              <span>Apostolado de Garabandal</span>
-            </div>
-            <button
-              className={styles.iconButton}
-              type="button"
-              onClick={() => setSidebarOpen(false)}
-              aria-label="Fechar menu"
-            >
-              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                <path
-                  d="M6 6l12 12M18 6L6 18"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                />
-              </svg>
-            </button>
-          </div>
-          <nav className={styles.nav}>
-            {navItems.map((item) => {
-              const isActive =
-                pathname === item.href || (item.href !== '/admin' && pathname?.startsWith(item.href));
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={`${styles.navItem} ${isActive ? styles.navItemActive : ''}`}
-                >
-                  {item.label}
-                </Link>
-              );
-            })}
-          </nav>
-        </aside>
+  const handleLogout = async () => {
+    if (supabaseBrowser) {
+      await supabaseBrowser.auth.signOut();
+      router.replace('/');
+    }
+  };
 
-        <div className={styles.content}>
-          <header className={styles.header}>
-            <div className={styles.headerText}>
-              <button
-                className={styles.iconButton}
-                type="button"
-                onClick={() => setSidebarOpen((open) => !open)}
-                aria-label={sidebarOpen ? 'Fechar menu' : 'Abrir menu'}
-              >
-                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                  <path
-                    d="M4 7h16M4 12h16M4 17h16"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                  />
-                </svg>
-              </button>
-              {showBackLink && (
-                <Link href="/admin" className={styles.backLink}>
-                  ← Voltar ao dashboard
-                </Link>
-              )}
-              <h1>{title}</h1>
-              {description && <p>{description}</p>}
+  return (
+    <div className="flex min-h-screen bg-gray-50">
+      {/* Sidebar (Desktop) */}
+      <div className="hidden md:block">
+        <AdminSidebar onLogout={handleLogout} />
+      </div>
+
+      {/* Sidebar (Mobile) */}
+      {mobileMenuOpen && (
+        <div className="fixed inset-0 z-50 md:hidden font-sans">
+          <div className="fixed inset-0 bg-black/50" onClick={() => setMobileMenuOpen(false)} />
+          <div className="relative h-full w-72">
+            <AdminSidebar onLogout={handleLogout} />
+          </div>
+        </div>
+      )}
+
+      {/* Content */}
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* Helper Header for Mobile to open Menu */}
+        <div className="md:hidden bg-garabandal-dark text-white p-4 flex items-center justify-between">
+          <span className="font-bold">Admin Garabandal</span>
+          <button onClick={() => setMobileMenuOpen(true)}>
+            <Menu className="w-6 h-6" />
+          </button>
+        </div>
+
+        <div className="flex-1 p-8 overflow-y-auto">
+          <header className="mb-8 border-b pb-4">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div>
+                {showBackLink && (
+                  <Link href="/admin" className="text-sm text-gray-500 hover:text-gray-900 mb-2 inline-block">
+                    ← Voltar ao dashboard
+                  </Link>
+                )}
+                <h1 className="text-3xl font-bold text-gray-900">{title}</h1>
+                {description && <p className="text-gray-500 mt-1">{description}</p>}
+              </div>
+              {toolbar && <div>{toolbar}</div>}
             </div>
-            {toolbar && <div className={styles.toolbar}>{toolbar}</div>}
           </header>
-          {children}
+          <main>
+            {children}
+          </main>
         </div>
       </div>
-    </main>
+    </div>
   );
 }

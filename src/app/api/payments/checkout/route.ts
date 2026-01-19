@@ -67,7 +67,8 @@ export async function POST(req: Request) {
             cancel_url: `${origin}/peregrinacoes/inscricao/${booking.id}?canceled=true`,
             metadata: {
                 booking_id: booking.id,
-                type: priceType
+                type: 'pilgrimage_payment',
+                payment_type: priceType // 'deposit' or 'full'
             },
             customer_email: undefined // We could pass email if we knew it for sure, but user might want to use another
         });

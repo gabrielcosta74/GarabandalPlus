@@ -1,4 +1,5 @@
 import { cache } from 'react';
+import { supabaseServer } from './supabase';
 
 export type DonationMeta = {
     goal: number;
@@ -6,19 +7,29 @@ export type DonationMeta = {
 };
 
 export const loadMeta = cache(async (): Promise<DonationMeta> => {
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
-    try {
-        const res = await fetch(`${siteUrl.replace(/\/$/, '')}/api/donations/meta`, {
-            cache: 'no-store',
-        });
-        if (!res.ok) return { goal: 2500, raised: 0 };
-        const data = await res.json();
-        if (typeof data?.goal === 'number' && typeof data?.raised === 'number') {
-            return { goal: data.goal, raised: data.raised };
+    // If running on server with Service Key, query DB directly
+    if (supabaseServer) {
+        try {
+            const { data: metaRow } = await supabaseServer
+                .from('donations_meta')
+                .select('goal_eur, raised_eur')
+                .order('created_at', { ascending: false })
+                .limit(1)
+                .maybeSingle();
+
+            if (metaRow) {
+                return {
+                    goal: Number(metaRow.goal_eur ?? 2500),
+                    raised: Number(metaRow.raised_eur ?? 0)
+                };
+            }
+        } catch (e) {
+            console.error('Error fetching meta via supabaseServer:', e);
         }
-    } catch {
-        // ignore
+        return { goal: 2500, raised: 0 };
     }
+
+    // Fallback if no server client (should not happen in RSC) or legacy mode
     return { goal: 2500, raised: 0 };
 });
 

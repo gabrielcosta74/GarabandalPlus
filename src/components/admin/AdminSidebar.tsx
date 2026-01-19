@@ -19,7 +19,8 @@ import {
     Sparkles,
     Calendar,
     Home,
-    Plane
+    Plane,
+    Target
 } from 'lucide-react';
 
 export default function AdminSidebar({ onLogout, className }: { onLogout: () => void; className?: string }) {
@@ -36,6 +37,7 @@ export default function AdminSidebar({ onLogout, className }: { onLogout: () => 
             label: 'Gestão',
             items: [
                 { label: 'Membros', icon: Users, href: '/admin/membros' },
+                { label: 'Leads (Abandonos)', icon: Target, href: '/admin/leads' },
                 { label: 'Pagamentos', icon: CreditCard, href: '/admin/pagamentos' },
                 { label: 'Loja & Stock', icon: ShoppingBag, href: '/admin/loja' },
                 { label: 'Encomendas', icon: FileText, href: '/admin/encomendas' },

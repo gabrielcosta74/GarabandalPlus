@@ -70,8 +70,9 @@ export async function POST(req: NextRequest) {
             cancel_url: `${returnUrl}?canceled=true`,
             metadata: {
                 booking_id: booking.id,
-                userId: booking.user_id, // Important for webhook/verification
-                type: 'pilgrimage_payment'
+                userId: booking.user_id,
+                type: 'pilgrimage_payment',
+                payment_type: 'custom' // Or regular remainder
             },
         });
 

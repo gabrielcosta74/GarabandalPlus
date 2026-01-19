@@ -861,3 +861,136 @@ export const sendBookingConfirmationEmail = async (payload: {
   });
   return true;
 };
+
+export const renderAbandonmentRecoveryEmail = (payload: {
+  leadId: string;
+  name: string;
+  pilgrimageName: string;
+  recoveryLink: string;
+}) => {
+  return {
+    subject: `A sua vaga para ${payload.pilgrimageName}`,
+    html: renderEmailShell({
+      title: 'Não deixe esta graça passar',
+      subtitle: 'Retomar inscrição',
+      bodyHtml: `
+        <p style="margin:0 0 12px;">Olá ${payload.name},</p>
+        <p style="margin:0 0 16px;">
+          Notámos que iniciou a sua inscrição para <strong>${payload.pilgrimageName}</strong>, mas não chegou a finalizar.
+        </p>
+        <p style="margin:0 0 16px;">
+          Sabemos que às vezes a internet falha ou o dia a dia nos interrompe. Por isso, <strong>guardámos o seu lugar temporariamente</strong> para que não tenha de preencher tudo de novo.
+        </p>
+        <div style="text-align:center;margin:32px 0;">
+          <a href="${payload.recoveryLink}" style="background-color:#ca8a04;color:#ffffff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold;display:inline-block;">
+            RETOMAR INSCRIÇÃO
+          </a>
+        </div>
+        <p style="margin:0 0 12px;font-size:13px;color:#64748b;">
+          Se teve alguma dificuldade técnica, responda a este email e nós ajudamos.
+        </p>
+      `,
+      footer: 'Esperamos por si em Garabandal.',
+    }),
+  };
+};
+
+export const sendAbandonmentRecoveryEmail = async (payload: {
+  email: string;
+  name: string;
+  pilgrimageName: string;
+  recoveryLink: string;
+}) => {
+  if (!resendClient) {
+    console.warn('Resend nao configurado. Ignorar envio de email.');
+    return false;
+  }
+
+  const content = renderAbandonmentRecoveryEmail({
+    leadId: 'legacy', // Not used in render
+    name: payload.name,
+    pilgrimageName: payload.pilgrimageName,
+    recoveryLink: payload.recoveryLink
+  });
+
+  await resendClient.emails.send({
+    from: notifyFrom,
+    to: [payload.email],
+    subject: content.subject,
+    html: content.html,
+  });
+  return true;
+};
+
+export const renderPilgrimagePaymentReceiptEmail = (payload: {
+  bookingId: string;
+  email: string;
+  name: string;
+  pilgrimageTitle: string;
+  amountPaid: number;
+  totalPaidSoFar: number;
+  totalCost: number;
+  magicLink?: string;
+}) => {
+  const reference = payload.bookingId.slice(0, 8).toUpperCase();
+  const amountPaidText = formatCurrency(payload.amountPaid);
+  const totalPaidText = formatCurrency(payload.totalPaidSoFar);
+  const remaining = Math.max(0, payload.totalCost - payload.totalPaidSoFar);
+  const remainingText = formatCurrency(remaining);
+
+  const actionButton = payload.magicLink
+    ? `<div style="margin: 24px 0; text-align: center;">
+         <a href="${payload.magicLink}" style="display: inline-block; background-color: #ca8a04; color: #ffffff; padding: 14px 28px; border-radius: 8px; font-weight: bold; text-decoration: none; font-size: 16px;">Ver Minha Conta</a>
+       </div>`
+    : '';
+
+  return {
+    subject: `Pagamento Recebido - ${payload.pilgrimageTitle}`,
+    html: renderEmailShell({
+      title: 'Pagamento Confirmado',
+      subtitle: `Ref: ${reference}`,
+      bodyHtml: `
+        <p style="margin:0 0 16px; font-size: 16px;">Olá ${payload.name},</p>
+        <p style="margin:0 0 16px;">Recebemos o seu pagamento referente à peregrinação <strong>${payload.pilgrimageTitle}</strong>.</p>
+        
+        <div style="border:1px solid #e2e8f0;border-radius:14px;padding:20px;background:#f8fafc;margin: 24px 0;">
+          <table style="border-collapse: collapse; width: 100%;">
+            <tr><td style="padding: 8px 0; color: #64748b;">Valor deste Pagamento</td><td style="padding: 8px 0; font-weight: bold; text-align: right; color: #16a34a;">+ ${amountPaidText}</td></tr>
+            <tr><td style="padding: 8px 0; color: #64748b; border-bottom: 1px solid #e2e8f0;">Total Pago até hoje</td><td style="padding: 8px 0; font-weight: bold; text-align: right; border-bottom: 1px solid #e2e8f0;">${totalPaidText}</td></tr>
+            <tr><td style="padding: 12px 0 0; color: #64748b; font-size: 18px;">Valor em Falta</td><td style="padding: 12px 0 0; font-weight: bold; text-align: right; font-size: 18px; color: ${remaining > 0 ? '#dc2626' : '#16a34a'};">${remaining > 0 ? remainingText : 'Pago'}</td></tr>
+          </table>
+        </div>
+
+        <p style="margin:0 0 16px;">O seu lugar está cada vez mais seguro. Obrigado!</p>
+
+        ${actionButton}
+      `,
+      footer: 'Este é um recibo automático.',
+    }),
+  };
+};
+
+export const sendPilgrimagePaymentReceiptEmail = async (payload: {
+  bookingId: string;
+  email: string;
+  name: string;
+  pilgrimageTitle: string;
+  amountPaid: number;
+  totalPaidSoFar: number;
+  totalCost: number;
+  magicLink?: string;
+}) => {
+  if (!resendClient) {
+    console.warn('Resend nao configurado. Ignorar envio de email.');
+    return false;
+  }
+
+  const content = renderPilgrimagePaymentReceiptEmail(payload);
+  await resendClient.emails.send({
+    from: notifyFrom,
+    to: [payload.email],
+    subject: content.subject,
+    html: content.html,
+  });
+  return true;
+};

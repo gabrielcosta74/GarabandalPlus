@@ -15,7 +15,9 @@ import {
     ChevronUp,
     MapPin,
     Calendar,
-    Users
+    Users,
+    Check,
+    Loader2
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { pt } from 'date-fns/locale';
@@ -38,8 +40,11 @@ type Booking = {
         end_date: string;
         cover_image: string;
         deposit_value: number;
+        base_price?: number;
+        pricing_config?: any;
     };
     payments: any[];
+    payment_plan?: { date: string; amount: number }[];
 };
 
 /* -------------------------------------------------------------------------- */
@@ -92,50 +97,79 @@ export default function BookingDashboardPage() {
     const [paymentMode, setPaymentMode] = useState<'deposit' | 'full'>('deposit');
 
     const [authError, setAuthError] = useState(false);
+    const [uploadSuccess, setUploadSuccess] = useState(false);
 
     // -- Derived State (Moved to Top) --
-    const depositValue = booking?.pilgrimage?.deposit_value || 0;
+    const depositValue = Number(booking?.pilgrimage?.deposit_value) || 0;
     const totalAmount = booking?.total_amount || 0;
     const paidAmount = booking?.paid_amount || 0;
 
-    const isFullyPaid = paidAmount >= totalAmount;
-    const isDepositPaid = paidAmount >= depositValue;
+    const isFullyPaid = totalAmount > 0 && paidAmount >= totalAmount;
+    const isDepositPaid = depositValue > 0 && paidAmount >= depositValue;
+    const isVerifying = booking?.payments?.some((p: any) => p.status === 'verifying' || p.status === 'pending_verification');
     const percentPaid = totalAmount > 0 ? (paidAmount / totalAmount) * 100 : 0;
 
-    const amountToPay = paymentMode === 'full'
-        ? (totalAmount - paidAmount)
-        : (depositValue - paidAmount > 0 ? depositValue - paidAmount : totalAmount - paidAmount);
+    // -- Advanced Installment Logic --
+    const paymentPlan = booking?.payment_plan || [];
+    const hasPlan = paymentPlan.length > 0;
+
+    // Helper to find state of an installment
+    const getInstallmentState = (index: number, amount: number) => {
+        // Simple logic: we match payments by amount or just index if we were more advanced.
+        // For now, let's use a cumulative approach to see which installments are covered.
+        const cumulativeTarget = depositValue + paymentPlan.slice(0, index + 1).reduce((acc, curr) => acc + Number(curr.amount), 0);
+        const prevCumulativeTarget = depositValue + paymentPlan.slice(0, index).reduce((acc, curr) => acc + Number(curr.amount), 0);
+
+        if (paidAmount >= cumulativeTarget) return 'paid';
+
+        // If not paid, check if there's a pending/verifying payment that could cover this
+        // We look for any payment that isn't succeeded/verified
+        const pendingPayments = booking?.payments?.filter((p: any) => p.status === 'verifying' || p.status === 'pending_verification') || [];
+        const totalPending = pendingPayments.reduce((acc: number, curr: any) => acc + (Number(curr.amount) || 0), 0);
+
+        if (paidAmount + totalPending >= cumulativeTarget) return 'verifying';
+        return 'pending';
+    };
+
+    // Calculate Amount to Pay Now
+    let nextAmountToPay = totalAmount - paidAmount;
+    let nextLabel = "Total Restante";
+
+    if (!isDepositPaid) {
+        nextAmountToPay = depositValue - paidAmount;
+        nextLabel = "Sinal de Inscrição";
+    } else if (hasPlan && !isFullyPaid) {
+        // Find first installment not paid
+        const nextIdx = paymentPlan.findIndex((_, idx) => getInstallmentState(idx, 0) === 'pending');
+        if (nextIdx !== -1) {
+            nextAmountToPay = Number(paymentPlan[nextIdx].amount);
+            nextLabel = `Prestação ${nextIdx + 1} (${format(new Date(paymentPlan[nextIdx].date), 'MMMM', { locale: pt })})`;
+        }
+    }
+
+    const amountToPay = nextAmountToPay;
 
 
     // Fetch Booking Data
     useEffect(() => {
         const fetchBooking = async () => {
-            if (!supabaseBrowser) return;
+            try {
+                // Use our new backend API that bypasses RLS for the public view
+                const res = await fetch(`/api/booking/${id}`);
+                const data = await res.json();
 
-            // Try to get session, but don't block
-            const { data: { session } } = await supabaseBrowser.auth.getSession();
-
-            const { data, error } = await supabaseBrowser
-                .from('bookings')
-                .select(`
-                    *,
-                    pilgrims (*),
-                    pilgrimage:pilgrimages (title, start_date, end_date, cover_image, deposit_value),
-                    payments:pilgrimage_payments (*)
-                `)
-                .eq('id', id)
-                .single();
-
-            if (error) {
-                console.error(error);
-                // If error is permission denied (401/403) and we have no session, show auth prompt
-                if (!session || error.code === 'PGRST301' || error.code === '401') {
-                    setAuthError(true);
+                if (!res.ok) {
+                    // Check if it's an auth issue or just not found
+                    if (res.status === 401) setAuthError(true);
+                    else throw new Error(data.error || "Erro ao carregar");
+                } else {
+                    setBooking(data);
                 }
-            } else {
-                setBooking(data);
+            } catch (err: any) {
+                console.error("Fetch error:", err);
+            } finally {
+                setLoading(false);
             }
-            setLoading(false);
         };
 
         if (id) fetchBooking();
@@ -241,215 +275,302 @@ export default function BookingDashboardPage() {
     };
 
     const handleManualUpload = () => {
-        alert("Upload manual em desenvolvimento.");
+        const input = document.getElementById('receipt-upload') as HTMLInputElement;
+        if (input) input.click();
+    };
+
+    const handleReceiptUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        setUploading(true);
+        try {
+            // Read file as base64
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = async () => {
+                const base64Content = reader.result?.toString().split(',')[1];
+
+                const res = await fetch('/api/payments/upload-receipt', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        bookingId: id,
+                        fileData: base64Content,
+                        fileName: file.name,
+                        fileType: file.type,
+                        installmentLabel: nextLabel
+                    })
+                });
+
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || "Erro no upload");
+
+                setUploadSuccess(true);
+                // Clean up success message after 5 seconds or keep it until reload
+                setTimeout(() => {
+                    window.location.reload();
+                }, 3000);
+            };
+        } catch (e: any) {
+            alert("Erro ao enviar: " + e.message);
+        } finally {
+            setUploading(false);
+        }
     };
 
 
     return (
         <VIPLayout allowPublic={true}>
-            <div className="max-w-5xl mx-auto px-4 py-8 space-y-8">
+            <div className="max-w-4xl mx-auto px-4 py-8 space-y-10 animate-in fade-in duration-700">
 
-                {/* Header Card */}
-                <div className="bg-white rounded-3xl p-8 shadow-xl border border-slate-100 flex flex-col md:flex-row gap-8 items-center md:items-start relative overflow-hidden">
-                    {/* Event Image */}
-                    <div className="w-full md:w-1/3 h-48 rounded-2xl overflow-hidden relative shadow-md">
-                        <img src={booking.pilgrimage.cover_image || '/placeholder.jpg'} alt="Cover" className="w-full h-full object-cover" />
-                        <div className="absolute inset-0 bg-black/10" />
-                    </div>
-
-                    {/* Info */}
-                    <div className="flex-1 w-full text-center md:text-left z-10">
-                        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-yellow-100 text-yellow-800 text-xs font-bold uppercase tracking-wider mb-2">
-                            Inscrição #{booking.id.slice(0, 8)}
+                {/* --- 0. ERROR/EMPTY STATE --- */}
+                {totalAmount === 0 && !loading && (
+                    <div className="bg-amber-50 border-2 border-amber-200 rounded-4xl p-10 text-center space-y-4 shadow-xl">
+                        <div className="w-20 h-20 bg-amber-100 rounded-full flex items-center justify-center text-amber-600 mx-auto mb-4">
+                            <AlertCircle className="w-10 h-10" />
                         </div>
-                        <h1 className="text-3xl font-serif font-bold text-slate-900 mb-2">{booking.pilgrimage.title}</h1>
-                        <p className="text-slate-500 mb-6 flex flex-wrap gap-4 justify-center md:justify-start">
-                            <span className="flex items-center gap-1"><Calendar className="w-4 h-4" /> {format(new Date(booking.pilgrimage.start_date), "d MMM yyyy", { locale: pt })}</span>
-                            <span className="flex items-center gap-1"><Users className="w-4 h-4" /> {booking.pilgrims.length} Peregrinos</span>
+                        <h2 className="text-3xl font-bold text-amber-900">Aguarde pela Validação</h2>
+                        <p className="text-amber-800 text-lg max-w-xl mx-auto">
+                            A sua inscrição foi registada, mas os valores totais ainda estão a ser calculados pelo nosso sistema.
+                            <strong> Receberá um email em breve com os dados de pagamento.</strong>
                         </p>
-
-                        {/* Progress Bar */}
-                        <div className="bg-slate-100 rounded-full h-4 w-full overflow-hidden mb-2 relative">
-                            {/* Deposit Marker */}
-                            <div className="absolute top-0 bottom-0 border-r-2 border-white/50 z-20 flex flex-col justify-center items-end pr-1" style={{ left: `${(booking.pilgrimage.deposit_value / booking.total_amount) * 100}%` }}>
-                                {/* <span className="text-[9px] font-bold text-slate-400 -mt-6">Sinal</span> */}
-                            </div>
-                            <div
-                                className={`h-full transition-all duration-1000 relative z-10 ${isFullyPaid ? 'bg-green-500' : isDepositPaid ? 'bg-indigo-500' : 'bg-yellow-500'}`}
-                                style={{ width: `${percentPaid}%` }}
-                            />
-                        </div>
-                        <div className="flex justify-between text-sm font-medium">
-                            <span className="text-slate-500">Pago: <span className="text-slate-900">{booking.paid_amount}€</span></span>
-                            <span className="text-slate-500">Total: <span className="text-slate-900">{booking.total_amount}€</span></span>
-                        </div>
+                        <button onClick={() => window.location.reload()} className="bg-amber-600 text-white px-8 py-4 rounded-2xl font-bold text-xl hover:bg-amber-700 transition-all">Atualizar Página</button>
                     </div>
-                </div>
+                )}
 
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                {totalAmount > 0 && (
+                    <>
+                        {/* --- 1. HEADER --- */}
+                        <div className="text-center space-y-2">
+                            <p className="text-indigo-600 font-bold uppercase tracking-widest text-sm">Reserva Registada com Sucesso</p>
+                            <h1 className="text-4xl md:text-5xl font-serif font-bold text-slate-900 leading-tight">{booking.pilgrimage.title}</h1>
+                            <p className="text-slate-500 font-medium text-lg">#{booking.id.slice(0, 8).toUpperCase()}</p>
+                        </div>
 
-                    {/* Left Column: Payments */}
-                    <div className="lg:col-span-2 space-y-8">
-
-                        {/* Payment Actions */}
-                        {!isDepositPaid && !isFullyPaid && (
-                            <div className="bg-red-50 border border-red-100 rounded-3xl p-6 flex flex-col md:flex-row items-center gap-4 text-center md:text-left animate-in fade-in slide-in-from-bottom-4 duration-700">
-                                <div className="p-3 bg-red-100 rounded-full text-red-600 flex-shrink-0">
-                                    <AlertCircle className="w-6 h-6" />
-                                </div>
-                                <div>
-                                    <h3 className="font-bold text-red-900 text-lg">Lugar não garantido!</h3>
-                                    <p className="text-red-700 text-sm">A tua inscrição só fica confirmada após o pagamento do sinal de <strong>{Math.max(0, depositValue - paidAmount)}€</strong>.</p>
-                                </div>
+                        {/* --- 2. THE BIG STATUS --- */}
+                        <div className="bg-white rounded-[40px] p-8 md:p-12 shadow-2xl border border-slate-100 relative overflow-hidden">
+                            <div className="absolute top-0 right-0 p-8 text-right hidden lg:block opacity-20">
+                                <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Total da Inscrição</p>
+                                <p className="text-4xl font-serif font-bold text-slate-900">{totalAmount}€</p>
                             </div>
-                        )}
+                            <div className="absolute top-0 left-0 w-2 h-full bg-indigo-500" />
+                            <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
 
-                        {/* Payment Actions */}
-                        {!isFullyPaid && (
-                            <div className="bg-white rounded-3xl p-8 shadow-lg border border-slate-100">
-                                <h2 className="text-xl font-bold text-slate-900 mb-6">Fazer Pagamento</h2>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <button
-                                        onClick={handleStripePayment}
-                                        disabled={processing}
-                                        className="flex flex-col items-center justify-center p-6 rounded-2xl border-2 border-slate-100 hover:border-indigo-600 hover:bg-indigo-50 transition-all group disabled:opacity-50 disabled:cursor-not-allowed w-full"
-                                    >
-                                        {processing ? (
-                                            <div className="w-12 h-12 flex items-center justify-center mb-3">
-                                                <div className="animate-spin w-8 h-8 border-2 border-indigo-600 border-t-transparent rounded-full" />
-                                            </div>
-                                        ) : (
-                                            <div className="w-12 h-12 bg-indigo-100 rounded-full flex items-center justify-center text-indigo-600 mb-3 group-hover:scale-110 transition-transform">
-                                                <CreditCard className="w-6 h-6" />
-                                            </div>
-                                        )}
-                                        <h3 className="font-bold text-slate-900 text-lg">{processing ? 'A processar...' : `${amountToPay.toFixed(2)}€`}</h3>
-                                        <p className="text-xs text-slate-500 mt-1 uppercase tracking-wider font-bold">Pagar com Cartão / MBWay</p>
-                                    </button>
+                                <div className="lg:col-span-7 space-y-8">
+                                    <div className="space-y-2">
+                                        <h3 className="text-3xl font-bold text-slate-900">
+                                            {isFullyPaid ? 'VIAGEM CONFIRMADA!' : 'FALTA 1 PASSO: PAGAMENTO'}
+                                        </h3>
+                                        <p className="text-slate-500 text-xl leading-relaxed">
+                                            {isFullyPaid
+                                                ? 'Já recebemos o seu pagamento total. Está pronto para partir!'
+                                                : 'A sua inscrição aguarda o pagamento do sinal para garantir o lugar.'}
+                                        </p>
+                                    </div>
 
-                                    {!isDepositPaid && (
-                                        <div className="col-span-1 md:col-span-2 flex justify-center gap-4 mt-2">
-                                            <button
-                                                onClick={() => setPaymentMode('deposit')}
-                                                className={`px-4 py-2 rounded-full text-xs font-bold transition-all ${paymentMode === 'deposit' ? 'bg-indigo-600 text-white shadow-md' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
-                                            >
-                                                Pagar Taxa de Inscrição ({depositValue}€)
-                                            </button>
-                                            <button
-                                                onClick={() => setPaymentMode('full')}
-                                                className={`px-4 py-2 rounded-full text-xs font-bold transition-all ${paymentMode === 'full' ? 'bg-indigo-600 text-white shadow-md' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
-                                            >
-                                                Pagar Totalidade
-                                            </button>
+                                    {/* Payment Roadmap for Seniors */}
+                                    <div className="space-y-6 pt-4">
+                                        <p className="font-bold text-slate-400 uppercase tracking-widest text-xs">O Seu Plano de Viagem</p>
+
+                                        <div className="space-y-4">
+                                            {/* Passo 1 */}
+                                            <div className="flex items-center gap-6 group">
+                                                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 shadow-lg border-2 transition-all ${isDepositPaid ? 'bg-green-500 border-green-400 text-white' : (isVerifying ? 'bg-amber-500 border-amber-400 text-white' : 'bg-red-50 border-red-200 text-red-600 animate-pulse')}`}>
+                                                    {isDepositPaid ? <Check className="w-8 h-8" /> : (isVerifying ? <Clock className="w-8 h-8" /> : <CreditCard className="w-8 h-8" />)}
+                                                </div>
+                                                <div>
+                                                    <p className={`font-bold text-xl ${isDepositPaid ? 'text-slate-900' : (isVerifying ? 'text-amber-600' : 'text-red-600')}`}>1. Pagamento do Sinal ({depositValue}€)</p>
+                                                    <p className="text-slate-500">
+                                                        {isDepositPaid ? 'PAGO E CONFIRMADO' : (isVerifying ? 'A AGUARDAR VALIDAÇÃO...' : 'PENDENTE - Pagar Agora')}
+                                                    </p>
+                                                </div>
+                                            </div>
+
+                                            {/* Passos das Prestações Dinâmicas */}
+                                            {hasPlan ? (
+                                                paymentPlan.map((step, idx) => {
+                                                    const state = getInstallmentState(idx, Number(step.amount));
+                                                    return (
+                                                        <div key={idx} className="space-y-4">
+                                                            <div className="ml-7 w-0.5 h-8 bg-slate-100" />
+                                                            <div className="flex items-center gap-6">
+                                                                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 shadow-lg border-2 transition-all 
+                                                                    ${state === 'paid' ? 'bg-green-500 border-green-400 text-white' :
+                                                                        state === 'verifying' ? 'bg-amber-500 border-amber-400 text-white' :
+                                                                            'bg-slate-50 border-slate-200 text-slate-400 opacity-50'}`}>
+                                                                    {state === 'paid' ? <Check className="w-8 h-8" /> :
+                                                                        state === 'verifying' ? <Clock className="w-8 h-8" /> :
+                                                                            <CreditCard className="w-8 h-8" />}
+                                                                </div>
+                                                                <div>
+                                                                    <p className="font-bold text-xl text-slate-900">Prestação {idx + 1} ({step.amount}€)</p>
+                                                                    <p className="text-slate-400">
+                                                                        {state === 'paid' ? 'PAGO' :
+                                                                            state === 'verifying' ? 'A AGUARDAR VALIDAÇÃO...' :
+                                                                                `Vence a ${format(new Date(step.date), "dd 'de' MMMM", { locale: pt })}`}
+                                                                    </p>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })
+                                            ) : (
+                                                <>
+                                                    <div className="ml-7 w-0.5 h-8 bg-slate-100" />
+                                                    <div className="flex items-center gap-6">
+                                                        <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 shadow-lg border-2 transition-all ${isFullyPaid ? 'bg-green-500 border-green-400 text-white' : 'bg-slate-50 border-slate-200 text-slate-400 opacity-50'}`}>
+                                                            {isFullyPaid ? <Check className="w-8 h-8" /> : <Clock className="w-8 h-8" />}
+                                                        </div>
+                                                        <div>
+                                                            <p className="font-bold text-xl text-slate-900">2. Mensalidades / Restante</p>
+                                                            <p className="text-slate-400">{isFullyPaid ? 'TUDO PAGO' : `Total de ${totalAmount - (isDepositPaid ? depositValue : 0)}€ à pagar`}</p>
+                                                        </div>
+                                                    </div>
+                                                </>
+                                            )}
+
+                                            {/* Linha Conectora Final */}
+                                            <div className="ml-7 w-0.5 h-8 bg-slate-100" />
+
+                                            {/* Passo Final */}
+                                            <div className="flex items-center gap-6">
+                                                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 shadow-lg border-2 transition-all ${isFullyPaid ? 'bg-indigo-600 border-indigo-400 text-white' : 'bg-slate-50 border-slate-100 text-slate-200'}`}>
+                                                    <MapPin className="w-8 h-8" />
+                                                </div>
+                                                <div>
+                                                    <p className="font-bold text-xl text-slate-900">{hasPlan ? (paymentPlan.length + 2) : 3}. Peregrinação</p>
+                                                    <p className="text-slate-400">{isFullyPaid ? 'Desejamos-lhe uma excelente viagem!' : 'Aguardamos pela conclusão dos pagamentos'}</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* ACÇÕES DE PAGAMENTO (Direita) */}
+                                <div className="lg:col-span-5 space-y-6">
+                                    {!isFullyPaid && (
+                                        <div className="bg-slate-950 rounded-[32px] p-8 text-center space-y-8 shadow-2xl border border-white/10 ring-8 ring-slate-100/50 relative overflow-hidden">
+                                            {uploadSuccess && (
+                                                <div className="absolute inset-0 bg-green-600 flex flex-col items-center justify-center p-6 text-white z-10 animate-in fade-in zoom-in duration-300">
+                                                    <CheckCircle2 className="w-16 h-16 mb-4 animate-bounce" />
+                                                    <h3 className="text-2xl font-bold">Enviado!</h3>
+                                                    <p className="text-green-100 text-sm mt-2">O seu comprovativo foi recebido. Vamos validar e atualizar o estado da sua reserva em breve.</p>
+                                                </div>
+                                            )}
+
+                                            <div className="space-y-1">
+                                                <p className="text-yellow-500 font-bold uppercase tracking-widest text-xs">A Pagar Agora: {nextLabel}</p>
+                                                <p className="text-6xl font-bold text-white tracking-tighter">{amountToPay}€</p>
+                                            </div>
+
+                                            <div className="space-y-4">
+                                                <button
+                                                    onClick={handleStripePayment}
+                                                    disabled={processing}
+                                                    className="w-full py-8 px-6 bg-yellow-500 hover:bg-yellow-400 text-slate-950 rounded-2xl font-extrabold text-2xl transition-all shadow-[0_10px_40px_rgba(234,179,8,0.3)] active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
+                                                >
+                                                    {processing ? <Loader2 className="animate-spin w-8 h-8" /> : 'Pagar Online'}
+                                                </button>
+                                                <p className="text-white/40 text-xs font-medium uppercase tracking-[0.2em]">MBWAY ou CARTÃO DE CRÉDITO</p>
+                                            </div>
+
+                                            <div className="pt-6 border-t border-white/10 space-y-4">
+                                                <p className="text-white/60 font-bold text-sm">Transferência Bancária</p>
+                                                <div className="bg-white/5 p-4 rounded-xl border border-white/5 space-y-2 text-left">
+                                                    <p className="text-[10px] text-white/30 font-bold uppercase">IBAN (Clique para copiar)</p>
+                                                    <p
+                                                        onClick={() => { navigator.clipboard.writeText('PT50 0033 0000 0000 0000 0000 0'); alert('IBAN Copiado!'); }}
+                                                        className="text-white font-mono text-sm font-bold cursor-pointer hover:text-yellow-500 break-all"
+                                                    >
+                                                        PT50 0033 0000 0000 0000 0000 0
+                                                    </p>
+                                                </div>
+                                                <p className="text-[11px] text-white/40 leading-relaxed italic">
+                                                    * Transfira o valor acima e anexe o comprovativo aqui para validação.
+                                                </p>
+
+                                                {isVerifying ? (
+                                                    <div className="mt-4 p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl text-amber-500 text-xs font-bold flex items-center gap-2">
+                                                        <Clock className="w-4 h-4" />
+                                                        Comprovativo em análise
+                                                    </div>
+                                                ) : (
+                                                    <button
+                                                        onClick={handleManualUpload}
+                                                        disabled={uploading}
+                                                        className="w-full mt-4 py-4 px-6 bg-white/10 hover:bg-white/20 text-white rounded-xl font-bold transition-all flex items-center justify-center gap-2 border border-white/10"
+                                                    >
+                                                        {uploading ? <Loader2 className="animate-spin w-5 h-5" /> : <Upload className="w-5 h-5 text-yellow-500" />}
+                                                        <span>Enviar Comprovativo</span>
+                                                    </button>
+                                                )}
+
+                                                <input
+                                                    id="receipt-upload"
+                                                    type="file"
+                                                    accept="image/*,.pdf"
+                                                    className="hidden"
+                                                    onChange={handleReceiptUpload}
+                                                />
+                                            </div>
                                         </div>
                                     )}
 
-                                    <label className="cursor-pointer flex flex-col items-center justify-center p-6 rounded-2xl border-2 border-slate-100 hover:border-yellow-600 hover:bg-yellow-50 transition-all group relative">
-                                        <input type="file" className="hidden" onChange={handleManualUpload} accept="image/*,application/pdf" disabled={uploading} />
-                                        {uploading ? (
-                                            <div className="animate-spin w-8 h-8 border-2 border-yellow-600 border-t-transparent rounded-full" />
-                                        ) : (
-                                            <>
-                                                <div className="w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center text-yellow-600 mb-3 group-hover:scale-110 transition-transform">
-                                                    <Upload className="w-6 h-6" />
-                                                </div>
-                                                <h3 className="font-bold text-slate-900">Enviar Comprovativo</h3>
-                                                <p className="text-xs text-slate-500 mt-1">Transferência Bancária</p>
-                                            </>
-                                        )}
-                                    </label>
+                                    {isFullyPaid && (
+                                        <div className="bg-green-50 rounded-[32px] p-10 text-center border-4 border-green-200 border-dashed">
+                                            <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center text-green-600 mx-auto mb-6">
+                                                <CheckCircle2 className="w-10 h-10" />
+                                            </div>
+                                            <h4 className="text-2xl font-bold text-green-900">Inscrição Totalmente Paga!</h4>
+                                            <p className="text-green-700 mt-2">Desejamos-lhe uma excelente peregrinação.</p>
+                                        </div>
+                                    )}
                                 </div>
-                                <div className="mt-6 bg-slate-50 p-4 rounded-xl border border-slate-200">
-                                    <p className="text-sm text-slate-600 font-medium mb-1">Dados para Transferência:</p>
-                                    <p className="text-sm text-slate-500 font-mono">IBAN: PT50 0000 0000 0000 0000 0000 0</p>
-                                    <p className="text-sm text-slate-500 mt-1">Titular: Apostolado de Garabandal</p>
+                            </div>
+                        </div>
+
+                        {/* --- 3. PLANO DE MENSALIDADES (Se aplicável) --- */}
+                        {booking.payment_plan && booking.payment_plan.length > 0 && !isFullyPaid && (
+                            <div className="bg-slate-50 rounded-4xl p-10 border border-slate-200">
+                                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
+                                    <div>
+                                        <h3 className="text-2xl font-bold text-slate-900">Plano de Pagamentos Selecionado</h3>
+                                        <p className="text-slate-500">Agendamento das suas próximas mensalidades (Dia 10 de cada mês)</p>
+                                    </div>
+                                    <div className="bg-indigo-100 text-indigo-700 px-4 py-2 rounded-xl font-bold">
+                                        Total Restante: {totalAmount - paidAmount}€
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                    {booking.payment_plan.map((inst, idx) => (
+                                        <div key={idx} className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex justify-between items-center group hover:border-indigo-200 transition-all">
+                                            <div className="flex items-center gap-4">
+                                                <div className="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center font-bold text-slate-400 group-hover:bg-indigo-50 group-hover:text-indigo-500 transition-colors">
+                                                    {idx + 1}ª
+                                                </div>
+                                                <div>
+                                                    <p className="font-bold text-slate-900 capitalize">{format(new Date(inst.date), "MMMM yyyy", { locale: pt })}</p>
+                                                    <p className="text-xs text-slate-400">Vencimento: Dia 10</p>
+                                                </div>
+                                            </div>
+                                            <p className="text-2xl font-bold text-slate-900">{inst.amount}€</p>
+                                        </div>
+                                    ))}
                                 </div>
                             </div>
                         )}
 
-                        {/* Payment History */}
-                        <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
-                            <h2 className="text-xl font-bold text-slate-900 mb-6">Histórico de Pagamentos</h2>
-                            {booking.payments.length === 0 ? (
-                                <p className="text-slate-400 text-center py-4">Ainda não existem pagamentos registados.</p>
-                            ) : (
-                                <div className="space-y-4">
-                                    {booking.payments.map((payment) => (
-                                        <div key={payment.id} className="flex items-center justify-between p-4 rounded-xl bg-slate-50 border border-slate-100">
-                                            <div className="flex items-center gap-3">
-                                                {payment.status === 'verified' ? (
-                                                    <div className="bg-green-100 p-2 rounded-full text-green-600"><CheckCircle2 className="w-5 h-5" /></div>
-                                                ) : (
-                                                    <div className="bg-yellow-100 p-2 rounded-full text-yellow-600"><Clock className="w-5 h-5" /></div>
-                                                )}
-                                                <div>
-                                                    <p className="font-bold text-slate-900 capitalize">{payment.method.replace('_', ' ')}</p>
-                                                    <p className="text-xs text-slate-500">{format(new Date(payment.created_at), "d MMM yyyy HH:mm")}</p>
-                                                </div>
-                                            </div>
-                                            <div className="text-right">
-                                                <p className="font-bold text-slate-900">{payment.amount}€</p>
-                                                <p className={`text-xs font-bold uppercase tracking-wider ${payment.status === 'verified' ? 'text-green-600' : 'text-yellow-600'}`}>
-                                                    {payment.status === 'verified' ? 'Confirmado' : 'Em Análise'}
-                                                </p>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
 
-                    </div>
-
-                    {/* Right Column: Support & Summary */}
-                    <div className="space-y-6">
-                        {/* Status Card */}
-                        <div className={`rounded-3xl p-6 border shadow-lg ${isFullyPaid ? 'bg-green-50 border-green-100' : 'bg-slate-900 text-white border-white/10'}`}>
-                            <div className="flex items-start gap-4">
-                                <AlertCircle className={`w-6 h-6 flex-shrink-0 ${isFullyPaid ? 'text-green-600' : 'text-yellow-500'}`} />
-                                <div>
-                                    <h3 className={`font-bold text-lg mb-1 ${isFullyPaid ? 'text-green-900' : 'text-white'}`}>
-                                        {isFullyPaid ? 'Inscrição Confirmada' : 'Pagamento Pendente'}
-                                    </h3>
-                                    <p className={`text-sm leading-relaxed ${isFullyPaid ? 'text-green-700' : 'text-slate-400'}`}>
-                                        {isFullyPaid
-                                            ? "Tudo pronto! O pagamento total foi recebido. Em breve receberás mais informações sobre a viagem."
-                                            : "Para garantir o teu lugar, regulariza o sinal ou o valor total o mais brevemente possível."
-                                        }
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Pilgrims Review Toggle */}
-                        <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
-                            <button
-                                onClick={() => setShowPilgrims(!showPilgrims)}
-                                className="w-full flex items-center justify-between p-6 hover:bg-slate-50 transition-colors"
-                            >
-                                <span className="font-bold text-slate-900 flex items-center gap-2"><Users className="w-4 h-4 text-slate-400" /> Peregrinos Inscritos</span>
-                                {showPilgrims ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
+                        <div className="text-center pb-12">
+                            <button onClick={() => window.print()} className="text-slate-400 hover:text-slate-600 font-bold flex items-center justify-center gap-2 mx-auto transition-colors">
+                                <Upload className="w-4 h-4 rotate-180" /> Descarregar / Imprimir Resumo
                             </button>
-
-                            {showPilgrims && (
-                                <div className="px-6 pb-6 space-y-4 border-t border-slate-100 pt-4 bg-slate-50/50">
-                                    {booking.pilgrims.map((p, idx) => (
-                                        <div key={idx} className="flex items-center gap-3 text-sm">
-                                            <div className="w-8 h-8 rounded-full bg-white border border-slate-200 flex items-center justify-center font-bold text-slate-500 text-xs">
-                                                {idx + 1}
-                                            </div>
-                                            <div>
-                                                <p className="font-bold text-slate-900">{p.full_name}</p>
-                                                <p className="text-xs text-slate-500">{p.room_type === 'single' ? 'Quarto Individual' : 'Quarto Duplo'}</p>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
                         </div>
-                    </div>
+                    </>
+                )}
 
-                </div>
             </div>
         </VIPLayout>
     );

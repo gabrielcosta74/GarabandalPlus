@@ -84,14 +84,24 @@ const calculatePilgrimPrice = (pilgrim: any, pilgrimage: any, rooms: Room[], pil
 
     // --- V2 PRICING ENGINE ---
     let subtotal = 0;
-    const config = pilgrimage?.pricing_config || {};
+    // Access nested structure: pricing_config.room_supplements
+    const supplements = pilgrimage?.pricing_config?.room_supplements || {};
     const basePrice = Number(pilgrimage?.base_price) || 0;
+    const regFee = Number(pilgrimage?.deposit_value) || 0;
 
-    if (config[roomType] && Number(config[roomType]) > 0) {
-        subtotal = Number(config[roomType]);
-    } else {
-        subtotal = basePrice;
-        if (roomType === 'single') subtotal += 250;
+    const supplementPrice = Number(supplements[roomType]) || 0;
+
+    // Formula: Base + Registration Fee + Supplement
+    subtotal = basePrice + regFee + supplementPrice;
+
+    // Fallback for hardcoded Single Supplement ONLY if not configured in JSON and type is single
+    if (roomType === 'single' && (!supplements.single || supplements.single === 0)) {
+        // Check if it's already included or if we should add it as a fallback
+        // For now, let's stick to the configured values or 0 if user explicitly set it to 0.
+        // But the user mentioned +250 in the UI before, so if it's 0 and not configured, maybe add fallback?
+        // Actually, if it's 0 and the user DID NOT configure it, we might want to default to 250 for safety?
+        // No, the user can now set it to 0. Let's only add 250 if supplements is empty.
+        if (Object.keys(supplements).length === 0) subtotal += 250;
     }
 
     let discount = 0;
@@ -100,7 +110,57 @@ const calculatePilgrimPrice = (pilgrim: any, pilgrimage: any, rooms: Room[], pil
 
     const finalPrice = Math.max(0, subtotal - discount);
 
-    return { finalPrice, subtotal, discount, isChild, isInfant, age, roomType };
+    return { finalPrice, subtotal, discount, isChild, isInfant, age, roomType, regFee, basePrice, supplementPrice };
+};
+
+const getMaxInstallments = (startDate: string) => {
+    const start = new Date();
+    const end = new Date(startDate);
+    end.setMonth(end.getMonth() - 1); // Deadline is 1 month before
+
+    let monthsMax = 0;
+    let current = new Date(start);
+    current.setMonth(current.getMonth() + 1);
+    current.setDate(10);
+
+    while (current < end) {
+        monthsMax++;
+        current.setMonth(current.getMonth() + 1);
+    }
+    return monthsMax;
+};
+
+const calculateInstallments = (totalBalance: number, startDate: string, desiredCount?: number) => {
+    const installments: { date: Date; amount: number }[] = [];
+    if (totalBalance <= 0) return installments;
+
+    const start = new Date();
+    const end = new Date(startDate);
+    end.setMonth(end.getMonth() - 1); // Deadline is 1 month before
+
+    let current = new Date(start);
+    current.setMonth(current.getMonth() + 1);
+    current.setDate(10); // Monthly payments on the 10th
+
+    const maxMonths = getMaxInstallments(startDate);
+    const actualCount = desiredCount ? Math.min(desiredCount, maxMonths) : maxMonths;
+
+    if (actualCount <= 1) {
+        installments.push({ date: end, amount: totalBalance });
+    } else {
+        const perMonth = Math.floor(totalBalance / actualCount);
+        let remaining = totalBalance;
+
+        for (let i = 0; i < actualCount; i++) {
+            const date = new Date(current);
+            const amount = i === actualCount - 1 ? remaining : perMonth;
+            installments.push({ date, amount });
+            remaining -= amount;
+            current.setMonth(current.getMonth() + 1);
+        }
+    }
+
+    return installments;
 };
 
 // -- Step 1: Identification Component --
@@ -138,9 +198,32 @@ function StepIdentification({ onNext, initialEmail, pilgrimageId }: { onNext: (e
                 }
             } catch (err) {
                 console.error("Duplicate check failed:", err);
+                // Continue anyway to not block user
             }
         }
         setLoading(false);
+
+        // --- LEAD CAPTURE (ABANDONED CART RECOVERY) ---
+        if (pilgrimageId) {
+            try {
+                // Fire and forget - don't await/block
+                fetch('/api/leads/capture', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        email,
+                        phone,
+                        name: "Peregrino (Rascunho)", // Name might be unknown yet if not separate input, or we can prompt for it. 
+                        pilgrimageId,
+                        step: 1,
+                        data: { email, phone }
+                    })
+                });
+            } catch (e) {
+                // Ignore capture errors
+            }
+        }
+
         onNext(email, phone);
     };
 
@@ -361,6 +444,7 @@ export default function PilgrimageBookingPage() {
     const [pilgrimage, setPilgrimage] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
+    const [installmentCount, setInstallmentCount] = useState<number | null>(null);
 
     // User State
     const [userEmail, setUserEmail] = useState('');
@@ -461,6 +545,12 @@ export default function PilgrimageBookingPage() {
                     user_id_hint: userIdHint,
                     pilgrimage_id: pilgrimage.id,
                     payment_method: data.payment_method,
+                    installment_count: installmentCount || getMaxInstallments(pilgrimage.start_date),
+                    payment_plan: data.payment_method === 'installments' ? calculateInstallments(
+                        totalBookingAmount - depositTotal,
+                        pilgrimage.start_date,
+                        installmentCount || getMaxInstallments(pilgrimage.start_date)
+                    ) : null,
                     pilgrim_data: pilgrimsPayload,
                     terms_accepted: data.terms_accepted
                 })
@@ -481,7 +571,8 @@ export default function PilgrimageBookingPage() {
     if (loading) return <div className="min-h-screen bg-slate-950 flex items-center justify-center"><Loader2 className="animate-spin text-yellow-500 w-10 h-10" /></div>;
     if (!pilgrimage) return <div className="text-white text-center pt-20">Peregrinação não encontrada.</div>;
 
-    const depositTotal = fields.length * (pilgrimage.deposit_value || 500);
+    const depositTotal = fields.length * (pilgrimage.deposit_value || 0);
+    const totalBookingAmount = fields.map((f, i) => calculatePilgrimPrice(f, pilgrimage, rooms, i).finalPrice).reduce((a, b) => a + b, 0);
 
     return (
         <VIPLayout allowPublic={true}>
@@ -549,7 +640,11 @@ export default function PilgrimageBookingPage() {
                                 {step === 3 && (
                                     <div className="space-y-6">
                                         <div className="flex justify-between items-center pb-4 border-b border-white/5"><h3 className="text-xl font-bold text-white">Distribuição de Quartos</h3></div>
-                                        <RoomOrganizer pilgrims={watch('pilgrims')} onUpdate={setRooms} />
+                                        <RoomOrganizer
+                                            pilgrims={watch('pilgrims')}
+                                            onUpdate={setRooms}
+                                            pricing={pilgrimage?.pricing_config?.room_supplements}
+                                        />
                                         <div className="flex justify-between pt-8"><button type="button" onClick={() => setStep(2)} className="text-slate-400 font-bold hover:text-white">Voltar</button><button type="button" onClick={nextStep} className="bg-white text-slate-900 px-8 py-3 rounded-xl font-bold hover:bg-slate-200 transition-colors flex items-center gap-2">Rever Pagamento <ChevronRight className="w-5 h-5" /></button></div>
                                     </div>
                                 )}
@@ -557,18 +652,148 @@ export default function PilgrimageBookingPage() {
                                 {step === 4 && (
                                     <div className="space-y-8">
                                         <div className="text-center"><h2 className="text-3xl font-bold text-white mb-2">Quase lá!</h2><p className="text-slate-400">Verifica o resumo final antes de confirmar.</p></div>
-                                        <div className="bg-slate-950 p-6 rounded-2xl space-y-4">{fields.map((f, i) => (<div key={i} className="flex justify-between text-sm border-b border-white/5 pb-2 last:border-0"><span className="text-white">{f.full_name || 'Pessoa ' + (i + 1)}</span><span className="text-slate-400">Alojamento Definido</span></div>))}<div className="pt-4 flex justify-between items-center"><span className="text-slate-400">Sinal a Pagar Hoje</span><span className="text-2xl font-bold text-yellow-500">{depositTotal}€</span></div></div>
-                                        <div className="space-y-3">
-                                            <label className="flex items-center gap-3 p-4 rounded-xl border border-slate-700 bg-slate-800/50 cursor-pointer hover:border-yellow-500 transition-colors"><input type="radio" value="installments" {...methods.register('payment_method')} className="w-5 h-5 text-yellow-500 accent-yellow-500" /><div className="flex-1"><div className="font-bold text-white">Pagamento Faseado</div><div className="text-xs text-slate-400">Paga o sinal agora ({depositTotal}€) e o resto depois.</div></div></label>
-                                            <label className="flex items-center gap-3 p-4 rounded-xl border border-slate-700 bg-slate-800/50 cursor-pointer hover:border-yellow-500 transition-colors"><input type="radio" value="full" {...methods.register('payment_method')} className="w-5 h-5 text-yellow-500 accent-yellow-500" /><div className="flex-1"><div className="font-bold text-white">Pagamento Total</div><div className="text-xs text-slate-400">Liquida já o valor total e fica descansado.</div></div></label>
-                                        </div>
-                                        <div className="flex items-center gap-3 justify-center p-4">
-                                            <input type="checkbox" {...methods.register('terms_accepted')} className="w-5 h-5 text-yellow-500 rounded border-slate-700 bg-slate-800 focus:ring-yellow-500" />
-                                            <span className="text-sm text-slate-400">Li e aceito os <a href="#" className="underline hover:text-white">Termos e Condições</a> da Peregrinação.</span>
-                                        </div>
-                                        {errors.terms_accepted && <p className="text-red-500 text-xs text-center">{errors.terms_accepted.message}</p>}
 
-                                        <div className="flex justify-between pt-8"><button type="button" onClick={() => setStep(3)} className="text-slate-400 font-bold hover:text-white">Voltar</button><button type="submit" disabled={submitting} className="bg-gradient-to-r from-yellow-600 to-yellow-700 text-white px-8 py-4 rounded-xl font-bold hover:from-yellow-500 hover:to-yellow-600 transition-all flex items-center gap-3 shadow-lg shadow-yellow-900/40 w-full justify-center disabled:opacity-50">{submitting ? <Loader2 className="animate-spin" /> : 'Confirmar Inscrição e Receber Referência'}</button></div>
+                                        <div className="bg-slate-950 p-6 rounded-3xl space-y-4 border border-white/5">
+                                            {fields.map((f, i) => {
+                                                const pPrice = calculatePilgrimPrice(f, pilgrimage, rooms, i);
+                                                return (
+                                                    <div key={i} className="flex justify-between items-center text-sm border-b border-white/5 pb-3 last:border-0 last:pb-0">
+                                                        <div>
+                                                            <p className="font-bold text-white">{f.full_name || 'Pessoa ' + (i + 1)}</p>
+                                                            <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">
+                                                                {pPrice.roomType === 'single' ? 'Quarto Individual' :
+                                                                    pPrice.roomType === 'double' ? 'Quarto Duplo (Partilhado)' :
+                                                                        pPrice.roomType === 'triple' ? 'Quarto Triplo' : 'Quarto Familiar'}
+                                                            </p>
+                                                        </div>
+                                                        <div className="text-right">
+                                                            <p className="text-white font-mono font-bold">{pPrice.finalPrice}€</p>
+                                                            {pPrice.isChild && <p className="text-[10px] text-emerald-400 font-bold">Dsc. Criança (50%)</p>}
+                                                            {pPrice.isInfant && <p className="text-[10px] text-emerald-400 font-bold">Isenção Bebé</p>}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+
+                                            <div className="pt-4 space-y-2 border-t border-white/10">
+                                                <div className="flex justify-between text-xs">
+                                                    <span className="text-slate-500">Donativos Base</span>
+                                                    <span className="text-slate-300 font-mono">{fields.length * (pilgrimage.base_price || 0)}€</span>
+                                                </div>
+                                                <div className="flex justify-between text-xs">
+                                                    <span className="text-slate-500">Taxas de Inscrição</span>
+                                                    <span className="text-slate-300 font-mono">{depositTotal}€</span>
+                                                </div>
+                                                {totalBookingAmount - (fields.length * (pilgrimage.base_price || 0)) - depositTotal > 0 && (
+                                                    <div className="flex justify-between text-xs">
+                                                        <span className="text-slate-500">Suplementos de Alojamento</span>
+                                                        <span className="text-slate-300 font-mono">+{totalBookingAmount - (fields.length * (pilgrimage.base_price || 0)) - depositTotal}€</span>
+                                                    </div>
+                                                )}
+                                                <div className="flex justify-between items-center pt-2">
+                                                    <span className="text-slate-400 font-bold uppercase tracking-widest text-xs">Total da Reserva</span>
+                                                    <span className="text-3xl font-bold text-white font-mono">{totalBookingAmount}€</span>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-4">
+                                            <p className="text-sm font-bold text-slate-400 uppercase tracking-tight text-center">Escolhe o método de pagamento</p>
+
+                                            <div className="grid gap-3">
+                                                <label className={`flex items-center gap-4 p-5 rounded-2xl border-2 transition-all cursor-pointer ${watch('payment_method') === 'installments' ? 'bg-yellow-500/10 border-yellow-500 shadow-lg shadow-yellow-500/10' : 'bg-slate-800/50 border-slate-700 hover:border-slate-600'}`}>
+                                                    <input type="radio" value="installments" {...methods.register('payment_method')} className="w-6 h-6 text-yellow-500 accent-yellow-500" />
+                                                    <div className="flex-1">
+                                                        <div className="font-bold text-white text-lg">Pagamento Faseado</div>
+                                                        <div className="text-sm text-slate-400">Paga o sinal agora (<span className="text-white font-bold">{depositTotal}€</span>) e o resto depois.</div>
+                                                    </div>
+                                                </label>
+
+                                                <label className={`flex items-center gap-4 p-5 rounded-2xl border-2 transition-all cursor-pointer ${watch('payment_method') === 'full' ? 'bg-yellow-500/10 border-yellow-500 shadow-lg shadow-yellow-500/10' : 'bg-slate-800/50 border-slate-700 hover:border-slate-600'}`}>
+                                                    <input type="radio" value="full" {...methods.register('payment_method')} className="w-6 h-6 text-yellow-500 accent-yellow-500" />
+                                                    <div className="flex-1">
+                                                        <div className="font-bold text-white text-lg">Pagamento Total</div>
+                                                        <div className="text-sm text-slate-400">Liquida já o valor total (<span className="text-white font-bold">{totalBookingAmount}€</span>).</div>
+                                                    </div>
+                                                </label>
+                                            </div>
+
+                                            {watch('payment_method') === 'installments' && (
+                                                <div className="mt-4 bg-slate-900/50 rounded-2xl p-6 border-2 border-yellow-500/20 animate-in fade-in slide-in-from-top-2">
+                                                    <div className="text-center mb-6">
+                                                        <p className="text-xs font-bold text-yellow-500 uppercase tracking-widest mb-2">Plano de Pagamentos Personalizado</p>
+                                                        <h4 className="text-white font-bold text-lg">Em quantas prestações quer pagar?</h4>
+                                                    </div>
+
+                                                    {getMaxInstallments(pilgrimage.start_date) > 1 ? (
+                                                        <div className="flex flex-wrap justify-center gap-2 mb-8">
+                                                            {[...Array(getMaxInstallments(pilgrimage.start_date))].map((_, i) => {
+                                                                const count = i + 1;
+                                                                const isSelected = (installmentCount || getMaxInstallments(pilgrimage.start_date)) === count;
+                                                                return (
+                                                                    <button
+                                                                        key={i}
+                                                                        type="button"
+                                                                        onClick={() => setInstallmentCount(count)}
+                                                                        className={`px-6 py-3 rounded-xl font-bold transition-all border-2 ${isSelected ? 'bg-yellow-500 border-yellow-500 text-slate-900 scale-110 shadow-lg shadow-yellow-500/20' : 'bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-500 hover:text-white'}`}
+                                                                    >
+                                                                        {count}x
+                                                                    </button>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    ) : (
+                                                        <div className="text-center mb-6 py-4 bg-slate-800/50 rounded-xl border border-white/5">
+                                                            <p className="text-sm text-slate-400">Devido à proximidade da data, apenas 1 prestação é possível.</p>
+                                                        </div>
+                                                    )}
+
+                                                    <div className="space-y-3">
+                                                        <div className="flex justify-between text-sm py-2 border-b border-white/5">
+                                                            <span className="text-slate-400 italic">Hoje (Inscrição)</span>
+                                                            <span className="text-white font-bold">{depositTotal}€</span>
+                                                        </div>
+                                                        {calculateInstallments(
+                                                            totalBookingAmount - depositTotal,
+                                                            pilgrimage.start_date,
+                                                            installmentCount || getMaxInstallments(pilgrimage.start_date)
+                                                        ).map((inst, idx) => (
+                                                            <div key={idx} className="flex justify-between text-sm py-2 border-b border-white/5 last:border-0">
+                                                                <span className="text-slate-300">
+                                                                    Mensalidade {idx + 1} - {inst.date.toLocaleDateString('pt-PT', { month: 'long', year: 'numeric' })}
+                                                                </span>
+                                                                <span className="text-white font-bold">{inst.amount}€</span>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                    <p className="text-[10px] text-slate-500 mt-6 leading-relaxed italic text-center px-4">
+                                                        * O valor em falta de {totalBookingAmount - depositTotal}€ será dividido em {installmentCount || getMaxInstallments(pilgrimage.start_date)} mensalidades pagas via Transferência Bancária ou MBWAY.
+                                                        Enviaremos os lembretes por WhatsApp/Email todos os meses.
+                                                    </p>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        <div className="flex flex-col items-center gap-4 p-4">
+                                            <label className="flex items-start gap-3 cursor-pointer group">
+                                                <div className="mt-1">
+                                                    <input type="checkbox" {...methods.register('terms_accepted')} className="w-5 h-5 text-yellow-500 rounded border-slate-700 bg-slate-800 focus:ring-yellow-500" />
+                                                </div>
+                                                <span className="text-sm text-slate-400 group-hover:text-slate-300 transition-colors">Li e aceito os <a href="#" target="_blank" className="underline font-bold text-slate-200">Termos e Condições</a> de Inscrição na Peregrinação.</span>
+                                            </label>
+                                            {errors.terms_accepted && <p className="text-red-500 text-xs font-bold animate-bounce tracking-wide">{errors.terms_accepted.message}</p>}
+                                        </div>
+
+                                        <div className="flex justify-between items-center pt-4">
+                                            <button type="button" onClick={() => setStep(3)} className="text-slate-500 font-bold hover:text-white transition-colors">Voltar</button>
+                                            <button
+                                                type="submit"
+                                                disabled={submitting}
+                                                className="bg-yellow-500 hover:bg-yellow-400 text-slate-900 px-10 py-5 rounded-2xl font-bold transition-all shadow-xl shadow-yellow-500/20 active:scale-95 disabled:opacity-50 flex items-center gap-3 text-lg"
+                                            >
+                                                {submitting ? <Loader2 className="animate-spin" /> : 'Confirmar Inscrição'}
+                                            </button>
+                                        </div>
                                     </div>
                                 )}
                             </form>

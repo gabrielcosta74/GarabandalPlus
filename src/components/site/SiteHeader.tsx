@@ -18,7 +18,8 @@ import {
   LogOut,
   Heart,
   Store,
-  Home
+  Home,
+  MapPin
 } from 'lucide-react';
 
 /* -------------------------------------------------------------------------- */
@@ -441,11 +442,11 @@ export default function SiteHeader() {
 
               {/* Drawer Content */}
               <div className="flex-1 overflow-y-auto px-6 py-6 scrollbar-hide">
-
                 {/* Public Links */}
                 <div className="space-y-1 mb-8">
                   <p className="text-xs font-bold text-slate-400 uppercase tracking-widest px-4 mb-3">Navegação</p>
                   <NavLink href="/" icon={Home} label="Página Inicial" onClick={() => setMobileOpen(false)} />
+                  <NavLink href="/peregrinacoes" icon={MapPin} label="Peregrinações" onClick={() => setMobileOpen(false)} />
                   <NavLink href="/loja-online" icon={Store} label="Loja Online" onClick={() => setMobileOpen(false)} />
                   <NavLink href="/donations" icon={Heart} label="Fazer Doação" onClick={() => setMobileOpen(false)} />
                 </div>
@@ -519,7 +520,7 @@ export default function SiteHeader() {
             </motion.div>
           </>
         )}
-      </AnimatePresence>
+      </AnimatePresence >
     </>
   );
 }

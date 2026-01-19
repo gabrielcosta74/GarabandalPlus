@@ -22,9 +22,15 @@ export interface Room {
 interface RoomOrganizerProps {
     pilgrims: any[];
     onUpdate: (rooms: Room[]) => void;
+    pricing?: {
+        single?: number;
+        double?: number;
+        triple?: number;
+        quadruple?: number;
+    };
 }
 
-export default function RoomOrganizer({ pilgrims, onUpdate }: RoomOrganizerProps) {
+export default function RoomOrganizer({ pilgrims, onUpdate, pricing }: RoomOrganizerProps) {
     const [rooms, setRooms] = useState<Room[]>([]);
 
     // Sync parent
@@ -33,12 +39,16 @@ export default function RoomOrganizer({ pilgrims, onUpdate }: RoomOrganizerProps
     }, [rooms, onUpdate]);
 
     // UI Helpers
+    // UI Helpers
     const getRoomLabel = (type: RoomType) => {
+        const price = pricing?.[type] || 0;
+        const priceStr = price > 0 ? ` (+${price}€)` : ' (Standard)';
+
         switch (type) {
-            case 'single': return 'Individual (+250€)';
-            case 'double': return 'Duplo (Standard)';
-            case 'triple': return 'Triplo (Familiar/Amigos)';
-            case 'quadruple': return 'Familiar (4 Pessoas)';
+            case 'single': return `Quarto Individual${price > 0 ? ` (+${price}€)` : ''}`;
+            case 'double': return `Quarto Duplo${priceStr}`;
+            case 'triple': return `Quarto Triplo${priceStr}`;
+            case 'quadruple': return `Quarto Familiar (4)${priceStr}`;
         }
     };
 
@@ -157,7 +167,7 @@ export default function RoomOrganizer({ pilgrims, onUpdate }: RoomOrganizerProps
                             <BedSingle className={`w-8 h-8 ${current?.type === 'single' ? 'text-indigo-400' : 'text-slate-500'}`} />
                             <div>
                                 <h4 className="font-bold text-white text-lg">Quarto Individual</h4>
-                                <p className="text-slate-400 text-sm">Privacidade total. Aplicável suplemento (+250€).</p>
+                                <p className="text-slate-400 text-sm">Privacidade total. {pricing?.single && pricing.single > 0 ? `Suplemento de +${pricing.single}€` : 'S/ suplemento extra'}.</p>
                             </div>
                         </div>
                     </button>
@@ -171,8 +181,8 @@ export default function RoomOrganizer({ pilgrims, onUpdate }: RoomOrganizerProps
                         >
                             <BedDouble className={`w-8 h-8 ${current?.type === 'double' ? 'text-emerald-400' : 'text-slate-500'}`} />
                             <div className="flex-1">
-                                <h4 className="font-bold text-white text-lg flex items-center gap-2">Partilhar Quarto Duplo <span className="text-xs bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full">Sem Custo Extra</span></h4>
-                                <p className="text-slate-400 text-sm">Vais partilhar quarto com outra pessoa.</p>
+                                <h4 className="font-bold text-white text-lg flex items-center gap-2">Partilhar Quarto Duplo <span className={`text-xs px-2 py-0.5 rounded-full ${pricing?.double && pricing.double > 0 ? 'bg-yellow-500/20 text-yellow-500' : 'bg-emerald-500/20 text-emerald-400'}`}>{pricing?.double && pricing.double > 0 ? `+${pricing.double}€` : 'Sem Custo Extra'}</span></h4>
+                                <p className="text-slate-400 text-sm">Ficarás num quarto com outro peregrino.</p>
                             </div>
                             {current?.type === 'double' && <div className="bg-emerald-500 text-black p-1 rounded-full"><CheckCircle2 className="w-5 h-5" /></div>}
                         </button>

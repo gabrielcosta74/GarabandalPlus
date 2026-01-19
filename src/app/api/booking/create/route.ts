@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { supabaseServer } from '../../../../lib/supabase';
 import { sendBookingConfirmationEmail } from '../../../../lib/email';
+import { WhatsAppService } from '../../../../lib/whatsapp';
 
 export async function POST(req: Request) {
     console.log("🚀 [API] Booking Create Request Received");
@@ -68,54 +69,56 @@ export async function POST(req: Request) {
         // 2. Fetch Pilgrimage Details for Pricing
         const { data: pilgrimage, error: pilgError } = await supabaseServer
             .from('pilgrimages')
-            .select('base_price, title')
+            .select('base_price, title, deposit_value, min_deposit, pricing_config, start_date')
             .eq('id', pilgrimage_id)
             .single();
 
         if (pilgError) throw pilgError;
 
         // 3. Calculate Total (Server Side Verification)
-        // Basic logic: Base Price + Room Supplement
         let totalAmount = 0;
         const basePrice = Number(pilgrimage.base_price) || 0;
-
-        // We rely on the `room_type` passed in pilgrim_data or derived from room_distribution
-        // For simplicity and robustness given the previous issues, we will trust the client's calculated room types but verify prices.
-        // Actually, let's iterate the pilgrims.
-
-        // Supplement Map
-        const SUPPLEMENTS: Record<string, number> = {
-            'single': 250,
-            'double': 0,
-            'triple': 0,
-            'quadruple': 0
-        };
+        // Priority to deposit_value (new), fallback to min_deposit (old) for safety during migration
+        const regFee = Number(pilgrimage.deposit_value || pilgrimage.min_deposit) || 0;
+        const supplements = (pilgrimage.pricing_config as any)?.room_supplements || {};
 
         const pilgrimsToInsert = pilgrim_data.map((p: any) => {
             // Determine room type for this pilgrim
-            let roomType = 'double';
-            if (room_distribution) {
-                // Logic to find room type from distribution if sent
-                // For now, let's assume the client sends the computed `room_type` inside pilgrim_data for simplicity
-                // if we updated the client side correctly.
+            let roomType = p.room_type || 'double';
+
+            // Formula: Base + Registration Fee + Supplement
+            const supplementPrice = Number(supplements[roomType]) || 0;
+            let pilgrimSubtotal = basePrice + regFee + supplementPrice;
+
+            // Fallback for hardcoded Single Supplement ONLY if not configured in JSON
+            if (roomType === 'single' && (!supplements.single || supplements.single === 0)) {
+                if (Object.keys(supplements).length === 0) pilgrimSubtotal += 250;
             }
-            if (p.room_type) roomType = p.room_type;
 
-            // Calculate Price
-            let price = basePrice;
-
-            // Age Logic (Children)
+            // Age Logic (Discounts)
+            let discount = 0;
             if (p.birth_date) {
                 const birth = new Date(p.birth_date);
-                const age = new Date().getFullYear() - birth.getFullYear();
-                if (age >= 2 && age <= 10) price = price * 0.5; // 50%
-                if (age < 2) price = 0;
+                const today = new Date();
+
+                // Fallback matching frontend: if invalid date, assume adult
+                if (isNaN(birth.getTime())) {
+                    console.warn(`⚠️ [API] Invalid birth_date for ${p.full_name}: ${p.birth_date}. Assuming adult (30y).`);
+                    discount = 0;
+                } else {
+                    let age = today.getFullYear() - birth.getFullYear();
+                    const m = today.getMonth() - birth.getMonth();
+                    if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
+
+                    if (age >= 2 && age <= 10) discount = pilgrimSubtotal * 0.5; // 50%
+                    if (age < 2) discount = pilgrimSubtotal; // 100%
+
+                    console.log(`👤 [API] Pilgrim ${p.full_name}: Age=${age}, Sub=${pilgrimSubtotal}€, Disc=${discount}€, Final=${Math.max(0, pilgrimSubtotal - discount)}€`);
+                }
             }
 
-            // Room Supplement
-            price += (SUPPLEMENTS[roomType] || 0);
-
-            totalAmount += price;
+            const finalPilgrimPrice = Math.max(0, pilgrimSubtotal - discount);
+            totalAmount += finalPilgrimPrice;
 
             return {
                 // booking_id will be added after
@@ -140,6 +143,11 @@ export async function POST(req: Request) {
 
         console.log(`💰 [API] Calculated Total: ${totalAmount}€ for ${pilgrimsToInsert.length} pilgrims`);
 
+        if (totalAmount <= 0) {
+            console.error(`❌ [API] Critical: Calculated Total is ${totalAmount}. Check configuration and birth dates.`);
+            throw new Error(`Erro no cálculo do preço: O total resultou em 0€. Verifique se os preços estão configurados e se as datas de nascimento dos peregrinos estão corretas.`);
+        }
+
         // 4. Insert Booking
         const { data: booking, error: bookingError } = await supabaseServer
             .from('bookings')
@@ -148,7 +156,8 @@ export async function POST(req: Request) {
                 pilgrimage_id: pilgrimage_id,
                 total_amount: totalAmount,
                 status: 'pending',
-                notes: `Payment Plan: ${payment_method} | Created via API ${isNewUser ? '(New Account)' : ''}`
+                notes: `Payment Plan: ${payment_method} | Created via API ${isNewUser ? '(New Account)' : ''}`,
+                payment_plan: body.payment_plan || null
             })
             .select()
             .single();
@@ -170,11 +179,25 @@ export async function POST(req: Request) {
 
         if (pilgrimsError) {
             console.error("❌ [API] Pilgrim Insert Error:", pilgrimsError);
-            // Rollback? ideally yes, but for now log it.
             throw pilgrimsError;
         }
 
-        // 6. Generate Magic Link & Send Email
+        // 6. Record Initial Deposit Payment as Pending
+        const registrationFeePerPerson = Number(pilgrimage?.deposit_value) || 0;
+        const totalDepositAmount = pilgrimsToInsert.length * registrationFeePerPerson;
+
+        await supabaseServer
+            .from('pilgrimage_payments')
+            .insert({
+                booking_id: booking.id,
+                amount: totalDepositAmount,
+                method: body.payment_method === 'installments' ? 'bank_transfer' : 'stripe',
+                status: 'pending',
+                date: new Date().toISOString(),
+                notes: 'Sinal de Inscrição (Automático)'
+            });
+
+        // 7. Generate Magic Link & Send Email
         try {
             // Robust Origin Detection for Magic Link (Works on Localhost & Vercel)
             const host = req.headers.get('host');
@@ -208,6 +231,23 @@ export async function POST(req: Request) {
 
         } catch (emailErr) {
             console.error("⚠️ [API] Email sending failed:", emailErr);
+        }
+
+        // 8. Send WhatsApp Notification (Async - do not block response)
+        try {
+            // We use the first pilgrim's data for the notification
+            // Note: In detailed implementation, we might want to check if the user consented to WA.
+            const mainPilgrim = pilgrimsToInsert[0]; // { full_name, phone, ... }
+            // We pass the simplified booking structure or just the needed fields
+            await WhatsAppService.sendWelcomeMessage(
+                {
+                    id: booking.id,
+                    pilgrims: [{ full_name: mainPilgrim.full_name, phone: mainPilgrim.whatsapp || mainPilgrim.phone }]
+                },
+                pilgrimage.title
+            );
+        } catch (waErr) {
+            console.error("⚠️ [API] WhatsApp sending failed:", waErr);
         }
 
         console.log("✅ [API] Success! Booking ID:", booking.id);

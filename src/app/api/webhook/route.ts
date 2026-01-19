@@ -495,6 +495,54 @@ export async function POST(request: Request) {
               console.warn('Fact.pt quota falhou:', err);
             }
           }
+        } else if (type === 'pilgrimage_payment') {
+          const bookingId = session.metadata?.booking_id;
+          const amountPaid = amountCents / 100;
+
+          if (bookingId) {
+            // 1. Fetch current booking status
+            const { data: booking, error: fetchErr } = await supabaseServer
+              .from('bookings')
+              .select('paid_amount, pilgrimage:pilgrimages(deposit_value)')
+              .eq('id', bookingId)
+              .single();
+
+            if (!fetchErr && booking) {
+              const newPaidAmount = (booking.paid_amount || 0) + amountPaid;
+              const depositValue = (booking.pilgrimage as any)?.deposit_value || 500;
+
+              let updates: any = {
+                paid_amount: newPaidAmount,
+                last_payment_date: new Date().toISOString()
+              };
+
+              // Auto-confirm if they paid at least the deposit
+              if (newPaidAmount >= depositValue) {
+                updates.status = 'confirmed';
+              }
+
+              await supabaseServer
+                .from('bookings')
+                .update(updates)
+                .eq('id', bookingId);
+
+              // 2. Record Payment Detail
+              await supabaseServer
+                .from('pilgrimage_payments')
+                .upsert({
+                  booking_id: bookingId,
+                  amount: amountPaid,
+                  payment_intent_id: paymentIntent,
+                  external_reference: externalRef,
+                  status: 'succeeded',
+                  method: 'stripe',
+                  date: new Date().toISOString(),
+                  notes: 'Pagamento via Stripe (Automático)'
+                }, { onConflict: 'external_reference' });
+
+              console.log(`✅ [Webhook] Pilgrimage payment recorded for Booking ${bookingId}: ${amountPaid}€`);
+            }
+          }
         }
       } catch (err) {
         console.error('Erro ao gravar no Supabase:', err);

@@ -4,9 +4,11 @@ import { useEffect, useState } from 'react';
 import VIPLayout from '../../components/member/VIPLayout';
 import Link from 'next/link';
 import { supabaseBrowser } from '../../lib/supabase-browser';
-import { MapPin, Calendar, Users, ChevronRight, Info } from 'lucide-react';
+import { MapPin, Calendar, Users, ChevronRight, Info, ShieldCheck } from 'lucide-react';
 import { format } from 'date-fns';
 import { pt } from 'date-fns/locale';
+import { PilgrimageHero } from '../../components/pilgrimage/PilgrimageHero';
+import { PilgrimageCard } from '../../components/pilgrimage/PilgrimageCard';
 
 type Pilgrimage = {
     id: string;
@@ -44,138 +46,94 @@ export default function PilgrimagesPage() {
 
     return (
         <VIPLayout allowPublic={true}>
-            {/* Light Mode Container Override - using absolute positioning or just a full covering div logic */}
-            <div className="bg-slate-50 min-h-screen rounded-3xl p-6 md:p-12 shadow-2xl overflow-hidden relative">
-                {/* Background Pattern */}
-                <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-yellow-400/10 rounded-full blur-[120px] pointer-events-none -translate-y-1/2 translate-x-1/2" />
+            <div className="bg-[#f8fafc] min-h-screen rounded-[2.5rem] p-6 md:p-10 shadow-sm overflow-hidden relative">
 
-                <div className="relative z-10 space-y-12">
-                    {/* Header */}
-                    <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 border-b border-slate-200 pb-8">
-                        <div>
-                            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-yellow-100 border border-yellow-200 text-xs font-bold uppercase tracking-wider text-yellow-800 mb-4">
-                                <MapPin className="w-3 h-3" />
-                                Viagens Oficiais
+                <PilgrimageHero featuredPilgrimage={pilgrimages.length > 0 ? pilgrimages[0] : undefined} />
+
+                <div className="relative z-10 max-w-6xl mx-auto">
+                    {/* Trust Indicators / Value Prop */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-16">
+                        <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] flex items-start gap-4 hover:transform hover:-translate-y-1 transition-all duration-300">
+                            <div className="w-12 h-12 rounded-2xl bg-yellow-50 flex items-center justify-center text-yellow-600 shrink-0">
+                                <Users className="w-6 h-6" />
                             </div>
-                            <h1 className="font-serif text-4xl md:text-5xl font-bold text-slate-900 mb-4 leading-tight">
-                                Peregrinações
-                            </h1>
-                            <p className="text-slate-600 text-lg max-w-2xl leading-relaxed">
-                                Jornadas de fé organizadas pelo Apostolado. Mais do que uma viagem, um encontro com a mensagem de Garabandal.
-                            </p>
+                            <div>
+                                <h3 className="font-bold text-slate-900 mb-1">Pequenos Grupos</h3>
+                                <p className="text-sm text-slate-500 leading-relaxed">Experiência intimista e acompanhamento personalizado.</p>
+                            </div>
                         </div>
+                        <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] flex items-start gap-4 hover:transform hover:-translate-y-1 transition-all duration-300">
+                            <div className="w-12 h-12 rounded-2xl bg-blue-50 flex items-center justify-center text-blue-600 shrink-0">
+                                <ShieldCheck className="w-6 h-6" />
+                            </div>
+                            <div>
+                                <h3 className="font-bold text-slate-900 mb-1">100% Organizado</h3>
+                                <p className="text-sm text-slate-500 leading-relaxed">Voos, hotéis e refeições incluídos. Sem preocupações.</p>
+                            </div>
+                        </div>
+                        <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] flex items-start gap-4 hover:transform hover:-translate-y-1 transition-all duration-300">
+                            <div className="w-12 h-12 rounded-2xl bg-purple-50 flex items-center justify-center text-purple-600 shrink-0">
+                                <Calendar className="w-6 h-6" />
+                            </div>
+                            <div>
+                                <h3 className="font-bold text-slate-900 mb-1">Roteiro Espiritual</h3>
+                                <p className="text-sm text-slate-500 leading-relaxed">Programa diário com missa, terço e conferências.</p>
+                            </div>
+                        </div>
+                    </div>
 
-                        <Link
-                            href="/peregrinacoes/minhas-inscricoes"
-                            className="flex items-center gap-2 px-6 py-3 bg-white border border-slate-200 rounded-full text-slate-700 font-bold hover:bg-slate-50 hover:border-slate-300 transition-all shadow-sm"
-                        >
-                            <span className="w-2 h-2 rounded-full bg-yellow-500" />
-                            Minhas Inscrições
-                        </Link>
+                    {/* Listings Header */}
+                    <div className="flex items-end justify-between mb-8 px-2">
+                        <div>
+                            <h2 className="text-3xl font-serif font-bold text-slate-900">Próximas Partidas</h2>
+                            <p className="text-slate-500 mt-1">Reserve o seu lugar antes que esgote.</p>
+                        </div>
                     </div>
 
                     {/* Content */}
                     {loading ? (
                         <div className="text-center py-24">
-                            <div className="animate-spin w-10 h-10 border-3 border-yellow-600 border-t-transparent rounded-full mx-auto mb-6" />
-                            <p className="text-slate-500 font-medium">A carregar viagens...</p>
+                            <div className="animate-spin w-10 h-10 border-3 border-yellow-500 border-t-transparent rounded-full mx-auto mb-6" />
+                            <p className="text-slate-500 font-medium animate-pulse">A carregar viagens inspiradoras...</p>
                         </div>
                     ) : pilgrimages.length === 0 ? (
-                        <div className="bg-white rounded-3xl border-2 border-dashed border-slate-200 p-16 text-center shadow-sm">
-                            <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-6 text-slate-400">
+                        <div className="bg-white rounded-[2rem] border-2 border-dashed border-slate-200 p-16 text-center shadow-sm">
+                            <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-6 text-slate-300">
                                 <MapPin className="w-10 h-10" />
                             </div>
                             <h3 className="text-2xl font-serif font-bold text-slate-900 mb-3">Sem peregrinações ativas</h3>
                             <p className="text-slate-500 max-w-md mx-auto leading-relaxed">
-                                De momento não temos inscrições abertas para novas viagens. Subscreve a newsletter para seres o primeiro a saber.
+                                De momento não temos inscrições abertas. Subscreva a newsletter para ser o primeiro a saber.
                             </p>
                         </div>
                     ) : (
-                        <div className="grid grid-cols-1 gap-12">
-                            {pilgrimages.map((pilgrimage) => {
-                                const startDate = new Date(pilgrimage.start_date);
-                                const endDate = new Date(pilgrimage.end_date);
-                                const isWaitlist = pilgrimage.status === 'waitlist';
-                                const isClosed = pilgrimage.status === 'closed';
-
-                                return (
-                                    <Link
-                                        key={pilgrimage.id}
-                                        href={`/peregrinacoes/${pilgrimage.slug}`}
-                                        className="group bg-white rounded-3xl border border-slate-100 overflow-hidden hover:border-yellow-500/30 transition-all hover:shadow-[0_20px_50px_-12px_rgba(0,0,0,0.1)] flex flex-col md:flex-row h-full transform hover:-translate-y-1"
-                                    >
-                                        {/* Image Section */}
-                                        <div className="md:w-5/12 relative overflow-hidden h-64 md:h-auto">
-                                            {pilgrimage.cover_image && (
-                                                <img
-                                                    src={pilgrimage.cover_image}
-                                                    alt={pilgrimage.title}
-                                                    className="absolute inset-0 w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-1000"
-                                                />
-                                            )}
-                                            <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent md:bg-gradient-to-r md:from-transparent md:to-black/10" />
-
-                                            {/* Badge */}
-                                            <div className="absolute top-6 left-6">
-                                                {isWaitlist ? (
-                                                    <span className="bg-white/95 text-orange-600 text-xs font-bold px-4 py-2 rounded-full uppercase tracking-wider shadow-lg flex items-center gap-2">
-                                                        <div className="w-2 h-2 rounded-full bg-orange-500" /> Lista de Espera
-                                                    </span>
-                                                ) : isClosed ? (
-                                                    <span className="bg-white/95 text-red-600 text-xs font-bold px-4 py-2 rounded-full uppercase tracking-wider shadow-lg flex items-center gap-2">
-                                                        <div className="w-2 h-2 rounded-full bg-red-500" /> Esgotado
-                                                    </span>
-                                                ) : (
-                                                    <span className="bg-white/95 text-green-700 text-xs font-bold px-4 py-2 rounded-full uppercase tracking-wider shadow-lg flex items-center gap-2">
-                                                        <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" /> Inscrições Abertas
-                                                    </span>
-                                                )}
-                                            </div>
-                                        </div>
-
-                                        {/* Content Section */}
-                                        <div className="p-8 md:p-12 flex-1 flex flex-col justify-center">
-                                            <div className="flex items-center gap-3 text-yellow-600 text-sm font-bold uppercase tracking-wider mb-4">
-                                                <Calendar className="w-4 h-4" />
-                                                <span>
-                                                    {format(startDate, "d 'de' MMMM", { locale: pt })} a {format(endDate, "d 'de' MMMM, yyyy", { locale: pt })}
-                                                </span>
-                                            </div>
-
-                                            <h3 className="text-3xl md:text-4xl font-serif font-bold text-slate-900 mb-6 group-hover:text-yellow-700 transition-colors">
-                                                {pilgrimage.title}
-                                            </h3>
-
-                                            <p className="text-slate-600 text-lg leading-relaxed mb-8 line-clamp-2 md:line-clamp-3">
-                                                {pilgrimage.description}
-                                            </p>
-
-                                            <div className="flex items-center justify-between border-t border-slate-100 pt-8 mt-auto">
-                                                <div>
-                                                    <p className="text-xs text-slate-400 uppercase tracking-wider font-bold mb-1">Donativo Base</p>
-                                                    <p className="text-2xl font-bold text-slate-900">{pilgrimage.base_price}€</p>
-                                                </div>
-
-                                                <div className="flex items-center gap-4">
-                                                    <div className="text-right hidden md:block">
-                                                        <p className="text-xs text-slate-400 uppercase tracking-wider font-bold mb-1">Lugares</p>
-                                                        <div className="flex items-center justify-end gap-1 text-sm font-bold text-slate-700">
-                                                            <Users className="w-4 h-4 text-slate-400" />
-                                                            {pilgrimage.current_vacancies} Livres
-                                                        </div>
-                                                    </div>
-
-                                                    <div className="h-12 w-12 rounded-full border-2 border-slate-200 flex items-center justify-center text-slate-400 group-hover:border-yellow-500 group-hover:bg-yellow-500 group-hover:text-white transition-all ml-4">
-                                                        <ChevronRight className="w-6 h-6" />
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </Link>
-                                );
-                            })}
+                        <div className="grid grid-cols-1 gap-8">
+                            {pilgrimages.map((pilgrimage, idx) => (
+                                <PilgrimageCard key={pilgrimage.id} pilgrimage={pilgrimage} index={idx} />
+                            ))}
                         </div>
                     )}
+
+                    {/* Newsletter / Waitlist CTA */}
+                    <div className="mt-20 bg-slate-900 rounded-3xl p-8 md:p-12 text-center relative overflow-hidden">
+                        <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-yellow-500/10 rounded-full blur-[80px] translate-x-1/2 -translate-y-1/2" />
+                        <div className="relative z-10 max-w-2xl mx-auto">
+                            <h3 className="text-2xl md:text-3xl font-serif font-bold text-white mb-4">Não encontrou a data ideal?</h3>
+                            <p className="text-slate-400 mb-8">
+                                Inscreva-se na nossa lista VIP para receber notificações prioritárias sobre novas datas e roteiros exclusivos.
+                            </p>
+                            <div className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto">
+                                <input
+                                    type="email"
+                                    placeholder="O seu melhor email"
+                                    className="flex-1 h-12 rounded-xl px-4 bg-white/10 border border-white/10 text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-yellow-500/50"
+                                />
+                                <button className="h-12 px-8 bg-yellow-500 hover:bg-yellow-400 text-slate-900 font-bold rounded-xl transition-colors">
+                                    Avise-me
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </VIPLayout>
