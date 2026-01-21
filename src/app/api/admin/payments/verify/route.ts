@@ -10,7 +10,7 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: message }, { status });
         }
 
-        const { paymentId, bookingId } = await req.json();
+        const { paymentId, bookingId, amount, label } = await req.json();
 
         if (!paymentId || !bookingId) {
             return NextResponse.json({ error: 'Faltam dados: paymentId ou bookingId.' }, { status: 400 });
@@ -20,7 +20,7 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: 'Servidor Supabase indisponível.' }, { status: 500 });
         }
 
-        // 2. Fetch the payment to verify it exists and get its amount
+        // 2. Fetch the payment to verify it exists
         const { data: payment, error: fetchError } = await supabaseServer
             .from('pilgrimage_payments')
             .select('amount, status')
@@ -35,13 +35,25 @@ export async function POST(req: Request) {
             return NextResponse.json({ message: 'Pagamento já está verificado.' });
         }
 
-        // 3. Update payment status to verified (Service Role bypasses RLS)
+        // 3. Update payment status to verified, update amount if provided, add label
+        const updateData: any = {
+            status: 'verified',
+            verified_at: new Date().toISOString()
+        };
+
+        // Admin can override the amount
+        if (amount !== undefined && amount !== null) {
+            updateData.amount = Number(amount);
+        }
+
+        // Admin can add label (stored in notes)
+        if (label) {
+            updateData.notes = label;
+        }
+
         const { error: updatePayError } = await supabaseServer
             .from('pilgrimage_payments')
-            .update({
-                status: 'verified',
-                verified_at: new Date().toISOString()
-            })
+            .update(updateData)
             .eq('id', paymentId);
 
         if (updatePayError) {
