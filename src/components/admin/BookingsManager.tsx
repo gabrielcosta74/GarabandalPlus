@@ -15,7 +15,7 @@ const DetailItem = ({ label, value, capitalize = false }: { label: string; value
         </p>
     </div>
 );
-import PaymentHistoryManager from './PaymentHistoryManager';
+import PaymentManagementTab from './payment/PaymentManagementTab';
 
 interface Pilgrim {
     id: string;
@@ -564,12 +564,9 @@ export default function BookingsManager({ pilgrimageId }: { pilgrimageId: string
                             {activeDetailTab === 'finance' && (
                                 <div className="space-y-6 animate-in fade-in duration-300">
                                     <div className="bg-white border border-slate-100 rounded-[32px] overflow-hidden shadow-xl shadow-slate-200/50">
-                                        <PaymentHistoryManager
-                                            bookingId={viewDetailPilgrim.booking_id}
-                                            totalAmount={viewDetailPilgrim.total_amount || 0}
-                                            paidAmount={viewDetailPilgrim.paid_amount || 0}
-                                            paymentPlan={viewDetailPilgrim.payment_plan}
-                                            onUpdate={() => fetchBookings()}
+                                        <PaymentManagementTab
+                                            booking={viewDetailPilgrim}
+                                            onUpdate={async () => await fetchBookings()}
                                         />
                                     </div>
                                 </div>
@@ -616,15 +613,9 @@ export default function BookingsManager({ pilgrimageId }: { pilgrimageId: string
 
                         {/* Modal Content */}
                         <div className="p-6 overflow-y-auto">
-                            <PaymentHistoryManager
-                                bookingId={selectedBooking.booking_id}
-                                totalAmount={selectedBooking.total_amount || 0}
-                                paidAmount={selectedBooking.paid_amount || 0}
-                                paymentPlan={selectedBooking.payment_plan}
-                                onUpdate={() => {
-                                    fetchBookings();
-                                    // Optionally update selectedBooking local paidAmount if child doesn't re-fetch
-                                }}
+                            <PaymentManagementTab
+                                booking={selectedBooking}
+                                onUpdate={async () => await fetchBookings()}
                             />
                         </div>
 
