@@ -119,6 +119,12 @@ export default function BookingsManager({ pilgrimageId }: { pilgrimageId: string
                     if (booking.pilgrims && Array.isArray(booking.pilgrims)) {
                         const verifyingPayment = booking.payments?.find((pay: any) => pay.status === 'verifying');
 
+                        console.log('🔍 [fetchBookings] Processing booking:', {
+                            booking_id: booking.id.substring(0, 8),
+                            payments_count: booking.payments?.length || 0,
+                            payments: booking.payments
+                        });
+
                         booking.pilgrims.forEach((p: any) => {
                             flatList.push({
                                 ...p,
