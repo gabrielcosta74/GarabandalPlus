@@ -56,15 +56,17 @@ export default function PaymentManagementTab({
     };
 
     // Actually validate after admin enters amount
+    // Actually validate after admin enters amount
     const handleConfirmValidation = async (paymentId: string, amount: number, label?: string) => {
         console.log('🚀 [Validation] Starting validation...');
         try {
-            console.log('🚀 [Validation] Importing supabase-browser...');
-            const module = await import('../../../lib/supabase-browser');
-            console.log('🚀 [Validation] Module loaded:', !!module);
-
             console.log('🚀 [Validation] Getting session...');
-            const { data: { session }, error: sessionError } = await module.supabaseBrowser!.auth.getSession();
+
+            if (!supabaseBrowser) {
+                throw new Error('Cliente Supabase não inicializado.');
+            }
+
+            const { data: { session }, error: sessionError } = await supabaseBrowser.auth.getSession();
 
             if (sessionError) console.error('🚀 [Validation] Session error:', sessionError);
             console.log('🚀 [Validation] Session found:', !!session);
