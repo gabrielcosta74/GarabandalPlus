@@ -161,11 +161,25 @@ export default function BookingsManager({ pilgrimageId }: { pilgrimageId: string
     // Helper: Convert Pilgrim data to booking format for PaymentManagementTab
     const pilgrimToBooking = (pilgrim: Pilgrim) => {
         const booking = (pilgrim as any)._booking;
+
+        // Parse payment_plan to ensure it's always an array
+        let parsedPaymentPlan: any[] = [];
+        try {
+            if (Array.isArray(pilgrim.payment_plan)) {
+                parsedPaymentPlan = pilgrim.payment_plan;
+            } else if (typeof pilgrim.payment_plan === 'string') {
+                parsedPaymentPlan = JSON.parse(pilgrim.payment_plan);
+            }
+        } catch (e) {
+            console.error('Error parsing payment_plan:', e);
+            parsedPaymentPlan = [];
+        }
+
         return {
             id: pilgrim.booking_id || '',
             total_amount: pilgrim.total_amount || 0,
             paid_amount: pilgrim.paid_amount || 0,
-            payment_plan: pilgrim.payment_plan || [],
+            payment_plan: parsedPaymentPlan,
             payments: booking?.payments || [],
             pilgrimage: booking?.pilgrimage || { deposit_value: 0 }
         };
