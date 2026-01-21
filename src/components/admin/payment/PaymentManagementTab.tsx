@@ -56,17 +56,25 @@ export default function PaymentManagementTab({
 
     // Actually validate after admin enters amount
     const handleConfirmValidation = async (paymentId: string, amount: number, label?: string) => {
-        try {
+        try {            // Get session token for admin auth
+            const { data: { session } } = await (await import('../../lib/supabase-browser')).supabaseBrowser!.auth.getSession();
+            const token = session?.access_token;
+
+            if (!token) {
+                throw new Error('Sessão expirada. Por favor faça login novamente.');
+            }
+
             const response = await fetch('/api/admin/payments/verify', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
                 },
                 body: JSON.stringify({
                     paymentId,
                     bookingId: booking.id,
-                    amount, // Admin-entered amount
-                    label // Admin-entered label
+                    amount,
+                    label
                 }),
             });
 

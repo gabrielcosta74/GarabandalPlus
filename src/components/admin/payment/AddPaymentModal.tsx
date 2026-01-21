@@ -33,10 +33,20 @@ export default function AddPaymentModal({
         setIsSubmitting(true);
 
         try {
+            // Get session token for admin auth
+            const { supabaseBrowser } = await import('../../lib/supabase-browser');
+            const { data: { session } } = await supabaseBrowser!.auth.getSession();
+            const token = session?.access_token;
+
+            if (!token) {
+                throw new Error('Sessão expirada. Por favor faça login novamente.');
+            }
+
             const response = await fetch('/api/admin/payments/register', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
                 },
                 body: JSON.stringify({
                     bookingId,
