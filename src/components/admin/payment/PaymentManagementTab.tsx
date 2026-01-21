@@ -57,7 +57,7 @@ export default function PaymentManagementTab({
     // Actually validate after admin enters amount
     const handleConfirmValidation = async (paymentId: string, amount: number, label?: string) => {
         try {            // Get session token for admin auth
-            const { data: { session } } = await (await import('../../../../lib/supabase-browser')).supabaseBrowser!.auth.getSession();
+            const { data: { session } } = await (await import('../../../lib/supabase-browser')).supabaseBrowser!.auth.getSession();
             const token = session?.access_token;
 
             if (!token) {

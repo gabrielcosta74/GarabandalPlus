@@ -34,7 +34,7 @@ export default function AddPaymentModal({
 
         try {
             // Get session token for admin auth
-            const { supabaseBrowser } = await import('../../../../lib/supabase-browser');
+            const { supabaseBrowser } = await import('../../../lib/supabase-browser');
             const { data: { session } } = await supabaseBrowser!.auth.getSession();
             const token = session?.access_token;
 
