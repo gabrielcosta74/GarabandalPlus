@@ -162,6 +162,12 @@ export default function BookingsManager({ pilgrimageId }: { pilgrimageId: string
     const pilgrimToBooking = (pilgrim: Pilgrim) => {
         const booking = (pilgrim as any)._booking;
 
+        console.log('🔍 [pilgrimToBooking] Input:', {
+            booking_id: pilgrim.booking_id,
+            has_booking: !!booking,
+            payments_in_booking: booking?.payments?.length || 0
+        });
+
         // Parse payment_plan to ensure it's always an array
         let parsedPaymentPlan: any[] = [];
         try {
@@ -175,7 +181,7 @@ export default function BookingsManager({ pilgrimageId }: { pilgrimageId: string
             parsedPaymentPlan = [];
         }
 
-        return {
+        const result = {
             id: pilgrim.booking_id || '',
             total_amount: pilgrim.total_amount || 0,
             paid_amount: pilgrim.paid_amount || 0,
@@ -183,6 +189,12 @@ export default function BookingsManager({ pilgrimageId }: { pilgrimageId: string
             payments: booking?.payments || [],
             pilgrimage: booking?.pilgrimage || { deposit_value: 0 }
         };
+
+        console.log('🔍 [pilgrimToBooking] Output:', {
+            payments_count: result.payments.length
+        });
+
+        return result;
     };
 
     const handleExport = () => {
