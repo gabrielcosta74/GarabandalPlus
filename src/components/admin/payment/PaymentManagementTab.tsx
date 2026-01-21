@@ -8,6 +8,7 @@ import PaymentHistory, { type Payment } from './PaymentHistory';
 import AddPaymentModal from './AddPaymentModal';
 import ValidateReceiptModal from './ValidateReceiptModal';
 import InstallmentTracker from '../../booking/InstallmentTracker';
+import { supabaseBrowser } from '../../../lib/supabase-browser';
 
 interface PaymentManagementTabProps {
     booking: {
