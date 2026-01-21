@@ -5,12 +5,7 @@ import { sendDonationReceiptEmail, sendMemberReceiptEmail, sendMembershipNotific
 import { processPaidStoreOrder } from '../../../../lib/store-orders';
 import { supabaseServer } from '../../../../lib/supabase';
 import { ensureNotificationRecord, markNotificationSent } from '../../../../lib/email-notifications';
-import {
-  buildDonationInvoiceInput,
-  buildMembershipInvoiceInput,
-  buildStoreInvoiceInput,
-  issueFactPtInvoice,
-} from '../../../../lib/factpt-issuer';
+
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -198,28 +193,6 @@ export async function POST(request: Request) {
               }
             }
 
-            try {
-              const donationInput = await buildDonationInvoiceInput({
-                sourceRef: token,
-                amount: amountCents / 100,
-                paymentMethod: solution,
-                userId,
-                donor: {
-                  name: donorName,
-                  email: donorEmail,
-                  nif: donorNif,
-                  address: donorAddress,
-                  city: donorCity,
-                  zip: donorZip,
-                  country: donorCountry,
-                },
-              });
-              if (donationInput) {
-                await issueFactPtInvoice(donationInput);
-              }
-            } catch (err) {
-              console.warn('Fact.pt doacao falhou:', err);
-            }
           }
         }
 
@@ -355,21 +328,6 @@ export async function POST(request: Request) {
               }
             }
 
-            if (amountValue > 0) {
-              try {
-                const membershipInput = await buildMembershipInvoiceInput({
-                  sourceRef: token,
-                  amount: amountValue,
-                  paymentMethod: solution,
-                  userId,
-                });
-                if (membershipInput) {
-                  await issueFactPtInvoice(membershipInput);
-                }
-              } catch (err) {
-                console.warn('Fact.pt quota falhou:', err);
-              }
-            }
           }
         }
       } catch (err) {
@@ -401,17 +359,6 @@ export async function POST(request: Request) {
               paymentProvider: 'reduniq',
               paymentMethod: solution,
             });
-            try {
-              const storeInput = await buildStoreInvoiceInput({
-                orderRef,
-                paymentMethod: solution,
-              });
-              if (storeInput) {
-                await issueFactPtInvoice(storeInput);
-              }
-            } catch (err) {
-              console.warn('Fact.pt loja falhou:', err);
-            }
           }
         }
       } catch (err) {

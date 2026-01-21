@@ -228,8 +228,8 @@ export default function EncomendasPage() {
                       <div className="flex items-center gap-2 mb-1">
                         <h3 className="font-bold text-gray-900">#{order.order_ref}</h3>
                         <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${status.color === 'green' ? 'bg-green-100 text-green-700' :
-                            status.color === 'amber' ? 'bg-amber-100 text-amber-700' :
-                              'bg-gray-100 text-gray-600'
+                          status.color === 'amber' ? 'bg-amber-100 text-amber-700' :
+                            'bg-gray-100 text-gray-600'
                           }`}>
                           {status.label}
                         </span>
@@ -288,10 +288,7 @@ export default function EncomendasPage() {
                         {/* Actions */}
                         <div className="flex flex-wrap items-center justify-end gap-3">
                           {/* Simulated actions */}
-                          <button className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-bold text-gray-600 hover:bg-gray-50 transition-colors">
-                            <Download className="w-4 h-4" />
-                            Fatura
-                          </button>
+
                           <button className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-bold text-gray-600 hover:bg-gray-50 transition-colors">
                             <Copy className="w-4 h-4" />
                             Copiar Referência

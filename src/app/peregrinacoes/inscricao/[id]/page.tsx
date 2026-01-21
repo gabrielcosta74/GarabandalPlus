@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { pt } from 'date-fns/locale';
+import InstallmentTracker from '../../../../components/booking/InstallmentTracker';
 
 /* -------------------------------------------------------------------------- */
 /*                                    Types                                   */
@@ -91,6 +92,7 @@ export default function BookingDashboardPage() {
 
     const [booking, setBooking] = useState<Booking | null>(null);
     const [loading, setLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
     const [uploading, setUploading] = useState(false);
     const [showPilgrims, setShowPilgrims] = useState(false);
     // Determine what to pay next - Moved to top to prevent Hook Error
@@ -110,20 +112,29 @@ export default function BookingDashboardPage() {
     const percentPaid = totalAmount > 0 ? (paidAmount / totalAmount) * 100 : 0;
 
     // -- Advanced Installment Logic --
-    const paymentPlan = booking?.payment_plan || [];
+    // Parse paymentPlan from API safely
+    let parsedPaymentPlan: { date: string; amount: number }[] = [];
+    try {
+        if (Array.isArray(booking?.payment_plan)) {
+            parsedPaymentPlan = booking.payment_plan;
+        } else if (typeof booking?.payment_plan === 'string') {
+            parsedPaymentPlan = JSON.parse(booking.payment_plan);
+        }
+    } catch (e) {
+        console.error("Error parsing payment plan on client side:", e);
+    }
+
+    const paymentPlan = parsedPaymentPlan;
     const hasPlan = paymentPlan.length > 0;
 
     // Helper to find state of an installment
     const getInstallmentState = (index: number, amount: number) => {
-        // Simple logic: we match payments by amount or just index if we were more advanced.
-        // For now, let's use a cumulative approach to see which installments are covered.
-        const cumulativeTarget = depositValue + paymentPlan.slice(0, index + 1).reduce((acc, curr) => acc + Number(curr.amount), 0);
-        const prevCumulativeTarget = depositValue + paymentPlan.slice(0, index).reduce((acc, curr) => acc + Number(curr.amount), 0);
+        // Calculate the target amount to reach this installment
+        const cumulativeTarget = depositValue + paymentPlan.slice(0, index + 1).reduce((acc: number, curr: any) => acc + Number(curr.amount), 0);
 
         if (paidAmount >= cumulativeTarget) return 'paid';
 
-        // If not paid, check if there's a pending/verifying payment that could cover this
-        // We look for any payment that isn't succeeded/verified
+        // Check for pending/verifying payments
         const pendingPayments = booking?.payments?.filter((p: any) => p.status === 'verifying' || p.status === 'pending_verification') || [];
         const totalPending = pendingPayments.reduce((acc: number, curr: any) => acc + (Number(curr.amount) || 0), 0);
 
@@ -140,7 +151,7 @@ export default function BookingDashboardPage() {
         nextLabel = "Sinal de Inscrição";
     } else if (hasPlan && !isFullyPaid) {
         // Find first installment not paid
-        const nextIdx = paymentPlan.findIndex((_, idx) => getInstallmentState(idx, 0) === 'pending');
+        const nextIdx = paymentPlan.findIndex((_: any, idx: number) => getInstallmentState(idx, 0) === 'pending');
         if (nextIdx !== -1) {
             nextAmountToPay = Number(paymentPlan[nextIdx].amount);
             nextLabel = `Prestação ${nextIdx + 1} (${format(new Date(paymentPlan[nextIdx].date), 'MMMM', { locale: pt })})`;
@@ -150,35 +161,69 @@ export default function BookingDashboardPage() {
     const amountToPay = nextAmountToPay;
 
 
-    // Fetch Booking Data
-    useEffect(() => {
-        const fetchBooking = async () => {
-            try {
-                // Use our new backend API that bypasses RLS for the public view
-                const res = await fetch(`/api/booking/${id}`);
-                const data = await res.json();
+    // Fetch Booking Data - Extracted for reuse
+    const fetchBooking = async (isRefresh = false) => {
+        if (isRefresh) {
+            setRefreshing(true);
+            console.log('🔄 [Client] Refreshing booking data...');
+        }
 
-                if (!res.ok) {
-                    // Check if it's an auth issue or just not found
-                    if (res.status === 401) setAuthError(true);
-                    else throw new Error(data.error || "Erro ao carregar");
-                } else {
-                    setBooking(data);
+        try {
+            // Check for token in URL
+            const urlParams = new URLSearchParams(window.location.search);
+            const token = urlParams.get('token');
+
+            // Use token if available, otherwise use session
+            const url = token
+                ? `/api/booking/${id}?token=${token}`
+                : `/api/booking/${id}`;
+
+            const res = await fetch(url);
+            const data = await res.json();
+
+            if (!res.ok) {
+                // Check if it's an auth issue or just not found
+                if (res.status === 401) setAuthError(true);
+                else throw new Error(data.error || "Erro ao carregar");
+            } else {
+                setBooking(data);
+                if (isRefresh) {
+                    console.log('✅ [Client] Booking refreshed successfully');
                 }
-            } catch (err: any) {
-                console.error("Fetch error:", err);
-            } finally {
-                setLoading(false);
             }
-        };
+        } catch (err: any) {
+            console.error("Fetch error:", err);
+        } finally {
+            if (isRefresh) setRefreshing(false);
+            setLoading(false);
+        }
+    };
 
-        if (id) fetchBooking();
+    //  Initial fetch
+    useEffect(() => {
+        if (id) fetchBooking(false);
     }, [id]);
+
+    // Auto-refresh every 30 seconds
+    useEffect(() => {
+        if (!id || loading) return;
+
+        const interval = setInterval(() => {
+            console.log('⏰ [Client] Auto-refresh triggered');
+            fetchBooking(true);
+        }, 30000); // 30 seconds
+
+        return () => clearInterval(interval);
+    }, [id, loading]);
 
     // ... (rest of logic)
 
-    // Inline Login Prompt if Auth Failed
-    if (authError && !booking) {
+    // Check if we have a token in URL - if so, don't show auth errors
+    const urlParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+    const hasToken = urlParams?.get('token');
+
+    // Inline Login Prompt if Auth Failed (but NOT if we have a valid token)
+    if (authError && !booking && !hasToken) {
         // If it's a fresh booking (Guest Flow), show Success Message instead of potentially confusing Auth Prompt
         if (isSuccess) {
             return (
@@ -291,6 +336,10 @@ export default function BookingDashboardPage() {
             reader.onload = async () => {
                 const base64Content = reader.result?.toString().split(',')[1];
 
+                // Get token from URL if present
+                const urlParams = new URLSearchParams(window.location.search);
+                const viewToken = urlParams.get('token');
+
                 const res = await fetch('/api/payments/upload-receipt', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -299,7 +348,8 @@ export default function BookingDashboardPage() {
                         fileData: base64Content,
                         fileName: file.name,
                         fileType: file.type,
-                        installmentLabel: nextLabel
+                        installmentLabel: nextLabel,
+                        token: viewToken // Send token for authentication if present
                     })
                 });
 
@@ -389,7 +439,7 @@ export default function BookingDashboardPage() {
 
                                             {/* Passos das Prestações Dinâmicas */}
                                             {hasPlan ? (
-                                                paymentPlan.map((step, idx) => {
+                                                paymentPlan.map((step: any, idx: number) => {
                                                     const state = getInstallmentState(idx, Number(step.amount));
                                                     return (
                                                         <div key={idx} className="space-y-4">
@@ -445,6 +495,40 @@ export default function BookingDashboardPage() {
                                             </div>
                                         </div>
                                     </div>
+                                </div>
+
+                                {/* New Graphical Installment Tracker */}
+                                <div className="lg:col-span-12 mt-8">
+                                    {/* Refresh Button */}
+                                    <div className="flex justify-end mb-4">
+                                        <button
+                                            onClick={() => fetchBooking(true)}
+                                            disabled={refreshing}
+                                            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white rounded-xl font-medium text-sm transition-all shadow-sm"
+                                        >
+                                            {refreshing ? (
+                                                <>
+                                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                                    <span>A atualizar...</span>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                                    </svg>
+                                                    <span>Atualizar Pagamentos</span>
+                                                </>
+                                            )}
+                                        </button>
+                                    </div>
+
+                                    <InstallmentTracker
+                                        totalAmount={totalAmount}
+                                        paidAmount={paidAmount}
+                                        depositValue={depositValue}
+                                        paymentPlan={paymentPlan}
+                                        payments={booking.payments || []}
+                                    />
                                 </div>
 
                                 {/* ACÇÕES DE PAGAMENTO (Direita) */}
@@ -544,7 +628,7 @@ export default function BookingDashboardPage() {
                                 </div>
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                    {booking.payment_plan.map((inst, idx) => (
+                                    {paymentPlan.map((inst: any, idx: number) => (
                                         <div key={idx} className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex justify-between items-center group hover:border-indigo-200 transition-all">
                                             <div className="flex items-center gap-4">
                                                 <div className="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center font-bold text-slate-400 group-hover:bg-indigo-50 group-hover:text-indigo-500 transition-colors">

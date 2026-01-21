@@ -19,11 +19,26 @@ import {
     Star,
     Bus,
     Hotel,
-    FileText
+    FileText,
+    X,
+    Info
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { pt } from 'date-fns/locale';
-import SpiritMap from '../../../components/pilgrimage/SpiritMap';
+import dynamic from 'next/dynamic';
+
+// Lazy load heavy map component
+const SpiritMap = dynamic(() => import('../../../components/pilgrimage/SpiritMap'), {
+    ssr: false,
+    loading: () => (
+        <div className="rounded-3xl overflow-hidden shadow-2xl border border-slate-800 bg-slate-950 flex items-center justify-center" style={{ height: 500 }}>
+            <div className="text-center">
+                <div className="w-16 h-16 border-4 border-yellow-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                <p className="text-slate-400 text-sm">A carregar mapa...</p>
+            </div>
+        </div>
+    )
+});
 import UniversalStickyBar from '../../../components/pilgrimage/UniversalStickyBar';
 import ExitIntentPopup from '../../../components/pilgrimage/ExitIntentPopup';
 import { BrochureDownloadModal } from '../../../components/pilgrimage/BrochureDownloadModal';
@@ -59,6 +74,16 @@ type Pilgrimage = {
             quadruple?: number;
         };
     };
+    // New fields for upgrade
+    meeting_point_text?: string;
+    meeting_end_text?: string;
+    flight_info_text?: string;
+    flight_price_from?: number;
+    payment_plan_text?: string;
+    cancellation_policy_text?: string;
+    not_included_items?: string[];
+    registration_deadline?: string;
+    group_flight_details?: string;
 };
 
 type GlobalLogistics = {
@@ -229,7 +254,7 @@ export default function PilgrimageDetailPage() {
                         />
                     )}
                     <div className="absolute inset-0 z-20 container mx-auto px-6 h-full flex flex-col justify-end pb-12">
-                        <Link href="/member/peregrinacoes" className="inline-flex items-center text-white/80 hover:text-white mb-6 transition-colors">
+                        <Link href="/peregrinacoes" className="inline-flex items-center text-white/80 hover:text-white mb-6 transition-colors">
                             <ArrowLeft className="w-5 h-5 mr-2" /> Voltar à lista
                         </Link>
                         <div className="flex items-center gap-3 text-yellow-300 font-bold uppercase tracking-wider text-sm mb-3">
@@ -244,10 +269,6 @@ export default function PilgrimageDetailPage() {
                                 <div className="flex items-center gap-2">
                                     <Calendar className="w-5 h-5 text-yellow-400" />
                                     {format(startDate, "d 'de' MMMM", { locale: pt })} a {format(endDate, "d 'de' MMMM, yyyy", { locale: pt })}
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <MapPin className="w-5 h-5 text-yellow-400" />
-                                    Garabandal, Espanha
                                 </div>
                             </div>
                         </div>
@@ -264,65 +285,90 @@ export default function PilgrimageDetailPage() {
                                 <p className="text-slate-600 text-lg leading-relaxed whitespace-pre-line">{pilgrimage.description}</p>
                             </div>
 
-                            {/* Testimonials */}
-                            {testimonials.length > 0 && (
+                            {/* Inclusions (New Section) */}
+                            {(pilgrimage.included_items?.length || pilgrimage.not_included_items?.length) && (
                                 <div className="space-y-6">
-                                    <div className="flex items-center justify-between">
-                                        <h2 className="text-xl font-serif font-bold text-slate-900">O que dizem os peregrinos</h2>
-                                        <div className="flex items-center gap-1 text-yellow-500 bg-yellow-50 px-3 py-1 rounded-full border border-yellow-100">
-                                            <Star className="w-4 h-4 fill-current" />
-                                            <span className="text-xs font-bold text-yellow-700">Experiências Reais</span>
+                                    <h2 className="text-2xl font-serif font-bold text-slate-900 flex items-center gap-2">
+                                        <CheckCircle2 className="w-6 h-6 text-yellow-600" /> O que está incluído
+                                    </h2>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 bg-white p-8 rounded-3xl shadow-xl border border-slate-100">
+                                        {/* Included */}
+                                        <div className="space-y-4">
+                                            <h3 className="font-bold text-emerald-700 bg-emerald-50 px-3 py-1 rounded-lg w-fit text-sm uppercase tracking-wider">Incluído</h3>
+                                            <ul className="space-y-3">
+                                                {pilgrimage.included_items && pilgrimage.included_items.length > 0 ? (
+                                                    pilgrimage.included_items.map((item, i) => (
+                                                        <li key={i} className="flex items-start gap-3 text-slate-700 leading-snug">
+                                                            <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" />
+                                                            <span>{item}</span>
+                                                        </li>
+                                                    ))
+                                                ) : (
+                                                    <li className="text-slate-400 italic">Informação não disponível</li>
+                                                )}
+                                            </ul>
                                         </div>
-                                    </div>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        {testimonials.slice(0, 4).map((t) => (
-                                            <div key={t.id} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex flex-col hover:shadow-md transition-shadow">
-                                                <div className="flex gap-3 items-center mb-3">
-                                                    <div className="w-10 h-10 rounded-full overflow-hidden bg-slate-100 border border-slate-50">
-                                                        {t.image_url ? <img src={t.image_url} className="w-full h-full object-cover" /> : <div className="w-full h-full bg-slate-200" />}
-                                                    </div>
-                                                    <div>
-                                                        <p className="font-bold text-slate-900 text-sm">{t.author_name}</p>
-                                                        <p className="text-slate-500 text-[10px] uppercase tracking-wider">{t.role}</p>
-                                                    </div>
-                                                </div>
-                                                <div className="flex-1 relative">
-                                                    <Quote className="w-6 h-6 text-yellow-400 absolute -top-1 -left-1 opacity-20 rotate-180" />
-                                                    <p className="text-slate-600 text-sm italic relative z-10 pl-2">"{t.text}"</p>
-                                                </div>
-                                            </div>
-                                        ))}
+
+                                        {/* Not Included */}
+                                        <div className="space-y-4">
+                                            <h3 className="font-bold text-red-700 bg-red-50 px-3 py-1 rounded-lg w-fit text-sm uppercase tracking-wider">Não Incluído</h3>
+                                            <ul className="space-y-3">
+                                                {pilgrimage.not_included_items && pilgrimage.not_included_items.length > 0 ? (
+                                                    pilgrimage.not_included_items.map((item, i) => (
+                                                        <li key={i} className="flex items-start gap-3 text-slate-600 leading-snug">
+                                                            <X className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
+                                                            <span>{item}</span>
+                                                        </li>
+                                                    ))
+                                                ) : (
+                                                    <li className="text-slate-400 italic">Nada a assinalar</li>
+                                                )}
+                                            </ul>
+                                        </div>
                                     </div>
                                 </div>
                             )}
 
-                            {/* Team */}
-                            {teamMembers.length > 0 && (
-                                <div className="space-y-8">
-                                    {teamMembers.some(m => m.is_special_guest) && (
-                                        <div className="space-y-4">
-                                            <h2 className="text-xl font-serif font-bold text-slate-900 flex items-center gap-2">
-                                                <Star className="w-5 h-5 text-yellow-500 fill-yellow-500" /> Convidados Especiais
-                                            </h2>
-                                            <div className="grid gap-6">
-                                                {teamMembers.filter(m => m.is_special_guest).map(member => (
-                                                    <div key={member.id} className="bg-white p-6 rounded-3xl shadow-lg border border-yellow-100 bg-gradient-to-br from-white to-yellow-50/50 flex flex-col md:flex-row gap-6">
-                                                        <div className="w-24 h-24 md:w-32 md:h-32 flex-shrink-0 rounded-full bg-yellow-100 border-4 border-white shadow-md overflow-hidden mx-auto md:mx-0">
-                                                            {member.image_url ? <img src={member.image_url} alt={member.name} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-yellow-300"><Users className="w-10 h-10" /></div>}
-                                                        </div>
-                                                        <div className="flex-1 text-center md:text-left">
-                                                            <div className="flex flex-col md:flex-row md:items-center gap-2 mb-2 justify-center md:justify-start">
-                                                                <h3 className="text-xl font-bold text-slate-900">{member.name}</h3>
-                                                                <span className="px-3 py-1 bg-yellow-100 text-yellow-800 text-xs font-bold rounded-full uppercase tracking-wider w-fit mx-auto md:mx-0">{member.role}</span>
-                                                            </div>
-                                                            <p className="text-sm font-medium text-slate-400 mb-3 flex items-center justify-center md:justify-start gap-1"><MapPin className="w-3 h-3" /> {member.country}</p>
-                                                            <p className="text-slate-600 leading-relaxed text-sm">{member.description}</p>
-                                                        </div>
+                            {/* Financials & Policy (New Section) */}
+                            {(pilgrimage.payment_plan_text || pilgrimage.cancellation_policy_text) && (
+                                <div className="space-y-6">
+                                    <h2 className="text-2xl font-serif font-bold text-slate-900 flex items-center gap-2">
+                                        <FileText className="w-6 h-6 text-yellow-600" /> Pagamentos e Condições
+                                    </h2>
+                                    <div className="grid grid-cols-1 gap-6">
+                                        {pilgrimage.payment_plan_text && (
+                                            <div className="bg-gradient-to-br from-indigo-50 to-white p-6 rounded-2xl border border-indigo-100 shadow-sm relative overflow-hidden">
+                                                <div className="flex items-start gap-4 relative z-10">
+                                                    <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 shrink-0">
+                                                        <Clock className="w-5 h-5" />
                                                     </div>
-                                                ))}
+                                                    <div>
+                                                        <h3 className="font-bold text-indigo-900 mb-2">Facilidades de Pagamento</h3>
+                                                        <p className="text-indigo-800/80 leading-relaxed whitespace-pre-line">{pilgrimage.payment_plan_text}</p>
+                                                    </div>
+                                                </div>
                                             </div>
-                                        </div>
-                                    )}
+                                        )}
+
+                                        {pilgrimage.cancellation_policy_text && (
+                                            <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+                                                <details className="group">
+                                                    <summary className="flex items-center justify-between p-6 cursor-pointer hover:bg-slate-50 transition-colors">
+                                                        <div className="flex items-center gap-3 font-bold text-slate-700">
+                                                            <ShieldCheck className="w-5 h-5 text-slate-400" />
+                                                            Política de Cancelamento
+                                                        </div>
+                                                        <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 group-open:rotate-180 transition-transform">
+                                                            <ArrowLeft className="w-4 h-4 -rotate-90" />
+                                                        </div>
+                                                    </summary>
+                                                    <div className="px-6 pb-8 text-slate-600 leading-relaxed whitespace-pre-line border-t border-slate-100 pt-4 bg-slate-50/30">
+                                                        {pilgrimage.cancellation_policy_text}
+                                                    </div>
+                                                </details>
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                             )}
 
@@ -346,6 +392,83 @@ export default function PilgrimageDetailPage() {
                                     )) : <p className="text-slate-500 italic">Roteiro detalhado em breve.</p>}
                                 </div>
                             </div>
+
+                            {/* Detalhes Logísticos (Moved Below Itinerary) */}
+                            {(pilgrimage.meeting_point_text || pilgrimage.meeting_end_text || pilgrimage.flight_info_text) && (
+                                <div className="space-y-6">
+                                    <h2 className="text-2xl font-serif font-bold text-slate-900 flex items-center gap-2">
+                                        <Plane className="w-6 h-6 text-yellow-600" /> Logística e Voos
+                                    </h2>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        {pilgrimage.meeting_point_text && (
+                                            <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+                                                <div className="flex items-center gap-2 mb-3 text-emerald-600 font-bold uppercase text-xs tracking-wider">
+                                                    <MapPin className="w-4 h-4" /> Ponto de Encontro
+                                                </div>
+                                                <p className="text-slate-700 whitespace-pre-line leading-relaxed">{pilgrimage.meeting_point_text}</p>
+                                            </div>
+                                        )}
+                                        {pilgrimage.meeting_end_text && (
+                                            <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+                                                <div className="flex items-center gap-2 mb-3 text-red-500 font-bold uppercase text-xs tracking-wider">
+                                                    <MapPin className="w-4 h-4" /> Fim da Viagem
+                                                </div>
+                                                <p className="text-slate-700 whitespace-pre-line leading-relaxed">{pilgrimage.meeting_end_text}</p>
+                                            </div>
+                                        )}
+
+                                        {/* Flight Options Row */}
+                                        {(pilgrimage.flight_info_text || pilgrimage.flight_price_from) && (
+                                            <div className="md:col-span-2 space-y-4">
+                                                <h3 className="text-lg font-bold text-slate-800">Opções de Voo</h3>
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+                                                    {/* Option A: Own Flight */}
+                                                    <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200 relative overflow-hidden flex flex-col">
+                                                        <div className="absolute top-0 right-0 bg-slate-200 text-slate-600 text-[10px] font-bold px-3 py-1 rounded-bl-xl uppercase tracking-wider">Opção A</div>
+                                                        <div className="flex items-center gap-2 mb-3 text-slate-700 font-bold uppercase text-xs tracking-wider">
+                                                            <Plane className="w-4 h-4" /> Voo Próprio
+                                                        </div>
+                                                        <p className="text-slate-500 text-xs mb-4 font-bold bg-slate-200/50 px-2 py-1 rounded w-fit">Flexibilidade</p>
+                                                        <p className="text-slate-600 whitespace-pre-line leading-relaxed text-sm bg-white p-4 rounded-xl border border-slate-100 flex-1">
+                                                            {pilgrimage.flight_info_text || "Sem informação adicional."}
+                                                        </p>
+                                                    </div>
+
+                                                    {/* Option B: Group Flight */}
+                                                    {pilgrimage.flight_price_from ? (
+                                                        <div className="bg-indigo-50 p-6 rounded-2xl border border-indigo-100 relative overflow-hidden flex flex-col">
+                                                            <div className="absolute top-0 right-0 bg-indigo-500 text-white text-[10px] font-bold px-3 py-1 rounded-bl-xl uppercase tracking-wider">Opção B</div>
+                                                            <div className="flex items-center gap-2 mb-3 text-indigo-700 font-bold uppercase text-xs tracking-wider">
+                                                                <Users className="w-4 h-4" /> Voo de Grupo
+                                                            </div>
+                                                            <p className="text-indigo-600/70 text-xs mb-6 font-bold bg-indigo-100/50 px-2 py-1 rounded w-fit">Recomendado</p>
+                                                            <div className="mt-auto">
+                                                                <p className="text-indigo-900/80 text-sm mb-4 font-medium leading-relaxed">
+                                                                    Lugar garantido em voo organizado pela agência. Ideal para viajar acompanhado e sem preocupações.
+                                                                </p>
+                                                                {pilgrimage.group_flight_details && (
+                                                                    <div className="mb-4 bg-white/60 p-3 rounded-lg border border-indigo-100/50 text-xs text-indigo-800 whitespace-pre-line leading-relaxed">
+                                                                        {pilgrimage.group_flight_details}
+                                                                    </div>
+                                                                )}
+                                                                <div className="bg-white p-4 rounded-xl border border-indigo-100 flex justify-between items-center shadow-sm">
+                                                                    <span className="text-xs text-indigo-400 font-bold uppercase">Preço a partir de</span>
+                                                                    <div className="text-2xl font-bold text-indigo-600">{pilgrimage.flight_price_from}€</div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200 border-dashed flex items-center justify-center text-slate-400 text-sm italic">
+                                                            Opção de voo de grupo não disponível.
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
                         </div>
 
                         {/* Column Right (Sidebar) */}
@@ -374,6 +497,12 @@ export default function PilgrimageDetailPage() {
                                     </div>
                                     <div className="space-y-4 mb-8">
                                         <div className="flex justify-between py-3 border-b text-slate-600 font-medium"><span className="flex items-center gap-2"><Calendar className="w-4 h-4" /> Partida</span><span className="text-slate-900 font-bold">{format(startDate, "d MMM", { locale: pt })}</span></div>
+                                        {pilgrimage.registration_deadline && (
+                                            <div className="flex justify-between py-3 border-b text-slate-600 font-medium">
+                                                <span className="flex items-center gap-2 text-red-500 font-bold"><Clock className="w-4 h-4" /> Inscrições até</span>
+                                                <span className="text-red-600 font-bold">{format(new Date(pilgrimage.registration_deadline), "d MMM", { locale: pt })}</span>
+                                            </div>
+                                        )}
                                         <div className="flex justify-between py-3 border-b text-slate-600 font-medium"><span className="flex items-center gap-2"><Users className="w-4 h-4" /> Vagas</span><span className="text-slate-900 font-bold">{pilgrimage.current_vacancies} lugares</span></div>
                                     </div>
                                     {isClosed ? (
@@ -381,7 +510,9 @@ export default function PilgrimageDetailPage() {
                                     ) : existingBooking ? (
                                         <Link href={`/peregrinacoes/inscricao/${existingBooking}`} className="w-full bg-green-600 text-white font-bold py-4 rounded-xl flex items-center justify-center gap-2 shadow-lg"><CheckCircle2 className="w-5 h-5" /> Gerir Inscrição</Link>
                                     ) : (
-                                        <Link href={`/peregrinacoes/${pilgrimage.slug}/inscrever`} className="w-full bg-slate-900 text-white font-bold py-4 rounded-xl flex items-center justify-center gap-2 shadow-lg">Inscrever Agora <ArrowLeft className="w-4 h-4 rotate-180" /></Link>
+                                        <Link href={`/peregrinacoes/${pilgrimage.slug}/inscrever`} className="w-full bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-4 rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-yellow-200 transition-all active:scale-[0.98]">
+                                            Inscrever Agora <ArrowLeft className="w-5 h-5 rotate-180" />
+                                        </Link>
                                     )}
                                 </div>
                                 <div className="bg-blue-50/50 rounded-2xl p-4 flex items-start gap-3 border border-blue-100">

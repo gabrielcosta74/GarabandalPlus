@@ -1,9 +1,10 @@
 import Stripe from 'stripe';
 import { initReduniqPayment } from './reduniq';
 import { supabaseServer } from './supabase';
+import { getAppUrl } from './config';
 
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
+const siteUrl = getAppUrl();
 const MEMBERSHIP_RENEW_WINDOW_DAYS = 30;
 
 if (!stripeSecretKey) {

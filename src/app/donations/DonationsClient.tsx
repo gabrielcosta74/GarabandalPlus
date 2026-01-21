@@ -7,6 +7,8 @@ import DonationAllocation from '../../components/donations/DonationAllocation';
 import DonationFAQ from '../../components/donations/DonationFAQ';
 import DonationModal from '../../components/donations/DonationModal';
 
+import MobileDonationCTA from '../../components/donations/MobileDonationCTA';
+
 type ProgressMeta = {
     goal: number;
     raised: number;
@@ -54,6 +56,7 @@ export default function DonationsClient() {
             </section>
 
             <DonationModal isOpen={modalOpen} onClose={() => setModalOpen(false)} />
+            <MobileDonationCTA onDonate={() => setModalOpen(true)} />
         </main>
     );
 }

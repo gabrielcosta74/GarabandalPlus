@@ -22,6 +22,12 @@ type Pilgrimage = {
     current_vacancies: number;
     base_price: number;
     status: string;
+    meeting_point_text?: string;
+    meeting_end_text?: string;
+    flight_info_text?: string;
+    payment_plan_text?: string;
+    cancellation_policy_text?: string;
+    not_included_items?: string[];
 };
 
 export default function PilgrimagesPage() {
@@ -30,7 +36,10 @@ export default function PilgrimagesPage() {
 
     useEffect(() => {
         const fetchPilgrimages = async () => {
-            if (!supabaseBrowser) return;
+            if (!supabaseBrowser) {
+                setLoading(false);
+                return;
+            }
 
             const { data, error } = await supabaseBrowser
                 .from('pilgrimages')
@@ -115,6 +124,7 @@ export default function PilgrimagesPage() {
                     )}
 
                     {/* Newsletter / Waitlist CTA */}
+
                     <div className="mt-20 bg-slate-900 rounded-3xl p-8 md:p-12 text-center relative overflow-hidden">
                         <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-yellow-500/10 rounded-full blur-[80px] translate-x-1/2 -translate-y-1/2" />
                         <div className="relative z-10 max-w-2xl mx-auto">
@@ -122,20 +132,81 @@ export default function PilgrimagesPage() {
                             <p className="text-slate-400 mb-8">
                                 Inscreva-se na nossa lista VIP para receber notificações prioritárias sobre novas datas e roteiros exclusivos.
                             </p>
-                            <div className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto">
-                                <input
-                                    type="email"
-                                    placeholder="O seu melhor email"
-                                    className="flex-1 h-12 rounded-xl px-4 bg-white/10 border border-white/10 text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-yellow-500/50"
-                                />
-                                <button className="h-12 px-8 bg-yellow-500 hover:bg-yellow-400 text-slate-900 font-bold rounded-xl transition-colors">
-                                    Avise-me
-                                </button>
-                            </div>
+                            <GeneralWaitlistForm />
                         </div>
                     </div>
+
                 </div>
             </div>
         </VIPLayout>
+    );
+}
+
+function GeneralWaitlistForm() {
+    const [email, setEmail] = useState('');
+    const [loading, setLoading] = useState(false);
+    const [status, setStatus] = useState<'idle' | 'success' | 'error'>('idle');
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!email) return;
+
+        setLoading(true);
+        try {
+            const res = await fetch('/api/leads/capture', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    email,
+                    type: 'general_waitlist',
+                    channel_preference: 'email'
+                })
+            });
+
+            if (res.ok) {
+                setStatus('success');
+                setEmail('');
+            } else {
+                setStatus('error');
+            }
+        } catch (error) {
+            setStatus('error');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    if (status === 'success') {
+        return (
+            <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-6 max-w-md mx-auto animate-fade-in text-center">
+                <p className="text-green-400 font-medium mb-1">✨ Inscrição confirmada</p>
+                <p className="text-green-400/80 text-sm">Será contactado pelo Apostolado quando surgir uma nova peregrinação.</p>
+            </div>
+        );
+    }
+
+    return (
+        <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto relative">
+            <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="O seu melhor email"
+                disabled={loading}
+                className="w-full sm:flex-1 h-16 shrink-0 text-lg rounded-xl px-4 bg-white/10 border border-white/10 text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-yellow-500/50 disabled:opacity-50 appearance-none"
+            />
+            <button
+                type="submit"
+                disabled={loading}
+                className="w-full sm:w-auto h-16 shrink-0 px-8 bg-yellow-500 hover:bg-yellow-400 text-slate-900 font-bold rounded-xl transition-colors disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center min-w-[120px] text-lg"
+            >
+                {loading ? <div className="animate-spin w-5 h-5 border-2 border-slate-900 border-t-transparent rounded-full" /> : 'Avise-me'}
+            </button>
+            {status === 'error' && (
+                <div className="absolute -bottom-8 left-0 w-full text-center">
+                    <p className="text-red-400 text-sm">Ocorreu um erro. Tente novamente.</p>
+                </div>
+            )}
+        </form>
     );
 }

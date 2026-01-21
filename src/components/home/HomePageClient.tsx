@@ -2,12 +2,10 @@
 
 import React, { useState } from 'react';
 import Preloader from './Preloader';
-import Navbar from './Navbar';
 import Hero from './Hero';
 import Pillars from './Pillars';
 import Campaign from './Campaign';
 import Sustain from './Sustain';
-import Testimonials from './Testimonials';
 import { DonationMeta } from '../../lib/donations';
 
 interface HomePageClientProps {
@@ -41,12 +39,10 @@ const HomePageClient: React.FC<HomePageClientProps> = ({ meta }) => {
 
                     {/* Content */}
                     <div className="relative z-10">
-                        <Navbar />
                         <Hero />
                         <Pillars />
                         <Campaign meta={meta} />
                         <Sustain />
-                        <Testimonials />
                     </div>
                 </div>
             )}

@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { stripe } from '../../../../lib/payments';
 import { supabaseServer } from '../../../../lib/supabase';
 import { processPaidStoreOrder } from '../../../../lib/store-orders';
-import { buildStoreInvoiceInput, issueFactPtInvoice } from '../../../../lib/factpt-issuer';
+
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -44,17 +44,6 @@ export async function POST(request: Request) {
       paymentProvider: 'stripe',
       paymentMethod: 'stripe_checkout',
     });
-    try {
-      const storeInput = await buildStoreInvoiceInput({
-        orderRef,
-        paymentMethod: 'stripe_checkout',
-      });
-      if (storeInput) {
-        await issueFactPtInvoice(storeInput);
-      }
-    } catch (err) {
-      console.warn('Fact.pt loja falhou:', err);
-    }
 
     return NextResponse.json({ ok: true });
   } catch (err) {

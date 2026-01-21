@@ -160,6 +160,7 @@ export default function AcademyHubPage() {
             setLoading(true);
 
             let data: Course[] | null = null;
+            let error = null;
 
             if (supabaseBrowser) {
                 const response = await supabaseBrowser
@@ -167,14 +168,20 @@ export default function AcademyHubPage() {
                     .select('*')
                     .eq('published', true)
                     .order('created_at', { ascending: false });
+
                 data = response.data;
+                error = response.error;
+            }
+
+            if (error) {
+                console.error("Error loading courses:", error);
             }
 
             if (data && data.length > 0) {
+                console.log("Loaded courses from DB:", data.length);
                 setCourses(data);
             } else {
-                // FALLBACK TO MOCK IF SUPERBASE IS EMPTY (FOR DEMO)
-                console.log("No courses found in DB (or Supabase offline), using mocks.");
+                console.log("No courses found in DB, using mocks for demonstration.");
                 setCourses(MOCK_COURSES);
             }
             setLoading(false);

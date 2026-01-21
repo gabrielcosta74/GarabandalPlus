@@ -1,5 +1,8 @@
+// URLs
+export const OFFICIAL_SITE_URL = "https://apostoladodegarabandal.com";
+
 // Images
-export const HERO_IMAGE_URL = "https://images.unsplash.com/photo-1510303099958-3d5df0274191?q=80&w=3431&auto=format&fit=crop"; // Misty mountains/Spiritual
+export const HERO_IMAGE_URL = "/images/fundolandingpage.webp"; // Misty mountains/Spiritual
 export const CASA_IMAGE_URL = "/images/casaantes2.webp"; // House/Shelter concept
 export const SHOP_IMAGE_URL = "https://images.unsplash.com/photo-1544258720-40409745d33e?q=80&w=2000&auto=format&fit=crop"; // Religious items
 export const MEMBER_IMAGE_URL = "/images/associacao.webp"; // Community/Candles
@@ -7,7 +10,7 @@ export const MEMBER_IMAGE_URL = "/images/associacao.webp"; // Community/Candles
 export const NAVIGATION_LINKS = [
     { name: 'Ser Membro', href: '/tornar-membro' }, // Changed to internal route
     { name: 'Loja Online', href: '/loja-online' }, // Changed to internal route
-    { name: 'Peregrinações', href: '/member/peregrinacoes' },
+    { name: 'Peregrinações', href: '/peregrinacoes' },
     { name: 'Doações', href: '/donations' }, // Changed to internal route
 ];
 
@@ -24,7 +27,7 @@ export const PILLARS_CONTENT = [
         description: "Envie as suas intenções. Uma rede mundial de oração unida pelo Imaculado Coração.",
         action: "Enviar Intenção",
         link: "/intencoes",
-        backgroundImage: "/images/igrejagarabandal.jpg",
+        backgroundImage: "/images/igrejagarabandal.webp",
         highlight: false
     },
     {

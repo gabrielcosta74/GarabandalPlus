@@ -1,3 +1,5 @@
+import { getAppUrl } from './config';
+
 type ReduniqApiConfig = {
   apiUrl: string;
   username: string;
@@ -49,6 +51,11 @@ const getApiConfig = (): ReduniqApiConfig => {
   const username = process.env.REDUNIQ_API_USERNAME || '';
   const password = process.env.REDUNIQ_API_PASSWORD || '';
 
+  console.log('🔍 [REDUNIQ DEBUG] Environment:', process.env.REDUNIQ_ENV);
+  console.log('🔍 [REDUNIQ DEBUG] Username:', username ? `${username.substring(0, 3)}***` : 'EMPTY');
+  console.log('🔍 [REDUNIQ DEBUG] Password:', password ? `${password.substring(0, 3)}***` : 'EMPTY');
+  console.log('🔍 [REDUNIQ DEBUG] API URL:', apiUrl);
+
   if (!username || !password) {
     throw new Error('Credenciais REDUNIQ não configuradas.');
   }
@@ -72,6 +79,10 @@ const requestReduniq = async <T>(payload: Record<string, unknown>) => {
   });
 
   const data = (await response.json().catch(() => ({}))) as T;
+
+  console.log('📡 [REDUNIQ DEBUG] Response Status:', response.status, response.statusText);
+  console.log('📡 [REDUNIQ DEBUG] Response Data:', JSON.stringify(data, null, 2));
+
   if (!response.ok) {
     throw new Error((data as any)?.result?.message || 'Erro ao comunicar com a REDUNIQ.');
   }
@@ -87,7 +98,7 @@ export const initReduniqPayment = async ({
   orderRef: orderRefOverride,
 }: ReduniqInitPayload): Promise<ReduniqInitResponse> => {
   const { username, password } = getApiConfig();
-  const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000').replace(/\/$/, '');
+  const siteUrl = getAppUrl();
   const amountCents = Math.round(amount * 100);
   const orderRef = orderRefOverride || `reduniq_${type}_${Date.now()}`;
   const description =

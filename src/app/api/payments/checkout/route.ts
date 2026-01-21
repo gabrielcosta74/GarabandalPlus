@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { stripe } from '../../../../lib/stripe';
 import { supabaseServer } from '../../../../lib/supabase';
+import { getAppUrl } from '../../../../lib/config';
 
 export async function POST(req: Request) {
     try {
@@ -44,7 +45,7 @@ export async function POST(req: Request) {
         }
 
         // 3. Create Stripe Session
-        const origin = req.headers.get('origin') || process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
+        const origin = req.headers.get('origin') || getAppUrl();
 
         const session = await stripe.checkout.sessions.create({
             payment_method_types: ['card', 'multibanco'], // Add 'multibanco' if stripe account supports it

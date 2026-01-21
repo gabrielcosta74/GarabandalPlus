@@ -73,7 +73,7 @@ export default function EventCard({ event }: EventCardProps) {
                                 flex items-center justify-center gap-2 w-full py-2.5 rounded-lg text-sm font-bold uppercase tracking-wide transition-all
                                 ${isLive
                                     ? 'bg-green-600 hover:bg-green-500 text-white shadow-lg shadow-green-900/20'
-                                    : 'bg-white/5 hover:bg-white/10 text-white border border-white/5 hover:border-white/20'
+                                    : 'bg-white/10 hover:bg-white/20 text-white border border-white/10 hover:border-white/30'
                                 }
                             `}
                         >

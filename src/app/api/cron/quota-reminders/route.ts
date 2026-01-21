@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { supabaseServer } from '../../../../lib/supabase';
 import { sendQuotaReminderEmail } from '../../../../lib/email';
 import { ensureNotificationRecord, markNotificationSent } from '../../../../lib/email-notifications';
+import { getAppUrl } from '../../../../lib/config';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -17,8 +18,8 @@ const daysBetweenUtc = (from: Date, to: Date) => {
 };
 
 const buildMembershipUrl = () => {
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://payments-web-kappa.vercel.app';
-  return `${siteUrl.replace(/\/$/, '')}/login?next=/member/quota`;
+  const siteUrl = getAppUrl();
+  return `${siteUrl}/login?next=/member/quota`;
 };
 
 const isFounderType = (value?: string | null) => (value || '').toLowerCase().includes('fundador');

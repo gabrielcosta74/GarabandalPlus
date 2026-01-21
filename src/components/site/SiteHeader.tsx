@@ -56,6 +56,11 @@ export default function SiteHeader() {
   const [cartPreview, setCartPreview] = useState<CartPreviewItem[]>([]);
   const [cartPreviewVisible, setCartPreviewVisible] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // -- Refs --
   const productsCache = useRef<CartPreviewItem[]>([]);
@@ -68,7 +73,7 @@ export default function SiteHeader() {
 
   // 1. Session & Membership Check
   useEffect(() => {
-    let mounted = true;
+    let active = true;
 
     const loadMember = async (userId: string) => {
       if (!supabaseBrowser) return;
@@ -77,17 +82,16 @@ export default function SiteHeader() {
         .select('is_membro')
         .eq('id', userId)
         .maybeSingle();
-      if (mounted) setIsMember(!!member?.is_membro);
+      if (active) setIsMember(!!member?.is_membro);
     };
 
     const loadSession = async () => {
       if (!supabaseBrowser) return;
       const { data } = await supabaseBrowser.auth.getSession();
-      if (mounted) setUser(data.session?.user ?? null);
+      if (active) setUser(data.session?.user ?? null);
 
       if (data.session?.user?.id) {
         const userId = data.session.user.id;
-        // Use idle callback or timeout to not block main thread
         setTimeout(() => loadMember(userId), 0);
       } else if (mounted) {
         setIsMember(false);
@@ -97,19 +101,19 @@ export default function SiteHeader() {
     loadSession();
 
     const { data: listener } = supabaseBrowser?.auth.onAuthStateChange(async (_event, session) => {
-      if (mounted) setUser(session?.user ?? null);
+      if (active) setUser(session?.user ?? null);
       if (session?.user?.id) {
         await loadMember(session.user.id);
-      } else if (mounted) {
+      } else if (active) {
         setIsMember(false);
       }
     }) ?? { data: { subscription: { unsubscribe() { } } } };
 
     return () => {
-      mounted = false;
+      active = false;
       listener.subscription.unsubscribe();
     };
-  }, []);
+  }, [mounted]);
 
   // 2. Cart Logic (Sync & Preview)
   useEffect(() => {
@@ -159,6 +163,7 @@ export default function SiteHeader() {
 
     // Initial load
     refreshCartCount();
+    void buildPreview();
 
     // Event Listeners
     const handleCartUpdate = () => {
@@ -176,16 +181,6 @@ export default function SiteHeader() {
     };
   }, []);
 
-  // 3. Scroll Lock for Mobile Menu
-  useEffect(() => {
-    if (mobileOpen) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = '';
-    }
-    return () => { document.body.style.overflow = ''; };
-  }, [mobileOpen]);
-
   // Logout Handler
   const handleLogout = async () => {
     if (!supabaseBrowser) return;
@@ -195,6 +190,16 @@ export default function SiteHeader() {
     router.replace('/');
     router.refresh();
   };
+
+  // 3. Scroll Lock for Mobile Menu
+  useEffect(() => {
+    if (mobileOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => { document.body.style.overflow = ''; };
+  }, [mobileOpen]);
 
   /* ------------------------------- Renderers -------------------------------- */
 
@@ -309,7 +314,7 @@ export default function SiteHeader() {
                       ))}
                     </div>
                     <div className="p-3 border-t border-slate-100">
-                      <Link href="/loja-online/checkout" className="flex w-full items-center justify-center py-2.5 px-4 bg-slate-900 text-yellow-500 text-sm font-bold rounded-xl hover:bg-slate-800 transition-colors shadow-lg shadow-yellow-900/10">
+                      <Link href="/loja-online/checkout" className="flex w-full items-center justify-center py-2.5 px-4 bg-yellow-600 text-white text-sm font-bold rounded-xl hover:bg-yellow-700 transition-colors shadow-lg shadow-yellow-900/10">
                         Finalizar Compra
                       </Link>
                     </div>
@@ -319,76 +324,84 @@ export default function SiteHeader() {
             </div>
 
             {/* User Menu (Desktop) */}
-            <div className="hidden lg:block">
-              {user ? (
-                <div className="relative">
-                  <button
-                    onClick={() => setUserMenuOpen(!userMenuOpen)}
-                    className="flex items-center gap-2 pl-1 pr-3 py-1 bg-white border border-slate-200 rounded-full hover:border-slate-300 transition-colors"
-                  >
-                    <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-700 font-bold text-xs">
-                      {user.email?.[0].toUpperCase()}
+            <div className="hidden lg:block min-w-[140px]">
+              {mounted && (
+                <>
+                  {user ? (
+                    <div className="relative">
+                      <button
+                        onClick={() => setUserMenuOpen(!userMenuOpen)}
+                        className="flex items-center gap-2 pl-1 pr-3 py-1 bg-white border border-slate-200 rounded-full hover:border-slate-300 transition-colors"
+                      >
+                        <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-700 font-bold text-xs">
+                          {user.email?.[0].toUpperCase()}
+                        </div>
+                        <span className="text-sm font-semibold text-slate-700 max-w-[100px] truncate">
+                          {user.email?.split('@')[0]}
+                        </span>
+                        <ChevronDown className="w-4 h-4 text-slate-400" />
+                      </button>
+
+                      <AnimatePresence>
+                        {userMenuOpen && (
+                          <>
+                            <div className="fixed inset-0 z-40" onClick={() => setUserMenuOpen(false)} />
+                            <motion.div
+                              initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                              animate={{ opacity: 1, y: 0, scale: 1 }}
+                              exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                              className="absolute top-full right-0 mt-2 w-64 bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden z-50"
+                            >
+                              <div className="p-4 bg-slate-50 border-b border-slate-100">
+                                <p className="font-bold text-slate-900 truncate">{user.email}</p>
+                                <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${isMember ? 'bg-yellow-100 text-yellow-800' : 'bg-slate-200 text-slate-600'}`}>
+                                  {isMember ? 'Membro Ativo' : 'Visitante'}
+                                </span>
+                              </div>
+                              <div className="p-2 space-y-1">
+                                <Link href="/account/profile" className="flex items-center gap-3 px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900 rounded-lg transition-colors">
+                                  <User className="w-4 h-4" /> Perfil
+                                </Link>
+                                <Link href="/encomendas" className="flex items-center gap-3 px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900 rounded-lg transition-colors">
+                                  <Package className="w-4 h-4" /> Encomendas
+                                </Link>
+                                {isMember && (
+                                  <Link href="/member" className="flex items-center gap-3 px-3 py-2 text-sm font-medium text-yellow-600 bg-yellow-50/50 hover:bg-yellow-50 rounded-lg transition-colors">
+                                    <LayoutDashboard className="w-4 h-4" /> Área de Membro
+                                  </Link>
+                                )}
+
+                                {/* ADMIN LINK */}
+                                {(user.email?.toLowerCase() === 'geral@apostoladodegarabandal.com' || user.email === 'Gabrielcosta2908@gmail.com') && (
+                                  <Link href="/admin" className="flex items-center gap-3 px-3 py-2 text-sm font-bold text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors mt-1">
+                                    <LayoutDashboard className="w-4 h-4" /> Painel Admin
+                                  </Link>
+                                )}
+                                <div className="h-px bg-slate-100 my-1" />
+                                <button onClick={handleLogout} className="w-full flex items-center gap-3 px-3 py-2 text-sm font-bold text-red-600 hover:bg-red-50 rounded-lg transition-colors text-left">
+                                  <LogOut className="w-4 h-4" /> Sair da conta
+                                </button>
+                              </div>
+                            </motion.div>
+                          </>
+                        )}
+                      </AnimatePresence>
                     </div>
-                    <span className="text-sm font-semibold text-slate-700 max-w-[100px] truncate">
-                      {user.email?.split('@')[0]}
-                    </span>
-                    <ChevronDown className="w-4 h-4 text-slate-400" />
-                  </button>
-
-                  <AnimatePresence>
-                    {userMenuOpen && (
-                      <>
-                        <div className="fixed inset-0 z-40" onClick={() => setUserMenuOpen(false)} />
-                        <motion.div
-                          initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                          animate={{ opacity: 1, y: 0, scale: 1 }}
-                          exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                          className="absolute top-full right-0 mt-2 w-64 bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden z-50"
-                        >
-                          <div className="p-4 bg-slate-50 border-b border-slate-100">
-                            <p className="font-bold text-slate-900 truncate">{user.email}</p>
-                            <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${isMember ? 'bg-yellow-100 text-yellow-800' : 'bg-slate-200 text-slate-600'}`}>
-                              {isMember ? 'Membro Ativo' : 'Visitante'}
-                            </span>
-                          </div>
-                          <div className="p-2 space-y-1">
-                            <Link href="/account/profile" className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900 rounded-lg transition-colors">
-                              <User className="w-4 h-4" /> Perfil
-                            </Link>
-                            <Link href="/encomendas" className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900 rounded-lg transition-colors">
-                              <Package className="w-4 h-4" /> Encomendas
-                            </Link>
-                            {isMember && (
-                              <Link href="/member" className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-yellow-600 bg-yellow-50/50 hover:bg-yellow-50 rounded-lg transition-colors">
-                                <LayoutDashboard className="w-4 h-4" /> Área de Membro
-                              </Link>
-                            )}
-
-                            {/* ADMIN LINK */}
-                            {(user.email?.toLowerCase() === 'geral@apostoladodegarabandal.com' || user.email === 'Gabrielcosta2908@gmail.com') && (
-                              <Link href="/admin" className="flex items-center gap-2 px-3 py-2 text-sm font-bold text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors mt-1">
-                                <LayoutDashboard className="w-4 h-4" /> Painel Admin
-                              </Link>
-                            )}
-                            <div className="h-px bg-slate-100 my-1" />
-                            <button onClick={handleLogout} className="w-full flex items-center gap-2 px-3 py-2 text-sm font-bold text-red-600 hover:bg-red-50 rounded-lg transition-colors text-left">
-                              <LogOut className="w-4 h-4" /> Sair da conta
-                            </button>
-                          </div>
-                        </motion.div>
-                      </>
-                    )}
-                  </AnimatePresence>
-                </div>
-              ) : (
-                <div className="flex items-center gap-3">
-                  <Link href="/login" className="text-sm font-bold text-slate-600 hover:text-slate-900">
-                    Entrar
-                  </Link>
-                  <Link href="/register" className="px-5 py-2.5 bg-slate-900 text-white text-sm font-bold rounded-full hover:bg-yellow-600 shadow-lg shadow-yellow-900/20 transition-all hover:scale-105">
-                    Criar Conta
-                  </Link>
-                </div>
+                  ) : (
+                    <div className="flex items-center gap-3">
+                      <Link href="/login" className="text-sm font-bold text-slate-600 hover:text-slate-900">
+                        Entrar
+                      </Link>
+                      <Link
+                        href="/register"
+                        className="px-5 py-2.5 text-white text-sm font-bold rounded-full shadow-lg shadow-yellow-900/20 transition-all hover:scale-105"
+                        style={{ backgroundColor: '#ca8a04' }}
+                      >
+                        Criar Conta
+                      </Link>
+                    </div>
+                  )}
+                </>
               )}
             </div>
 
@@ -444,11 +457,10 @@ export default function SiteHeader() {
               <div className="flex-1 overflow-y-auto px-6 py-6 scrollbar-hide">
                 {/* Public Links */}
                 <div className="space-y-1 mb-8">
-                  <p className="text-xs font-bold text-slate-400 uppercase tracking-widest px-4 mb-3">Navegação</p>
-                  <NavLink href="/" icon={Home} label="Página Inicial" onClick={() => setMobileOpen(false)} />
+                  <NavLink href="/" icon={Home} label="Início" onClick={() => setMobileOpen(false)} />
                   <NavLink href="/peregrinacoes" icon={MapPin} label="Peregrinações" onClick={() => setMobileOpen(false)} />
-                  <NavLink href="/loja-online" icon={Store} label="Loja Online" onClick={() => setMobileOpen(false)} />
-                  <NavLink href="/donations" icon={Heart} label="Fazer Doação" onClick={() => setMobileOpen(false)} />
+                  <NavLink href="/donations" icon={Heart} label="Doações" onClick={() => setMobileOpen(false)} />
+                  <NavLink href="/loja-online" icon={Store} label="Loja" onClick={() => setMobileOpen(false)} />
                 </div>
 
                 {/* Member Area */}
@@ -508,7 +520,8 @@ export default function SiteHeader() {
                       <Link
                         href="/register"
                         onClick={() => setMobileOpen(false)}
-                        className="flex justify-center py-3 rounded-xl bg-slate-900 font-bold text-white hover:bg-slate-800"
+                        className="flex justify-center py-3 rounded-xl font-bold text-white shadow-sm"
+                        style={{ backgroundColor: '#ca8a04' }}
                       >
                         Criar Conta
                       </Link>

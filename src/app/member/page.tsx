@@ -145,7 +145,7 @@ export default function MemberDashboardPage() {
                 <Calendar className="w-5 h-5 text-green-500" />
                 Próximo Encontro
               </h2>
-              <Link href="/member/calendar" className="text-sm font-bold text-green-500 hover:text-green-400 transition-colors flex items-center gap-1">
+              <Link href="/member/calendar" className="text-sm font-bold text-green-400 hover:text-green-300 transition-colors flex items-center gap-1">
                 Ver Calendário Completo <ArrowRight className="w-4 h-4" />
               </Link>
             </div>
@@ -161,7 +161,7 @@ export default function MemberDashboardPage() {
                 <p className="text-green-200/60 text-sm leading-relaxed mb-4">
                   Os nossos encontros são realizados online. Basta clicares no botão "Entrar Agora" qando a reunião começar. Podes consultar toda a agenda no calendário completo.
                 </p>
-                <Link href="/member/calendar" className="text-xs font-bold uppercase tracking-widest text-green-500 hover:underline">
+                <Link href="/member/calendar" className="text-xs font-bold uppercase tracking-widest text-green-400 hover:underline hover:text-green-300">
                   Ver todos os eventos &rarr;
                 </Link>
               </div>
@@ -201,7 +201,7 @@ export default function MemberDashboardPage() {
             <Link href="/member/velas" id="tut-intentions" className="group relative bg-slate-900 rounded-2xl border border-white/5 hover:border-orange-500/30 overflow-hidden transition-all hover:shadow-2xl hover:shadow-orange-900/20">
               <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent opacity-80" />
               {/* Church Image */}
-              <div className="h-64 bg-[url('/images/igrejagarabandal.jpg')] bg-cover bg-center opacity-40 group-hover:opacity-60 transition-opacity duration-500" />
+              <div className="h-64 bg-[url('/images/igrejagarabandal.webp')] bg-cover bg-center opacity-40 group-hover:opacity-60 transition-opacity duration-500" />
               <div className="absolute bottom-0 left-0 right-0 p-8">
                 <div className="w-12 h-12 bg-orange-600/20 rounded-xl flex items-center justify-center backdrop-blur-sm mb-4 text-orange-400">
                   <Flame className="w-6 h-6" />
@@ -220,7 +220,7 @@ export default function MemberDashboardPage() {
             <Link href="/member/cursos" id="tut-academy" className="group relative overflow-hidden rounded-3xl bg-slate-900 border border-white/5 transition-all hover:border-white/20 hover:shadow-2xl hover:shadow-orange-900/10">
               <div className="absolute inset-0 bg-gradient-to-br from-indigo-900/20 to-slate-900/50 opacity-0 group-hover:opacity-100 transition-opacity" />
               {/* Multimedia Background */}
-              <div className="absolute inset-0 bg-[url('/images/multimedia_background.png')] bg-cover bg-center opacity-20 group-hover:opacity-40 transition-opacity duration-500" />
+              <div className="absolute inset-0 bg-[url('/images/multimedia_background.webp')] bg-cover bg-center opacity-20 group-hover:opacity-40 transition-opacity duration-500" />
 
               <div className="relative p-8 h-full flex flex-col items-start gap-4">
                 <div className="p-3 bg-indigo-500/10 rounded-2xl group-hover:bg-indigo-500/20 transition-colors backdrop-blur-md">

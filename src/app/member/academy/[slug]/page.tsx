@@ -53,7 +53,28 @@ export default function CoursePlayerPage() {
             if (courseData) {
                 // DB Data Found
                 setCourse(courseData);
-                if (courseData.is_premium) setIsLocked(true);
+
+                // Logic: Default Locked if Premium
+                let lockedState = courseData.is_premium;
+
+                // If Premium, Check Enrollment
+                if (courseData.is_premium && supabaseBrowser) {
+                    const { data: { user } } = await supabaseBrowser.auth.getUser();
+                    if (user) {
+                        const { data: enrollment } = await supabaseBrowser
+                            .from('academy_enrollments')
+                            .select('id')
+                            .eq('user_id', user.id)
+                            .eq('course_id', courseData.id)
+                            .maybeSingle();
+
+                        // If enrollment exists, UNLOCK
+                        if (enrollment) {
+                            lockedState = false;
+                        }
+                    }
+                }
+                setIsLocked(lockedState);
 
                 if (supabaseBrowser) {
                     const { data: epData } = await supabaseBrowser

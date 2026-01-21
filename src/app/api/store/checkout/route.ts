@@ -5,6 +5,7 @@ import { supabaseServer } from '../../../../lib/supabase';
 import { validatePostalCode } from '../../../../lib/country-utils';
 import { getShippingCost, getShippingOrigin, getShippingZone, isPhysicalShippingAllowed } from '../../../../lib/shipping-rules';
 import { applyMemberDiscount, isActiveMember, MEMBER_DISCOUNT_RATE } from '../../../../lib/store-discounts';
+import { getAppUrl } from '../../../../lib/config';
 
 const itemSchema = z.object({
   id: z.string().min(1),
@@ -173,9 +174,9 @@ export async function POST(request: Request) {
       );
     }
 
-    if (!shipping) {
+    if (hasPhysical && !shipping) {
       return NextResponse.json(
-        { message: 'Morada obrigatória para emissão de fatura.', code: 'SHIPPING_REQUIRED', requestId },
+        { message: 'Morada obrigatória para envio físico.', code: 'SHIPPING_REQUIRED', requestId },
         { status: 400 },
       );
     }
@@ -276,9 +277,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ message: 'Stripe não configurado.', code: 'STRIPE_MISSING', requestId }, { status: 500 });
     }
 
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
-    const successUrl = `${siteUrl.replace(/\/$/, '')}/thank-you?type=store&amount=${roundedTotal}&provider=stripe&session_id={CHECKOUT_SESSION_ID}`;
-    const cancelUrl = `${siteUrl.replace(/\/$/, '')}/loja-online/checkout?canceled=true`;
+    const siteUrl = getAppUrl();
+    const successUrl = `${siteUrl}/thank-you?type=store&amount=${roundedTotal}&provider=stripe&session_id={CHECKOUT_SESSION_ID}`;
+    const cancelUrl = `${siteUrl}/loja-online/checkout?canceled=true`;
 
     const lineItems = itemsResolved.map((item) => ({
       quantity: item.qty,

@@ -13,6 +13,7 @@ type UniversalStickyBarProps = {
     link: string;
     isClosed: boolean;
     pilgrimageId: string;
+    slug: string;
     buttonText?: string;
 };
 
@@ -22,6 +23,7 @@ export default function UniversalStickyBar({
     link,
     isClosed,
     pilgrimageId,
+    slug,
     buttonText = "Inscrever"
 }: UniversalStickyBarProps) {
     const [mounted, setMounted] = useState(false);
@@ -66,9 +68,9 @@ export default function UniversalStickyBar({
 
                     {/* 2. Actions (Grid for 2 buttons) */}
                     <div className="flex-1 grid grid-cols-2 gap-2">
-                        {/* Brochure Button - WhatsApp Responsive */}
                         <BrochureDownloadModal
                             pilgrimageId={pilgrimageId}
+                            slug={slug}
                             className="!no-underline"
                             trigger={
                                 <button className="flex items-center justify-center gap-2 w-full h-14 rounded-2xl bg-green-50 border-2 border-[#25D366] text-slate-900 font-bold text-sm active:scale-95 transition-all shadow-sm">

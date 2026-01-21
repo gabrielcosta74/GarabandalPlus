@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { supabaseServer } from '../../../../lib/supabase';
 import { sendAbandonmentRecoveryEmail } from '../../../../lib/email';
 import { WhatsAppService } from '../../../../lib/whatsapp';
+import { getAppUrl } from '../../../../lib/config';
 
 // CRON Endpoint - Should be called every 10-15 minutes or hour
 export async function GET(req: Request) {
@@ -44,7 +45,7 @@ export async function GET(req: Request) {
 
             // Generate Recovery Link (Pointing to resume step ?)
             // For now, simple link to the pilgrimage page or a specific resume param
-            const origin = process.env.NEXT_PUBLIC_SITE_URL || 'https://apostoladodegarabandal.com';
+            const origin = getAppUrl();
 
             // Should be a dedicated resume link, but for now specific pilgrimage
             const recoveryLink = `${origin}/peregrinacoes/${lead.pilgrimages?.slug}/inscrever?resume=${lead.id}&email=${encodeURIComponent(lead.email)}`;

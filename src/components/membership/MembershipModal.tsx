@@ -28,12 +28,12 @@ const slides = [
     {
         title: "Pertencer a uma missão viva",
         text: "A tua quota sustenta encontros, publicações e acolhimento de peregrinos.",
-        imageUrl: "/images/espalharpalavra.png",
+        imageUrl: "/images/espalharpalavra.webp",
     },
     {
         title: "Graças da Comunidade",
         text: "Acesso a Vídeos Exclusivos, Altar de Intenções e Voucher de Peregrinação.",
-        imageUrl: "/images/descontoslivros.png",
+        imageUrl: "/images/descontoslivros.webp",
     },
     {
         title: "Impacto concreto",

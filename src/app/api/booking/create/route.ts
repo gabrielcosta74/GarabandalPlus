@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server';
 import { supabaseServer } from '../../../../lib/supabase';
 import { sendBookingConfirmationEmail } from '../../../../lib/email';
 import { WhatsAppService } from '../../../../lib/whatsapp';
+import { getAppUrl } from '../../../../lib/config';
+import { parseRoomInfo } from '../../../../lib/utils';
+import { generateViewToken, generateIdempotencyKey } from '../../../../lib/auth-utils';
 
 export async function POST(req: Request) {
     console.log("🚀 [API] Booking Create Request Received");
@@ -13,57 +16,69 @@ export async function POST(req: Request) {
 
     try {
         const body = await req.json();
-        const { email, pilgrim_data, pilgrimage_id, payment_method, room_distribution, user_id_hint } = body;
+        const { email, pilgrim_data, pilgrimage_id, payment_method, room_distribution, idempotency_key } = body;
 
-        console.log(`📦 [API] Payload: Email=${email}, Pilgrims=${pilgrim_data?.length}, HID=${user_id_hint}`);
+        console.log(`📦 [API] Payload: Email=${email}, Pilgrims=${pilgrim_data?.length}`);
 
-        if (!pilgrim_data || !pilgrimage_id) {
+        if (!pilgrim_data || !pilgrimage_id || !email) {
             return NextResponse.json({ error: "Missing required data" }, { status: 400 });
         }
 
-        // 1. User Resolution
-        let userId = user_id_hint;
+        // 1. SECURITY: User Resolution (no user_id_hint accepted from frontend)
+        let userId: string;
         let isNewUser = false;
+        let tempPassword: string | null = null; // Store for session creation
 
-        // Use Supabase Admin to check/create user
         const adminAuth = supabaseServer.auth.admin;
 
-        if (!userId && email) {
-            console.log("🔍 [API] No ID provided. Searching user by email:", email);
+        console.log("🔍 [API] Searching user by email:", email);
 
-            // Check if user exists (Supabase doesn't have a direct "getUserByEmail" in all SDK versions easily accessible without listUsers permissions which can be heavy, 
-            // but inviteUserByEmail or createUser is standard).
-            // Let's try to list users (filtered) or just try to create and catch error.
+        // Check if user exists
+        const { data: { users }, error: listError } = await adminAuth.listUsers();
+        const existingUser = users?.find(u => u.email?.toLowerCase() === email.toLowerCase());
 
-            const { data: { users }, error: listError } = await adminAuth.listUsers();
-            // Note: listUsers might be slow if many users. Efficient way:
-            const existingUser = users?.find(u => u.email?.toLowerCase() === email.toLowerCase());
+        if (existingUser) {
+            console.log("✅ [API] User found:", existingUser.id);
+            userId = existingUser.id;
+        } else {
+            console.log("🆕 [API] Creating new user for:", email);
+            tempPassword = Math.random().toString(36).slice(-8) + "Aa1!";
+            const { data: newUser, error: createError } = await adminAuth.createUser({
+                email: email,
+                password: tempPassword,
+                email_confirm: true // Auto-confirm
+            });
 
-            if (existingUser) {
-                console.log("✅ [API] User found:", existingUser.id);
-                userId = existingUser.id;
-            } else {
-                console.log("🆕 [API] Creating new user for:", email);
-                const tempPassword = Math.random().toString(36).slice(-8) + "Aa1!";
-                const { data: newUser, error: createError } = await adminAuth.createUser({
-                    email: email,
-                    password: tempPassword,
-                    email_confirm: true // Auto-confirm
-                });
-
-                if (createError) {
-                    console.error("❌ [API] Create User Error:", createError);
-                    throw new Error("Falha ao criar conta de utilizador.");
-                }
-
-                userId = newUser.user.id;
-                isNewUser = true;
-                // Optional: Send welcome email here or later
+            if (createError) {
+                console.error("❌ [API] Create User Error:", createError);
+                throw new Error("Falha ao criar conta de utilizador.");
             }
+
+            userId = newUser.user.id;
+            isNewUser = true;
         }
 
-        if (!userId) {
-            return NextResponse.json({ error: "Could not identify or create user" }, { status: 400 });
+        // 1.5. SECURITY: Idempotency Check
+        const bookingIdempotencyKey = idempotency_key || generateIdempotencyKey([email, pilgrimage_id]);
+
+        const { data: existingBooking } = await supabaseServer
+            .from('bookings')
+            .select('id, view_token')
+            .eq('user_id', userId)
+            .eq('pilgrimage_id', pilgrimage_id)
+            .eq('idempotency_key', bookingIdempotencyKey)
+            .single();
+
+        if (existingBooking) {
+            console.log("⚠️ [API] Duplicate booking request detected. Returning existing booking.");
+            return NextResponse.json({
+                success: true,
+                booking_id: existingBooking.id,
+                view_token: existingBooking.view_token,
+                user_id: userId,
+                new_account: false,
+                duplicate: true
+            });
         }
 
         // 2. Fetch Pilgrimage Details for Pricing
@@ -88,9 +103,14 @@ export async function POST(req: Request) {
 
             // Formula: Base + Registration Fee + Supplement
             const supplementPrice = Number(supplements[roomType]) || 0;
+
+            // Safety: Ensure basePrice is a number. If 0, log warning.
+            if (basePrice === 0) console.warn("⚠️ [API] Base Price is 0 for pilgrimage:", pilgrimage_id);
+
             let pilgrimSubtotal = basePrice + regFee + supplementPrice;
 
             // Fallback for hardcoded Single Supplement ONLY if not configured in JSON
+            // Matches Frontend Logic
             if (roomType === 'single' && (!supplements.single || supplements.single === 0)) {
                 if (Object.keys(supplements).length === 0) pilgrimSubtotal += 250;
             }
@@ -110,7 +130,7 @@ export async function POST(req: Request) {
                     const m = today.getMonth() - birth.getMonth();
                     if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
 
-                    if (age >= 2 && age <= 10) discount = pilgrimSubtotal * 0.5; // 50%
+                    if (age >= 2 && age < 6) discount = pilgrimSubtotal * 0.2; // 20%
                     if (age < 2) discount = pilgrimSubtotal; // 100%
 
                     console.log(`👤 [API] Pilgrim ${p.full_name}: Age=${age}, Sub=${pilgrimSubtotal}€, Disc=${discount}€, Final=${Math.max(0, pilgrimSubtotal - discount)}€`);
@@ -119,6 +139,29 @@ export async function POST(req: Request) {
 
             const finalPilgrimPrice = Math.max(0, pilgrimSubtotal - discount);
             totalAmount += finalPilgrimPrice;
+
+            // Extract room preferences automatically for backward compatibility with form
+            const roomInfo = parseRoomInfo(p.notes);
+            let bedPreference = null;
+            let sharingMode = null;
+
+            // Map legacy note values (or explicitly injected via notes from frontend) to database enums
+            if (roomInfo.bedType) {
+                const type = roomInfo.bedType.toLowerCase();
+                // Frontend uses 'big_bed' for Casal
+                if (type.includes('twin') || type.includes('duas')) bedPreference = 'twin_beds';
+                else if (type.includes('casal') || type.includes('duplo') || type === 'big_bed') bedPreference = 'double_bed';
+                else if (type.includes('single') || type.includes('uma')) bedPreference = 'single_bed';
+                else bedPreference = roomInfo.bedType;
+            }
+
+            if (roomInfo.sharingMode) {
+                const mode = roomInfo.sharingMode.toLowerCase();
+                if (mode.includes('aleat') || mode.includes('random')) sharingMode = 'random';
+                // Frontend uses 'specific_friend' or 'Com Amigo'
+                else if (mode.includes('parceiro') || mode.includes('conjunto') || mode.includes('amigo')) sharingMode = 'partner';
+                else sharingMode = roomInfo.sharingMode;
+            }
 
             return {
                 // booking_id will be added after
@@ -134,10 +177,14 @@ export async function POST(req: Request) {
                 room_type: roomType,
                 flight_option: p.flight_option,
                 allergies: p.allergies,
-                notes: p.notes,
+                notes: p.notes, // Keep original notes for safety
                 cpf_nif: p.cpf_nif,
-                dietary_restrictions: p.allergies, // Fallback/Legacy mapping just in case
-                health_notes: p.health_notes || `Cidadania: ${p.country || 'N/A'}`
+                dietary_restrictions: p.allergies,
+                health_notes: p.health_notes || `Cidadania: ${p.country || 'N/A'}`,
+                // New Columns
+                bed_preference: bedPreference,
+                sharing_mode: sharingMode,
+                roommate_name: roomInfo.roommates
             };
         });
 
@@ -148,7 +195,9 @@ export async function POST(req: Request) {
             throw new Error(`Erro no cálculo do preço: O total resultou em 0€. Verifique se os preços estão configurados e se as datas de nascimento dos peregrinos estão corretas.`);
         }
 
-        // 4. Insert Booking
+        // 4. Insert Booking with Security Fields
+        const viewToken = generateViewToken();
+
         const { data: booking, error: bookingError } = await supabaseServer
             .from('bookings')
             .insert({
@@ -157,7 +206,9 @@ export async function POST(req: Request) {
                 total_amount: totalAmount,
                 status: 'pending',
                 notes: `Payment Plan: ${payment_method} | Created via API ${isNewUser ? '(New Account)' : ''}`,
-                payment_plan: body.payment_plan || null
+                payment_plan: body.payment_plan || null,
+                view_token: viewToken,
+                idempotency_key: bookingIdempotencyKey
             })
             .select()
             .single();
@@ -183,13 +234,14 @@ export async function POST(req: Request) {
         }
 
         // 6. Record Initial Deposit Payment as Pending
-        const registrationFeePerPerson = Number(pilgrimage?.deposit_value) || 0;
+        const registrationFeePerPerson = Number(pilgrimage?.deposit_value || 0);
         const totalDepositAmount = pilgrimsToInsert.length * registrationFeePerPerson;
 
-        await supabaseServer
+        const { error: paymentError } = await supabaseServer
             .from('pilgrimage_payments')
             .insert({
                 booking_id: booking.id,
+                user_id: userId,
                 amount: totalDepositAmount,
                 method: body.payment_method === 'installments' ? 'bank_transfer' : 'stripe',
                 status: 'pending',
@@ -197,12 +249,30 @@ export async function POST(req: Request) {
                 notes: 'Sinal de Inscrição (Automático)'
             });
 
+        if (paymentError) {
+            console.error("❌ [API] Payment Insert Error:", paymentError);
+            // Don't throw - payment can be added manually later
+            console.warn("⚠️ [API] Continuing without initial payment record. Admin can add manually.");
+        }
+
         // 7. Generate Magic Link & Send Email
         try {
-            // Robust Origin Detection for Magic Link (Works on Localhost & Vercel)
+            // Robust Origin Detection for Magic Link
+            // FORCE localhost in development mode to avoid any confusion or Vercel fallbacks
+            let origin;
             const host = req.headers.get('host');
-            const protocol = req.headers.get('x-forwarded-proto') || 'http';
-            const origin = req.headers.get('origin') || (host ? `${protocol}://${host}` : process.env.NEXT_PUBLIC_SITE_URL || 'https://apostoladodegarabandal.com');
+
+            // Check multiple conditions for development environment
+            if (process.env.NODE_ENV === 'development' || host?.includes('localhost')) {
+                origin = 'http://localhost:3000';
+                console.log('🔧 [API] Development mode detected - using localhost');
+            } else {
+                const protocol = req.headers.get('x-forwarded-proto') || 'https';
+                origin = host ? `${protocol}://${host}` : getAppUrl();
+            }
+
+            console.log(`📧 [API] Environment: ${process.env.NODE_ENV}`);
+            console.log(`📧 [API] Using origin for magic link: ${origin}`);
 
             const { data: linkData, error: linkError } = await adminAuth.generateLink({
                 type: 'magiclink',
@@ -219,13 +289,15 @@ export async function POST(req: Request) {
             // Awaiting is safer for "flawless" execution confirmation, though slower.
             // We'll await but catch errors so we don't fail the HTTP request if email fails.
 
-            const magicLink = linkData?.properties?.action_link;
+            const magicLink = linkData?.properties?.action_link || `${origin}/peregrinacoes/inscricao/${booking.id}`;
 
             await sendBookingConfirmationEmail({
                 bookingId: booking.id,
                 email: email,
                 pilgrimageName: pilgrimage.title,
+                amount: totalDepositAmount,
                 totalAmount: totalAmount,
+                paymentMethod: payment_method,
                 magicLink: magicLink
             });
 
@@ -250,12 +322,21 @@ export async function POST(req: Request) {
             console.error("⚠️ [API] WhatsApp sending failed:", waErr);
         }
 
+
         console.log("✅ [API] Success! Booking ID:", booking.id);
+
+        // 8. Return Success Response
+        // No session creation - users access via token or existing session
         return NextResponse.json({
             success: true,
             booking_id: booking.id,
+            view_token: viewToken,
             user_id: userId,
-            new_account: isNewUser
+            new_account: isNewUser,
+            user: {
+                id: userId,
+                email: email
+            }
         });
 
     } catch (error: any) {

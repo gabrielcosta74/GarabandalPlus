@@ -15,27 +15,41 @@ export async function POST(req: Request) {
         // Validation for Brochure: Needs either email or phone depending on channel
         const isBrochure = type === 'brochure_request';
 
-        if (!pilgrimageId) {
-            return NextResponse.json({ error: "Missing pilgrimageId" }, { status: 400 });
-        }
 
-        // Logic split based on type
-        // If brochure, we allow multiple requests or just update latest?
-        // Let's simple insert a NEW lead if status is 'draft' or create one.
+        // Validation: If not general type, we might need pilgrimageId?
+        // Actually, for "Did not find date", pilgrimageId is undefined.
+        // So we allow it.
+
+        const isGeneralLead = !pilgrimageId || type === 'general_waitlist';
 
         // Upsert Logic
-        const { data: existingLead } = await supabaseServer
+        let existingLead = null;
+
+
+        const query = supabaseServer
             .from('booking_leads')
             .select('id, status')
-            .eq('email', email) // if email provided
-            .eq('pilgrimage_id', pilgrimageId)
-            .in('status', ['draft', 'brochure_request'])
+            .eq('email', email)
+            .in('status', ['draft', 'brochure_request', 'waitlist'])
             .order('created_at', { ascending: false })
-            .limit(1)
-            .maybeSingle(); // Use maybeSingle to avoid null error
+            .limit(1);
+
+        if (pilgrimageId) {
+            query.eq('pilgrimage_id', pilgrimageId);
+        } else {
+            query.is('pilgrimage_id', null);
+        }
+
+        const { data: foundLead } = await query.maybeSingle();
+
+        existingLead = foundLead;
 
         let result;
-        const statusToSet = isBrochure ? 'brochure_request' : 'draft';
+        // Status logic
+        let statusToSet = 'draft';
+        if (isBrochure) statusToSet = 'brochure_request';
+        if (isGeneralLead) statusToSet = 'waitlist';
+
         const leadData = {
             ...(data || {}),
             channel_preference: channel_preference
@@ -47,13 +61,12 @@ export async function POST(req: Request) {
                 .update({
                     phone: phone || undefined,
                     name: name || undefined,
-                    // Only update step if it's a booking flow
                     ...(step ? { step_reached: step } : {}),
                     data: leadData,
                     updated_at: new Date().toISOString(),
-                    // If moving from draft to brochure? keep draft. If moving from brochure to draft? 
-                    // Let's keep status as is unless it's a pure brochure request on a draft
-                    // simplify: if current is draft, keep draft. if brochure, keep brochure.
+                    // If moving to waitlist? Update status if it was draft? 
+                    // Let's just update status if it's general
+                    ...(isGeneralLead ? { status: 'waitlist' } : {})
                 })
                 .eq('id', existingLead.id)
                 .select()
@@ -64,10 +77,10 @@ export async function POST(req: Request) {
             const { data: insertData, error: insertError } = await supabaseServer
                 .from('booking_leads')
                 .insert({
-                    email: email || 'no-email@placeholder', // handle whatsapp only cases 
+                    email: email || 'no-email@placeholder',
                     phone,
                     name,
-                    pilgrimage_id: pilgrimageId,
+                    pilgrimage_id: pilgrimageId || null,
                     step_reached: step || 0,
                     data: leadData,
                     status: statusToSet
@@ -80,22 +93,42 @@ export async function POST(req: Request) {
 
         // IF BROCHURE: Trigger Delivery Immediately
         if (isBrochure) {
+            // ... (keep existing brochure logic)
             console.log(`[SoftCapture] Delivering brochure to ${name} via ${channel_preference}`);
 
             if (channel_preference === 'whatsapp' && phone) {
                 try {
-                    // Using a placeholder PDF link for now as defined in plan
                     const pdfLink = 'https://apostoladodegarabandal.com/programa-2025.pdf';
                     await WhatsAppService.sendMessage(
                         phone,
                         `Olá ${name}! Aqui está o programa da Peregrinação que pediu. 📄\n\nQualquer dúvida, estamos aqui.\n\n${pdfLink}`,
-                        `brochure_${result.id}_${Date.now()}` // Unique ref per request attempt
+                        `brochure_${result.id}_${Date.now()}`
                     );
                 } catch (waError) {
                     console.error("WA Send Failed", waError);
                 }
             }
-            // Add Email logic later if needed
+        }
+
+        // IF GENERAL WAITLIST: Send Email
+        if (isGeneralLead && email) {
+            // Import dynamically to avoid circular deps if any, or just call helper
+            const { sendGeneralLeadEmail } = await import('../../../../lib/email');
+            try {
+                await sendGeneralLeadEmail({ email, name });
+
+                // CRITICAL FIX: Update DB to mark as notified
+                await supabaseServer
+                    .from('booking_leads')
+                    .update({
+                        status: 'notified',
+                        last_notified_at: new Date().toISOString()
+                    })
+                    .eq('id', result.id);
+
+            } catch (emailError) {
+                console.error("Failed to send waitlist email", emailError);
+            }
         }
 
         return NextResponse.json({ success: true, leadId: result.id });
@@ -105,3 +138,4 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
 }
+

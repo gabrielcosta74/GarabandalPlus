@@ -9,13 +9,14 @@ import 'react-phone-number-input/style.css';
 
 interface BrochureDownloadModalProps {
     pilgrimageId: string;
+    slug: string; // New prop
     className?: string;
     trigger?: React.ReactNode;
     forceOpen?: boolean;
     onOpenChange?: (open: boolean) => void;
 }
 
-export function BrochureDownloadModal({ pilgrimageId, className, trigger, forceOpen, onOpenChange }: BrochureDownloadModalProps) {
+export function BrochureDownloadModal({ pilgrimageId, slug, className, trigger, forceOpen, onOpenChange }: BrochureDownloadModalProps) {
     const [internalOpen, setInternalOpen] = useState(false);
 
     const isControlled = forceOpen !== undefined;

@@ -19,9 +19,9 @@ interface FeaturedPilgrimage {
 }
 
 const HERO_IMAGES = [
-    "https://images.unsplash.com/photo-1548625361-987d5598816c?q=80&w=2692&auto=format&fit=crop", // Landscape
-    "https://images.unsplash.com/photo-1623663004663-b1834927b5e4?q=80&w=2670&auto=format&fit=crop", // People/Cross
-    "https://images.unsplash.com/photo-1469395275573-c356191c953a?q=80&w=2670&auto=format&fit=crop"  // Journey
+    "/images/aldeiadacasa.webp", // Landscape
+    "/images/igrejagarabandal.webp", // People/Cross
+    "/images/casaantes1.webp"  // Journey
 ];
 
 export function PilgrimageHero({ featuredPilgrimage }: { featuredPilgrimage?: FeaturedPilgrimage }) {
@@ -166,9 +166,6 @@ export function PilgrimageHero({ featuredPilgrimage }: { featuredPilgrimage?: Fe
                                             <ArrowRight className="w-4 h-4" />
                                         </button>
                                     </Link>
-                                    <p className="text-center text-[10px] text-slate-500 mt-3 flex items-center justify-center gap-1">
-                                        <CheckCircle2 className="w-3 h-3" /> Cancelamento Gratuito até 60 dias
-                                    </p>
                                 </div>
                             </div>
                         </motion.div>
@@ -178,6 +175,6 @@ export function PilgrimageHero({ featuredPilgrimage }: { featuredPilgrimage?: Fe
                     )}
                 </div>
             </div>
-        </div>
+        </div >
     );
 }

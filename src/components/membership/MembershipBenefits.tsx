@@ -22,7 +22,7 @@ export default function MembershipBenefits() {
 
                     {/* VIDEOS EXCLUSIVOS (7 cols) */}
                     <div className="lg:col-span-7 relative group rounded-[2.5rem] overflow-hidden bg-black shadow-2xl min-h-[450px] flex flex-col justify-end p-10">
-                        <div className="absolute inset-0 bg-[url('/images/multimedia_background.png')] bg-cover bg-center opacity-70 group-hover:opacity-80 transition-opacity duration-700 group-hover:scale-105 transform" />
+                        <div className="absolute inset-0 bg-[url('/images/multimedia_background.webp')] bg-cover bg-center opacity-70 group-hover:opacity-80 transition-opacity duration-700 group-hover:scale-105 transform" />
                         <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent" />
 
                         <div className="relative z-10">
@@ -41,7 +41,7 @@ export default function MembershipBenefits() {
 
                     {/* 5% LIVROS (5 cols) - Moved Up & Expanded */}
                     <div className="lg:col-span-5 relative group rounded-[2.5rem] overflow-hidden bg-black shadow-2xl min-h-[450px] flex flex-col justify-end p-10">
-                        <div className="absolute inset-0 bg-[url('/images/descontoslivros.png')] bg-cover bg-center opacity-70 group-hover:opacity-80 transition-opacity duration-700 group-hover:scale-105 transform" />
+                        <div className="absolute inset-0 bg-[url('/images/descontoslivros.webp')] bg-cover bg-center opacity-70 group-hover:opacity-80 transition-opacity duration-700 group-hover:scale-105 transform" />
                         <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent" />
 
                         <div className="relative z-10">
@@ -60,7 +60,7 @@ export default function MembershipBenefits() {
 
                     {/* ITEM 1: ALTAR (4 cols) */}
                     <div className="lg:col-span-4 relative group rounded-[2.5rem] overflow-hidden bg-black shadow-xl flex flex-col justify-end p-8 min-h-[350px]">
-                        <div className="absolute inset-0 bg-[url('/images/igrejagarabandal.jpg')] bg-cover bg-center opacity-70 group-hover:opacity-80 transition-opacity duration-700 group-hover:scale-110 transform transition-transform duration-[2s]" />
+                        <div className="absolute inset-0 bg-[url('/images/igrejagarabandal.webp')] bg-cover bg-center opacity-70 group-hover:opacity-80 transition-opacity duration-700 group-hover:scale-110 transform transition-transform duration-[2s]" />
                         <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent" />
 
                         <div className="relative z-10">
@@ -76,7 +76,7 @@ export default function MembershipBenefits() {
 
                     {/* ITEM 2: MISSAS ANUAIS (4 cols) */}
                     <div className="lg:col-span-4 relative group rounded-[2.5rem] overflow-hidden bg-black shadow-xl flex flex-col justify-end p-8 min-h-[350px]">
-                        <div className="absolute inset-0 bg-[url('/images/padrerezar.png')] bg-cover bg-center opacity-70 group-hover:opacity-80 transition-opacity duration-700 group-hover:scale-110 transform transition-transform duration-[2s]" />
+                        <div className="absolute inset-0 bg-[url('/images/padrerezar.webp')] bg-cover bg-center opacity-70 group-hover:opacity-80 transition-opacity duration-700 group-hover:scale-110 transform transition-transform duration-[2s]" />
                         <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent" />
 
                         <div className="relative z-10">
@@ -127,7 +127,7 @@ export default function MembershipBenefits() {
 
                     {/* 5% CONFERENCIAS (6 cols) */}
                     <div className="lg:col-span-6 relative group rounded-[2.5rem] overflow-hidden bg-black shadow-xl flex flex-col justify-end p-8 min-h-[300px]">
-                        <div className="absolute inset-0 bg-[url('/images/espalharpalavra.png')] bg-cover bg-center opacity-50 group-hover:opacity-65 transition-opacity duration-700 group-hover:scale-105 transform" />
+                        <div className="absolute inset-0 bg-[url('/images/espalharpalavra.webp')] bg-cover bg-center opacity-50 group-hover:opacity-65 transition-opacity duration-700 group-hover:scale-105 transform" />
                         <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-transparent" />
 
                         <div className="relative z-10">

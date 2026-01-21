@@ -2,6 +2,7 @@ import { sendStoreBuyerEmail, sendStoreOwnerEmail, sendStorePreparingEmail } fro
 import { ensureNotificationRecord, markNotificationSent } from './email-notifications';
 import { createDigitalAccessToken, createOrderAccessToken } from './store-access';
 import { getShippingCost } from './shipping-rules';
+import { getAppUrl } from './config';
 
 type ProcessPaidStoreOrderInput = {
   supabaseServer: any;
@@ -88,9 +89,9 @@ export const processPaidStoreOrder = async ({
   const productIds = itemRows.map((item) => item.product_id);
   const { data: productRows } = productIds.length
     ? await supabaseServer
-        .from('store_products')
-        .select('product_id, is_physical, digital_url')
-        .in('product_id', productIds)
+      .from('store_products')
+      .select('product_id, is_physical, digital_url')
+      .in('product_id', productIds)
     : { data: [] };
 
   const productMap = new Map<string, StoreProductRow>(
@@ -123,7 +124,7 @@ export const processPaidStoreOrder = async ({
 
   const totalText = formatCurrency(totalAmount ?? 0, existingOrder.currency || 'EUR');
   const hasDigital = digitalItems.length > 0;
-  const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000').replace(/\/$/, '');
+  const siteUrl = getAppUrl();
   const libraryUrl = `${siteUrl}/biblioteca`;
 
   const vatTotals = itemRows.reduce(
@@ -199,29 +200,29 @@ export const processPaidStoreOrder = async ({
   });
 
   if (ownerNotify.shouldSend) {
-      await sendStoreOwnerEmail({
-        orderRef,
-        buyerName: existingOrder.buyer_name || buyerName || null,
-        buyerEmail: buyerEmailResolved || null,
-        buyerPhone: existingOrder.buyer_phone || buyerPhone || null,
-        buyerNif: existingOrder.buyer_nif || null,
-        subtotal: subtotalText,
-        vat: vatText,
-        shippingCost: shippingCostText,
-        total: totalText,
-        items: itemRows.map((item) => ({
-          name: item.name || 'Produto',
-          qty: item.qty,
-          unit_price: item.unit_price,
-        })),
-        shipping: existingOrder.has_physical
-          ? {
-              address1: existingOrder.shipping_address1,
-            address2: existingOrder.shipping_address2,
-            city: existingOrder.shipping_city,
-            postalCode: existingOrder.shipping_postal_code,
-            country: existingOrder.shipping_country,
-          }
+    await sendStoreOwnerEmail({
+      orderRef,
+      buyerName: existingOrder.buyer_name || buyerName || null,
+      buyerEmail: buyerEmailResolved || null,
+      buyerPhone: existingOrder.buyer_phone || buyerPhone || null,
+      buyerNif: existingOrder.buyer_nif || null,
+      subtotal: subtotalText,
+      vat: vatText,
+      shippingCost: shippingCostText,
+      total: totalText,
+      items: itemRows.map((item) => ({
+        name: item.name || 'Produto',
+        qty: item.qty,
+        unit_price: item.unit_price,
+      })),
+      shipping: existingOrder.has_physical
+        ? {
+          address1: existingOrder.shipping_address1,
+          address2: existingOrder.shipping_address2,
+          city: existingOrder.shipping_city,
+          postalCode: existingOrder.shipping_postal_code,
+          country: existingOrder.shipping_country,
+        }
         : null,
     });
     await markNotificationSent(supabaseServer, ownerNotify.recordId);
@@ -251,12 +252,12 @@ export const processPaidStoreOrder = async ({
         accountExists,
         shipping: existingOrder.has_physical
           ? {
-              address1: existingOrder.shipping_address1,
-              address2: existingOrder.shipping_address2,
-              city: existingOrder.shipping_city,
-              postalCode: existingOrder.shipping_postal_code,
-              country: existingOrder.shipping_country,
-            }
+            address1: existingOrder.shipping_address1,
+            address2: existingOrder.shipping_address2,
+            city: existingOrder.shipping_city,
+            postalCode: existingOrder.shipping_postal_code,
+            country: existingOrder.shipping_country,
+          }
           : null,
       });
       await markNotificationSent(supabaseServer, buyerNotify.recordId);

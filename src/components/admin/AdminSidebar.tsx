@@ -20,7 +20,10 @@ import {
     Calendar,
     Home,
     Plane,
-    Target
+    Target,
+    Video,
+    Mail,
+    Heart
 } from 'lucide-react';
 
 export default function AdminSidebar({ onLogout, className }: { onLogout: () => void; className?: string }) {
@@ -34,26 +37,48 @@ export default function AdminSidebar({ onLogout, className }: { onLogout: () => 
             ]
         },
         {
-            label: 'Gestão',
+            label: 'Comunidade',
             items: [
                 { label: 'Membros', icon: Users, href: '/admin/membros' },
-                { label: 'Leads (Abandonos)', icon: Target, href: '/admin/leads' },
-                { label: 'Pagamentos', icon: CreditCard, href: '/admin/pagamentos' },
-                { label: 'Loja & Stock', icon: ShoppingBag, href: '/admin/loja' },
-                { label: 'Encomendas', icon: FileText, href: '/admin/encomendas' },
-                { label: 'Cursos', icon: GraduationCap, href: '/admin/courses' },
+                { label: 'Leads & Inscrições', icon: Target, href: '/admin/leads' },
+                { label: 'Emails do Sistema', icon: Mail, href: '/admin/emails' },
+            ]
+        },
+        {
+            label: 'Academia & Formação',
+            items: [
+                { label: 'Cursos & Vídeos', icon: GraduationCap, href: '/admin/academy' },
+                { label: 'Eventos Online', icon: Video, href: '/admin/events' },
+            ]
+        },
+        {
+            label: 'Espiritualidade & Eventos',
+            items: [
+                { label: 'Peregrinações', icon: Plane, href: '/admin/peregrinacoes' },
                 { label: 'Novenas', icon: Sparkles, href: '/admin/novenas' },
                 { label: 'Intenções', icon: Flame, href: '/admin/intentions' },
-                { label: 'Peregrinações', icon: Plane, href: '/admin/peregrinacoes' },
-                { label: 'Conteúdo Global', icon: Settings, href: '/admin/conteudo' },
-                { label: 'Eventos', icon: Calendar, href: '/admin/events' }, // Added
                 { label: 'Orações', icon: BookOpen, href: '/admin/prayers' },
+            ]
+        },
+        {
+            label: 'Loja Online',
+            items: [
+                { label: 'Encomendas', icon: FileText, href: '/admin/encomendas' },
+                { label: 'Produtos & Stock', icon: ShoppingBag, href: '/admin/loja' },
+            ]
+        },
+        {
+            label: 'Financeiro & Legal',
+            items: [
+                { label: 'Transações', icon: CreditCard, href: '/admin/transacoes' },
+                { label: 'Doações', icon: Heart, href: '/admin/doacoes' },
+                { label: 'Relatórios', icon: TrendingUp, href: '/admin/relatorios' },
             ]
         },
         {
             label: 'Sistema',
             items: [
-                { label: 'Relatórios', icon: TrendingUp, href: '/admin/relatorios' },
+                { label: 'Conteúdo Global', icon: Settings, href: '/admin/conteudo' },
                 { label: 'Configurações', icon: Settings, href: '/admin/configuracoes' },
             ]
         }

@@ -11,12 +11,6 @@ import {
 import { ensureNotificationRecord, markNotificationSent } from '../../../lib/email-notifications';
 import { processPaidStoreOrder } from '../../../lib/store-orders';
 import { generateMemberDiplomaPdf } from '../../../lib/member-diploma';
-import {
-  buildDonationInvoiceInput,
-  buildMembershipInvoiceInput,
-  buildStoreInvoiceInput,
-  issueFactPtInvoice,
-} from '../../../lib/factpt-issuer';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -226,31 +220,7 @@ export async function POST(request: Request) {
             }
           }
 
-          if (amountCents > 0) {
-            try {
-              const donationInput = await buildDonationInvoiceInput({
-                sourceRef: paymentIntent || externalRef,
-                amount: amountCents / 100,
-                paymentMethod: 'stripe_checkout',
-                userId,
-                donor: {
-                  name: donorName,
-                  email: donorEmail,
-                  nif: donorNifMeta || null,
-                  address: donorAddress,
-                  city: donorCity,
-                  zip: donorZip,
-                  country: donorCountry,
-                  phone: session.customer_details?.phone || null,
-                },
-              });
-              if (donationInput) {
-                await issueFactPtInvoice(donationInput);
-              }
-            } catch (err) {
-              console.warn('Fact.pt doacao falhou:', err);
-            }
-          }
+
         } else if (type === 'membership') {
           const { data: updated, error: updErr } = await supabaseServer
             .from('pagamentos_quotas')
@@ -480,21 +450,7 @@ export async function POST(request: Request) {
             }
           }
 
-          if (userId && amountCents > 0) {
-            try {
-              const membershipInput = await buildMembershipInvoiceInput({
-                sourceRef: paymentIntent || externalRef,
-                amount: amountCents / 100,
-                paymentMethod: 'stripe_checkout',
-                userId,
-              });
-              if (membershipInput) {
-                await issueFactPtInvoice(membershipInput);
-              }
-            } catch (err) {
-              console.warn('Fact.pt quota falhou:', err);
-            }
-          }
+
         } else if (type === 'pilgrimage_payment') {
           const bookingId = session.metadata?.booking_id;
           const amountPaid = amountCents / 100;
@@ -563,17 +519,7 @@ export async function POST(request: Request) {
           paymentProvider: 'stripe',
           paymentMethod: 'stripe_checkout',
         });
-        try {
-          const storeInput = await buildStoreInvoiceInput({
-            orderRef,
-            paymentMethod: 'stripe_checkout',
-          });
-          if (storeInput) {
-            await issueFactPtInvoice(storeInput);
-          }
-        } catch (err) {
-          console.warn('Fact.pt loja falhou:', err);
-        }
+
       } catch (err) {
         console.error('Erro ao processar encomenda da loja (Stripe):', err);
       }

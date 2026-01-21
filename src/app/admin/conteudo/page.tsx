@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { supabaseBrowser } from '../../../lib/supabase-browser';
+import AdminLayout from '../../../components/admin/AdminLayout';
+import ImageUpload from '../../../components/admin/ImageUpload';
 import {
     Save,
     Bus,
@@ -10,9 +12,12 @@ import {
     MessageSquare,
     Plus,
     Trash2,
-    Image as ImageIcon,
-    Star
+    Edit2,
+    X,
+    ChevronRight,
+    Loader2
 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 type GlobalLogistics = {
     transport_title: string;
@@ -34,7 +39,7 @@ type Testimonial = {
 };
 
 export default function GlobalContentPage() {
-    const [activeTab, setActiveTab] = useState<'logistics' | 'testimonials'>('logistics');
+    const [activeSection, setActiveSection] = useState<'logistics' | 'testimonials'>('logistics');
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
 
@@ -51,6 +56,7 @@ export default function GlobalContentPage() {
 
     // Testimonials State
     const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
+    const [editingTestimonial, setEditingTestimonial] = useState<Testimonial | null>(null);
 
     useEffect(() => {
         fetchContent();
@@ -94,35 +100,38 @@ export default function GlobalContentPage() {
             });
 
         if (error) alert('Erro ao guardar logística: ' + error.message);
-        else alert('Logística guardada com sucesso!');
-
         setSaving(false);
     };
 
-    const saveTestimonial = async (testimonial: Testimonial, index: number) => {
-        if (!supabaseBrowser) return;
-
-        // Optimistic Update
-        const newTestimonials = [...testimonials];
+    const handleSaveTestimonial = async () => {
+        if (!supabaseBrowser || !editingTestimonial) return;
+        setSaving(true);
 
         const { data, error } = await supabaseBrowser
             .from('testimonials')
-            .upsert(testimonial)
+            .upsert(editingTestimonial)
             .select()
             .single();
 
         if (error) {
             alert('Erro ao guardar: ' + error.message);
-            return;
+        } else if (data) {
+            // Update local list
+            setTestimonials(prev => {
+                const index = prev.findIndex(t => t.id === data.id);
+                if (index >= 0) {
+                    const newStats = [...prev];
+                    newStats[index] = data;
+                    return newStats;
+                }
+                return [...prev, data];
+            });
+            setEditingTestimonial(null);
         }
-
-        if (data) {
-            newTestimonials[index] = data;
-            setTestimonials(newTestimonials);
-        }
+        setSaving(false);
     };
 
-    const deleteTestimonial = async (id: string, index: number) => {
+    const handleDeleteTestimonial = async (id: string) => {
         if (!supabaseBrowser) return;
         if (!confirm('Tem a certeza que quer apagar este testemunho?')) return;
 
@@ -130,299 +139,356 @@ export default function GlobalContentPage() {
 
         if (error) {
             alert('Erro ao apagar: ' + error.message);
-            return;
+        } else {
+            setTestimonials(prev => prev.filter(t => t.id !== id));
+            if (editingTestimonial?.id === id) setEditingTestimonial(null);
         }
-
-        const newTestimonials = [...testimonials];
-        newTestimonials.splice(index, 1);
-        setTestimonials(newTestimonials);
     };
 
-    const addTestimonial = () => {
-        setTestimonials([...testimonials, {
-            author_name: 'Novo Testemunho',
-            role: 'Peregrino',
+    const startNewTestimonial = () => {
+        setEditingTestimonial({
+            author_name: '',
+            role: '',
             text: '',
             image_url: '',
             display_order: testimonials.length + 1
-        }]);
+        });
     };
 
-    if (loading) return <div className="p-10 text-center">A carregar...</div>;
-
     return (
-        <div className="min-h-screen bg-slate-50 pb-24">
-            {/* Header */}
-            <div className="bg-white border-b border-slate-200 sticky top-0 z-30 px-8 py-4 flex items-center justify-between shadow-sm">
-                <div>
-                    <h1 className="text-xl font-bold text-slate-900 font-serif">Conteúdo Global</h1>
-                    <p className="text-sm text-slate-500">Edite textos que aparecem em todas as peregrinações</p>
+        <AdminLayout title="Conteúdo Global" isLoading={loading}>
+            <div className="flex flex-col lg:flex-row gap-8 pb-20">
+                {/* Sidebar Navigation */}
+                <div className="w-full lg:w-64 flex-shrink-0 space-y-2">
+                    <button
+                        onClick={() => setActiveSection('logistics')}
+                        className={`w-full flex items-center justify-between p-4 rounded-xl text-left font-medium transition-all ${activeSection === 'logistics'
+                                ? 'bg-slate-900 text-white shadow-lg'
+                                : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'
+                            }`}
+                    >
+                        <span className="flex items-center gap-3">
+                            <Bus className="w-5 h-5" />
+                            Logística & Inclusões
+                        </span>
+                        {activeSection === 'logistics' && <ChevronRight className="w-4 h-4" />}
+                    </button>
+
+                    <button
+                        onClick={() => setActiveSection('testimonials')}
+                        className={`w-full flex items-center justify-between p-4 rounded-xl text-left font-medium transition-all ${activeSection === 'testimonials'
+                                ? 'bg-slate-900 text-white shadow-lg'
+                                : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'
+                            }`}
+                    >
+                        <span className="flex items-center gap-3">
+                            <MessageSquare className="w-5 h-5" />
+                            Testemunhos
+                            <span className="bg-slate-200/20 px-2 py-0.5 rounded text-xs ml-auto">
+                                {testimonials.length}
+                            </span>
+                        </span>
+                        {activeSection === 'testimonials' && <ChevronRight className="w-4 h-4" />}
+                    </button>
                 </div>
-                {activeTab === 'logistics' && (
-                    <button
-                        onClick={saveLogistics}
-                        disabled={saving}
-                        className="flex items-center gap-2 bg-slate-900 text-white px-6 py-2.5 rounded-xl hover:bg-slate-800 disabled:opacity-50 transition-all font-medium shadow-lg hover:shadow-slate-900/20"
-                    >
-                        <Save className="w-4 h-4" />
-                        {saving ? 'A Guardar...' : 'Guardar Alterações'}
-                    </button>
-                )}
-            </div>
 
-            <div className="max-w-5xl mx-auto mt-8 px-8">
+                {/* Main Content Area */}
+                <div className="flex-1 min-w-0">
 
-                {/* Tabs */}
-                <div className="flex gap-2 mb-8 bg-white p-1.5 rounded-xl border border-slate-200 shadow-sm w-fit">
-                    <button
-                        onClick={() => setActiveTab('logistics')}
-                        className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'logistics' ? 'bg-slate-900 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}
-                    >
-                        Logística & Inclusões
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('testimonials')}
-                        className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'testimonials' ? 'bg-slate-900 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}
-                    >
-                        Testemunhos
-                    </button>
-                </div>
-
-                {/* --- TAB: LOGISTICS --- */}
-                {activeTab === 'logistics' && (
-                    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                        {/* Transport */}
-                        <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-200">
-                            <h3 className="text-lg font-bold font-serif text-slate-900 mb-6 flex items-center gap-2">
-                                <Bus className="w-5 h-5 text-slate-600" /> Transporte Terrestre
-                            </h3>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div>
-                                    <label className="block text-sm font-bold text-slate-700 mb-2">Título do Transporte</label>
-                                    <input
-                                        type="text"
-                                        className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl"
-                                        value={logistics.transport_title}
-                                        onChange={e => setLogistics({ ...logistics, transport_title: e.target.value })}
-                                        placeholder="Ex: Autocarro de Turismo"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-bold text-slate-700 mb-2">Imagem (URL)</label>
-                                    <div className="flex gap-2">
-                                        <input
-                                            type="text"
-                                            className="flex-1 p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm"
-                                            value={logistics.transport_image}
-                                            onChange={e => setLogistics({ ...logistics, transport_image: e.target.value })}
-                                        />
-                                        {logistics.transport_image && (
-                                            <div className="w-12 h-12 bg-slate-100 rounded-lg overflow-hidden border border-slate-200">
-                                                <img src={logistics.transport_image} className="w-full h-full object-cover" />
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                                <div className="col-span-2">
-                                    <label className="block text-sm font-bold text-slate-700 mb-2">Descrição</label>
-                                    <textarea
-                                        className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl h-24"
-                                        value={logistics.transport_description}
-                                        onChange={e => setLogistics({ ...logistics, transport_description: e.target.value })}
-                                    />
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Accommodation */}
-                        <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-200">
-                            <h3 className="text-lg font-bold font-serif text-slate-900 mb-6 flex items-center gap-2">
-                                <Hotel className="w-5 h-5 text-slate-600" /> Alojamento Padrão
-                            </h3>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div>
-                                    <label className="block text-sm font-bold text-slate-700 mb-2">Classificação (Estrelas)</label>
-                                    <input
-                                        type="text"
-                                        className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl"
-                                        value={logistics.accommodation_rating}
-                                        onChange={e => setLogistics({ ...logistics, accommodation_rating: e.target.value })}
-                                        placeholder="Ex: 4 Estrelas Superior"
-                                    />
-                                </div>
-                                <div className="col-span-2">
-                                    <label className="block text-sm font-bold text-slate-700 mb-2">Descrição do Alojamento</label>
-                                    <textarea
-                                        className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl h-24"
-                                        value={logistics.accommodation_description}
-                                        onChange={e => setLogistics({ ...logistics, accommodation_description: e.target.value })}
-                                    />
-                                </div>
-                                <div className="col-span-2">
-                                    <label className="block text-sm font-bold text-slate-700 mb-2">Imagem do Hotel (URL)</label>
-                                    <div className="flex gap-2">
-                                        <input
-                                            type="text"
-                                            className="flex-1 p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm"
-                                            value={logistics.accommodation_image || ''}
-                                            onChange={e => setLogistics({ ...logistics, accommodation_image: e.target.value })}
-                                        />
-                                        {logistics.accommodation_image && (
-                                            <div className="w-12 h-12 bg-slate-100 rounded-lg overflow-hidden border border-slate-200">
-                                                <img src={logistics.accommodation_image} className="w-full h-full object-cover" />
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Inclusions */}
-                        <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-200">
-                            <h3 className="text-lg font-bold font-serif text-slate-900 mb-6 flex items-center gap-2">
-                                <List className="w-5 h-5 text-slate-600" /> O que inclui? (Padrão)
-                            </h3>
-                            <div className="space-y-3">
-                                {logistics.included_items?.map((item, idx) => (
-                                    <div key={idx} className="flex gap-2">
-                                        <input
-                                            type="text"
-                                            className="flex-1 p-2 bg-slate-50 border border-slate-200 rounded-lg"
-                                            value={item}
-                                            onChange={(e) => {
-                                                const newItems = [...(logistics.included_items || [])];
-                                                newItems[idx] = e.target.value;
-                                                setLogistics({ ...logistics, included_items: newItems });
-                                            }}
-                                        />
-                                        <button
-                                            onClick={() => {
-                                                const newItems = [...(logistics.included_items || [])];
-                                                newItems.splice(idx, 1);
-                                                setLogistics({ ...logistics, included_items: newItems });
-                                            }}
-                                            className="p-2 text-red-400 hover:text-red-600"
-                                        >
-                                            <Trash2 className="w-4 h-4" />
-                                        </button>
-                                    </div>
-                                ))}
+                    {/* LOGISTICS SECTION */}
+                    {activeSection === 'logistics' && (
+                        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                            <div className="flex justify-between items-center mb-4">
+                                <h2 className="text-2xl font-bold font-serif text-slate-900">Logística Global</h2>
                                 <button
-                                    onClick={() => setLogistics({ ...logistics, included_items: [...(logistics.included_items || []), ''] })}
-                                    className="text-sm font-bold text-slate-500 hover:text-slate-800 flex items-center gap-2"
+                                    onClick={saveLogistics}
+                                    disabled={saving}
+                                    className="bg-green-600 hover:bg-green-700 text-white px-6 py-2.5 rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-green-900/10 disabled:opacity-50 transition-all"
                                 >
-                                    <Plus className="w-4 h-4" /> Adicionar Item
+                                    {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                                    Guardar Alterações
                                 </button>
                             </div>
-                        </div>
-                    </div>
-                )}
 
-                {/* --- TAB: TESTIMONIALS --- */}
-                {activeTab === 'testimonials' && (
-                    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                        <div className="bg-slate-900 text-white p-6 rounded-2xl flex justify-between items-center">
-                            <div>
-                                <h3 className="font-bold text-lg mb-1">Testemunhos</h3>
-                                <p className="text-slate-400 text-sm">Gerencie o que os peregrinos dizem sobre nós.</p>
-                            </div>
-                            <button
-                                onClick={addTestimonial}
-                                className="bg-white text-slate-900 px-4 py-2 rounded-lg text-sm font-bold hover:bg-slate-100 transition-colors"
-                            >
-                                + Novo
-                            </button>
-                        </div>
-
-                        <div className="grid grid-cols-1 gap-6">
-                            {testimonials.map((t, idx) => (
-                                <div key={t.id || idx} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 relative group">
-                                    <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <button
-                                            onClick={() => { if (t.id) saveTestimonial(t, idx); else alert('Edite os campos e o save é automático ao blur? Nao, vou por botao save individual por agora.'); }}
-                                            className="hidden" // Hiding implicit save logic for now, using individual inputs
-                                        ></button>
-                                        <button
-                                            onClick={() => saveTestimonial(t, idx)}
-                                            className="text-white bg-green-500 hover:bg-green-600 p-2 rounded-lg font-bold text-xs flex items-center gap-1 shadow-md transform transition-transform hover:scale-105"
-                                        >
-                                            <Save className="w-3 h-3" /> Guardar
-                                        </button>
-                                        <button
-                                            onClick={() => t.id && deleteTestimonial(t.id, idx)}
-                                            className="text-red-400 hover:text-red-600 bg-red-50 p-2 rounded-lg"
-                                        >
-                                            <Trash2 className="w-4 h-4" />
-                                        </button>
+                            {/* Transport Card */}
+                            <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200">
+                                <h3 className="text-lg font-bold text-slate-900 mb-6 flex items-center gap-2">
+                                    <Bus className="w-5 h-5 text-blue-500" />
+                                    Transporte
+                                </h3>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                    <div className="space-y-4">
+                                        <div>
+                                            <label className="block text-sm font-bold text-slate-700 mb-2">Título</label>
+                                            <input
+                                                type="text"
+                                                className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 outline-none"
+                                                value={logistics.transport_title}
+                                                onChange={e => setLogistics({ ...logistics, transport_title: e.target.value })}
+                                                placeholder="Ex: Autocarro de Turismo"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-bold text-slate-700 mb-2">Descrição</label>
+                                            <textarea
+                                                className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl h-32 resize-none focus:ring-2 focus:ring-slate-900 outline-none"
+                                                value={logistics.transport_description}
+                                                onChange={e => setLogistics({ ...logistics, transport_description: e.target.value })}
+                                            />
+                                        </div>
                                     </div>
-
-                                    <div className="flex gap-6 items-start">
-                                        <div className="w-16 h-16 bg-slate-100 rounded-full overflow-hidden flex-shrink-0 border border-slate-200">
-                                            {t.image_url ? (
-                                                <img src={t.image_url} className="w-full h-full object-cover" />
-                                            ) : (
-                                                <div className="w-full h-full flex items-center justify-center text-slate-300"><ImageIcon className="w-6 h-6" /></div>
-                                            )}
-                                        </div>
-                                        <div className="flex-1 space-y-3">
-                                            <div className="grid grid-cols-2 gap-4">
-                                                <div>
-                                                    <label className="text-xs font-bold text-slate-500 uppercase">Nome</label>
-                                                    <input
-                                                        className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold text-slate-900"
-                                                        value={t.author_name}
-                                                        onChange={e => {
-                                                            const newT = [...testimonials];
-                                                            newT[idx].author_name = e.target.value;
-                                                            setTestimonials(newT);
-                                                        }}
-                                                    />
-                                                </div>
-                                                <div>
-                                                    <label className="text-xs font-bold text-slate-500 uppercase">Cargo / Ano</label>
-                                                    <input
-                                                        className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-sm"
-                                                        value={t.role}
-                                                        onChange={e => {
-                                                            const newT = [...testimonials];
-                                                            newT[idx].role = e.target.value;
-                                                            setTestimonials(newT);
-                                                        }}
-                                                    />
-                                                </div>
-                                            </div>
-                                            <div>
-                                                <label className="text-xs font-bold text-slate-500 uppercase">Testemunho</label>
-                                                <textarea
-                                                    className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-sm h-20"
-                                                    value={t.text}
-                                                    onChange={e => {
-                                                        const newT = [...testimonials];
-                                                        newT[idx].text = e.target.value;
-                                                        setTestimonials(newT);
-                                                    }}
-                                                />
-                                            </div>
-                                            <div>
-                                                <label className="text-xs font-bold text-slate-500 uppercase">Foto (URL)</label>
-                                                <input
-                                                    className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono text-slate-500"
-                                                    value={t.image_url || ''}
-                                                    onChange={e => {
-                                                        const newT = [...testimonials];
-                                                        newT[idx].image_url = e.target.value;
-                                                        setTestimonials(newT);
-                                                    }}
-                                                />
-                                            </div>
-                                        </div>
+                                    <div>
+                                        <ImageUpload
+                                            label="Fotografia do Autocarro"
+                                            bucket="site-content"
+                                            path="logistics/transport"
+                                            value={logistics.transport_image}
+                                            onChange={(url) => setLogistics({ ...logistics, transport_image: url })}
+                                        />
                                     </div>
                                 </div>
-                            ))}
+                            </div>
+
+                            {/* Accommodation Card */}
+                            <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200">
+                                <h3 className="text-lg font-bold text-slate-900 mb-6 flex items-center gap-2">
+                                    <Hotel className="w-5 h-5 text-purple-500" />
+                                    Alojamento
+                                </h3>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                    <div className="space-y-4">
+                                        <div>
+                                            <label className="block text-sm font-bold text-slate-700 mb-2">Classificação</label>
+                                            <input
+                                                type="text"
+                                                className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 outline-none"
+                                                value={logistics.accommodation_rating}
+                                                onChange={e => setLogistics({ ...logistics, accommodation_rating: e.target.value })}
+                                                placeholder="Ex: Hotéis 4 Estrelas"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-bold text-slate-700 mb-2">Descrição</label>
+                                            <textarea
+                                                className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl h-32 resize-none focus:ring-2 focus:ring-slate-900 outline-none"
+                                                value={logistics.accommodation_description}
+                                                onChange={e => setLogistics({ ...logistics, accommodation_description: e.target.value })}
+                                            />
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <ImageUpload
+                                            label="Fotografia do Hotel (Exemplo)"
+                                            bucket="site-content"
+                                            path="logistics/accommodation"
+                                            value={logistics.accommodation_image}
+                                            onChange={(url) => setLogistics({ ...logistics, accommodation_image: url })}
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Inclusions Card */}
+                            <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200">
+                                <h3 className="text-lg font-bold text-slate-900 mb-6 flex items-center gap-2">
+                                    <List className="w-5 h-5 text-green-500" />
+                                    O que está incluído? (Lista Padrão)
+                                </h3>
+                                <div className="space-y-3">
+                                    {logistics.included_items?.map((item, idx) => (
+                                        <div key={idx} className="flex gap-2">
+                                            <span className="w-8 h-8 flex items-center justify-center bg-slate-100 rounded-full text-xs font-bold text-slate-500 flex-shrink-0">
+                                                {idx + 1}
+                                            </span>
+                                            <input
+                                                type="text"
+                                                className="flex-1 p-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-900 outline-none"
+                                                value={item}
+                                                onChange={(e) => {
+                                                    const newItems = [...(logistics.included_items || [])];
+                                                    newItems[idx] = e.target.value;
+                                                    setLogistics({ ...logistics, included_items: newItems });
+                                                }}
+                                            />
+                                            <button
+                                                onClick={() => {
+                                                    const newItems = [...(logistics.included_items || [])];
+                                                    newItems.splice(idx, 1);
+                                                    setLogistics({ ...logistics, included_items: newItems });
+                                                }}
+                                                className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                            >
+                                                <Trash2 className="w-4 h-4" />
+                                            </button>
+                                        </div>
+                                    ))}
+                                    <button
+                                        onClick={() => setLogistics({ ...logistics, included_items: [...(logistics.included_items || []), ''] })}
+                                        className="mt-4 text-sm font-bold text-white bg-slate-900 hover:bg-slate-800 px-4 py-2 rounded-lg flex items-center gap-2 w-fit transition-all"
+                                    >
+                                        <Plus className="w-4 h-4" /> Adicionar Item
+                                    </button>
+                                </div>
+                            </div>
                         </div>
-                    </div>
-                )}
+                    )}
+
+                    {/* TESTIMONIALS SECTION */}
+                    {activeSection === 'testimonials' && (
+                        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                            <div className="flex justify-between items-center mb-4">
+                                <div>
+                                    <h2 className="text-2xl font-bold font-serif text-slate-900">Testemunhos</h2>
+                                    <p className="text-slate-500">Gerencie o feedback dos peregrinos.</p>
+                                </div>
+                                <button
+                                    onClick={startNewTestimonial}
+                                    className="bg-slate-900 hover:bg-slate-800 text-white px-5 py-2.5 rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-slate-900/20 transition-all"
+                                >
+                                    <Plus className="w-4 h-4" />
+                                    Novo Testemunho
+                                </button>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
+                                {testimonials.map((t) => (
+                                    <div
+                                        key={t.id}
+                                        className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 relative group hover:shadow-md transition-all cursor-pointer"
+                                        onClick={() => setEditingTestimonial(t)}
+                                    >
+                                        <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); setEditingTestimonial(t); }}
+                                                className="p-2 text-slate-400 hover:text-blue-600 bg-slate-50 hover:bg-blue-50 rounded-lg"
+                                            >
+                                                <Edit2 className="w-4 h-4" />
+                                            </button>
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); if (t.id) handleDeleteTestimonial(t.id); }}
+                                                className="p-2 text-slate-400 hover:text-red-600 bg-slate-50 hover:bg-red-50 rounded-lg"
+                                            >
+                                                <Trash2 className="w-4 h-4" />
+                                            </button>
+                                        </div>
+
+                                        <div className="flex items-start gap-4">
+                                            <div className="w-16 h-16 bg-slate-100 rounded-full overflow-hidden flex-shrink-0 border border-slate-200">
+                                                {t.image_url ? (
+                                                    <img src={t.image_url} alt="" className="w-full h-full object-cover" />
+                                                ) : (
+                                                    <div className="w-full h-full flex items-center justify-center text-slate-300">
+                                                        <MessageSquare className="w-6 h-6" />
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <div>
+                                                <h3 className="font-bold text-slate-900 mb-0.5">{t.author_name}</h3>
+                                                <p className="text-xs text-slate-500 font-bold uppercase tracking-wider mb-3">{t.role}</p>
+                                                <p className="text-sm text-slate-600 line-clamp-3 italic">"{t.text}"</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                </div>
             </div>
-        </div>
+
+            {/* Testimonials Slide-Over Editor */}
+            <AnimatePresence>
+                {editingTestimonial && (
+                    <>
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={() => setEditingTestimonial(null)}
+                            className="fixed inset-0 bg-black/50 z-40 backdrop-blur-sm"
+                        />
+                        <motion.div
+                            initial={{ x: '100%' }}
+                            animate={{ x: 0 }}
+                            exit={{ x: '100%' }}
+                            transition={{ type: "spring", damping: 25, stiffness: 200 }}
+                            className="fixed inset-y-0 right-0 w-full max-w-lg bg-white z-50 shadow-2xl overflow-y-auto"
+                        >
+                            <div className="p-8">
+                                <div className="flex items-center justify-between mb-8">
+                                    <h2 className="text-2xl font-bold font-serif text-slate-900">
+                                        {editingTestimonial.id ? 'Editar Testemunho' : 'Novo Testemunho'}
+                                    </h2>
+                                    <button
+                                        onClick={() => setEditingTestimonial(null)}
+                                        className="p-2 hover:bg-slate-100 rounded-full text-slate-500"
+                                    >
+                                        <X className="w-6 h-6" />
+                                    </button>
+                                </div>
+
+                                <div className="space-y-6">
+                                    <div>
+                                        <label className="block text-sm font-bold text-slate-700 mb-2">Nome do Autor</label>
+                                        <input
+                                            type="text"
+                                            className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 outline-none"
+                                            value={editingTestimonial.author_name}
+                                            onChange={e => setEditingTestimonial({ ...editingTestimonial, author_name: e.target.value })}
+                                            placeholder="Ex: Maria Santos"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-bold text-slate-700 mb-2">Cargo / Função</label>
+                                        <input
+                                            type="text"
+                                            className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 outline-none"
+                                            value={editingTestimonial.role}
+                                            onChange={e => setEditingTestimonial({ ...editingTestimonial, role: e.target.value })}
+                                            placeholder="Ex: Peregrina 2024"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-bold text-slate-700 mb-2">Testemunho</label>
+                                        <textarea
+                                            className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl h-40 resize-none focus:ring-2 focus:ring-slate-900 outline-none"
+                                            value={editingTestimonial.text}
+                                            onChange={e => setEditingTestimonial({ ...editingTestimonial, text: e.target.value })}
+                                            placeholder="Escreva aqui o testemunho..."
+                                        />
+                                    </div>
+
+                                    <div className="border-t border-slate-100 pt-6">
+                                        <ImageUpload
+                                            label="Fotografia (Opcional)"
+                                            bucket="testimonials"
+                                            path="avatars"
+                                            value={editingTestimonial.image_url}
+                                            onChange={(url) => setEditingTestimonial({ ...editingTestimonial, image_url: url })}
+                                        />
+                                    </div>
+
+                                    <div className="flex gap-4 pt-6">
+                                        <button
+                                            onClick={() => setEditingTestimonial(null)}
+                                            className="flex-1 px-6 py-3 bg-slate-100 text-slate-700 font-bold rounded-xl hover:bg-slate-200 transition-colors"
+                                        >
+                                            Cancelar
+                                        </button>
+                                        <button
+                                            onClick={handleSaveTestimonial}
+                                            disabled={saving}
+                                            className="flex-1 px-6 py-3 bg-slate-900 text-white font-bold rounded-xl hover:bg-slate-800 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+                                        >
+                                            {saving ? 'A Guardar...' : 'Guardar'}
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </motion.div>
+                    </>
+                )}
+            </AnimatePresence>
+        </AdminLayout>
     );
 }

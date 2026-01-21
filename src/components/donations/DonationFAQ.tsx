@@ -8,7 +8,7 @@ export default function DonationFAQ() {
     const faqs = [
         {
             q: 'A doação é segura?',
-            a: 'Absolutamente. Utilizamos processadores de pagamento líderes mundiais (Stripe e Reduniq) com certificação de segurança máxima (PCI DSS). Os seus dados são encriptados e nunca guardamos informações de cartões.',
+            a: 'Absolutamente. Utilizamos o processador de pagamento Reduniq com certificação de segurança máxima (PCI DSS). Os seus dados são encriptados e nunca guardamos informações de cartões.',
         },
         {
             q: 'Posso pedir recibo fiscal da doação?',

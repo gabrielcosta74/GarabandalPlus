@@ -1,5 +1,6 @@
 import { cache } from 'react';
 import styles from '../app/page.module.css';
+import { getAppUrl } from '../lib/config';
 
 type DonationMeta = {
   goal: number;
@@ -10,9 +11,9 @@ const formatCurrency = (value: number) =>
   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'EUR' }).format(value);
 
 const loadMeta = cache(async (): Promise<DonationMeta> => {
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
+  const siteUrl = getAppUrl();
   try {
-    const res = await fetch(`${siteUrl.replace(/\/$/, '')}/api/donations/meta`, {
+    const res = await fetch(`${siteUrl}/api/donations/meta`, {
       cache: 'no-store',
     });
     if (!res.ok) return { goal: 2500, raised: 0 };

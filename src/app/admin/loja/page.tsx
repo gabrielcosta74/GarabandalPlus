@@ -32,7 +32,6 @@ type ProductRow = {
   image_url?: string | null;
   digital_url?: string | null;
   sku?: string | null;
-  factpt_reference?: string | null;
   tags?: string[] | string | null;
   low_stock_threshold?: number | null;
 };
@@ -40,7 +39,6 @@ type ProductRow = {
 type ProductView = {
   id: string;
   sku: string;
-  factptReference: string;
   name: string;
   description: string;
   category: string;
@@ -75,7 +73,6 @@ const normalizeProduct = (product: ProductRow): ProductView => {
   return {
     id: product.product_id,
     sku: product.sku || product.product_id,
-    factptReference: product.factpt_reference || '',
     name: product.name || 'Produto',
     description: product.description || '',
     category: product.category || 'Sem categoria',
@@ -228,7 +225,6 @@ export default function AdminLojaPage() {
         stock: draft.type === 'fisico' ? draft.stock ?? 0 : null,
         low_stock_threshold: draft.lowStockThreshold,
         tags: draft.tags,
-        factpt_reference: draft.factptReference.trim() || null,
       };
 
       const res = await fetch(`/api/admin/products/${draft.id}`, {

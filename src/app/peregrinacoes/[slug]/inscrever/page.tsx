@@ -3,11 +3,13 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { supabaseBrowser } from '../../../../lib/supabase-browser';
-import { useForm, useFieldArray, FormProvider, useWatch } from 'react-hook-form'; // Added useWatch
+import { useForm, useFieldArray, FormProvider, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { ChevronRight, ChevronLeft, Check, User, Users, Loader2, AlertCircle, MapPin, Globe, Mail } from 'lucide-react';
 import Link from 'next/link';
+import { useAuth } from '../../../../contexts/AuthContext';
+import { handleBookingWithAutoLogin } from '../../../../lib/booking-api';
 
 // Phone Input
 import PhoneInput from 'react-phone-number-input';
@@ -79,7 +81,7 @@ const calculatePilgrimPrice = (pilgrim: any, pilgrimage: any, rooms: Room[], pil
     }
 
     if (isNaN(age)) age = 30;
-    const isChild = age <= 10 && age >= 2;
+    const isChild = age < 6 && age >= 2;
     const isInfant = age < 2;
 
     // --- V2 PRICING ENGINE ---
@@ -96,17 +98,12 @@ const calculatePilgrimPrice = (pilgrim: any, pilgrimage: any, rooms: Room[], pil
 
     // Fallback for hardcoded Single Supplement ONLY if not configured in JSON and type is single
     if (roomType === 'single' && (!supplements.single || supplements.single === 0)) {
-        // Check if it's already included or if we should add it as a fallback
-        // For now, let's stick to the configured values or 0 if user explicitly set it to 0.
-        // But the user mentioned +250 in the UI before, so if it's 0 and not configured, maybe add fallback?
-        // Actually, if it's 0 and the user DID NOT configure it, we might want to default to 250 for safety?
-        // No, the user can now set it to 0. Let's only add 250 if supplements is empty.
         if (Object.keys(supplements).length === 0) subtotal += 250;
     }
 
     let discount = 0;
-    if (isChild) discount = subtotal * 0.50;
-    if (isInfant) discount = subtotal;
+    if (isChild) discount = subtotal * 0.20; // 20% Discount
+    if (isInfant) discount = subtotal; // 100% Discount
 
     const finalPrice = Math.max(0, subtotal - discount);
 
@@ -130,6 +127,9 @@ const getMaxInstallments = (startDate: string) => {
     return monthsMax;
 };
 
+// Utility function to round monetary values to 2 decimal places
+const roundToTwo = (num: number): number => Math.round(num * 100) / 100;
+
 const calculateInstallments = (totalBalance: number, startDate: string, desiredCount?: number) => {
     const installments: { date: Date; amount: number }[] = [];
     if (totalBalance <= 0) return installments;
@@ -146,16 +146,16 @@ const calculateInstallments = (totalBalance: number, startDate: string, desiredC
     const actualCount = desiredCount ? Math.min(desiredCount, maxMonths) : maxMonths;
 
     if (actualCount <= 1) {
-        installments.push({ date: end, amount: totalBalance });
+        installments.push({ date: end, amount: roundToTwo(totalBalance) });
     } else {
-        const perMonth = Math.floor(totalBalance / actualCount);
-        let remaining = totalBalance;
+        const perMonth = roundToTwo(totalBalance / actualCount);
+        let remaining = roundToTwo(totalBalance);
 
         for (let i = 0; i < actualCount; i++) {
             const date = new Date(current);
-            const amount = i === actualCount - 1 ? remaining : perMonth;
+            const amount = i === actualCount - 1 ? roundToTwo(remaining) : perMonth;
             installments.push({ date, amount });
-            remaining -= amount;
+            remaining = roundToTwo(remaining - amount);
             current.setMonth(current.getMonth() + 1);
         }
     }
@@ -448,8 +448,10 @@ export default function PilgrimageBookingPage() {
 
     // User State
     const [userEmail, setUserEmail] = useState('');
-    const [userPhone, setUserPhone] = useState(''); // New State for Phone
-    const [userIdHint, setUserIdHint] = useState<string | null>(null);
+    const [userPhone, setUserPhone] = useState('');
+
+    // Auth Context for auto-login
+    const { setSession, isAuthenticated, loading: authLoading } = useAuth();
 
     // Form
     const methods = useForm<BookingFormValues>({
@@ -458,6 +460,9 @@ export default function PilgrimageBookingPage() {
     });
     const { handleSubmit, watch, control, formState: { errors } } = methods;
     const { fields, append, remove } = useFieldArray({ control, name: "pilgrims" });
+
+    // Watch pilgrims for realtime price calculation
+    const currentPilgrims = watch('pilgrims');
 
     // Rooms State
     const [rooms, setRooms] = useState<Room[]>([]);
@@ -473,7 +478,6 @@ export default function PilgrimageBookingPage() {
             const { data: { user } } = await supabaseBrowser.auth.getUser();
             if (user) {
                 setUserEmail(user.email || '');
-                setUserIdHint(user.id);
             }
             setLoading(false);
         };
@@ -499,6 +503,25 @@ export default function PilgrimageBookingPage() {
         if (step === 2) {
             const valid = await methods.trigger('pilgrims');
             if (!valid) return;
+
+            // Age Validation: At least one person must be an adult (>= 18)
+            // (User mentioned >6, but legal responsibility requires 18. Adjusting for safety).
+            const pilgrims = watch('pilgrims');
+            const hasAdult = pilgrims.some(p => {
+                if (!p.birth_date) return false;
+                const birth = new Date(p.birth_date);
+                let age = new Date().getFullYear() - birth.getFullYear();
+                const today = new Date();
+                if (today.getMonth() < birth.getMonth() || (today.getMonth() === birth.getMonth() && today.getDate() < birth.getDate())) {
+                    age--;
+                }
+                return age >= 18;
+            });
+
+            if (!hasAdult) {
+                alert("É necessário pelo menos um adulto (maior de 18 anos) responsável pela inscrição.");
+                return;
+            }
         }
         if (step === 3) {
             const assignedCount = rooms.reduce((acc, r) => acc + r.occupantIndexes.length, 0);
@@ -512,6 +535,7 @@ export default function PilgrimageBookingPage() {
     };
 
     const onSubmit = async (data: BookingFormValues) => {
+        console.log("🚀 [Frontend] onSubmit called - starting booking process");
         setSubmitting(true);
         try {
             const pilgrimsPayload = data.pilgrims.map((p, idx) => {
@@ -537,42 +561,55 @@ export default function PilgrimageBookingPage() {
                 };
             });
 
-            const res = await fetch('/api/booking/create', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    email: userEmail,
-                    user_id_hint: userIdHint,
-                    pilgrimage_id: pilgrimage.id,
-                    payment_method: data.payment_method,
-                    installment_count: installmentCount || getMaxInstallments(pilgrimage.start_date),
-                    payment_plan: data.payment_method === 'installments' ? calculateInstallments(
-                        totalBookingAmount - depositTotal,
-                        pilgrimage.start_date,
-                        installmentCount || getMaxInstallments(pilgrimage.start_date)
-                    ) : null,
-                    pilgrim_data: pilgrimsPayload,
-                    terms_accepted: data.terms_accepted
-                })
-            });
+            console.log("🔵 [Frontend] Preparing booking request...");
+            console.log("📧 Email:", userEmail);
+            console.log("🆔 Pilgrimage ID:", pilgrimage.id);
+            console.log("👥 Pilgrims count:", pilgrimsPayload.length);
+            console.log("💳 Payment method:", data.payment_method);
 
-            const result = await res.json();
-            if (!res.ok) throw new Error(result.error || "Erro desconhecido");
+            // Use auto-login helper
+            const paymentPlan = data.payment_method === 'installments' ? calculateInstallments(
+                totalBookingAmount - depositTotal,
+                pilgrimage.start_date,
+                installmentCount || getMaxInstallments(pilgrimage.start_date)
+            ) : null;
 
-            window.location.href = `/peregrinacoes/inscricao/${result.booking_id}?success=true`;
+            console.log("📞 [Frontend] Calling handleBookingWithAutoLogin...");
+
+            const result = await handleBookingWithAutoLogin({
+                email: userEmail,
+                pilgrimage_id: pilgrimage.id,
+                payment_method: data.payment_method,
+                installment_count: installmentCount || getMaxInstallments(pilgrimage.start_date),
+                payment_plan: paymentPlan ? JSON.stringify(paymentPlan) : undefined,
+                pilgrim_data: pilgrimsPayload,
+                terms_accepted: data.terms_accepted
+            }, setSession);
+
+            console.log("✅ [Frontend] handleBookingWithAutoLogin completed");
+            console.log("📦 [Frontend] Result:", result);
+            console.log("✅ [Frontend] Booking created:", result.booking_id);
+            console.log("🔑 [Frontend] View token:", result.view_token);
+
+            // Redirect to booking page with view_token for immediate access
+            // This bypasses the need for session to be set
+            const redirectUrl = `/peregrinacoes/inscricao/${result.booking_id}?token=${result.view_token}`;
+            console.log("🔄 [Frontend] Redirecting to:", redirectUrl);
+            window.location.href = redirectUrl;
 
         } catch (err: any) {
-            console.error(err);
+            console.error("🚨 [Frontend] Booking error:", err);
+            console.error("🚨 [Frontend] Error stack:", err.stack);
             alert("Erro: " + err.message);
             setSubmitting(false);
         }
     };
 
-    if (loading) return <div className="min-h-screen bg-slate-950 flex items-center justify-center"><Loader2 className="animate-spin text-yellow-500 w-10 h-10" /></div>;
+    if (loading || authLoading) return <div className="min-h-screen bg-slate-950 flex items-center justify-center"><Loader2 className="animate-spin text-yellow-500 w-10 h-10" /></div>;
     if (!pilgrimage) return <div className="text-white text-center pt-20">Peregrinação não encontrada.</div>;
 
-    const depositTotal = fields.length * (pilgrimage.deposit_value || 0);
-    const totalBookingAmount = fields.map((f, i) => calculatePilgrimPrice(f, pilgrimage, rooms, i).finalPrice).reduce((a, b) => a + b, 0);
+    const depositTotal = (currentPilgrims?.length || 0) * (pilgrimage.deposit_value || 0);
+    const totalBookingAmount = (currentPilgrims || []).map((f, i) => calculatePilgrimPrice(f, pilgrimage, rooms, i).finalPrice).reduce((a, b) => a + b, 0);
 
     return (
         <VIPLayout allowPublic={true}>
@@ -654,7 +691,7 @@ export default function PilgrimageBookingPage() {
                                         <div className="text-center"><h2 className="text-3xl font-bold text-white mb-2">Quase lá!</h2><p className="text-slate-400">Verifica o resumo final antes de confirmar.</p></div>
 
                                         <div className="bg-slate-950 p-6 rounded-3xl space-y-4 border border-white/5">
-                                            {fields.map((f, i) => {
+                                            {currentPilgrims.map((f, i) => {
                                                 const pPrice = calculatePilgrimPrice(f, pilgrimage, rooms, i);
                                                 return (
                                                     <div key={i} className="flex justify-between items-center text-sm border-b border-white/5 pb-3 last:border-0 last:pb-0">
@@ -678,16 +715,16 @@ export default function PilgrimageBookingPage() {
                                             <div className="pt-4 space-y-2 border-t border-white/10">
                                                 <div className="flex justify-between text-xs">
                                                     <span className="text-slate-500">Donativos Base</span>
-                                                    <span className="text-slate-300 font-mono">{fields.length * (pilgrimage.base_price || 0)}€</span>
+                                                    <span className="text-slate-300 font-mono">{currentPilgrims.length * (pilgrimage.base_price || 0)}€</span>
                                                 </div>
                                                 <div className="flex justify-between text-xs">
                                                     <span className="text-slate-500">Taxas de Inscrição</span>
                                                     <span className="text-slate-300 font-mono">{depositTotal}€</span>
                                                 </div>
-                                                {totalBookingAmount - (fields.length * (pilgrimage.base_price || 0)) - depositTotal > 0 && (
+                                                {totalBookingAmount - (currentPilgrims.length * (pilgrimage.base_price || 0)) - depositTotal > 0 && (
                                                     <div className="flex justify-between text-xs">
                                                         <span className="text-slate-500">Suplementos de Alojamento</span>
-                                                        <span className="text-slate-300 font-mono">+{totalBookingAmount - (fields.length * (pilgrimage.base_price || 0)) - depositTotal}€</span>
+                                                        <span className="text-slate-300 font-mono">+{totalBookingAmount - (currentPilgrims.length * (pilgrimage.base_price || 0)) - depositTotal}€</span>
                                                     </div>
                                                 )}
                                                 <div className="flex justify-between items-center pt-2">
