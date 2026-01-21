@@ -65,11 +65,6 @@ export default function BookingsManager({ pilgrimageId }: { pilgrimageId: string
 
             const data = json.bookings;
 
-            console.log('✅ [fetchBookings] Got bookings from API:', {
-                count: data.length,
-                has_payments: data.some((b: any) => b.payments?.length > 0)
-            });
-
             if (data) {
                 // Flatten the structure: We want a row per pilgrim
                 const flatList: Pilgrim[] = [];

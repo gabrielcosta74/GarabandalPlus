@@ -6,6 +6,7 @@ import FinancialSummary from './FinancialSummary';
 import PendingReceiptsAlert from './PendingReceiptsAlert';
 import PaymentHistory, { type Payment } from './PaymentHistory';
 import AddPaymentModal from './AddPaymentModal';
+import ValidateReceiptModal from './ValidateReceiptModal';
 import InstallmentTracker from '../../booking/InstallmentTracker';
 
 interface PaymentManagementTabProps {
@@ -28,16 +29,6 @@ export default function PaymentManagementTab({
 }: PaymentManagementTabProps) {
     const [showAddModal, setShowAddModal] = useState(false);
 
-    console.log('🔍 [PaymentManagementTab] Received props:', {
-        booking_id: booking.id,
-        total_amount: booking.total_amount,
-        paid_amount: booking.paid_amount,
-        payments_count: booking.payments.length,
-        payments: booking.payments,
-        payment_plan_count: booking.payment_plan.length,
-        pilgrimage: booking.pilgrimage
-    });
-
     // Calculate status
     const getStatus = (): 'pending' | 'partial' | 'paid' => {
         if (booking.paid_amount >= booking.total_amount) return 'paid';
@@ -55,8 +46,16 @@ export default function PaymentManagementTab({
         receipt_url: p.receipt_url
     }));
 
-    // Handle validate receipt
-    const handleValidate = async (paymentId: string, amount: number) => {
+    // State for validating receipt
+    const [validatingReceipt, setValidatingReceipt] = useState<{ id: string; receipt_url?: string } | null>(null);
+
+    // Handle validate receipt - open modal for amount entry
+    const handleValidate = (paymentId: string, suggestedAmount: number, receipt_url?: string) => {
+        setValidatingReceipt({ id: paymentId, receipt_url });
+    };
+
+    // Actually validate after admin enters amount
+    const handleConfirmValidation = async (paymentId: string, amount: number, label?: string) => {
         try {
             const response = await fetch('/api/admin/payments/verify', {
                 method: 'POST',
@@ -65,7 +64,9 @@ export default function PaymentManagementTab({
                 },
                 body: JSON.stringify({
                     paymentId,
-                    bookingId: booking.id
+                    bookingId: booking.id,
+                    amount, // Admin-entered amount
+                    label // Admin-entered label
                 }),
             });
 
@@ -76,6 +77,7 @@ export default function PaymentManagementTab({
 
             // Refresh booking data
             await onUpdate();
+            setValidatingReceipt(null);
         } catch (err: any) {
             alert('Erro ao validar: ' + err.message);
         }
@@ -183,6 +185,14 @@ export default function PaymentManagementTab({
                         setShowAddModal(false);
                         await onUpdate();
                     }}
+                />
+            )}
+
+            {validatingReceipt && (
+                <ValidateReceiptModal
+                    receipt={validatingReceipt}
+                    onClose={() => setValidatingReceipt(null)}
+                    onConfirm={handleConfirmValidation}
                 />
             )}
         </div>
