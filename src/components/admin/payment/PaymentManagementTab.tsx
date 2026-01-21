@@ -56,153 +56,170 @@ export default function PaymentManagementTab({
 
     // Actually validate after admin enters amount
     const handleConfirmValidation = async (paymentId: string, amount: number, label?: string) => {
-        try {            // Get session token for admin auth
-            const { data: { session } } = await (await import('../../../lib/supabase-browser')).supabaseBrowser!.auth.getSession();
+        console.log('🚀 [Validation] Starting validation...');
+        try {
+            console.log('🚀 [Validation] Importing supabase-browser...');
+            const module = await import('../../../lib/supabase-browser');
+            console.log('🚀 [Validation] Module loaded:', !!module);
+
+            console.log('🚀 [Validation] Getting session...');
+            const { data: { session }, error: sessionError } = await module.supabaseBrowser!.auth.getSession();
+
+            if (sessionError) console.error('🚀 [Validation] Session error:', sessionError);
+            console.log('🚀 [Validation] Session found:', !!session);
+
             const token = session?.access_token;
 
             if (!token) {
                 throw new Error('Sessão expirada. Por favor faça login novamente.');
             }
 
+            console.log('🚀 [Validation] Sending API request...');
             const response = await fetch('/api/admin/payments/verify', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify({
-                    paymentId,
-                    bookingId: booking.id,
-                    amount,
-                    label
-                }),
-            });
 
-            if (!response.ok) {
-                const data = await response.json();
-                throw new Error(data.error || 'Erro ao validar');
-            }
+                if(!token) {
+                    throw new Error('Sessão expirada. Por favor faça login novamente.');
+                }
+
+            const response = await fetch('/api/admin/payments/verify', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        paymentId,
+                        bookingId: booking.id,
+                        amount,
+                        label
+                    }),
+                });
+
+                if(!response.ok) {
+                    const data = await response.json();
+            throw new Error(data.error || 'Erro ao validar');
+        }
 
             // Refresh booking data
             await onUpdate();
-            setValidatingReceipt(null);
-        } catch (err: any) {
-            alert('Erro ao validar: ' + err.message);
-        }
-    };
+        setValidatingReceipt(null);
+    } catch (err: any) {
+        alert('Erro ao validar: ' + err.message);
+    }
+};
 
-    // Handle reject receipt
-    const handleReject = async (paymentId: string) => {
-        if (!confirm('Tem a certeza que deseja rejeitar este comprovativo?')) return;
+// Handle reject receipt
+const handleReject = async (paymentId: string) => {
+    if (!confirm('Tem a certeza que deseja rejeitar este comprovativo?')) return;
 
-        try {
-            // TODO: Implement reject API
-            alert('Funcionalidade de rejeitar ainda não implementada');
-        } catch (err: any) {
-            alert('Erro ao rejeitar: ' + err.message);
-        }
-    };
+    try {
+        // TODO: Implement reject API
+        alert('Funcionalidade de rejeitar ainda não implementada');
+    } catch (err: any) {
+        alert('Erro ao rejeitar: ' + err.message);
+    }
+};
 
-    // Handle edit payment
-    const handleEdit = (paymentId: string) => {
-        // TODO: Implement edit modal
-        alert('Funcionalidade de editar ainda não implementada na Fase 2. Será adicionada na Fase 4.');
-    };
+// Handle edit payment
+const handleEdit = (paymentId: string) => {
+    // TODO: Implement edit modal
+    alert('Funcionalidade de editar ainda não implementada na Fase 2. Será adicionada na Fase 4.');
+};
 
-    // Handle delete payment
-    const handleDelete = async (paymentId: string) => {
-        if (!confirm('Tem a certeza que deseja eliminar este pagamento?')) return;
+// Handle delete payment
+const handleDelete = async (paymentId: string) => {
+    if (!confirm('Tem a certeza que deseja eliminar este pagamento?')) return;
 
-        try {
-            // TODO: Implement delete API
-            alert('Funcionalidade de eliminar ainda não implementada');
-        } catch (err: any) {
-            alert('Erro ao eliminar: ' + err.message);
-        }
-    };
+    try {
+        // TODO: Implement delete API
+        alert('Funcionalidade de eliminar ainda não implementada');
+    } catch (err: any) {
+        alert('Erro ao eliminar: ' + err.message);
+    }
+};
 
-    return (
-        <div className="space-y-6 p-6 max-w-7xl mx-auto">
-            {/* Financial Summary */}
-            <FinancialSummary
+return (
+    <div className="space-y-6 p-6 max-w-7xl mx-auto">
+        {/* Financial Summary */}
+        <FinancialSummary
+            totalAmount={booking.total_amount}
+            paidAmount={booking.paid_amount}
+            status={getStatus()}
+        />
+
+        {/* Installment Tracker - Same as client view */}
+        <div className="bg-white rounded-2xl border border-slate-200 p-6">
+            <h3 className="text-lg font-bold text-slate-900 mb-4">
+                📈 Plano de Pagamentos
+            </h3>
+            <InstallmentTracker
                 totalAmount={booking.total_amount}
                 paidAmount={booking.paid_amount}
-                status={getStatus()}
+                depositValue={booking.pilgrimage.deposit_value}
+                paymentPlan={booking.payment_plan}
+                payments={booking.payments}
             />
-
-            {/* Installment Tracker - Same as client view */}
-            <div className="bg-white rounded-2xl border border-slate-200 p-6">
-                <h3 className="text-lg font-bold text-slate-900 mb-4">
-                    📈 Plano de Pagamentos
-                </h3>
-                <InstallmentTracker
-                    totalAmount={booking.total_amount}
-                    paidAmount={booking.paid_amount}
-                    depositValue={booking.pilgrimage.deposit_value}
-                    paymentPlan={booking.payment_plan}
-                    payments={booking.payments}
-                />
-            </div>
-
-            {/* Pending Receipts Alert */}
-            {pendingReceipts.length > 0 && (
-                <PendingReceiptsAlert
-                    receipts={pendingReceipts}
-                    onValidate={handleValidate}
-                    onReject={handleReject}
-                />
-            )}
-
-            {/* Payment Actions */}
-            <div className="flex items-center gap-3">
-                <button
-                    onClick={() => setShowAddModal(true)}
-                    className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl transition-colors flex items-center gap-2 shadow-lg hover:shadow-xl"
-                >
-                    <Plus className="w-5 h-5" />
-                    Registar Pagamento Manual
-                </button>
-
-                <button
-                    onClick={() => alert('Export ainda não implementado')}
-                    className="px-6 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-xl transition-colors flex items-center gap-2"
-                >
-                    <Download className="w-5 h-5" />
-                    Exportar Histórico
-                </button>
-            </div>
-
-            {/* Payment History */}
-            <div className="bg-white rounded-2xl border border-slate-200 p-6">
-                <h3 className="text-lg font-bold text-slate-900 mb-4">
-                    📜 Histórico de Pagamentos ({booking.payments.length})
-                </h3>
-                <PaymentHistory
-                    payments={booking.payments}
-                    onEdit={handleEdit}
-                    onDelete={handleDelete}
-                />
-            </div>
-
-            {/* Add Payment Modal */}
-            {showAddModal && (
-                <AddPaymentModal
-                    bookingId={booking.id}
-                    onClose={() => setShowAddModal(false)}
-                    onSuccess={async () => {
-                        setShowAddModal(false);
-                        await onUpdate();
-                    }}
-                />
-            )}
-
-            {validatingReceipt && (
-                <ValidateReceiptModal
-                    receipt={validatingReceipt}
-                    onClose={() => setValidatingReceipt(null)}
-                    onConfirm={handleConfirmValidation}
-                />
-            )}
         </div>
-    );
+
+        {/* Pending Receipts Alert */}
+        {pendingReceipts.length > 0 && (
+            <PendingReceiptsAlert
+                receipts={pendingReceipts}
+                onValidate={handleValidate}
+                onReject={handleReject}
+            />
+        )}
+
+        {/* Payment Actions */}
+        <div className="flex items-center gap-3">
+            <button
+                onClick={() => setShowAddModal(true)}
+                className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl transition-colors flex items-center gap-2 shadow-lg hover:shadow-xl"
+            >
+                <Plus className="w-5 h-5" />
+                Registar Pagamento Manual
+            </button>
+
+            <button
+                onClick={() => alert('Export ainda não implementado')}
+                className="px-6 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-xl transition-colors flex items-center gap-2"
+            >
+                <Download className="w-5 h-5" />
+                Exportar Histórico
+            </button>
+        </div>
+
+        {/* Payment History */}
+        <div className="bg-white rounded-2xl border border-slate-200 p-6">
+            <h3 className="text-lg font-bold text-slate-900 mb-4">
+                📜 Histórico de Pagamentos ({booking.payments.length})
+            </h3>
+            <PaymentHistory
+                payments={booking.payments}
+                onEdit={handleEdit}
+                onDelete={handleDelete}
+            />
+        </div>
+
+        {/* Add Payment Modal */}
+        {showAddModal && (
+            <AddPaymentModal
+                bookingId={booking.id}
+                onClose={() => setShowAddModal(false)}
+                onSuccess={async () => {
+                    setShowAddModal(false);
+                    await onUpdate();
+                }}
+            />
+        )}
+
+        {validatingReceipt && (
+            <ValidateReceiptModal
+                receipt={validatingReceipt}
+                onClose={() => setValidatingReceipt(null)}
+                onConfirm={handleConfirmValidation}
+            />
+        )}
+    </div>
+);
 }
