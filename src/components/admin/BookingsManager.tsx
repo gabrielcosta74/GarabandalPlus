@@ -115,14 +115,42 @@ export default function BookingsManager({ pilgrimageId }: { pilgrimageId: string
                 // Flatten the structure: We want a row per pilgrim
                 const flatList: Pilgrim[] = [];
 
+                // Fetch payments for all bookings in this pilgrimage
+                const bookingIds = data.map((b: any) => b.id);
+                const { data: allPayments, error: paymentsError } = await supabaseBrowser
+                    .from('pilgrimage_payments')
+                    .select('*')
+                    .in('booking_id', bookingIds)
+                    .order('created_at', { ascending: false });
+
+                if (paymentsError) {
+                    console.error('Error fetching payments:', paymentsError);
+                }
+
+                console.log('🔍 [fetchBookings] Fetched payments separately:', {
+                    total_payments: allPayments?.length || 0,
+                    payments: allPayments
+                });
+
+                // Group payments by booking_id
+                const paymentsByBooking: Record<string, any[]> = {};
+                allPayments?.forEach((payment: any) => {
+                    if (!paymentsByBooking[payment.booking_id]) {
+                        paymentsByBooking[payment.booking_id] = [];
+                    }
+                    paymentsByBooking[payment.booking_id].push(payment);
+                });
+
                 data.forEach((booking: any) => {
                     if (booking.pilgrims && Array.isArray(booking.pilgrims)) {
-                        const verifyingPayment = booking.payments?.find((pay: any) => pay.status === 'verifying');
+                        // Get payments for this booking
+                        const bookingPayments = paymentsByBooking[booking.id] || [];
+                        const verifyingPayment = bookingPayments.find((pay: any) => pay.status === 'verifying');
 
                         console.log('🔍 [fetchBookings] Processing booking:', {
                             booking_id: booking.id.substring(0, 8),
-                            payments_count: booking.payments?.length || 0,
-                            payments: booking.payments
+                            payments_count: bookingPayments.length,
+                            payments: bookingPayments
                         });
 
                         booking.pilgrims.forEach((p: any) => {
@@ -139,7 +167,10 @@ export default function BookingsManager({ pilgrimageId }: { pilgrimageId: string
                                 total_amount: booking.total_amount,
                                 payment_plan: booking.payment_plan,
                                 // Store full booking data for payment tab
-                                _booking: booking
+                                _booking: {
+                                    ...booking,
+                                    payments: bookingPayments
+                                }
                             });
                         });
                     }
