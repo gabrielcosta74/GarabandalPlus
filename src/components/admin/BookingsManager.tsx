@@ -89,7 +89,7 @@ export default function BookingsManager({ pilgrimageId }: { pilgrimageId: string
                         notes,
                         cpf_nif
                     ),
-                    pilgrimage_payments (
+                    payments:pilgrimage_payments (
                         id,
                         amount,
                         method,
@@ -117,12 +117,12 @@ export default function BookingsManager({ pilgrimageId }: { pilgrimageId: string
 
                 data.forEach((booking: any) => {
                     if (booking.pilgrims && Array.isArray(booking.pilgrims)) {
-                        const verifyingPayment = booking.pilgrimage_payments?.find((pay: any) => pay.status === 'verifying');
+                        const verifyingPayment = booking.payments?.find((pay: any) => pay.status === 'verifying');
 
                         console.log('🔍 [fetchBookings] Processing booking:', {
                             booking_id: booking.id.substring(0, 8),
-                            payments_count: booking.pilgrimage_payments?.length || 0,
-                            payments: booking.pilgrimage_payments
+                            payments_count: booking.payments?.length || 0,
+                            payments: booking.payments
                         });
 
                         booking.pilgrims.forEach((p: any) => {
@@ -139,10 +139,7 @@ export default function BookingsManager({ pilgrimageId }: { pilgrimageId: string
                                 total_amount: booking.total_amount,
                                 payment_plan: booking.payment_plan,
                                 // Store full booking data for payment tab
-                                _booking: {
-                                    ...booking,
-                                    payments: booking.pilgrimage_payments || [] // Map to payments
-                                }
+                                _booking: booking
                             });
                         });
                     }
