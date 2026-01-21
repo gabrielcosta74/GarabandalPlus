@@ -76,32 +76,27 @@ export default function PaymentManagementTab({
 
             console.log('🚀 [Validation] Sending API request...');
             const response = await fetch('/api/admin/payments/verify', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    paymentId,
+                    bookingId: booking.id,
+                    amount,
+                    label
+                }),
+            });
+        });
 
-                if(!token) {
-                    throw new Error('Sessão expirada. Por favor faça login novamente.');
-                }
-
-            const response = await fetch('/api/admin/payments/verify', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
-                    },
-                    body: JSON.stringify({
-                        paymentId,
-                        bookingId: booking.id,
-                        amount,
-                        label
-                    }),
-                });
-
-                if(!response.ok) {
-                    const data = await response.json();
+        if (!response.ok) {
+            const data = await response.json();
             throw new Error(data.error || 'Erro ao validar');
         }
 
-            // Refresh booking data
-            await onUpdate();
+        // Refresh booking data
+        await onUpdate();
         setValidatingReceipt(null);
     } catch (err: any) {
         alert('Erro ao validar: ' + err.message);
