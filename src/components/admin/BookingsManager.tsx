@@ -136,24 +136,28 @@ export default function BookingsManager({ pilgrimageId }: { pilgrimageId: string
                                 _booking: booking
                             });
                         });
-                    });
+                    }
+                });
+
+                setPilgrims(flatList);
+
+                // Refresh selectedBooking if one is open
+                if (selectedBooking) {
+                    const updated = flatList.find(p => p.id === selectedBooking.id);
+                    if (updated) setSelectedBooking(updated);
+                }
             }
-        });
-
-        setPilgrims(flatList);
-
-        // Refresh selectedBooking if one is open
-        if (selectedBooking) {
-            const updated = flatList.find(p => p.id === selectedBooking.id);
-            if (updated) setSelectedBooking(updated);
+        } catch (err) {
+            console.error("Error fetching bookings:", err);
+        } finally {
+            setLoading(false);
         }
+    } catch (err) {
+        console.error("Error fetching bookings:", err);
+    } finally {
+        setLoading(false);
     }
-} catch (err) {
-    console.error("Error fetching bookings:", err);
-} finally {
-    setLoading(false);
-}
-    };
+};
 
 useEffect(() => {
     if (pilgrimageId) fetchBookings();
