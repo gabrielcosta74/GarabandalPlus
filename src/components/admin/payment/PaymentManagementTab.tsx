@@ -28,6 +28,16 @@ export default function PaymentManagementTab({
 }: PaymentManagementTabProps) {
     const [showAddModal, setShowAddModal] = useState(false);
 
+    console.log('🔍 [PaymentManagementTab] Received props:', {
+        booking_id: booking.id,
+        total_amount: booking.total_amount,
+        paid_amount: booking.paid_amount,
+        payments_count: booking.payments.length,
+        payments: booking.payments,
+        payment_plan_count: booking.payment_plan.length,
+        pilgrimage: booking.pilgrimage
+    });
+
     // Calculate status
     const getStatus = (): 'pending' | 'partial' | 'paid' => {
         if (booking.paid_amount >= booking.total_amount) return 'paid';
