@@ -53,98 +53,30 @@ export default function BookingsManager({ pilgrimageId }: { pilgrimageId: string
     const [loading, setLoading] = useState(true);
 
     const fetchBookings = async () => {
-        if (!supabaseBrowser) {
-            console.error("Supabase client not initialized");
-            setLoading(false);
-            return;
-        }
         setLoading(true);
         try {
-            // Fetch bookings for this pilgrimage + joined pilgrims + payments
-            const { data, error } = await supabaseBrowser
-                .from('bookings')
-                .select(`
-                    id,
-                    status,
-                    created_at,
-                    paid_amount,
-                    total_amount,
-                    payment_plan,
-                    pilgrims (
-                        id,
-                        full_name,
-                        email,
-                        phone,
-                        flight_option,
-                        room_type,
-                        allergies,
-                        dietary_restrictions,
-                        health_notes,
-                        birth_date,
-                        sex,
-                        address,
-                        postal_code,
-                        city,
-                        country,
-                        notes,
-                        cpf_nif
-                    ),
-                    payments:pilgrimage_payments (
-                        id,
-                        amount,
-                        method,
-                        status,
-                        receipt_url,
-                        notes,
-                        created_at,
-                        verified_at
-                    ),
-                    pilgrimage:pilgrimages (
-                        id,
-                        title,
-                        deposit_value,
-                        base_price
-                    )
-                `)
-                .eq('pilgrimage_id', pilgrimageId)
-                .order('created_at', { ascending: false });
+            // Fetch via API (uses service role, bypasses RLS)
+            const response = await fetch(`/api/admin/bookings/${pilgrimageId}`);
+            const json = await response.json();
 
-            if (error) throw error;
+            if (!response.ok) {
+                throw new Error(json.error || 'Failed to fetch');
+            }
+
+            const data = json.bookings;
+
+            console.log('✅ [fetchBookings] Got bookings from API:', {
+                count: data.length,
+                has_payments: data.some((b: any) => b.payments?.length > 0)
+            });
 
             if (data) {
                 // Flatten the structure: We want a row per pilgrim
                 const flatList: Pilgrim[] = [];
 
-                // Fetch payments for all bookings in this pilgrimage
-                const bookingIds = data.map((b: any) => b.id);
-                const { data: allPayments, error: paymentsError } = await supabaseBrowser
-                    .from('pilgrimage_payments')
-                    .select('*')
-                    .in('booking_id', bookingIds)
-                    .order('created_at', { ascending: false });
-
-                if (paymentsError) {
-                    console.error('Error fetching payments:', paymentsError);
-                }
-
-                console.log('🔍 [fetchBookings] Fetched payments separately:', {
-                    total_payments: allPayments?.length || 0,
-                    payments: allPayments
-                });
-
-                // Group payments by booking_id
-                const paymentsByBooking: Record<string, any[]> = {};
-                allPayments?.forEach((payment: any) => {
-                    if (!paymentsByBooking[payment.booking_id]) {
-                        paymentsByBooking[payment.booking_id] = [];
-                    }
-                    paymentsByBooking[payment.booking_id].push(payment);
-                });
-
                 data.forEach((booking: any) => {
                     if (booking.pilgrims && Array.isArray(booking.pilgrims)) {
-                        // Get payments for this booking
-                        const bookingPayments = paymentsByBooking[booking.id] || [];
+                        const bookingPayments = booking.payments || [];
                         const verifyingPayment = bookingPayments.find((pay: any) => pay.status === 'verifying');
 
                         console.log('🔍 [fetchBookings] Processing booking:', {
