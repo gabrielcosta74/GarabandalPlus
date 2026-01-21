@@ -153,7 +153,16 @@ export default function BookingDashboardPage() {
         // Find first installment not paid
         const nextIdx = paymentPlan.findIndex((_: any, idx: number) => getInstallmentState(idx, 0) === 'pending');
         if (nextIdx !== -1) {
-            nextAmountToPay = Number(paymentPlan[nextIdx].amount);
+            // Calculate the cumulative target for this installment
+            const cumulativeTarget = depositValue + paymentPlan.slice(0, nextIdx + 1).reduce((acc: number, curr: any) => acc + Number(curr.amount), 0);
+
+            // The amount to pay is the difference between the target and what has been paid so far
+            // This handles partial payments correctly
+            nextAmountToPay = cumulativeTarget - paidAmount;
+
+            // Ensure we don't show negative values (floating point safety)
+            nextAmountToPay = Math.max(0, parseFloat(nextAmountToPay.toFixed(2)));
+
             nextLabel = `Prestação ${nextIdx + 1} (${format(new Date(paymentPlan[nextIdx].date), 'MMMM', { locale: pt })})`;
         }
     }
