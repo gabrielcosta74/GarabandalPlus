@@ -19,6 +19,23 @@ export default function AuthCallbackPage() {
   }, [newPassword, confirmPassword]);
 
   useEffect(() => {
+    // Listen for SIGNED_IN event to redirect automatically
+    const { data: { subscription } } = supabaseBrowser?.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' && session) {
+        const hash = window.location.hash.replace(/^#/, '');
+        const hashParams = new URLSearchParams(hash);
+        const type = hashParams.get('type');
+        const next = new URLSearchParams(window.location.search).get('next');
+
+        if (next) {
+          window.location.href = next;
+        } else if (type !== 'recovery') {
+          // Only auto-redirect if not a password recovery flow
+          window.location.href = '/';
+        }
+      }
+    }) ?? { data: { subscription: { unsubscribe: () => { } } } };
+
     const run = async () => {
       if (!supabaseBrowser) {
         setStatus('error');
@@ -64,6 +81,8 @@ export default function AuthCallbackPage() {
       }
     };
     run();
+
+    return () => subscription.unsubscribe();
   }, []);
 
   const handleResetPassword = async () => {

@@ -36,18 +36,30 @@ export default function PilgrimagesPage() {
 
     useEffect(() => {
         const fetchPilgrimages = async () => {
+            console.log("🚀 [Peregrinacoes] Fetching pilgrimages...");
             if (!supabaseBrowser) {
+                console.warn("⚠️ [Peregrinacoes] Supabase client missing");
                 setLoading(false);
                 return;
             }
 
-            const { data, error } = await supabaseBrowser
-                .from('pilgrimages')
-                .select('*')
-                .order('start_date', { ascending: true });
+            try {
+                const { data, error } = await supabaseBrowser
+                    .from('pilgrimages')
+                    .select('*')
+                    .order('start_date', { ascending: true });
 
-            if (data) setPilgrimages(data);
-            setLoading(false);
+                if (error) {
+                    console.error("❌ [Peregrinacoes] Fetch error:", error);
+                } else {
+                    console.log("✅ [Peregrinacoes] Fetched:", data?.length);
+                    if (data) setPilgrimages(data);
+                }
+            } catch (err) {
+                console.error("❌ [Peregrinacoes] Unexpected error:", err);
+            } finally {
+                setLoading(false);
+            }
         };
 
         fetchPilgrimages();

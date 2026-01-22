@@ -32,7 +32,11 @@ export async function POST(req: Request) {
         }
 
         if (pilgrims && pilgrims.length > 0) {
-            return NextResponse.json({ exists: true });
+            // Found a duplicate! Return true AND the booking_id so we can redirect.
+            return NextResponse.json({
+                exists: true,
+                booking_id: pilgrims[0].booking_id
+            });
         }
 
         return NextResponse.json({ exists: false });

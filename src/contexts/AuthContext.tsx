@@ -83,6 +83,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const { data: listener } = supabaseBrowser?.auth.onAuthStateChange(async (_event, currentSession) => {
             if (!mounted) return;
 
+            // Sync cookies for server-side API access
+            if (typeof document !== 'undefined') {
+                if (currentSession?.access_token) {
+                    const maxAge = 60 * 60 * 24 * 7; // 1 week
+                    document.cookie = `sb-access-token=${currentSession.access_token}; path=/; max-age=${maxAge}; SameSite=Lax`;
+                    document.cookie = `supabase-auth-token=${currentSession.access_token}; path=/; max-age=${maxAge}; SameSite=Lax`;
+                } else {
+                    // Clear cookies on sign out
+                    document.cookie = `sb-access-token=; path=/; max-age=0`;
+                    document.cookie = `supabase-auth-token=; path=/; max-age=0`;
+                }
+            }
+
             setSessionState(currentSession);
             const sessionUser = currentSession?.user;
             setUser(sessionUser ? { id: sessionUser.id, email: sessionUser.email } : null);
