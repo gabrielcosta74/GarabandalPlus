@@ -1,84 +1,36 @@
 "use client";
 
-import { useMemo, useState } from 'react';
-import Link from 'next/link';
-import AuthShell from '../../components/auth/AuthShell';
-import AuthCard from '../../components/auth/AuthCard';
-import AuthInput from '../../components/auth/AuthInput';
-import AuthErrorBanner from '../../components/auth/AuthErrorBanner';
-import styles from '../../components/auth/auth.module.css';
-import { supabaseBrowser } from '../../lib/supabase-browser';
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { Loader2 } from 'lucide-react';
 
-export default function ResetPasswordPage() {
-  const [email, setEmail] = useState('');
-  const [error, setError] = useState<string | null>(null);
-  const [sent, setSent] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const canSubmit = useMemo(() => email.trim().length > 3, [email]);
+/**
+ * Legacy Page Redirector
+ * 
+ * This page exists because some old emails or Supabase configurations 
+ * might still point to /reset-password.
+ * 
+ * improved logic: Forward everything to /auth-callback which handles 
+ * the session validation and redirects to the correct Premium UI pages.
+ */
+export default function ResetPasswordRedirect() {
+  const router = useRouter();
 
-  const handleReset = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    setError(null);
-    setSent(false);
-    if (!supabaseBrowser) {
-      setError('Configuração Supabase em falta.');
-      return;
-    }
-    if (!canSubmit) {
-      setError('Indica um email válido.');
-      return;
-    }
-    setLoading(true);
-    try {
-      const redirectTo = `${window.location.origin}/auth-callback`;
-      const { error: resetError } = await supabaseBrowser.auth.resetPasswordForEmail(email.trim(), {
-        redirectTo,
-      });
-      if (resetError) {
-        setError(resetError.message || 'Não foi possível enviar o link.');
-        return;
-      }
-      setSent(true);
-    } catch (err: any) {
-      setError(err?.message || 'Erro ao enviar link.');
-    } finally {
-      setLoading(false);
-    }
-  };
+  useEffect(() => {
+    // Preserve hash (#access_token=...) and search (?query=...)
+    // and forward to the central handler.
+    const target = '/auth-callback' + window.location.search + window.location.hash;
+
+    console.log("Forcing redirect from legacy page to:", target);
+    window.location.replace(target);
+  }, [router]);
 
   return (
-    <AuthShell
-      title="Recuperar acesso"
-      subtitle="Enviaremos um link seguro para redefinir a tua password."
-      features={[
-        'Link valido por tempo limitado',
-        'Recuperacao segura com confirmacao por email',
-        'Volta a entrar em poucos passos',
-      ]}
-    >
-      <AuthCard title="Recuperar password" subtitle="Indica o email associado a tua conta.">
-        <form onSubmit={handleReset}>
-          <AuthErrorBanner message={error} />
-          {sent ? <div className={styles.helper}>Link enviado. Verifica o teu email.</div> : null}
-          <AuthInput
-            label="Email"
-            name="email"
-            type="email"
-            placeholder="email@exemplo.com"
-            autoComplete="email"
-            value={email}
-            onChange={setEmail}
-          />
-          <div className={styles.actions}>
-            <button className={styles.primaryButton} type="submit" disabled={!canSubmit || loading}>
-              {loading ? 'A enviar...' : 'Enviar link'}
-            </button>
-            <Link className={styles.secondaryLink} href="/login">
-              Voltar ao login
-            </Link>
-          </div>
-        </form>
-      </AuthCard>
-    </AuthShell>
+    <div className="min-h-screen bg-white flex items-center justify-center">
+      <div className="flex flex-col items-center gap-4">
+        <Loader2 className="w-8 h-8 text-garabandal-gold animate-spin" />
+        <p className="text-gray-500 font-medium">A redirecionar...</p>
+      </div>
+    </div>
   );
 }

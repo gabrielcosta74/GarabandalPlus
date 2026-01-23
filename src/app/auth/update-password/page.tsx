@@ -19,18 +19,52 @@ export default function UpdatePasswordPage() {
 
     // Verify if user is authenticated (which happens after auth-callback redirect)
     useEffect(() => {
-        const checkSession = async () => {
-            if (!supabaseBrowser) return;
-            const { data: { session } } = await supabaseBrowser.auth.getSession();
-            if (!session) {
-                // If no session, they probably came here directly without the magic link
-                console.warn("⚠️ [UpdatePassword] No session found. Redirecting to login.");
-                router.replace('/login');
-            } else {
+        if (!supabaseBrowser) {
+            console.error("Supabase client missing");
+            return;
+        }
+
+        // Listener for immediate updates (handles hash, storage, etc.)
+        const { data: { subscription } } = supabaseBrowser.auth.onAuthStateChange((event, session) => {
+            console.log("🔔 [UpdatePassword] Auth Event:", event);
+            if (event === 'USER_UPDATED') {
+                console.log("✅ [UpdatePassword] Password update verified via event via listener.");
+                setSuccess(true);
+                setLoading(false);
+                setTimeout(() => router.push('/'), 3000); // Ensure redirect happens
+            } else if (session) {
+                console.log("✅ [UpdatePassword] Session confirmed:", session.user.email);
                 setCheckingSession(false);
+            } else if (event === 'SIGNED_OUT') {
+                // Only redirect if explicitly signed out and no hash present to process
+                const hash = window.location.hash;
+                if (!hash) {
+                    console.warn("⚠️ [UpdatePassword] No session/hash. Redirecting.");
+                    // Debounce redirect slightly to allow hash processing if any
+                    setTimeout(() => {
+                        if (!window.location.hash) router.replace('/login');
+                    }, 1000);
+                }
+            }
+        });
+
+        // Fallback: Check hash manually if onAuthStateChange doesn't fire immediately
+        const checkHash = async () => {
+            const hash = window.location.hash.replace(/^#/, '');
+            if (hash) {
+                const params = new URLSearchParams(hash);
+                const access_token = params.get('access_token');
+                const type = params.get('type');
+                if (access_token && type === 'recovery') {
+                    console.log("🔗 [UpdatePassword] Found recovery hash, waiting for Supabase...");
+                    // Supabase usually handles this automatically.
+                    // If it sticks, we can try forceful setSession, but let's trust the listener first.
+                }
             }
         };
-        checkSession();
+        checkHash();
+
+        return () => subscription.unsubscribe();
     }, [router]);
 
     const canSubmit = useMemo(() =>
@@ -48,15 +82,32 @@ export default function UpdatePasswordPage() {
         try {
             if (!supabaseBrowser) throw new Error('Cliente Supabase não inicializado.');
 
-            const { error: updateError } = await supabaseBrowser.auth.updateUser({
+            // Double check session
+            const { data: { session } } = await supabaseBrowser.auth.getSession();
+            if (!session) throw new Error('Sessão expirada. Recarregue a página.');
+
+            console.log("🔒 [UpdatePassword] Attempting update...");
+
+            // Create a race between update and a 15s timeout
+            const updatePromise = supabaseBrowser.auth.updateUser({
                 password: password.trim()
             });
 
-            if (updateError) throw updateError;
+            const timeoutPromise = new Promise<{ error: { message: string } | null }>((_, reject) =>
+                setTimeout(() => reject(new Error('O pedido demorou demasiado tempo. Verifique a sua conexão.')), 15000)
+            );
 
+            // Type assertion to handle the race result correctly
+            const result = await Promise.race([updatePromise, timeoutPromise]) as any;
+
+            // Supabase returns { data, error }
+            if (result.error) throw result.error;
+
+            console.log("✅ [UpdatePassword] Success.");
             setSuccess(true);
+            setLoading(false); // Explicitly stop loading even if success switches view
 
-            // Auto redirect after 3 seconds
+            // Auto redirect
             setTimeout(() => {
                 router.push('/');
             }, 3000);

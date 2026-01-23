@@ -103,7 +103,7 @@ function LoginScreen() {
             />
             <div className="flex justify-end">
               <Link
-                href="/reset-password"
+                href="/auth/forgot-password"
                 className="text-xs font-bold text-garabandal-gold hover:text-yellow-600 transition-colors uppercase tracking-wider mt-2"
               >
                 Esqueceu a password?

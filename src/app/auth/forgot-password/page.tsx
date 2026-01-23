@@ -25,8 +25,8 @@ export default function ForgotPasswordPage() {
         try {
             if (!supabaseBrowser) throw new Error('Cliente Supabase não inicializado.');
 
-            // Dynamic URL construction: works on localhost and production
-            const redirectTo = `${window.location.origin}/auth-callback?next=/auth/update-password`;
+            // Direct link to update-password page (no auth-callback redirect)
+            const redirectTo = `${window.location.origin}/auth/update-password`;
 
             console.log("🔗 [Recovery] Redirect URL:", redirectTo);
 

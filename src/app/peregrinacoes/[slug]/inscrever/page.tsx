@@ -59,14 +59,26 @@ const pilgrimSchema = z.object({
 });
 
 const bookingSchema = z.object({
-    pilgrims: z.array(pilgrimSchema).min(1, "Necessário pelo menos 1 peregrino"),
+    pilgrims: z.array(pilgrimSchema).min(1, "Necessário pelo menos 1 peregrino")
+        .superRefine((items, ctx) => {
+            const emails = items.map(p => p.email?.toLowerCase().trim()).filter(Boolean);
+            const unique = new Set(emails);
+            if (unique.size !== emails.length) {
+                ctx.addIssue({
+                    code: z.ZodIssueCode.custom,
+                    message: "Não é permitido usar o mesmo email para múltiplas pessoas. Cada passageiro deve ter um email único para validação.",
+                    path: [0, "email"] // Attaches error generally, or handled by form global error
+                });
+                // Or better, find the duplicate index? For now, global error is safe.
+            }
+        }),
     payment_method: z.enum(['full', 'installments'], { errorMap: () => ({ message: "Selecione um método de pagamento" }) }),
     terms_accepted: z.literal(true, { errorMap: () => ({ message: "Tens de aceitar as condições para continuar." }) }),
 });
 
 type BookingFormValues = z.infer<typeof bookingSchema>;
 
-const calculatePilgrimPrice = (pilgrim: any, pilgrimage: any, rooms: Room[], pilgrimIndex: number) => {
+const calculatePilgrimPrice = (pilgrim: any, pilgrimage: any, rooms: Room[], pilgrimIndex: number, isMember: boolean = false) => {
     const room = rooms.find(r => r.occupantIndexes.includes(pilgrimIndex));
     const roomType = room ? room.type : 'double';
 
@@ -103,13 +115,21 @@ const calculatePilgrimPrice = (pilgrim: any, pilgrimage: any, rooms: Room[], pil
         if (Object.keys(supplements).length === 0) subtotal += 250;
     }
 
+    // --- DISCOUNTS ---
     let discount = 0;
-    if (isChild) discount = subtotal * 0.20; // 20% Discount
-    if (isInfant) discount = subtotal; // 100% Discount
+
+    // 1. Age Discounts (Percentage based on Subtotal)
+    if (isChild) discount += subtotal * 0.20; // 20% Discount
+    if (isInfant) discount = subtotal; // 100% Discount (Overrides everything)
+
+    // 2. Member Discount (Flat 50€) - Only applies if NOT infant (free is free)
+    if (isMember && !isInfant) {
+        discount += 50;
+    }
 
     const finalPrice = Math.max(0, subtotal - discount);
 
-    return { finalPrice, subtotal, discount, isChild, isInfant, age, roomType, regFee, basePrice, supplementPrice };
+    return { finalPrice, subtotal, discount, isChild, isInfant, age, roomType, regFee, basePrice, supplementPrice, isMember };
 };
 
 const getMaxInstallments = (startDate: string) => {
@@ -168,12 +188,18 @@ const calculateInstallments = (totalBalance: number, startDate: string, desiredC
 // -- Step 1: Identification Component --
 function StepIdentification({ onNext, initialEmail, pilgrimageId }: { onNext: (email: string, phone: string) => void, initialEmail?: string, pilgrimageId?: string }) {
     const router = useRouter();
+    const { user, signOut } = useAuth(); // Get current user for conditional UX
     const [email, setEmail] = useState(initialEmail || '');
     const [phone, setPhone] = useState<string | undefined>(''); // PhoneInput uses undefined | string
     const [loading, setLoading] = useState(false);
 
     // Duplicate State
-    const [duplicateFound, setDuplicateFound] = useState<{ exists: boolean, booking_id?: string } | null>(null);
+    const [duplicateFound, setDuplicateFound] = useState<{ exists: boolean, booking_id?: string, email?: string } | null>(null);
+
+    // Account Warning State
+    const [showAccountWarning, setShowAccountWarning] = useState(false);
+    const [sendingMagicLink, setSendingMagicLink] = useState(false);
+
 
     useEffect(() => {
         if (initialEmail && initialEmail.includes('@') && email !== initialEmail) {
@@ -181,8 +207,82 @@ function StepIdentification({ onNext, initialEmail, pilgrimageId }: { onNext: (e
         }
     }, [initialEmail, email]);
 
+    // If user is logged in, lock email to their account
+    useEffect(() => {
+        if (user?.email && !initialEmail) {
+            setEmail(user.email);
+        }
+    }, [user, initialEmail]);
+
+    // Check if email has an existing account (only if NOT logged in)
+    const handleEmailBlur = async () => {
+        if (!email.includes('@') || user) return; // Skip if logged in
+
+        try {
+            const res = await fetch(`/api/auth/check-email-exists?email=${encodeURIComponent(email)}`);
+            const { exists } = await res.json();
+
+            if (exists) {
+                setShowAccountWarning(true);
+            }
+        } catch (err) {
+            console.error('[Email Check] Error:', err);
+            // Fail silently - don't block user
+        }
+    };
+
+    // Send Magic Link for quick login
+    const handleSendQuickLogin = async () => {
+        if (!supabaseBrowser || !email) return;
+
+        setSendingMagicLink(true);
+        try {
+            const { error } = await supabaseBrowser.auth.signInWithOtp({
+                email,
+                options: {
+                    emailRedirectTo: window.location.href, // Return to this page
+                }
+            });
+
+            if (error) throw error;
+
+            Swal.fire({
+                title: 'Email Enviado!',
+                text: 'Verifica a tua caixa de entrada e clica no link para fazeres login.',
+                icon: 'success',
+                confirmButtonColor: '#eab308'
+            });
+
+            setShowAccountWarning(false);
+        } catch (err: any) {
+            console.error('[Quick Login] Error:', err);
+            Swal.fire('Erro', 'Não foi possível enviar o email.', 'error');
+        } finally {
+            setSendingMagicLink(false);
+        }
+    };
+
+    // Close warning and allow changing email
+    const handleCloseWarning = () => {
+        setShowAccountWarning(false);
+        setEmail('');
+    };
+
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+
+        // Block submission if email has existing account
+        if (showAccountWarning) {
+            Swal.fire({
+                title: 'Login Necessário',
+                text: 'Este email já tem conta. Por favor, faz login primeiro clicando no botão "Enviar Link de Acesso".',
+                icon: 'warning',
+                confirmButtonColor: '#eab308'
+            });
+            return;
+        }
+
         if (!email.includes('@') || !phone || phone.length < 9) return;
 
         setLoading(true);
@@ -256,8 +356,68 @@ function StepIdentification({ onNext, initialEmail, pilgrimageId }: { onNext: (e
         }
     };
 
+    // Helper to determine which UI to show based on auth state
+    const getDuplicateModalConfig = () => {
+        const duplicateEmail = duplicateFound?.email || '';
+        const maskEmail = (email: string) => email.replace(/(?<=.{2}).(?=.*@)/g, '*');
+
+        if (!user) {
+            // Scenario 1: Not authenticated
+            return {
+                scenario: 1,
+                title: 'Reserva Já Existente',
+                text: 'Já tens uma reserva confirmada para esta peregrinação. Vamos enviar-te um link de acesso seguro ao teu email.',
+                showDirectLink: false,
+                showMagicLinkButton: true,
+                showLogoutButton: false,
+            };
+        }
+
+        if (user.email === duplicateEmail) {
+            // Scenario 2: Same email - direct access
+            return {
+                scenario: 2,
+                title: 'Reserva Encontrada',
+                text: 'Já tens uma reserva confirmada. Clica abaixo para veres os detalhes.',
+                showDirectLink: true,
+                showMagicLinkButton: false,
+                showLogoutButton: false,
+            };
+        }
+
+        // Scenario 3: Different email - needs logout
+        return {
+            scenario: 3,
+            title: 'Atenção',
+            html: `
+                <div class="text-left space-y-3">
+                    <p class="text-gray-700">O email <strong>${maskEmail(duplicateEmail)}</strong> já tem uma reserva nesta peregrinação.</p>
+                    <p class="text-gray-600 text-sm">Estás autenticado com <strong>${user.email}</strong>.</p>
+                    <p class="text-gray-600 text-sm">Para acederes à reserva, precisas de:</p>
+                    <ol class="text-sm text-gray-600 list-decimal list-inside space-y-1 ml-2">
+                        <li>Terminar a sessão atual</li>
+                        <li>Pedir um link de acesso para o email da reserva</li>
+                    </ol>
+                </div>
+            `,
+            showDirectLink: false,
+            showMagicLinkButton: false,
+            showLogoutButton: true,
+        };
+    };
+
+    // Handle logout and show modal again (now as non-authenticated)
+    const handleLogoutAndRequestLink = async () => {
+        await signOut();
+        // Wait for signOut to complete
+        await new Promise(resolve => setTimeout(resolve, 300));
+        // Modal will re-render with scenario 1 since user is now null
+    };
+
     // If duplicate is found, show blocking UI
     if (duplicateFound) {
+        const config = getDuplicateModalConfig();
+
         return (
             <div className="animate-in fade-in zoom-in duration-300 max-w-md mx-auto text-center space-y-6">
                 <div className="w-20 h-20 bg-yellow-500/10 rounded-full flex items-center justify-center text-yellow-500 mx-auto">
@@ -265,41 +425,55 @@ function StepIdentification({ onNext, initialEmail, pilgrimageId }: { onNext: (e
                 </div>
 
                 <div className="space-y-2">
-                    <h2 className="text-2xl font-serif font-bold text-white">Já está inscrito!</h2>
-                    <p className="text-slate-400">
-                        O email <strong className="text-white">{email}</strong> já tem uma reserva ativa nesta peregrinação.
-                    </p>
-                    <p className="text-sm text-yellow-500/80">
-                        Para evitar erros, não permitimos inscrições duplicadas.
-                    </p>
+                    <h2 className="text-2xl font-serif font-bold text-white">{config.title}</h2>
+                    {config.scenario === 3 && config.html ? (
+                        <div dangerouslySetInnerHTML={{ __html: config.html }} className="text-slate-300" />
+                    ) : (
+                        <>
+                            <p className="text-slate-400">
+                                O email <strong className="text-white">{email}</strong> já tem uma reserva ativa nesta peregrinação.
+                            </p>
+                            {config.text && <p className="text-sm text-slate-300">{config.text}</p>}
+                        </>
+                    )}
                 </div>
 
                 <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4 shadow-xl">
-                    <h3 className="font-bold text-white text-lg">O que deseja fazer?</h3>
+                    {/* Scenario 2: Direct link to booking */}
+                    {config.showDirectLink && (
+                        <button
+                            onClick={() => router.push(`/peregrinacoes/inscricao/${duplicateFound.booking_id}`)}
+                            className="w-full bg-yellow-500 hover:bg-yellow-400 text-black font-bold py-4 rounded-xl shadow-lg transition-transform active:scale-95"
+                        >
+                            Ver a Minha Reserva
+                        </button>
+                    )}
 
-                    <button
-                        onClick={() => router.push(`/peregrinacoes/inscricao/${duplicateFound.booking_id}`)}
-                        className="w-full bg-yellow-500 hover:bg-yellow-400 text-black font-bold py-4 rounded-xl shadow-lg transition-transform active:scale-95"
-                    >
-                        Ver a minha Inscrição
-                    </button>
+                    {/* Scenario 1: Magic Link only */}
+                    {config.showMagicLinkButton && (
+                        <button
+                            onClick={handleSendMagicLink}
+                            className="w-full bg-yellow-500 hover:bg-yellow-400 text-black font-bold py-4 rounded-xl shadow-lg transition-transform active:scale-95 flex items-center justify-center gap-2"
+                        >
+                            <Mail className="w-5 h-5" />
+                            Receber Link de Acesso por Email
+                        </button>
+                    )}
 
-                    <div className="relative py-2">
-                        <div className="absolute inset-0 flex items-center"><span className="w-full border-t border-slate-700"></span></div>
-                        <div className="relative flex justify-center text-xs uppercase"><span className="bg-slate-900 px-2 text-slate-500">Ou se não tem login</span></div>
-                    </div>
-
-                    <button
-                        onClick={handleSendMagicLink}
-                        className="w-full bg-slate-800 hover:bg-slate-700 text-white font-bold py-4 rounded-xl border border-slate-600 transition-colors flex items-center justify-center gap-2"
-                    >
-                        <Mail className="w-4 h-4" />
-                        Receber Link de Acesso por Email
-                    </button>
-
-                    <p className="text-xs text-slate-500 pt-2">
-                        *Se precisa de inscrever outra pessoa, por favor contacte o suporte ou use um email diferente.
-                    </p>
+                    {/* Scenario 3: Logout required */}
+                    {config.showLogoutButton && (
+                        <>
+                            <button
+                                onClick={handleLogoutAndRequestLink}
+                                className="w-full bg-red-600 hover:bg-red-500 text-white font-bold py-4 rounded-xl shadow-lg transition-transform active:scale-95"
+                            >
+                                Terminar Sessão e Pedir Link
+                            </button>
+                            <p className="text-xs text-slate-500 text-center">
+                                Isto irá terminar a tua sessão atual.
+                            </p>
+                        </>
+                    )}
                 </div>
 
                 <button
@@ -331,12 +505,77 @@ function StepIdentification({ onNext, initialEmail, pilgrimageId }: { onNext: (e
                             type="email"
                             required
                             value={email}
-                            onChange={e => setEmail(e.target.value)}
-                            disabled={loading}
-                            className="w-full bg-slate-800 border-2 border-slate-700/50 focus:border-yellow-500 rounded-2xl pl-14 pr-6 py-5 text-white placeholder:text-slate-600 focus:outline-none transition-all text-xl shadow-lg disabled:opacity-50"
+                            onChange={e => {
+                                setEmail(e.target.value);
+                                setShowAccountWarning(false); // Hide warning when typing
+                            }}
+                            onBlur={handleEmailBlur}
+                            disabled={loading || !!user}
+                            className="w-full bg-slate-800 border-2 border-slate-700/50 focus:border-yellow-500 rounded-2xl pl-14 pr-6 py-5 text-white placeholder:text-slate-600 focus:outline-none transition-all text-xl shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
                             placeholder="tu@email.com"
                         />
                     </div>
+                    {user && (
+                        <div className="mt-2 px-2 flex items-start gap-2 text-sm">
+                            <p className="text-slate-400 flex-1">
+                                🔒 A reserva será feita com o email da tua conta.{' '}
+                                <button
+                                    type="button"
+                                    onClick={async () => {
+                                        await signOut();
+                                        setEmail('');
+                                    }}
+                                    className="text-yellow-500 hover:text-yellow-400 underline"
+                                >
+                                    Não é você? Termine a sessão
+                                </button>
+                            </p>
+                        </div>
+                    )}
+
+                    {/* Warning: Email has existing account */}
+                    {showAccountWarning && !user && (
+                        <div className="mt-3 bg-blue-900/30 border-2 border-blue-500/50 rounded-xl p-4 animate-in slide-in-from-top duration-300">
+                            <div className="flex items-start gap-3">
+                                <div className="text-blue-400 text-2xl">ℹ️</div>
+                                <div className="flex-1 space-y-3">
+                                    <div>
+                                        <h4 className="font-bold text-white mb-1 text-base">Este email já tem conta</h4>
+                                        <p className="text-slate-300 text-sm leading-relaxed">
+                                            Este email já está registado no sistema. Para veres a tua reserva depois, precisas de fazer login.
+                                            Clica abaixo para receberes um link no email - é super rápido!
+                                        </p>
+                                    </div>
+
+                                    <button
+                                        type="button"
+                                        onClick={handleSendQuickLogin}
+                                        disabled={sendingMagicLink}
+                                        className="w-full bg-yellow-500 hover:bg-yellow-400 text-black font-bold py-3 px-4 rounded-lg transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                                    >
+                                        {sendingMagicLink ? (
+                                            <>
+                                                <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" />
+                                                A Enviar...
+                                            </>
+                                        ) : (
+                                            <>
+                                                📧 Enviar Link de Acesso
+                                            </>
+                                        )}
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        onClick={handleCloseWarning}
+                                        className="text-sm text-slate-400 hover:text-white underline w-full text-center"
+                                    >
+                                        × Fechar (quero usar outro email)
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </div>
                 <div>
                     <label className="text-lg uppercase font-bold text-slate-300 mb-2 block pl-2 tracking-wide">WhatsApp / Telemóvel</label>
@@ -374,7 +613,7 @@ function StepIdentification({ onNext, initialEmail, pilgrimageId }: { onNext: (e
 
                 <button
                     type="submit"
-                    disabled={loading}
+                    disabled={loading || showAccountWarning}
                     className="w-full bg-yellow-600 hover:bg-yellow-500 text-slate-950 font-bold py-5 rounded-2xl shadow-xl shadow-yellow-900/20 transition-all transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-3 text-lg disabled:opacity-50 disabled:cursor-not-allowed mt-4"
                 >
                     {loading ? <><Loader2 className="w-6 h-6 animate-spin" /> A verificar...</> : <>Continuar <ChevronRight className="w-6 h-6" /></>}
@@ -390,7 +629,7 @@ function StepIdentification({ onNext, initialEmail, pilgrimageId }: { onNext: (e
 
 // Helper for Pilgrim Card to manage reactivity independently if needed, or straight in map
 // We will use standard map but boost Field Labels
-const PilgrimCard = ({ index, remove, control, register, errors }: any) => {
+const PilgrimCard = ({ index, remove, control, register, errors, memberStatus, isLeader, leaderEmail, allEmails }: any) => {
     // Watch Country for Postal Code Helper
     const country = useWatch({
         control,
@@ -418,6 +657,68 @@ const PilgrimCard = ({ index, remove, control, register, errors }: any) => {
                         placeholder="Ex: Maria dos Anjos Silva"
                     />
                     {errors.pilgrims?.[index]?.full_name && <span className="text-red-500 text-base font-bold mt-2 block flex items-center gap-2 animate-pulse"><AlertCircle className="w-5 h-5" /> {errors.pilgrims[index]?.full_name?.message}</span>}
+                </div>
+
+                <div className="md:col-span-2 space-y-2">
+                    <label className="text-base uppercase font-bold text-yellow-500 mb-2 block tracking-wide">
+                        Email {isLeader ? <span className="text-slate-500 text-xs normal-case ml-2">(Obrigatório)</span> : <span className="text-slate-500 text-xs normal-case ml-2">(Opcional - Para desconto Membro)</span>}
+                    </label>
+                    <div className="relative">
+                        <Controller
+                            control={control}
+                            name={`pilgrims.${index}.email`}
+                            render={({ field }) => (
+                                <input
+                                    {...field}
+                                    value={field.value ?? ''}
+                                    onChange={(e) => field.onChange(e.target.value)}
+                                    type="email"
+                                    readOnly={isLeader}
+                                    className={`w-full bg-slate-800 border-2 border-slate-700 rounded-xl px-6 py-5 pl-12 text-white text-xl focus:border-yellow-500 focus:outline-none shadow-inner ${isLeader ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                    placeholder="email@exemplo.com"
+                                />
+                            )}
+                        />
+                        <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 w-5 h-5" />
+
+                        {/* Member Status Badge */}
+                        <div className="absolute right-4 top-1/2 -translate-y-1/2">
+                            {(() => {
+                                const emailValue = useWatch({ control, name: `pilgrims.${index}.email` });
+                                if (!emailValue || !emailValue.includes('@')) return null;
+
+                                // Real-time Duplicate Check
+                                const emailLower = emailValue.toLowerCase().trim();
+                                const isDuplicate = allEmails?.filter((e: string) => e?.toLowerCase().trim() === emailLower).length > 1;
+
+                                if (isDuplicate) {
+                                    return (
+                                        <div className="flex items-center gap-2 bg-red-500/20 text-red-400 px-3 py-1 rounded-full border border-red-500/50 text-xs font-bold animate-in slide-in-from-right-2">
+                                            <AlertCircle className="w-3 h-3" /> Email em uso
+                                        </div>
+                                    );
+                                }
+
+                                const isMember = memberStatus[emailLower];
+
+                                if (isMember) {
+                                    return (
+                                        <div className="flex items-center gap-2 bg-emerald-500/20 text-emerald-400 px-3 py-1 rounded-full border border-emerald-500/50 text-xs font-bold animate-in zoom-in">
+                                            <Check className="w-3 h-3" /> Membro (-50€)
+                                        </div>
+                                    );
+                                } else if (emailValue.length > 5) {
+                                    // Non-member upsell
+                                    return (
+                                        <div className="hidden md:flex items-center gap-2 text-yellow-500/80 text-xs font-bold animate-in fade-in">
+                                            💡 Poupava 50€ se fosse membro
+                                        </div>
+                                    );
+                                }
+                                return null;
+                            })()}
+                        </div>
+                    </div>
                 </div>
 
                 <div>
@@ -545,7 +846,7 @@ export default function PilgrimageBookingPage() {
     const [userPhone, setUserPhone] = useState('');
 
     // Auth Context for auto-login
-    const { setSession, isAuthenticated, loading: authLoading } = useAuth();
+    const { setSession, isAuthenticated, loading: authLoading, user, signOut } = useAuth();
 
     // Form
     const methods = useForm<BookingFormValues>({
@@ -556,10 +857,52 @@ export default function PilgrimageBookingPage() {
     const { fields, append, remove } = useFieldArray({ control, name: "pilgrims" });
 
     // Watch pilgrims for realtime price calculation
-    const currentPilgrims = watch('pilgrims');
-
-    // Rooms State
+    // FIX: Use useWatch instead of watch for reliable array updates in parent
     const [rooms, setRooms] = useState<Room[]>([]);
+
+    // We need to use useWatch to get the latest array state for the Effect
+    const currentPilgrims = useWatch({
+        control: methods.control,
+        name: 'pilgrims',
+        defaultValue: []
+    });
+
+    // Member Status State
+    const [memberStatus, setMemberStatus] = useState<Record<string, boolean>>({});
+
+    // Debounced Member Check
+    // Debounced Member Check
+    useEffect(() => {
+        console.log("🔍 [Frontend] Raw Pilgrims:", JSON.stringify(currentPilgrims));
+        const emailsToCheck = currentPilgrims
+            .map(p => p.email)
+            .filter(e => e && e.includes('@') && e.length > 5)
+            .map(e => e?.toLowerCase().trim()) as string[];
+
+        // Also include the main user email if it's assigned to pilgrim 0
+        if (userEmail && currentPilgrims.length > 0 && (!currentPilgrims[0].email || currentPilgrims[0].email === userEmail)) {
+            emailsToCheck.push(userEmail.toLowerCase().trim());
+        }
+
+        if (emailsToCheck.length === 0) return;
+
+        const timeoutId = setTimeout(async () => {
+            const uniqueEmails = [...new Set(emailsToCheck)];
+            try {
+                const res = await fetch('/api/members/check-status', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ emails: uniqueEmails })
+                });
+                const { results } = await res.json();
+                setMemberStatus(prev => ({ ...prev, ...results }));
+            } catch (err) {
+                console.error("Member check failed", err);
+            }
+        }, 800); // 800ms debounce
+
+        return () => clearTimeout(timeoutId);
+    }, [currentPilgrims, userEmail]);
 
     // Init
     useEffect(() => {
@@ -726,9 +1069,34 @@ export default function PilgrimageBookingPage() {
             console.log("📦 [Frontend] Result:", result);
             console.log("🔑 [Frontend] View token:", result.view_token);
 
+            // [UX IMPROVEMENT] Show Success Modal before redirecting
+            // This prevents "disappearing" feeling
+            await Swal.fire({
+                title: 'Inscrição Confirmada! 🎉',
+                html: `
+                    <div class="space-y-4 text-left">
+                        <p>A sua reserva foi registada com sucesso.</p>
+                        <div class="bg-yellow-500/10 p-4 rounded-xl border border-yellow-500/20">
+                            <p class="font-bold text-yellow-600 mb-1">O que acontece agora?</p>
+                            <ul class="list-disc list-inside text-sm text-slate-600 space-y-1">
+                                <li>Enviámos um email com o comprovativo.</li>
+                                <li>Vai ser redirecionado para a sua área de gestão.</li>
+                            </ul>
+                        </div>
+                    </div>
+                `,
+                icon: 'success',
+                confirmButtonText: 'Ir para a minha Área',
+                confirmButtonColor: '#eab308',
+                timer: 5000,
+                timerProgressBar: true,
+                allowOutsideClick: false
+            });
+
             // Redirect to booking page with view_token for immediate access
             // This bypasses the need for session to be set
-            const redirectUrl = `/peregrinacoes/inscricao/${result.booking_id}?token=${result.view_token}`;
+            // Add ?first_time=true if it's a new account to trigger the Onboarding Modal
+            const redirectUrl = `/peregrinacoes/inscricao/${result.booking_id}?token=${result.view_token}${result.new_account ? '&first_time=true' : ''}`;
             console.log("🔄 [Frontend] Redirecting to:", redirectUrl);
             window.location.href = redirectUrl;
 
@@ -841,6 +1209,10 @@ export default function PilgrimageBookingPage() {
                                                     control={methods.control}
                                                     register={methods.register}
                                                     errors={errors}
+                                                    memberStatus={memberStatus} // Pass verification map
+                                                    isLeader={idx === 0}
+                                                    leaderEmail={userEmail}
+                                                    allEmails={currentPilgrims.map(p => p.email)}
                                                 />
                                             ))}
                                             <div className="bg-yellow-500/10 border-2 border-yellow-500/50 rounded-3xl p-6 text-center space-y-4">
@@ -886,7 +1258,9 @@ export default function PilgrimageBookingPage() {
 
                                             <div className="bg-slate-950 p-6 rounded-3xl space-y-4 border border-white/5">
                                                 {currentPilgrims.map((f, i) => {
-                                                    const pPrice = calculatePilgrimPrice(f, pilgrimage, rooms, i);
+                                                    const pEmail = f.email || (i === 0 ? userEmail : '');
+                                                    const isMember = memberStatus[pEmail?.toLowerCase().trim()] || false;
+                                                    const pPrice = calculatePilgrimPrice(f, pilgrimage, rooms, i, isMember);
                                                     return (
                                                         <div key={i} className="flex justify-between items-center text-sm border-b border-white/5 pb-3 last:border-0 last:pb-0">
                                                             <div>
@@ -896,6 +1270,7 @@ export default function PilgrimageBookingPage() {
                                                                         pPrice.roomType === 'double' ? 'Quarto Duplo (Partilhado)' :
                                                                             pPrice.roomType === 'triple' ? 'Quarto Triplo' : 'Quarto Familiar'}
                                                                 </p>
+                                                                {pPrice.isMember && <p className="text-xs text-emerald-400 font-bold uppercase tracking-wider mt-1 flex items-center gap-1"><Check className="w-3 h-3" /> Membro (-50€)</p>}
                                                             </div>
                                                             <div className="text-right">
                                                                 <p className="text-white font-mono font-bold">{pPrice.finalPrice}€</p>

@@ -35,7 +35,8 @@ export async function POST(req: Request) {
             // Found a duplicate! Return true AND the booking_id so we can redirect.
             return NextResponse.json({
                 exists: true,
-                booking_id: pilgrims[0].booking_id
+                booking_id: pilgrims[0].booking_id,
+                email: email // Include email for UI comparison
             });
         }
 

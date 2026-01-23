@@ -197,7 +197,9 @@ export default function DashboardShell({ title, subtitle, children }: DashboardS
                             </div>
                             <div className="min-w-0">
                                 <p className="text-xs font-medium text-gray-500 mb-0.5">Iniciado como</p>
-                                <p className="text-xs font-bold text-gray-900 truncate" title={user?.email}>{user?.name?.split(' ')[0] || 'Membro'}</p>
+                                <p className="text-xs font-bold text-gray-900 truncate" title={user?.email}>
+                                    {user?.isMember ? 'Membro' : 'Utilizador'} • {user?.name?.split(' ')[0] || ''}
+                                </p>
                             </div>
                         </div>
                         <button onClick={handleLogout} className="flex items-center gap-3 px-3 py-2 text-red-600 hover:bg-red-50 rounded-xl w-full transition-colors text-sm font-medium">

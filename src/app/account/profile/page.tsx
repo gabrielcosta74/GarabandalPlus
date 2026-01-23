@@ -4,11 +4,13 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import DashboardShell from '../../../components/dashboard/DashboardShell';
 import MemberProfileModal from '../../../components/member-profile/MemberProfileModal';
+import ChangePasswordModal from '../../../components/auth/ChangePasswordModal';
 import { supabaseBrowser } from '../../../lib/supabase-browser';
 import { User, MapPin, Shield, Edit2, KeyRound, LogOut, CheckCircle2 } from 'lucide-react';
 
 export default function AccountProfilePage() {
   const [showProfile, setShowProfile] = useState(false);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [profileData, setProfileData] = useState<Record<string, any> | null>(null);
   const [userId, setUserId] = useState('');
   const [userEmail, setUserEmail] = useState('');
@@ -34,26 +36,8 @@ export default function AccountProfilePage() {
     loadProfile();
   }, []);
 
-  const handlePasswordReset = async () => {
-    if (!supabaseBrowser || !userEmail) return;
-    setSecurityLoading(true);
-    setSecurityMessage('');
-    setSecurityStatus(null);
-    try {
-      const { error } = await supabaseBrowser.auth.resetPasswordForEmail(userEmail, {
-        redirectTo: `${window.location.origin}/account/profile`,
-      });
-      if (error) throw error;
-      setSecurityMessage('Enviámos um email com o link para alterar a palavra-passe.');
-      setSecurityStatus('success');
-    } catch (err) {
-      console.warn('Erro ao enviar email de password.', err);
-      setSecurityMessage('Não foi possível enviar o email. Tenta novamente.');
-      setSecurityStatus('error');
-    } finally {
-      setSecurityLoading(false);
-    }
-  };
+
+  // Legacy password reset replaced by ChangePasswordModal
 
   const handleLogoutAll = async () => {
     if (!supabaseBrowser) return;
@@ -117,8 +101,16 @@ export default function AccountProfilePage() {
         </div>
 
         <div>
-          <h2 className="font-serif text-3xl font-bold text-white mb-1">{profileData?.nome || 'Membro Garabandal'}</h2>
-          <p className="text-garabandal-gold font-medium tracking-wide uppercase text-xs">Membro VIP • Nº {profileData?.numero_socio || '---'}</p>
+          <h2 className="font-serif text-3xl font-bold text-white mb-1">{profileData?.nome || 'Utilizador'}</h2>
+          {profileData?.is_membro ? (
+            <p className="text-garabandal-gold font-medium tracking-wide uppercase text-xs">
+              Membro • Nº {profileData?.numero_socio || '---'}
+            </p>
+          ) : (
+            <p className="text-slate-400 font-medium tracking-wide uppercase text-xs">
+              Utilizador Registado
+            </p>
+          )}
         </div>
       </div>
     </div>
@@ -129,6 +121,13 @@ export default function AccountProfilePage() {
       title="O Meu Perfil"
       subtitle="Gere a tua identidade e preferências na comunidade."
     >
+
+
+      <ChangePasswordModal
+        visible={showPasswordModal}
+        onClose={() => setShowPasswordModal(false)}
+      />
+
       <MemberProfileModal
         visible={showProfile}
         userId={userId}
@@ -147,10 +146,28 @@ export default function AccountProfilePage() {
         <div className="lg:col-span-2 space-y-6">
           <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 relative overflow-hidden group">
             <div className="absolute top-0 right-0 p-4 opacity-0 group-hover:opacity-100 transition-opacity">
-              <button onClick={() => setShowProfile(true)} className="text-gray-400 hover:text-garabandal-gold"><Edit2 className="w-5 h-5" /></button>
+              {/* Desktop edit button hidden for standard users, visible on hover */}
             </div>
 
-            <SectionHeader icon={User} title="Dados Pessoais" subtitle="A tua identificação na plataforma." />
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-start gap-4">
+                <div className="w-10 h-10 rounded-xl bg-garabandal-gold/10 flex items-center justify-center flex-shrink-0 text-garabandal-dark">
+                  <User className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-serif text-lg font-bold text-gray-900">Dados Pessoais</h3>
+                  <p className="text-sm text-gray-500">A tua identificação na plataforma.</p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setShowProfile(true)}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-bold transition-colors flex items-center gap-2"
+              >
+                <Edit2 className="w-4 h-4" />
+                Editar
+              </button>
+            </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6">
               <Field label="Nome" value={profileData?.nome} />
@@ -161,7 +178,25 @@ export default function AccountProfilePage() {
           </div>
 
           <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
-            <SectionHeader icon={MapPin} title="Morada de Envio" subtitle="Para onde enviamos as tuas encomendas." />
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-start gap-4">
+                <div className="w-10 h-10 rounded-xl bg-garabandal-gold/10 flex items-center justify-center flex-shrink-0 text-garabandal-dark">
+                  <MapPin className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-serif text-lg font-bold text-gray-900">Morada de Envio</h3>
+                  <p className="text-sm text-gray-500">Para onde enviamos as encomendas.</p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setShowProfile(true)}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-bold transition-colors flex items-center gap-2"
+              >
+                <Edit2 className="w-4 h-4" />
+                Editar
+              </button>
+            </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6">
               <div className="sm:col-span-2">
                 <Field label="Endereço" value={profileData?.address} />
@@ -170,20 +205,20 @@ export default function AccountProfilePage() {
               <Field label="País" value={profileData?.country} />
             </div>
           </div>
-        </div>
+        </div >
 
         {/* Right Column - Security & Actions */}
-        <div className="space-y-6">
+        < div className="space-y-6" >
           <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
             <SectionHeader icon={Shield} title="Segurança" subtitle="Protege a tua conta." />
 
             <div className="space-y-3 mt-6">
               <button
-                onClick={handlePasswordReset}
+                onClick={() => setShowPasswordModal(true)}
                 disabled={securityLoading}
-                className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 hover:bg-gray-100 rounded-xl transition-colors text-sm font-medium text-gray-700 group"
+                className="w-full flex items-center justify-between px-4 py-4 bg-gray-50 hover:bg-gray-100 rounded-xl transition-colors text-sm font-bold text-gray-800 group border border-gray-200"
               >
-                <span className="flex items-center gap-3"><KeyRound className="w-4 h-4 text-gray-400 group-hover:text-gray-600" /> Alterar Password</span>
+                <span className="flex items-center gap-3"><KeyRound className="w-5 h-5 text-gray-500 group-hover:text-garabandal-gold" /> Alterar Password</span>
               </button>
 
               <button
@@ -202,9 +237,9 @@ export default function AccountProfilePage() {
               </div>
             )}
           </div>
-        </div>
-      </div>
-    </DashboardShell>
+        </div >
+      </div >
+    </DashboardShell >
   );
 
 }

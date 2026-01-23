@@ -17,11 +17,13 @@ import {
     Calendar,
     Users,
     Check,
-    Loader2
+    Loader2,
+    Package
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { pt } from 'date-fns/locale';
 import InstallmentTracker from '../../../../components/booking/InstallmentTracker';
+import BookingOnboardingModal from '../../../../components/booking/BookingOnboardingModal';
 
 /* -------------------------------------------------------------------------- */
 /*                                    Types                                   */
@@ -99,7 +101,22 @@ export default function BookingDashboardPage() {
     const [paymentMode, setPaymentMode] = useState<'deposit' | 'full'>('deposit');
 
     const [authError, setAuthError] = useState(false);
+
     const [uploadSuccess, setUploadSuccess] = useState(false);
+
+    // Onboarding State
+    const [showOnboarding, setShowOnboarding] = useState(false);
+
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('first_time') === 'true') {
+            setShowOnboarding(true);
+
+            // Clean URL without refresh
+            const newUrl = window.location.pathname + window.location.search.replace(/&?first_time=true/, '');
+            window.history.replaceState({}, '', newUrl);
+        }
+    }, []);
 
     // -- Derived State (Moved to Top) --
     const depositValue = Number(booking?.pilgrimage?.deposit_value) || 0;
@@ -402,6 +419,14 @@ export default function BookingDashboardPage() {
                     <>
                         {/* --- 1. HEADER --- */}
                         <div className="text-center space-y-2">
+                            {/* Persistent Quick Access Guide (Desktop) */}
+                            <div className="hidden md:flex justify-center mb-6 animate-in fade-in slide-in-from-top duration-700 delay-300">
+                                <div className="bg-blue-50/50 border border-blue-100 rounded-full px-4 py-2 flex items-center gap-2 text-sm text-blue-800">
+                                    <span className="bg-blue-100 p-1 rounded-full"><Package className="w-3 h-3" /></span>
+                                    <span>Para voltares aqui: Menu &gt; <strong>Minhas Inscrições</strong></span>
+                                </div>
+                            </div>
+
                             <p className="text-indigo-600 font-bold uppercase tracking-widest text-sm">Reserva Registada com Sucesso</p>
                             <h1 className="text-4xl md:text-5xl font-serif font-bold text-slate-900 leading-tight">{booking.pilgrimage.title}</h1>
                             <p className="text-slate-500 font-medium text-lg">#{booking.id.slice(0, 8).toUpperCase()}</p>
@@ -665,6 +690,8 @@ export default function BookingDashboardPage() {
                 )}
 
             </div>
+            {/* Onboarding Modal */}
+            <BookingOnboardingModal isOpen={showOnboarding} onClose={() => setShowOnboarding(false)} />
         </VIPLayout>
     );
 }

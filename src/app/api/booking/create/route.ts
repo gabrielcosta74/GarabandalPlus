@@ -325,14 +325,35 @@ export async function POST(req: Request) {
 
         console.log("✅ [API] Success! Booking ID:", booking.id);
 
-        // 8. Return Success Response
-        // No session creation - users access via token or existing session
+        // 8. Auto-Login Logic (for new users)
+        // If we created a new user, we have the password. Let's create a session immediately.
+        let sessionData = null;
+        if (isNewUser && tempPassword) {
+            try {
+                const { data: signInData, error: signInError } = await supabaseServer.auth.signInWithPassword({
+                    email: email,
+                    password: tempPassword
+                });
+
+                if (!signInError && signInData.session) {
+                    console.log("🔓 [API] Auto-login successful for new user");
+                    sessionData = signInData.session;
+                } else {
+                    console.warn("⚠️ [API] Auto-login failed:", signInError);
+                }
+            } catch (authErr) {
+                console.error("⚠️ [API] Auto-login exception:", authErr);
+            }
+        }
+
+        // 9. Return Success Response with Session
         return NextResponse.json({
             success: true,
             booking_id: booking.id,
             view_token: viewToken,
             user_id: userId,
             new_account: isNewUser,
+            session: sessionData, // Frontend will use this to set session
             user: {
                 id: userId,
                 email: email

@@ -91,7 +91,7 @@ export default function PilgrimageEditorPage() {
         included_items: [],
         pricing_config: {
             room_supplements: {
-                single: 0, simple: 0, double: 0, triple: 0, quadruple: 0
+                single: 0, double: 0, triple: 0, quadruple: 0
             }
         }
     });

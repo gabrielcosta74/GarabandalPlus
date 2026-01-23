@@ -274,6 +274,17 @@ export default function SiteHeader() {
                 {link.label}
               </Link>
             ))}
+
+            {/* NEW: My Bookings Shortcurt (Desktop) */}
+            {user && (
+              <Link
+                href="/peregrinacoes/minhas-inscricoes"
+                className="px-5 py-2 rounded-full text-sm font-bold bg-yellow-50 text-yellow-800 hover:bg-yellow-100 transition-all duration-200 border border-yellow-200/50 flex items-center gap-2"
+              >
+                <Package className="w-4 h-4" />
+                Minhas Inscrições
+              </Link>
+            )}
           </div>
 
           {/* 3. Actions Area (Cart, User, Mobile Toggle) */}
@@ -359,11 +370,15 @@ export default function SiteHeader() {
                                 </span>
                               </div>
                               <div className="p-2 space-y-1">
+                                <Link href="/peregrinacoes/minhas-inscricoes" className="flex items-center gap-3 px-3 py-2 text-sm font-bold text-yellow-800 bg-yellow-50 hover:bg-yellow-100 rounded-lg transition-colors mb-2">
+                                  <Package className="w-4 h-4" /> Minhas Inscrições
+                                </Link>
+
                                 <Link href="/account/profile" className="flex items-center gap-3 px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900 rounded-lg transition-colors">
                                   <User className="w-4 h-4" /> Perfil
                                 </Link>
                                 <Link href="/encomendas" className="flex items-center gap-3 px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900 rounded-lg transition-colors">
-                                  <Package className="w-4 h-4" /> Encomendas
+                                  <ShoppingBag className="w-4 h-4" /> Minhas Compras (Loja)
                                 </Link>
                                 {isMember && (
                                   <Link href="/member" className="flex items-center gap-3 px-3 py-2 text-sm font-medium text-yellow-600 bg-yellow-50/50 hover:bg-yellow-50 rounded-lg transition-colors">
@@ -469,9 +484,17 @@ export default function SiteHeader() {
                   <NavLink href="/loja-online" icon={Store} label="Loja" onClick={() => setMobileOpen(false)} />
                 </div>
 
+                {user && (
+                  <div className="space-y-1 mb-6 bg-yellow-50/50 p-2 rounded-xl border border-yellow-100">
+                    <p className="text-xs font-bold text-yellow-800 uppercase tracking-widest px-4 mb-2">A Minha Área</p>
+                    <NavLink href="/peregrinacoes/minhas-inscricoes" icon={Package} label="Minhas Inscrições" onClick={() => setMobileOpen(false)} />
+                    <NavLink href="/encomendas" icon={ShoppingBag} label="Compras da Loja" onClick={() => setMobileOpen(false)} />
+                  </div>
+                )}
+
                 {/* Member Area */}
                 <div className="space-y-1 mb-8">
-                  <p className="text-xs font-bold text-slate-400 uppercase tracking-widest px-4 mb-3">Área Exclusiva</p>
+                  <p className="text-xs font-bold text-slate-400 uppercase tracking-widest px-4 mb-3">Membros & Orações</p>
                   {isMember ? (
                     <>
                       <NavLink href="/member" icon={LayoutDashboard} label="Painel de Membro" onClick={() => setMobileOpen(false)} />
