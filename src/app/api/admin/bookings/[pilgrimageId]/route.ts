@@ -61,7 +61,8 @@ export async function GET(
                     id,
                     title,
                     deposit_value,
-                    base_price
+                    base_price,
+                    total_vacancies
                 )
             `)
             .eq('pilgrimage_id', pilgrimageId)

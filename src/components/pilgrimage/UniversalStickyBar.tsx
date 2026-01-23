@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { ArrowRight, FileText, Download } from 'lucide-react';
 import { BrochureDownloadModal } from './BrochureDownloadModal';
 import { cn } from '../../lib/utils';
+import { useCurrency } from '../providers/CurrencyProvider';
 
 type UniversalStickyBarProps = {
     price: number;
@@ -27,6 +28,7 @@ export default function UniversalStickyBar({
     buttonText = "Inscrever"
 }: UniversalStickyBarProps) {
     const [mounted, setMounted] = useState(false);
+    const { formatPrice } = useCurrency();
 
     useEffect(() => {
         setMounted(true);
@@ -55,7 +57,7 @@ export default function UniversalStickyBar({
                         <div className="flex flex-col">
                             <span className="text-[11px] uppercase font-bold text-slate-400 tracking-widest">Preço Total</span>
                             <div className="flex items-baseline gap-1">
-                                <span className="text-2xl font-black text-slate-900 leading-none">{price + deposit}€</span>
+                                <span className="text-2xl font-black text-slate-900 leading-none">{formatPrice(price + deposit)}</span>
                                 <span className="text-xs text-slate-500 font-bold">/ pessoa</span>
                             </div>
                         </div>

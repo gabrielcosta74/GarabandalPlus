@@ -210,14 +210,47 @@ export default function BookingsManager({ pilgrimageId }: { pilgrimageId: string
             )
         },
         {
+            key: 'vaga',
+            header: 'Vaga',
+            render: (row: Booking) => {
+                const isCancelled = row.status === 'cancelled';
+                const depositValue = row.pilgrimage?.deposit_value || 500;
+                const totalPax = row.pilgrims?.length || 1;
+                const requiredDeposit = depositValue * totalPax;
+                const hasDeposit = (row.paid_amount || 0) >= requiredDeposit;
+
+                if (isCancelled) {
+                    return (
+                        <span className="bg-slate-100 text-slate-400 text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-tighter">Libertada</span>
+                    );
+                }
+
+                if (hasDeposit) {
+                    return (
+                        <div className="flex items-center gap-1.5">
+                            <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
+                            <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-tighter">Garantida</span>
+                        </div>
+                    );
+                }
+
+                return (
+                    <div className="flex items-center gap-1.5">
+                        <div className="w-2.5 h-2.5 rounded-full bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.5)] animate-pulse" />
+                        <span className="text-[10px] font-bold text-amber-700 uppercase tracking-tighter">Pendente</span>
+                    </div>
+                );
+            }
+        },
+        {
             key: 'status',
-            header: 'Estado',
+            header: 'Finanças',
             render: (row: Booking) => {
                 const verifying = row.payments?.some(p => p.status === 'verifying');
                 if (verifying) {
                     return (
                         <span className="bg-amber-100 text-amber-700 text-[10px] font-bold px-2 py-1 rounded-full flex items-center gap-1 w-fit">
-                            <Info className="w-3 h-3" /> Validar
+                            <Info className="w-3 h-3" /> Validar Pg
                         </span>
                     );
                 }
@@ -226,13 +259,13 @@ export default function BookingsManager({ pilgrimageId }: { pilgrimageId: string
                 if (total > 0 && paid >= total) {
                     return (
                         <span className="bg-emerald-100 text-emerald-700 text-[10px] font-bold px-2 py-1 rounded-full flex items-center gap-1 w-fit">
-                            <CheckCircle2 className="w-3 h-3" /> Concluído
+                            <CheckCircle2 className="w-3 h-3" /> Pago
                         </span>
                     );
                 }
                 return (
                     <span className="bg-slate-100 text-slate-500 text-[10px] font-bold px-2 py-1 rounded-full w-fit">
-                        Em Curso
+                        Pag. Parcial
                     </span>
                 );
             }
@@ -298,9 +331,19 @@ export default function BookingsManager({ pilgrimageId }: { pilgrimageId: string
     ];
 
     // -- Stats Calculation --
-    const totalPilgrims = bookings.reduce((acc, b) => acc + (b.pilgrims?.length || 0), 0);
+    const confirmedPax = bookings
+        .filter(b => b.status !== 'cancelled' && (b.paid_amount || 0) >= ((b.pilgrimage?.deposit_value || 500) * (b.pilgrims?.length || 1)))
+        .reduce((acc, b) => acc + (b.pilgrims?.length || 0), 0);
+
+    const pendingPax = bookings
+        .filter(b => b.status !== 'cancelled' && (b.paid_amount || 0) < ((b.pilgrimage?.deposit_value || 500) * (b.pilgrims?.length || 1)))
+        .reduce((acc, b) => acc + (b.pilgrims?.length || 0), 0);
+
+    const totalVacancies = bookings[0]?.pilgrimage?.total_vacancies || 0;
+    const remainingVacancies = Math.max(0, totalVacancies - confirmedPax);
+
     const totalRevenue = bookings.reduce((acc, b) => acc + (b.paid_amount || 0), 0);
-    const totalPending = bookings.reduce((acc, b) => acc + Math.max(0, (b.total_amount || 0) - (b.paid_amount || 0)), 0);
+    const totalPendingAmount = bookings.reduce((acc, b) => acc + Math.max(0, (b.total_amount || 0) - (b.paid_amount || 0)), 0);
     const validationsCount = bookings.filter(b => b.payments?.some(p => p.status === 'verifying')).length;
 
     return (
@@ -325,49 +368,52 @@ export default function BookingsManager({ pilgrimageId }: { pilgrimageId: string
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6">
-                    <div className="bg-gradient-to-br from-indigo-500 to-indigo-600 p-6 rounded-3xl text-white shadow-lg shadow-indigo-200 flex flex-col justify-between min-h-[140px] relative overflow-hidden group">
+                    {/* Card 1: Confirmed Pax */}
+                    <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 p-6 rounded-3xl text-white shadow-lg shadow-emerald-200 flex flex-col justify-between min-h-[140px] relative overflow-hidden group">
                         <div className="absolute -right-4 -bottom-4 opacity-10 group-hover:scale-110 transition-transform duration-500">
-                            <User className="w-32 h-32" />
+                            <CheckCircle2 className="w-32 h-32" />
                         </div>
-                        <p className="text-xs font-bold uppercase tracking-wider opacity-80">Total Inscritos</p>
-                        <p className="text-4xl font-bold mt-2">{totalPilgrims}</p>
+                        <p className="text-xs font-bold uppercase tracking-wider opacity-80">Lugares Confirmados</p>
+                        <p className="text-4xl font-bold mt-2">{confirmedPax}</p>
                         <div className="mt-4 flex items-center gap-2 text-[10px] font-bold bg-white/20 w-fit px-2 py-1 rounded-lg">
-                            <Info className="w-3 h-3" /> {bookings.length} Reservas
+                            <Users className="w-3 h-3" /> {pendingPax} em reserva (pendentes)
                         </div>
                     </div>
 
-                    <div className="bg-white p-6 rounded-3xl border-2 border-emerald-50 shadow-sm flex flex-col justify-between min-h-[140px] relative overflow-hidden group hover:border-emerald-100 transition-colors">
-                        <div className="absolute -right-4 -bottom-4 text-emerald-500/10 group-hover:scale-110 transition-transform duration-500">
+                    {/* Card 2: Vacancies */}
+                    <div className="bg-white p-6 rounded-3xl border-2 border-indigo-50 shadow-sm flex flex-col justify-between min-h-[140px] relative overflow-hidden group hover:border-indigo-100 transition-colors">
+                        <div className="absolute -right-4 -bottom-4 text-indigo-500/10 group-hover:scale-110 transition-transform duration-500">
+                            <User className="w-32 h-32" />
+                        </div>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Vagas Livres</p>
+                        <p className="text-4xl font-bold text-indigo-600 mt-2">{remainingVacancies}</p>
+                        <div className="mt-4 flex items-center gap-1.5 text-[10px] font-bold text-slate-400">
+                            Capacidade: {totalVacancies} total
+                        </div>
+                    </div>
+
+                    {/* Card 3: Revenue */}
+                    <div className="bg-white p-6 rounded-3xl border-2 border-slate-50 shadow-sm flex flex-col justify-between min-h-[140px] relative overflow-hidden group hover:border-slate-100 transition-colors">
+                        <div className="absolute -right-4 -bottom-4 text-slate-500/10 group-hover:scale-110 transition-transform duration-500">
                             <CreditCard className="w-32 h-32" />
                         </div>
                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Receita Coletada</p>
-                        <p className="text-4xl font-bold text-emerald-600 mt-2">{totalRevenue}€</p>
-                        <div className="mt-4 flex items-center gap-1.5 text-[10px] font-bold text-emerald-600">
-                            <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-ping" />
-                            Processado
+                        <p className="text-4xl font-bold text-slate-900 mt-2">{totalRevenue}€</p>
+                        <div className="mt-4 flex items-center gap-1.5 text-[10px] font-bold text-rose-500">
+                            -{totalPendingAmount}€ por receber
                         </div>
                     </div>
 
-                    <div className="bg-white p-6 rounded-3xl border-2 border-rose-50 shadow-sm flex flex-col justify-between min-h-[140px] relative overflow-hidden group hover:border-rose-100 transition-colors">
-                        <div className="absolute -right-4 -bottom-4 text-rose-500/10 group-hover:scale-110 transition-transform duration-500">
-                            <Calendar className="w-32 h-32" />
-                        </div>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Saldos Pendentes</p>
-                        <p className="text-4xl font-bold text-rose-500 mt-2">{totalPending}€</p>
-                        <div className="mt-4 text-[10px] font-bold text-rose-400">
-                            Aguardando Prestações
-                        </div>
-                    </div>
-
-                    <div className="bg-white p-6 rounded-3xl border-2 border-amber-50 shadow-sm flex flex-col justify-between min-h-[140px] relative overflow-hidden group hover:border-amber-100 transition-colors">
+                    {/* Card 4: Actions */}
+                    <div className={`p-6 rounded-3xl border-2 shadow-sm flex flex-col justify-between min-h-[140px] relative overflow-hidden group transition-colors ${validationsCount > 0 ? 'bg-amber-50 border-amber-100' : 'bg-white border-slate-50'}`}>
                         <div className="absolute -right-4 -bottom-4 text-amber-500/10 group-hover:scale-110 transition-transform duration-500">
                             <Shield className="w-32 h-32" />
                         </div>
                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Validações Críticas</p>
-                        <p className="text-4xl font-bold text-amber-600 mt-2">{validationsCount}</p>
+                        <p className={`text-4xl font-bold mt-2 ${validationsCount > 0 ? 'text-amber-600' : 'text-slate-400'}`}>{validationsCount}</p>
                         <div className="mt-4 flex items-center gap-2">
-                            <span className="text-[10px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-100">
-                                {validationsCount > 0 ? 'Ações Necessárias' : 'Tudo em dia'}
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-lg border ${validationsCount > 0 ? 'bg-amber-200 text-amber-800 border-amber-300 animate-pulse' : 'bg-slate-100 text-slate-400 border-slate-200'}`}>
+                                {validationsCount > 0 ? 'Validar Comprovativos' : 'Tudo em dia'}
                             </span>
                         </div>
                     </div>
@@ -415,7 +461,8 @@ export default function BookingsManager({ pilgrimageId }: { pilgrimageId: string
                                 booking={{
                                     ...paymentModalBooking,
                                     payment_plan: safeParsePaymentPlan(paymentModalBooking.payment_plan),
-                                    payments: paymentModalBooking.payments || []
+                                    payments: paymentModalBooking.payments || [],
+                                    pilgrimage: paymentModalBooking.pilgrimage || { deposit_value: 500 }
                                 }}
                                 onUpdate={async () => await fetchBookings()}
                             />

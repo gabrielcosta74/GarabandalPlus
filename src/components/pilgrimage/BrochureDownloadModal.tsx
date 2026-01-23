@@ -4,6 +4,7 @@ import { useState } from "react";
 import { createPortal } from "react-dom";
 import { FileText, Smartphone, Mail, X, CheckCircle, Download, ShieldCheck } from "lucide-react";
 import { cn } from "../../lib/utils";
+import { useCurrency } from "../providers/CurrencyProvider";
 import PhoneInput from 'react-phone-number-input';
 import 'react-phone-number-input/style.css';
 
@@ -17,6 +18,7 @@ interface BrochureDownloadModalProps {
 }
 
 export function BrochureDownloadModal({ pilgrimageId, slug, className, trigger, forceOpen, onOpenChange }: BrochureDownloadModalProps) {
+    const { currency } = useCurrency();
     const [internalOpen, setInternalOpen] = useState(false);
 
     const isControlled = forceOpen !== undefined;
@@ -43,7 +45,8 @@ export function BrochureDownloadModal({ pilgrimageId, slug, className, trigger, 
                     email: channel === "email" ? inputValue : undefined,
                     phone: channel === "whatsapp" ? inputValue : undefined,
                     type: "brochure_request",
-                    channel_preference: channel
+                    channel_preference: channel,
+                    currency: currency // Pass currency preference
                 }),
             });
 

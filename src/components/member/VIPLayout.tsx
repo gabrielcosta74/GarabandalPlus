@@ -16,33 +16,28 @@ export default function VIPLayout({ children, allowPublic }: VIPLayoutProps) {
 
     useEffect(() => {
         let mounted = true;
+
+        if (allowPublic) {
+            setReady(true);
+        }
+
         const checkSession = async () => {
             try {
-                if (!supabaseBrowser) {
-                    throw new Error("Supabase client not initialized");
-                }
+                if (!supabaseBrowser) return;
 
-                // Race Promise: Auth check vs Timeout
-                const sessionPromise = supabaseBrowser.auth.getSession();
-                const timeoutPromise = new Promise((_, reject) =>
-                    setTimeout(() => reject(new Error("Timeout")), 5000)
-                );
+                const { data } = await supabaseBrowser.auth.getSession();
 
-                const { data } = await Promise.race([sessionPromise, timeoutPromise]) as any;
+                if (!mounted) return;
 
-                if (!data.session?.user) {
-                    if (allowPublic) {
-                        setReady(true); // Public access allowed, just render content
-                        return;
-                    }
-                    if (mounted) {
+                if (!data?.session?.user) {
+                    if (!allowPublic) {
                         const next = pathname ? `?next=${encodeURIComponent(pathname)}` : '';
                         router.replace(`/login${next}`);
                     }
                     return;
                 }
 
-                const { data: member, error: memberError } = await supabaseBrowser
+                const { data: member } = await supabaseBrowser
                     .from('membros')
                     .select('is_membro')
                     .eq('id', data.session.user.id)
@@ -50,24 +45,16 @@ export default function VIPLayout({ children, allowPublic }: VIPLayoutProps) {
 
                 if (!mounted) return;
 
-                if (memberError) console.error("Member fetch error:", memberError);
-
-                if (!member?.is_membro) {
-                    if (!allowPublic) {
-                        router.replace('/tornar-membro');
-                        return;
-                    }
+                if (!member?.is_membro && !allowPublic) {
+                    router.replace('/tornar-membro');
+                    return;
                 }
 
-                setReady(true);
+                if (!ready) setReady(true);
             } catch (err) {
-                console.error("Session check error:", err);
-                if (mounted) {
-                    if (allowPublic) {
-                        setReady(true);
-                    } else {
-                        router.replace('/login');
-                    }
+                console.warn("Session check issues:", err);
+                if (mounted && !allowPublic) {
+                    router.replace('/login');
                 }
             }
         };

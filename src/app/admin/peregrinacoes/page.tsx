@@ -11,7 +11,8 @@ import {
     Users,
     ChevronRight,
     MoreVertical,
-    Plane
+    Plane,
+    CheckCircle2
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { pt } from 'date-fns/locale';
@@ -27,6 +28,8 @@ type Pilgrimage = {
     current_vacancies: number;
     base_price: number;
     cover_image: string | null;
+    confirmed_pax?: number;
+    pending_pax?: number;
 };
 
 import AdminLayout from '../../../components/admin/AdminLayout';
@@ -44,7 +47,7 @@ export default function AdminPilgrimagesPage() {
         if (!supabaseBrowser) return;
         setLoading(true);
         const { data, error } = await supabaseBrowser
-            .from('pilgrimages')
+            .from('v_pilgrimages_with_occupancy')
             .select('*')
             .order('start_date', { ascending: true });
 
@@ -162,10 +165,31 @@ export default function AdminPilgrimagesPage() {
                                             {item.title}
                                         </h3>
                                         <div className="flex items-center gap-4 mt-2 text-sm text-slate-500">
-                                            <span className="flex items-center gap-1.5">
-                                                <Users className="w-4 h-4" />
-                                                {item.current_vacancies} / {item.total_vacancies} vagas
-                                            </span>
+                                            <div className="flex flex-col gap-1.5 min-w-[200px]">
+                                                <div className="flex justify-between items-center text-[10px] uppercase font-bold tracking-tight">
+                                                    <span className="text-emerald-600 flex items-center gap-1">
+                                                        <CheckCircle2 className="w-3 h-3" /> {item.confirmed_pax} Pagos
+                                                    </span>
+                                                    <span className="text-slate-400">
+                                                        {item.pending_pax} Reservados
+                                                    </span>
+                                                    <span className="text-slate-300">
+                                                        {item.total_vacancies} Total
+                                                    </span>
+                                                </div>
+                                                <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden border border-slate-200 flex">
+                                                    <div
+                                                        className="h-full bg-emerald-500 transition-all duration-500"
+                                                        style={{ width: `${Math.min(100, ((item.confirmed_pax || 0) / item.total_vacancies) * 100)}%` }}
+                                                        title={`${item.confirmed_pax} Confirmados`}
+                                                    />
+                                                    <div
+                                                        className="h-full bg-slate-300 transition-all duration-500"
+                                                        style={{ width: `${Math.min(100, ((item.pending_pax || 0) / item.total_vacancies) * 100)}%` }}
+                                                        title={`${item.pending_pax} Pendentes`}
+                                                    />
+                                                </div>
+                                            </div>
                                             <span className="flex items-center gap-1.5">
                                                 <MapPin className="w-4 h-4" />
                                                 {item.slug}

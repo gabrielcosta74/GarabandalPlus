@@ -2,6 +2,8 @@
 import { NextResponse } from 'next/server';
 import { supabaseServer } from '../../../../lib/supabase';
 import { WhatsAppService } from '../../../../lib/whatsapp';
+import { APP_URL } from '../../../../lib/config';
+import { sendBrochureEmail } from '../../../../lib/email';
 
 export async function POST(req: Request) {
     if (!supabaseServer) {
@@ -93,19 +95,47 @@ export async function POST(req: Request) {
 
         // IF BROCHURE: Trigger Delivery Immediately
         if (isBrochure) {
-            // ... (keep existing brochure logic)
-            console.log(`[SoftCapture] Delivering brochure to ${name} via ${channel_preference}`);
+            let pdfLink = 'https://apostoladodegarabandal.com/programa-2025.pdf';
+            let pilgrimageTitle = 'Peregrinação';
+
+            // Fetch dynamic details if possible
+            if (pilgrimageId) {
+                const { data: pData } = await supabaseServer
+                    .from('pilgrimages')
+                    .select('slug, title')
+                    .eq('id', pilgrimageId)
+                    .single();
+
+                if (pData) {
+                    const currency = body.currency || 'EUR';
+                    const currencyParam = currency === 'BRL' ? '?currency=BRL' : '';
+                    pdfLink = `${APP_URL}/api/pilgrimages/${pData.slug}/pdf${currencyParam}`;
+                    pilgrimageTitle = pData.title;
+                }
+            }
+
+            console.log(`[SoftCapture] Delivering brochure to ${name} via ${channel_preference}: ${pdfLink}`);
 
             if (channel_preference === 'whatsapp' && phone) {
                 try {
-                    const pdfLink = 'https://apostoladodegarabandal.com/programa-2025.pdf';
                     await WhatsAppService.sendMessage(
                         phone,
-                        `Olá ${name}! Aqui está o programa da Peregrinação que pediu. 📄\n\nQualquer dúvida, estamos aqui.\n\n${pdfLink}`,
+                        `Olá ${name}! Aqui está o roteiro detalhado para a *${pilgrimageTitle}* que pediu. 📄\n\nQualquer dúvida, estamos aqui.\n\n${pdfLink}`,
                         `brochure_${result.id}_${Date.now()}`
                     );
                 } catch (waError) {
                     console.error("WA Send Failed", waError);
+                }
+            } else if (channel_preference === 'email' && email) {
+                try {
+                    await sendBrochureEmail({
+                        email,
+                        name,
+                        pilgrimageName: pilgrimageTitle,
+                        pdfUrl: pdfLink
+                    });
+                } catch (emailError) {
+                    console.error("Email Brochure Send Failed", emailError);
                 }
             }
         }

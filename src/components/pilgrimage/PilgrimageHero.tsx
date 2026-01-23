@@ -7,6 +7,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { format } from 'date-fns';
 import { pt } from 'date-fns/locale';
+import { useCurrency } from "../providers/CurrencyProvider";
 
 interface FeaturedPilgrimage {
     id: string;
@@ -15,7 +16,9 @@ interface FeaturedPilgrimage {
     start_date: string;
     end_date: string;
     base_price: number;
-    current_vacancies: number;
+    total_vacancies: number;
+    confirmed_pax: number;
+    effective_vacancies: number;
 }
 
 const HERO_IMAGES = [
@@ -26,6 +29,7 @@ const HERO_IMAGES = [
 
 export function PilgrimageHero({ featuredPilgrimage }: { featuredPilgrimage?: FeaturedPilgrimage }) {
     const [currentImage, setCurrentImage] = useState(0);
+    const { formatPrice, currency } = useCurrency();
 
     useEffect(() => {
         const timer = setInterval(() => {
@@ -144,17 +148,22 @@ export function PilgrimageHero({ featuredPilgrimage }: { featuredPilgrimage?: Fe
                                 <div className="grid grid-cols-2 gap-4 relative">
                                     <div>
                                         <span className="text-[10px] uppercase tracking-widest text-slate-500 font-bold block mb-1">Valor Base</span>
-                                        <div className="flex items-baseline gap-2">
-                                            <span className="text-2xl font-bold text-white tracking-tight">{featuredPilgrimage.base_price}€</span>
-                                            {/* Fake strikethrough for marketing */}
-                                            <span className="text-xs line-through text-slate-500 decoration-red-500">{(featuredPilgrimage.base_price * 1.15).toFixed(0)}€</span>
+                                        <div className="flex flex-col">
+                                            <div className="flex items-baseline gap-2">
+                                                <span className="text-2xl font-bold text-white tracking-tight">{formatPrice(featuredPilgrimage.base_price)}</span>
+                                                {/* Fake strikethrough for marketing */}
+                                                <span className="text-xs line-through text-slate-500 decoration-red-500">{formatPrice(featuredPilgrimage.base_price * 1.15)}</span>
+                                            </div>
+                                            {currency === 'BRL' && (
+                                                <span className="text-[9px] text-yellow-500/80 font-bold uppercase tracking-tighter">* Câmbio automático para Reais</span>
+                                            )}
                                         </div>
                                     </div>
                                     <div className="text-right">
                                         <span className="text-[10px] uppercase tracking-widest text-slate-500 font-bold block mb-1">Vagas</span>
                                         <span className="text-sm font-bold text-green-400 flex items-center justify-end gap-1">
                                             <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-                                            {featuredPilgrimage.current_vacancies} Restantes
+                                            {featuredPilgrimage.effective_vacancies} Restantes
                                         </span>
                                     </div>
                                 </div>

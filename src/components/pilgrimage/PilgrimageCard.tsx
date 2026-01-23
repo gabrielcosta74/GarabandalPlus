@@ -6,6 +6,7 @@ import Image from 'next/image';
 import { Calendar, Users, ChevronRight, Clock } from 'lucide-react';
 import { format } from 'date-fns';
 import { pt } from 'date-fns/locale';
+import { useCurrency } from "../providers/CurrencyProvider";
 
 type PilgrimageCardProps = {
     pilgrimage: any;
@@ -13,9 +14,12 @@ type PilgrimageCardProps = {
 };
 
 export function PilgrimageCard({ pilgrimage, index }: PilgrimageCardProps) {
+    const { formatPrice, currency } = useCurrency();
     const startDate = new Date(pilgrimage.start_date);
     const endDate = new Date(pilgrimage.end_date);
-    const isWaitlist = pilgrimage.status === 'waitlist';
+    const confirmedPax = pilgrimage.confirmed_pax || 0;
+    const remainingSpots = Math.max(0, pilgrimage.total_vacancies - confirmedPax);
+    const isWaitlist = pilgrimage.status === 'waitlist' || (remainingSpots <= 0 && pilgrimage.status !== 'closed');
     const isClosed = pilgrimage.status === 'closed';
 
     // Status Logic
@@ -23,7 +27,7 @@ export function PilgrimageCard({ pilgrimage, index }: PilgrimageCardProps) {
     if (isWaitlist) {
         statusBadge = (
             <span className="bg-white/95 backdrop-blur-md text-orange-600 text-xs font-bold px-4 py-2 rounded-full uppercase tracking-wider shadow-lg flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-orange-500 animate-pulse" /> Lista de Espera
+                <div className="w-2 h-2 rounded-full bg-orange-500 animate-pulse" /> Vagas Esgotadas
             </span>
         );
     } else if (isClosed) {
@@ -33,10 +37,6 @@ export function PilgrimageCard({ pilgrimage, index }: PilgrimageCardProps) {
             </span>
         );
     } else {
-        const spotsLeft = pilgrimage.total_vacancies - pilgrimage.current_vacancies;
-        // Removed "Últimas Vagas" logic as per request
-        // const isUrgent = spotsLeft < 5;
-
         statusBadge = (
             <span className="bg-white/95 backdrop-blur-md text-green-700 text-xs font-bold px-4 py-2 rounded-full uppercase tracking-wider shadow-lg flex items-center gap-2">
                 <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
@@ -106,13 +106,20 @@ export function PilgrimageCard({ pilgrimage, index }: PilgrimageCardProps) {
                     <div className="flex items-end justify-between border-t border-slate-100 pt-6 mt-auto">
                         <div className="flex flex-col">
                             <span className="text-[10px] text-slate-400 uppercase tracking-widest font-bold mb-1">Valor por pessoa</span>
-                            <div className="flex items-baseline gap-2">
-                                <span className="text-lg text-slate-400 line-through font-medium decoration-red-400 decoration-2 opacity-60">
-                                    {(pilgrimage.base_price * 1.15).toFixed(0)}€
-                                </span>
-                                <span className="text-3xl font-bold text-slate-900 tracking-tight">{pilgrimage.base_price}€</span>
+                            <div className="flex flex-col">
+                                <div className="flex items-baseline gap-2">
+                                    <span className="text-lg text-slate-400 line-through font-medium decoration-red-400 decoration-2 opacity-60">
+                                        {formatPrice(pilgrimage.base_price * 1.15)}
+                                    </span>
+                                    <span className="text-3xl font-bold text-slate-900 tracking-tight">{formatPrice(pilgrimage.base_price)}</span>
+                                </div>
+                                {currency === 'BRL' && (
+                                    <span className="text-[9px] text-yellow-600 font-bold uppercase tracking-tighter mt-1 italic">
+                                        * Câmbio Automático (Conversão aproximada)
+                                    </span>
+                                )}
                             </div>
-                            <span className="text-sm text-green-600 font-bold mt-1 bg-green-50 px-2 py-0.5 rounded-md w-fit">
+                            <span className="text-sm text-green-600 font-bold mt-2 bg-green-50 px-2 py-0.5 rounded-md w-fit">
                                 Preço Promocional
                             </span>
                         </div>
@@ -122,7 +129,7 @@ export function PilgrimageCard({ pilgrimage, index }: PilgrimageCardProps) {
                                 <span className="text-[10px] text-slate-400 uppercase tracking-widest font-bold block mb-1">Disponibilidade</span>
                                 <div className="flex items-center justify-end gap-1.5 text-sm font-bold text-slate-700">
                                     <Users className="w-4 h-4 text-slate-400" />
-                                    {pilgrimage.current_vacancies} Lugares
+                                    {remainingSpots} Lugares
                                 </div>
                             </div>
 

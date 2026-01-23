@@ -13,6 +13,7 @@ import {
   renderAbandonmentRecoveryEmail,
   renderBookingConfirmationEmail,
   renderDonationNotification,
+  renderBrochureEmail,
   // Types
   MembershipNotificationInput,
   MemberReceiptInput,
@@ -22,7 +23,8 @@ import {
   StoreItem,
   GeneralLeadInput,
   AbandonmentRecoveryInput,
-  DonationNotificationInput
+  DonationNotificationInput,
+  BrochureEmailInput
 } from './email-renderer';
 
 // Re-export specific types if needed by other files (though best to import from renderer)
@@ -53,7 +55,8 @@ export {
   renderGeneralLeadEmail,
   renderAbandonmentRecoveryEmail,
   renderBookingConfirmationEmail,
-  renderDonationNotification
+  renderDonationNotification,
+  renderBrochureEmail
 } from './email-renderer';
 
 
@@ -281,6 +284,22 @@ export const sendGeneralLeadEmail = async (payload: GeneralLeadInput) => {
   }
 
   const content = renderGeneralLeadEmail(payload);
+  await resendClient.emails.send({
+    from: notifyFrom,
+    to: [payload.email],
+    subject: content.subject,
+    html: content.html,
+  });
+  return true;
+};
+
+export const sendBrochureEmail = async (payload: BrochureEmailInput) => {
+  if (!resendClient) {
+    console.warn('Resend nao configurado.');
+    return false;
+  }
+
+  const content = renderBrochureEmail(payload);
   await resendClient.emails.send({
     from: notifyFrom,
     to: [payload.email],

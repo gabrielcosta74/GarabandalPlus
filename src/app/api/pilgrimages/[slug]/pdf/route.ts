@@ -11,6 +11,8 @@ export async function GET(
     { params }: { params: { slug: string } }
 ) {
     const { slug } = params;
+    const { searchParams } = new URL(request.url);
+    const currency = searchParams.get('currency') || 'EUR';
 
     if (!supabaseServer) {
         return NextResponse.json({ message: 'Supabase não configurado' }, { status: 500 });
@@ -19,7 +21,7 @@ export async function GET(
     try {
         // 1. Fetch Pilgrimage
         const { data: pilgrimage, error: pError } = await supabaseServer
-            .from('pilgrimages')
+            .from('v_pilgrimages_with_occupancy')
             .select('*')
             .eq('slug', slug)
             .single();
@@ -37,18 +39,31 @@ export async function GET(
 
         if (iError) throw iError;
 
-        // 3. Generate PDF
-        // Note: react-pdf needs a bit of a hack to work in Node with TSX sometimes,
-        // but renderToBuffer is the standard way.
+        // 3. Handle Exchange Rate for BRL
+        let exchangeRate = 1;
+        if (currency === 'BRL') {
+            try {
+                const res = await fetch('https://api.exchangerate-api.com/v4/latest/EUR');
+                const data = await res.json();
+                exchangeRate = data.rates.BRL || 6.5;
+            } catch (e) {
+                console.warn("Failed to fetch rate for PDF:", e);
+                exchangeRate = 6.5;
+            }
+        }
+
+        // 4. Generate PDF
         const pdfBuffer = await renderToBuffer(
             React.createElement(ItineraryTemplate, {
                 pilgrimage,
-                itinerary: itinerary || []
+                itinerary: itinerary || [],
+                currency: currency as any,
+                exchangeRate
             }) as any
         );
 
         // 4. Return Response
-        return new NextResponse(pdfBuffer, {
+        return new NextResponse(pdfBuffer as any, {
             headers: {
                 'Content-Type': 'application/pdf',
                 'Content-Disposition': `attachment; filename="roteiro-${slug}.pdf"`,

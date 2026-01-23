@@ -88,6 +88,13 @@ export type GeneralLeadInput = {
     name?: string;
 };
 
+export type BrochureEmailInput = {
+    email: string;
+    name: string;
+    pilgrimageName: string;
+    pdfUrl: string;
+};
+
 // Helper Functions
 export const formatCurrency = (value: number, currency = 'EUR') =>
     new Intl.NumberFormat('pt-PT', { style: 'currency', currency }).format(value);
@@ -642,3 +649,46 @@ export const renderDonationNotification = (payload: DonationNotificationInput) =
     };
 };
 
+export const renderBrochureEmail = (payload: BrochureEmailInput) => {
+    return {
+        subject: `O roteiro da sua viagem: ${payload.pilgrimageName}`,
+        html: renderEmailShell({
+            title: 'Aqui está o seu roteiro',
+            subtitle: payload.pilgrimageName,
+            bodyHtml: `
+        <p>Olá <strong>${payload.name}</strong>,</p>
+        <p>Conforme solicitado, enviamos o roteiro detalhado para a <strong>${payload.pilgrimageName}</strong>.</p>
+        <p>Este documento contém todas as informações sobre o itinerário espiritual, alojamento e logística da viagem.</p>
+        <div style="margin: 32px 0; text-align: center;">
+          <a href="${payload.pdfUrl}" style="background:#d97706;color:#ffffff;padding:16px 32px;border-radius:12px;text-decoration:none;font-weight:bold;display:inline-block;box-shadow:0 4px 6px rgba(217,119,6,0.2);">
+            DESCARREGAR ROTEIRO (PDF)
+          </a>
+        </div>
+        <p style="color: #64748b; font-size: 13px;">Se não conseguir abrir o botão acima, copie este link para o seu navegador: <br/> ${payload.pdfUrl}</p>
+        <p style="margin-top: 24px;">Qualquer dúvida, basta responder a este email. Estamos à sua disposição.</p>
+      `,
+            footer: 'Apostolado de Garabandal - Uma jornada de fé e transformação.'
+        })
+    };
+};
+
+export const renderWelcomeEmail = (payload: { name: string; email: string }) => {
+    return {
+        subject: 'Bem-vindo ao Apostolado de Garabandal',
+        html: renderEmailShell({
+            title: 'Bem-vindo(a)!',
+            subtitle: 'Concluiu o seu registo',
+            bodyHtml: `
+        <p>Olá <strong>${payload.name || 'Peregrino'}</strong>,</p>
+        <p>A sua conta foi ativada com sucesso. Agora já pode aceder a todos os conteúdos exclusivos do nosso Apostolado.</p>
+        <div style="margin: 32px 0; text-align: center;">
+          <a href="${APP_URL}/login" style="background:#0f172a;color:#ffffff;padding:16px 32px;border-radius:12px;text-decoration:none;font-weight:bold;display:inline-block;">
+            ENTRAR NA MINHA CONTA
+          </a>
+        </div>
+        <p>Que Nossa Senhora o(a) proteja e guie nesta caminhada espiritual.</p>
+      `,
+            footer: 'Apostolado de Garabandal - Uma jornada de fé e transformação.'
+        })
+    };
+};

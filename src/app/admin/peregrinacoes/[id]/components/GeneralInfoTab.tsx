@@ -186,7 +186,6 @@ export default function GeneralInfoTab({ form, setForm }: GeneralInfoTabProps) {
                             <div className="bg-blue-50 rounded-xl p-4 flex items-center justify-between">
                                 <div>
                                     <label className="block text-xs font-bold text-blue-800 uppercase tracking-wider mb-1">Capacidade Total</label>
-                                    <p className="text-xs text-blue-600">Lotação máx. do autocarro/hotel</p>
                                 </div>
                                 <div className="flex items-center gap-2 bg-white px-3 py-1 rounded-lg border border-blue-100 shadow-sm">
                                     <Users className="w-4 h-4 text-blue-500" />

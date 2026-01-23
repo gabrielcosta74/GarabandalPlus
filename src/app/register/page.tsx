@@ -52,13 +52,17 @@ export default function RegisterPage() {
       // Initialize member record logic here if critical, usually handled by webhook/trigger
       // but for safety in this flow:
       if (data.user?.id) {
-        await supabaseBrowser.from('membros').insert({
+        const { error: insertError } = await supabaseBrowser.from('membros').insert({
           id: data.user.id,
           is_membro: false,
           tipo_subscricao: 'regulares',
           data_adesao: new Date().toISOString(),
           estado_quota: 'pendente',
-        }).catch(() => { }); // Ignore duplicate error if trigger handled it
+        });
+
+        if (insertError) {
+          console.warn('Member record initialization skipped or failed:', insertError.message);
+        }
       }
 
       setConfirmSent(true);

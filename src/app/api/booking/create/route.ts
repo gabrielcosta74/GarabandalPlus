@@ -195,43 +195,32 @@ export async function POST(req: Request) {
             throw new Error(`Erro no cálculo do preço: O total resultou em 0€. Verifique se os preços estão configurados e se as datas de nascimento dos peregrinos estão corretas.`);
         }
 
-        // 4. Insert Booking with Security Fields
+        // 4. ATOMIC BOOKING TRANSACTION (Insert w/ Vacancy Check)
         const viewToken = generateViewToken();
+        const bookingNotes = `Payment Plan: ${payment_method} | Created via API ${isNewUser ? '(New Account)' : ''}`;
 
-        const { data: booking, error: bookingError } = await supabaseServer
-            .from('bookings')
-            .insert({
-                user_id: userId,
-                pilgrimage_id: pilgrimage_id,
-                total_amount: totalAmount,
-                status: 'pending',
-                notes: `Payment Plan: ${payment_method} | Created via API ${isNewUser ? '(New Account)' : ''}`,
-                payment_plan: body.payment_plan || null,
-                view_token: viewToken,
-                idempotency_key: bookingIdempotencyKey
-            })
-            .select()
-            .single();
+        const { data: atomicResult, error: atomicError } = await supabaseServer.rpc('create_booking_atomic', {
+            p_pilgrimage_id: pilgrimage_id,
+            p_user_id: userId,
+            p_total_amount: totalAmount,
+            p_pilgrim_data: pilgrimsToInsert,
+            p_payment_plan: body.payment_plan || null,
+            p_notes: bookingNotes,
+            p_idempotency_key: bookingIdempotencyKey
+        });
 
-        if (bookingError) {
-            console.error("❌ [API] Booking Insert Error:", bookingError);
-            throw bookingError;
+        if (atomicError) {
+            console.error("❌ [API] Atomic Booking Error:", atomicError);
+            if (atomicError.message && atomicError.message.includes('Not enough vacancies')) {
+                return NextResponse.json({ error: "Desculpe, a peregrinação esgotou durante o seu processo de inscrição." }, { status: 409 });
+            }
+            throw atomicError;
         }
 
-        // 5. Insert Pilgrims
-        const pilgrimsWithId = pilgrimsToInsert.map((p: any) => ({
-            ...p,
-            booking_id: booking.id
-        }));
-
-        const { error: pilgrimsError } = await supabaseServer
-            .from('pilgrims')
-            .insert(pilgrimsWithId);
-
-        if (pilgrimsError) {
-            console.error("❌ [API] Pilgrim Insert Error:", pilgrimsError);
-            throw pilgrimsError;
-        }
+        const booking = {
+            id: atomicResult.booking_id,
+            view_token: atomicResult.view_token
+        };
 
         // 6. Record Initial Deposit Payment as Pending
         const registrationFeePerPerson = Number(pilgrimage?.deposit_value || 0);

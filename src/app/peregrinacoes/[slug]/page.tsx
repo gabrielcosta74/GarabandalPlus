@@ -43,6 +43,8 @@ import UniversalStickyBar from '../../../components/pilgrimage/UniversalStickyBa
 import ExitIntentPopup from '../../../components/pilgrimage/ExitIntentPopup';
 import { BrochureDownloadModal } from '../../../components/pilgrimage/BrochureDownloadModal';
 import FixedWhatsAppFab from '../../../components/pilgrimage/FixedWhatsAppFab';
+import { SpecificWaitlistForm } from '../../../components/pilgrimage/SpecificWaitlistForm';
+import { useCurrency } from '../../../components/providers/CurrencyProvider';
 
 type Pilgrimage = {
     id: string;
@@ -141,6 +143,7 @@ const MOCK_FAQS = [
 
 export default function PilgrimageDetailPage() {
     const params = useParams();
+    const { formatPrice, currency } = useCurrency();
     const slug = params.slug as string;
     const [pilgrimage, setPilgrimage] = useState<Pilgrimage | null>(null);
     const [globalLogistics, setGlobalLogistics] = useState<GlobalLogistics | null>(null);
@@ -156,11 +159,11 @@ export default function PilgrimageDetailPage() {
         const fetchAllData = async () => {
             if (!slug || !supabaseBrowser) return;
 
-            const { data: pData } = await supabaseBrowser
-                .from('pilgrimages')
-                .select('*')
-                .eq('slug', slug)
-                .single();
+            const { data: pData, error: pError } = await supabaseBrowser
+                .rpc('get_pilgrimage_list', { p_slug: slug })
+                .maybeSingle() as any;
+
+            if (pError) console.error("❌ [RPC Error]", pError);
 
             if (pData) {
                 setPilgrimage(pData);
@@ -239,6 +242,9 @@ export default function PilgrimageDetailPage() {
     const startDate = new Date(pilgrimage.start_date);
     const endDate = new Date(pilgrimage.end_date);
     const isClosed = pilgrimage.status === 'closed';
+    const confirmedPax = (pilgrimage as any).confirmed_pax || 0;
+    const remainingSpots = Math.max(0, pilgrimage.total_vacancies - confirmedPax);
+    const isWaitlist = pilgrimage.status === 'waitlist' || remainingSpots <= 0;
 
     return (
         <VIPLayout allowPublic={true}>
@@ -454,7 +460,7 @@ export default function PilgrimageDetailPage() {
                                                                 )}
                                                                 <div className="bg-white p-4 rounded-xl border border-indigo-100 flex justify-between items-center shadow-sm">
                                                                     <span className="text-xs text-indigo-400 font-bold uppercase">Preço a partir de</span>
-                                                                    <div className="text-2xl font-bold text-indigo-600">{pilgrimage.flight_price_from}€</div>
+                                                                    <div className="text-2xl font-bold text-indigo-600">{formatPrice(pilgrimage.flight_price_from)}</div>
                                                                 </div>
                                                             </div>
                                                         </div>
@@ -474,73 +480,82 @@ export default function PilgrimageDetailPage() {
                         {/* Column Right (Sidebar) */}
                         <div className="lg:col-span-1">
                             <div className="sticky top-24 space-y-6">
-                                <div className="bg-white rounded-3xl p-6 shadow-2xl border border-yellow-500/10 relative overflow-hidden">
-                                    <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-yellow-400 to-yellow-600" />
-                                    <div className="mb-6 space-y-4">
-                                        <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                                            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Resumo de Valores</p>
-                                            <div className="space-y-3 text-sm">
-                                                <div className="flex justify-between items-center">
-                                                    <span className="text-slate-900 font-bold">Donativo Base</span>
-                                                    <span className="font-extrabold text-slate-900 px-2 py-1 bg-white rounded-lg shadow-sm border border-slate-100">{pilgrimage.base_price}€</span>
-                                                </div>
-                                                <div className="flex justify-between items-center">
-                                                    <span className="text-slate-900 font-bold">Taxa de Inscrição (Sinal)</span>
-                                                    <span className="font-extrabold text-slate-900 px-2 py-1 bg-white rounded-lg shadow-sm border border-slate-100">{pilgrimage.deposit_value}€</span>
+                                {/* Waitlist OR Booking Card */}
+                                {isWaitlist ? (
+                                    <SpecificWaitlistForm
+                                        pilgrimageId={pilgrimage.id}
+                                        pilgrimageTitle={pilgrimage.title}
+                                    />
+                                ) : (
+                                    <div className="bg-white rounded-3xl p-6 shadow-2xl border border-yellow-500/10 relative overflow-hidden">
+                                        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-yellow-400 to-yellow-600" />
+                                        <div className="mb-6 space-y-4">
+                                            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                                                <div className="space-y-3 text-sm">
+                                                    <div className="flex justify-between items-center">
+                                                        <span className="text-slate-900 font-bold">Donativo Base</span>
+                                                        <span className="font-extrabold text-slate-900 px-2 py-1 bg-white rounded-lg shadow-sm border border-slate-100">{formatPrice(pilgrimage.base_price)}</span>
+                                                    </div>
+                                                    <div className="flex justify-between items-center">
+                                                        <span className="text-slate-900 font-bold">Taxa de Inscrição (Sinal)</span>
+                                                        <span className="font-extrabold text-slate-900 px-2 py-1 bg-white rounded-lg shadow-sm border border-slate-100">{formatPrice(pilgrimage.deposit_value || 0)}</span>
+                                                    </div>
                                                 </div>
                                             </div>
+                                            <div className="px-4">
+                                                <p className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-1">Total a partir de</p>
+                                                <div className="flex items-end gap-1"><span className="text-4xl font-bold text-slate-900">{formatPrice((pilgrimage.base_price || 0) + (pilgrimage.deposit_value || 0))}</span><span className="text-slate-500 font-medium mb-1">/ pessoa</span></div>
+                                                {currency === 'BRL' && (
+                                                    <p className="text-[10px] text-yellow-600 font-bold mt-2 italic">* Câmbio automático para Reais</p>
+                                                )}
+                                            </div>
                                         </div>
-                                        <div className="px-4">
-                                            <p className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-1">Total a partir de</p>
-                                            <div className="flex items-end gap-1"><span className="text-4xl font-bold text-slate-900">{(pilgrimage.base_price || 0) + (pilgrimage.deposit_value || 0)}€</span><span className="text-slate-500 font-medium mb-1">/ pessoa</span></div>
-                                        </div>
-                                    </div>
-                                    <div className="space-y-4 mb-8">
-                                        <div className="flex justify-between py-3 border-b text-slate-600 font-medium"><span className="flex items-center gap-2"><Calendar className="w-4 h-4" /> Partida</span><span className="text-slate-900 font-bold">{format(startDate, "d MMM", { locale: pt })}</span></div>
-                                        {pilgrimage.registration_deadline && (
+                                        <div className="space-y-4 mb-8">
+                                            <div className="flex justify-between py-3 border-b text-slate-600 font-medium"><span className="flex items-center gap-2"><Calendar className="w-4 h-4" /> Partida</span><span className="text-slate-900 font-bold">{format(startDate, "d MMM", { locale: pt })}</span></div>
+                                            {pilgrimage.registration_deadline && (
+                                                <div className="flex justify-between py-3 border-b text-slate-600 font-medium">
+                                                    <span className="flex items-center gap-2 text-red-500 font-bold"><Clock className="w-4 h-4" /> Inscrições até</span>
+                                                    <span className="text-red-600 font-bold">{format(new Date(pilgrimage.registration_deadline), "d MMM", { locale: pt })}</span>
+                                                </div>
+                                            )}
+                                            {/* Vacancy Logic for UI */}
                                             <div className="flex justify-between py-3 border-b text-slate-600 font-medium">
-                                                <span className="flex items-center gap-2 text-red-500 font-bold"><Clock className="w-4 h-4" /> Inscrições até</span>
-                                                <span className="text-red-600 font-bold">{format(new Date(pilgrimage.registration_deadline), "d MMM", { locale: pt })}</span>
+                                                <span className="flex items-center gap-2"><Users className="w-4 h-4" /> Vagas Disponíveis</span>
+                                                <span className="text-slate-900 font-bold">{remainingSpots} lugares</span>
                                             </div>
+                                        </div>
+                                        {isClosed ? (
+                                            <button disabled className="w-full bg-slate-100 text-slate-400 font-bold py-4 rounded-xl cursor-not-allowed">Encerradas</button>
+                                        ) : existingBooking ? (
+                                            <Link href={`/peregrinacoes/inscricao/${existingBooking}`} className="w-full bg-green-600 text-white font-bold py-4 rounded-xl flex items-center justify-center gap-2 shadow-lg"><CheckCircle2 className="w-5 h-5" /> Gerir Inscrição</Link>
+                                        ) : (
+                                            <Link href={`/peregrinacoes/${pilgrimage.slug}/inscrever`} className="w-full bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-4 rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-yellow-200 transition-all active:scale-[0.98]">
+                                                Inscrever Agora <ArrowLeft className="w-5 h-5 rotate-180" />
+                                            </Link>
                                         )}
-                                        <div className="flex justify-between py-3 border-b text-slate-600 font-medium"><span className="flex items-center gap-2"><Users className="w-4 h-4" /> Vagas</span><span className="text-slate-900 font-bold">{pilgrimage.current_vacancies} lugares</span></div>
                                     </div>
-                                    {isClosed ? (
-                                        <button disabled className="w-full bg-slate-100 text-slate-400 font-bold py-4 rounded-xl">Encerradas</button>
-                                    ) : existingBooking ? (
-                                        <Link href={`/peregrinacoes/inscricao/${existingBooking}`} className="w-full bg-green-600 text-white font-bold py-4 rounded-xl flex items-center justify-center gap-2 shadow-lg"><CheckCircle2 className="w-5 h-5" /> Gerir Inscrição</Link>
-                                    ) : (
-                                        <Link href={`/peregrinacoes/${pilgrimage.slug}/inscrever`} className="w-full bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-4 rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-yellow-200 transition-all active:scale-[0.98]">
-                                            Inscrever Agora <ArrowLeft className="w-5 h-5 rotate-180" />
-                                        </Link>
-                                    )}
-                                </div>
-                                <div className="bg-blue-50/50 rounded-2xl p-4 flex items-start gap-3 border border-blue-100">
-                                    <ShieldCheck className="w-5 h-5 text-blue-600 mt-0.5" />
-                                    <div>
-                                        <p className="text-sm font-bold text-blue-900">Garantia de Confiança</p>
-                                        <p className="text-xs text-blue-700 leading-relaxed mt-1">Viagem oficial organizada pela Associação sem fins lucrativos.</p>
-                                    </div>
-                                </div>
+                                )}
+
                             </div>
                         </div>
                     </div>
-                </div>
 
-                {/* Portaled Components */}
-                <div className="pb-24 lg:pb-0">
-                    <UniversalStickyBar
-                        price={pilgrimage.base_price}
-                        deposit={pilgrimage.deposit_value || pilgrimage.min_deposit || 0}
-                        link={`/peregrinacoes/${pilgrimage.slug}/inscrever`}
-                        isClosed={pilgrimage.status === 'closed' || pilgrimage.status === 'deleted'}
-                        pilgrimageId={pilgrimage.id}
-                        buttonText={existingBooking ? 'Gerir Inscrição' : 'Inscrever'}
-                    />
+                    {/* Portaled Components */}
+                    <div className="pb-24 lg:pb-0">
+                        <UniversalStickyBar
+                            price={pilgrimage.base_price}
+                            deposit={pilgrimage.deposit_value || pilgrimage.min_deposit || 0}
+                            link={isWaitlist ? '#' : `/peregrinacoes/${pilgrimage.slug}/inscrever`}
+                            isClosed={isClosed || isWaitlist}
+                            pilgrimageId={pilgrimage.id}
+                            slug={pilgrimage.slug}
+                            buttonText={existingBooking ? 'Gerir Inscrição' : (isWaitlist ? 'Lista de Espera (Esgotado)' : 'Inscrever')}
+                        />
+                    </div>
                 </div>
             </div>
             <FixedWhatsAppFab pilgrimageId={pilgrimage.id} />
             <ExitIntentPopup pilgrimageId={pilgrimage.id} />
-        </VIPLayout>
+        </VIPLayout >
     );
 }

@@ -12,8 +12,10 @@ import {
     Users,
     Ticket,
     FileText,
+    Clock
 } from 'lucide-react';
 import BookingsManager from '../../../../components/admin/BookingsManager';
+import WaitlistManager from '../../../../components/admin/WaitlistManager';
 import AdminShell from '../../AdminShell';
 import GeneralInfoTab from './components/GeneralInfoTab';
 import LogisticsTab from './components/LogisticsTab';
@@ -76,7 +78,7 @@ export default function PilgrimageEditorPage() {
 
     const [loading, setLoading] = useState(!isNew);
     const [saving, setSaving] = useState(false);
-    const [activeTab, setActiveTab] = useState<'general' | 'logistics' | 'pricing' | 'itinerary' | 'detailed' | 'team' | 'bookings'>('general');
+    const [activeTab, setActiveTab] = useState<'general' | 'logistics' | 'pricing' | 'itinerary' | 'detailed' | 'team' | 'bookings' | 'waitlist'>('general');
 
     // State
     const [form, setForm] = useState<Partial<Pilgrimage>>({
@@ -84,9 +86,9 @@ export default function PilgrimageEditorPage() {
         slug: '',
         description: '',
         base_price: 0,
-        total_vacancies: 50,
-        current_vacancies: 50,
-        deposit_value: 500,
+        total_vacancies: 0,
+        current_vacancies: 0,
+        deposit_value: 0,
         status: 'open',
         included_items: [],
         pricing_config: {
@@ -365,7 +367,8 @@ export default function PilgrimageEditorPage() {
                             { id: 'itinerary', label: 'Roteiro 3D', icon: MapPin },
                             { id: 'detailed', label: 'Itinerário Detalhado', icon: List },
                             { id: 'team', label: 'Equipa & Convidados', icon: Users },
-                            { id: 'bookings', label: 'Inscrições', icon: Ticket, show: !isNew }
+                            { id: 'bookings', label: 'Inscrições', icon: Ticket, show: !isNew },
+                            { id: 'waitlist', label: 'Lista de Espera', icon: Clock, show: !isNew }
                         ].filter(tab => tab.show !== false).map(tab => (
                             <button
                                 key={tab.id}
@@ -404,6 +407,7 @@ export default function PilgrimageEditorPage() {
                     )}
                     {activeTab === 'team' && <TeamTab teamMembers={teamMembers} setTeamMembers={setTeamMembers} />}
                     {activeTab === 'bookings' && <BookingsManager pilgrimageId={id} />}
+                    {activeTab === 'waitlist' && <WaitlistManager pilgrimageId={id} />}
                 </div>
             </div>
         </AdminShell>

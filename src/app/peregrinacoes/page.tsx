@@ -18,9 +18,10 @@ type Pilgrimage = {
     cover_image: string;
     start_date: string;
     end_date: string;
-    total_vacancies: number;
-    current_vacancies: number;
     base_price: number;
+    total_vacancies: number;
+    confirmed_pax: number;
+    effective_vacancies: number;
     status: string;
     meeting_point_text?: string;
     meeting_end_text?: string;
@@ -44,13 +45,18 @@ export default function PilgrimagesPage() {
             }
 
             try {
+                // Use RPC for better performance and bypassed RLS for aggregates
                 const { data, error } = await supabaseBrowser
-                    .from('pilgrimages')
-                    .select('*')
-                    .order('start_date', { ascending: true });
+                    .rpc('get_pilgrimage_list', {});
 
                 if (error) {
                     console.error("❌ [Peregrinacoes] Fetch error:", error);
+                    // Fallback to direct table access
+                    const { data: fallbackData } = await supabaseBrowser
+                        .from('pilgrimages')
+                        .select('*')
+                        .order('start_date', { ascending: true });
+                    if (fallbackData) setPilgrimages(fallbackData as any);
                 } else {
                     console.log("✅ [Peregrinacoes] Fetched:", data?.length);
                     if (data) setPilgrimages(data);

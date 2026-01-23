@@ -11,35 +11,50 @@ export default function AuthCallbackPage() {
 
   useEffect(() => {
     const handleAuth = async () => {
-      // 1. Get Hash Params (Supabase puts tokens in hash)
+      // 1. Get Params
+      const searchParams = new URL(window.location.href).searchParams;
+      const code = searchParams.get('code');
+      const nextQuery = searchParams.get('next');
+
+      // Handle Hash Params (Legacy/Implicit flow)
       const hash = window.location.hash.replace(/^#/, '');
       const params = new URLSearchParams(hash);
       const access_token = params.get('access_token');
       const refresh_token = params.get('refresh_token');
       const type = params.get('type'); // recovery, signup, etc.
 
-      // Also check query params for 'next' (e.g. ?next=/foo)
-      const nextQuery = new URLSearchParams(window.location.search).get('next');
+      if (!supabaseBrowser) {
+        setMessage('Configuração Supabase em falta.');
+        return;
+      }
 
+      // 2. Handle PKCE Code Exchange
+      if (code) {
+        setMessage('A confirmar código de acesso...');
+        const { error } = await supabaseBrowser.auth.exchangeCodeForSession(code);
+        if (error) {
+          console.error('Error exchanging code:', error);
+          setMessage('Erro ao validar código. Tente fazer login manual.');
+          setTimeout(() => router.replace('/login'), 3000);
+          return;
+        }
+        handleRedirect(null, nextQuery);
+        return;
+      }
+
+      // 3. Handle Hash Tokens
       if (!access_token || !refresh_token) {
         // Sometimes session is already set by the time we get here (onAuthStateChange), 
         // so we check if we have a user.
-        if (supabaseBrowser) {
-          const { data } = await supabaseBrowser.auth.getSession();
-          if (data.session) {
-            // ALREADY LOGGED IN -> REDIRECT
-            handleRedirect(type, nextQuery);
-            return;
-          }
+        const { data } = await supabaseBrowser.auth.getSession();
+        if (data.session) {
+          // ALREADY LOGGED IN -> REDIRECT
+          handleRedirect(type, nextQuery);
+          return;
         }
 
         setMessage('Link inválido ou expirado. Por favor tente novamente.');
         setTimeout(() => router.replace('/login'), 3000);
-        return;
-      }
-
-      if (!supabaseBrowser) {
-        setMessage('Configuração Supabase em falta.');
         return;
       }
 
