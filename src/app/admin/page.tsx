@@ -137,7 +137,8 @@ export default function AdminPage() {
       setSessionEmail(email);
       setSessionReady(true);
       if (email) {
-        await loadData();
+        // Redirect to new dashboard if logged in
+        router.replace('/admin/dashboard');
       }
     };
     init();
@@ -154,10 +155,8 @@ export default function AdminPage() {
       setError(signInError.message);
       return;
     }
-    const { data } = await supabaseBrowser.auth.getSession();
-    const email = data.session?.user?.email || null;
-    setSessionEmail(email);
-    await loadData();
+    // Redirect to new dashboard
+    router.replace('/admin/dashboard');
   };
 
   const recentOrders = useMemo(() => {

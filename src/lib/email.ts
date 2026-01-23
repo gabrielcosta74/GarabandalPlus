@@ -14,6 +14,9 @@ import {
   renderBookingConfirmationEmail,
   renderDonationNotification,
   renderBrochureEmail,
+  renderQuotaWarningEmail,
+  renderQuotaOverdueEmail,
+  renderMembershipRevokedEmail,
   // Types
   MembershipNotificationInput,
   MemberReceiptInput,
@@ -371,5 +374,26 @@ export const sendDonationNotification = async (payload: DonationNotificationInpu
     subject: content.subject,
     html: content.html,
   });
+  return true;
+};
+
+export const sendQuotaWarningEmail = async (payload: { name: string; email: string; daysRemaining: number; payLink: string }) => {
+  if (!resendClient) return false;
+  const content = renderQuotaWarningEmail(payload);
+  await resendClient.emails.send({ from: notifyFrom, to: [payload.email], subject: content.subject, html: content.html });
+  return true;
+};
+
+export const sendQuotaOverdueEmail = async (payload: { name: string; email: string; payLink: string }) => {
+  if (!resendClient) return false;
+  const content = renderQuotaOverdueEmail(payload);
+  await resendClient.emails.send({ from: notifyFrom, to: [payload.email], subject: content.subject, html: content.html });
+  return true;
+};
+
+export const sendMembershipRevokedEmail = async (payload: { name: string; email: string; payLink: string }) => {
+  if (!resendClient) return false;
+  const content = renderMembershipRevokedEmail(payload);
+  await resendClient.emails.send({ from: notifyFrom, to: [payload.email], subject: content.subject, html: content.html });
   return true;
 };

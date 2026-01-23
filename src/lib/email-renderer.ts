@@ -692,3 +692,70 @@ export const renderWelcomeEmail = (payload: { name: string; email: string }) => 
         })
     };
 };
+
+// --- Membership Lifecycle Emails ---
+
+export const renderQuotaWarningEmail = (payload: { name: string; email: string; daysRemaining: number; payLink: string }) => {
+    return {
+        subject: `A sua quota vence em ${payload.daysRemaining} dias`,
+        html: renderEmailShell({
+            title: 'Aviso de Vencimento',
+            subtitle: 'Quota Anual',
+            bodyHtml: `
+        <p>Olá <strong>${payload.name}</strong>,</p>
+        <p>Gostaríamos de lembrar que a validade da sua quota anual termina em <strong>${payload.daysRemaining} dias</strong>.</p>
+        <p>Para continuar a usufruir de todos os benefícios de membro e apoiar a nossa missão, por favor renove a sua subscrição.</p>
+        <div style="margin: 32px 0; text-align: center;">
+          <a href="${payload.payLink}" style="background:#d97706;color:#ffffff;padding:16px 32px;border-radius:12px;text-decoration:none;font-weight:bold;display:inline-block;">
+            RENOVAR AGORA
+          </a>
+        </div>
+        <p style="color: #64748b; font-size: 13px;">Se já efetuou o pagamento, por favor ignore este email.</p>
+      `,
+            footer: 'Evite a perda de acesso aos conteúdos exclusivos.'
+        })
+    };
+};
+
+export const renderQuotaOverdueEmail = (payload: { name: string; email: string; payLink: string }) => {
+    return {
+        subject: 'A sua quota venceu - Regularize a situação',
+        html: renderEmailShell({
+            title: 'Quota Vencida',
+            subtitle: 'Período de Tolerância',
+            bodyHtml: `
+        <p>Olá <strong>${payload.name}</strong>,</p>
+        <p>Informamos que a sua quota anual venceu. Entrou agora no <strong>período de tolerância de 30 dias</strong>.</p>
+        <p>Durante este período, mantém o seu estatuto de membro, mas se não regularizar a situação até ao fim do prazo, o seu acesso será suspenso automaticamente.</p>
+        <div style="margin: 32px 0; text-align: center;">
+          <a href="${payload.payLink}" style="background:#ef4444;color:#ffffff;padding:16px 32px;border-radius:12px;text-decoration:none;font-weight:bold;display:inline-block;">
+            REGULARIZAR QUOTA
+          </a>
+        </div>
+      `,
+            footer: 'Regularize hoje para evitar a suspensão.'
+        })
+    };
+};
+
+export const renderMembershipRevokedEmail = (payload: { name: string; email: string; payLink: string }) => {
+    return {
+        subject: 'Estatuto de membro suspenso',
+        html: renderEmailShell({
+            title: 'Conta Suspensa',
+            subtitle: 'Quota em Atraso',
+            bodyHtml: `
+        <p>Olá <strong>${payload.name}</strong>,</p>
+        <p>Como não regularizou a sua quota após o período de tolerância, o seu estatuto de membro foi <strong>suspenso</strong>.</p>
+        <p>A partir de hoje, perde o acesso aos conteúdos exclusivos e benefícios de membro.</p>
+        <p><strong>Mas não se preocupe!</strong> Pode reativar a sua conta instantaneamente a qualquer momento fazendo o pagamento da quota.</p>
+        <div style="margin: 32px 0; text-align: center;">
+          <a href="${payload.payLink}" style="background:#0f172a;color:#ffffff;padding:16px 32px;border-radius:12px;text-decoration:none;font-weight:bold;display:inline-block;">
+            REATIVAR CONTA AGORA
+          </a>
+        </div>
+      `,
+            footer: 'Esperamos tê-lo de volta em breve.'
+        })
+    };
+};

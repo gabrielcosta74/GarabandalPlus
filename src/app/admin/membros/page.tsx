@@ -67,8 +67,10 @@ export default function AdminMembrosPage() {
   // Filters state managed locally for now, could be server-side if needed
   const [statusFilter, setStatusFilter] = useState('all');
   const [typeFilter, setTypeFilter] = useState('all');
+  const [searchTerm, setSearchTerm] = useState('');
 
   const fetchMembers = async () => {
+    // ... (keep existing fetch logic)
     setLoading(true);
     setError(null);
     try {
@@ -102,41 +104,51 @@ export default function AdminMembrosPage() {
       const statusMatch = statusFilter === 'all' ||
         (statusFilter === 'active' && (member.estado_quota === 'pago' || member.estado_quota === 'paid')) ||
         (statusFilter === 'overdue' && member.estado_quota?.includes('atras')) ||
-        (statusFilter === 'pending' && member.estado_quota === 'pendente');
+        (statusFilter === 'pending' && member.estado_quota === 'pendente') ||
+        (statusFilter === 'inactive' && !member.is_membro);
 
       const typeMatch = typeFilter === 'all' || member.tipo_subscricao?.toLowerCase().includes(typeFilter);
 
-      return statusMatch && typeMatch;
+      const searchLower = searchTerm.toLowerCase();
+      const searchMatch = !searchTerm ||
+        (member.nome?.toLowerCase().includes(searchLower)) ||
+        (member.email?.toLowerCase().includes(searchLower)) ||
+        (member.numero_socio?.toString().includes(searchLower));
+
+      return statusMatch && typeMatch && searchMatch;
     });
-  }, [members, statusFilter, typeFilter]);
+  }, [members, statusFilter, typeFilter, searchTerm]);
 
   const columns = [
     {
-      key: 'nome', header: 'Nome', render: (item: MemberRow) => (
-        <div className="flex flex-col">
-          <span className="font-medium text-gray-900">{item.nome || '—'}</span>
-          <span className="text-xs text-gray-500">{item.tipo_subscricao || 'Regular'}</span>
+      key: 'nome', header: 'Membro', render: (item: MemberRow) => (
+        <div className="flex items-center gap-3">
+          <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm ${item.is_membro ? 'bg-garabandal-dark text-garabandal-gold' : 'bg-gray-200 text-gray-500'}`}>
+            {item.nome?.charAt(0).toUpperCase() || '?'}
+          </div>
+          <div className="flex flex-col">
+            <span className={`font-bold ${item.is_membro ? 'text-gray-900' : 'text-gray-400 line-through'}`}>{item.nome || '—'}</span>
+            <span className="text-xs text-gray-500">{item.email}</span>
+          </div>
         </div>
       )
     },
-    { key: 'email', header: 'Email', render: (item: MemberRow) => <span className="text-gray-600">{item.email}</span> },
-    { key: 'numero_socio', header: 'Nº Sócio', align: 'center' as const, render: (item: MemberRow) => <span className="font-mono font-bold text-gray-900">#{item.numero_socio ?? '—'}</span> },
+    { key: 'numero_socio', header: 'Nº Sócio', align: 'center' as const, render: (item: MemberRow) => <span className="font-mono font-bold text-gray-700 bg-gray-50 px-2 py-1 rounded">#{item.numero_socio ?? '—'}</span> },
     {
-      key: 'estado_quota', header: 'Estado', align: 'center' as const, render: (item: MemberRow) => {
+      key: 'estado_quota', header: 'Quota', align: 'center' as const, render: (item: MemberRow) => {
         const label = getStatusLabel(item);
         const styles = {
           'Ativo': 'bg-green-100 text-green-700 border-green-200',
           'Em atraso': 'bg-red-100 text-red-700 border-red-200',
           'Pendente': 'bg-yellow-100 text-yellow-700 border-yellow-200',
-          'Nao membro': 'bg-gray-100 text-gray-600 border-gray-200',
+          'Nao membro': 'bg-gray-100 text-gray-400 border-gray-200',
           'Indefinido': 'bg-gray-100 text-gray-600 border-gray-200'
         };
         const style = (styles as any)[label] || styles['Indefinido'];
-        return <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${style}`}>{label}</span>
+        return <span className={`px-3 py-1 rounded-full text-xs font-bold border ${style}`}>{label.toUpperCase()}</span>
       }
     },
-    { key: 'proxima_quota', header: 'Próxima Quota', align: 'right' as const, render: (item: MemberRow) => <span className="font-medium text-gray-700">{formatDate(item.proxima_quota)}</span> },
-    { key: 'country', header: 'País', align: 'center' as const, render: (item: MemberRow) => <span className="text-sm">{item.country || '—'}</span> },
+    { key: 'proxima_quota', header: 'Validade', align: 'right' as const, render: (item: MemberRow) => <span className="text-sm font-medium text-gray-600">{formatDate(item.proxima_quota)}</span> },
   ];
 
   return (
@@ -159,7 +171,7 @@ export default function AdminMembrosPage() {
           title="Em Atraso"
           value={summary.overdue}
           icon={UserX}
-          color="gold" // Warning color used as Gold here for "Garabandal style", but Red context
+          color="gold"
         />
         <AdminStatCard
           title="Fundadores"
@@ -170,11 +182,14 @@ export default function AdminMembrosPage() {
       </div>
 
       <div className="space-y-6">
-        <div className="flex flex-col sm:flex-row gap-4 justify-between items-center bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
-          <div className="flex items-center gap-2 w-full sm:w-auto overflow-x-auto pb-2 sm:pb-0">
+        {/* Toolbar */}
+        <div className="flex flex-col md:flex-row gap-4 justify-between items-center bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
+
+          {/* Status Filters */}
+          <div className="flex items-center gap-2 overflow-x-auto w-full md:w-auto pb-2 md:pb-0 scrollbar-hide">
             <button
               onClick={() => setStatusFilter('all')}
-              className={`px-4 py-2 rounded-xl text-sm font-medium transition-all whitespace-nowrap ${statusFilter === 'all' ? 'bg-garabandal-dark text-white' : 'bg-gray-50 text-gray-600 hover:bg-gray-100'}`}
+              className={`px-4 py-2 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${statusFilter === 'all' ? 'bg-garabandal-dark text-white shadow-md' : 'bg-gray-50 text-gray-600 hover:bg-gray-100'}`}
             >
               Todos
             </button>
@@ -191,11 +206,25 @@ export default function AdminMembrosPage() {
               Em Atraso
             </button>
             <button
-              onClick={() => setStatusFilter('pending')}
-              className={`px-4 py-2 rounded-xl text-sm font-medium transition-all whitespace-nowrap ${statusFilter === 'pending' ? 'bg-yellow-100 text-yellow-700 border border-yellow-200' : 'bg-gray-50 text-gray-600 hover:bg-gray-100'}`}
+              onClick={() => setStatusFilter('inactive')}
+              className={`px-4 py-2 rounded-xl text-sm font-medium transition-all whitespace-nowrap ${statusFilter === 'inactive' ? 'bg-gray-200 text-gray-700 border border-gray-300' : 'bg-gray-50 text-gray-600 hover:bg-gray-100'}`}
             >
-              Pendentes
+              Cancelados
             </button>
+          </div>
+
+          {/* Search Bar */}
+          <div className="relative w-full md:w-72">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <Search className="h-4 w-4 text-gray-400" />
+            </div>
+            <input
+              type="text"
+              className="block w-full pl-10 pr-3 py-2 border border-gray-200 rounded-xl leading-5 bg-gray-50 placeholder-gray-400 focus:outline-none focus:bg-white focus:ring-2 focus:ring-garabandal-gold/50 focus:border-garabandal-gold sm:text-sm transition-all"
+              placeholder="Nome, Email ou Sócio #..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
           </div>
         </div>
 
@@ -206,9 +235,9 @@ export default function AdminMembrosPage() {
           actions={(item) => (
             <Link
               href={`/admin/membros/${item.id}`}
-              className="flex items-center justify-end gap-1 text-sm font-medium text-garabandal-gold hover:text-garabandal-dark transition-colors"
+              className="flex items-center justify-center gap-2 px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-garabandal-gold hover:text-white hover:border-garabandal-gold transition-all shadow-sm"
             >
-              Ver Perfil <ArrowRight className="w-4 h-4" />
+              Gerir <ArrowRight className="w-4 h-4" />
             </Link>
           )}
         />

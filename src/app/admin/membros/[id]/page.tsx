@@ -19,7 +19,11 @@ import {
   Send,
   FileText,
   ArrowLeft,
-  PlusCircle
+  PlusCircle,
+  Settings,
+  Trash2,
+  Lock,
+  Unlock
 } from 'lucide-react';
 
 type MemberDetail = {
@@ -78,7 +82,7 @@ export default function AdminMemberDetailPage() {
   const [payments, setPayments] = useState<PaymentRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [tab, setTab] = useState<'resumo' | 'quota' | 'pagamentos' | 'contactos'>('resumo');
+  const [tab, setTab] = useState<'resumo' | 'quota' | 'pagamentos' | 'contactos' | 'settings'>('resumo');
   const [actionLoading, setActionLoading] = useState(false);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [formState, setFormState] = useState({
@@ -271,14 +275,94 @@ export default function AdminMemberDetailPage() {
     }
   };
 
+  const handleRevoke = async () => {
+    if (!window.confirm('Tem a certeza que deseja revogar o estatuto de membro? O utilizador perderá o acesso a áreas exclusivas, mas o histórico manter-se-á.')) return;
+    setActionLoading(true);
+    try {
+      const { data } = await supabaseBrowser.auth.getSession();
+      const token = data.session?.access_token;
+      if (!token) throw new Error('Sessao invalida.');
+
+      const res = await fetch(`/api/admin/members/${memberId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ action: 'revoke_status' }),
+      });
+      if (!res.ok) throw new Error('Erro ao revogar.');
+
+      const payload = await res.json();
+      setMember(payload.member);
+      setActionMessage('Estatuto revogado com sucesso.');
+    } catch (e: any) {
+      alert(e.message);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleRestore = async () => {
+    if (!window.confirm('Reativar este membro?')) return;
+    setActionLoading(true);
+    try {
+      const { data } = await supabaseBrowser.auth.getSession();
+      const token = data.session?.access_token;
+      if (!token) throw new Error('Sessao invalida.');
+
+      const res = await fetch(`/api/admin/members/${memberId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ action: 'restore_status' }),
+      });
+      if (!res.ok) throw new Error('Erro ao restaurar.');
+
+      const payload = await res.json();
+      setMember(payload.member);
+      setActionMessage('Membro reativado com sucesso.');
+    } catch (e: any) {
+      alert(e.message);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    const confirmName = window.prompt(`ATENÇÃO: Esta ação é irreversível.\nPara confirmar, escreva o nome do membro: "${member?.nome}"`);
+    if (confirmName !== member?.nome) {
+      if (confirmName) alert('Nome incorreto. Eliminação cancelada.');
+      return;
+    }
+
+    setActionLoading(true);
+    try {
+      const { data } = await supabaseBrowser.auth.getSession();
+      const token = data.session?.access_token;
+      if (!token) throw new Error('Sessao invalida.');
+
+      const res = await fetch(`/api/admin/members/${memberId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error('Erro ao eliminar.');
+
+      alert('Membro eliminado permanentemente.');
+      router.push('/admin/membros');
+    } catch (e: any) {
+      alert(e.message);
+      setActionLoading(false);
+    }
+  };
+
   if (!member && loading) return <AdminLayout title="Carregando..." isLoading={true}><div></div></AdminLayout>;
 
   return (
     <AdminLayout title="Perfil do Membro" isLoading={loading}>
       {/* Header / Back Button */}
-      <div className="mb-6">
+      <div className="mb-6 flex justify-between items-center">
         <button onClick={() => router.back()} className="flex items-center text-gray-500 hover:text-gray-900 transition-colors">
-          <ArrowLeft className="w-4 h-4 mr-1" /> Voltar
+          <ArrowLeft className="w-4 h-4 mr-1" /> Voltar à Lista
+        </button>
+        <button onClick={() => setTab('settings')} className="text-gray-400 hover:text-gray-600 md:hidden">
+          <Settings className="w-5 h-5" />
         </button>
       </div>
 
@@ -312,17 +396,17 @@ export default function AdminMemberDetailPage() {
           </div>
 
           {/* Tabs Navigation */}
-          <div className="flex border-b border-gray-200">
-            {(['resumo', 'quota', 'pagamentos', 'contactos'] as const).map((t) => (
+          <div className="flex border-b border-gray-200 overflow-x-auto">
+            {(['resumo', 'quota', 'pagamentos', 'contactos', 'settings'] as const).map((t) => (
               <button
                 key={t}
                 onClick={() => setTab(t)}
-                className={`px-6 py-3 text-sm font-medium transition-colors border-b-2 ${tab === t
+                className={`px-6 py-3 text-sm font-medium transition-colors border-b-2 whitespace-nowrap ${tab === t
                   ? 'border-garabandal-gold text-garabandal-dark'
                   : 'border-transparent text-gray-500 hover:text-gray-900 hover:border-gray-300'
                   } capitalize`}
               >
-                {t}
+                {t === 'settings' ? 'Admin' : t}
               </button>
             ))}
           </div>
@@ -544,6 +628,59 @@ export default function AdminMemberDetailPage() {
                 </div>
               </div>
             )}
+
+            {tab === 'settings' && (
+              <div className="space-y-8 animate-in fade-in duration-300">
+                <div className="bg-white border rounded-xl p-6">
+                  <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2 mb-4">
+                    <Settings className="w-5 h-5" /> Gestão de Acesso
+                  </h3>
+                  <div className="flex flex-col md:flex-row gap-4 items-center justify-between p-4 bg-gray-50 rounded-lg">
+                    <div>
+                      <h4 className="font-bold text-gray-800">Estatuto de Membro</h4>
+                      <p className="text-sm text-gray-500">
+                        {member.is_membro
+                          ? 'O utilizador tem acesso ativo como membro.'
+                          : 'O utilizador está suspenso/sem acesso de membro.'}
+                      </p>
+                    </div>
+                    <button
+                      onClick={member.is_membro ? handleRevoke : handleRestore}
+                      className={`px-4 py-2 rounded-lg font-bold flex items-center gap-2 transition-colors ${member.is_membro
+                        ? 'bg-amber-100 text-amber-700 hover:bg-amber-200'
+                        : 'bg-green-100 text-green-700 hover:bg-green-200'}`}
+                    >
+                      {member.is_membro ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4" />}
+                      {member.is_membro ? 'Revogar / Suspender' : 'Reativar Acesso'}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="bg-red-50 border border-red-100 rounded-xl p-6">
+                  <h3 className="text-lg font-bold text-red-900 flex items-center gap-2 mb-4">
+                    <Trash2 className="w-5 h-5" /> Zona de Perigo
+                  </h3>
+                  <p className="text-red-700 mb-6 text-sm">
+                    Ações irreversíveis. Tenha extremo cuidado.
+                  </p>
+                  <div className="flex items-center justify-between p-4 bg-white border border-red-200 rounded-lg">
+                    <div>
+                      <h4 className="font-bold text-red-800">Eliminar Registo</h4>
+                      <p className="text-sm text-red-600/70">
+                        Apaga permanentemente os dados pessoais e histórico.
+                      </p>
+                    </div>
+                    <button
+                      onClick={handleDelete}
+                      className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg transition-colors flex items-center gap-2"
+                    >
+                      <Trash2 className="w-4 h-4" /> Eliminar Membro
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
 
           </div>
 

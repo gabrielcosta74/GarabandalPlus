@@ -8,11 +8,12 @@ interface BankTransferModalProps {
     isOpen: boolean;
     onClose: () => void;
     totalAmount: string | number; // Formatted amount or number
+    formattedTotal?: string; // Explicit formatted string override
     iban: string;
     onUploadClick: () => void;
 }
 
-export default function BankTransferModal({ isOpen, onClose, totalAmount, iban, onUploadClick }: BankTransferModalProps) {
+export default function BankTransferModal({ isOpen, onClose, totalAmount, formattedTotal, iban, onUploadClick }: BankTransferModalProps) {
     const [mounted, setMounted] = useState(false);
     const [copied, setCopied] = useState(false);
 
@@ -47,7 +48,7 @@ export default function BankTransferModal({ isOpen, onClose, totalAmount, iban, 
                         className="fixed inset-0 z-[101] flex items-center justify-center p-4 pointer-events-none"
                     >
                         <div className="bg-white rounded-[32px] shadow-2xl w-full max-w-lg overflow-hidden pointer-events-auto relative flex flex-col max-h-[90vh]">
-                            
+
                             {/* Header */}
                             <div className="bg-slate-900 p-6 flex justify-between items-center relative z-10">
                                 <div>
@@ -63,19 +64,19 @@ export default function BankTransferModal({ isOpen, onClose, totalAmount, iban, 
                             </div>
 
                             <div className="p-6 md:p-8 space-y-6 overflow-y-auto">
-                                
+
                                 {/* Amount Display */}
                                 <div className="text-center space-y-2">
                                     <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Valor a Transferir</p>
                                     <div className="text-4xl font-bold text-slate-900 bg-slate-50 border border-slate-100 rounded-2xl py-4">
-                                        {totalAmount}€
+                                        {formattedTotal || `${totalAmount}€`}
                                     </div>
                                 </div>
 
                                 {/* IBAN Box */}
                                 <div className="space-y-3">
                                     <p className="text-sm font-bold text-slate-700">IBAN para Pagamento</p>
-                                    <button 
+                                    <button
                                         onClick={handleCopy}
                                         className="w-full bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-xl p-4 flex items-center justify-between group transition-colors text-left"
                                     >

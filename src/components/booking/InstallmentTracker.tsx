@@ -11,6 +11,7 @@ interface InstallmentTrackerProps {
     depositValue: number;
     paymentPlan: Array<{ date: string; amount: number }>;
     payments: Payment[];
+    formatPrice?: (value: number) => string;
 }
 
 export default function InstallmentTracker({
@@ -18,7 +19,8 @@ export default function InstallmentTracker({
     paidAmount,
     depositValue,
     paymentPlan,
-    payments
+    payments,
+    formatPrice = (val) => `${val.toFixed(2)}€`
 }: InstallmentTrackerProps) {
     // Calculate installment status using waterfall algorithm
     const installments = calculateInstallmentStatus(
@@ -109,14 +111,14 @@ export default function InstallmentTracker({
                         {/* Amount Info */}
                         <div className="flex items-baseline gap-2 mb-3">
                             <span className="text-2xl font-bold">
-                                {installment.paidAmount.toFixed(2)}€
+                                {formatPrice(installment.paidAmount)}
                             </span>
                             <span className="text-sm opacity-75">
-                                / {installment.expectedAmount.toFixed(2)}€
+                                / {formatPrice(installment.expectedAmount)}
                             </span>
                             {installment.remainingAmount > 0 && (
                                 <span className="text-sm font-bold ml-auto">
-                                    Falta: {installment.remainingAmount.toFixed(2)}€
+                                    Falta: {formatPrice(installment.remainingAmount)}
                                 </span>
                             )}
                         </div>
@@ -142,7 +144,7 @@ export default function InstallmentTracker({
                                     {installment.payments.map((payment: { id: string; amount: number; date: string; method: string }, pidx: number) => (
                                         <div key={pidx} className="text-xs flex items-center justify-between bg-white/30 rounded px-2 py-1">
                                             <span>
-                                                {payment.amount.toFixed(2)}€ · {payment.method}
+                                                {formatPrice(payment.amount)} · {payment.method}
                                             </span>
                                             <span className="opacity-75">
                                                 {format(new Date(payment.date), 'dd MMM', { locale: pt })}
@@ -161,13 +163,13 @@ export default function InstallmentTracker({
                 <div className="flex items-center justify-between text-sm">
                     <span className="font-bold text-slate-700">Total Pago:</span>
                     <span className="text-2xl font-bold text-green-600">
-                        {paidAmount.toFixed(2)}€
+                        {formatPrice(paidAmount)}
                     </span>
                 </div>
                 <div className="flex items-center justify-between text-sm mt-2">
                     <span className="font-bold text-slate-700">Saldo Devedor:</span>
                     <span className="text-2xl font-bold text-slate-900">
-                        {(totalAmount - paidAmount).toFixed(2)}€
+                        {formatPrice(totalAmount - paidAmount)}
                     </span>
                 </div>
                 <div className="mt-3 pt-3 border-t border-slate-300">

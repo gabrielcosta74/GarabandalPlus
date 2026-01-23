@@ -11,6 +11,10 @@
     {
       "path": "/api/cron/recover-leads",
       "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/cron/membership-rules",
+      "schedule": "0 9 * * *"
     }
   ]
 }

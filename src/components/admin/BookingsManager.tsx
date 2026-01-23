@@ -103,9 +103,11 @@ export default function BookingsManager({ pilgrimageId }: { pilgrimageId: string
             }));
 
             setBookings(processedBookings);
+            return processedBookings;
 
         } catch (err) {
             console.error("Error fetching bookings:", err);
+            return [];
         } finally {
             setLoading(false);
         }
@@ -464,7 +466,11 @@ export default function BookingsManager({ pilgrimageId }: { pilgrimageId: string
                                     payments: paymentModalBooking.payments || [],
                                     pilgrimage: paymentModalBooking.pilgrimage || { deposit_value: 500 }
                                 }}
-                                onUpdate={async () => await fetchBookings()}
+                                onUpdate={async () => {
+                                    const newBookings = await fetchBookings();
+                                    const updated = newBookings.find(b => b.id === paymentModalBooking.id);
+                                    if (updated) setPaymentModalBooking(updated);
+                                }}
                             />
                         </div>
 

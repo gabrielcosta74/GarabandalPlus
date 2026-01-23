@@ -172,7 +172,13 @@ export default function MemberQuotaPage() {
       return new Date() >= windowStart;
     })()
     : false;
-  const canPay = !isFounder && (!isMember || !statusPaid || !!canRenew);
+  const canPay = !isFounder && (
+    !isMember ||
+    !statusPaid ||
+    !!canRenew ||
+    quotaStatus === 'expirado' ||
+    (!isMember && !!profileData?.numero_socio) // Suspended check
+  );
 
   return (
     <DashboardShell
@@ -213,11 +219,31 @@ export default function MemberQuotaPage() {
           </div>
 
           {canPay ? (
-            <div className="bg-blue-50 border border-blue-100 rounded-2xl p-4 flex items-start gap-3">
-              <AlertTriangle className="w-5 h-5 text-blue-600 mt-0.5 shrink-0" />
+            <div className={`rounded-2xl p-4 flex items-start gap-3 border ${quotaStatus === 'expirado' || (!isMember && !!profileData?.numero_socio)
+              ? 'bg-red-50 border-red-100'
+              : 'bg-blue-50 border-blue-100'
+              }`}>
+              <AlertTriangle className={`w-5 h-5 mt-0.5 shrink-0 ${quotaStatus === 'expirado' || (!isMember && !!profileData?.numero_socio)
+                ? 'text-red-600'
+                : 'text-blue-600'
+                }`} />
               <div>
-                <p className="font-bold text-blue-800 text-sm">Renovação Necessária</p>
-                <p className="text-blue-600 text-xs mt-1">A tua quota expira em breve ou está em atraso. Renova agora para manteres os teus benefícios.</p>
+                <p className={`font-bold text-sm ${quotaStatus === 'expirado' || (!isMember && !!profileData?.numero_socio)
+                  ? 'text-red-800'
+                  : 'text-blue-800'
+                  }`}>
+                  {quotaStatus === 'expirado' || (!isMember && !!profileData?.numero_socio)
+                    ? 'Conta Suspensa'
+                    : 'Renovação Necessária'}
+                </p>
+                <p className={`text-xs mt-1 ${quotaStatus === 'expirado' || (!isMember && !!profileData?.numero_socio)
+                  ? 'text-red-600'
+                  : 'text-blue-600'
+                  }`}>
+                  {quotaStatus === 'expirado' || (!isMember && !!profileData?.numero_socio)
+                    ? 'A sua conta está suspensa devido a quotas em atraso. Regularize agora para reativar o acesso imediato.'
+                    : 'A tua quota expira em breve ou está em atraso. Renova agora para manteres os teus benefícios.'}
+                </p>
               </div>
             </div>
           ) : (

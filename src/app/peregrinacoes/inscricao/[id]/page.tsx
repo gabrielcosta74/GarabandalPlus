@@ -4,8 +4,10 @@ import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import VIPLayout from '../../../../components/member/VIPLayout';
 import { supabaseBrowser } from '../../../../lib/supabase-browser';
+import { useExchangeRate } from '../../../../hooks/useExchangeRate'; // Import Hook
 import {
     CreditCard,
+    // ... rest of imports
     Upload,
     CheckCircle2,
     Clock,
@@ -66,6 +68,11 @@ export default function BookingDashboardPage() {
     const [processing, setProcessing] = useState(false);
     const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
     const isSuccess = searchParams?.get('success') === 'true';
+    const currencyParam = searchParams?.get('currency') === 'BRL' ? 'BRL' : 'EUR';
+
+    // Currency Hook
+    const { format: formatPrice, rate: exchangeRate, loading: rateLoading } = useExchangeRate(currencyParam);
+    const isConverted = currencyParam !== 'EUR';
 
     const sessionId = searchParams?.get('session_id');
 
@@ -443,23 +450,26 @@ export default function BookingDashboardPage() {
 
                         {/* --- 2. THE BIG STATUS --- */}
                         <div className="bg-white rounded-[40px] p-8 md:p-12 shadow-2xl border border-slate-100 relative overflow-hidden">
-                            <div className="absolute top-0 right-0 p-8 text-right hidden lg:block opacity-20">
-                                <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Total da Inscrição</p>
-                                <p className="text-4xl font-serif font-bold text-slate-900">{totalAmount}€</p>
-                            </div>
+
                             <div className="absolute top-0 left-0 w-2 h-full bg-indigo-500" />
                             <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-start">
 
                                 <div className="lg:col-span-7 space-y-8 order-2 lg:order-1">
-                                    <div className="space-y-2">
-                                        <h3 className="text-3xl font-bold text-slate-900">
-                                            {isFullyPaid ? 'VIAGEM CONFIRMADA!' : 'FALTA 1 PASSO: PAGAMENTO'}
-                                        </h3>
-                                        <p className="text-slate-500 text-xl leading-relaxed">
-                                            {isFullyPaid
-                                                ? 'Já recebemos o seu pagamento total. Está pronto para partir!'
-                                                : 'A sua inscrição aguarda o pagamento do sinal para garantir o lugar.'}
-                                        </p>
+                                    <div className="flex justify-between items-start gap-4">
+                                        <div className="space-y-2">
+                                            <h3 className="text-3xl font-bold text-slate-900">
+                                                {isFullyPaid ? 'VIAGEM CONFIRMADA!' : 'FALTA 1 PASSO: PAGAMENTO'}
+                                            </h3>
+                                            <p className="text-slate-500 text-xl leading-relaxed">
+                                                {isFullyPaid
+                                                    ? 'Já recebemos o seu pagamento total. Está pronto para partir!'
+                                                    : 'A sua inscrição aguarda o pagamento do sinal para garantir o lugar.'}
+                                            </p>
+                                        </div>
+                                        <div className="text-right shrink-0 bg-slate-50 px-4 py-3 rounded-2xl border border-slate-100 hidden sm:block">
+                                            <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-1">Total</p>
+                                            <p className="text-xl md:text-2xl font-serif font-bold text-slate-900">{formatPrice(totalAmount)}</p>
+                                        </div>
                                     </div>
 
                                     {/* Payment Roadmap for Seniors */}
@@ -473,7 +483,7 @@ export default function BookingDashboardPage() {
                                                     {isDepositPaid ? <Check className="w-8 h-8" /> : (isVerifying ? <Clock className="w-8 h-8" /> : <CreditCard className="w-8 h-8" />)}
                                                 </div>
                                                 <div>
-                                                    <p className={`font-bold text-xl ${isDepositPaid ? 'text-slate-900' : (isVerifying ? 'text-amber-600' : 'text-red-600')}`}>1. Pagamento do Sinal ({depositValue}€)</p>
+                                                    <p className={`font-bold text-xl ${isDepositPaid ? 'text-slate-900' : (isVerifying ? 'text-amber-600' : 'text-red-600')}`}>1. Pagamento do Sinal ({formatPrice(depositValue)})</p>
                                                     <p className="text-slate-500">
                                                         {isDepositPaid ? 'PAGO E CONFIRMADO' : (isVerifying ? 'A AGUARDAR VALIDAÇÃO...' : 'PENDENTE - Pagar Agora')}
                                                     </p>
@@ -497,7 +507,7 @@ export default function BookingDashboardPage() {
                                                                             <CreditCard className="w-8 h-8" />}
                                                                 </div>
                                                                 <div>
-                                                                    <p className="font-bold text-xl text-slate-900">Prestação {idx + 1} ({step.amount}€)</p>
+                                                                    <p className="font-bold text-xl text-slate-900">Prestação {idx + 1} ({formatPrice(Number(step.amount))})</p>
                                                                     <p className="text-slate-400">
                                                                         {state === 'paid' ? 'PAGO' :
                                                                             state === 'verifying' ? 'A AGUARDAR VALIDAÇÃO...' :
@@ -517,7 +527,7 @@ export default function BookingDashboardPage() {
                                                         </div>
                                                         <div>
                                                             <p className="font-bold text-xl text-slate-900">2. Mensalidades / Restante</p>
-                                                            <p className="text-slate-400">{isFullyPaid ? 'TUDO PAGO' : `Total de ${totalAmount - (isDepositPaid ? depositValue : 0)}€ à pagar`}</p>
+                                                            <p className="text-slate-400">{isFullyPaid ? 'TUDO PAGO' : `Total de ${formatPrice(totalAmount - (isDepositPaid ? depositValue : 0))} à pagar`}</p>
                                                         </div>
                                                     </div>
                                                 </>
@@ -570,6 +580,7 @@ export default function BookingDashboardPage() {
                                             depositValue={depositValue}
                                             paymentPlan={paymentPlan}
                                             payments={booking.payments || []}
+                                            formatPrice={formatPrice}
                                         />
                                     </div>
                                 </div>
@@ -589,7 +600,10 @@ export default function BookingDashboardPage() {
 
                                             <div className="space-y-1">
                                                 <p className="text-yellow-500 font-bold uppercase tracking-widest text-xs">Valor a Pagar Agora: {nextLabel}</p>
-                                                <p className="text-6xl font-bold text-white tracking-tighter">{amountToPay}€</p>
+                                                <p className="text-3xl md:text-5xl font-bold text-white tracking-tight break-words" title={formatPrice(amountToPay)}>
+                                                    {formatPrice(amountToPay)}
+                                                </p>
+                                                {isConverted && exchangeRate && <p className="text-white/50 text-xs">Aprox. {amountToPay} € (Taxa: {exchangeRate})</p>}
                                             </div>
 
                                             {/* OPÇÃO 1: PAGAMENTO AUTOMÁTICO (Destaque Principal) */}
@@ -714,7 +728,7 @@ export default function BookingDashboardPage() {
                                         <p className="text-slate-500">Agendamento das suas próximas mensalidades (Dia 10 de cada mês)</p>
                                     </div>
                                     <div className="bg-indigo-100 text-indigo-700 px-4 py-2 rounded-xl font-bold">
-                                        Total Restante: {totalAmount - paidAmount}€
+                                        Total Restante: {formatPrice(totalAmount - paidAmount)}
                                     </div>
                                 </div>
 
@@ -730,7 +744,7 @@ export default function BookingDashboardPage() {
                                                     <p className="text-xs text-slate-400">Vencimento: Dia 10</p>
                                                 </div>
                                             </div>
-                                            <p className="text-2xl font-bold text-slate-900">{inst.amount}€</p>
+                                            <p className="text-2xl font-bold text-slate-900">{formatPrice(Number(inst.amount))}</p>
                                         </div>
                                     ))}
                                 </div>
@@ -755,6 +769,7 @@ export default function BookingDashboardPage() {
                 isOpen={showBankModal}
                 onClose={() => setShowBankModal(false)}
                 totalAmount={amountToPay}
+                formattedTotal={formatPrice(amountToPay)}
                 iban="PT50 0033 0000 0000 0000 0000 0"
                 onUploadClick={handleManualUpload}
             />

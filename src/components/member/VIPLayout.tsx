@@ -39,14 +39,21 @@ export default function VIPLayout({ children, allowPublic }: VIPLayoutProps) {
 
                 const { data: member } = await supabaseBrowser
                     .from('membros')
-                    .select('is_membro')
+                    .select('is_membro, numero_socio')
                     .eq('id', data.session.user.id)
                     .maybeSingle();
 
                 if (!mounted) return;
 
                 if (!member?.is_membro && !allowPublic) {
-                    router.replace('/tornar-membro');
+                    // Smart Redirection:
+                    // If they have a member number (suspended/expired), go to Quota Renewal
+                    // If they don't (new lead), go to Sales Page
+                    if (member?.numero_socio) {
+                        router.replace('/member/quota');
+                    } else {
+                        router.replace('/tornar-membro');
+                    }
                     return;
                 }
 

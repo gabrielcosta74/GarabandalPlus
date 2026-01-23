@@ -33,7 +33,7 @@ export default function AdminSidebar({ onLogout, className }: { onLogout: () => 
         {
             label: 'Visão Geral',
             items: [
-                { label: 'Dashboard', icon: LayoutDashboard, href: '/admin' }
+                { label: 'Dashboard', icon: LayoutDashboard, href: '/admin/dashboard' }
             ]
         },
         {

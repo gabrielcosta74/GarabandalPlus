@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Plus, Download } from 'lucide-react';
+import { toast } from 'sonner';
 import FinancialSummary from './FinancialSummary';
 import PendingReceiptsAlert from './PendingReceiptsAlert';
 import PaymentHistory, { type Payment } from './PaymentHistory';
@@ -57,8 +58,10 @@ export default function PaymentManagementTab({
 
     // Actually validate after admin enters amount
     // Actually validate after admin enters amount
+    // Actually validate after admin enters amount
     const handleConfirmValidation = async (paymentId: string, amount: number, label?: string) => {
         console.log('🚀 [Validation] Starting validation...');
+        const loadingId = toast.loading('A validar pagamento...');
         try {
             console.log('🚀 [Validation] Getting session...');
 
@@ -100,8 +103,12 @@ export default function PaymentManagementTab({
             // Refresh booking data
             await onUpdate();
             setValidatingReceipt(null);
+            toast.dismiss(loadingId);
+            toast.success('Pagamento validado com sucesso!');
         } catch (err: any) {
-            alert('Erro ao validar: ' + err.message);
+            console.error(err);
+            toast.dismiss(loadingId);
+            toast.error('Erro ao validar: ' + err.message);
         }
     };
 
