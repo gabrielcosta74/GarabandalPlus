@@ -44,7 +44,7 @@ export async function GET(
             React.createElement(ItineraryTemplate, {
                 pilgrimage,
                 itinerary: itinerary || []
-            })
+            }) as any
         );
 
         // 4. Return Response

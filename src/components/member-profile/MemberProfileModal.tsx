@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useRef } from 'react';
+import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { supabaseBrowser } from '../../lib/supabase-browser';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, User, MapPin, Save, Camera, Loader2 } from 'lucide-react';
@@ -53,6 +53,24 @@ export default function MemberProfileModal({
 
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+
+  // Sync state with props when modal opens or data changes
+  useEffect(() => {
+    if (visible && initialData) {
+      setNome(initialData.nome || '');
+      setEmail(initialData.email || '');
+      setTelefone(initialData.telefone || '');
+      setAddress(initialData.address || initialData.morada || '');
+      setPostalCode(initialData.postal_code || initialData.postalCode || '');
+
+      const newCountryRaw = initialData.country || initialData.pais || 'PT';
+      const newCountryMeta = resolveCountryMeta(newCountryRaw);
+      setCountry(newCountryMeta?.code || newCountryMeta?.name || newCountryRaw);
+
+      setNif(initialData.nif || initialData.nif_number || '');
+      setAvatarUrl(initialData.avatar_url || '');
+    }
+  }, [visible, initialData]);
 
   // Normalize country naming to codes if possible, or keep as is
   const countryMeta = useMemo(() => resolveCountryMeta(country), [country]);

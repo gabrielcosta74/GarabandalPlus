@@ -18,8 +18,9 @@ As seguintes secções existem na referência mas **não estão** implementadas 
 
 ### C. Detalhes de Preços e Pagamentos
 *   **O que falta**:
-    1.  **Opções de Parcelamento**: Informação sobre pagamento em prestações (ex: "até 8 pagamentos").
-    2.  **Moedas Adicionais**: Preços em Reais (R$) para público brasileiro.
+    1.  **Opções de Parcelamento**: Informação sobre pagamento em prestações (ex: "até 8 pagamentos").nos ja temos um sistema automatico de parcelamento portanto esta bem mas podemos mencionar que a pessoa pode parcelar em 8x sem juros.
+
+    2.  **Moedas Adicionais**: Preços em Reais (R$) para público brasileiro.(sim temos se a pessoa for do brasil mostrar tudo em reais)
     3.  **Diferenciação Terrestre vs. Aéreo**: Explicação clara de que o valor é apenas terrestre.
 *   **Estado Atual**: Apenas mostra `base_price` (Donativo Base) e `deposit_value`.
 
@@ -38,7 +39,8 @@ As seguintes secções existem na referência mas **não estão** implementadas 
 Para suportar os pontos acima, o Admin precisa de poder gerir os seguintes novos campos:
 
 ### A. Editor de "Incluído / Não Incluído"
-*   **Necessidade**: Capacidade de adicionar/remover itens de uma lista de inclusões (ex: "Pensão Completa", "Seguro", etc.) e exclusões.
+*   **Necessidade**: Capacidade de adicionar/remover itens de uma lista de inclusões (ex: "Pensão Completa", "Seguro", etc.) e exclusões. Ja temos isso no conteudo global a dizer o que esta incluido. 
+
 *   **Sugestão**: Um campo de tags ou lista dinâmica onde o admin pode adicionar linhas de texto.
 
 ### B. Editor de Logística Específica
@@ -47,10 +49,7 @@ Para suportar os pontos acima, o Admin precisa de poder gerir os seguintes novos
     *   "Local/Hora de Fim"
     *   "Informação sobre Voos" (texto livre para sugestões de voo).
 
-### C. Configuração de Pagamento
-*   **Necessidade**:
-    *   Campo de texto para "Informação de Parcelamento" (ex: "Pague até 8x sem juros").
-    *   Campo para "Preço em Moeda Secundária" (opcional, para Reais).
+
 
 ### D. Política de Cancelamento
 *   **Necessidade**: Um campo de texto rico (Markdown/HTML) para definir a política de cancelamento específica desta viagem.

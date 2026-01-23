@@ -6,7 +6,7 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request) {
-  constVE_SECRET = process.env.TEST_DIPLOMA_SECRET || '';
+  const VE_SECRET = process.env.TEST_DIPLOMA_SECRET || '';
   const headerSecret = request.headers.get('x-test-secret') || '';
 
   if (process.env.NODE_ENV === 'production' && process.env.TEST_DIPLOMA_SECRET && headerSecret !== process.env.TEST_DIPLOMA_SECRET) {

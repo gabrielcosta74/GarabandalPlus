@@ -18,12 +18,16 @@ import {
     Users,
     Check,
     Loader2,
-    Package
+    Package,
+    Landmark,
+    Smartphone,
+    QrCode
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { pt } from 'date-fns/locale';
 import InstallmentTracker from '../../../../components/booking/InstallmentTracker';
 import BookingOnboardingModal from '../../../../components/booking/BookingOnboardingModal';
+import BankTransferModal from '../../../../components/booking/BankTransferModal'; // Imported BankTransferModal
 
 /* -------------------------------------------------------------------------- */
 /*                                    Types                                   */
@@ -106,6 +110,7 @@ export default function BookingDashboardPage() {
 
     // Onboarding State
     const [showOnboarding, setShowOnboarding] = useState(false);
+    const [showBankModal, setShowBankModal] = useState(false); // New State for Bank Modal
 
     useEffect(() => {
         const params = new URLSearchParams(window.location.search);
@@ -418,18 +423,22 @@ export default function BookingDashboardPage() {
                 {totalAmount > 0 && (
                     <>
                         {/* --- 1. HEADER --- */}
-                        <div className="text-center space-y-2">
+                        <div className="text-center space-y-4 mb-8">
                             {/* Persistent Quick Access Guide (Desktop) */}
                             <div className="hidden md:flex justify-center mb-6 animate-in fade-in slide-in-from-top duration-700 delay-300">
-                                <div className="bg-blue-50/50 border border-blue-100 rounded-full px-4 py-2 flex items-center gap-2 text-sm text-blue-800">
-                                    <span className="bg-blue-100 p-1 rounded-full"><Package className="w-3 h-3" /></span>
+                                <div className="bg-white/10 border border-white/20 backdrop-blur-md rounded-full px-5 py-2 flex items-center gap-2 text-sm text-amber-100">
+                                    <span className="bg-amber-500/20 p-1 rounded-full"><Package className="w-3 h-3 text-amber-500" /></span>
                                     <span>Para voltares aqui: Menu &gt; <strong>Minhas Inscrições</strong></span>
                                 </div>
                             </div>
 
-                            <p className="text-indigo-600 font-bold uppercase tracking-widest text-sm">Reserva Registada com Sucesso</p>
-                            <h1 className="text-4xl md:text-5xl font-serif font-bold text-slate-900 leading-tight">{booking.pilgrimage.title}</h1>
-                            <p className="text-slate-500 font-medium text-lg">#{booking.id.slice(0, 8).toUpperCase()}</p>
+                            <div className="space-y-1">
+                                <p className="text-amber-500 font-bold uppercase tracking-[0.2em] text-xs md:text-sm">Reserva Registada com Sucesso</p>
+                                <h1 className="text-4xl md:text-6xl font-serif font-bold text-white tracking-tight leading-tight drop-shadow-xl max-w-4xl mx-auto">
+                                    {booking.pilgrimage.title}
+                                </h1>
+                                <p className="text-white/50 font-mono text-sm md:text-base">#{booking.id.slice(0, 8).toUpperCase()}</p>
+                            </div>
                         </div>
 
                         {/* --- 2. THE BIG STATUS --- */}
@@ -439,9 +448,9 @@ export default function BookingDashboardPage() {
                                 <p className="text-4xl font-serif font-bold text-slate-900">{totalAmount}€</p>
                             </div>
                             <div className="absolute top-0 left-0 w-2 h-full bg-indigo-500" />
-                            <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+                            <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-start">
 
-                                <div className="lg:col-span-7 space-y-8">
+                                <div className="lg:col-span-7 space-y-8 order-2 lg:order-1">
                                     <div className="space-y-2">
                                         <h3 className="text-3xl font-bold text-slate-900">
                                             {isFullyPaid ? 'VIAGEM CONFIRMADA!' : 'FALTA 1 PASSO: PAGAMENTO'}
@@ -565,83 +574,131 @@ export default function BookingDashboardPage() {
                                     </div>
                                 </div>
 
-                                {/* ACÇÕES DE PAGAMENTO (Direita) */}
-                                <div className="lg:col-span-5 space-y-6 self-start sticky top-8">
+                                {/* ACÇÕES DE PAGAMENTO (Direita) - UI OTIMIZADA PARA SENIORES */}
+                                <div className="lg:col-span-5 space-y-6 self-start sticky top-8 order-1 lg:order-2">
                                     {!isFullyPaid && (
-                                        <div className="bg-slate-950 rounded-[32px] p-8 text-center space-y-8 shadow-2xl border border-white/10 ring-8 ring-slate-100/50 relative overflow-hidden">
+                                        <div className="bg-slate-950 rounded-[32px] p-6 md:p-8 text-center space-y-8 shadow-2xl border border-white/10 ring-8 ring-slate-100/50 relative overflow-hidden">
                                             {uploadSuccess && (
                                                 <div className="absolute inset-0 bg-green-600 flex flex-col items-center justify-center p-6 text-white z-10 animate-in fade-in zoom-in duration-300">
                                                     <CheckCircle2 className="w-16 h-16 mb-4 animate-bounce" />
                                                     <h3 className="text-2xl font-bold">Enviado!</h3>
                                                     <p className="text-green-100 text-sm mt-2">O seu comprovativo foi recebido. Vamos validar e atualizar o estado da sua reserva em breve.</p>
+                                                    <button onClick={() => window.location.reload()} className="mt-6 px-6 py-3 bg-white text-green-700 font-bold rounded-xl shadow-lg">Entendido</button>
                                                 </div>
                                             )}
 
                                             <div className="space-y-1">
-                                                <p className="text-yellow-500 font-bold uppercase tracking-widest text-xs">A Pagar Agora: {nextLabel}</p>
+                                                <p className="text-yellow-500 font-bold uppercase tracking-widest text-xs">Valor a Pagar Agora: {nextLabel}</p>
                                                 <p className="text-6xl font-bold text-white tracking-tighter">{amountToPay}€</p>
                                             </div>
 
+                                            {/* OPÇÃO 1: PAGAMENTO AUTOMÁTICO (Destaque Principal) */}
                                             <div className="space-y-4">
                                                 <button
                                                     onClick={handleStripePayment}
                                                     disabled={processing}
-                                                    className="w-full py-8 px-6 bg-yellow-500 hover:bg-yellow-400 text-slate-950 rounded-2xl font-extrabold text-2xl transition-all shadow-[0_10px_40px_rgba(234,179,8,0.3)] active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
+                                                    className="w-full py-6 px-6 bg-yellow-500 hover:bg-yellow-400 text-slate-950 rounded-2xl font-extrabold text-2xl transition-all shadow-[0_10px_40px_rgba(234,179,8,0.3)] active:scale-95 disabled:opacity-50 flex flex-col items-center justify-center gap-1 group relative overflow-hidden"
                                                 >
-                                                    {processing ? <Loader2 className="animate-spin w-8 h-8" /> : 'Pagar Online'}
+                                                    {processing ? (
+                                                        <Loader2 className="animate-spin w-8 h-8" />
+                                                    ) : (
+                                                        <>
+                                                            <div className="flex items-center gap-3">
+                                                                <CreditCard className="w-6 h-6" />
+                                                                <span>PAGAR ONLINE</span>
+                                                            </div>
+                                                            <p className="text-[10px] font-bold uppercase opacity-60 tracking-widest group-hover:opacity-80 transition-opacity">
+                                                                Rápido e Automático
+                                                            </p>
+                                                        </>
+                                                    )}
                                                 </button>
-                                                <p className="text-white/40 text-xs font-medium uppercase tracking-[0.2em]">MBWAY ou CARTÃO DE CRÉDITO</p>
+
+                                                {/* Payment Methods Badges - REVISED */}
+                                                <div className="flex flex-wrap items-center justify-center gap-3 mt-4">
+                                                    {/* Pix - Highlighted */}
+                                                    <div className="bg-green-600 text-white px-3 py-2 rounded-xl flex items-center gap-2 shadow-lg shadow-green-900/50 scale-105 border border-green-400 relative group cursor-help transition-transform hover:scale-110" title="Disponível para contas do Brasil">
+                                                        <QrCode className="w-5 h-5 text-white" />
+                                                        <span className="font-bold text-sm tracking-wide">Pix (Brasil)</span>
+                                                        <span className="absolute -top-2 -right-2 flex h-3 w-3">
+                                                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                                                            <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+                                                        </span>
+                                                    </div>
+
+                                                    {/* MBWay - White BG fix */}
+                                                    <div className="bg-white px-2 py-1.5 rounded-lg flex items-center gap-1.5 opacity-90 hover:opacity-100 transition-opacity" title="MBWay">
+                                                        <img src="/payment-icons/mbway.svg" alt="MBWay" className="h-6 w-auto" />
+                                                    </div>
+
+                                                    {/* Cards - Explicit Logos */}
+                                                    <div className="bg-white px-3 py-1.5 rounded-lg flex items-center gap-2 opacity-90 hover:opacity-100 transition-opacity">
+                                                        <img src="https://upload.wikimedia.org/wikipedia/commons/4/41/Visa_Logo.png" alt="Visa" className="h-4 w-auto object-contain" />
+                                                        <div className="w-[1px] h-4 bg-slate-200" />
+                                                        <img src="https://upload.wikimedia.org/wikipedia/commons/b/b7/MasterCard_Logo.svg" alt="Mastercard" className="h-4 w-auto object-contain" />
+                                                    </div>
+
+                                                    {/* Apple Pay */}
+                                                    <div className="bg-white text-black px-3 py-1.5 rounded-lg flex items-center gap-1.5 opacity-90 hover:opacity-100 transition-opacity" title="Apple Pay">
+                                                        <span className="text-black text-sm font-bold font-sans">Pay</span>
+                                                    </div>
+                                                </div>
+                                                <p className="text-white/40 text-[10px] font-medium uppercase tracking-widest mt-3">
+                                                    Processamento Seguro e Imediato
+                                                </p>
                                             </div>
 
-                                            <div className="pt-6 border-t border-white/10 space-y-4">
-                                                <p className="text-white/60 font-bold text-sm">Transferência Bancária</p>
-                                                <div className="bg-white/5 p-4 rounded-xl border border-white/5 space-y-2 text-left">
-                                                    <p className="text-[10px] text-white/30 font-bold uppercase">IBAN (Clique para copiar)</p>
-                                                    <p
-                                                        onClick={() => { navigator.clipboard.writeText('PT50 0033 0000 0000 0000 0000 0'); alert('IBAN Copiado!'); }}
-                                                        className="text-white font-mono text-sm font-bold cursor-pointer hover:text-yellow-500 break-all"
-                                                    >
-                                                        PT50 0033 0000 0000 0000 0000 0
-                                                    </p>
-                                                </div>
-                                                <p className="text-[11px] text-white/40 leading-relaxed italic">
-                                                    * Transfira o valor acima e anexe o comprovativo aqui para validação.
-                                                </p>
+                                            {/* SEPARATOR "OR" */}
+                                            <div className="relative py-2">
+                                                <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-white/10"></div></div>
+                                                <div className="relative flex justify-center"><span className="bg-slate-950 px-4 text-[10px] text-white/50 uppercase tracking-widest font-bold">OU ENTÃO</span></div>
+                                            </div>
 
+                                            {/* OPÇÃO 2: TRANSFERÊNCIA BANCÁRIA (Secundário) */}
+                                            <div className="space-y-4">
                                                 {isVerifying ? (
-                                                    <div className="mt-4 p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl text-amber-500 text-xs font-bold flex items-center gap-2">
-                                                        <Clock className="w-4 h-4" />
-                                                        Comprovativo em análise
+                                                    <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl text-amber-500 text-sm font-bold flex flex-col items-center gap-2">
+                                                        <Clock className="w-6 h-6" />
+                                                        <p>Comprovativo em análise</p>
+                                                        <p className="text-[10px] font-medium opacity-70">Aguarde a validação da nossa equipa.</p>
                                                     </div>
                                                 ) : (
-                                                    <button
-                                                        onClick={handleManualUpload}
-                                                        disabled={uploading}
-                                                        className="w-full mt-4 py-4 px-6 bg-white/10 hover:bg-white/20 text-white rounded-xl font-bold transition-all flex items-center justify-center gap-2 border border-white/10"
-                                                    >
-                                                        {uploading ? <Loader2 className="animate-spin w-5 h-5" /> : <Upload className="w-5 h-5 text-yellow-500" />}
-                                                        <span>Enviar Comprovativo</span>
-                                                    </button>
+                                                    <>
+                                                        <button
+                                                            onClick={() => setShowBankModal(true)}
+                                                            className="w-full py-4 px-6 bg-white/5 hover:bg-white/10 border-2 border-dashed border-white/20 hover:border-white/40 text-white rounded-xl font-bold transition-all flex items-center justify-center gap-3 group"
+                                                        >
+                                                            <Landmark className="w-5 h-5 text-slate-400 group-hover:text-white transition-colors" />
+                                                            <span>ou Transferência Bancária</span>
+                                                        </button>
+                                                        <p className="text-[10px] text-white/30 italic max-w-xs mx-auto">
+                                                            Pode transferir pelo Multibanco ou Homebanking e enviar o comprovativo.
+                                                        </p>
+                                                    </>
                                                 )}
-
-                                                <input
-                                                    id="receipt-upload"
-                                                    type="file"
-                                                    accept="image/*,.pdf"
-                                                    className="hidden"
-                                                    onChange={handleReceiptUpload}
-                                                />
                                             </div>
+
+                                            {/* Hidden File Input for Modal Callback */}
+                                            <input
+                                                id="receipt-upload"
+                                                type="file"
+                                                accept="image/*,.pdf"
+                                                className="hidden"
+                                                onChange={handleReceiptUpload}
+                                            />
                                         </div>
                                     )}
 
                                     {isFullyPaid && (
-                                        <div className="bg-green-50 rounded-[32px] p-10 text-center border-4 border-green-200 border-dashed">
-                                            <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center text-green-600 mx-auto mb-6">
+                                        <div className="bg-green-50 rounded-[32px] p-10 text-center border-4 border-green-200 border-dashed animate-in zoom-in duration-500">
+                                            <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center text-green-600 mx-auto mb-6 shadow-sm">
                                                 <CheckCircle2 className="w-10 h-10" />
                                             </div>
-                                            <h4 className="text-2xl font-bold text-green-900">Inscrição Totalmente Paga!</h4>
-                                            <p className="text-green-700 mt-2">Desejamos-lhe uma excelente peregrinação.</p>
+                                            <h4 className="text-2xl font-bold text-green-900">Inscrição Confirmada!</h4>
+                                            <p className="text-green-700 mt-2 font-medium">O seu pagamento foi recebido com sucesso.</p>
+                                            <div className="mt-6 p-4 bg-white/50 rounded-xl text-sm text-green-800">
+                                                <p>Desejamos-lhe uma excelente peregrinação.</p>
+                                            </div>
                                         </div>
                                     )}
                                 </div>
@@ -692,6 +749,15 @@ export default function BookingDashboardPage() {
             </div>
             {/* Onboarding Modal */}
             <BookingOnboardingModal isOpen={showOnboarding} onClose={() => setShowOnboarding(false)} />
+
+            {/* Bank Transfer Modal */}
+            <BankTransferModal
+                isOpen={showBankModal}
+                onClose={() => setShowBankModal(false)}
+                totalAmount={amountToPay}
+                iban="PT50 0033 0000 0000 0000 0000 0"
+                onUploadClick={handleManualUpload}
+            />
         </VIPLayout>
     );
 }

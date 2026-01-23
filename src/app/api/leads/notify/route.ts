@@ -79,7 +79,7 @@ export async function POST(req: Request) {
         if (lead.phone && lead.phone.length > 8) {
             console.log(`[Manual Notify] Attempting to send WhatsApp to ${lead.phone}...`);
             try {
-                await WhatsAppService.sendWhatsAppMessage(
+                await WhatsAppService.sendMessage(
                     lead.phone,
                     `Olá ${lead.name || 'Peregrino'}! 🕊️\n\nVimos que não conseguiu terminar a sua inscrição para *${lead.pilgrimages?.title || 'Garabandal'}*. \n\nGuardámos o seu lugar temporariamente. Clique aqui para continuar: ${recoveryLink}`
                 );

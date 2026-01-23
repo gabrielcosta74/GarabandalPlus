@@ -350,7 +350,7 @@ export default function PilgrimageEditorPage() {
 
     return (
         <AdminShell
-            title={isNew ? 'Nova Peregrinação' : form.title}
+            title={isNew ? 'Nova Peregrinação' : (form.title || 'Peregrinação')}
             showBackLink={true}
             toolbar={toolbarActions}
         >

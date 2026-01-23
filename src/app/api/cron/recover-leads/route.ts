@@ -65,7 +65,7 @@ export async function GET(req: Request) {
             // Send WhatsApp (If phone exists)
             if (lead.phone && lead.phone.length > 8) {
                 try {
-                    await WhatsAppService.sendWhatsAppMessage(
+                    await WhatsAppService.sendMessage(
                         lead.phone,
                         `Olá ${lead.name || 'Peregrino'}! 🕊️\n\nVimos que não conseguiu terminar a sua inscrição para *${lead.pilgrimages?.title || 'Garabandal'}*. \n\nGuardámos o seu lugar temporariamente. Clique aqui para continuar: ${recoveryLink}`
                     );
