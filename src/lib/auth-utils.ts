@@ -1,24 +1,34 @@
-import { createClient } from '@supabase/supabase-js';
-import { cookies } from 'next/headers';
+import { createServerClient } from '@supabase/ssr';
+import { cookies, headers } from 'next/headers';
 
 /**
  * Create a Supabase client for server-side operations with user context
- * Uses anon key with user's JWT from cookies
+ * Uses anon key with user's JWT from cookies OR Auth Header
  */
 export function createSupabaseServerClient() {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
     const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
     const cookieStore = cookies();
-    const authToken = cookieStore.get('sb-access-token')?.value ||
-        cookieStore.get('supabase-auth-token')?.value;
+    const headersList = headers();
 
-    return createClient(supabaseUrl, supabaseAnonKey, {
+    const authHeader = headersList.get('authorization');
+    const authToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
+
+    return createServerClient(supabaseUrl, supabaseAnonKey, {
         global: {
-            headers: authToken ? {
-                Authorization: `Bearer ${authToken}`
-            } : {}
-        }
+            headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},
+        },
+        cookies: {
+            getAll() {
+                return cookieStore.getAll().map(({ name, value }) => ({ name, value }));
+            },
+            setAll(cookiesToSet) {
+                cookiesToSet.forEach(({ name, value, options }) => {
+                    cookieStore.set(name, value, options);
+                });
+            },
+        },
     });
 }
 
@@ -27,6 +37,7 @@ export function createSupabaseServerClient() {
  */
 export async function requireAuth() {
     const supabase = createSupabaseServerClient();
+
     const { data: { user }, error } = await supabase.auth.getUser();
 
     if (error || !user) {
@@ -34,6 +45,25 @@ export async function requireAuth() {
     }
 
     return { user, supabase };
+}
+
+// SECURITY: Strict Admin List
+const ADMIN_EMAILS = [
+    'gabrielcosta74@gmail.com', // Replace/Add actual admin emails
+    'geral@apostoladodegarabandal.com',
+
+];
+
+export async function verifyAdmin() {
+    const { user } = await requireAuth();
+
+    // Check Email Allowlist
+    if (!user.email || !ADMIN_EMAILS.includes(user.email.toLowerCase())) {
+        console.error(`🚨 [Admin Block] Unauthorized access attempt by ${user.email}`);
+        throw new Error('Forbidden: Not an Admin');
+    }
+
+    return { user };
 }
 
 /**
@@ -71,5 +101,7 @@ export function generateViewToken(): string {
  * Generate idempotency key
  */
 export function generateIdempotencyKey(parts: string[]): string {
-    return parts.join('-') + '-' + Date.now();
+    // Deterministic key based on content to prevent double-submission
+    // e.g. userId-pilgrimageId-amount
+    return parts.join('_').replace(/[^a-zA-Z0-9-_]/g, '');
 }

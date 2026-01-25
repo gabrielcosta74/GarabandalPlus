@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import VIPLayout from '../../../components/member/VIPLayout';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Flame, X, Loader2, Sparkles, Check, Heart, ArrowDown, Hand } from 'lucide-react';
+import { Flame, X, Loader2, Sparkles, ArrowDown, Hand } from 'lucide-react';
 import { supabaseBrowser } from '../../../lib/supabase-browser';
 
 // --- Types ---
@@ -119,7 +119,6 @@ export default function IntentionsPage() {
     const [hasSeenTutorial, setHasSeenTutorial] = useState(false);
 
     const [intention, setIntention] = useState("");
-    const [hasDonation, setHasDonation] = useState(false);
     const [submissionState, setSubmissionState] = useState<'idle' | 'loading' | 'success'>('idle');
     const [user, setUser] = useState<{ id: string, name: string } | null>(null);
     const [myHistory, setMyHistory] = useState<any[]>([]);
@@ -181,8 +180,8 @@ export default function IntentionsPage() {
                 const { error } = await supabaseBrowser.from('prayer_intentions').insert({
                     user_id: user.id,
                     intention_text: intention,
-                    candle_type: hasDonation ? 'donation' : 'free',
-                    amount: hasDonation ? 5.00 : 0.00,
+                    candle_type: 'free',
+                    amount: 0.00,
                     status: 'pending'
                 });
 
@@ -210,7 +209,6 @@ export default function IntentionsPage() {
         setIsModalOpen(false);
         setSubmissionState('idle');
         setIntention("");
-        setHasDonation(false);
     };
 
     // Adjusted interactions:
@@ -405,22 +403,6 @@ export default function IntentionsPage() {
                                             className="w-full bg-white/5 border border-white/10 rounded-xl p-4 h-40 text-white placeholder:text-white/20 focus:outline-none focus:border-orange-500/50 focus:ring-1 focus:ring-orange-500/50 resize-none mb-8 font-serif leading-relaxed"
                                             autoFocus
                                         />
-
-                                        <div
-                                            onClick={() => setHasDonation(!hasDonation)}
-                                            className={`cursor-pointer p-4 rounded-xl border mb-8 transition-all flex items-center gap-4 ${hasDonation ? 'bg-orange-500/10 border-orange-500/40' : 'bg-transparent border-white/10 hover:border-white/20'}`}
-                                        >
-                                            <div className={`w-5 h-5 rounded flex items-center justify-center border transition-colors ${hasDonation ? 'bg-orange-500 border-orange-500' : 'border-white/30'}`}>
-                                                {hasDonation && <Check className="w-3 h-3 text-white" />}
-                                            </div>
-                                            <div className="flex-1">
-                                                <div className="text-white text-sm font-medium flex items-center gap-2">
-                                                    Oferta de Luz (5.00€)
-                                                    {hasDonation && <Heart className="w-3 h-3 text-orange-400 fill-orange-400" />}
-                                                </div>
-                                                <div className="text-xs text-white/40 mt-1">Ajuda a manter a chama do santuário viva.</div>
-                                            </div>
-                                        </div>
 
                                         <button
                                             onClick={handleSubmit}

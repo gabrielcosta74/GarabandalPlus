@@ -64,12 +64,14 @@ export async function POST(req: Request) {
         }
 
         console.log("🚀 [API] Updating Payment...", updateData);
-        const { error: updatePayError } = await supabaseServer
+        const { data: updatedPayment, error: updatePayError } = await supabaseServer
             .from('pilgrimage_payments')
             .update(updateData)
-            .eq('id', paymentId);
+            .eq('id', paymentId)
+            .select('id, status, amount')
+            .single();
 
-        if (updatePayError) {
+        if (updatePayError || !updatedPayment) {
             console.error('❌ [API] Error verifying payment:', updatePayError);
             return NextResponse.json({ error: 'Erro ao validar pagamento.' }, { status: 500 });
         }
@@ -101,7 +103,7 @@ export async function POST(req: Request) {
         }
 
         console.log("🚀 [API] Success!");
-        return NextResponse.json({ success: true, totalPaid });
+        return NextResponse.json({ success: true, totalPaid, payment: updatedPayment });
 
     } catch (error: any) {
         console.error('❌ [API] Critical error in admin/payments/verify:', error);

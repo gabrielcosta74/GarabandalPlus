@@ -2,73 +2,46 @@
 
 import React, { useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { supabaseBrowser } from '../../lib/supabase-browser';
+import { useAuth } from '../../contexts/AuthContext';
 
 type VIPLayoutProps = {
     children: React.ReactNode;
     allowPublic?: boolean;
+    requireMember?: boolean;
 };
 
-export default function VIPLayout({ children, allowPublic }: VIPLayoutProps) {
+export default function VIPLayout({ children, allowPublic, requireMember = true }: VIPLayoutProps) {
     const router = useRouter();
     const pathname = usePathname();
     const [ready, setReady] = useState(false);
+    const { user, memberData, loading } = useAuth();
 
     useEffect(() => {
-        let mounted = true;
-
-        if (allowPublic) {
+        if (allowPublic && !ready) {
             setReady(true);
         }
 
-        const checkSession = async () => {
-            try {
-                if (!supabaseBrowser) return;
+        if (loading) return;
 
-                const { data } = await supabaseBrowser.auth.getSession();
-
-                if (!mounted) return;
-
-                if (!data?.session?.user) {
-                    if (!allowPublic) {
-                        const next = pathname ? `?next=${encodeURIComponent(pathname)}` : '';
-                        router.replace(`/login${next}`);
-                    }
-                    return;
-                }
-
-                const { data: member } = await supabaseBrowser
-                    .from('membros')
-                    .select('is_membro, numero_socio')
-                    .eq('id', data.session.user.id)
-                    .maybeSingle();
-
-                if (!mounted) return;
-
-                if (!member?.is_membro && !allowPublic) {
-                    // Smart Redirection:
-                    // If they have a member number (suspended/expired), go to Quota Renewal
-                    // If they don't (new lead), go to Sales Page
-                    if (member?.numero_socio) {
-                        router.replace('/member/quota');
-                    } else {
-                        router.replace('/tornar-membro');
-                    }
-                    return;
-                }
-
-                if (!ready) setReady(true);
-            } catch (err) {
-                console.warn("Session check issues:", err);
-                if (mounted && !allowPublic) {
-                    router.replace('/login');
-                }
+        if (!user) {
+            if (!allowPublic) {
+                const next = pathname ? `?next=${encodeURIComponent(pathname)}` : '';
+                router.replace(`/login${next}`);
             }
-        };
+            return;
+        }
 
-        checkSession();
-        return () => { mounted = false; };
-    }, [router, pathname, allowPublic]);
+        if (!allowPublic && requireMember && !memberData?.is_membro) {
+            if (memberData?.numero_socio) {
+                router.replace('/member/quota');
+            } else {
+                router.replace('/tornar-membro');
+            }
+            return;
+        }
+
+        if (!ready) setReady(true);
+    }, [allowPublic, loading, memberData, pathname, ready, router, user]);
 
     if (!ready) {
         return (

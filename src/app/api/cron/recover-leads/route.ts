@@ -5,6 +5,8 @@ import { sendAbandonmentRecoveryEmail } from '../../../../lib/email';
 import { WhatsAppService } from '../../../../lib/whatsapp';
 import { getAppUrl } from '../../../../lib/config';
 
+export const dynamic = 'force-dynamic';
+
 // CRON Endpoint - Should be called every 10-15 minutes or hour
 export async function GET(req: Request) {
     if (!supabaseServer) {

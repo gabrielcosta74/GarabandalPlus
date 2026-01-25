@@ -46,25 +46,25 @@ export async function GET(req: Request) {
             safeFetch('donations', supabaseServer
                 .from('donations')
                 .select('amount_cents, created_at, status')
-                .in('status', ['succeeded', 'pago', 'verified'])
+                .in('status', ['succeeded', 'pago', 'verified']) as any
             ),
             // Store Orders: total_amount, created_at, buyer_name (NOT customer_name), status
             safeFetch('orders', supabaseServer
                 .from('store_orders')
                 .select('total_amount, created_at, id, buyer_name, status')
-                .in('status', ['paid', 'succeeded', 'delivered'])
+                .in('status', ['paid', 'succeeded', 'delivered']) as any
             ),
             // Pilgrimage PAYMENTS (Revenue): amount, created_at, status
             safeFetch('pilgrim_payments', supabaseServer
                 .from('pilgrimage_payments')
                 .select('amount, created_at, status')
-                .in('status', ['succeeded', 'verified', 'paid'])
+                .in('status', ['succeeded', 'verified', 'paid']) as any
             ),
             // Quotas: valor, data_pagamento (NO created_at), estado
             safeFetch('quotas', supabaseServer
                 .from('pagamentos_quotas')
                 .select('valor, data_pagamento, estado')
-                .in('estado', ['pago', 'paid'])
+                .in('estado', ['pago', 'paid']) as any
             ),
             // Low Stock
             safeFetch('lowStock', supabaseServer
@@ -72,7 +72,7 @@ export async function GET(req: Request) {
                 .select('id, name, stock')
                 .lt('stock', 10)
                 .order('stock', { ascending: true })
-                .limit(5)
+                .limit(5) as any
             )
         ]);
 

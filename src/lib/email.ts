@@ -29,6 +29,7 @@ import {
   DonationNotificationInput,
   BrochureEmailInput
 } from './email-renderer';
+import type { FactPtSourceType } from './factpt';
 
 // Re-export specific types if needed by other files (though best to import from renderer)
 // But for compatibility let's export them here for now if other files use them
@@ -395,5 +396,86 @@ export const sendMembershipRevokedEmail = async (payload: { name: string; email:
   if (!resendClient) return false;
   const content = renderMembershipRevokedEmail(payload);
   await resendClient.emails.send({ from: notifyFrom, to: [payload.email], subject: content.subject, html: content.html });
+  return true;
+};
+
+type FactPtEmailPayload = {
+  recipientName?: string | null;
+  documentId: string;
+  documentUrl?: string | null;
+  sourceType: FactPtSourceType;
+  sourceRef: string;
+  attachments?: Array<{
+    filename: string;
+    content: Buffer | string;
+    contentType?: string;
+  }>;
+};
+
+const formatFactPtSource = (sourceType: FactPtSourceType) => {
+  switch (sourceType) {
+    case 'store':
+      return 'Loja';
+    case 'donation':
+      return 'Doacao';
+    case 'membership':
+      return 'Quota';
+    default:
+      return sourceType;
+  }
+};
+
+const buildFactPtEmailHtml = (payload: FactPtEmailPayload) => {
+  const recipient = payload.recipientName || 'Cliente';
+  const sourceLabel = formatFactPtSource(payload.sourceType);
+  const documentLink = payload.documentUrl
+    ? `<p style="margin: 8px 0;">Link do documento: <a href="${payload.documentUrl}" style="color:#1e63f0;font-weight:600;">${payload.documentUrl}</a></p>`
+    : '';
+
+  return `
+    <div style="font-family: Arial, sans-serif; font-size: 14px; color: #111827;">
+      <p style="margin: 0 0 8px;">Ola ${recipient},</p>
+      <p style="margin: 0 0 8px;">Segue em anexo o documento de faturacao emitido no fact.pt.</p>
+      <div style="border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px; margin: 12px 0;">
+        <p style="margin: 0 0 6px;"><strong>Documento:</strong> ${payload.documentId}</p>
+        <p style="margin: 0 0 6px;"><strong>Origem:</strong> ${sourceLabel} (${payload.sourceRef})</p>
+      </div>
+      ${documentLink}
+      <p style="margin: 16px 0 0; color: #6b7280; font-size: 12px;">Se tiver duvidas, responda a este email.</p>
+    </div>
+  `;
+};
+
+export const sendFactPtClientDocumentEmail = async (
+  payload: FactPtEmailPayload & { toEmail: string },
+) => {
+  if (!resendClient) {
+    console.warn('Resend nao configurado. Ignorar envio de email.');
+    return false;
+  }
+
+  await resendClient.emails.send({
+    from: notifyFrom,
+    to: [payload.toEmail],
+    subject: `Documento de faturacao - ${payload.documentId}`,
+    html: buildFactPtEmailHtml(payload),
+    attachments: payload.attachments,
+  });
+  return true;
+};
+
+export const sendFactPtAdminDocumentEmail = async (payload: FactPtEmailPayload) => {
+  if (!resendClient) {
+    console.warn('Resend nao configurado. Ignorar envio de email.');
+    return false;
+  }
+
+  await resendClient.emails.send({
+    from: notifyFrom,
+    to: [notifyTo],
+    subject: `fact.pt emitido - ${payload.documentId}`,
+    html: buildFactPtEmailHtml(payload),
+    attachments: payload.attachments,
+  });
   return true;
 };

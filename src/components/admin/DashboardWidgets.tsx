@@ -70,10 +70,11 @@ export function RevenueTrendWidget({ data }: { data: RevenueTrendData[] }) {
                     />
                     <Tooltip
                         contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)' }}
-                        formatter={(value: number, name: string) => {
-                            if (name === 'revenue') return [`€${value.toFixed(2)}`, 'Receita'];
-                            if (name === 'orders') return [value, 'Transações'];
-                            return [value, name];
+                        formatter={(value, name) => {
+                            const amount = typeof value === 'number' ? value : 0;
+                            if (name === 'revenue') return [`€${amount.toFixed(2)}`, 'Receita'];
+                            if (name === 'orders') return [amount, 'Transações'];
+                            return [amount, name];
                         }}
                         labelFormatter={(label) => new Date(label).toLocaleDateString('pt-PT', { day: 'numeric', month: 'long' })}
                     />
@@ -120,7 +121,10 @@ export function RevenueDistWidget({ data }: { data: RevenueDistData[] }) {
                         ))}
                     </Pie>
                     <Tooltip
-                        formatter={(value: number) => `€${value.toFixed(2)}`}
+                        formatter={(value) => {
+                            const amount = typeof value === 'number' ? value : 0;
+                            return `€${amount.toFixed(2)}`;
+                        }}
                         contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}
                     />
                     <Legend

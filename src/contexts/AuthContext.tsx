@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { supabaseBrowser } from '../lib/supabase-browser';
 import { Session } from '@supabase/supabase-js';
+import { isActiveMember } from '../lib/store-discounts';
 
 type User = {
     id: string;
@@ -13,6 +14,7 @@ type MemberData = {
     is_membro: boolean;
     estado_quota: string | null;
     tipo_subscricao: string | null;
+    numero_socio?: number | null;
 };
 
 type AuthContextType = {
@@ -40,7 +42,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         const { data } = await supabaseBrowser
             .from('membros')
-            .select('is_membro, estado_quota, tipo_subscricao')
+            .select('is_membro, estado_quota, tipo_subscricao, numero_socio')
             .eq('id', userId)
             .maybeSingle();
 
@@ -82,19 +84,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Listen for auth changes
         const { data: listener } = supabaseBrowser?.auth.onAuthStateChange(async (_event, currentSession) => {
             if (!mounted) return;
-
-            // Sync cookies for server-side API access
-            if (typeof document !== 'undefined') {
-                if (currentSession?.access_token) {
-                    const maxAge = 60 * 60 * 24 * 7; // 1 week
-                    document.cookie = `sb-access-token=${currentSession.access_token}; path=/; max-age=${maxAge}; SameSite=Lax`;
-                    document.cookie = `supabase-auth-token=${currentSession.access_token}; path=/; max-age=${maxAge}; SameSite=Lax`;
-                } else {
-                    // Clear cookies on sign out
-                    document.cookie = `sb-access-token=; path=/; max-age=0`;
-                    document.cookie = `supabase-auth-token=; path=/; max-age=0`;
-                }
-            }
 
             setSessionState(currentSession);
             const sessionUser = currentSession?.user;
@@ -161,7 +150,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.log('✅ [Auth] Signed out');
     };
 
-    const isMember = !!(memberData?.is_membro && memberData.estado_quota === 'pago');
+    const isMember = isActiveMember(memberData);
     const isAuthenticated = !!session && !!user;
 
     return (

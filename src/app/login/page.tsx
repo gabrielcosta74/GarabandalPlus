@@ -7,6 +7,7 @@ import AuthLayout, { PremiumInput } from '../../components/auth/AuthLayout';
 import { supabaseBrowser } from '../../lib/supabase-browser';
 import { motion } from 'framer-motion';
 import { ArrowRight, Loader2, AlertCircle } from 'lucide-react';
+import { useAuth } from '../../contexts/AuthContext';
 
 export default function LoginPage() {
   return (
@@ -23,6 +24,7 @@ export default function LoginPage() {
 function LoginScreen() {
   const router = useRouter();
   const search = useSearchParams();
+  const { setSession } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -47,6 +49,10 @@ function LoginScreen() {
 
       if (loginError) throw loginError;
 
+      if (data.session) {
+        await setSession(data.session);
+      }
+
       if (data.user) {
         // Optional: Ensure member record exists logic here if needed, 
         // but typically handled by triggers or previous logic.
@@ -59,6 +65,7 @@ function LoginScreen() {
       }
     } catch (err: any) {
       setError(err.message || 'Erro ao iniciar sessão.');
+    } finally {
       setLoading(false);
     }
   };

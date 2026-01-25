@@ -67,7 +67,10 @@ export default function DashboardCharts({ data }: DashboardChartsProps) {
                     <Tooltip
                         contentStyle={{ backgroundColor: '#fff', borderRadius: '8px', border: '1px solid #E5E7EB', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}
                         itemStyle={{ color: '#111827', fontWeight: 600 }}
-                        formatter={(value: number, name: string) => [`€${value ? value.toFixed(2) : '0.00'}`, 'Receita']}
+                        formatter={(value) => {
+                            const amount = typeof value === 'number' ? value : 0;
+                            return [`€${amount.toFixed(2)}`, 'Receita'];
+                        }}
                         labelFormatter={(label) => new Date(label).toLocaleDateString('pt-PT', { day: 'numeric', month: 'long', year: 'numeric' })}
                     />
                     <Area

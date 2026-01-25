@@ -19,5 +19,8 @@ export async function GET() {
   const goal = Number(metaRow?.goal_eur ?? 2500);
   const raised = Number(metaRow?.raised_eur ?? 0);
 
-  return NextResponse.json({ goal, raised });
+  return NextResponse.json(
+    { goal, raised },
+    { headers: { 'Cache-Control': 'no-store' } }
+  );
 }

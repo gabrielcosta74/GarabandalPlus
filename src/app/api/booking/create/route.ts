@@ -196,7 +196,6 @@ export async function POST(req: Request) {
         }
 
         // 4. ATOMIC BOOKING TRANSACTION (Insert w/ Vacancy Check)
-        const viewToken = generateViewToken();
         const bookingNotes = `Payment Plan: ${payment_method} | Created via API ${isNewUser ? '(New Account)' : ''}`;
 
         const { data: atomicResult, error: atomicError } = await supabaseServer.rpc('create_booking_atomic', {
@@ -339,7 +338,7 @@ export async function POST(req: Request) {
         return NextResponse.json({
             success: true,
             booking_id: booking.id,
-            view_token: viewToken,
+            view_token: booking.view_token,
             user_id: userId,
             new_account: isNewUser,
             session: sessionData, // Frontend will use this to set session

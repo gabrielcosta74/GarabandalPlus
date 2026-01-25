@@ -76,7 +76,9 @@ export default function BookingsManager({ pilgrimageId }: { pilgrimageId: string
     const fetchBookings = async () => {
         setLoading(true);
         try {
-            const response = await fetch(`/api/admin/bookings/${pilgrimageId}`);
+            const response = await fetch(`/api/admin/bookings/${pilgrimageId}?t=${Date.now()}`, {
+                cache: 'no-store'
+            });
             const json = await response.json();
 
             if (!response.ok) {

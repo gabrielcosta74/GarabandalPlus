@@ -25,6 +25,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
 
     try {
         const id = params.id;
+        if (!supabaseServer) return NextResponse.json({ error: 'Server Config Error' }, { status: 500 });
 
         // Fetch Member
         const { data: member, error: memberError } = await supabaseServer
@@ -66,6 +67,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 
     try {
         const id = params.id;
+        if (!supabaseServer) return NextResponse.json({ error: 'Server Config Error' }, { status: 500 });
         const body = await req.json();
 
         // Whitelist allowed fields to prevent arbitrary column updates
@@ -100,6 +102,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
 
     try {
         const id = params.id;
+        if (!supabaseServer) return NextResponse.json({ error: 'Server Config Error' }, { status: 500 });
         const { action, ...data } = await req.json();
 
         if (action === 'revoke_status') {
@@ -180,6 +183,7 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
 
     try {
         const id = params.id;
+        if (!supabaseServer) return NextResponse.json({ error: 'Server Config Error' }, { status: 500 });
 
         const { error } = await supabaseServer
             .from('membros')

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Check, Lock, ChevronLeft, CreditCard } from "lucide-react";
 import { supabaseBrowser } from "../../lib/supabase-browser";
+import { useAuth } from "../../contexts/AuthContext";
 import {
     formatPostalCode,
     getPhoneInvalidMessage,
@@ -140,20 +141,27 @@ export default function MembershipModal({ isOpen, onClose, impact }: MembershipM
     ];
 
     const selectedPayment = paymentOptions.find((o) => o.id === selectedPaymentId) || paymentOptions[0];
+    const { user: authUser } = useAuth();
 
     // Logic: Session
     useEffect(() => {
         if (!isOpen) return;
         const loadSession = async () => {
+            if (authUser?.id) {
+                setSessionUserId(authUser.id);
+                setSessionEmail(authUser.email ?? null);
+                setIsNewAccount(false);
+                setFormData((prev) => (prev.email ? prev : { ...prev, email: authUser.email || "" }));
+                setStep(2);
+                return;
+            }
             if (!supabaseBrowser) return;
             const { data } = await supabaseBrowser.auth.getSession();
             if (data.session?.user?.id) {
                 setSessionUserId(data.session.user.id);
                 setSessionEmail(data.session.user.email ?? null);
                 setIsNewAccount(false);
-                if (!formData.email) {
-                    setFormData((prev) => ({ ...prev, email: data.session?.user?.email || "" }));
-                }
+                setFormData((prev) => (prev.email ? prev : { ...prev, email: data.session?.user?.email || "" }));
                 setStep(2); // Skip auth if logged in
             } else {
                 setStep(1);
@@ -166,7 +174,7 @@ export default function MembershipModal({ isOpen, onClose, impact }: MembershipM
             setSlideIndex((prev) => (prev + 1) % slides.length);
         }, 5000);
         return () => clearInterval(timer);
-    }, [isOpen]);
+    }, [isOpen, authUser]);
 
     // Logic: Load Member Profile if logged in
     useEffect(() => {

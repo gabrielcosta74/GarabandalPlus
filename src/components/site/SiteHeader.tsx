@@ -3,9 +3,9 @@
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { supabaseBrowser } from '../../lib/supabase-browser';
 import { formatCurrency, loadCart } from '../../app/loja-online/data';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useAuth } from '../../contexts/AuthContext';
 import {
   ShoppingBag,
   Menu,
@@ -21,15 +21,6 @@ import {
   Home,
   MapPin
 } from 'lucide-react';
-
-/* -------------------------------------------------------------------------- */
-/*                                    Types                                   */
-/* -------------------------------------------------------------------------- */
-
-type SessionUser = {
-  id: string;
-  email?: string | null;
-};
 
 type CartPreviewItem = {
   id: string;
@@ -49,8 +40,7 @@ export default function SiteHeader() {
   const router = useRouter();
 
   // -- State --
-  const [user, setUser] = useState<SessionUser | null>(null);
-  const [isMember, setIsMember] = useState(false);
+  const { user, isMember, loading, signOut } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [cartCount, setCartCount] = useState(0);
   const [cartPreview, setCartPreview] = useState<CartPreviewItem[]>([]);
@@ -70,50 +60,6 @@ export default function SiteHeader() {
   const membershipHref = isMember ? '/member' : '/tornar-membro';
 
   /* ------------------------------- Data Logic ------------------------------- */
-
-  // 1. Session & Membership Check
-  useEffect(() => {
-    let active = true;
-
-    const loadMember = async (userId: string) => {
-      if (!supabaseBrowser) return;
-      const { data: member } = await supabaseBrowser
-        .from('membros')
-        .select('is_membro')
-        .eq('id', userId)
-        .maybeSingle();
-      if (active) setIsMember(!!member?.is_membro);
-    };
-
-    const loadSession = async () => {
-      if (!supabaseBrowser) return;
-      const { data } = await supabaseBrowser.auth.getSession();
-      if (active) setUser(data.session?.user ?? null);
-
-      if (data.session?.user?.id) {
-        const userId = data.session.user.id;
-        setTimeout(() => loadMember(userId), 0);
-      } else if (mounted) {
-        setIsMember(false);
-      }
-    };
-
-    loadSession();
-
-    const { data: listener } = supabaseBrowser?.auth.onAuthStateChange(async (_event, session) => {
-      if (active) setUser(session?.user ?? null);
-      if (session?.user?.id) {
-        await loadMember(session.user.id);
-      } else if (active) {
-        setIsMember(false);
-      }
-    }) ?? { data: { subscription: { unsubscribe() { } } } };
-
-    return () => {
-      active = false;
-      listener.subscription.unsubscribe();
-    };
-  }, [mounted]);
 
   // 2. Cart Logic (Sync & Preview)
   useEffect(() => {
@@ -183,8 +129,7 @@ export default function SiteHeader() {
 
   // Logout Handler
   const handleLogout = async () => {
-    if (!supabaseBrowser) return;
-    await supabaseBrowser.auth.signOut();
+    await signOut();
     setMobileOpen(false);
     setUserMenuOpen(false);
     router.replace('/');
@@ -336,7 +281,7 @@ export default function SiteHeader() {
 
             {/* User Menu (Desktop) */}
             <div className="hidden lg:block min-w-[140px]">
-              {mounted && (
+              {mounted && !loading && (
                 <>
                   {user ? (
                     <div className="relative">

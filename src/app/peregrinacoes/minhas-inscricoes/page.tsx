@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import VIPLayout from '../../../components/member/VIPLayout';
 import { supabaseBrowser } from '../../../lib/supabase-browser';
 import { Calendar, ChevronRight, Clock, AlertCircle, CheckCircle2 } from 'lucide-react';
@@ -11,13 +12,20 @@ import { pt } from 'date-fns/locale';
 export default function MyBookingsPage() {
     const [bookings, setBookings] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const [hasUser, setHasUser] = useState(false);
+    const pathname = usePathname();
 
     useEffect(() => {
         const fetchBookings = async () => {
             if (!supabaseBrowser) return;
 
             const { data: { user } } = await supabaseBrowser.auth.getUser();
-            if (!user) return;
+            if (!user) {
+                setHasUser(false);
+                setLoading(false);
+                return;
+            }
+            setHasUser(true);
 
             const { data, error } = await supabaseBrowser
                 .from('bookings')
@@ -39,10 +47,10 @@ export default function MyBookingsPage() {
         fetchBookings();
     }, []);
 
-    if (loading) return <VIPLayout><div className="flex justify-center py-20"><div className="animate-spin w-8 h-8 border-2 border-yellow-600 border-t-transparent rounded-full" /></div></VIPLayout>;
+    if (loading) return <VIPLayout allowPublic requireMember={false}><div className="flex justify-center py-20"><div className="animate-spin w-8 h-8 border-2 border-yellow-600 border-t-transparent rounded-full" /></div></VIPLayout>;
 
     return (
-        <VIPLayout>
+        <VIPLayout allowPublic requireMember={false}>
             <div className="max-w-5xl mx-auto px-4 py-8 space-y-8">
                 <div className="flex items-center justify-between">
                     <h1 className="text-3xl font-serif font-bold text-slate-900">Minhas Peregrinações</h1>
@@ -54,7 +62,21 @@ export default function MyBookingsPage() {
                     </Link>
                 </div>
 
-                {bookings.length === 0 ? (
+                {!hasUser ? (
+                    <div className="bg-white rounded-3xl p-12 text-center border border-slate-100 shadow-sm">
+                        <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-400">
+                            <AlertCircle className="w-8 h-8" />
+                        </div>
+                        <h2 className="text-xl font-bold text-slate-900 mb-2">Inicie sessão para ver as suas inscrições</h2>
+                        <p className="text-slate-500 mb-6">Precisas de estar autenticado para consultar as tuas peregrinações.</p>
+                        <Link
+                            href={`/login?next=${encodeURIComponent(pathname || '/peregrinacoes/minhas-inscricoes')}`}
+                            className="inline-flex items-center px-6 py-3 bg-slate-900 text-white rounded-full font-bold hover:bg-slate-800 transition-colors"
+                        >
+                            Entrar na Minha Conta
+                        </Link>
+                    </div>
+                ) : bookings.length === 0 ? (
                     <div className="bg-white rounded-3xl p-12 text-center border border-slate-100 shadow-sm">
                         <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-400">
                             <Calendar className="w-8 h-8" />

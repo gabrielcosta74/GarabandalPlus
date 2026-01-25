@@ -387,6 +387,7 @@ export default function BookingDashboardPage() {
                         fileName: file.name,
                         fileType: file.type,
                         installmentLabel: nextLabel,
+                        installmentAmount: amountToPay,
                         token: viewToken // Send token for authentication if present
                     })
                 });

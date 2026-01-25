@@ -1,7 +1,17 @@
 // Helper function to insert Status column into BookingsManager
 // This will be manually integrated
 
-const statusColumn = {
+import PaymentStatusBadge from './PaymentStatusBadge';
+
+type Booking = {
+    verifying_payment?: boolean;
+    created_at: string;
+    total_amount: number;
+    paid_amount: number;
+    status: string;
+};
+
+export const statusColumn = {
     key: 'status',
     header: 'Status',
     render: (row: Booking) => {

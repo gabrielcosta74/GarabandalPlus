@@ -111,10 +111,11 @@ export default function SpiritMap({ stages, height = 500 }: SpiritMapProps) {
     };
 
     // GeoJSON for the Path
-    const routeGeoJSON = React.useMemo(() => {
+    const routeGeoJSON = React.useMemo<GeoJSON.Feature<GeoJSON.LineString> | null>(() => {
         if (sortedStages.length < 2) return null;
         return {
             type: 'Feature',
+            properties: {},
             geometry: {
                 type: 'LineString',
                 coordinates: sortedStages.map(s => [s.lng, s.lat])

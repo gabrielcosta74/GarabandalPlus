@@ -9,6 +9,7 @@ import { format } from 'date-fns';
 import { pt } from 'date-fns/locale';
 import { PilgrimageHero } from '../../components/pilgrimage/PilgrimageHero';
 import { PilgrimageCard } from '../../components/pilgrimage/PilgrimageCard';
+import { getPilgrimagesAction } from './actions';
 
 type Pilgrimage = {
     id: string;
@@ -36,15 +37,24 @@ export default function PilgrimagesPage() {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
+        let mounted = true;
         const fetchPilgrimages = async () => {
             console.log("🚀 [Peregrinacoes] Fetching pilgrimages...");
-            if (!supabaseBrowser) {
-                console.warn("⚠️ [Peregrinacoes] Supabase client missing");
-                setLoading(false);
-                return;
-            }
-
             try {
+                // Prefer server action to avoid client-side auth/rpc stalls
+                const actionResult = await getPilgrimagesAction();
+                if (!mounted) return;
+                if (actionResult?.data) {
+                    setPilgrimages(actionResult.data as any);
+                    return;
+                }
+                console.warn("⚠️ [Peregrinacoes] Server action failed:", actionResult?.error);
+
+                if (!supabaseBrowser) {
+                    console.warn("⚠️ [Peregrinacoes] Supabase client missing");
+                    return;
+                }
+
                 // Use RPC for better performance and bypassed RLS for aggregates
                 const { data, error } = await supabaseBrowser
                     .rpc('get_pilgrimage_list', {});
@@ -56,19 +66,22 @@ export default function PilgrimagesPage() {
                         .from('pilgrimages')
                         .select('*')
                         .order('start_date', { ascending: true });
-                    if (fallbackData) setPilgrimages(fallbackData as any);
+                    if (fallbackData && mounted) setPilgrimages(fallbackData as any);
                 } else {
                     console.log("✅ [Peregrinacoes] Fetched:", data?.length);
-                    if (data) setPilgrimages(data);
+                    if (data && mounted) setPilgrimages(data);
                 }
             } catch (err) {
                 console.error("❌ [Peregrinacoes] Unexpected error:", err);
             } finally {
-                setLoading(false);
+                if (mounted) setLoading(false);
             }
         };
 
         fetchPilgrimages();
+        return () => {
+            mounted = false;
+        };
     }, []);
 
     return (

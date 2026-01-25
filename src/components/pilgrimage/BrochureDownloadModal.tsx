@@ -10,7 +10,7 @@ import 'react-phone-number-input/style.css';
 
 interface BrochureDownloadModalProps {
     pilgrimageId: string;
-    slug: string; // New prop
+    slug?: string;
     className?: string;
     trigger?: React.ReactNode;
     forceOpen?: boolean;

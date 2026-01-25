@@ -21,7 +21,7 @@ export default function DonationsClient() {
     useEffect(() => {
         const loadProgress = async () => {
             try {
-                const res = await fetch('/api/donations/meta');
+                const res = await fetch('/api/donations/meta', { cache: 'no-store' });
                 if (!res.ok) return;
                 const data = await res.json();
                 setProgress({ goal: Number(data.goal || 0), raised: Number(data.raised || 0) });

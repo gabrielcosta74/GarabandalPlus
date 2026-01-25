@@ -81,34 +81,53 @@ export default function PaymentManagementTab({
             }
 
             console.log('🚀 [Validation] Sending API request...');
-            const response = await fetch('/api/admin/payments/verify', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify({
-                    paymentId,
-                    bookingId: booking.id,
-                    amount,
-                    label
-                }),
-            });
+            const controller = new AbortController();
+            const timeoutId = window.setTimeout(() => controller.abort(), 15000);
+
+            let response: Response | null = null;
+            try {
+                response = await fetch('/api/admin/payments/verify', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        paymentId,
+                        bookingId: booking.id,
+                        amount,
+                        label
+                    }),
+                    signal: controller.signal
+                });
+            } finally {
+                window.clearTimeout(timeoutId);
+            }
+
+            if (!response) {
+                throw new Error('Falha ao contactar o servidor.');
+            }
 
             if (!response.ok) {
                 const data = await response.json();
                 throw new Error(data.error || 'Erro ao validar');
             }
 
-            // Refresh booking data
-            await onUpdate();
             setValidatingReceipt(null);
             toast.dismiss(loadingId);
             toast.success('Pagamento validado com sucesso!');
+
+            void onUpdate().catch((updateErr: any) => {
+                console.error(updateErr);
+                toast.error('Pagamento validado, mas falhou a atualização da lista.');
+            });
         } catch (err: any) {
             console.error(err);
             toast.dismiss(loadingId);
-            toast.error('Erro ao validar: ' + err.message);
+            const message = err?.name === 'AbortError'
+                ? 'Tempo esgotado ao validar o pagamento.'
+                : 'Erro ao validar: ' + err.message;
+            toast.error(message);
         }
     };
 

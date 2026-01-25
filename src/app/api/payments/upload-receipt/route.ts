@@ -15,6 +15,8 @@ export async function POST(req: Request) {
     try {
         const body = await req.json();
         const { bookingId, fileData, fileName, fileType, installmentLabel, installmentAmount, token } = body;
+        const parsedAmount = typeof installmentAmount === 'number' ? installmentAmount : Number(installmentAmount);
+        const hasAmount = Number.isFinite(parsedAmount) && parsedAmount > 0;
 
         console.log(`📂 [API Upload] Receipt for Booking ${bookingId}, Installment: ${installmentLabel}`);
         console.log(`💰 [API Upload] Received installmentAmount:`, installmentAmount, `(type: ${typeof installmentAmount})`);
@@ -88,20 +90,26 @@ export async function POST(req: Request) {
             .select('id')
             .eq('booking_id', bookingId)
             .eq('user_id', userId) // SECURITY: Double-check user ownership
-            .eq('status', 'pending')
+            .in('status', ['pending', 'pending_verification'])
             .order('created_at', { ascending: false })
             .limit(1)
             .single();
 
         if (existingPayment) {
+            const updatePayload: Record<string, any> = {
+                receipt_url: publicUrl,
+                status: 'verifying',
+                verified_at: new Date().toISOString(),
+                notes: `Comprovativo enviado: ${installmentLabel || 'Pagamento Inscrição'}`
+            };
+
+            if (hasAmount) {
+                updatePayload.amount = parsedAmount;
+            }
+
             const { error: updateError } = await supabaseServer
                 .from('pilgrimage_payments')
-                .update({
-                    receipt_url: publicUrl,
-                    status: 'verifying',
-                    verified_at: new Date().toISOString(),
-                    notes: `Comprovativo enviado: ${installmentLabel || 'Pagamento Inscrição'}`
-                })
+                .update(updatePayload)
                 .eq('id', existingPayment.id);
 
             if (!updateError) updated = true;
@@ -114,7 +122,7 @@ export async function POST(req: Request) {
                 .insert({
                     booking_id: bookingId,
                     user_id: userId, // SECURITY: Use authenticated user ID
-                    amount: installmentAmount || 0,
+                    amount: hasAmount ? parsedAmount : 0,
                     method: 'bank_transfer',
                     status: 'verifying',
                     receipt_url: publicUrl,
