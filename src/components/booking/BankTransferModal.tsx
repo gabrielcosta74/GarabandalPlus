@@ -75,7 +75,7 @@ export default function BankTransferModal({ isOpen, onClose, totalAmount, format
 
                                 {/* IBAN Box */}
                                 <div className="space-y-3">
-                                    <p className="text-sm font-bold text-slate-700">IBAN para Pagamento</p>
+                                    <p className="text-sm font-bold text-slate-700">IBAN para Doação</p>
                                     <button
                                         onClick={handleCopy}
                                         className="w-full bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-xl p-4 flex items-center justify-between group transition-colors text-left"

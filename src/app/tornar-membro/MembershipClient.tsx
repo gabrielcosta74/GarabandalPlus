@@ -1,18 +1,22 @@
 "use client";
 
 import { Suspense, useEffect, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import MembershipHero from "../../components/membership/MembershipHero";
 import MembershipBenefits from "../../components/membership/MembershipBenefits";
 import MembershipImpact from "../../components/membership/MembershipImpact";
 import MembershipFAQ from "../../components/membership/MembershipFAQ";
 import MembershipModal from "../../components/membership/MembershipModal";
+import { useAuth } from "../../contexts/AuthContext";
 
 function TornarMembroContent() {
     const search = useSearchParams();
     const joinParam = search.get("join");
+    const router = useRouter();
+    const { isMember, memberData, loading, isAuthenticated } = useAuth();
     const [modalOpen, setModalOpen] = useState(false);
     const [impact, setImpact] = useState({ members: 0, raised: 0, goal: 2500 });
+    const hasMembership = !!memberData?.is_membro;
 
     // Load impact stats from API
     useEffect(() => {
@@ -34,12 +38,27 @@ function TornarMembroContent() {
         loadImpact();
     }, []);
 
+    useEffect(() => {
+        if (!loading && isAuthenticated && hasMembership) {
+            router.replace("/member");
+        }
+    }, [hasMembership, isAuthenticated, loading, router]);
+
     // Auto-open modal if ?join=1
     useEffect(() => {
-        if (joinParam === "1") {
+        if (joinParam === "1" && !hasMembership) {
             setModalOpen(true);
         }
-    }, [joinParam]);
+    }, [hasMembership, joinParam]);
+
+    if (loading) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-white">
+                <div className="animate-spin w-8 h-8 border-2 border-garabandal-gold border-t-transparent rounded-full" />
+            </div>
+        );
+    }
+    if (isAuthenticated && hasMembership) return null;
 
     return (
         <main className="min-h-screen bg-white">

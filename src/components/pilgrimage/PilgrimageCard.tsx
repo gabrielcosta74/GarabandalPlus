@@ -120,7 +120,7 @@ export function PilgrimageCard({ pilgrimage, index }: PilgrimageCardProps) {
                                 )}
                             </div>
                             <span className="text-sm text-green-600 font-bold mt-2 bg-green-50 px-2 py-0.5 rounded-md w-fit">
-                                Preço Promocional
+                                Doação Promocional
                             </span>
                         </div>
 

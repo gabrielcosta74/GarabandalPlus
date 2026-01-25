@@ -40,7 +40,7 @@ export default function SiteHeader() {
   const router = useRouter();
 
   // -- State --
-  const { user, isMember, loading, signOut } = useAuth();
+  const { user, isMember, memberData, loading, signOut } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [cartCount, setCartCount] = useState(0);
   const [cartPreview, setCartPreview] = useState<CartPreviewItem[]>([]);
@@ -57,7 +57,8 @@ export default function SiteHeader() {
   const previewTimer = useRef<number | null>(null);
 
   // -- Computed --
-  const membershipHref = isMember ? '/member' : '/tornar-membro';
+  const hasMembership = !!memberData?.is_membro;
+  const membershipHref = hasMembership ? '/member' : '/tornar-membro';
 
   /* ------------------------------- Data Logic ------------------------------- */
 
@@ -203,7 +204,7 @@ export default function SiteHeader() {
               { href: '/peregrinacoes', label: 'Peregrinações' },
               { href: '/donations', label: 'Doações' },
               { href: '/loja-online', label: 'Loja' },
-              { href: membershipHref, label: isMember ? 'Membro' : 'Ser Membro' }
+              { href: membershipHref, label: hasMembership ? 'Membro' : 'Ser Membro' }
             ].map(link => (
               <Link
                 key={link.href}
@@ -440,7 +441,7 @@ export default function SiteHeader() {
                 {/* Member Area */}
                 <div className="space-y-1 mb-8">
                   <p className="text-xs font-bold text-slate-400 uppercase tracking-widest px-4 mb-3">Membros & Orações</p>
-                  {isMember ? (
+                  {hasMembership ? (
                     <>
                       <NavLink href="/member" icon={LayoutDashboard} label="Painel de Membro" onClick={() => setMobileOpen(false)} />
                       <NavLink href="/member/prayers" icon={CreditCard} label="Orações e Novenas" onClick={() => setMobileOpen(false)} />

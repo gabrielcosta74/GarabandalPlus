@@ -276,8 +276,8 @@ export default function BookingDashboardPage() {
                                 <div className="flex items-start gap-4">
                                     <div className="bg-amber-100 p-2 rounded-full text-amber-700 mt-1"><Clock className="w-6 h-6" /></div>
                                     <div>
-                                        <h3 className="font-bold text-amber-900 text-lg">Falta 1 Passo: Validação & Pagamento</h3>
-                                        <p className="text-amber-800 text-sm mt-1">Enviámos agora mesmo um email para ti. <strong>Tens de abrir esse email</strong> e clicar no link para acederes à tua conta e pagares, senão a reserva não fica válida.</p>
+                                        <h3 className="font-bold text-amber-900 text-lg">Falta 1 Passo: Validação & Doação</h3>
+                                        <p className="text-amber-800 text-sm mt-1">Enviámos agora mesmo um email para ti. <strong>Tens de abrir esse email</strong> e clicar no link para acederes à tua conta e doares, senão a reserva não fica válida.</p>
                                     </div>
                                 </div>
                             </div>
@@ -345,7 +345,7 @@ export default function BookingDashboardPage() {
             });
             const data = await res.json();
 
-            if (!res.ok) throw new Error(data.error || "Erro ao iniciar pagamento");
+            if (!res.ok) throw new Error(data.error || "Erro ao iniciar doação");
 
             if (data.url) {
                 // Redirect to Stripe
@@ -422,7 +422,7 @@ export default function BookingDashboardPage() {
                         <h2 className="text-3xl font-bold text-amber-900">Aguarde pela Validação</h2>
                         <p className="text-amber-800 text-lg max-w-xl mx-auto">
                             A sua inscrição foi registada, mas os valores totais ainda estão a ser calculados pelo nosso sistema.
-                            <strong> Receberá um email em breve com os dados de pagamento.</strong>
+                            <strong> Receberá um email em breve com os dados de doação.</strong>
                         </p>
                         <button onClick={() => window.location.reload()} className="bg-amber-600 text-white px-8 py-4 rounded-2xl font-bold text-xl hover:bg-amber-700 transition-all">Atualizar Página</button>
                     </div>
@@ -459,12 +459,12 @@ export default function BookingDashboardPage() {
                                     <div className="flex justify-between items-start gap-4">
                                         <div className="space-y-2">
                                             <h3 className="text-3xl font-bold text-slate-900">
-                                                {isFullyPaid ? 'VIAGEM CONFIRMADA!' : 'FALTA 1 PASSO: PAGAMENTO'}
+                                                {isFullyPaid ? 'VIAGEM CONFIRMADA!' : 'FALTA 1 PASSO: DOAÇÃO'}
                                             </h3>
                                             <p className="text-slate-500 text-xl leading-relaxed">
                                                 {isFullyPaid
-                                                    ? 'Já recebemos o seu pagamento total. Está pronto para partir!'
-                                                    : 'A sua inscrição aguarda o pagamento do sinal para garantir o lugar.'}
+                                                    ? 'Já recebemos a sua doação total. Está pronto para partir!'
+                                                    : 'A sua inscrição aguarda a doação do sinal para garantir o lugar.'}
                                             </p>
                                         </div>
                                         <div className="text-right shrink-0 bg-slate-50 px-4 py-3 rounded-2xl border border-slate-100 hidden sm:block">
@@ -484,9 +484,9 @@ export default function BookingDashboardPage() {
                                                     {isDepositPaid ? <Check className="w-8 h-8" /> : (isVerifying ? <Clock className="w-8 h-8" /> : <CreditCard className="w-8 h-8" />)}
                                                 </div>
                                                 <div>
-                                                    <p className={`font-bold text-xl ${isDepositPaid ? 'text-slate-900' : (isVerifying ? 'text-amber-600' : 'text-red-600')}`}>1. Pagamento do Sinal ({formatPrice(depositValue)})</p>
+                                                    <p className={`font-bold text-xl ${isDepositPaid ? 'text-slate-900' : (isVerifying ? 'text-amber-600' : 'text-red-600')}`}>1. Doação do Sinal ({formatPrice(depositValue)})</p>
                                                     <p className="text-slate-500">
-                                                        {isDepositPaid ? 'PAGO E CONFIRMADO' : (isVerifying ? 'A AGUARDAR VALIDAÇÃO...' : 'PENDENTE - Pagar Agora')}
+                                                        {isDepositPaid ? 'DOADO E CONFIRMADO' : (isVerifying ? 'A AGUARDAR VALIDAÇÃO...' : 'PENDENTE - Doar Agora')}
                                                     </p>
                                                 </div>
                                             </div>
@@ -510,7 +510,7 @@ export default function BookingDashboardPage() {
                                                                 <div>
                                                                     <p className="font-bold text-xl text-slate-900">Prestação {idx + 1} ({formatPrice(Number(step.amount))})</p>
                                                                     <p className="text-slate-400">
-                                                                        {state === 'paid' ? 'PAGO' :
+                                                                        {state === 'paid' ? 'DOADO' :
                                                                             state === 'verifying' ? 'A AGUARDAR VALIDAÇÃO...' :
                                                                                 `Vence a ${format(new Date(step.date), "dd 'de' MMMM", { locale: pt })}`}
                                                                     </p>
@@ -528,7 +528,11 @@ export default function BookingDashboardPage() {
                                                         </div>
                                                         <div>
                                                             <p className="font-bold text-xl text-slate-900">2. Mensalidades / Restante</p>
-                                                            <p className="text-slate-400">{isFullyPaid ? 'TUDO PAGO' : `Total de ${formatPrice(totalAmount - (isDepositPaid ? depositValue : 0))} à pagar`}</p>
+                                                            <p className="text-slate-400">
+                                                                {isFullyPaid
+                                                                    ? 'TUDO DOADO'
+                                                                    : `Taxa de inscrição ${formatPrice(depositValue)} + restante ${formatPrice(Math.max(0, totalAmount - depositValue))}`}
+                                                            </p>
                                                         </div>
                                                     </div>
                                                 </>
@@ -544,7 +548,7 @@ export default function BookingDashboardPage() {
                                                 </div>
                                                 <div>
                                                     <p className="font-bold text-xl text-slate-900">{hasPlan ? (paymentPlan.length + 2) : 3}. Peregrinação</p>
-                                                    <p className="text-slate-400">{isFullyPaid ? 'Desejamos-lhe uma excelente viagem!' : 'Aguardamos pela conclusão dos pagamentos'}</p>
+                                                            <p className="text-slate-400">{isFullyPaid ? 'Desejamos-lhe uma excelente viagem!' : 'Aguardamos pela conclusão das doações'}</p>
                                                 </div>
                                             </div>
                                         </div>
@@ -569,7 +573,7 @@ export default function BookingDashboardPage() {
                                                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                                                         </svg>
-                                                        <span>Atualizar Pagamentos</span>
+                                                        <span>Atualizar Doações</span>
                                                     </>
                                                 )}
                                             </button>
@@ -582,11 +586,12 @@ export default function BookingDashboardPage() {
                                             paymentPlan={paymentPlan}
                                             payments={booking.payments || []}
                                             formatPrice={formatPrice}
+                                            useDonationCopy
                                         />
                                     </div>
                                 </div>
 
-                                {/* ACÇÕES DE PAGAMENTO (Direita) - UI OTIMIZADA PARA SENIORES */}
+                                {/* ACÇÕES DE DOAÇÃO (Direita) - UI OTIMIZADA PARA SENIORES */}
                                 <div className="lg:col-span-5 space-y-6 self-start sticky top-8 order-1 lg:order-2">
                                     {!isFullyPaid && (
                                         <div className="bg-slate-950 rounded-[32px] p-6 md:p-8 text-center space-y-8 shadow-2xl border border-white/10 ring-8 ring-slate-100/50 relative overflow-hidden">
@@ -600,14 +605,14 @@ export default function BookingDashboardPage() {
                                             )}
 
                                             <div className="space-y-1">
-                                                <p className="text-yellow-500 font-bold uppercase tracking-widest text-xs">Valor a Pagar Agora: {nextLabel}</p>
+                                                <p className="text-yellow-500 font-bold uppercase tracking-widest text-xs">Valor a Doar Agora: {nextLabel}</p>
                                                 <p className="text-3xl md:text-5xl font-bold text-white tracking-tight break-words" title={formatPrice(amountToPay)}>
                                                     {formatPrice(amountToPay)}
                                                 </p>
                                                 {isConverted && exchangeRate && <p className="text-white/50 text-xs">Aprox. {amountToPay} € (Taxa: {exchangeRate})</p>}
                                             </div>
 
-                                            {/* OPÇÃO 1: PAGAMENTO AUTOMÁTICO (Destaque Principal) */}
+                                            {/* OPÇÃO 1: DOAÇÃO AUTOMÁTICA (Destaque Principal) */}
                                             <div className="space-y-4">
                                                 <button
                                                     onClick={handleStripePayment}
@@ -620,7 +625,7 @@ export default function BookingDashboardPage() {
                                                         <>
                                                             <div className="flex items-center gap-3">
                                                                 <CreditCard className="w-6 h-6" />
-                                                                <span>PAGAR ONLINE</span>
+                                                                <span>DOAR ONLINE</span>
                                                             </div>
                                                             <p className="text-[10px] font-bold uppercase opacity-60 tracking-widest group-hover:opacity-80 transition-opacity">
                                                                 Rápido e Automático
@@ -687,7 +692,7 @@ export default function BookingDashboardPage() {
                                                             <span>ou Transferência Bancária</span>
                                                         </button>
                                                         <p className="text-[10px] text-white/30 italic max-w-xs mx-auto">
-                                                            Pode transferir pelo Multibanco ou Homebanking e enviar o comprovativo.
+                                                            Pode transferir pelo Multibanco ou Homebanking e enviar o comprovativo da doação.
                                                         </p>
                                                     </>
                                                 )}
@@ -710,7 +715,7 @@ export default function BookingDashboardPage() {
                                                 <CheckCircle2 className="w-10 h-10" />
                                             </div>
                                             <h4 className="text-2xl font-bold text-green-900">Inscrição Confirmada!</h4>
-                                            <p className="text-green-700 mt-2 font-medium">O seu pagamento foi recebido com sucesso.</p>
+                                            <p className="text-green-700 mt-2 font-medium">A sua doação foi recebida com sucesso.</p>
                                             <div className="mt-6 p-4 bg-white/50 rounded-xl text-sm text-green-800">
                                                 <p>Desejamos-lhe uma excelente peregrinação.</p>
                                             </div>
@@ -725,7 +730,7 @@ export default function BookingDashboardPage() {
                             <div className="bg-slate-50 rounded-4xl p-10 border border-slate-200">
                                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
                                     <div>
-                                        <h3 className="text-2xl font-bold text-slate-900">Plano de Pagamentos Selecionado</h3>
+                                    <h3 className="text-2xl font-bold text-slate-900">Plano de Doações Selecionado</h3>
                                         <p className="text-slate-500">Agendamento das suas próximas mensalidades (Dia 10 de cada mês)</p>
                                     </div>
                                     <div className="bg-indigo-100 text-indigo-700 px-4 py-2 rounded-xl font-bold">

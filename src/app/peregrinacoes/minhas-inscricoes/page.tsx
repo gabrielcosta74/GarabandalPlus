@@ -107,7 +107,7 @@ export default function MyBookingsPage() {
                                             <img src={booking.pilgrimage.cover_image || '/placeholder.jpg'} alt="" className="w-full h-full object-cover" />
                                         </div>
                                         <div className={`px-2 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${isPaid ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
-                                            {isPaid ? 'Confirmada' : 'Pagamento Pendente'}
+                                            {isPaid ? 'Confirmada' : 'Doação Pendente'}
                                         </div>
                                     </div>
 
@@ -122,7 +122,7 @@ export default function MyBookingsPage() {
                                     {/* Progress */}
                                     <div className="space-y-2">
                                         <div className="flex justify-between text-xs font-medium text-slate-500">
-                                            <span>Progresso Pagamento</span>
+                                            <span>Progresso da Doação</span>
                                             <span className="text-slate-900">{percentPaid}%</span>
                                         </div>
                                         <div className="h-2 bg-slate-100 rounded-full overflow-hidden">

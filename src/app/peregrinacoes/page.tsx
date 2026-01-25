@@ -161,7 +161,7 @@ export default function PilgrimagesPage() {
                         <div className="relative z-10 max-w-2xl mx-auto">
                             <h3 className="text-2xl md:text-3xl font-serif font-bold text-white mb-4">Não encontrou a data ideal?</h3>
                             <p className="text-slate-400 mb-8">
-                                Inscreva-se na nossa lista VIP para receber notificações prioritárias sobre novas datas e roteiros exclusivos.
+                                Deixe o seu contacto para receber notícias sobre novas datas e caminhos de peregrinação.
                             </p>
                             <GeneralWaitlistForm />
                         </div>

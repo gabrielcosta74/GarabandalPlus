@@ -339,7 +339,7 @@ export default function PilgrimageDetailPage() {
                             {(pilgrimage.payment_plan_text || pilgrimage.cancellation_policy_text) && (
                                 <div className="space-y-6">
                                     <h2 className="text-2xl font-serif font-bold text-slate-900 flex items-center gap-2">
-                                        <FileText className="w-6 h-6 text-yellow-600" /> Pagamentos e Condições
+                                        <FileText className="w-6 h-6 text-yellow-600" /> Doações e Condições
                                     </h2>
                                     <div className="grid grid-cols-1 gap-6">
                                         {pilgrimage.payment_plan_text && (
@@ -349,7 +349,7 @@ export default function PilgrimageDetailPage() {
                                                         <Clock className="w-5 h-5" />
                                                     </div>
                                                     <div>
-                                                        <h3 className="font-bold text-indigo-900 mb-2">Facilidades de Pagamento</h3>
+                                                        <h3 className="font-bold text-indigo-900 mb-2">Facilidades de Doação</h3>
                                                         <p className="text-indigo-800/80 leading-relaxed whitespace-pre-line">{pilgrimage.payment_plan_text}</p>
                                                     </div>
                                                 </div>
@@ -459,7 +459,7 @@ export default function PilgrimageDetailPage() {
                                                                     </div>
                                                                 )}
                                                                 <div className="bg-white p-4 rounded-xl border border-indigo-100 flex justify-between items-center shadow-sm">
-                                                                    <span className="text-xs text-indigo-400 font-bold uppercase">Preço a partir de</span>
+                                                                    <span className="text-xs text-indigo-400 font-bold uppercase">Doação a partir de</span>
                                                                     <div className="text-2xl font-bold text-indigo-600">{formatPrice(pilgrimage.flight_price_from)}</div>
                                                                 </div>
                                                             </div>

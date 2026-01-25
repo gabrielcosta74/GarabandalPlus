@@ -72,7 +72,7 @@ const bookingSchema = z.object({
                 // Or better, find the duplicate index? For now, global error is safe.
             }
         }),
-    payment_method: z.enum(['full', 'installments'], { errorMap: () => ({ message: "Selecione um método de pagamento" }) }),
+    payment_method: z.enum(['full', 'installments'], { errorMap: () => ({ message: "Selecione um método de doação" }) }),
     terms_accepted: z.literal(true, { errorMap: () => ({ message: "Tens de aceitar as condições para continuar." }) }),
 });
 
@@ -1187,7 +1187,7 @@ export default function PilgrimageBookingPage() {
                 </div>
 
                 <h1 className="text-center text-3xl md:text-4xl font-serif font-bold text-white mb-2">{pilgrimage.title}</h1>
-                <p className="text-center text-slate-400 mb-12">Passo {step}: {step === 1 ? 'Identificação' : step === 2 ? 'Dados das Pessoas' : step === 3 ? 'Alojamento' : 'Pagamento'}</p>
+                <p className="text-center text-slate-400 mb-12">Passo {step}: {step === 1 ? 'Identificação' : step === 2 ? 'Dados das Pessoas' : step === 3 ? 'Alojamento' : 'Doação'}</p>
 
                 <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 md:p-12 shadow-2xl relative overflow-hidden min-h-[400px]">
                     {step === 1 && <StepIdentification onNext={handleIdentitySubmit} initialEmail={userEmail} pilgrimageId={pilgrimage.id} />}
@@ -1248,7 +1248,7 @@ export default function PilgrimageBookingPage() {
                                                 onUpdate={setRooms}
                                                 pricing={pilgrimage?.pricing_config?.room_supplements}
                                             />
-                                            <div className="flex justify-between pt-8"><button type="button" onClick={() => setStep(2)} className="text-slate-400 font-bold hover:text-white">Voltar</button><button type="button" onClick={nextStep} className="bg-white text-slate-900 px-8 py-3 rounded-xl font-bold hover:bg-slate-200 transition-colors flex items-center gap-2">Rever Pagamento <ChevronRight className="w-5 h-5" /></button></div>
+                                            <div className="flex justify-between pt-8"><button type="button" onClick={() => setStep(2)} className="text-slate-400 font-bold hover:text-white">Voltar</button><button type="button" onClick={nextStep} className="bg-white text-slate-900 px-8 py-3 rounded-xl font-bold hover:bg-slate-200 transition-colors flex items-center gap-2">Rever Doação <ChevronRight className="w-5 h-5" /></button></div>
                                         </div>
                                     )}
 
@@ -1304,22 +1304,22 @@ export default function PilgrimageBookingPage() {
                                             </div>
 
                                             <div className="space-y-4">
-                                                <p className="text-sm font-bold text-slate-400 uppercase tracking-tight text-center">Escolhe o método de pagamento</p>
+                                                <p className="text-sm font-bold text-slate-400 uppercase tracking-tight text-center">Escolhe o método de doação</p>
 
                                                 <div className="grid gap-3">
                                                     <label className={`flex items-center gap-4 p-5 rounded-2xl border-2 transition-all cursor-pointer ${watch('payment_method') === 'installments' ? 'bg-yellow-500/10 border-yellow-500 shadow-lg shadow-yellow-500/10' : 'bg-slate-800/50 border-slate-700 hover:border-slate-600'}`}>
                                                         <input type="radio" value="installments" {...methods.register('payment_method')} className="w-6 h-6 text-yellow-500 accent-yellow-500" />
                                                         <div className="flex-1">
-                                                            <div className="font-bold text-white text-lg">Pagamento Faseado</div>
-                                                            <div className="text-sm text-slate-400">Paga o sinal agora (<span className="text-white font-bold">{depositTotal}€</span>) e o resto depois.</div>
+                                                            <div className="font-bold text-white text-lg">Doação Faseada</div>
+                                                            <div className="text-sm text-slate-400">Doa o sinal agora (<span className="text-white font-bold">{depositTotal}€</span>) e o resto depois.</div>
                                                         </div>
                                                     </label>
 
                                                     <label className={`flex items-center gap-4 p-5 rounded-2xl border-2 transition-all cursor-pointer ${watch('payment_method') === 'full' ? 'bg-yellow-500/10 border-yellow-500 shadow-lg shadow-yellow-500/10' : 'bg-slate-800/50 border-slate-700 hover:border-slate-600'}`}>
                                                         <input type="radio" value="full" {...methods.register('payment_method')} className="w-6 h-6 text-yellow-500 accent-yellow-500" />
                                                         <div className="flex-1">
-                                                            <div className="font-bold text-white text-lg">Pagamento Total</div>
-                                                            <div className="text-sm text-slate-400">Liquida já o valor total (<span className="text-white font-bold">{totalBookingAmount}€</span>).</div>
+                                                            <div className="font-bold text-white text-lg">Doação Total</div>
+                                                            <div className="text-sm text-slate-400">Doa já o valor total (<span className="text-white font-bold">{totalBookingAmount}€</span>).</div>
                                                         </div>
                                                     </label>
                                                 </div>
@@ -1327,8 +1327,8 @@ export default function PilgrimageBookingPage() {
                                                 {watch('payment_method') === 'installments' && (
                                                     <div className="mt-4 bg-slate-900/50 rounded-2xl p-6 border-2 border-yellow-500/20 animate-in fade-in slide-in-from-top-2">
                                                         <div className="text-center mb-6">
-                                                            <p className="text-xs font-bold text-yellow-500 uppercase tracking-widest mb-2">Plano de Pagamentos Personalizado</p>
-                                                            <h4 className="text-white font-bold text-lg">Em quantas prestações quer pagar?</h4>
+                                                            <p className="text-xs font-bold text-yellow-500 uppercase tracking-widest mb-2">Plano de Doações Personalizado</p>
+                                                            <h4 className="text-white font-bold text-lg">Em quantas prestações quer doar?</h4>
                                                         </div>
 
                                                         {getMaxInstallments(pilgrimage.start_date) > 1 ? (
@@ -1411,5 +1411,3 @@ export default function PilgrimageBookingPage() {
         </VIPLayout>
     );
 }
-
-

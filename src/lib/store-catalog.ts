@@ -20,7 +20,8 @@ export const products: Product[] = [
     tag: 'Livro digital',
     format: 'PDF digital',
     isPhysical: false,
-    digitalUrl: '',
+    digitalUrl:
+      'https://pntzzuxzjnzksubbjfvj.supabase.co/storage/v1/object/public/store_files/products/diariodeconchitapdf.pdf',
     description:
       'Edição digital do diário de Conchita. Um relato completo das aparições e mensagens, pensado para leitura no telemóvel, tablet ou computador.',
   },
@@ -45,7 +46,8 @@ export const products: Product[] = [
     tag: 'Livro digital',
     format: 'PDF bilingue',
     isPhysical: false,
-    digitalUrl: '',
+    digitalUrl:
+      'https://pntzzuxzjnzksubbjfvj.supabase.co/storage/v1/object/public/store_files/products/guia_do_peregrino_garabandal.pdf',
     description:
       'Guia essencial para peregrinos com indicações, orações e contexto histórico. Versão digital em português e espanhol.',
   },
@@ -58,7 +60,8 @@ export const products: Product[] = [
     tag: 'Livro infantil',
     format: 'PDF infantil',
     isPhysical: false,
-    digitalUrl: '',
+    digitalUrl:
+      'https://pntzzuxzjnzksubbjfvj.supabase.co/storage/v1/object/public/store_files/products/historiadegarabandalparacriancas.pdf',
     description:
       'Narrativa acessível para crianças com ilustrações e linguagem simples, ideal para catequese e leitura em família.',
   },

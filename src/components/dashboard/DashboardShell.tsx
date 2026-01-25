@@ -3,7 +3,6 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { supabaseBrowser } from '../../lib/supabase-browser';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     User,
@@ -18,6 +17,7 @@ import {
     LayoutDashboard,
     Settings
 } from 'lucide-react';
+import { useAuth } from '../../contexts/AuthContext';
 
 type DashboardShellProps = {
     title: string;
@@ -29,44 +29,18 @@ export default function DashboardShell({ title, subtitle, children }: DashboardS
     const router = useRouter();
     const pathname = usePathname();
     const [isMobileOpen, setIsMobileOpen] = useState(false);
-    const [ready, setReady] = useState(false);
-    const [user, setUser] = useState<{ email?: string; isMember?: boolean; name?: string; avatarUrl?: string } | null>(null);
+    const { user, memberData, isMember, loading, isAuthenticated, signOut } = useAuth();
 
     useEffect(() => {
-        const checkSession = async () => {
-            if (!supabaseBrowser) {
-                router.replace('/login');
-                return;
-            }
-            const { data } = await supabaseBrowser.auth.getSession();
-            if (!data.session?.user) {
-                const next = pathname ? `?next=${encodeURIComponent(pathname)}` : '';
-                router.replace(`/login${next}`);
-                return;
-            }
-
-            const { data: member } = await supabaseBrowser
-                .from('membros')
-                .select('is_membro, nome, avatar_url')
-                .eq('id', data.session.user.id)
-                .maybeSingle();
-
-            setUser({
-                email: data.session.user.email,
-                isMember: !!member?.is_membro,
-                name: member?.nome || undefined,
-                avatarUrl: member?.avatar_url || undefined
-            });
-            setReady(true);
-        };
-        checkSession();
-    }, [pathname, router]);
+        if (!loading && !isAuthenticated) {
+            const next = pathname ? `?next=${encodeURIComponent(pathname)}` : '';
+            router.replace(`/login${next}`);
+        }
+    }, [isAuthenticated, loading, pathname, router]);
 
     const handleLogout = async () => {
-        if (supabaseBrowser) {
-            await supabaseBrowser.auth.signOut();
-            router.replace('/login');
-        }
+        await signOut();
+        router.replace('/login');
     };
 
     const navItems = [
@@ -78,8 +52,8 @@ export default function DashboardShell({ title, subtitle, children }: DashboardS
         },
         {
             section: 'Membro', items: [
-                { label: 'Resumo', href: '/member', icon: LayoutDashboard, hidden: !user?.isMember },
-                { label: 'Quota Anual', href: '/member/quota', icon: ShieldCheck, hidden: !user?.isMember },
+                { label: 'Resumo', href: '/member', icon: LayoutDashboard, hidden: !isMember },
+                { label: 'Quota Anual', href: '/member/quota', icon: ShieldCheck, hidden: !isMember },
             ]
         },
         {
@@ -90,13 +64,14 @@ export default function DashboardShell({ title, subtitle, children }: DashboardS
         }
     ];
 
-    if (!ready) {
+    if (loading) {
         return (
             <div className="min-h-screen bg-garabandal-mist flex items-center justify-center">
                 <div className="animate-spin w-8 h-8 border-2 border-garabandal-gold border-t-transparent rounded-full" />
             </div>
         );
     }
+    if (!isAuthenticated) return null;
 
     return (
         <div className="min-h-screen bg-garabandal-mist pt-24 lg:pt-28">
@@ -189,16 +164,16 @@ export default function DashboardShell({ title, subtitle, children }: DashboardS
                     <div className="p-4 border-t border-gray-100 bg-gray-50/50 rounded-b-2xl">
                         <div className="mb-3 px-2 flex items-center gap-3">
                             <div className="w-10 h-10 rounded-full bg-garabandal-gold/20 flex items-center justify-center text-garabandal-dark shrink-0 overflow-hidden border border-garabandal-gold/30">
-                                {user?.avatarUrl ? (
-                                    <img src={user.avatarUrl} alt="User" className="w-full h-full object-cover" />
+                                {memberData?.avatar_url ? (
+                                    <img src={memberData.avatar_url} alt="User" className="w-full h-full object-cover" />
                                 ) : (
                                     <User className="w-5 h-5" />
                                 )}
                             </div>
                             <div className="min-w-0">
                                 <p className="text-xs font-medium text-gray-500 mb-0.5">Iniciado como</p>
-                                <p className="text-xs font-bold text-gray-900 truncate" title={user?.email}>
-                                    {user?.isMember ? 'Membro' : 'Utilizador'} • {user?.name?.split(' ')[0] || ''}
+                                <p className="text-xs font-bold text-gray-900 truncate" title={user?.email || ''}>
+                                    {isMember ? 'Membro' : 'Utilizador'} • {memberData?.nome?.split(' ')[0] || ''}
                                 </p>
                             </div>
                         </div>
