@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useMemo, useState } from 'react';
+import { Suspense, useMemo, useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import AuthLayout, { PremiumInput } from '../../components/auth/AuthLayout';
@@ -30,13 +30,23 @@ function LoginScreen() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // Redirect if already logged in
-  if (isAuthenticated && !authLoading) {
-    router.replace('/');
-    return null; // Don't render form
-  }
-
+  // Hooks must be called before early returns
   const canSubmit = useMemo(() => email.trim().length > 3 && password.trim().length >= 6, [email, password]);
+
+  // Redirect if already logged in
+  useEffect(() => {
+    if (isAuthenticated && !authLoading) {
+      router.replace('/');
+    }
+  }, [isAuthenticated, authLoading, router]);
+
+  if (isAuthenticated && !authLoading) {
+    return (
+      <div className="min-h-screen bg-garabandal-mist flex items-center justify-center">
+        <Loader2 className="w-8 h-8 text-garabandal-gold animate-spin" />
+      </div>
+    );
+  }
 
   const handleLogin = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -55,24 +65,30 @@ function LoginScreen() {
 
       if (loginError) throw loginError;
 
-      if (data.session) {
-        await setSession(data.session);
-      }
+      if (loginError) throw loginError;
 
-      if (data.user) {
-        // Optional: Ensure member record exists logic here if needed, 
-        // but typically handled by triggers or previous logic.
-        // Keeping it simple for the UI redesign focus.
+      // Note: We don't need to manually call setSession here because
+      // supabaseBrowser.auth.signInWithPassword will trigger the onAuthStateChange event
+      // in AuthContext, which will update the session/user state naturally.
 
-        const next = search.get('next');
-        const target = next && next.startsWith('/') ? next : '/';
-        router.push(target);
-        router.refresh();
-      }
+      // Wait a brief moment for the auth listener to pick it up?
+      // Actually, we can just rely on the router pushing.
+      // But if we want instant feedback, the context is already listening.
+
+      const next = search.get('next');
+      const target = next && next.startsWith('/') ? next : '/';
+
+      // Force a hard refresh if needed, but usually push is enough.
+      // If we are already authenticated (via effect), we will redirect anyway.
+      router.push(target);
+      router.refresh();
+
     } catch (err: any) {
       setError(err.message || 'Erro ao iniciar sessão.');
+      setLoading(false); // Only set loading false on error. On success, we redirect.
     } finally {
-      setLoading(false);
+      // If success, we stay loading until redirect happens
+      // If error, we stopped loading above
     }
   };
 

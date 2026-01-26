@@ -122,22 +122,7 @@ export default function MembershipModal({ isOpen, onClose, impact }: MembershipM
             iconSrc: "/payment-icons/stripe.svg",
             badge: "Recomendado",
             provider: "stripe"
-        },
-        {
-            id: "reduniq-mbway",
-            label: "MB WAY",
-            description: "Pagamento imediato.",
-            iconSrc: "/payment-icons/mbway.svg",
-            provider: "reduniq",
-            solution: 107
-        },
-        {
-            id: "reduniq-gateway",
-            label: "Multibanco / Outros",
-            description: "MB, PayPal, Cartão.",
-            iconSrc: "/payment-icons/reduniq.png",
-            provider: "reduniq"
-        },
+        }
     ];
 
     const selectedPayment = paymentOptions.find((o) => o.id === selectedPaymentId) || paymentOptions[0];
@@ -291,7 +276,15 @@ export default function MembershipModal({ isOpen, onClose, impact }: MembershipM
             payload.estado_quota = "pendente";
         }
         if (!supabaseBrowser) throw new Error("Sistema indisponível.");
-        await supabaseBrowser.from("membros").upsert(payload, { onConflict: "id" });
+        const { error } = await supabaseBrowser.from("membros").upsert(payload, { onConflict: "id" });
+        if (error) {
+            if (error.code === '23505') { // Unique Violation
+                if (error.message?.includes('email')) throw new Error("Este email já está registado noutra conta.");
+                if (error.message?.includes('nif')) throw new Error("Este NIF já está registado noutra conta.");
+                throw new Error("Dados duplicados (Email ou NIF).");
+            }
+            throw new Error("Erro ao guardar perfil.");
+        }
     };
 
     const handlePayment = async () => {
@@ -305,23 +298,18 @@ export default function MembershipModal({ isOpen, onClose, impact }: MembershipM
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    amount: 25,
+                    amount: 25, // Validated on server as forced 25
                     type: "membership",
                     userId: sessionUserId,
-                    provider: selectedPayment.provider,
-                    reduniqSolution: (selectedPayment as any).solution,
+                    provider: "stripe",
+                    // No reduniqSolution needed
                 })
             });
 
             const data = await res.json();
             if (!res.ok) throw new Error(data.message || "Erro no pagamento.");
 
-            if (selectedPayment.provider === 'reduniq' && data.token) {
-                localStorage.setItem("reduniq:lastPayment", JSON.stringify({
-                    token: data.token, type: "membership", amount: 25, userId: sessionUserId
-                }));
-            }
-
+            // Stripe Redirect
             setPaymentUrl(data.url);
             setStep(4);
         } catch (err: any) {

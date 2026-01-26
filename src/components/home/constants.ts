@@ -35,6 +35,7 @@ export const PILLARS_CONTENT = [
         description: "Faça parte da família. O seu apoio como membro sustenta esta obra de evangelização.",
         action: "Ser Membro",
         link: "/tornar-membro",
+        backgroundImage: MEMBER_IMAGE_URL,
         highlight: true
     }
 ];

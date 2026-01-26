@@ -1,29 +1,19 @@
 import { NextResponse } from 'next/server';
 import { supabaseServer } from '../../../../../lib/supabase';
 
-// Helper to validate Admin Session manually to avoid circular deps or issues with requireAdmin
-const isAdmin = async (req: Request) => {
-    if (!supabaseServer) return false;
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) return false;
-    const token = authHeader.replace('Bearer ', '');
-    const { data: { user }, error } = await supabaseServer.auth.getUser(token);
-    return !error && !!user;
-};
+import { verifyAdmin } from '../../../../../lib/admin-auth';
+import { logAdminAction } from '../../../../../lib/admin-logger';
 
 export async function POST(req: Request) {
-    console.log("🚀 [API] Payment Verification Request Received");
     try {
         if (!supabaseServer) {
-            console.error("❌ [API] Supabase Server client missing");
             return NextResponse.json({ error: 'Servidor Supabase indisponível.' }, { status: 500 });
         }
 
         // 1. Verify admin status
-        console.log("🚀 [API] Checking Admin Auth...");
-        if (!await isAdmin(req)) {
-            console.warn("❌ [API] Unauthorized access attempt");
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        const { authorized, user, error: authError } = await verifyAdmin(req);
+        if (!authorized || !user) {
+            return NextResponse.json({ error: authError || 'Unauthorized' }, { status: 401 });
         }
 
         const body = await req.json();
@@ -103,6 +93,7 @@ export async function POST(req: Request) {
         }
 
         console.log("🚀 [API] Success!");
+        await logAdminAction(user.email, 'VERIFY_PAYMENT', { paymentId, bookingId, totalPaid }, paymentId);
         return NextResponse.json({ success: true, totalPaid, payment: updatedPayment });
 
     } catch (error: any) {

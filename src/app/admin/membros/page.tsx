@@ -11,10 +11,13 @@ import {
   UserCheck,
   UserX,
   Crown,
-  Clock,
   Search,
   Filter,
-  ArrowRight
+  ArrowRight,
+  PlusCircle,
+  XCircle,
+  CheckCircle,
+  Copy,
 } from 'lucide-react';
 
 type MemberRow = {
@@ -61,7 +64,8 @@ export default function AdminMembrosPage() {
     founders: 0,
     dueSoon: 0,
   });
-  const [loading, setLoading] = useState(true);
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Filters state managed locally for now, could be server-side if needed
@@ -69,9 +73,9 @@ export default function AdminMembrosPage() {
   const [typeFilter, setTypeFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
 
-  const fetchMembers = async () => {
-    // ... (keep existing fetch logic)
-    setLoading(true);
+  const fetchMembers = async (isBackground = false) => {
+    if (!isBackground) setInitialLoading(members.length === 0);
+    setIsRefreshing(true);
     setError(null);
     try {
       if (!supabaseBrowser) throw new Error('Supabase nao configurado no browser.');
@@ -91,13 +95,86 @@ export default function AdminMembrosPage() {
     } catch (err: any) {
       setError(err?.message || 'Erro ao carregar membros.');
     } finally {
-      setLoading(false);
+      setInitialLoading(false);
+      setIsRefreshing(false);
     }
   };
 
   useEffect(() => {
     fetchMembers();
   }, []);
+
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [successData, setSuccessData] = useState<{ email: string; password?: string } | null>(null);
+  const [createLoading, setCreateLoading] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
+
+  const [createForm, setCreateForm] = useState({
+    nome: '',
+    email: '',
+    telefone: '',
+    nif: '',
+    address: '',
+    postal_code: '',
+    country: 'Portugal',
+    initial_payment: true,
+    payment_method: 'transfer'
+  });
+
+  const handleCreateMember = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setCreateLoading(true);
+    setCreateError(null);
+    try {
+      if (!supabaseBrowser) throw new Error('Supabase indisponível');
+      const { data: { session } } = await supabaseBrowser.auth.getSession();
+      if (!session) throw new Error('Sessão inválida');
+
+      const res = await fetch('/api/admin/members', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({
+          action: 'create_member',
+          ...createForm
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Erro ao criar membro');
+      }
+
+      // Success!
+      setSuccessData({
+        email: createForm.email,
+        password: data.temporaryPassword
+      });
+      setIsCreateModalOpen(false);
+
+      // Reset Form
+      setCreateForm({
+        nome: '',
+        email: '',
+        telefone: '',
+        nif: '',
+        address: '',
+        postal_code: '',
+        country: 'Portugal',
+        initial_payment: true,
+        payment_method: 'transfer'
+      });
+
+      fetchMembers(true); // Background refresh
+
+    } catch (err: any) {
+      setCreateError(err.message);
+    } finally {
+      setCreateLoading(false);
+    }
+  };
 
   const filteredMembers = useMemo(() => {
     return members.filter(member => {
@@ -152,7 +229,7 @@ export default function AdminMembrosPage() {
   ];
 
   return (
-    <AdminLayout title="Gestão de Membros" isLoading={loading}>
+    <AdminLayout title="Gestão de Membros" isLoading={initialLoading}>
       {/* KPI Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <AdminStatCard
@@ -185,46 +262,55 @@ export default function AdminMembrosPage() {
         {/* Toolbar */}
         <div className="flex flex-col md:flex-row gap-4 justify-between items-center bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
 
-          {/* Status Filters */}
-          <div className="flex items-center gap-2 overflow-x-auto w-full md:w-auto pb-2 md:pb-0 scrollbar-hide">
+          <div className="flex items-center gap-4 w-full md:w-auto">
             <button
-              onClick={() => setStatusFilter('all')}
-              className={`px-4 py-2 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${statusFilter === 'all' ? 'bg-garabandal-dark text-white shadow-md' : 'bg-gray-50 text-gray-600 hover:bg-gray-100'}`}
+              onClick={() => setIsCreateModalOpen(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-garabandal-dark text-white font-bold rounded-xl hover:bg-gray-900 transition-all shadow-md whitespace-nowrap"
             >
-              Todos
+              <PlusCircle className="w-5 h-5" /> Novo Membro
             </button>
-            <button
-              onClick={() => setStatusFilter('active')}
-              className={`px-4 py-2 rounded-xl text-sm font-medium transition-all whitespace-nowrap ${statusFilter === 'active' ? 'bg-green-100 text-green-700 border border-green-200' : 'bg-gray-50 text-gray-600 hover:bg-gray-100'}`}
-            >
-              Ativos
-            </button>
-            <button
-              onClick={() => setStatusFilter('overdue')}
-              className={`px-4 py-2 rounded-xl text-sm font-medium transition-all whitespace-nowrap ${statusFilter === 'overdue' ? 'bg-red-100 text-red-700 border border-red-200' : 'bg-gray-50 text-gray-600 hover:bg-gray-100'}`}
-            >
-              Em Atraso
-            </button>
-            <button
-              onClick={() => setStatusFilter('inactive')}
-              className={`px-4 py-2 rounded-xl text-sm font-medium transition-all whitespace-nowrap ${statusFilter === 'inactive' ? 'bg-gray-200 text-gray-700 border border-gray-300' : 'bg-gray-50 text-gray-600 hover:bg-gray-100'}`}
-            >
-              Cancelados
-            </button>
-          </div>
 
-          {/* Search Bar */}
-          <div className="relative w-full md:w-72">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Search className="h-4 w-4 text-gray-400" />
+            {/* Status Filters */}
+            <div className="flex items-center gap-2 overflow-x-auto pb-2 md:pb-0 scrollbar-hide">
+              <button
+                onClick={() => setStatusFilter('all')}
+                className={`px-4 py-2 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${statusFilter === 'all' ? 'bg-garabandal-dark text-white shadow-md' : 'bg-gray-50 text-gray-600 hover:bg-gray-100'}`}
+              >
+                Todos
+              </button>
+              <button
+                onClick={() => setStatusFilter('active')}
+                className={`px-4 py-2 rounded-xl text-sm font-medium transition-all whitespace-nowrap ${statusFilter === 'active' ? 'bg-green-100 text-green-700 border border-green-200' : 'bg-gray-50 text-gray-600 hover:bg-gray-100'}`}
+              >
+                Ativos
+              </button>
+              <button
+                onClick={() => setStatusFilter('overdue')}
+                className={`px-4 py-2 rounded-xl text-sm font-medium transition-all whitespace-nowrap ${statusFilter === 'overdue' ? 'bg-red-100 text-red-700 border border-red-200' : 'bg-gray-50 text-gray-600 hover:bg-gray-100'}`}
+              >
+                Em Atraso
+              </button>
+              <button
+                onClick={() => setStatusFilter('inactive')}
+                className={`px-4 py-2 rounded-xl text-sm font-medium transition-all whitespace-nowrap ${statusFilter === 'inactive' ? 'bg-gray-200 text-gray-700 border border-gray-300' : 'bg-gray-50 text-gray-600 hover:bg-gray-100'}`}
+              >
+                Cancelados
+              </button>
             </div>
-            <input
-              type="text"
-              className="block w-full pl-10 pr-3 py-2 border border-gray-200 rounded-xl leading-5 bg-gray-50 placeholder-gray-400 focus:outline-none focus:bg-white focus:ring-2 focus:ring-garabandal-gold/50 focus:border-garabandal-gold sm:text-sm transition-all"
-              placeholder="Nome, Email ou Sócio #..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
+
+            {/* Search Bar */}
+            <div className="relative w-full md:w-72">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <Search className="h-4 w-4 text-gray-400" />
+              </div>
+              <input
+                type="text"
+                className="block w-full pl-10 pr-3 py-2 border border-gray-200 rounded-xl leading-5 bg-gray-50 placeholder-gray-400 focus:outline-none focus:bg-white focus:ring-2 focus:ring-garabandal-gold/50 focus:border-garabandal-gold sm:text-sm transition-all"
+                placeholder="Nome, Email ou Sócio #..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
           </div>
         </div>
 
@@ -242,6 +328,194 @@ export default function AdminMembrosPage() {
           )}
         />
       </div>
-    </AdminLayout>
+
+      {/* Create Member Modal */}
+      {isCreateModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+              <h3 className="text-lg font-bold font-serif text-gray-900">Novo Membro</h3>
+              <button onClick={() => setIsCreateModalOpen(false)} className="text-gray-400 hover:text-gray-600">
+                <XCircle className="w-6 h-6" />
+              </button>
+            </div>
+            <form onSubmit={handleCreateMember} className="p-6 space-y-4">
+              {createError && (
+                <div className="p-3 bg-red-50 text-red-600 rounded-lg text-sm border border-red-100 flex items-center gap-2">
+                  <XCircle className="w-4 h-4 text-red-500" />
+                  {createError}
+                </div>
+              )}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Nome</label>
+                <input
+                  required
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-garabandal-gold/20"
+                  value={createForm.nome}
+                  onChange={e => setCreateForm({ ...createForm, nome: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                <input
+                  required
+                  type="email"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-garabandal-gold/20"
+                  value={createForm.email}
+                  onChange={e => setCreateForm({ ...createForm, email: e.target.value })}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Telefone</label>
+                  <input
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-garabandal-gold/20"
+                    value={createForm.telefone}
+                    onChange={e => setCreateForm({ ...createForm, telefone: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">NIF</label>
+                  <input
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-garabandal-gold/20"
+                    value={createForm.nif}
+                    onChange={e => setCreateForm({ ...createForm, nif: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Morada</label>
+                <input
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-garabandal-gold/20"
+                  value={createForm.address}
+                  onChange={e => setCreateForm({ ...createForm, address: e.target.value })}
+                  placeholder="Rua, Nº, Andar..."
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Código Postal</label>
+                  <input
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-garabandal-gold/20"
+                    value={createForm.postal_code}
+                    onChange={e => setCreateForm({ ...createForm, postal_code: e.target.value })}
+                    placeholder="0000-000"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">País</label>
+                  <input
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-garabandal-gold/20"
+                    value={createForm.country}
+                    onChange={e => setCreateForm({ ...createForm, country: e.target.value })}
+                  />
+                </div>
+              </div>
+
+
+              <div className="flex items-center gap-2 p-3 bg-green-50 rounded-lg border border-green-100">
+                <input
+                  type="checkbox"
+                  id="initialPayment"
+                  className="w-4 h-4 text-green-600 rounded focus:ring-green-500"
+                  checked={createForm.initial_payment}
+                  onChange={e => setCreateForm({ ...createForm, initial_payment: e.target.checked })}
+                />
+                <label htmlFor="initialPayment" className="text-sm font-medium text-green-800 cursor-pointer select-none">
+                  Quota (25€) Paga?
+                </label>
+              </div>
+
+              {createForm.initial_payment && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Método</label>
+                  <select
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-garabandal-gold/20"
+                    value={createForm.payment_method}
+                    onChange={e => setCreateForm({ ...createForm, payment_method: e.target.value })}
+                  >
+                    <option value="transfer">Transferência</option>
+                    <option value="cash">Numerário</option>
+                    <option value="check">Cheque</option>
+                    <option value="other">Outro</option>
+                  </select>
+                </div>
+              )}
+              <div className="bg-blue-50 p-3 rounded-lg text-xs text-blue-800">
+                O membro será criado com uma senha temporária (gerida pelo sistema) e o email será marcado como confirmado.
+              </div>
+              <button
+                type="submit"
+                disabled={createLoading}
+                className="w-full py-3 bg-garabandal-dark text-white font-medium rounded-xl hover:bg-gray-900 transition-colors shadow-lg shadow-garabandal-dark/10 disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {createLoading ? (
+                  <>
+                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    A criar...
+                  </>
+                ) : 'Criar Membro'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )
+      }
+
+      {/* Success Modal */}
+      {successData && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden text-center p-8">
+            <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-4">
+              <CheckCircle className="w-8 h-8" />
+            </div>
+            <h3 className="text-2xl font-bold font-serif text-gray-900 mb-2">Membro Criado!</h3>
+            <p className="text-gray-500 mb-6">
+              O membro foi registado com sucesso.
+            </p>
+
+            <div className="bg-gray-50 p-4 rounded-xl text-left mb-6 border border-gray-100">
+              <div className="mb-3">
+                <span className="text-xs font-bold text-gray-400 uppercase tracking-wider block mb-1">Email de Login</span>
+                <div className="flex items-center justify-between">
+                  <span className="font-mono text-gray-900 font-medium">{successData.email}</span>
+                </div>
+              </div>
+              {successData.password && (
+                <div>
+                  <span className="text-xs font-bold text-gray-400 uppercase tracking-wider block mb-1">Senha Temporária</span>
+                  <div className="flex items-center justify-between bg-white border border-gray-200 p-2 rounded-lg gap-2">
+                    <span className="font-mono text-lg text-garabandal-dark font-bold tracking-wide select-all flex-1">{successData.password}</span>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(successData.password || '');
+                        alert('Senha copiada!');
+                      }}
+                      className="p-2 text-gray-500 hover:text-garabandal-gold hover:bg-garabandal-gold/10 rounded-lg transition-colors"
+                      title="Copiar Senha"
+                    >
+                      <Copy className="w-5 h-5" />
+                    </button>
+                  </div>
+                  <p className="text-xs text-amber-600 mt-2">
+                    ⚠️ Copie esta senha agora. Por segurança, não será mostrada novamente.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <button
+              onClick={() => setSuccessData(null)}
+              className="w-full py-3 bg-garabandal-dark text-white font-bold rounded-xl hover:bg-gray-900 transition-colors"
+            >
+              Fechar
+            </button>
+          </div>
+        </div>
+      )}
+
+    </AdminLayout >
   );
 }

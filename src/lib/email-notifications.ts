@@ -11,9 +11,7 @@ type NotificationType =
   | 'quota_reminder_1d'
   | 'quota_overdue_7d'
   | 'quota_overdue_14d'
-  | 'quota_overdue_30d'
-  | 'factpt_doc_client'
-  | 'factpt_doc_admin'
+  | 'quota_overdue_30d';
 
 type NotificationRecord = {
   id: string;

@@ -21,6 +21,9 @@ const Pillars: React.FC = () => {
                         // @ts-ignore
                         const hasBg = !!pillar.backgroundImage;
 
+                        // Use dark text only if it's the main card AND has no background image
+                        const useDarkText = isMain && !hasBg;
+
                         return (
                             <motion.div
                                 key={index}
@@ -49,16 +52,16 @@ const Pillars: React.FC = () => {
                                 <div className="relative z-10">
                                     <div className={`
                                         w-12 h-12 rounded-xl flex items-center justify-center mb-6 text-xl shadow-lg
-                                        ${isMain ? 'bg-black/20 text-black' : 'bg-white/10 text-white backdrop-blur-md'}
+                                        ${useDarkText ? 'bg-black/20 text-black' : 'bg-white/10 text-white backdrop-blur-md'}
                                     `}>
                                         <Icon size={24} />
                                     </div>
 
-                                    <h3 className={`font-serif text-3xl mb-4 drop-shadow-md ${isMain ? 'text-black' : 'text-white'}`}>
+                                    <h3 className={`font-serif text-3xl mb-4 drop-shadow-md ${useDarkText ? 'text-black' : 'text-white'}`}>
                                         {pillar.title}
                                     </h3>
 
-                                    <p className={`text-lg leading-relaxed font-light drop-shadow-md ${isMain ? 'text-black/80' : 'text-white/80'}`}>
+                                    <p className={`text-lg leading-relaxed font-light drop-shadow-md ${useDarkText ? 'text-black/80' : 'text-white/80'}`}>
                                         {pillar.description}
                                     </p>
                                 </div>

@@ -79,6 +79,7 @@ export default function AdminSidebar({ onLogout, className }: { onLogout: () => 
             label: 'Sistema',
             items: [
                 { label: 'Conteúdo Global', icon: Settings, href: '/admin/conteudo' },
+                { label: 'Audit Logs', icon: FileText, href: '/admin/logs' },
                 { label: 'Configurações', icon: Settings, href: '/admin/configuracoes' },
             ]
         }

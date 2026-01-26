@@ -13,6 +13,30 @@ export async function POST(request: Request) {
             return NextResponse.json({ results: {} });
         }
 
+        // SECURITY: Limit batch size to prevent scraping
+        if (emails.length > 10) {
+            return NextResponse.json({ error: 'Too many emails' }, { status: 400 });
+        }
+
+        // SECURITY: Rate Limit / Origin Check (Basic)
+        // Ensure request comes from our own frontend
+        const referer = request.headers.get('referer');
+        const origin = request.headers.get('origin');
+        const host = request.headers.get('host');
+
+        // Skip check in dev if needed, or check against localhost
+        const isDev = process.env.NODE_ENV === 'development';
+        const validOrigin = referer?.includes(host || '') || origin?.includes(host || '');
+
+        if (!isDev && !validOrigin) {
+            // Fallback: Check for Auth
+            const authHeader = request.headers.get('Authorization');
+            if (!authHeader) {
+                console.warn(`[API] Blocked external request to check-status from: ${referer || 'unknown'}`);
+                return NextResponse.json({ results: {} }); // Silent fail
+            }
+        }
+
         const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
         // CRITICAL: Must use Service Role Key to bypass RLS policies on 'membros' table
         const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;

@@ -92,6 +92,12 @@ export default function AdminMemberDetailPage() {
     numero_socio: '',
     is_membro: false,
     data_adesao: '',
+    nome: '',
+    nif: '',
+    telefone: '',
+    address: '',
+    postal_code: '',
+    country: '',
   });
 
   // Manual Payment State
@@ -136,6 +142,12 @@ export default function AdminMemberDetailPage() {
           numero_socio: payload.member?.numero_socio ? String(payload.member.numero_socio) : '',
           is_membro: !!payload.member?.is_membro,
           data_adesao: payload.member?.data_adesao || '',
+          nome: payload.member?.nome || '',
+          nif: payload.member?.nif || '',
+          telefone: payload.member?.telefone || '',
+          address: payload.member?.address || '',
+          postal_code: payload.member?.postal_code || '',
+          country: payload.member?.country || '',
         });
       } catch (err: any) {
         setError(err?.message || 'Erro ao carregar o membro.');
@@ -210,6 +222,12 @@ export default function AdminMemberDetailPage() {
           numero_socio: formState.numero_socio ? Number(formState.numero_socio) : null,
           is_membro: formState.is_membro,
           data_adesao: formState.data_adesao || null,
+          nome: formState.nome,
+          nif: formState.nif,
+          telefone: formState.telefone,
+          address: formState.address,
+          postal_code: formState.postal_code,
+          country: formState.country,
         }),
       });
       if (!res.ok) {
@@ -606,25 +624,73 @@ export default function AdminMemberDetailPage() {
             )}
 
             {tab === 'contactos' && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="p-4 rounded-xl border border-gray-100 hover:border-garabandal-gold/30 transition-colors">
-                  <span className="flex items-center gap-2 text-sm font-medium text-gray-500 mb-1">
-                    <Phone className="w-4 h-4" /> Telefone
-                  </span>
-                  <strong className="text-lg text-gray-900">{member.telefone || '—'}</strong>
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Nome Completo</label>
+                    <input
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-garabandal-gold/20"
+                      value={formState.nome}
+                      onChange={(e) => setFormState(prev => ({ ...prev, nome: e.target.value }))}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Email (Apenas leitura)</label>
+                    <div className="w-full px-3 py-2 bg-gray-100 border border-gray-200 rounded-lg text-gray-500 cursor-not-allowed">
+                      {member.email}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Telefone</label>
+                    <input
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-garabandal-gold/20"
+                      value={formState.telefone}
+                      onChange={(e) => setFormState(prev => ({ ...prev, telefone: e.target.value }))}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">NIF</label>
+                    <input
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-garabandal-gold/20"
+                      value={formState.nif}
+                      onChange={(e) => setFormState(prev => ({ ...prev, nif: e.target.value }))}
+                    />
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Morada</label>
+                    <input
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-garabandal-gold/20"
+                      value={formState.address}
+                      onChange={(e) => setFormState(prev => ({ ...prev, address: e.target.value }))}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Código Postal</label>
+                    <input
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-garabandal-gold/20"
+                      value={formState.postal_code}
+                      onChange={(e) => setFormState(prev => ({ ...prev, postal_code: e.target.value }))}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">País</label>
+                    <input
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-garabandal-gold/20"
+                      value={formState.country}
+                      onChange={(e) => setFormState(prev => ({ ...prev, country: e.target.value }))}
+                    />
+                  </div>
                 </div>
-                <div className="p-4 rounded-xl border border-gray-100 hover:border-garabandal-gold/30 transition-colors">
-                  <span className="flex items-center gap-2 text-sm font-medium text-gray-500 mb-1">
-                    <Hash className="w-4 h-4" /> NIF
-                  </span>
-                  <strong className="text-lg text-gray-900">{member.nif || '—'}</strong>
-                </div>
-                <div className="md:col-span-2 p-4 rounded-xl border border-gray-100 hover:border-garabandal-gold/30 transition-colors">
-                  <span className="flex items-center gap-2 text-sm font-medium text-gray-500 mb-1">
-                    <MapPin className="w-4 h-4" /> Morada
-                  </span>
-                  <strong className="text-lg text-gray-900 block mb-1">{member.address || '—'}</strong>
-                  <p className="text-gray-600">{member.postal_code} {member.country}</p>
+
+                <div className="flex justify-end pt-4 border-t border-gray-100">
+                  <button
+                    onClick={handleSave}
+                    disabled={actionLoading}
+                    className="flex items-center gap-2 px-6 py-2 bg-garabandal-dark text-white font-medium rounded-lg hover:bg-gray-900 transition-colors shadow-lg shadow-garabandal-dark/10"
+                  >
+                    <Save className="w-4 h-4" />
+                    {actionLoading ? 'A guardar...' : 'Guardar Alterações'}
+                  </button>
                 </div>
               </div>
             )}

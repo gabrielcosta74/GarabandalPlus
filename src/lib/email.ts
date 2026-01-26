@@ -17,8 +17,7 @@ import {
   renderQuotaWarningEmail,
   renderQuotaOverdueEmail,
   renderMembershipRevokedEmail,
-  renderFactPtClientEmail,
-  renderFactPtAdminEmail,
+  renderWelcomeEmail,
   // Types
   MembershipNotificationInput,
   MemberReceiptInput,
@@ -31,7 +30,6 @@ import {
   DonationNotificationInput,
   BrochureEmailInput
 } from './email-renderer';
-import type { FactPtSourceType } from './factpt';
 
 // Re-export specific types if needed by other files (though best to import from renderer)
 // But for compatibility let's export them here for now if other files use them
@@ -62,9 +60,7 @@ export {
   renderAbandonmentRecoveryEmail,
   renderBookingConfirmationEmail,
   renderDonationNotification,
-  renderBrochureEmail,
-  renderFactPtClientEmail,
-  renderFactPtAdminEmail
+  renderBrochureEmail
 } from './email-renderer';
 
 
@@ -310,6 +306,23 @@ export const sendGeneralLeadEmail = async (payload: GeneralLeadInput) => {
     html: content.html,
   });
   return true;
+
+};
+
+export const sendWelcomeEmail = async (payload: { name: string; email: string }) => {
+  if (!resendClient) {
+    console.warn('Resend nao configurado. Ignorar envio de email.');
+    return false;
+  }
+
+  const content = renderWelcomeEmail(payload);
+  await resendClient.emails.send({
+    from: notifyFrom,
+    to: [payload.email],
+    subject: content.subject,
+    html: content.html,
+  });
+  return true;
 };
 
 export const sendBrochureEmail = async (payload: BrochureEmailInput) => {
@@ -411,54 +424,5 @@ export const sendMembershipRevokedEmail = async (payload: { name: string; email:
   if (!resendClient) return false;
   const content = renderMembershipRevokedEmail(payload);
   await resendClient.emails.send({ from: notifyFrom, to: [payload.email], subject: content.subject, html: content.html });
-  return true;
-};
-
-type FactPtEmailPayload = {
-  recipientName?: string | null;
-  documentId: string;
-  documentUrl?: string | null;
-  sourceType: FactPtSourceType;
-  sourceRef: string;
-  attachments?: Array<{
-    filename: string;
-    content: Buffer | string;
-    contentType?: string;
-  }>;
-};
-
-export const sendFactPtClientDocumentEmail = async (
-  payload: FactPtEmailPayload & { toEmail: string },
-) => {
-  if (!resendClient) {
-    console.warn('Resend nao configurado. Ignorar envio de email.');
-    return false;
-  }
-
-  const content = renderFactPtClientEmail(payload);
-  await resendClient.emails.send({
-    from: notifyFrom,
-    to: [payload.toEmail],
-    subject: content.subject,
-    html: content.html,
-    attachments: payload.attachments,
-  });
-  return true;
-};
-
-export const sendFactPtAdminDocumentEmail = async (payload: FactPtEmailPayload) => {
-  if (!resendClient) {
-    console.warn('Resend nao configurado. Ignorar envio de email.');
-    return false;
-  }
-
-  const content = renderFactPtAdminEmail(payload);
-  await resendClient.emails.send({
-    from: notifyFrom,
-    to: [notifyTo],
-    subject: content.subject,
-    html: content.html,
-    attachments: payload.attachments,
-  });
   return true;
 };

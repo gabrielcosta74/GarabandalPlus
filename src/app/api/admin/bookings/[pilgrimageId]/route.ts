@@ -7,12 +7,19 @@ import { supabaseServer } from '../../../../../lib/supabase';
  * Admin-only endpoint to fetch bookings with payments for a pilgrimage
  * Uses service role to bypass RLS
  */
+import { verifyAdmin } from '../../../../../lib/admin-auth';
+
 export const dynamic = 'force-dynamic';
 
 export async function GET(
     req: Request,
     { params }: { params: { pilgrimageId: string } }
 ) {
+    const { authorized, error: authError } = await verifyAdmin(req);
+    if (!authorized) {
+        return NextResponse.json({ error: authError || 'Unauthorized' }, { status: 401 });
+    }
+
     const pilgrimageId = params.pilgrimageId;
 
     if (!supabaseServer) {

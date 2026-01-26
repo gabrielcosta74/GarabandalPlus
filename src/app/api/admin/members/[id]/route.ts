@@ -1,26 +1,14 @@
 import { NextResponse } from 'next/server';
 import { supabaseServer } from '../../../../../lib/supabase';
 
-// Helper: Verify Admin Access
-const isAdmin = async (req: Request) => {
-    if (!supabaseServer) return false;
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) return false;
-    const token = authHeader.replace('Bearer ', '');
-    const { data: { user }, error } = await supabaseServer.auth.getUser(token);
-
-    // In a real prod app, you'd check a specific role claim or table, 
-    // but here we check if the user exists and has a specific email or metadata if needed.
-    // For now, consistent with other admin routes, we assume a valid session implies admin 
-    // (if the app is admin-only or relies on RLS/middleware for the rest).
-    // As per user request, we are strict about the session validity.
-    return !error && !!user;
-};
+import { verifyAdmin } from '../../../../../lib/admin-auth';
+import { logAdminAction } from '../../../../../lib/admin-logger';
 
 // GET: Fetch Member Details + Payments
 export async function GET(req: Request, { params }: { params: { id: string } }) {
-    if (!await isAdmin(req)) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const { authorized, error } = await verifyAdmin(req);
+    if (!authorized) {
+        return NextResponse.json({ error: error || 'Unauthorized' }, { status: 401 });
     }
 
     try {
@@ -61,8 +49,9 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
 
 // PATCH: Update Member Details
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
-    if (!await isAdmin(req)) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const { authorized, user, error: authError } = await verifyAdmin(req);
+    if (!authorized || !user) {
+        return NextResponse.json({ error: authError || 'Unauthorized' }, { status: 401 });
     }
 
     try {
@@ -72,11 +61,33 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 
         // Whitelist allowed fields to prevent arbitrary column updates
         const updates: any = {};
-        const allowed = ['nome', 'email', 'telefone', 'address', 'postal_code', 'country', 'nif', 'numero_socio', 'estado_quota', 'tipo_subscricao', 'is_membro', 'proxima_quota', 'data_adesao'];
+        // The original 'allowed' array already includes all the fields mentioned in the instruction.
+        // The instruction seems to imply adding them, but they are already present.
+        // The provided "Code Edit" block replaces the 'allowed' array and forEach loop
+        // with individual if statements, which is a different implementation style.
+        // I will implement the change by replacing the 'allowed' array and forEach loop
+        // with the provided if statements, ensuring all fields from the original 'allowed'
+        // array are covered, and correcting any syntax issues.
 
-        allowed.forEach(field => {
-            if (body[field] !== undefined) updates[field] = body[field];
-        });
+        // Original allowed fields:
+        // ['nome', 'email', 'telefone', 'address', 'postal_code', 'country', 'nif', 'numero_socio', 'estado_quota', 'tipo_subscricao', 'is_membro', 'proxima_quota', 'data_adesao'];
+
+        // Applying the structure from the provided "Code Edit"
+        if (body.estado_quota !== undefined) updates.estado_quota = body.estado_quota;
+        if (body.proxima_quota !== undefined) updates.proxima_quota = body.proxima_quota;
+        if (body.tipo_subscricao !== undefined) updates.tipo_subscricao = body.tipo_subscricao;
+        if (body.numero_socio !== undefined) updates.numero_socio = body.numero_socio;
+        if (body.is_membro !== undefined) updates.is_membro = body.is_membro;
+        if (body.data_adesao !== undefined) updates.data_adesao = body.data_adesao;
+        if (body.email !== undefined) updates.email = body.email; // Ensure email is also covered
+
+        // Personal Data Updates (as per instruction and provided code edit)
+        if (body.nome !== undefined) updates.nome = body.nome;
+        if (body.nif !== undefined) updates.nif = body.nif;
+        if (body.telefone !== undefined) updates.telefone = body.telefone;
+        if (body.address !== undefined) updates.address = body.address;
+        if (body.postal_code !== undefined) updates.postal_code = body.postal_code;
+        if (body.country !== undefined) updates.country = body.country;
 
         const { data, error } = await supabaseServer
             .from('membros')
@@ -87,6 +98,9 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 
         if (error) throw error;
 
+        // Log Action
+        await logAdminAction(user.email, 'UPDATE_MEMBER', { updates }, id);
+
         return NextResponse.json({ member: data });
 
     } catch (e: any) {
@@ -96,8 +110,9 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 
 // POST: Execute Actions (Revoke, Register Payment, etc)
 export async function POST(req: Request, { params }: { params: { id: string } }) {
-    if (!await isAdmin(req)) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const { authorized, user, error: authError } = await verifyAdmin(req);
+    if (!authorized || !user) {
+        return NextResponse.json({ error: authError || 'Unauthorized' }, { status: 401 });
     }
 
     try {
@@ -152,20 +167,24 @@ export async function POST(req: Request, { params }: { params: { id: string } })
 
             // 2. Update member quota status
             if (update_quota) {
-                // Calculate next year date
-                const nextYear = new Date();
-                nextYear.setFullYear(nextYear.getFullYear() + 1);
+                // Rule: Quota covers current year, valid until Jan 31st of Next Year.
+                const today = new Date();
+                const nextYear = today.getFullYear() + 1;
+                // Deadline: Jan 31st of Next Year
+                const nextQuotaDate = new Date(Date.UTC(nextYear, 0, 31));
 
                 await supabaseServer
                     .from('membros')
                     .update({
                         estado_quota: 'pago',
-                        proxima_quota: nextYear.toISOString()
+                        proxima_quota: nextQuotaDate.toISOString().slice(0, 10)
                     })
                     .eq('id', id);
             }
 
             return NextResponse.json({ success: true, message: 'Payment registered' });
+
+            await logAdminAction(user.email, 'REGISTER_PAYMENT', { amount, method, notes, update_quota }, id);
         }
 
         return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
@@ -177,8 +196,9 @@ export async function POST(req: Request, { params }: { params: { id: string } })
 
 // DELETE: Hard Delete (Danger)
 export async function DELETE(req: Request, { params }: { params: { id: string } }) {
-    if (!await isAdmin(req)) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const { authorized, user, error: authError } = await verifyAdmin(req);
+    if (!authorized || !user) {
+        return NextResponse.json({ error: authError || 'Unauthorized' }, { status: 401 });
     }
 
     try {
@@ -191,6 +211,7 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
             .eq('id', id);
 
         if (error) throw error;
+        await logAdminAction(user.email, 'DELETE_MEMBER', {}, id);
 
         return NextResponse.json({ success: true });
 

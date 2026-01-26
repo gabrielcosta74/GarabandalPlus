@@ -1,19 +1,12 @@
 import { NextResponse } from 'next/server';
 import { supabaseServer } from '../../../../../lib/supabase';
 
-// Helper to validate Admin Session (Consistency with other admin routes)
-const isAdmin = async (req: Request) => {
-    if (!supabaseServer) return false;
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) return false;
-    const token = authHeader.replace('Bearer ', '');
-    const { data: { user }, error } = await supabaseServer.auth.getUser(token);
-    return !error && !!user;
-};
+import { verifyAdmin } from '../../../../../lib/admin-auth';
 
 export async function GET(req: Request) {
-    if (!await isAdmin(req)) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const { authorized, error } = await verifyAdmin(req);
+    if (!authorized) {
+        return NextResponse.json({ error: error || 'Unauthorized' }, { status: 401 });
     }
 
     if (!supabaseServer) {

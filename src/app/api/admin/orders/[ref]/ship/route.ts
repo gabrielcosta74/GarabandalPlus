@@ -3,10 +3,17 @@ import { supabaseServer } from '../../../../../../lib/supabase';
 import { sendStoreShippingEmail } from '../../../../../../lib/email';
 import { ensureNotificationRecord, markNotificationSent } from '../../../../../../lib/email-notifications';
 
+import { verifyAdmin } from '../../../../../../lib/admin-auth';
+import { logAdminAction } from '../../../../../../lib/admin-logger';
+
 export async function PATCH(
     request: NextRequest,
     { params }: { params: Promise<{ ref: string }> }
 ) {
+    const { authorized, user, error: authError } = await verifyAdmin(request);
+    if (!authorized || !user) {
+        return NextResponse.json({ message: authError || 'Unauthorized' }, { status: 401 });
+    }
     try {
         const supabase = supabaseServer;
         if (!supabase) {

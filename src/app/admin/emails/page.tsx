@@ -21,8 +21,6 @@ import {
     renderAbandonmentRecoveryEmail,
     renderBookingConfirmationEmail,
     renderWelcomeEmail,
-    renderFactPtClientEmail,
-    renderFactPtAdminEmail,
 } from '../../../lib/email-renderer';
 import { Mail, Smartphone, Monitor, ChevronRight, Info, CheckCircle } from 'lucide-react';
 
@@ -97,14 +95,6 @@ const MOCK_DONATION_NOTIFICATION = {
     description: 'Doacao manual',
     paidAt: new Date().toISOString(),
     status: 'paid',
-};
-
-const MOCK_FACTPT = {
-    recipientName: 'Joao Santos',
-    documentId: 'FT 2025/0001',
-    documentUrl: 'https://fact.pt/documents/FT2025-0001',
-    sourceType: 'store' as const,
-    sourceRef: 'ORD-2025-001',
 };
 
 const MOCK_QUOTA_LINK = 'https://apostoladodegarabandal.com/tornar-membro';
@@ -369,26 +359,6 @@ const EMAIL_TEMPLATES = {
                 paymentMethod: 'bank_transfer',
                 magicLink: 'https://apostoladodegarabandal.com/auth/verify?token=mock',
             }),
-    },
-    'factpt-client': {
-        label: '🧾 Fact.pt Document (Client)',
-        title: 'Fact.pt Document (Client)',
-        category: 'Billing & Invoicing',
-        recipient: 'Client',
-        when: 'Sent when a certified invoice is issued.',
-        why: 'Deliver the fact.pt document to the client.',
-        technical: 'fact.pt issuer -> sendFactPtClientDocumentEmail',
-        render: () => renderFactPtClientEmail(MOCK_FACTPT),
-    },
-    'factpt-admin': {
-        label: '📨 Fact.pt Document (Admin)',
-        title: 'Fact.pt Document (Admin)',
-        category: 'Billing & Invoicing',
-        recipient: 'Admin',
-        when: 'Sent when a certified invoice is issued.',
-        why: 'Notify admin/accounting with a copy of the invoice.',
-        technical: 'fact.pt issuer -> sendFactPtAdminDocumentEmail',
-        render: () => renderFactPtAdminEmail(MOCK_FACTPT),
     },
 } satisfies Record<string, EmailTemplate>;
 

@@ -5,8 +5,10 @@ import { motion, useScroll, useTransform } from 'framer-motion';
 import { HERO_IMAGE_URL, HERO_CONTENT, OFFICIAL_SITE_URL } from './constants';
 import { ChevronDown, ArrowRight, Globe } from 'lucide-react';
 import Link from 'next/link';
+import { useAuth } from '../../contexts/AuthContext';
 
 const Hero: React.FC = () => {
+    const { isAuthenticated, isMember, loading } = useAuth();
     const ref = useRef<HTMLDivElement>(null);
     const { scrollYProgress } = useScroll({
         target: ref,
@@ -73,13 +75,26 @@ const Hero: React.FC = () => {
                         transition={{ duration: 1, delay: 1.2, ease: "easeOut" }}
                         className="flex flex-col md:flex-row gap-6 justify-center items-center"
                     >
-                        <button
-                            onClick={() => document.getElementById('sustain')?.scrollIntoView({ behavior: 'smooth' })}
-                            className="group bg-white text-black px-10 py-4 rounded-md text-xs font-bold uppercase tracking-[0.2em] hover:bg-white/90 transition-all duration-500 min-w-[240px] flex items-center justify-center gap-3 backdrop-blur-sm shadow-[0_0_20px_rgba(255,255,255,0.1)] hover:shadow-[0_0_30px_rgba(255,255,255,0.2)]"
-                        >
-                            {HERO_CONTENT.cta}
-                            <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform duration-300" />
-                        </button>
+                        {(!loading && isAuthenticated && isMember) ? (
+                            <Link
+                                href="/member"
+                                style={{ color: '#000000' }}
+                                className="relative z-50 bg-white text-black px-10 py-4 rounded-md text-sm font-black uppercase tracking-widest hover:bg-white/90 transition-all duration-500 min-w-[240px] flex items-center justify-center gap-3 shadow-[0_0_20px_rgba(255,255,255,0.1)] hover:shadow-[0_0_30px_rgba(255,255,255,0.2)]"
+                            >
+                                Ir para área de membro
+                                <ArrowRight size={14} className="stroke-[3px] transition-transform duration-300 group-hover:translate-x-1" />
+                            </Link>
+
+                        ) : (
+                            <Link
+                                href="/tornar-membro"
+                                style={{ color: '#000000' }}
+                                className="relative z-50 bg-white text-black px-10 py-4 rounded-md text-sm font-black uppercase tracking-widest hover:bg-white/90 transition-all duration-500 min-w-[240px] flex items-center justify-center gap-3 shadow-[0_0_20px_rgba(255,255,255,0.1)] hover:shadow-[0_0_30px_rgba(255,255,255,0.2)]"
+                            >
+                                {HERO_CONTENT.cta}
+                                <ArrowRight size={14} className="stroke-[3px] transition-transform duration-300 group-hover:translate-x-1" />
+                            </Link>
+                        )}
 
                         <Link
                             href="/donations"

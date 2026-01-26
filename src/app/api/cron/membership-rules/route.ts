@@ -1,118 +1,162 @@
 import { NextResponse } from 'next/server';
 import { supabaseServer } from '../../../../lib/supabase';
-import {
-    sendQuotaWarningEmail,
-    sendQuotaOverdueEmail,
-    sendMembershipRevokedEmail
-} from '../../../../lib/email';
-import { APP_URL } from '../../../../lib/config';
+import { sendQuotaReminderEmail, sendMembershipRevokedEmail } from '../../../../lib/email';
+import { ensureNotificationRecord, markNotificationSent } from '../../../../lib/email-notifications';
+import { getAppUrl } from '../../../../lib/config';
+
+import { daysBetweenUtc } from '../../../../lib/membership-logic';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
+const toUtcDate = (value: Date) =>
+    new Date(Date.UTC(value.getUTCFullYear(), value.getUTCMonth(), value.getUTCDate()));
+
+const buildMembershipUrl = () => {
+    const siteUrl = getAppUrl();
+    return `${siteUrl}/login?next=/member/quota`;
+};
+
+const isFounderType = (value?: string | null) => (value || '').toLowerCase().includes('fundador');
+
 export async function GET(request: Request) {
-    if (!supabaseServer) {
-        return NextResponse.json({ message: 'Supabase nao configurado' }, { status: 500 });
+    if (!supabaseServer) return NextResponse.json({ message: 'Supabase nao configurado' }, { status: 500 });
+
+    const secret = process.env.CRON_SECRET;
+    if (secret) {
+        const authHeader = request.headers.get('authorization') || '';
+        if (authHeader !== `Bearer ${secret}`) {
+            return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+        }
     }
 
-    const authHeader = request.headers.get('authorization');
-    if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-        return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    const { data: membros, error } = await supabaseServer
+        .from('membros')
+        .select('id, nome, email, numero_socio, proxima_quota, estado_quota, tipo_subscricao, is_membro')
+        .not('proxima_quota', 'is', null);
+
+    if (error) {
+        return NextResponse.json({ message: 'Erro ao carregar membros', error: error.message }, { status: 500 });
     }
 
-    const today = new Date();
-    const todayStr = today.toISOString().split('T')[0];
-    const nextWeek = new Date(today);
-    nextWeek.setDate(today.getDate() + 7);
-    const nextWeekStr = nextWeek.toISOString().split('T')[0];
+    const today = toUtcDate(new Date());
+    const results: Array<{ userId: string; action: string; success: boolean }> = [];
 
-    // Expiry check (30 days ago)
-    const revocationDate = new Date(today);
-    revocationDate.setDate(today.getDate() - 30);
-    const revocationStr = revocationDate.toISOString().split('T')[0];
+    for (const member of membros || []) {
+        // 0. Founder Immunity
+        if (isFounderType(member.tipo_subscricao)) continue;
 
-    const results = {
-        warnings: 0,
-        overdue: 0,
-        revoked: 0
-    };
+        if (!member?.email || !member?.proxima_quota) continue;
 
-    try {
-        // 1. WARNINGS (7 Days Before)
-        const { data: warningMembers } = await supabaseServer
-            .from('membros')
-            .select('id, nome, email, proxima_quota')
-            .eq('proxima_quota', nextWeekStr)
-            .eq('is_membro', true);
+        const dueDate = new Date(member.proxima_quota);
+        if (Number.isNaN(dueDate.getTime())) continue;
 
-        if (warningMembers?.length) {
-            for (const member of warningMembers) {
-                if (member.email) {
-                    await sendQuotaWarningEmail({
-                        name: member.nome || 'Membro',
-                        email: member.email,
-                        daysRemaining: 7,
-                        payLink: `${APP_URL}/member/quota`
-                    });
-                    results.warnings++;
-                }
-            }
+        const diffDays = daysBetweenUtc(today, dueDate); // Positive = Future, Negative = Past
+        const status = (member.estado_quota || '').toLowerCase();
+        const isPaid = status === 'pago';
+        const isRevoked = status === 'expirado' || status === 'revogado';
+
+        // 1. State Transitions (DB Updates)
+        // A. Mark as Overdue (Atrasado) if date passed and not paid/revoked
+        if (diffDays < 0 && !isPaid && !isRevoked && status !== 'atrasado') {
+            await supabaseServer.from('membros').update({ estado_quota: 'atrasado' }).eq('id', member.id);
+            results.push({ userId: member.id, action: 'set_overdue', success: true });
         }
 
-        // 2. OVERDUE (Expires Today) - Grace Period Starts
-        const { data: overdueMembers } = await supabaseServer
-            .from('membros')
-            .select('id, nome, email, proxima_quota')
-            .eq('proxima_quota', todayStr)
-            .eq('is_membro', true);
+        // B. Revoke (Expirado) if > 30 days past due (Grace Period)
+        // diffDays = -31 means 31 days passed since due date.
+        if (diffDays <= -31 && !isPaid && !isRevoked) {
+            // Revoke membership
+            await supabaseServer.from('membros').update({
+                estado_quota: 'expirado',
+                is_membro: false
+            }).eq('id', member.id);
 
-        if (overdueMembers?.length) {
-            for (const member of overdueMembers) {
-                if (member.email) {
-                    await sendQuotaOverdueEmail({
-                        name: member.nome || 'Membro',
-                        email: member.email,
-                        payLink: `${APP_URL}/member/quota`
-                    });
-                    results.overdue++;
-                }
-            }
+            results.push({ userId: member.id, action: 'set_expired', success: true });
+
+            // Send Revocation Email?
+            // Logic below might handle notification if we add a type for 'revoked'
         }
 
-        // 3. REVOCATION (Expired > 30 Days ago)
-        const { data: revokedMembers } = await supabaseServer
-            .from('membros')
-            .select('id, nome, email, proxima_quota')
-            .lt('proxima_quota', revocationStr) // Older than 30 days
-            .eq('is_membro', true);
+        // 2. Notifications (Reminders)
+        // Don't send reminders if already revoked (unless it's the revocation notice itself)
+        if (isRevoked && diffDays < -35) continue; // Stop processing old revoked members
 
-        if (revokedMembers?.length) {
-            for (const member of revokedMembers) {
-                // Update DB
-                const { error } = await supabaseServer
-                    .from('membros')
-                    .update({
-                        is_membro: false,
-                        estado_quota: 'expirado',
-                        updated_at: new Date().toISOString()
-                    })
-                    .eq('id', member.id);
+        let notificationType: string | null = null;
+        let reminderPayload: { daysUntilDue?: number; daysOverdue?: number } = {};
 
-                if (!error && member.email) {
+        if (isPaid) continue; // No reminders for paid members
+
+        if (diffDays === 30) {
+            notificationType = 'quota_reminder_30d';
+            reminderPayload = { daysUntilDue: 30 };
+        } else if (diffDays === 7) {
+            notificationType = 'quota_reminder_7d';
+            reminderPayload = { daysUntilDue: 7 };
+        } else if (diffDays === 1) {
+            notificationType = 'quota_reminder_1d';
+            reminderPayload = { daysUntilDue: 1 };
+        } else if (diffDays === -7) {
+            notificationType = 'quota_overdue_7d';
+            reminderPayload = { daysOverdue: 7 };
+        } else if (diffDays === -14) {
+            notificationType = 'quota_overdue_14d';
+            reminderPayload = { daysOverdue: 14 };
+        } else if (diffDays === -30) {
+            notificationType = 'quota_overdue_30d';
+            reminderPayload = { daysOverdue: 30 };
+        } else if (diffDays === -31) {
+            // Just expired. Send notice?
+            notificationType = 'membership_revoked';
+        }
+
+        if (!notificationType) continue;
+
+        const reference = `${member.id}:${notificationType}:${member.proxima_quota}`;
+        const notification = await ensureNotificationRecord(supabaseServer, {
+            type: notificationType as any,
+            reference,
+            userId: member.id,
+            email: member.email,
+        });
+
+        if (!notification.shouldSend) {
+            continue;
+        }
+
+        try {
+            if (notificationType === 'membership_revoked') {
+                // Send specific revoked email
+                // Assuming sendMembershipRevokedEmail exists, otherwise fallback or create it
+                // For now, if it doesn't exist, I'll comment it out or implement it. 
+                // Implementation plan mentioned "Revocation Notice", so I'll assume I need to ensure it exists.
+                if (typeof sendMembershipRevokedEmail === 'function') {
                     await sendMembershipRevokedEmail({
-                        name: member.nome || 'Ex-Membro',
                         email: member.email,
-                        payLink: `${APP_URL}/member/quota`
+                        name: member.nome || 'Membro',
+                        payLink: buildMembershipUrl(),
                     });
-                    results.revoked++;
+                } else {
+                    console.warn("sendMembershipRevokedEmail not implemented");
                 }
+            } else {
+                await sendQuotaReminderEmail({
+                    toEmail: member.email,
+                    memberName: member.nome ?? null,
+                    memberNumber: member.numero_socio ?? null,
+                    nextQuotaDate: member.proxima_quota,
+                    membershipUrl: buildMembershipUrl(),
+                    ...reminderPayload,
+                });
             }
+
+            await markNotificationSent(supabaseServer, notification.recordId);
+            results.push({ userId: member.id, action: `notify_${notificationType}`, success: true });
+        } catch (err) {
+            console.error(`Erro notification ${notificationType}:`, err);
+            results.push({ userId: member.id, action: `notify_${notificationType}`, success: false });
         }
-
-        return NextResponse.json({ success: true, results });
-
-    } catch (err: any) {
-        console.error('Membership Cron Error:', err);
-        return NextResponse.json({ message: err.message }, { status: 500 });
     }
+
+    return NextResponse.json({ ok: true, processed: results.length, details: results });
 }

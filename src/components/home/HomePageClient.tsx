@@ -6,13 +6,15 @@ import Hero from './Hero';
 import Pillars from './Pillars';
 import Campaign from './Campaign';
 import Sustain from './Sustain';
+import NextPilgrimage from './NextPilgrimage';
 import { DonationMeta } from '../../lib/donations';
 
 interface HomePageClientProps {
     meta: DonationMeta;
+    nextPilgrimage?: any; // We can be loose here or import the type if we export it
 }
 
-const HomePageClient: React.FC<HomePageClientProps> = ({ meta }) => {
+const HomePageClient: React.FC<HomePageClientProps> = ({ meta, nextPilgrimage }) => {
     const [loading, setLoading] = useState(true);
 
     return (
@@ -42,6 +44,7 @@ const HomePageClient: React.FC<HomePageClientProps> = ({ meta }) => {
                         <Hero />
                         <Pillars />
                         <Campaign meta={meta} />
+                        {nextPilgrimage && <NextPilgrimage nextPilgrimage={nextPilgrimage} />}
                         <Sustain />
                     </div>
                 </div>

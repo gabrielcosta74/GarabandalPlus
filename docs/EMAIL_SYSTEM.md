@@ -29,13 +29,11 @@ This document outlines all the automated emails sent by the application, their t
 | **Waitlist Confirmation** | Lead Capture Form Submission | User | `sendGeneralLeadEmail` | Confirms entry into waiting list when no pilgrimage date is selected. |
 | **Abandonment Recovery** | Cron Job (Every ~15m) | User | `sendAbandonmentRecoveryEmail` | Sent if registration is started but not completed (Status 'draft') after **30 minutes**. |
 
-## Donations & Fiscal
+## Donations
 
 | Email Name | Trigger | Recipient | Function | Description |
 | :--- | :--- | :--- | :--- | :--- |
 | **Donation Receipt** | Donation Success (Stripe Webhook) | Donor | `sendDonationReceiptEmail` | Thank you message sent immediately after donation payment. |
-| **Invoice (Client)** | Invoice Generated | User | `renderFactPtClientEmail` | Sends the certified invoice PDF (Fact.pt integration). |
-| **Invoice (Admin)** | Invoice Generated | Admin | `renderFactPtAdminEmail` | Copy of the generated invoice for accounting. |
 
 ## Technical Details
 

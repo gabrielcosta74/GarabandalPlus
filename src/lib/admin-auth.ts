@@ -1,28 +1,43 @@
 import { supabaseServer } from './supabase';
 
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'geral@apostoladodegarabandal.com';
+/**
+ * Verifies if the request is authenticated by a valid Admin.
+ * Checks for:
+ * 1. Valid Supabase Session (Bearer Token)
+ * 2. User Email matches ADMIN_EMAIL or ADMIN_EMAILS env vars.
+ */
+export async function verifyAdmin(req: Request): Promise<{ authorized: boolean; user?: any; error?: string }> {
+  try {
+    if (!supabaseServer) return { authorized: false, error: 'Server Config Error' };
 
-export const requireAdmin = async (request: Request) => {
-  if (!supabaseServer) {
-    return { ok: false, status: 500, message: 'Supabase não configurado.' } as const;
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) return { authorized: false, error: 'Missing Authorization Header' };
+
+    const token = authHeader.replace('Bearer ', '').trim();
+    if (!token) return { authorized: false, error: 'Empty Token' };
+
+    const { data: { user }, error } = await supabaseServer.auth.getUser(token);
+
+    if (error || !user || !user.email) {
+      return { authorized: false, error: 'Invalid Session' };
+    }
+
+    // Check against allowed emails
+    const allowedEmails = [
+      process.env.ADMIN_EMAIL,
+      ...(process.env.ADMIN_EMAILS || '').split(',')
+    ]
+      .filter(Boolean)
+      .map(e => e?.trim().toLowerCase());
+
+    if (allowedEmails.includes(user.email.toLowerCase())) {
+      return { authorized: true, user };
+    }
+
+    return { authorized: false, error: 'Forbidden: Not an Admin' };
+
+  } catch (e) {
+    console.error('Admin verification exception:', e);
+    return { authorized: false, error: 'Internal Error' };
   }
-
-  const authHeader = request.headers.get('authorization') || request.headers.get('Authorization') || '';
-  if (!authHeader.startsWith('Bearer ')) {
-    return { ok: false, status: 401, message: 'Token ausente.' } as const;
-  }
-
-  const token = authHeader.replace(/^Bearer\s+/i, '').trim();
-  const { data, error } = await supabaseServer.auth.getUser(token);
-
-  if (error || !data?.user) {
-    return { ok: false, status: 401, message: 'Token inválido.' } as const;
-  }
-
-  const email = data.user.email || '';
-  if (email.toLowerCase() !== ADMIN_EMAIL.toLowerCase()) {
-    return { ok: false, status: 403, message: 'Acesso não autorizado.' } as const;
-  }
-
-  return { ok: true, user: data.user } as const;
-};
+}

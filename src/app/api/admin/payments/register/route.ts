@@ -1,13 +1,14 @@
 import { NextResponse } from 'next/server';
 import { supabaseServer } from '../../../../../lib/supabase';
-import { requireAdmin } from '../../../../../lib/admin-auth';
+import { verifyAdmin } from '../../../../../lib/admin-auth';
+import { logAdminAction } from '../../../../../lib/admin-logger';
 
 export async function POST(req: Request) {
     try {
         // 1. Verify admin status
-        const { ok, user, status, message } = await requireAdmin(req);
-        if (!ok) {
-            return NextResponse.json({ error: message }, { status });
+        const { authorized, user, error: authError } = await verifyAdmin(req);
+        if (!authorized || !user) {
+            return NextResponse.json({ error: authError || 'Unauthorized' }, { status: 401 });
         }
 
         const body = await req.json();
@@ -67,6 +68,9 @@ export async function POST(req: Request) {
         }
 
         return NextResponse.json({ success: true, newTotal: currentPaid + registerAmount });
+
+        // Log asynchronously
+        await logAdminAction(user.email, 'REGISTER_PAYMENT', { bookingId, amount, method, notes }, userId);
     } catch (error: any) {
         console.error('Critical internal error in admin/payments/register:', error);
         return NextResponse.json({ error: 'Erro interno no servidor.' }, { status: 500 });

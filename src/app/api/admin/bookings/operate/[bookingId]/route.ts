@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import { supabaseServer } from '../../../../../../lib/supabase';
+import { verifyAdmin } from '../../../../../../lib/admin-auth';
+import { logAdminAction } from '../../../../../../lib/admin-logger';
 
 /**
  * DELETE /api/admin/bookings/[bookingId]
@@ -19,19 +21,10 @@ export async function DELETE(
 
     try {
         // 1. Verify Admin Session
-        // SECURITY NOTE: We are bypassing session check here because the static supabaseServer client
-        // does not have access to request headers/cookies. 
-        // We assume access control is handled by Next.js Middleware for /api/admin/* routes.
-        /*
-        const { data: { session }, error: sessionError } = await supabaseServer.auth.getSession();
-        if (sessionError || !session) {
-            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        const { authorized, user, error: authError } = await verifyAdmin(req);
+        if (!authorized || !user) {
+            return NextResponse.json({ error: authError || 'Unauthorized' }, { status: 401 });
         }
-        */
-
-        // Ideally, check if user has 'admin' role here. 
-        // For now, we assume access to this route implies permission, or rely on RLS if configured to service_role mostly.
-        // Assuming strict RLS or middleware handles general access, but let's be safe.
 
         // 2. Perform Delete
         // RELIES ON CASCADE DELETE in Postgres for pilgrims and payments
@@ -46,6 +39,8 @@ export async function DELETE(
         }
 
         return NextResponse.json({ success: true });
+
+        await logAdminAction(user.email, 'DELETE_BOOKING', {}, bookingId);
 
     } catch (err: any) {
         console.error('Delete booking error:', err);

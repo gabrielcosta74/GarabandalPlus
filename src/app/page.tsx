@@ -1,6 +1,7 @@
 import { loadMeta } from '../lib/donations';
 import HomePageClient from '../components/home/HomePageClient';
 import { Metadata } from 'next';
+import { getPilgrimagesAction } from './peregrinacoes/actions';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,6 +12,10 @@ export const metadata: Metadata = {
 
 export default async function Page() {
   const meta = await loadMeta();
+  const { data: pilgrimages } = await getPilgrimagesAction();
 
-  return <HomePageClient meta={meta} />;
+  // Find the next upcoming pilgrimage (already sorted by date in action)
+  const nextPilgrimage = pilgrimages && pilgrimages.length > 0 ? pilgrimages[0] : null;
+
+  return <HomePageClient meta={meta} nextPilgrimage={nextPilgrimage} />;
 }
