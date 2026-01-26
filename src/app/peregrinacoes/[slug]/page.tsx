@@ -291,45 +291,79 @@ export default function PilgrimageDetailPage() {
                                 <p className="text-slate-600 text-lg leading-relaxed whitespace-pre-line">{pilgrimage.description}</p>
                             </div>
 
-                            {/* Inclusions (New Section) */}
-                            {(pilgrimage.included_items?.length || pilgrimage.not_included_items?.length) && (
+                            {/* Inclusions (New Section with Global Fallback) */}
+                            {((pilgrimage.included_items?.length || 0) > 0 || (globalLogistics?.included_items?.length || 0) > 0 || (pilgrimage.not_included_items?.length || 0) > 0) && (
                                 <div className="space-y-6">
                                     <h2 className="text-2xl font-serif font-bold text-slate-900 flex items-center gap-2">
                                         <CheckCircle2 className="w-6 h-6 text-yellow-600" /> O que está incluído
                                     </h2>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 bg-white p-8 rounded-3xl shadow-xl border border-slate-100">
-                                        {/* Included */}
-                                        <div className="space-y-4">
-                                            <h3 className="font-bold text-emerald-700 bg-emerald-50 px-3 py-1 rounded-lg w-fit text-sm uppercase tracking-wider">Incluído</h3>
-                                            <ul className="space-y-3">
-                                                {pilgrimage.included_items && pilgrimage.included_items.length > 0 ? (
-                                                    pilgrimage.included_items.map((item, i) => (
-                                                        <li key={i} className="flex items-start gap-3 text-slate-700 leading-snug">
-                                                            <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" />
-                                                            <span>{item}</span>
-                                                        </li>
-                                                    ))
-                                                ) : (
-                                                    <li className="text-slate-400 italic">Informação não disponível</li>
-                                                )}
-                                            </ul>
+
+                                    {/* Marketing Highlight Box */}
+                                    <div className="relative bg-white rounded-3xl shadow-xl border-2 border-yellow-400 overflow-hidden">
+                                        {/* Badge */}
+                                        <div className="absolute top-0 right-0 bg-yellow-400 text-slate-900 text-xs font-bold px-4 py-1.5 rounded-bl-xl uppercase tracking-wider z-10 shadow-sm">
+                                            Pacote Completo
                                         </div>
 
-                                        {/* Not Included */}
-                                        <div className="space-y-4">
-                                            <h3 className="font-bold text-red-700 bg-red-50 px-3 py-1 rounded-lg w-fit text-sm uppercase tracking-wider">Não Incluído</h3>
-                                            <ul className="space-y-3">
-                                                {pilgrimage.not_included_items && pilgrimage.not_included_items.length > 0 ? (
-                                                    pilgrimage.not_included_items.map((item, i) => (
-                                                        <li key={i} className="flex items-start gap-3 text-slate-600 leading-snug">
-                                                            <X className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
-                                                            <span>{item}</span>
-                                                        </li>
-                                                    ))
-                                                ) : (
-                                                    <li className="text-slate-400 italic">Nada a assinalar</li>
-                                                )}
-                                            </ul>
+                                        <div className="p-8 md:p-10">
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                                                {/* Included */}
+                                                <div className="space-y-6">
+                                                    <div>
+                                                        <h3 className="font-bold text-xl text-slate-900 mb-1 flex items-center gap-2">
+                                                            <Star className="w-5 h-5 text-yellow-500 fill-yellow-500" /> Tudo Incluído
+                                                        </h3>
+                                                        <p className="text-sm text-slate-500">Para que se preocupe apenas em rezar.</p>
+                                                    </div>
+
+                                                    <ul className="space-y-4">
+                                                        {((pilgrimage.included_items?.length || 0) > 0 ? pilgrimage.included_items : globalLogistics?.included_items || []).map((item, i) => (
+                                                            <li key={i} className="flex items-start gap-4 group">
+                                                                <div className="w-6 h-6 rounded-full bg-green-100 flex items-center justify-center text-green-600 shrink-0 mt-0.5 group-hover:bg-green-600 group-hover:text-white transition-colors">
+                                                                    <CheckCircle2 className="w-4 h-4" />
+                                                                </div>
+                                                                <span className="text-slate-700 font-medium leading-tight group-hover:text-slate-900 transition-colors">{item}</span>
+                                                            </li>
+                                                        ))}
+                                                        {/* If both empty (unlikely due to check), show empty msg */}
+                                                        {((pilgrimage.included_items?.length || 0) === 0 && (globalLogistics?.included_items?.length || 0) === 0) && (
+                                                            <li className="text-slate-400 italic">Detalhes brevemente.</li>
+                                                        )}
+                                                    </ul>
+                                                </div>
+
+                                                {/* Not Included */}
+                                                <div className="space-y-6 relative">
+                                                    {/* Vertical Separator for Desktop */}
+                                                    <div className="hidden md:block absolute left-0 top-0 bottom-0 w-px bg-slate-100 -ml-5" />
+
+                                                    <div>
+                                                        <h3 className="font-bold text-lg text-slate-700 mb-1 flex items-center gap-2 opacity-80">
+                                                            Não Incluído
+                                                        </h3>
+                                                        <p className="text-xs text-slate-400 uppercase tracking-widest font-bold">Transparência Total</p>
+                                                    </div>
+
+                                                    <ul className="space-y-3">
+                                                        {pilgrimage.not_included_items && pilgrimage.not_included_items.length > 0 ? (
+                                                            pilgrimage.not_included_items.map((item, i) => (
+                                                                <li key={i} className="flex items-start gap-3 text-slate-500 text-sm leading-snug">
+                                                                    <X className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
+                                                                    <span>{item}</span>
+                                                                </li>
+                                                            ))
+                                                        ) : (
+                                                            <li className="text-slate-400 italic text-sm">Nada a assinalar. Tudo essencial está incluído.</li>
+                                                        )}
+                                                    </ul>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Bottom Value Props */}
+                                        <div className="bg-slate-50 border-t border-slate-100 p-4 md:px-10 flex flex-wrap gap-4 md:gap-8 justify-center md:justify-start text-xs font-bold text-slate-500 uppercase tracking-wider">
+                                            <span className="flex items-center gap-2"><ShieldCheck className="w-4 h-4 text-emerald-500" /> Sem custos ocultos</span>
+                                            <span className="flex items-center gap-2"><Users className="w-4 h-4 text-blue-500" /> Acompanhamento 24h</span>
                                         </div>
                                     </div>
                                 </div>

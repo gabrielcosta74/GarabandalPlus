@@ -1,5 +1,6 @@
 import { Resend } from 'resend';
 import { APP_URL, ASSETS_URL } from './config';
+import type { FactPtSourceType } from './factpt';
 
 // Helper types
 export type MembershipNotificationInput = {
@@ -831,5 +832,61 @@ export const renderMembershipRevokedEmail = (payload: { name: string; email: str
       `,
             footer: 'Esperamos tê-lo de volta em breve.'
         })
+    };
+};
+
+type FactPtEmailInput = {
+    recipientName?: string | null;
+    documentId: string;
+    documentUrl?: string | null;
+    sourceType: FactPtSourceType;
+    sourceRef: string;
+};
+
+const formatFactPtSource = (sourceType: FactPtSourceType) => {
+    switch (sourceType) {
+        case 'store':
+            return 'Loja';
+        case 'donation':
+            return 'Doacao';
+        case 'membership':
+            return 'Quota';
+        default:
+            return sourceType;
+    }
+};
+
+const buildFactPtEmailHtml = (payload: FactPtEmailInput) => {
+    const recipient = payload.recipientName || 'Cliente';
+    const sourceLabel = formatFactPtSource(payload.sourceType);
+    const documentLink = payload.documentUrl
+        ? `<p style="margin: 8px 0;">Link do documento: <a href="${payload.documentUrl}" style="color:#1e63f0;font-weight:600;">${payload.documentUrl}</a></p>`
+        : '';
+
+    return `
+    <div style="font-family: Arial, sans-serif; font-size: 14px; color: #111827;">
+      <p style="margin: 0 0 8px;">Ola ${recipient},</p>
+      <p style="margin: 0 0 8px;">Segue em anexo o documento de faturacao emitido no fact.pt.</p>
+      <div style="border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px; margin: 12px 0;">
+        <p style="margin: 0 0 6px;"><strong>Documento:</strong> ${payload.documentId}</p>
+        <p style="margin: 0 0 6px;"><strong>Origem:</strong> ${sourceLabel} (${payload.sourceRef})</p>
+      </div>
+      ${documentLink}
+      <p style="margin: 16px 0 0; color: #6b7280; font-size: 12px;">Se tiver duvidas, responda a este email.</p>
+    </div>
+  `;
+};
+
+export const renderFactPtClientEmail = (payload: FactPtEmailInput) => {
+    return {
+        subject: `Documento de faturacao - ${payload.documentId}`,
+        html: buildFactPtEmailHtml(payload),
+    };
+};
+
+export const renderFactPtAdminEmail = (payload: FactPtEmailInput) => {
+    return {
+        subject: `fact.pt emitido - ${payload.documentId}`,
+        html: buildFactPtEmailHtml(payload),
     };
 };

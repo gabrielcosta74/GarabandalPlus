@@ -154,6 +154,32 @@ export default function PilgrimagesPage() {
                         </div>
                     )}
 
+                    {/* Spiritual Mission Section */}
+                    {pilgrimages.length > 0 && (
+                        <div className="mt-12 bg-indigo-900/5 border border-indigo-900/10 rounded-3xl p-8 md:p-10 relative overflow-hidden">
+                            <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
+                            <div className="relative z-10 flex flex-col md:flex-row gap-8 items-center">
+                                <div className="w-16 h-16 rounded-2xl bg-indigo-100/50 flex items-center justify-center text-indigo-700 shrink-0">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-8 h-8"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" /><path d="M12 5 9.04 11H6a5.5 5.5 0 0 0 5.5 5.5l.5.5" /></svg>
+                                </div>
+                                <div>
+                                    <h3 className="text-xl md:text-2xl font-serif font-bold text-indigo-950 mb-3">Mais do que uma Viagem, uma Missão</h3>
+                                    <div className="space-y-4 text-indigo-900/80 leading-relaxed max-w-2xl">
+                                        <p>
+                                            Cada peregrinação que organiza connosco não é apenas um caminho geografico, mas uma oferta espiritual.
+                                        </p>
+                                        <p>
+                                            <span className="font-semibold text-indigo-900">A sua inscrição é, em si mesma, uma doação</span> que sustenta a obra de evangelização do Apostolado e, de modo especial, apoia a <span className="font-bold underline decoration-indigo-300 decoration-2 underline-offset-2">construção da Casa do Apostolado</span>.
+                                        </p>
+                                        <p className="text-sm italic opacity-90">
+                                            Ao peregrinar, torna-se uma "pedra viva" nesta construção, ajudando a erguer um espaço de acolhimento e oração para as gerações futuras.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                     {/* Newsletter / Waitlist CTA */}
 
                     <div className="mt-20 bg-slate-900 rounded-3xl p-8 md:p-12 text-center relative overflow-hidden">

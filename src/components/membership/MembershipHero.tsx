@@ -103,15 +103,7 @@ export default function MembershipHero({ onJoinClick }: Props) {
                         </div>
 
                         {/* Floating Small Elements */}
-                        <div className="absolute -bottom-8 -right-8 bg-[#1e293b] p-4 rounded-2xl shadow-xl border border-white/5 flex items-center gap-4 animate-bounce-slow">
-                            <div className="w-12 h-12 bg-[#d97706]/20 rounded-full flex items-center justify-center text-[#d97706]">
-                                <Heart size={24} fill="currentColor" />
-                            </div>
-                            <div>
-                                <div className="text-white font-bold text-lg">+2,500</div>
-                                <div className="text-xs text-slate-400 uppercase tracking-wide">Peregrinos Unidos</div>
-                            </div>
-                        </div>
+
 
                     </motion.div>
                 </div>
