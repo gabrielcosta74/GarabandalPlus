@@ -15,7 +15,8 @@ import {
   ShoppingBag,
   AlertCircle,
   Download,
-  Copy
+  Copy,
+  ArrowRight
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -25,6 +26,7 @@ type OrderItem = {
   qty: number;
   unit_price: number;
   total_price: number;
+  is_physical?: boolean | null;
 };
 
 type Order = {
@@ -33,7 +35,10 @@ type Order = {
   currency: string;
   status: string;
   has_physical: boolean;
+  has_digital?: boolean;
   shipping_status?: string | null;
+  shipping_tracking?: string | null;
+  shipped_at?: string | null;
   created_at: string;
   items: OrderItem[];
 };
@@ -54,6 +59,15 @@ const getStatusInfo = (status: string) => {
   if (normalized === 'failed') return { label: 'Falhado', color: 'red', icon: AlertCircle };
   if (normalized === 'canceled' || normalized === 'cancelado') return { label: 'Cancelado', color: 'gray', icon: AlertCircle };
   return { label: status || 'Indefinido', color: 'gray', icon: AlertCircle };
+};
+
+const getShippingLabel = (status?: string | null) => {
+  const normalized = status?.toLowerCase?.() || '';
+  if (!normalized) return 'Em preparação';
+  if (normalized === 'enviado') return 'Enviado';
+  if (normalized === 'por_enviar') return 'Em preparação';
+  if (normalized === 'preparacao') return 'Em preparação';
+  return status || 'Em preparação';
 };
 
 const OrderTimeline = ({ order }: { order: Order }) => {
@@ -126,40 +140,57 @@ export default function EncomendasPage() {
   };
 
   useEffect(() => {
+    let mounted = true;
+
     const load = async () => {
       if (!supabaseBrowser) {
         setError('Sessão indisponível.');
         setLoading(false);
         return;
       }
-      const { data } = await supabaseBrowser.auth.getSession();
-      const token = data.session?.access_token;
+
+      // Retry mechanism for session
+      let token = (await supabaseBrowser.auth.getSession()).data.session?.access_token;
       if (!token) {
-        setLoggedIn(false);
-        setLoading(false);
-        router.replace('/login?next=/encomendas');
+        // Wait a bit and try again (handles hydration race)
+        await new Promise(r => setTimeout(r, 500));
+        token = (await supabaseBrowser.auth.getSession()).data.session?.access_token;
+      }
+
+      if (!token) {
+        if (mounted) {
+          setLoggedIn(false);
+          setLoading(false);
+          // Optional: Don't redirect immediately, let them see "Entra para ver"
+          // router.replace('/login?next=/encomendas'); 
+        }
         return;
       }
-      setLoggedIn(true);
-      setLoading(true);
+
+      if (mounted) setLoggedIn(true);
+
       try {
         const res = await fetch('/api/store/orders', {
           headers: { Authorization: `Bearer ${token}` },
+          cache: 'no-store'
         });
         if (!res.ok) {
           const body = await res.json().catch(() => ({}));
           throw new Error(body?.message || 'Não foi possível carregar as encomendas.');
         }
         const payload = await res.json();
-        setOrders(payload.orders || []);
-        setError(null);
+        if (mounted) {
+          setOrders(payload.orders || []);
+          setError(null);
+        }
       } catch (err: any) {
-        setError(err?.message || 'Erro ao carregar encomendas.');
+        if (mounted) setError(err?.message || 'Erro ao carregar encomendas.');
       } finally {
-        setLoading(false);
+        if (mounted) setLoading(false);
       }
     };
     load();
+    return () => { mounted = false; };
   }, [router]);
 
   return (
@@ -276,7 +307,21 @@ export default function EncomendasPage() {
                             <tbody className="divide-y divide-gray-50">
                               {order.items.map((item, idx) => (
                                 <tr key={idx}>
-                                  <td className="py-4 px-4 pl-6 font-medium text-gray-900">{item.name}</td>
+                                  <td className="py-4 px-4 pl-6 font-medium text-gray-900">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                      <span>{item.name}</span>
+                                      {item.is_physical === false && (
+                                        <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">
+                                          Digital
+                                        </span>
+                                      )}
+                                      {item.is_physical === true && (
+                                        <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">
+                                          Físico
+                                        </span>
+                                      )}
+                                    </div>
+                                  </td>
                                   <td className="py-4 px-4 text-center text-gray-500">{item.qty}</td>
                                   <td className="py-4 px-4 pr-6 text-right font-bold text-gray-900">{formatCurrency(item.total_price, order.currency)}</td>
                                 </tr>
@@ -285,10 +330,42 @@ export default function EncomendasPage() {
                           </table>
                         </div>
 
+                        {(order.has_digital || order.has_physical) && (
+                          <div className="grid md:grid-cols-2 gap-4 mb-6">
+                            {order.has_digital && (
+                              <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-4">
+                                <div className="flex items-center gap-2 text-emerald-700 font-bold text-sm mb-2">
+                                  <Download className="w-4 h-4" />
+                                  Produtos digitais disponíveis
+                                </div>
+                                <p className="text-sm text-emerald-700/80 mb-3">Pode aceder a qualquer momento na sua Biblioteca.</p>
+                                <Link href="/biblioteca" className="inline-flex items-center gap-2 text-sm font-bold text-emerald-700 hover:text-emerald-600">
+                                  Abrir Biblioteca
+                                  <ArrowRight className="w-4 h-4" />
+                                </Link>
+                              </div>
+                            )}
+                            {order.has_physical && (
+                              <div className="bg-blue-50 border border-blue-100 rounded-xl p-4">
+                                <div className="flex items-center gap-2 text-blue-700 font-bold text-sm mb-2">
+                                  <Truck className="w-4 h-4" />
+                                  {getShippingLabel(order.shipping_status)}
+                                </div>
+                                {order.shipping_tracking ? (
+                                  <p className="text-sm text-blue-700/80">Tracking: {order.shipping_tracking}</p>
+                                ) : (
+                                  <p className="text-sm text-blue-700/80">Enviamos o tracking assim que a encomenda for expedida.</p>
+                                )}
+                                {order.shipped_at ? (
+                                  <p className="text-xs text-blue-700/70 mt-2">Enviado em {formatDate(order.shipped_at)}</p>
+                                ) : null}
+                              </div>
+                            )}
+                          </div>
+                        )}
+
                         {/* Actions */}
                         <div className="flex flex-wrap items-center justify-end gap-3">
-                          {/* Simulated actions */}
-
                           <button className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-bold text-gray-600 hover:bg-gray-50 transition-colors">
                             <Copy className="w-4 h-4" />
                             Copiar Referência

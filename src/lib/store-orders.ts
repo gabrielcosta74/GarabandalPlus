@@ -3,6 +3,7 @@ import { ensureNotificationRecord, markNotificationSent } from './email-notifica
 import { createDigitalAccessToken, createOrderAccessToken } from './store-access';
 import { getShippingCost } from './shipping-rules';
 import { getAppUrl } from './config';
+import { normalizeEmail } from './normalize';
 
 type ProcessPaidStoreOrderInput = {
   supabaseServer: any;
@@ -50,7 +51,13 @@ export const processPaidStoreOrder = async ({
   buyerPhone,
   paymentProvider,
   paymentMethod,
-}: ProcessPaidStoreOrderInput): Promise<{ digitalDownloadLinks: Array<{ name: string; url: string }>; buyerEmail: string; accountExists: boolean }> => {
+}: ProcessPaidStoreOrderInput): Promise<{
+  digitalDownloadLinks: Array<{ name: string; url: string }>;
+  buyerEmail: string;
+  accountExists: boolean;
+  hasDigital: boolean;
+  hasPhysical: boolean;
+}> => {
   const { data: existingOrder, error: orderError } = await supabaseServer
     .from('store_orders')
     .select('*')
@@ -62,6 +69,7 @@ export const processPaidStoreOrder = async ({
 
   const totalAmount = typeof amountCents === 'number' ? amountCents / 100 : existingOrder.total_amount;
   const shouldSetShippingStatus = existingOrder.has_physical ? 'por_enviar' : null;
+  const normalizedBuyerEmail = normalizeEmail(existingOrder.buyer_email) || normalizeEmail(buyerEmail);
 
   await supabaseServer
     .from('store_orders')
@@ -71,7 +79,7 @@ export const processPaidStoreOrder = async ({
       payment_method: paymentMethod,
       payment_reference: paymentReference || existingOrder.payment_reference,
       buyer_name: existingOrder.buyer_name || buyerName || null,
-      buyer_email: existingOrder.buyer_email || buyerEmail || null,
+      buyer_email: normalizedBuyerEmail,
       buyer_phone: existingOrder.buyer_phone || buyerPhone || null,
       total_amount: totalAmount,
       shipping_status: shouldSetShippingStatus,
@@ -79,7 +87,24 @@ export const processPaidStoreOrder = async ({
     .eq('order_ref', orderRef);
 
   if (existingOrder.status === 'paid') {
-    return { digitalDownloadLinks: [], buyerEmail: existingOrder.buyer_email || buyerEmail || '', accountExists: !!existingOrder.buyer_user_id };
+    let hasDigitalExisting = false;
+    try {
+      const { data: digitalAccess } = await supabaseServer
+        .from('store_digital_access')
+        .select('id')
+        .eq('order_ref', orderRef)
+        .limit(1);
+      hasDigitalExisting = (digitalAccess || []).length > 0;
+    } catch (err) {
+      hasDigitalExisting = false;
+    }
+    return {
+      digitalDownloadLinks: [],
+      buyerEmail: existingOrder.buyer_email || buyerEmail || '',
+      accountExists: !!existingOrder.buyer_user_id,
+      hasDigital: hasDigitalExisting,
+      hasPhysical: !!existingOrder.has_physical,
+    };
   }
 
   const { data: items } = await supabaseServer
@@ -127,7 +152,6 @@ export const processPaidStoreOrder = async ({
   const totalText = formatCurrency(totalAmount ?? 0, existingOrder.currency || 'EUR');
   const hasDigital = digitalItems.length > 0;
   const siteUrl = getAppUrl();
-  const libraryUrl = `${siteUrl}/biblioteca`;
 
   const vatTotals = itemRows.reduce(
     (acc, item) => {
@@ -147,16 +171,12 @@ export const processPaidStoreOrder = async ({
   const shippingCostText =
     existingOrder.has_physical ? (shippingCostValue === 0 ? 'Grátis' : formatCurrency(shippingCostValue)) : null;
 
-  const buyerEmailResolved = existingOrder.buyer_email || buyerEmail || '';
+  const buyerEmailResolved = normalizedBuyerEmail || '';
   let accountExists: boolean | null = null;
   if (buyerEmailResolved) {
     try {
-      const { data: memberRow } = await supabaseServer
-        .from('membros')
-        .select('id')
-        .eq('email', buyerEmailResolved)
-        .maybeSingle();
-      accountExists = !!memberRow?.id;
+      const { data, error } = await supabaseServer.auth.admin.getUserByEmail(buyerEmailResolved);
+      accountExists = !error && !!data?.user;
     } catch (err) {
       accountExists = null;
     }
@@ -254,7 +274,6 @@ export const processPaidStoreOrder = async ({
         shippingCost: shippingCostText,
         total: totalText,
         hasDigital,
-        libraryUrl,
         claimUrl,
         downloadLinks: digitalDownloadLinks,
         buyerNif: existingOrder.buyer_nif || null,
@@ -318,5 +337,11 @@ export const processPaidStoreOrder = async ({
     }
   }
 
-  return { digitalDownloadLinks, buyerEmail: buyerEmailResolved, accountExists: !!accountExists };
+  return {
+    digitalDownloadLinks,
+    buyerEmail: buyerEmailResolved,
+    accountExists: !!accountExists,
+    hasDigital,
+    hasPhysical: !!existingOrder.has_physical,
+  };
 };

@@ -119,20 +119,41 @@ export default function AdminEncomendasPage() {
     search: '',
   });
 
+  const withTimeout = async <T,>(promise: Promise<T>, ms: number, message: string) => {
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      timeoutId = setTimeout(() => reject(new Error(message)), ms);
+    });
+    try {
+      return await Promise.race([promise, timeoutPromise]);
+    } finally {
+      if (timeoutId) clearTimeout(timeoutId);
+    }
+  };
+
   const loadOrders = async () => {
     setLoading(true);
     try {
-      if (!supabaseBrowser) throw new Error('Supabase nao configurado no browser.');
-      const { data: sessionData } = await supabaseBrowser.auth.getSession();
-      const token = sessionData.session?.access_token;
-      if (!token) throw new Error('Sessao invalida. Faz login novamente.');
+      const headers: Record<string, string> = {};
+      if (supabaseBrowser) {
+        try {
+          const { data: sessionData } = await withTimeout(
+            supabaseBrowser.auth.getSession(),
+            4000,
+            'Timeout ao verificar sessão.',
+          );
+          const token = sessionData.session?.access_token;
+          if (token) headers.Authorization = `Bearer ${token}`;
+        } catch (err) {
+          // Proceed without token; API currently allows read access.
+        }
+      }
 
-      const res = await fetch('/api/admin/orders', {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-        cache: 'no-store',
-      });
+      const res = await withTimeout(
+        fetch('/api/admin/orders', { headers, cache: 'no-store' }),
+        8000,
+        'Timeout ao carregar encomendas.',
+      );
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         throw new Error(body?.message || 'Erro ao carregar encomendas.');
@@ -161,15 +182,18 @@ export default function AdminEncomendasPage() {
       if (!supabaseBrowser) throw new Error('Supabase nao configurado no browser.');
       const { data: sessionData } = await supabaseBrowser.auth.getSession();
       const token = sessionData.session?.access_token;
-      if (!token) throw new Error('Sessao invalida. Faz login novamente.');
+
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      if (token) {
+        headers.Authorization = `Bearer ${token}`;
+      }
 
       const tracking = trackingByOrder[order.order_ref]?.trim() || '';
       const res = await fetch(`/api/admin/orders/${order.order_ref}`, {
         method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
+        headers,
         body: JSON.stringify({
           shippingStatus: 'enviado',
           tracking,
@@ -198,15 +222,18 @@ export default function AdminEncomendasPage() {
       if (!supabaseBrowser) throw new Error('Supabase nao configurado no browser.');
       const { data: sessionData } = await supabaseBrowser.auth.getSession();
       const token = sessionData.session?.access_token;
-      if (!token) throw new Error('Sessao invalida. Faz login novamente.');
+
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      if (token) {
+        headers.Authorization = `Bearer ${token}`;
+      }
 
       const newStatus = !order.invoice_sent_at;
       const res = await fetch(`/api/admin/orders/${order.order_ref}`, {
         method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
+        headers,
         body: JSON.stringify({
           invoiceSent: newStatus,
         }),
@@ -401,6 +428,12 @@ export default function AdminEncomendasPage() {
 
   return (
     <AdminLayout title="Gestão de Encomendas" isLoading={loading}>
+
+      {error && (
+        <div className="mb-6 bg-red-50 text-red-700 border border-red-100 rounded-xl px-4 py-3 text-sm font-medium">
+          {error}
+        </div>
+      )}
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-8">

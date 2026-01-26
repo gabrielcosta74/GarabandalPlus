@@ -6,6 +6,7 @@ import { validatePostalCode } from '../../../../lib/country-utils';
 import { getShippingCost, getShippingOrigin, getShippingZone, isPhysicalShippingAllowed } from '../../../../lib/shipping-rules';
 import { applyMemberDiscount, isActiveMember, MEMBER_DISCOUNT_RATE } from '../../../../lib/store-discounts';
 import { getAppUrl } from '../../../../lib/config';
+import { normalizeEmail } from '../../../../lib/normalize';
 
 const itemSchema = z.object({
   id: z.string().min(1),
@@ -57,6 +58,7 @@ export async function POST(request: Request) {
     const bearerToken = authHeader.toLowerCase().startsWith('bearer ') ? authHeader.slice(7).trim() : null;
     const json = await request.json();
     const { items, total, buyer, shipping, billing } = bodySchema.parse(json);
+    const buyerEmail = normalizeEmail(buyer.email);
 
     const normalizedItems = items.map((item) => ({ id: item.id, qty: item.qty }));
 
@@ -90,7 +92,8 @@ export async function POST(request: Request) {
       }
     }
 
-    if (sessionEmail && sessionEmail.toLowerCase() !== buyer.email.toLowerCase()) {
+    const normalizedSessionEmail = normalizeEmail(sessionEmail);
+    if (normalizedSessionEmail && buyerEmail && normalizedSessionEmail !== buyerEmail) {
       return NextResponse.json(
         { message: 'O email do comprador deve coincidir com o email da conta.', code: 'EMAIL_MISMATCH', requestId },
         { status: 400 },
@@ -205,7 +208,7 @@ export async function POST(request: Request) {
       orderRef,
       itemCount: String(itemsResolved.reduce((sum, item) => sum + item.qty, 0)),
       cartTotal: String(roundedTotal),
-      buyerEmail: buyer.email,
+      buyerEmail: buyerEmail || buyer.email,
       buyerName: buyer.fullName,
       shippingCountry: shipping?.country ?? '',
       shippingPostalCode: shipping?.postalCode ?? '',
@@ -235,7 +238,7 @@ export async function POST(request: Request) {
         const { error: orderError } = await supabaseServer.from('store_orders').insert({
           order_ref: orderRef,
           buyer_name: buyer.fullName,
-          buyer_email: buyer.email,
+          buyer_email: buyerEmail || buyer.email,
           buyer_nif: buyer.nif?.trim() || null,
           buyer_phone: buyer.phone || null,
           buyer_user_id: buyerUserId,

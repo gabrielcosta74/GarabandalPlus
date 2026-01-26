@@ -24,11 +24,17 @@ export default function LoginPage() {
 function LoginScreen() {
   const router = useRouter();
   const search = useSearchParams();
-  const { setSession } = useAuth();
+  const { setSession, isAuthenticated, loading: authLoading } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  // Redirect if already logged in
+  if (isAuthenticated && !authLoading) {
+    router.replace('/');
+    return null; // Don't render form
+  }
 
   const canSubmit = useMemo(() => email.trim().length > 3 && password.trim().length >= 6, [email, password]);
 

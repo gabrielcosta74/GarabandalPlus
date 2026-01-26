@@ -17,7 +17,7 @@ This document outlines all the automated emails sent by the application, their t
 
 | Email Name | Trigger | Recipient | Function | Description |
 | :--- | :--- | :--- | :--- | :--- |
-| **Order Confirmation** | Checkout Complete (Stripe Webhook) | Buyer | `sendStoreBuyerEmail` | Sent immediately after successful payment. Includes digital download links if applicable. |
+| **Order Confirmation** | Checkout Complete (Stripe Webhook) | Buyer | `sendStoreBuyerEmail` | Sent immediately after successful payment. Includes digital links and Biblioteca CTA when there are digital items; for physical-only orders, highlights tracking/area access. |
 | **New Order Alert** | Checkout Complete (Stripe Webhook) | Admin | `sendStoreOwnerEmail` | Notification to store owner with order details and shipping info. |
 | **Order Preparing** | Checkout Complete (Physical Items) | Buyer | `sendStorePreparingEmail` | Sent automatically for orders containing physical items immediately after payment. |
 | **Order Shipped** | Manual Admin Action | Buyer | `sendStoreShippingEmail` | Sent when admin adds tracking code and marks as shipped. |

@@ -218,7 +218,6 @@ export const sendStoreBuyerEmail = async (payload: {
   shippingCost?: string | null;
   total: string;
   hasDigital?: boolean;
-  libraryUrl?: string | null;
   claimUrl?: string | null;
   downloadLinks?: Array<{ name: string; url: string }>;
   accountExists?: boolean | null;

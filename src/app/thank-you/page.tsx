@@ -17,6 +17,8 @@ export default function ThankYouPage() {
   const [digitalLinks, setDigitalLinks] = useState<Array<{ name: string; url: string }>>([]);
   const [confirmedEmail, setConfirmedEmail] = useState<string | null>(null);
   const [accountExists, setAccountExists] = useState<boolean>(false);
+  const [hasDigital, setHasDigital] = useState<boolean | null>(null);
+  const [hasPhysical, setHasPhysical] = useState<boolean | null>(null);
   const [reduniqStatus, setReduniqStatus] = useState<'idle' | 'checking' | 'success' | 'pending' | 'failed' | 'unknown'>('idle');
 
   // --- Logic Preserved from Original ---
@@ -96,6 +98,8 @@ export default function ThankYouPage() {
         if (data.digitalDownloadLinks) setDigitalLinks(data.digitalDownloadLinks);
         if (data.buyerEmail) setConfirmedEmail(data.buyerEmail);
         if (typeof data.accountExists === 'boolean') setAccountExists(data.accountExists);
+        if (typeof data.hasDigital === 'boolean') setHasDigital(data.hasDigital);
+        if (typeof data.hasPhysical === 'boolean') setHasPhysical(data.hasPhysical);
         setConfirmStatus('done');
       } catch (err) {
         console.warn('Nao foi possivel confirmar pagamento da loja:', err);
@@ -144,6 +148,9 @@ export default function ThankYouPage() {
     if (type === 'membership') return ShieldCheck;
     return Heart;
   }, [type]);
+
+  const showDigital = type === 'store' && (hasDigital ?? digitalLinks.length > 0);
+  const showPhysical = type === 'store' && (hasPhysical ?? false);
 
   if (!ready) {
     return (
@@ -221,47 +228,51 @@ export default function ThankYouPage() {
         {/* Details / Next Steps */}
         <div className="p-8 md:p-10 bg-[#111]">
 
-          {type === 'store' && (
+          {type === 'store' && (showDigital || showPhysical) && (
             <div className="grid md:grid-cols-2 gap-6 mb-8">
-              <div className="bg-white/5 p-6 rounded-2xl border border-white/5">
-                <div className="flex items-center gap-3 mb-4 text-orange-400">
-                  <Download className="w-5 h-5" />
-                  <h3 className="font-bold text-white">Produtos Digitais</h3>
-                </div>
-                {confirmedEmail && (
-                  <p className="text-white font-medium mb-4">
-                    Enviámos o email de acesso para <span className="text-orange-400">{confirmedEmail}</span>.
-                  </p>
-                )}
-                <p className="text-sm text-white/40 leading-relaxed mb-4">
-                  Pode descarregar os seus ficheiros agora ou aceder mais tarde através do link enviado por email.
-                  <strong className="block mt-1 text-white/60">Estes links expiram em 7 dias.</strong>
-                </p>
-
-                {digitalLinks.length > 0 && (
-                  <div className="space-y-3 mt-4">
-                    {digitalLinks.map((link, idx) => (
-                      <a
-                        key={idx}
-                        href={link.url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="block w-full text-center px-4 py-3 rounded-xl bg-orange-600 hover:bg-orange-500 text-white font-bold transition-all flex items-center justify-center gap-2"
-                      >
-                        <Download className="w-4 h-4" />
-                        Descarregar {link.name}
-                      </a>
-                    ))}
+              {showDigital && (
+                <div className="bg-white/5 p-6 rounded-2xl border border-white/5">
+                  <div className="flex items-center gap-3 mb-4 text-orange-400">
+                    <Download className="w-5 h-5" />
+                    <h3 className="font-bold text-white">Produtos Digitais</h3>
                   </div>
-                )}
-              </div>
-              <div className="bg-white/5 p-6 rounded-2xl border border-white/5">
-                <div className="flex items-center gap-3 mb-4 text-blue-400">
-                  <ShoppingBag className="w-5 h-5" />
-                  <h3 className="font-bold text-white">Produtos Físicos</h3>
+                  {confirmedEmail && (
+                    <p className="text-white font-medium mb-4">
+                      Enviámos o email de acesso para <span className="text-orange-400">{confirmedEmail}</span>.
+                    </p>
+                  )}
+                  <p className="text-sm text-white/40 leading-relaxed mb-4">
+                    Pode descarregar os seus ficheiros agora ou aceder mais tarde através do link enviado por email.
+                    <strong className="block mt-1 text-white/60">Estes links expiram em 7 dias.</strong>
+                  </p>
+
+                  {digitalLinks.length > 0 && (
+                    <div className="space-y-3 mt-4">
+                      {digitalLinks.map((link, idx) => (
+                        <a
+                          key={idx}
+                          href={link.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="block w-full text-center px-4 py-3 rounded-xl bg-orange-600 hover:bg-orange-500 text-white font-bold transition-all flex items-center justify-center gap-2"
+                        >
+                          <Download className="w-4 h-4" />
+                          Descarregar {link.name}
+                        </a>
+                      ))}
+                    </div>
+                  )}
                 </div>
-                <p className="text-sm text-white/40 leading-relaxed">Receberá um email com o tracking assim que a encomenda for expedida pelos nossos serviços.</p>
-              </div>
+              )}
+              {showPhysical && (
+                <div className="bg-white/5 p-6 rounded-2xl border border-white/5">
+                  <div className="flex items-center gap-3 mb-4 text-blue-400">
+                    <ShoppingBag className="w-5 h-5" />
+                    <h3 className="font-bold text-white">Produtos Físicos</h3>
+                  </div>
+                  <p className="text-sm text-white/40 leading-relaxed">Receberá um email com o tracking assim que a encomenda for expedida pelos nossos serviços.</p>
+                </div>
+              )}
             </div>
           )}
 
@@ -288,15 +299,26 @@ export default function ThankYouPage() {
             </Link>
 
             {type === 'store' ? (
-              accountExists ? (
-                <Link
-                  href="/biblioteca"
-                  className="w-full md:w-auto px-8 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold transition-all shadow-lg shadow-indigo-900/20 flex items-center justify-center gap-2"
-                >
-                  Abrir Biblioteca
-                  <ArrowRight className="w-4 h-4" />
-                </Link>
-              ) : null
+              <>
+                {showDigital && accountExists ? (
+                  <Link
+                    href="/biblioteca"
+                    className="w-full md:w-auto px-8 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold transition-all shadow-lg shadow-indigo-900/20 flex items-center justify-center gap-2"
+                  >
+                    Abrir Biblioteca
+                    <ArrowRight className="w-4 h-4" />
+                  </Link>
+                ) : null}
+                {showPhysical ? (
+                  <Link
+                    href="/encomendas"
+                    className="w-full md:w-auto px-8 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold transition-all shadow-lg shadow-blue-900/20 flex items-center justify-center gap-2"
+                  >
+                    Ver Encomendas
+                    <ArrowRight className="w-4 h-4" />
+                  </Link>
+                ) : null}
+              </>
             ) : type === 'membership' ? (
               <Link
                 href="/member"

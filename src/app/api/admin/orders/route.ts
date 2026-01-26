@@ -16,7 +16,7 @@ export async function GET(req: Request) {
             .from('store_orders')
             .select('*, items:store_order_items(*)')
             .order('created_at', { ascending: false })
-            .limit(limit);
+            .limit(200);
 
         if (error) throw error;
 

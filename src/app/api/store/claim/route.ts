@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { supabaseServer } from '../../../../lib/supabase';
 import { hashAccessToken } from '../../../../lib/store-access';
+import { normalizeEmail } from '../../../../lib/normalize';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -60,12 +61,16 @@ export async function GET(request: Request) {
     .eq('order_ref', tokenRow.order_ref)
     .limit(1);
 
-  const { data: memberRow } = await supabaseServer
-    .from('membros')
-    .select('id')
-    .eq('email', tokenRow.buyer_email)
-    .maybeSingle();
-  const emailExists = !!memberRow?.id;
+  let emailExists = false;
+  try {
+    const lookupEmail = normalizeEmail(tokenRow.buyer_email);
+    if (lookupEmail) {
+      const { data, error } = await supabaseServer.auth.admin.getUserByEmail(lookupEmail);
+      emailExists = !error && !!data?.user;
+    }
+  } catch (err) {
+    emailExists = false;
+  }
 
   return NextResponse.json({
     orderRef: order?.order_ref || tokenRow.order_ref,
@@ -133,8 +138,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ message: 'Este link expirou.' }, { status: 400 });
   }
 
-  const email = userData.user.email || '';
-  if (!email || email.toLowerCase() !== tokenRow.buyer_email.toLowerCase()) {
+  const email = normalizeEmail(userData.user.email);
+  const tokenEmail = normalizeEmail(tokenRow.buyer_email);
+  if (!email || !tokenEmail || email !== tokenEmail) {
     return NextResponse.json({ message: 'O email não corresponde ao pedido.' }, { status: 403 });
   }
 

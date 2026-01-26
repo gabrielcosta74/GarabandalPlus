@@ -410,7 +410,6 @@ export const renderStoreBuyerEmail = (payload: {
     shippingCost?: string | null;
     total: string;
     hasDigital?: boolean;
-    libraryUrl?: string | null;
     claimUrl?: string | null;
     downloadLinks?: Array<{ name: string; url: string }>;
     accountExists?: boolean | null;
@@ -428,7 +427,8 @@ export const renderStoreBuyerEmail = (payload: {
         country?: string | null;
     } | null;
 }) => {
-    const digitalNote = payload.hasDigital
+    const hasDigital = !!payload.hasDigital || (payload.downloadLinks || []).length > 0;
+    const digitalNote = hasDigital
         ? `<p style="margin: 0 0 12px;">
          Os seus ficheiros digitais estão disponíveis. Pode aceder com a sua conta ou usar o link abaixo (válido por 7 dias).
        </p>`
@@ -474,24 +474,8 @@ export const renderStoreBuyerEmail = (payload: {
       `
         : '';
 
-    return {
-        subject: `Confirmação da encomenda ${payload.orderRef}`,
-        html: renderEmailShell({
-            title: 'Compra confirmada',
-            subtitle: 'Loja do Apostolado',
-            bodyHtml: `
-        <p style="margin:0 0 6px;">Obrigado pela sua encomenda.</p>
-        <p style="margin:0 0 16px;">Referência: ${payload.orderRef}</p>
-
-        <div style="border:1px solid #e2e8f0;border-radius:14px;padding:14px;background:#f8fafc;margin:16px 0;">
-          <table style="border-collapse: collapse; width: 100%; max-width: 520px;">
-            <tr><td style="padding: 6px 0; font-weight: 600;">Total Pago</td><td style="padding: 6px 0;">${payload.total}</td></tr>
-          </table>
-        </div>
-
-        ${digitalNote}
-        ${downloadSection}
-
+    const accessBlock = hasDigital
+        ? `
         <div style="background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 12px; padding: 20px; margin: 24px 0;">
             <h3 style="margin: 0 0 12px; color: #166534; font-size: 18px;">Como guardar na sua Biblioteca?</h3>
             <p style="margin: 0 0 12px; color: #15803d;">Para não perder o acesso aos seus livros, siga estes passos simples:</p>
@@ -510,6 +494,42 @@ export const renderStoreBuyerEmail = (payload: {
                 }
             </div>
         </div>
+      `
+        : `
+        <div style="background-color: #eff6ff; border: 1px solid #bfdbfe; border-radius: 12px; padding: 20px; margin: 24px 0;">
+            <h3 style="margin: 0 0 12px; color: #1d4ed8; font-size: 18px;">Acompanhar encomenda</h3>
+            <p style="margin: 0 0 12px; color: #1e40af;">Pode acompanhar o estado da sua encomenda na sua área pessoal.</p>
+            <ol style="margin: 0; padding-left: 20px; color: #1e3a8a; line-height: 1.6;">
+                <li style="margin-bottom: 8px;">Aceda à sua área pessoal no nosso site.</li>
+                <li>Se for a primeira vez, crie uma senha com este email.</li>
+            </ol>
+            <div style="margin-top: 16px; text-align: center;">
+             ${payload.claimUrl
+                    ? `<a href="${payload.claimUrl}" style="background:#2563eb;color:#ffffff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold;display:inline-block;">ACOMPANHAR ENCOMENDA</a>`
+                    : `<a href="${APP_URL}/login" style="background:#2563eb;color:#ffffff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold;display:inline-block;">ENTRAR NA MINHA CONTA</a>`
+                }
+            </div>
+        </div>
+      `;
+
+    return {
+        subject: `Confirmação da encomenda ${payload.orderRef}`,
+        html: renderEmailShell({
+            title: 'Compra confirmada',
+            subtitle: 'Loja do Apostolado',
+            bodyHtml: `
+        <p style="margin:0 0 6px;">Obrigado pela sua encomenda.</p>
+        <p style="margin:0 0 16px;">Referência: ${payload.orderRef}</p>
+
+        <div style="border:1px solid #e2e8f0;border-radius:14px;padding:14px;background:#f8fafc;margin:16px 0;">
+          <table style="border-collapse: collapse; width: 100%; max-width: 520px;">
+            <tr><td style="padding: 6px 0; font-weight: 600;">Total Pago</td><td style="padding: 6px 0;">${payload.total}</td></tr>
+          </table>
+        </div>
+
+        ${digitalNote}
+        ${downloadSection}
+        ${accessBlock}
 
         ${shippingBlock}
         ${billingBlock}

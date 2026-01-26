@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabaseServer } from '../../../../lib/supabase';
+import { normalizeEmail } from '../../../../lib/normalize';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -26,7 +27,7 @@ export async function GET(request: Request) {
   }
 
   const userId = userData.user.id;
-  const email = userData.user.email;
+  const email = normalizeEmail(userData.user.email);
   if (!email) {
     return NextResponse.json({ message: 'Email de utilizador em falta.' }, { status: 400 });
   }
@@ -40,7 +41,7 @@ export async function GET(request: Request) {
         claim_source: 'auto_login',
       })
       .is('buyer_user_id', null)
-      .eq('buyer_email', email);
+      .ilike('buyer_email', email);
   } catch (err) {
     console.warn('Nao foi possivel associar pedidos ao utilizador:', err);
   }
@@ -48,7 +49,7 @@ export async function GET(request: Request) {
   const { data: orders, error } = await supabaseServer
     .from('store_orders')
     .select('*')
-    .or(`buyer_email.eq.${email},buyer_user_id.eq.${userId}`)
+    .or(`buyer_email.eq.${email},buyer_email.ilike.${email},buyer_user_id.eq.${userId}`)
     .order('created_at', { ascending: false });
 
   if (error) {
@@ -58,6 +59,7 @@ export async function GET(request: Request) {
 
   const refs = orders?.map((order) => order.order_ref) || [];
   let itemsByOrder: Record<string, any[]> = {};
+  let productMap = new Map<string, boolean | null>();
 
   if (refs.length) {
     const { data: items, error: itemsError } = await supabaseServer
@@ -68,18 +70,43 @@ export async function GET(request: Request) {
     if (itemsError) {
       console.error('Erro ao listar itens da encomenda:', itemsError);
     } else {
+      const productIds = Array.from(new Set(items.map((item) => item.product_id).filter(Boolean)));
+      if (productIds.length) {
+        const { data: products, error: productsError } = await supabaseServer
+          .from('store_products')
+          .select('product_id, is_physical')
+          .in('product_id', productIds);
+        if (productsError) {
+          console.error('Erro ao listar produtos da encomenda:', productsError);
+        } else {
+          productMap = new Map(
+            (products || []).map((product) => [product.product_id, product.is_physical]),
+          );
+        }
+      }
+
       itemsByOrder = items.reduce<Record<string, any[]>>((acc, item) => {
         acc[item.order_ref] = acc[item.order_ref] || [];
-        acc[item.order_ref].push(item);
+        acc[item.order_ref].push({
+          ...item,
+          is_physical: productMap.get(item.product_id) ?? null,
+        });
         return acc;
       }, {});
     }
   }
 
-  const payload = (orders || []).map((order) => ({
-    ...order,
-    items: itemsByOrder[order.order_ref] || [],
-  }));
+  const payload = (orders || []).map((order) => {
+    const items = itemsByOrder[order.order_ref] || [];
+    const hasDigital = items.some((item) => item.is_physical === false);
+    const hasPhysical = items.some((item) => item.is_physical !== false);
+    return {
+      ...order,
+      items,
+      has_digital: hasDigital,
+      has_physical: typeof order.has_physical === 'boolean' ? order.has_physical : hasPhysical,
+    };
+  });
 
   return NextResponse.json({ orders: payload });
 }

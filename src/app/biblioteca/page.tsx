@@ -35,40 +35,56 @@ export default function BibliotecaPage() {
   const router = useRouter();
 
   useEffect(() => {
+    let mounted = true;
+
     const load = async () => {
       if (!supabaseBrowser) {
         setError('Sessão indisponível.');
         setLoading(false);
         return;
       }
-      const { data } = await supabaseBrowser.auth.getSession();
-      const token = data.session?.access_token;
+
+      // Retry mechanism for session
+      let token = (await supabaseBrowser.auth.getSession()).data.session?.access_token;
       if (!token) {
-        setLoggedIn(false);
-        setLoading(false);
-        router.replace('/login?next=/biblioteca');
+        await new Promise(r => setTimeout(r, 500));
+        token = (await supabaseBrowser.auth.getSession()).data.session?.access_token;
+      }
+
+      if (!token) {
+        if (mounted) {
+          setLoggedIn(false);
+          setLoading(false);
+          // router.replace('/login?next=/biblioteca');
+        }
         return;
       }
-      setLoggedIn(true);
-      setLoading(true);
+
+      if (mounted) setLoggedIn(true);
+      if (mounted) setLoading(true);
+
       try {
         const res = await fetch('/api/store/library', {
           headers: { Authorization: `Bearer ${token}` },
+          cache: 'no-store'
         });
         if (!res.ok) {
           const body = await res.json().catch(() => ({}));
           throw new Error(body?.message || 'Não foi possível carregar a biblioteca.');
         }
         const payload = await res.json();
-        setItems(payload.items || []);
-        setError(null);
+        if (mounted) {
+          setItems(payload.items || []);
+          setError(null);
+        }
       } catch (err: any) {
-        setError(err?.message || 'Erro ao carregar biblioteca.');
+        if (mounted) setError(err?.message || 'Erro ao carregar biblioteca.');
       } finally {
-        setLoading(false);
+        if (mounted) setLoading(false);
       }
     };
     load();
+    return () => { mounted = false; };
   }, [router]);
 
   const filteredItems = useMemo(() => {

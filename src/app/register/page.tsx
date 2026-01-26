@@ -7,11 +7,22 @@ import { supabaseBrowser } from '../../lib/supabase-browser';
 import { motion } from 'framer-motion';
 import { ArrowRight, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
 
+import { useAuth } from '../../contexts/AuthContext';
+import { useRouter } from 'next/navigation';
+
 export default function RegisterPage() {
+  const { isAuthenticated, loading: authLoading } = useAuth();
+  const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [acceptedTerms, setAcceptedTerms] = useState(false);
+
+  // Redirect if already logged in
+  if (isAuthenticated && !authLoading) {
+    router.replace('/');
+    return null;
+  }
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [confirmSent, setConfirmSent] = useState(false);
@@ -85,17 +96,17 @@ export default function RegisterPage() {
           <motion.div
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
-            className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6 text-green-600"
+            className="w-20 h-20 bg-green-100 lg:bg-green-100/50 rounded-full flex items-center justify-center mx-auto mb-6 text-green-600 lg:text-green-600"
           >
             <CheckCircle2 className="w-10 h-10" />
           </motion.div>
-          <h3 className="text-xl font-bold text-gray-900 mb-2">Registo com sucesso!</h3>
-          <p className="text-gray-500 mb-8 max-w-xs mx-auto">
+          <h3 className="text-xl font-bold text-white lg:text-gray-900 mb-2">Registo com sucesso!</h3>
+          <p className="text-white/70 lg:text-gray-500 mb-8 max-w-xs mx-auto text-sm">
             Por favor verifique a sua caixa de entrada ({email}) e clique no link para ativar a conta.
           </p>
           <Link
             href="/login"
-            className="inline-block px-8 py-3 bg-garabandal-dark text-white font-bold rounded-xl hover:bg-black transition-colors"
+            className="inline-block px-8 py-3 bg-white text-gray-900 lg:bg-slate-900 lg:text-white font-bold rounded-xl hover:bg-gray-100 lg:hover:bg-black transition-colors shadow-lg"
           >
             Voltar ao Login
           </Link>
