@@ -89,6 +89,13 @@ export default function CheckoutPage() {
     postalCode: '',
     country: 'PT',
   });
+  const [billing, setBilling] = useState({
+    address1: '',
+    city: '',
+    postalCode: '',
+    country: 'PT',
+  });
+  const [billingSameAsShipping, setBillingSameAsShipping] = useState(true);
 
   const [savedProfile, setSavedProfile] = useState<SavedProfile | null>(null);
   const [useSavedAddress, setUseSavedAddress] = useState(false);
@@ -98,12 +105,21 @@ export default function CheckoutPage() {
   const [addressLoading, setAddressLoading] = useState(false);
   const [isMemberActive, setIsMemberActive] = useState(false);
 
+
+  // Set default billing logic based on cart type
+  useEffect(() => {
+    // If no physical items, billing cannot be same as shipping because shipping is hidden/optional
+    const hasPhysical = cart.map(i => products.find(p => p.id === i.id)).some(p => p?.isPhysical);
+    if (!hasPhysical) setBillingSameAsShipping(false);
+  }, [cart, products]);
+
   const countryMeta = useMemo(() => resolveCountryMeta(shipping.country), [shipping.country]);
-  const nifLabel = shipping.country === 'BR' ? 'CPF (opcional)' : 'NIF (opcional)';
+  const billingCountryMeta = useMemo(() => resolveCountryMeta(billing.country), [billing.country]);
+  const nifLabel = shipping.country === 'BR' ? 'CPF (opcional)' : 'NIF / CPF (opcional)';
   const nifHelper =
     shipping.country === 'BR'
       ? 'CPF: número de contribuinte no Brasil (11 dígitos).'
-      : 'NIF: número de contribuinte em Portugal (9 dígitos).';
+      : 'NIF / CPF: número de contribuinte.';
 
   const isValidNif = (value: string, country: string) => {
     const digits = value.replace(/\\D/g, '');
@@ -321,10 +337,20 @@ export default function CheckoutPage() {
     if (step === 2) {
       if (!buyer.fullName || !buyer.email) { setError('Indica o nome e o email do comprador.'); return; }
       if (!isValidNif(buyer.nif, shipping.country)) { setError(shipping.country === 'BR' ? 'CPF inválido.' : 'NIF inválido.'); return; }
-      if (!shipping.address1 || !shipping.doorNumber || !shipping.city || !shipping.postalCode) { setError('Indica a morada completa.'); return; }
-      if (!shipping.country) { setError('Seleciona o país.'); return; }
-      if (hasPhysical && !isPhysicalShippingAllowed(shipping.country)) { setError('Envio físico não disponível para este país.'); return; }
-      if (!validatePostalCode(shipping.country, shipping.postalCode)) { setError(getPostalInvalidMessage(shipping.country)); return; }
+
+      if (hasPhysical) {
+        if (!shipping.address1 || !shipping.doorNumber || !shipping.city || !shipping.postalCode) { setError('Indica a morada de envio completa.'); return; }
+        if (!shipping.country) { setError('Seleciona o país de envio.'); return; }
+        if (!isPhysicalShippingAllowed(shipping.country)) { setError('Envio físico não disponível para este país.'); return; }
+        if (!validatePostalCode(shipping.country, shipping.postalCode)) { setError(getPostalInvalidMessage(shipping.country)); return; }
+      }
+
+      if (!billingSameAsShipping) {
+        if (!billing.address1 || !billing.city || !billing.postalCode) { setError('Indica a morada de faturação completa.'); return; }
+        if (!billing.country) { setError('Seleciona o país de faturação.'); return; }
+        if (!validatePostalCode(billing.country, billing.postalCode)) { setError(`Código postal de faturação inválido (${billing.country}).`); return; }
+      }
+
       setStep(3);
     }
   };
@@ -359,7 +385,8 @@ export default function CheckoutPage() {
           items: cartEntries.map((item) => ({ id: item.id, name: item.name, price: item.price, qty: item.qty })),
           total: totalWithShipping,
           buyer,
-          shipping,
+          shipping: hasPhysical ? shipping : null,
+          billing: billingSameAsShipping ? { ...shipping, address1: `${shipping.address1} ${shipping.doorNumber}`.trim() } : billing,
         }),
       });
       if (!res.ok) {
@@ -532,81 +559,140 @@ export default function CheckoutPage() {
 
                     <div className="bg-gray-100 h-px w-full" />
 
-                    <div className="space-y-4">
-                      <h2 className="font-serif text-2xl font-bold text-garabandal-dark flex items-center gap-2">
-                        <MapPin className="w-6 h-6 text-garabandal-gold" />
-                        Morada de Envio
-                      </h2>
 
-                      {/* Saved Address Toggle */}
-                      {savedProfile && (savedProfile.address || savedProfile.postal_code || savedProfile.country) && (
-                        <div className="bg-garabandal-gold/5 border border-garabandal-gold/20 rounded-xl p-4 flex items-start gap-3">
-                          <input type="checkbox" checked={useSavedAddress} onChange={(e) => { setUseSavedAddress(e.target.checked); if (e.target.checked && savedProfile) applySavedAddress(savedProfile); }} className="mt-1 w-4 h-4 text-garabandal-gold rounded border-gray-300 focus:ring-garabandal-gold" />
-                          <div>
-                            <p className="font-bold text-gray-900 text-sm">Usar morada do perfil</p>
-                            <p className="text-xs text-gray-500 mt-0.5">{savedProfile.address}, {savedProfile.postal_code} {savedProfile.country}</p>
+                    {hasPhysical && (
+                      <div className="space-y-4 pt-6 border-t border-gray-100">
+                        <div className="flex items-center justify-between">
+                          <h2 className="font-serif text-2xl font-bold text-garabandal-dark flex items-center gap-2">
+                            <MapPin className="w-6 h-6 text-garabandal-gold" />
+                            Morada de Envio
+                          </h2>
+                        </div>
+
+                        {/* Saved Address Toggle */}
+                        {savedProfile && (savedProfile.address || savedProfile.postal_code || savedProfile.country) && (
+                          <div className="bg-garabandal-gold/5 border border-garabandal-gold/20 rounded-xl p-4 flex items-start gap-3">
+                            <input type="checkbox" checked={useSavedAddress} onChange={(e) => { setUseSavedAddress(e.target.checked); if (e.target.checked && savedProfile) applySavedAddress(savedProfile); }} className="mt-1 w-4 h-4 text-garabandal-gold rounded border-gray-300 focus:ring-garabandal-gold" />
+                            <div>
+                              <p className="font-bold text-gray-900 text-sm">Usar morada do perfil</p>
+                              <p className="text-xs text-gray-500 mt-0.5">{savedProfile.address}, {savedProfile.postal_code} {savedProfile.country}</p>
+                            </div>
                           </div>
+                        )}
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="md:col-span-2">
+                            <label className={labelClass}>País *</label>
+                            <select value={shipping.country} onChange={(e) => setShipping({ ...shipping, country: e.target.value })} className={inputClass}>
+                              {countryOptions.map(opt => <option key={opt.code} value={opt.code}>{opt.label}</option>)}
+                            </select>
+                          </div>
+                          <div className="md:col-span-2 relative">
+                            <label className={labelClass}>Morada *</label>
+                            <input type="text" value={shipping.address1} onChange={(e) => setShipping({ ...shipping, address1: e.target.value })} className={inputClass} placeholder="Rua, Avenida, etc" />
+                            {ADDRESS_AUTOCOMPLETE_ENABLED && addressLoading && <div className="absolute right-3 top-9"><Loader2 className="w-4 h-4 animate-spin text-gray-400" /></div>}
+                            {ADDRESS_AUTOCOMPLETE_ENABLED && addressSuggestions.length > 0 && (
+                              <div className="absolute z-10 w-full mt-1 bg-white border border-gray-100 rounded-xl shadow-xl overflow-hidden">
+                                {addressSuggestions.map((s, i) => (
+                                  <button key={i} type="button" onClick={() => { setShipping({ ...shipping, address1: s.address1, city: s.city || shipping.city, postalCode: s.postalCode || shipping.postalCode, country: s.country || shipping.country }); setAddressSuggestions([]); }} className="block w-full text-left px-4 py-3 text-sm hover:bg-gray-50 transition-colors border-b border-gray-50 last:border-0">
+                                    <span className="font-bold text-gray-900">{s.label}</span>
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                          <div>
+                            <label className={labelClass}>Nº Porta / Andar *</label>
+                            <input type="text" value={shipping.doorNumber} onChange={(e) => setShipping({ ...shipping, doorNumber: e.target.value })} className={inputClass} placeholder="Ex: 4º Esq" />
+                          </div>
+                          <div>
+                            <label className={labelClass}>Morada linha 2 (opcional)</label>
+                            <input type="text" value={shipping.address2} onChange={(e) => setShipping({ ...shipping, address2: e.target.value })} className={inputClass} placeholder="" />
+                          </div>
+                          <div>
+                            <label className={labelClass}>Cidade *</label>
+                            <input type="text" value={shipping.city} onChange={(e) => setShipping({ ...shipping, city: e.target.value })} className={inputClass} placeholder="Cidade" />
+                          </div>
+                          <div>
+                            <label className={labelClass}>Código Postal *</label>
+                            <input
+                              type="text"
+                              value={shipping.postalCode}
+                              onChange={(e) => setShipping({ ...shipping, postalCode: formatPostalCode(e.target.value, shipping.country) })}
+                              inputMode={getPostalInputMode(shipping.country)}
+                              className={inputClass}
+                              placeholder={countryMeta?.postalPlaceholder}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Billing Address Logic */}
+                    <div className="space-y-4 pt-6 border-t border-gray-100">
+                      <div className="flex items-center justify-between">
+                        <h2 className="font-serif text-2xl font-bold text-garabandal-dark flex items-center gap-2">
+                          <ShieldCheck className="w-6 h-6 text-garabandal-gold" />
+                          Dados de Faturação
+                        </h2>
+                      </div>
+
+                      {hasPhysical && (
+                        <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
+                          <label className="flex items-center gap-3 cursor-pointer select-none">
+                            <input
+                              type="checkbox"
+                              checked={billingSameAsShipping}
+                              onChange={(e) => setBillingSameAsShipping(e.target.checked)}
+                              className="w-5 h-5 rounded border-gray-300 text-garabandal-gold focus:ring-garabandal-gold"
+                            />
+                            <span className="font-medium text-gray-900">A morada de faturação é igual à de envio</span>
+                          </label>
                         </div>
                       )}
 
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="md:col-span-2">
-                          <label className={labelClass}>País *</label>
-                          <select value={shipping.country} onChange={(e) => setShipping({ ...shipping, country: e.target.value })} className={inputClass}>
-                            {countryOptions.map(opt => <option key={opt.code} value={opt.code}>{opt.label}</option>)}
-                          </select>
+                      {(!billingSameAsShipping || !hasPhysical) && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-4 duration-300">
+                          <div className="md:col-span-2">
+                            <label className={labelClass}>País de Faturação *</label>
+                            <select value={billing.country} onChange={(e) => setBilling({ ...billing, country: e.target.value })} className={inputClass}>
+                              {countryOptions.map(opt => <option key={opt.code} value={opt.code}>{opt.label}</option>)}
+                            </select>
+                          </div>
+                          <div className="md:col-span-2">
+                            <label className={labelClass}>Morada de Faturação *</label>
+                            <input type="text" value={billing.address1} onChange={(e) => setBilling({ ...billing, address1: e.target.value })} className={inputClass} placeholder="Rua, Lugar..." />
+                          </div>
+                          <div>
+                            <label className={labelClass}>Cidade *</label>
+                            <input type="text" value={billing.city} onChange={(e) => setBilling({ ...billing, city: e.target.value })} className={inputClass} />
+                          </div>
+                          <div>
+                            <label className={labelClass}>Código Postal *</label>
+                            <input
+                              type="text"
+                              value={billing.postalCode}
+                              onChange={(e) => setBilling({ ...billing, postalCode: formatPostalCode(e.target.value, billing.country) })}
+                              inputMode={getPostalInputMode(billing.country)}
+                              className={inputClass}
+                              placeholder={billingCountryMeta?.postalPlaceholder}
+                            />
+                          </div>
                         </div>
-                        <div className="md:col-span-2 relative">
-                          <label className={labelClass}>Morada *</label>
-                          <input type="text" value={shipping.address1} onChange={(e) => setShipping({ ...shipping, address1: e.target.value })} className={inputClass} placeholder="Rua, Avenida, etc" />
-                          {ADDRESS_AUTOCOMPLETE_ENABLED && addressLoading && <div className="absolute right-3 top-9"><Loader2 className="w-4 h-4 animate-spin text-gray-400" /></div>}
-                          {ADDRESS_AUTOCOMPLETE_ENABLED && addressSuggestions.length > 0 && (
-                            <div className="absolute z-10 w-full mt-1 bg-white border border-gray-100 rounded-xl shadow-xl overflow-hidden">
-                              {addressSuggestions.map((s, i) => (
-                                <button key={i} type="button" onClick={() => { setShipping({ ...shipping, address1: s.address1, city: s.city || shipping.city, postalCode: s.postalCode || shipping.postalCode, country: s.country || shipping.country }); setAddressSuggestions([]); }} className="block w-full text-left px-4 py-3 text-sm hover:bg-gray-50 transition-colors border-b border-gray-50 last:border-0">
-                                  <span className="font-bold text-gray-900">{s.label}</span>
-                                </button>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                        <div>
-                          <label className={labelClass}>Nº Porta / Andar *</label>
-                          <input type="text" value={shipping.doorNumber} onChange={(e) => setShipping({ ...shipping, doorNumber: e.target.value })} className={inputClass} placeholder="Ex: 4º Esq" />
-                        </div>
-                        <div>
-                          <label className={labelClass}>Morada linha 2 (opcional)</label>
-                          <input type="text" value={shipping.address2} onChange={(e) => setShipping({ ...shipping, address2: e.target.value })} className={inputClass} placeholder="" />
-                        </div>
-                        <div>
-                          <label className={labelClass}>Cidade *</label>
-                          <input type="text" value={shipping.city} onChange={(e) => setShipping({ ...shipping, city: e.target.value })} className={inputClass} placeholder="Cidade" />
-                        </div>
-                        <div>
-                          <label className={labelClass}>Código Postal *</label>
-                          <input
-                            type="text"
-                            value={shipping.postalCode}
-                            onChange={(e) => setShipping({ ...shipping, postalCode: formatPostalCode(e.target.value, shipping.country) })}
-                            inputMode={getPostalInputMode(shipping.country)}
-                            className={inputClass}
-                            placeholder={countryMeta?.postalPlaceholder}
-                          />
-                        </div>
-                      </div>
+                      )}
+                    </div>
 
-                      <div className="space-y-3 pt-6">
-                        {sessionUserId && (
-                          <label className="flex items-center gap-2 cursor-pointer select-none">
-                            <input type="checkbox" checked={saveAddress} onChange={(e) => setSaveAddress(e.target.checked)} className="rounded border-gray-300 text-garabandal-gold focus:ring-garabandal-gold" />
-                            <span className="text-sm text-gray-600">Atualizar morada no meu perfil</span>
-                          </label>
-                        )}
+                    <div className="space-y-3 pt-6 border-t border-gray-100">
+                      {sessionUserId && (
                         <label className="flex items-center gap-2 cursor-pointer select-none">
-                          <input type="checkbox" checked={saveCheckout} onChange={(e) => setSaveCheckout(e.target.checked)} className="rounded border-gray-300 text-garabandal-gold focus:ring-garabandal-gold" />
-                          <span className="text-sm text-gray-600">Guardar dados neste dispositivo para a próxima</span>
+                          <input type="checkbox" checked={saveAddress} onChange={(e) => setSaveAddress(e.target.checked)} className="rounded border-gray-300 text-garabandal-gold focus:ring-garabandal-gold" />
+                          <span className="text-sm text-gray-600">Atualizar morada no meu perfil</span>
                         </label>
-                      </div>
+                      )}
+                      <label className="flex items-center gap-2 cursor-pointer select-none">
+                        <input type="checkbox" checked={saveCheckout} onChange={(e) => setSaveCheckout(e.target.checked)} className="rounded border-gray-300 text-garabandal-gold focus:ring-garabandal-gold" />
+                        <span className="text-sm text-gray-600">Guardar dados neste dispositivo para a próxima</span>
+                      </label>
                     </div>
                   </div>
                 )}
@@ -737,8 +823,8 @@ export default function CheckoutPage() {
               </p>
             </div>
           </div>
-        </div>
-      </main>
-    </div>
+        </div >
+      </main >
+    </div >
   );
 }

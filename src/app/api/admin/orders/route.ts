@@ -14,7 +14,7 @@ export async function GET(req: Request) {
 
         const { data: orders, error } = await supabaseServer
             .from('store_orders')
-            .select('*')
+            .select('*, items:store_order_items(*)')
             .order('created_at', { ascending: false })
             .limit(limit);
 

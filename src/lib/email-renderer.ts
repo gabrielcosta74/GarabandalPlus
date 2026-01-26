@@ -325,6 +325,12 @@ export const renderStoreOwnerEmail = (payload: {
         postalCode?: string | null;
         country?: string | null;
     } | null;
+    billing?: {
+        address1?: string | null;
+        city?: string | null;
+        postalCode?: string | null;
+        country?: string | null;
+    } | null;
 }) => {
     const itemsRows = payload.items
         .map(
@@ -344,6 +350,19 @@ export const renderStoreOwnerEmail = (payload: {
         </table>
       `
         : '';
+
+    const billingBlock = payload.billing
+        ? `
+        <table style="border-collapse: collapse; width: 100%; max-width: 520px; margin-top: 12px; border-top: 1px solid #e2e8f0; pt-3;">
+          <tr><td colspan="2" style="padding: 6px 0; font-weight: bold; color: #475569;">Dados de Faturação</td></tr>
+          <tr><td style="padding: 6px 0; font-weight: 600;">Morada</td><td style="padding: 6px 0;">${payload.billing.address1 || '-'}</td></tr>
+          <tr><td style="padding: 6px 0; font-weight: 600;">Cidade</td><td style="padding: 6px 0;">${payload.billing.city || '-'}</td></tr>
+          <tr><td style="padding: 6px 0; font-weight: 600;">Código postal</td><td style="padding: 6px 0;">${payload.billing.postalCode || '-'}</td></tr>
+          <tr><td style="padding: 6px 0; font-weight: 600;">País</td><td style="padding: 6px 0;">${payload.billing.country || '-'}</td></tr>
+        </table>
+      `
+        : '';
+
 
     return {
         subject: `Nova encomenda loja - ${payload.orderRef}`,
@@ -374,6 +393,7 @@ export const renderStoreOwnerEmail = (payload: {
           </table>
         </div>
         ${shippingBlock}
+        ${billingBlock}
       `,
             footer: 'Recebeu este email por ser administrador da loja.',
         }),
@@ -401,6 +421,12 @@ export const renderStoreBuyerEmail = (payload: {
         postalCode?: string | null;
         country?: string | null;
     } | null;
+    billing?: {
+        address1?: string | null;
+        city?: string | null;
+        postalCode?: string | null;
+        country?: string | null;
+    } | null;
 }) => {
     const digitalNote = payload.hasDigital
         ? `<p style="margin: 0 0 12px;">
@@ -414,6 +440,10 @@ export const renderStoreBuyerEmail = (payload: {
                 `<li style="margin: 6px 0;"><a href="${item.url}" style="color: #1e63f0; font-weight: 700;">Download ${item.name}</a></li>`,
         )
         .join('');
+
+    const nifBlock = payload.buyerNif
+        ? `<tr><td style="padding: 6px 0; font-weight: 600;">NIF</td><td style="padding: 6px 0;">${payload.buyerNif}</td></tr>`
+        : '';
 
     const downloadSection = downloadLinks
         ? `<ul style="padding-left: 18px; margin: 0 0 16px;">${downloadLinks}</ul>`
@@ -431,36 +461,60 @@ export const renderStoreBuyerEmail = (payload: {
       `
         : '';
 
+    const billingBlock = payload.billing
+        ? `
+        <table style="border-collapse: collapse; width: 100%; max-width: 520px; margin-top: 12px; border-top: 1px solid #e2e8f0; pt-3;">
+          <tr><td colspan="2" style="padding: 6px 0; font-weight: bold; color: #475569;">Dados de Faturação</td></tr>
+          <tr><td style="padding: 6px 0; font-weight: 600;">Morada</td><td style="padding: 6px 0;">${payload.billing.address1 || '-'}</td></tr>
+          <tr><td style="padding: 6px 0; font-weight: 600;">Cidade</td><td style="padding: 6px 0;">${payload.billing.city || '-'}</td></tr>
+          <tr><td style="padding: 6px 0; font-weight: 600;">Código postal</td><td style="padding: 6px 0;">${payload.billing.postalCode || '-'}</td></tr>
+          <tr><td style="padding: 6px 0; font-weight: 600;">País</td><td style="padding: 6px 0;">${payload.billing.country || '-'}</td></tr>
+          ${nifBlock}
+        </table>
+      `
+        : '';
+
     return {
         subject: `Confirmação da encomenda ${payload.orderRef}`,
         html: renderEmailShell({
             title: 'Compra confirmada',
             subtitle: 'Loja do Apostolado',
             bodyHtml: `
-        <p style="margin:0 0 6px;">Referência: ${payload.orderRef}</p>
-        <div style="border:1px solid #e2e8f0;border-radius:14px;padding:14px;background:#f8fafc;margin:12px 0;">
+        <p style="margin:0 0 6px;">Obrigado pela sua encomenda.</p>
+        <p style="margin:0 0 16px;">Referência: ${payload.orderRef}</p>
+
+        <div style="border:1px solid #e2e8f0;border-radius:14px;padding:14px;background:#f8fafc;margin:16px 0;">
           <table style="border-collapse: collapse; width: 100%; max-width: 520px;">
-            <tr><td style="padding: 6px 0; font-weight: 600;">Subtotal</td><td style="padding: 6px 0;">${payload.subtotal}</td></tr>
-            <tr><td style="padding: 6px 0; font-weight: 600;">IVA</td><td style="padding: 6px 0;">${payload.vat}</td></tr>
-            ${payload.shippingCost
-                    ? `<tr><td style="padding: 6px 0; font-weight: 600;">Portes</td><td style="padding: 6px 0;">${payload.shippingCost}</td></tr>`
-                    : ''
-                }
-            <tr><td style="padding: 6px 0; font-weight: 600;">Total</td><td style="padding: 6px 0;">${payload.total}</td></tr>
-            <tr><td style="padding: 6px 0; font-weight: 600;">NIF</td><td style="padding: 6px 0;">${payload.buyerNif || '-'}</td></tr>
+            <tr><td style="padding: 6px 0; font-weight: 600;">Total Pago</td><td style="padding: 6px 0;">${payload.total}</td></tr>
           </table>
         </div>
+
         ${digitalNote}
-        ${payload.claimUrl ? `<p style="margin: 0 0 12px;"><a href="${payload.claimUrl}" style="color: #1e63f0; font-weight: 700;">Aceder à sua compra</a></p>` : ''}
         ${downloadSection}
-        ${payload.libraryUrl ? `<p style="margin: 0 0 12px;"><a href="${payload.libraryUrl}" style="color: #1e63f0; font-weight: 700;">Abrir biblioteca</a></p>` : ''}
-        ${payload.accountExists
-                    ? '<p style="margin: 0 0 12px;">Já existe conta com este email. Entre com a sua password para associar a compra.</p>'
-                    : '<p style="margin: 0 0 12px;">Não existe conta com este email. Crie uma para guardar a sua compra.</p>'
+
+        <div style="background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 12px; padding: 20px; margin: 24px 0;">
+            <h3 style="margin: 0 0 12px; color: #166534; font-size: 18px;">Como guardar na sua Biblioteca?</h3>
+            <p style="margin: 0 0 12px; color: #15803d;">Para não perder o acesso aos seus livros, siga estes passos simples:</p>
+            <ol style="margin: 0; padding-left: 20px; color: #14532d; line-height: 1.6;">
+                <li style="margin-bottom: 8px;">Aceda à sua área pessoal no nosso site.</li>
+                ${payload.accountExists
+                    ? '<li style="margin-bottom: 8px;">Como já tem conta, basta <strong>entrar com o seu email e password</strong>.</li>'
+                    : '<li style="margin-bottom: 8px;">Como é a sua primeira vez, <strong>crie uma senha</strong> usando este mesmo email.</li>'
                 }
+                <li>Vá ao menu <strong>"Biblioteca"</strong> para ver os seus livros sempre que quiser.</li>
+            </ol>
+            <div style="margin-top: 16px; text-align: center;">
+             ${payload.claimUrl
+                    ? `<a href="${payload.claimUrl}" style="background:#16a34a;color:#ffffff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold;display:inline-block;">ACEDER AGORA</a>`
+                    : `<a href="${APP_URL}/login" style="background:#16a34a;color:#ffffff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold;display:inline-block;">ENTRAR NA MINHA CONTA</a>`
+                }
+            </div>
+        </div>
+
         ${shippingBlock}
+        ${billingBlock}
       `,
-            footer: 'Se precisar de ajuda, responda a este email.',
+            footer: 'Se tiver alguma dificuldade, responda a este email que nós ajudamos.',
         }),
     };
 };

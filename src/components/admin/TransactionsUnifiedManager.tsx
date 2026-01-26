@@ -42,6 +42,7 @@ type ConsolidatedTransaction = {
     notes?: string;
     details_link: string;
     receipt_required?: boolean;
+    items?: Array<{ name: string; qty: number; price: number; total: number }>;
 };
 
 export default function TransactionsUnifiedManager() {
@@ -111,7 +112,7 @@ export default function TransactionsUnifiedManager() {
     ];
 
     const exportToCSV = () => {
-        const headers = ['Data', 'Categoria', 'Referência', 'Cliente', 'Email', 'NIF', 'Morada', 'Cidade', 'CP', 'País', 'Valor', 'Moeda', 'Status', 'Método', 'Notas'];
+        const headers = ['Data', 'Categoria', 'Referência', 'Cliente', 'Email', 'NIF', 'Morada', 'Cidade', 'CP', 'País', 'Valor', 'Moeda', 'Status', 'Método', 'Detalhes/Notas'];
         const rows = filteredTransactions.map(t => [
             format(new Date(t.created_at), 'yyyy-MM-dd HH:mm'),
             t.category,
@@ -126,8 +127,9 @@ export default function TransactionsUnifiedManager() {
             t.amount,
             t.currency,
             t.status,
+            t.status,
             t.method || '—',
-            t.notes || ''
+            t.items ? t.items.map(i => `${i.qty}x ${i.name}`).join(', ') : (t.notes || '')
         ]);
 
         const csvContent = [headers, ...rows].map(e => e.join(';')).join('\n');
@@ -171,10 +173,32 @@ export default function TransactionsUnifiedManager() {
             header: 'Cliente / Doador',
             render: (t: ConsolidatedTransaction) => (
                 <div className="flex flex-col max-w-[200px]">
-                    <span className="font-bold text-slate-900 truncate">{t.customer_name || '—'}</span>
-                    <span className="text-xs text-slate-500 truncate">{t.customer_email || '—'}</span>
+                    <span className="font-bold text-slate-900 truncate" title={t.customer_name || ''}>{t.customer_name || '—'}</span>
+                    <span className="text-xs text-slate-500 truncate" title={t.customer_email || ''}>{t.customer_email || '—'}</span>
+                    {t.customer_nif && <span className="text-[10px] text-slate-400 font-mono">NIF: {t.customer_nif}</span>}
                 </div>
             )
+        },
+        {
+            key: 'details',
+            header: 'Detalhes',
+            render: (t: ConsolidatedTransaction) => {
+                if (t.category === 'shop' && t.items?.length) {
+                    return (
+                        <div className="flex flex-col gap-1 max-w-[250px]">
+                            {t.items.slice(0, 2).map((item, idx) => (
+                                <div key={idx} className="text-xs text-slate-600 truncate flex justify-between">
+                                    <span className="truncate mr-2" title={item.name}>{item.qty}x {item.name}</span>
+                                </div>
+                            ))}
+                            {t.items.length > 2 && (
+                                <span className="text-[10px] text-slate-400 italic">+{t.items.length - 2} items...</span>
+                            )}
+                        </div>
+                    );
+                }
+                return <span className="text-xs text-slate-400 italic truncate max-w-[200px]">{t.notes || '—'}</span>;
+            }
         },
         {
             key: 'amount',

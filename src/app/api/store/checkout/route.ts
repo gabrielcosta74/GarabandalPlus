@@ -15,11 +15,10 @@ const itemSchema = z.object({
 });
 
 const isValidNif = (value: string | null | undefined, country: string | null | undefined) => {
-  const digits = (value || '').replace(/\D/g, '');
-  if (!digits) return true;
-  if (country === 'PT') return digits.length === 9;
-  if (country === 'BR') return digits.length === 11;
-  return digits.length >= 6;
+  const digits = (value || '').trim();
+  if (!digits) return true; // Optional field
+  // Relaxed validation: Accept if it has at least 3 chars (to filter out garbage)
+  return digits.length >= 3;
 };
 
 const bodySchema = z.object({
@@ -42,6 +41,12 @@ const bodySchema = z.object({
     })
     .nullable()
     .optional(),
+  billing: z.object({
+    address1: z.string().min(1),
+    city: z.string().min(1),
+    postalCode: z.string().min(1),
+    country: z.string().min(1),
+  }),
 });
 
 
@@ -51,7 +56,7 @@ export async function POST(request: Request) {
     const authHeader = request.headers.get('authorization') || '';
     const bearerToken = authHeader.toLowerCase().startsWith('bearer ') ? authHeader.slice(7).trim() : null;
     const json = await request.json();
-    const { items, total, buyer, shipping } = bodySchema.parse(json);
+    const { items, total, buyer, shipping, billing } = bodySchema.parse(json);
 
     const normalizedItems = items.map((item) => ({ id: item.id, qty: item.qty }));
 
@@ -183,7 +188,13 @@ export async function POST(request: Request) {
 
     if (shipping && !validatePostalCode(shipping.country, shipping.postalCode)) {
       return NextResponse.json(
-        { message: 'Código postal inválido para o país selecionado.', code: 'POSTAL_INVALID', requestId },
+        { message: 'Código postal de envio inválido.', code: 'POSTAL_INVALID', requestId },
+        { status: 400 },
+      );
+    }
+    if (!validatePostalCode(billing.country, billing.postalCode)) {
+      return NextResponse.json(
+        { message: 'Código postal de faturação inválido.', code: 'POSTAL_INVALID', requestId },
         { status: 400 },
       );
     }
@@ -244,6 +255,10 @@ export async function POST(request: Request) {
           shipping_origin: getShippingOrigin(shipping?.country),
           shipping_zone: getShippingZone(shipping?.country),
           has_physical: hasPhysical,
+          billing_address: billing.address1,
+          billing_city: billing.city,
+          billing_postal_code: billing.postalCode,
+          billing_country: billing.country,
         });
 
         if (orderError) {

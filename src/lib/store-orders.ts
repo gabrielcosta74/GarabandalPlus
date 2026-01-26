@@ -50,7 +50,7 @@ export const processPaidStoreOrder = async ({
   buyerPhone,
   paymentProvider,
   paymentMethod,
-}: ProcessPaidStoreOrderInput) => {
+}: ProcessPaidStoreOrderInput): Promise<{ digitalDownloadLinks: Array<{ name: string; url: string }>; buyerEmail: string; accountExists: boolean }> => {
   const { data: existingOrder, error: orderError } = await supabaseServer
     .from('store_orders')
     .select('*')
@@ -78,7 +78,9 @@ export const processPaidStoreOrder = async ({
     })
     .eq('order_ref', orderRef);
 
-  if (existingOrder.status === 'paid') return;
+  if (existingOrder.status === 'paid') {
+    return { digitalDownloadLinks: [], buyerEmail: existingOrder.buyer_email || buyerEmail || '', accountExists: !!existingOrder.buyer_user_id };
+  }
 
   const { data: items } = await supabaseServer
     .from('store_order_items')
@@ -224,6 +226,13 @@ export const processPaidStoreOrder = async ({
           country: existingOrder.shipping_country,
         }
         : null,
+      billing: {
+        address1: existingOrder.billing_address || null,
+        city: existingOrder.billing_city || null,
+        postalCode: existingOrder.billing_postal_code || null,
+        country: existingOrder.billing_country || null,
+      }
+
     });
     await markNotificationSent(supabaseServer, ownerNotify.recordId);
   }
@@ -259,6 +268,12 @@ export const processPaidStoreOrder = async ({
             country: existingOrder.shipping_country,
           }
           : null,
+        billing: {
+          address1: existingOrder.billing_address || null,
+          city: existingOrder.billing_city || null,
+          postalCode: existingOrder.billing_postal_code || null,
+          country: existingOrder.billing_country || null,
+        }
       });
       await markNotificationSent(supabaseServer, buyerNotify.recordId);
     }
@@ -302,4 +317,6 @@ export const processPaidStoreOrder = async ({
       }
     }
   }
+
+  return { digitalDownloadLinks, buyerEmail: buyerEmailResolved, accountExists: !!accountExists };
 };

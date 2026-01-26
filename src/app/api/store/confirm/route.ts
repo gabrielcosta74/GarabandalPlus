@@ -33,7 +33,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: false, status: session.payment_status }, { status: 200 });
     }
 
-    await processPaidStoreOrder({
+    const result = await processPaidStoreOrder({
       supabaseServer,
       orderRef,
       amountCents: session.amount_total ?? null,
@@ -45,7 +45,7 @@ export async function POST(request: Request) {
       paymentMethod: 'stripe_checkout',
     });
 
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true, ...result });
   } catch (err) {
     console.error('Erro ao confirmar checkout da loja:', err);
     return NextResponse.json({ message: 'Erro ao confirmar pagamento' }, { status: 500 });

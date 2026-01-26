@@ -10,72 +10,118 @@ export default function AuthCallbackPage() {
   const router = useRouter();
 
   useEffect(() => {
+    let cancelled = false;
+    const watchdog = window.setTimeout(() => {
+      if (cancelled) return;
+      setMessage('A validação está a demorar. A redirecionar para login...');
+      window.location.replace('/login');
+    }, 12000);
+
     const handleAuth = async () => {
-      // 1. Get Params
-      const searchParams = new URL(window.location.href).searchParams;
-      const code = searchParams.get('code');
-      const nextQuery = searchParams.get('next');
+      try {
+        // 1. Get Params
+        const url = new URL(window.location.href);
+        const searchParams = url.searchParams;
+        const nextQuery = searchParams.get('next');
 
-      // Handle Hash Params (Legacy/Implicit flow)
-      const hash = window.location.hash.replace(/^#/, '');
-      const params = new URLSearchParams(hash);
-      const access_token = params.get('access_token');
-      const refresh_token = params.get('refresh_token');
-      const type = params.get('type'); // recovery, signup, etc.
+        // Handle Hash Params (Legacy/Implicit flow)
+        const hash = window.location.hash.replace(/^#/, '');
+        const hashParams = new URLSearchParams(hash);
 
-      if (!supabaseBrowser) {
-        setMessage('Configuração Supabase em falta.');
-        return;
-      }
+        const code = searchParams.get('code') || hashParams.get('code');
+        const type = searchParams.get('type') || hashParams.get('type');
+        const errorParam = searchParams.get('error');
+        const errorDescription = searchParams.get('error_description');
+        const access_token = hashParams.get('access_token');
+        const refresh_token = hashParams.get('refresh_token');
+        const tokenHash = searchParams.get('token_hash') || searchParams.get('token');
 
-      // 2. Handle PKCE Code Exchange
-      if (code) {
-        setMessage('A confirmar código de acesso...');
-        const { error } = await supabaseBrowser.auth.exchangeCodeForSession(code);
-        if (error) {
-          console.error('Error exchanging code:', error);
-          setMessage('Erro ao validar código. Tente fazer login manual.');
+        if (!supabaseBrowser) {
+          setMessage('Configuração Supabase em falta.');
+          return;
+        }
+
+        if (errorParam) {
+          setMessage(errorDescription || 'Erro ao validar a conta. Tente novamente.');
           setTimeout(() => router.replace('/login'), 3000);
           return;
         }
-        handleRedirect(null, nextQuery);
-        return;
-      }
 
-      // 3. Handle Hash Tokens
-      if (!access_token || !refresh_token) {
-        // Sometimes session is already set by the time we get here (onAuthStateChange), 
-        // so we check if we have a user.
-        const { data } = await supabaseBrowser.auth.getSession();
-        if (data.session) {
-          // ALREADY LOGGED IN -> REDIRECT
+        // 2. Handle PKCE Code Exchange
+        if (code) {
+          setMessage('A confirmar código de acesso...');
+          const { error } = await supabaseBrowser.auth.exchangeCodeForSession(code);
+          if (error) {
+            console.error('Error exchanging code:', error);
+            setMessage('Erro ao validar código. Tente fazer login manual.');
+            setTimeout(() => router.replace('/login'), 3000);
+            return;
+          }
           handleRedirect(type, nextQuery);
           return;
         }
 
-        setMessage('Link inválido ou expirado. Por favor tente novamente.');
+        // 3. Handle explicit token verification (when supplied)
+        if (tokenHash && type) {
+          setMessage('A confirmar ligação segura...');
+          const { error } = await supabaseBrowser.auth.verifyOtp({
+            type: type as any,
+            token_hash: tokenHash,
+          });
+          if (error) {
+            console.error('Error verifying token:', error);
+            setMessage('Erro ao validar o link. Tente fazer login manual.');
+            setTimeout(() => router.replace('/login'), 3000);
+            return;
+          }
+          handleRedirect(type, nextQuery);
+          return;
+        }
+
+        // 4. Handle Hash Tokens
+        if (!access_token || !refresh_token) {
+          // Sometimes session is already set by the time we get here (onAuthStateChange),
+          // so we check if we have a user.
+          const { data } = await supabaseBrowser.auth.getSession();
+          if (data.session) {
+            // ALREADY LOGGED IN -> REDIRECT
+            handleRedirect(type, nextQuery);
+            return;
+          }
+
+          setMessage('Link inválido ou expirado. Por favor tente novamente.');
+          setTimeout(() => router.replace('/login'), 3000);
+          return;
+        }
+
+        // 5. Set Session manually
+        const { error } = await supabaseBrowser.auth.setSession({
+          access_token,
+          refresh_token,
+        });
+
+        if (error) {
+          console.error('Error setting session:', error);
+          setMessage('Erro ao validar sessão. Tente fazer login manual.');
+          setTimeout(() => router.replace('/login'), 3000);
+          return;
+        }
+
+        // 6. SUCCESS -> REDIRECT
+        handleRedirect(type, nextQuery);
+      } catch (err) {
+        console.error('Auth callback error:', err);
+        setMessage('Erro inesperado ao validar a conta.');
         setTimeout(() => router.replace('/login'), 3000);
-        return;
       }
-
-      // 2. Set Session manually
-      const { error } = await supabaseBrowser.auth.setSession({
-        access_token,
-        refresh_token,
-      });
-
-      if (error) {
-        console.error('Error setting session:', error);
-        setMessage('Erro ao validar sessão. Tente fazer login manual.');
-        setTimeout(() => router.replace('/login'), 3000);
-        return;
-      }
-
-      // 3. SUCCESS -> REDIRECT
-      handleRedirect(type, nextQuery);
     };
 
     handleAuth();
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(watchdog);
+    };
   }, [router]);
 
   const handleRedirect = (type: string | null, next: string | null) => {

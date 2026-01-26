@@ -14,6 +14,9 @@ export default function ThankYouPage() {
   const [tokenParam, setTokenParam] = useState<string | null>(null);
   const [sessionIdParam, setSessionIdParam] = useState<string | null>(null);
   const [confirmStatus, setConfirmStatus] = useState<'idle' | 'confirming' | 'done' | 'failed'>('idle');
+  const [digitalLinks, setDigitalLinks] = useState<Array<{ name: string; url: string }>>([]);
+  const [confirmedEmail, setConfirmedEmail] = useState<string | null>(null);
+  const [accountExists, setAccountExists] = useState<boolean>(false);
   const [reduniqStatus, setReduniqStatus] = useState<'idle' | 'checking' | 'success' | 'pending' | 'failed' | 'unknown'>('idle');
 
   // --- Logic Preserved from Original ---
@@ -89,6 +92,10 @@ export default function ThankYouPage() {
           body: JSON.stringify({ sessionId: sessionIdParam }),
         });
         if (!res.ok) throw new Error('Falha ao confirmar compra.');
+        const data = await res.json();
+        if (data.digitalDownloadLinks) setDigitalLinks(data.digitalDownloadLinks);
+        if (data.buyerEmail) setConfirmedEmail(data.buyerEmail);
+        if (typeof data.accountExists === 'boolean') setAccountExists(data.accountExists);
         setConfirmStatus('done');
       } catch (err) {
         console.warn('Nao foi possivel confirmar pagamento da loja:', err);
@@ -221,7 +228,32 @@ export default function ThankYouPage() {
                   <Download className="w-5 h-5" />
                   <h3 className="font-bold text-white">Produtos Digitais</h3>
                 </div>
-                <p className="text-sm text-white/40 leading-relaxed">Verifique o seu email para os links de descarga ou aceda diretamente à sua Biblioteca na app.</p>
+                {confirmedEmail && (
+                  <p className="text-white font-medium mb-4">
+                    Enviámos o email de acesso para <span className="text-orange-400">{confirmedEmail}</span>.
+                  </p>
+                )}
+                <p className="text-sm text-white/40 leading-relaxed mb-4">
+                  Pode descarregar os seus ficheiros agora ou aceder mais tarde através do link enviado por email.
+                  <strong className="block mt-1 text-white/60">Estes links expiram em 7 dias.</strong>
+                </p>
+
+                {digitalLinks.length > 0 && (
+                  <div className="space-y-3 mt-4">
+                    {digitalLinks.map((link, idx) => (
+                      <a
+                        key={idx}
+                        href={link.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="block w-full text-center px-4 py-3 rounded-xl bg-orange-600 hover:bg-orange-500 text-white font-bold transition-all flex items-center justify-center gap-2"
+                      >
+                        <Download className="w-4 h-4" />
+                        Descarregar {link.name}
+                      </a>
+                    ))}
+                  </div>
+                )}
               </div>
               <div className="bg-white/5 p-6 rounded-2xl border border-white/5">
                 <div className="flex items-center gap-3 mb-4 text-blue-400">
@@ -256,13 +288,15 @@ export default function ThankYouPage() {
             </Link>
 
             {type === 'store' ? (
-              <Link
-                href="/biblioteca"
-                className="w-full md:w-auto px-8 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold transition-all shadow-lg shadow-indigo-900/20 flex items-center justify-center gap-2"
-              >
-                Abrir Biblioteca
-                <ArrowRight className="w-4 h-4" />
-              </Link>
+              accountExists ? (
+                <Link
+                  href="/biblioteca"
+                  className="w-full md:w-auto px-8 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold transition-all shadow-lg shadow-indigo-900/20 flex items-center justify-center gap-2"
+                >
+                  Abrir Biblioteca
+                  <ArrowRight className="w-4 h-4" />
+                </Link>
+              ) : null
             ) : type === 'membership' ? (
               <Link
                 href="/member"

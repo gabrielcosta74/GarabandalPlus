@@ -186,6 +186,12 @@ export const sendStoreOwnerEmail = async (payload: {
     postalCode?: string | null;
     country?: string | null;
   } | null;
+  billing?: {
+    address1?: string | null;
+    city?: string | null;
+    postalCode?: string | null;
+    country?: string | null;
+  } | null;
 }) => {
   if (!resendClient) {
     console.warn('Resend nao configurado. Ignorar envio de email.');
@@ -219,6 +225,12 @@ export const sendStoreBuyerEmail = async (payload: {
   shipping?: {
     address1?: string | null;
     address2?: string | null;
+    city?: string | null;
+    postalCode?: string | null;
+    country?: string | null;
+  } | null;
+  billing?: {
+    address1?: string | null;
     city?: string | null;
     postalCode?: string | null;
     country?: string | null;

@@ -33,6 +33,21 @@ export async function GET(req: Request) {
             .select('*')
             .order('created_at', { ascending: false });
 
+        const orderRefs = (orders || []).map(o => o.order_ref);
+        const { data: allItems } = orderRefs.length > 0
+            ? await supabaseServer
+                .from('store_order_items')
+                .select('*')
+                .in('order_ref', orderRefs)
+            : { data: [] };
+
+        const itemsMap = new Map<string, any[]>();
+        (allItems || []).forEach((item: any) => {
+            const list = itemsMap.get(item.order_ref) || [];
+            list.push(item);
+            itemsMap.set(item.order_ref, list);
+        });
+
         // 3. Fetch Pilgrimage Payments
         const { data: pilgrimagePayments } = await supabaseServer
             .from('pilgrimage_payments')
@@ -81,10 +96,16 @@ export async function GET(req: Request) {
                 provider: o.payment_reference?.startsWith('re_') ? 'Reduniq' : 'Stripe',
                 created_at: o.created_at,
                 customer_nif: o.buyer_nif,
-                customer_address: o.shipping_address1,
-                customer_city: o.shipping_city,
-                customer_zip: o.shipping_postal_code,
-                customer_country: o.shipping_country,
+                customer_address: o.billing_address || o.shipping_address1,
+                customer_city: o.billing_city || o.shipping_city,
+                customer_zip: o.billing_postal_code || o.shipping_postal_code,
+                customer_country: o.billing_country || o.shipping_country,
+                items: (itemsMap.get(o.order_ref) || []).map((i: any) => ({
+                    name: i.name,
+                    qty: i.qty,
+                    price: i.unit_price,
+                    total: i.unit_price * i.qty
+                })),
                 details_link: `/admin/loja?order=${o.id}`
             });
         });
