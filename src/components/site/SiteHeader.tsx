@@ -282,7 +282,7 @@ export default function SiteHeader() {
 
             {/* User Menu (Desktop) */}
             <div className="hidden lg:block min-w-[140px]">
-              {mounted && !loading && (
+              {mounted && (
                 <>
                   {user ? (
                     <div className="relative">
@@ -354,7 +354,7 @@ export default function SiteHeader() {
                         )}
                       </AnimatePresence>
                     </div>
-                  ) : (
+                  ) : !loading && (
                     <div className="flex items-center gap-3">
                       <Link href="/login" className="text-sm font-bold text-slate-600 hover:text-slate-900">
                         Entrar

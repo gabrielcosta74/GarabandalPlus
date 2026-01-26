@@ -41,6 +41,14 @@ export default function AuthCallbackPage() {
           return;
         }
 
+        // 0. Check if already logged in (Priority)
+        // This handles cases where auto-refresh or race conditions already established the session
+        const { data: { session } } = await supabaseBrowser.auth.getSession();
+        if (session) {
+          handleRedirect(type, nextQuery);
+          return;
+        }
+
         if (errorParam) {
           setMessage(errorDescription || 'Erro ao validar a conta. Tente novamente.');
           setTimeout(() => router.replace('/login'), 3000);

@@ -127,21 +127,36 @@ export default function AdminPage() {
   };
 
   useEffect(() => {
+    let mounted = true;
     const init = async () => {
-      if (!supabaseBrowser) {
-        setSessionReady(true);
-        return;
-      }
-      const { data } = await supabaseBrowser.auth.getSession();
-      const email = data.session?.user?.email || null;
-      setSessionEmail(email);
-      setSessionReady(true);
-      if (email) {
-        // Redirect to new dashboard if logged in
-        router.replace('/admin/dashboard');
+      try {
+        if (!supabaseBrowser) {
+          if (mounted) setSessionReady(true);
+          return;
+        }
+
+        // Race condition protection: Timeout after 3s
+        const timeoutPromise = new Promise(resolve => setTimeout(resolve, 3000));
+        const sessionPromise = supabaseBrowser.auth.getSession();
+
+        const result = await Promise.race([sessionPromise, timeoutPromise]) as any;
+        const data = result?.data || { session: null }; // Fallback if timeout or error
+
+        const email = data.session?.user?.email || null;
+        if (mounted) {
+          setSessionEmail(email);
+          setSessionReady(true);
+          if (email) {
+            router.replace('/admin/dashboard');
+          }
+        }
+      } catch (err) {
+        console.error('Session check failed:', err);
+        if (mounted) setSessionReady(true);
       }
     };
     init();
+    return () => { mounted = false; };
   }, []);
 
   const handleLogin = async () => {

@@ -51,32 +51,41 @@ export default function MemberDashboardPage() {
 
   useEffect(() => {
     const loadData = async () => {
-      if (!supabaseBrowser) return;
-      const { data: { user } } = await supabaseBrowser.auth.getUser();
-      if (!user) return;
+      try {
+        if (!supabaseBrowser) return;
+        const { data: { user } } = await supabaseBrowser.auth.getUser();
 
-      // Load Member
-      const { data: memberData } = await supabaseBrowser
-        .from('membros')
-        .select('*')
-        .eq('id', user.id)
-        .maybeSingle();
+        if (!user) {
+          // If no user, we can't load data. 
+          // VIPLayout might handle redirect, but we must stop loading.
+          return;
+        }
 
-      if (memberData) setMember(memberData);
+        // Load Member
+        const { data: memberData } = await supabaseBrowser
+          .from('membros')
+          .select('*')
+          .eq('id', user.id)
+          .maybeSingle();
 
-      // Load ONLY the next Active Event
-      const { data: eventsData } = await supabaseBrowser
-        .from('events')
-        .select('*')
-        .eq('is_active', true)
-        .gte('end_time', new Date().toISOString()) // Only future or ongoing events
-        .order('start_time', { ascending: true })
-        .limit(1)
-        .maybeSingle();
+        if (memberData) setMember(memberData);
 
-      if (eventsData) setNextEvent(eventsData);
+        // Load ONLY the next Active Event
+        const { data: eventsData } = await supabaseBrowser
+          .from('events')
+          .select('*')
+          .eq('is_active', true)
+          .gte('end_time', new Date().toISOString()) // Only future or ongoing events
+          .order('start_time', { ascending: true })
+          .limit(1)
+          .maybeSingle();
 
-      setLoading(false);
+        if (eventsData) setNextEvent(eventsData);
+      } catch (error) {
+        console.error('Error loading member dashboard:', error);
+      } finally {
+        setLoading(false);
+      }
     };
     loadData();
   }, []);

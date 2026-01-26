@@ -8,7 +8,6 @@ import { supabaseBrowser } from '../../../lib/supabase-browser';
 import {
   Package,
   Truck,
-  MapPin,
   AlertCircle,
   Search,
   Filter,
@@ -16,11 +15,12 @@ import {
   CheckCircle,
   X,
   FileText,
-  Mail,
   CreditCard,
-  User
+  User,
+  Inbox,
+  Clock,
+  Copy
 } from 'lucide-react';
-import styles from '../encomendas.module.css';
 
 type OrderItem = {
   order_ref: string;
@@ -44,24 +44,22 @@ type OrderRow = {
   shipping_city?: string | null;
   shipping_postal_code?: string | null;
   shipping_cost?: number | null;
-  shipping_origin?: string | null;
-  shipping_zone?: string | null;
-  billing_address?: string | null;
-  billing_city?: string | null;
-  billing_postal_code?: string | null;
-  billing_country?: string | null;
+  shipping_tracking?: string | null;
   status: string;
   shipping_status?: string | null;
-  shipping_tracking?: string | null;
   shipped_at?: string | null;
   invoice_sent_at?: string | null;
   has_physical: boolean;
   payment_method?: string | null;
-  payment_provider?: string | null;
   payment_reference?: string | null;
   total_amount: number;
   currency: string;
   items: OrderItem[];
+  // Mapping optional fields to match usage
+  billing_address?: string | null;
+  billing_city?: string | null;
+  billing_postal_code?: string | null;
+  billing_country?: string | null;
 };
 
 // Adapter for AdminTable
@@ -91,7 +89,7 @@ const shippingLabel = (status?: string | null) => {
 };
 
 const getTypeLabel = (order: OrderRow) => {
-  if (order.has_physical) return 'Fisico';
+  if (order.has_physical) return 'Físico';
   return 'Digital';
 };
 
@@ -107,9 +105,14 @@ export default function AdminEncomendasPage() {
   const [trackingByOrder, setTrackingByOrder] = useState<Record<string, string>>({});
   const [toast, setToast] = useState<string | null>(null);
   const [selectedOrder, setSelectedOrder] = useState<OrderRow | null>(null);
+
+  // Tab State: 'action_needed' | 'history'
+  const [currentTab, setCurrentTab] = useState<'action_needed' | 'history'>('action_needed');
+
   const [filters, setFilters] = useState({
     status: 'all',
     shipping: 'all',
+    invoice: 'all', // New filter
     type: 'all',
     country: 'all',
     period: '30d',
@@ -128,7 +131,7 @@ export default function AdminEncomendasPage() {
         headers: {
           Authorization: `Bearer ${token}`,
         },
-        cache: 'no-store', // Disable caching to ensure fresh data
+        cache: 'no-store',
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
@@ -173,13 +176,17 @@ export default function AdminEncomendasPage() {
         }),
       });
       if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body?.message || 'Não foi possível atualizar o envio.');
+        throw new Error('Não foi possível atualizar o envio.');
       }
-      showToast('Encomenda marcada como enviada. Email enviado ao cliente.');
+      showToast('Encomenda marcada como enviada.');
       await loadOrders();
       if (selectedOrder?.order_ref === order.order_ref) {
-        setSelectedOrder(prev => prev ? { ...prev, shipping_status: 'enviado', shipping_tracking: tracking, shipped_at: new Date().toISOString() } : null);
+        setSelectedOrder(prev => prev ? {
+          ...prev,
+          shipping_status: 'enviado',
+          shipping_tracking: tracking,
+          shipped_at: new Date().toISOString()
+        } : null);
       }
     } catch (err: any) {
       showToast(err?.message || 'Erro ao atualizar envio.');
@@ -229,6 +236,9 @@ export default function AdminEncomendasPage() {
   const filteredOrders = useMemo(() => {
     const search = filters.search.trim().toLowerCase();
     const now = new Date();
+    // Only apply date filter to History, allow Action Needed to verify everything regardless of date?
+    // Good practice: Filter applies to "viewed set". Let's apply filters globally but maybe allow Action Needed to ignore date?
+    // For now, consistent behavior:
     const periodDays =
       filters.period === '7d' ? 7 : filters.period === '90d' ? 90 : filters.period === 'all' ? null : 30;
     const limitDate = periodDays ? new Date(now.getTime() - periodDays * 24 * 60 * 60 * 1000) : null;
@@ -236,16 +246,32 @@ export default function AdminEncomendasPage() {
     return orders.filter((order) => {
       if (limitDate && new Date(order.created_at) < limitDate) return false;
 
+      // Filter by Status
       const normalizedStatus = (order.status || '').toLowerCase();
       if (filters.status !== 'all' && normalizedStatus !== filters.status) return false;
 
+      // Filter by Shipping Status
       if (filters.shipping !== 'all' && shippingLabel(order.shipping_status).toLowerCase() !== filters.shipping) {
         return false;
       }
 
-      const typeLabel = getTypeLabel(order).toLowerCase();
-      if (filters.type !== 'all' && typeLabel !== filters.type) return false;
+      // Filter by Invoice Status
+      if (filters.invoice !== 'all') {
+        const sent = !!order.invoice_sent_at;
+        if (filters.invoice === 'sent' && !sent) return false;
+        if (filters.invoice === 'pending' && sent) return false;
+      }
 
+      // Filter by Type
+      const typeLabel = getTypeLabel(order).toLowerCase();
+      // Remove accents for comparison if needed, but simple includes works for 'fisico'/'digital' usually if matched
+      // Let's rely on strict match 'fisico' or 'digital' from dropdown values
+      if (filters.type !== 'all') {
+        const type = order.has_physical ? 'fisico' : 'digital';
+        if (filters.type !== type) return false;
+      }
+
+      // Filter by Country
       const country = (order.shipping_country || '').toUpperCase();
       if (filters.country !== 'all') {
         if (filters.country === 'outros' && (country === 'PT' || country === 'BR')) return false;
@@ -253,6 +279,7 @@ export default function AdminEncomendasPage() {
         if (filters.country === 'br' && country !== 'BR') return false;
       }
 
+      // Search
       if (search) {
         const haystack = [
           order.order_ref,
@@ -271,232 +298,269 @@ export default function AdminEncomendasPage() {
     });
   }, [orders, filters]);
 
-  // "Encomendas a Preparar": Physical + Paid + Not Shipped
-  const pendingOrders = useMemo(
-    () =>
-      filteredOrders.filter(
-        (order) => order.has_physical && isPaid(order) && shippingLabel(order.shipping_status) !== 'Enviado',
-      ),
-    [filteredOrders],
-  );
+  // View: Action Needed
+  // Criteria:
+  // 1. Paid AND Physical AND Not Shipped ("A enviar")
+  // 2. Paid AND Not Invoice Sent ("Fatura em falta")
+  const actionNeededOrders = useMemo(() => orders.filter(order => {
+    // Must be paid to require action
+    if (!isPaid(order)) return false;
 
-  // "Histórico e Digitais": 
-  // 1. Digital orders (always show here)
-  // 2. Physical orders that are Shipped
-  // 3. Physical orders that are NOT paid (failed/canceled/pending payment) - usually we don't prep these yet
-  const sentOrders = useMemo(
-    () => filteredOrders.filter((order) => {
-      if (!order.has_physical) return true; // Show all digital
-      if (shippingLabel(order.shipping_status) === 'Enviado') return true; // Show shipped physical
-      if (!isPaid(order)) return true; // Show failed/canceled physical (optional, but good for history)
-      return false;
-    }),
-    [filteredOrders],
-  );
+    // Case 1: Needs Shipping
+    const needsShipping = order.has_physical && shippingLabel(order.shipping_status) !== 'Enviado';
 
-  /* Restored pendingInvoice logic */
-  const pendingInvoice = useMemo(
-    () => filteredOrders.filter((order) => isPaid(order) && !order.invoice_sent_at),
-    [filteredOrders]
-  );
+    // Case 2: Needs Invoice
+    const needsInvoice = !order.invoice_sent_at;
 
-  const pendingCount = pendingOrders.length;
-  const todaysShipments = sentOrders.filter((order) => {
-    if (!order.shipped_at) return false;
-    const shippedDate = new Date(order.shipped_at);
-    const today = new Date();
-    return shippedDate.toDateString() === today.toDateString();
-  }).length;
-  const brazilOrders = filteredOrders.filter((order) => (order.shipping_country || '').toUpperCase() === 'BR').length;
-  const noTracking = sentOrders.filter((order) => !order.shipping_tracking).length;
+    return needsShipping || needsInvoice;
+  }), [orders]); // Use 'orders' raw source for Badge counts, but 'filteredOrders' for table? 
+  // IMPORTANT: The "Action Needed" tab usually ignores some filters (like "shipped" or "sent invoice" because... they wouldn't be there).
+  // But searching within Action Needed is useful.
+  // Let's filter the TAB DATA by the SEARCH term, but maybe ignore status filters that hide them?
+  // Simpler approach: Apply filters to the view.
 
-  // Transform for AdminTable
-  const pendingOrdersData: OrderTableItem[] = pendingOrders.map(o => ({ ...o, id: o.order_ref }));
-  const sentOrdersData: OrderTableItem[] = sentOrders.map(o => ({ ...o, id: o.order_ref }));
+  const actionNeededView = useMemo(() => {
+    // Intersection of Global Filters + Action Needed Criteria
+    return filteredOrders.filter(order => {
+      if (!isPaid(order)) return false;
+      const needsShipping = order.has_physical && shippingLabel(order.shipping_status) !== 'Enviado';
+      const needsInvoice = !order.invoice_sent_at;
+      return needsShipping || needsInvoice;
+    });
+  }, [filteredOrders]);
 
-  const pendingColumns = [
-    { key: 'order_ref', header: 'Pedido', render: (item: OrderTableItem) => <span className="font-mono font-medium">#{item.order_ref}</span> },
-    { key: 'created_at', header: 'Data', render: (item: OrderTableItem) => formatDate(item.created_at) },
+  const historyView = useMemo(() => filteredOrders, [filteredOrders]);
+
+  // Statistics from RAW orders (unfiltered) to show badges
+  const stats = useMemo(() => {
+    const pendingShip = orders.filter(o => isPaid(o) && o.has_physical && shippingLabel(o.shipping_status) !== 'Enviado').length;
+    const pendingInv = orders.filter(o => isPaid(o) && !o.invoice_sent_at).length;
+    return { pendingShip, pendingInv };
+  }, [orders]);
+
+  const displayedOrders = currentTab === 'action_needed' ? actionNeededView : historyView;
+
+  // Generic Columns
+  const commonColumns = [
+    {
+      key: 'order_ref', header: 'Pedido', render: (item: OrderTableItem) => (
+        <div className="flex flex-col">
+          <span className="font-mono font-bold text-gray-900">#{item.order_ref}</span>
+          <span className="text-[10px] text-gray-500 uppercase tracking-wide font-semibold mt-0.5">{getTypeLabel(item)}</span>
+        </div>
+      )
+    },
+    {
+      key: 'created_at', header: 'Data', render: (item: OrderTableItem) => (
+        <div className="flex flex-col">
+          <span className="text-sm text-gray-900">{formatDate(item.created_at)}</span>
+          <span className="text-xs text-gray-400">{new Date(item.created_at).toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' })}</span>
+        </div>
+      )
+    },
     {
       key: 'buyer_name', header: 'Cliente', render: (item: OrderTableItem) => (
         <div>
-          <p className="font-medium text-gray-900">{item.buyer_name || item.buyer_email || 'Cliente'}</p>
+          <p className="font-medium text-gray-900 text-sm">{item.buyer_name || 'Cliente Sem Nome'}</p>
           <p className="text-xs text-gray-500 truncate max-w-[150px]">{item.buyer_email}</p>
         </div>
       )
     },
     {
-      key: 'invoice_sent_at', header: 'Fatura', align: 'center' as const, render: (item: OrderTableItem) => (
-        <button
-          onClick={(e) => { e.stopPropagation(); handleToggleInvoice(item); }}
-          className={`w-6 h-6 rounded-md flex items-center justify-center transition-colors ${item.invoice_sent_at ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-400 hover:bg-gray-200'}`}
-          title={item.invoice_sent_at ? `Enviada em ${formatDateTime(item.invoice_sent_at)}` : 'Marcar fatura como enviada'}
-        >
-          <FileText className="w-4 h-4" />
-        </button>
-      )
-    },
-    {
-      key: 'shipping_status', header: 'Logistica', render: (item: OrderTableItem) => (
-        <div>
-          <p className="text-sm text-gray-900 font-medium">{shippingLabel(item.shipping_status)}</p>
-          <span className="text-[10px] bg-gray-100 px-1.5 py-0.5 rounded text-gray-500">{(item.shipping_country || 'PT').toUpperCase()}</span>
+      key: 'status_flags', header: 'Estado', render: (item: OrderTableItem) => (
+        <div className="flex flex-col gap-1.5 items-start">
+          {/* Invoice Badge */}
+          <button
+            onClick={(e) => { e.stopPropagation(); handleToggleInvoice(item); }}
+            className={`flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide border transition-all ${item.invoice_sent_at
+              ? 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100'
+              : 'bg-yellow-50 text-yellow-700 border-yellow-200 hover:bg-yellow-100'
+              }`}
+          >
+            <FileText className="w-3 h-3" />
+            {item.invoice_sent_at ? 'Fatura OK' : 'Fatura em Falta'}
+          </button>
+
+          {/* Shipping Badge (Only Physical) */}
+          {item.has_physical && (
+            <div className={`flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide border ${shippingLabel(item.shipping_status) === 'Enviado'
+              ? 'bg-blue-50 text-blue-700 border-blue-200'
+              : 'bg-orange-50 text-orange-700 border-orange-200'
+              }`}>
+              <Truck className="w-3 h-3" />
+              {shippingLabel(item.shipping_status)}
+            </div>
+          )}
         </div>
       )
     },
     { key: 'total_amount', header: 'Total', align: 'right' as const, render: (item: OrderTableItem) => <span className="font-bold text-gray-900">{formatCurrency(item.total_amount, item.currency)}</span> },
   ];
 
-  const sentColumns = [
-    { key: 'order_ref', header: 'Pedido', render: (item: OrderTableItem) => <span className="font-mono font-medium">#{item.order_ref}</span> },
-    { key: 'shipped_at', header: 'Enviado em', render: (item: OrderTableItem) => item.shipped_at ? formatDate(item.shipped_at) : formatDate(item.created_at) },
-    { key: 'buyer_name', header: 'Cliente', render: (item: OrderTableItem) => item.buyer_name || 'Cliente' },
-    {
-      key: 'invoice_sent_at', header: 'Fatura', align: 'center' as const, render: (item: OrderTableItem) => (
-        <button
-          onClick={(e) => { e.stopPropagation(); handleToggleInvoice(item); }}
-          className={`w-6 h-6 rounded-md flex items-center justify-center transition-colors ${item.invoice_sent_at ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-400 hover:bg-gray-200'}`}
-        >
-          <FileText className="w-4 h-4" />
-        </button>
-      )
-    },
-    {
-      key: 'shipping_tracking', header: 'Tracking', render: (item: OrderTableItem) => (
-        <span className="font-mono text-sm text-gray-600">{item.shipping_tracking || '—'}</span>
-      )
-    },
-    { key: 'total_amount', header: 'Total', align: 'right' as const, render: (item: OrderTableItem) => formatCurrency(item.total_amount, item.currency) },
-  ];
+  const adminTableData = displayedOrders.map(o => ({ ...o, id: o.order_ref }));
 
   return (
-    <AdminLayout title="Encomendas e Logística" isLoading={loading}>
-      {/* KPI Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+    <AdminLayout title="Gestão de Encomendas" isLoading={loading}>
+
+      {/* KPI Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-8">
         <AdminStatCard
-          title="Por Enviar (Físico)"
-          value={pendingCount}
+          title="Por Enviar"
+          value={stats.pendingShip}
           icon={Package}
           color="gold"
         />
         <AdminStatCard
-          title="Faturas Pendentes"
-          value={pendingInvoice.length}
+          title="Faturas em Falta"
+          value={stats.pendingInv}
           icon={FileText}
           color="blue"
         />
+        {/* Simple total stats */}
         <AdminStatCard
-          title="Envios Hoje"
-          value={todaysShipments}
-          icon={Truck}
-          color="green"
-        />
-        <AdminStatCard
-          title="Sem Tracking"
-          value={sentOrders.filter(o => !o.shipping_tracking).length}
-          icon={AlertCircle}
+          title="Total Encomendas"
+          value={orders.length}
+          icon={Inbox}
           color="purple"
         />
       </div>
 
+      {/* Tabs */}
+      <div className="flex items-center gap-1 mb-6 border-b border-gray-200">
+        <button
+          onClick={() => setCurrentTab('action_needed')}
+          className={`px-4 py-3 text-sm font-medium flex items-center gap-2 border-b-2 transition-colors ${currentTab === 'action_needed'
+            ? 'border-garabandal-gold text-garabandal-dark'
+            : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+            }`}
+        >
+          <AlertCircle className="w-4 h-4" />
+          Ação Necessária
+          <span className="bg-red-100 text-red-700 px-1.5 py-0.5 rounded-full text-xs font-bold">
+            {actionNeededOrders.length}
+          </span>
+        </button>
+
+        <button
+          onClick={() => setCurrentTab('history')}
+          className={`px-4 py-3 text-sm font-medium flex items-center gap-2 border-b-2 transition-colors ${currentTab === 'history'
+            ? 'border-garabandal-gold text-garabandal-dark'
+            : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+            }`}
+        >
+          <Clock className="w-4 h-4" />
+          Histórico Completo
+        </button>
+      </div>
+
       {/* Toolbar */}
-      <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm mb-6 flex flex-wrap gap-4 items-center justify-between">
+      <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm mb-6 flex flex-wrap gap-4 items-center justify-between">
         <div className="flex flex-wrap gap-3">
           <select
-            className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-garabandal-gold/20"
+            className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-700 outline-none focus:border-garabandal-gold"
             value={filters.status}
-            onChange={(event) => setFilters((prev) => ({ ...prev, status: event.target.value }))}
+            onChange={(e) => setFilters((prev) => ({ ...prev, status: e.target.value }))}
           >
             <option value="all">Status: Todos</option>
             <option value="paid">Pago</option>
             <option value="pending">Pendente</option>
-            <option value="failed">Falhado</option>
           </select>
+
           <select
-            className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-garabandal-gold/20"
+            className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-700 outline-none focus:border-garabandal-gold"
+            value={filters.invoice}
+            onChange={(e) => setFilters((prev) => ({ ...prev, invoice: e.target.value }))}
+          >
+            <option value="all">Fatura: Todas</option>
+            <option value="pending">Pendente (Falta)</option>
+            <option value="sent">Enviada</option>
+          </select>
+
+          <select
+            className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-700 outline-none focus:border-garabandal-gold"
             value={filters.shipping}
-            onChange={(event) => setFilters((prev) => ({ ...prev, shipping: event.target.value }))}
+            onChange={(e) => setFilters((prev) => ({ ...prev, shipping: e.target.value }))}
           >
             <option value="all">Envio: Todos</option>
             <option value="por enviar">Por enviar</option>
             <option value="enviado">Enviado</option>
           </select>
+
+          <select
+            className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-700 outline-none focus:border-garabandal-gold"
+            value={filters.type}
+            onChange={(e) => setFilters((prev) => ({ ...prev, type: e.target.value }))}
+          >
+            <option value="all">Tipo: Todos</option>
+            <option value="fisico">Físico</option>
+            <option value="digital">Digital</option>
+          </select>
         </div>
 
-        <div className="flex items-center gap-2 flex-grow sm:flex-grow-0 min-w-[200px]">
+        <div className="flex items-center gap-2 flex-grow sm:flex-grow-0 min-w-[250px]">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <input
               type="text"
-              placeholder="Nome, email, NIF, Ref..."
+              placeholder="Pesquisar..."
               value={filters.search}
               onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
-              className="w-full pl-9 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-garabandal-gold/20"
+              className="w-full pl-9 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-garabandal-gold"
             />
           </div>
-          <button onClick={loadOrders} className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg transition-colors">
-            <Filter className="w-4 h-4" />
-          </button>
         </div>
       </div>
 
-      <div className="space-y-8">
-        <div>
-          <h2 className="text-lg font-bold font-serif text-gray-900 mb-4 flex items-center gap-2">
-            <Package className="w-5 h-5 text-garabandal-gold" />
-            Encomendas a Preparar (Físico)
-          </h2>
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+        {displayedOrders.length === 0 ? (
+          <div className="p-12 text-center">
+            <div className="bg-gray-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+              <CheckCircle className="w-8 h-8 text-gray-300" />
+            </div>
+            <h3 className="text-gray-900 font-medium text-lg">Tudo limpo!</h3>
+            <p className="text-gray-500">Não há encomendas correspondentes aos filtros.</p>
+            {currentTab === 'action_needed' && <p className="text-green-600 font-medium mt-2">Bom trabalho! Zero pendências.</p>}
+          </div>
+        ) : (
           <AdminTable
-            data={pendingOrdersData}
-            columns={pendingColumns}
-            itemsPerPage={5}
+            data={adminTableData}
+            columns={commonColumns}
+            itemsPerPage={10}
             actions={(item) => (
               <div className="flex items-center gap-2">
-                <input
-                  className="w-24 px-2 py-1 text-xs border border-gray-200 rounded focus:border-garabandal-gold focus:outline-none"
-                  type="text"
-                  placeholder="Tracking code"
-                  value={trackingByOrder[item.order_ref] || ''}
-                  onChange={(e) => setTrackingByOrder((prev) => ({ ...prev, [item.order_ref]: e.target.value }))}
-                  onClick={(e) => e.stopPropagation()}
-                />
+                {/* Invoice Action: Show if pending */}
+                {!item.invoice_sent_at && (
+                  <button
+                    className="p-1.5 text-yellow-600 hover:bg-yellow-50 rounded-lg transition-colors border border-transparent hover:border-yellow-200"
+                    onClick={(e) => { e.stopPropagation(); handleToggleInvoice(item); }}
+                    title="Marcar Fatura Enviada"
+                  >
+                    <FileText className="w-4 h-4" />
+                  </button>
+                )}
+
+                {/* Shipping Action: Simple Button */}
+                {item.has_physical && shippingLabel(item.shipping_status) !== 'Enviado' && (
+                  <button
+                    className="p-1.5 text-green-600 hover:bg-green-50 rounded-lg transition-colors border border-transparent hover:border-green-200"
+                    onClick={(e) => { e.stopPropagation(); handleMarkShipped(item); }}
+                    title="Marcar como Enviado"
+                  >
+                    <Truck className="w-4 h-4" />
+                  </button>
+                )}
+
                 <button
-                  className="p-1.5 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
-                  onClick={(e) => { e.stopPropagation(); handleMarkShipped(item); }}
-                  title="Marcar Enviado"
-                >
-                  <CheckCircle className="w-4 h-4" />
-                </button>
-                <button
-                  className="p-1.5 text-gray-400 hover:text-garabandal-dark hover:bg-gray-100 rounded-lg transition-colors"
+                  className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                   onClick={() => setSelectedOrder(item)}
+                  title="Ver Detalhes"
                 >
                   <Eye className="w-4 h-4" />
                 </button>
               </div>
             )}
           />
-        </div>
-
-        <div>
-          <h2 className="text-lg font-bold font-serif text-gray-900 mb-4 flex items-center gap-2">
-            <Truck className="w-5 h-5 text-gray-400" />
-            Histórico e Digitais
-          </h2>
-          <AdminTable
-            data={sentOrdersData}
-            columns={sentColumns}
-            itemsPerPage={5}
-            actions={(item) => (
-              <button
-                className="p-1.5 text-gray-400 hover:text-garabandal-dark hover:bg-gray-100 rounded-lg transition-colors"
-                onClick={() => setSelectedOrder(item)}
-              >
-                <Eye className="w-4 h-4" />
-              </button>
-            )}
-          />
-        </div>
+        )}
       </div>
 
       {selectedOrder && (
@@ -568,7 +632,7 @@ export default function AdminEncomendasPage() {
                       onClick={() => handleToggleInvoice(selectedOrder)}
                       className={`text-xs flex items-center gap-1.5 px-3 py-1.5 rounded-full font-medium transition-colors ${selectedOrder.invoice_sent_at
                         ? 'bg-green-100 text-green-700 border border-green-200'
-                        : 'bg-gray-100 text-gray-600 border border-gray-200 hover:bg-gray-200'
+                        : 'bg-yellow-100 text-yellow-700 border-yellow-200 hover:bg-yellow-200'
                         }`}
                     >
                       {selectedOrder.invoice_sent_at ? (
@@ -577,7 +641,7 @@ export default function AdminEncomendasPage() {
                         </>
                       ) : (
                         <>
-                          <AlertCircle className="w-3 h-3" /> Fatura: Pendente
+                          <AlertCircle className="w-3 h-3" /> Pendente
                         </>
                       )}
                     </button>
@@ -608,7 +672,10 @@ export default function AdminEncomendasPage() {
                     <div className="space-y-3">
                       <div className="flex justify-between items-center text-sm">
                         <span className="text-blue-600">Estado:</span>
-                        <span className="font-bold text-blue-900">{shippingLabel(selectedOrder.shipping_status)}</span>
+                        <span className={`font-bold ${shippingLabel(selectedOrder.shipping_status) === 'Enviado' ? 'text-green-600' : 'text-orange-600'
+                          }`}>
+                          {shippingLabel(selectedOrder.shipping_status)}
+                        </span>
                       </div>
                       <div className="text-sm space-y-1 text-blue-900">
                         <p>{selectedOrder.shipping_address1}</p>
@@ -617,24 +684,18 @@ export default function AdminEncomendasPage() {
                         <p className="font-bold">{(selectedOrder.shipping_country || '').toUpperCase()}</p>
                       </div>
 
-                      {/* Tracking Action Inline */}
-                      <div className="mt-4 pt-4 border-t border-blue-100">
-                        <label className="text-xs text-blue-500 font-medium mb-1 block">Tracking Number</label>
-                        <div className="flex gap-2">
-                          <input
-                            className="flex-1 px-3 py-2 text-sm border border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 outline-none"
-                            placeholder="Inserir código..."
-                            value={trackingByOrder[selectedOrder.order_ref] || selectedOrder.shipping_tracking || ''}
-                            onChange={(e) => setTrackingByOrder(prev => ({ ...prev, [selectedOrder.order_ref]: e.target.value }))}
-                          />
+                      {/* Action Button (No Tracking) */}
+                      {shippingLabel(selectedOrder.shipping_status) !== 'Enviado' && (
+                        <div className="mt-4 pt-4 border-t border-blue-100 flex justify-end">
                           <button
                             onClick={() => handleMarkShipped(selectedOrder)}
-                            className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition"
+                            className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition flex items-center gap-2"
                           >
-                            Salvar
+                            <CheckCircle className="w-4 h-4" />
+                            Marcar como Enviado
                           </button>
                         </div>
-                      </div>
+                      )}
                     </div>
                   </div>
                 )}

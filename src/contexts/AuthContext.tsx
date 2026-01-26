@@ -66,18 +66,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 return;
             }
 
-            const { data } = await supabaseBrowser.auth.getSession();
-            const currentSession = data.session;
-            const sessionUser = currentSession?.user;
+            try {
+                const { data } = await supabaseBrowser.auth.getSession();
+                const currentSession = data.session;
+                const sessionUser = currentSession?.user;
 
-            if (mounted) {
-                setSessionState(currentSession);
-                setUser(sessionUser ? { id: sessionUser.id, email: sessionUser.email } : null);
+                if (mounted) {
+                    setSessionState(currentSession);
+                    setUser(sessionUser ? { id: sessionUser.id, email: sessionUser.email } : null);
 
-                if (sessionUser?.id) {
-                    await loadMemberData(sessionUser.id);
+                    if (sessionUser?.id) {
+                        try {
+                            await loadMemberData(sessionUser.id);
+                        } catch (err) {
+                            console.error('Error loading member data:', err);
+                        }
+                    }
                 }
-                setLoading(false);
+            } catch (error) {
+                console.error('Error during session load:', error);
+            } finally {
+                if (mounted) {
+                    setLoading(false);
+                }
             }
         };
 
