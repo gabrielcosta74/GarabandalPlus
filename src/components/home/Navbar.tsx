@@ -19,8 +19,8 @@ const Navbar: React.FC = () => {
     return (
         <motion.nav
             className={`fixed top-0 left-0 right-0 z-40 transition-all duration-500 ${isScrolled
-                ? 'bg-garabandal-dark/80 backdrop-blur-xl border-b border-white/5 py-4'
-                : 'bg-transparent py-8'
+                ? 'bg-garabandal-dark/90 backdrop-blur-xl border-b border-white/5 py-4 shadow-2xl'
+                : 'bg-transparent py-8 lg:py-10'
                 }`}
             initial={{ y: -100 }}
             animate={{ y: 0 }}
@@ -33,25 +33,18 @@ const Navbar: React.FC = () => {
                 </Link>
 
                 {/* Desktop Menu */}
-                <div className="hidden md:flex items-center space-x-4">
+                <div className="hidden md:flex items-center space-x-8">
                     {NAVIGATION_LINKS.map((link) => {
-                        const button = (
-                            <Link
-                                key={link.name}
-                                href={link.href}
-                                className={`
-                    px-6 py-2 rounded-full text-[11px] font-bold tracking-widest uppercase transition-all duration-300 transform hover:scale-105 active:scale-95
-                    ${link.name === 'Ser Membro'
-                                        ? 'bg-white text-garabandal-dark hover:bg-garabandal-gold hover:text-white shadow-lg hover:shadow-garabandal-gold/50'
-                                        : 'text-white/70 hover:text-white hover:bg-white/10 hover:shadow-[0_0_15px_rgba(255,255,255,0.2)]'
-                                    }
-                  `}
-                            >
-                                {link.name}
-                            </Link>
-                        );
-
                         if (link.name === 'Ser Membro') {
+                            const button = (
+                                <Link
+                                    key={link.name}
+                                    href={link.href}
+                                    className="px-8 py-3 rounded-full bg-white text-garabandal-dark text-xs font-bold tracking-widest uppercase hover:bg-garabandal-gold hover:text-white hover:shadow-lg hover:shadow-garabandal-gold/40 transition-all duration-300 transform hover:-translate-y-1"
+                                >
+                                    {link.name}
+                                </Link>
+                            );
                             return (
                                 <NonMemberOnly key={link.name}>
                                     {button}
@@ -59,7 +52,16 @@ const Navbar: React.FC = () => {
                             );
                         }
 
-                        return button;
+                        return (
+                            <Link
+                                key={link.name}
+                                href={link.href}
+                                className="relative group text-sm font-bold tracking-widest uppercase text-white/80 hover:text-white transition-colors py-2"
+                            >
+                                {link.name}
+                                <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-garabandal-gold transition-all duration-300 group-hover:w-full opacity-0 group-hover:opacity-100" />
+                            </Link>
+                        );
                     })}
                 </div>
 
@@ -87,7 +89,7 @@ const Navbar: React.FC = () => {
                                     key={link.name}
                                     href={link.href}
                                     onClick={() => setMobileMenuOpen(false)}
-                                    className="text-center text-white/80 hover:text-garabandal-gold py-4 rounded-2xl bg-white/5 uppercase tracking-widest text-xs font-bold block"
+                                    className="text-center text-white/80 hover:text-garabandal-gold py-4 rounded-2xl bg-white/5 uppercase tracking-widest text-sm font-bold block"
                                 >
                                     {link.name}
                                 </Link>

@@ -20,6 +20,7 @@ type AdminTableProps<T> = {
     onSearch?: (query: string) => void;
     itemsPerPage?: number;
     actions?: (item: T) => React.ReactNode;
+    onRowClick?: (item: T) => void;
 };
 
 export default function AdminTable<T extends { id: string | number }>({
@@ -29,7 +30,8 @@ export default function AdminTable<T extends { id: string | number }>({
     searchPlaceholder = "Pesquisar...",
     onSearch,
     itemsPerPage = 10,
-    actions
+    actions,
+    onRowClick
 }: AdminTableProps<T>) {
     const [currentPage, setCurrentPage] = useState(1);
     const [searchQuery, setSearchQuery] = useState('');
@@ -123,14 +125,18 @@ export default function AdminTable<T extends { id: string | number }>({
                     <tbody className="divide-y divide-gray-50">
                         {paginatedData.length > 0 ? (
                             paginatedData.map((item) => (
-                                <tr key={item.id} className="hover:bg-gray-50/50 transition-colors">
+                                <tr
+                                    key={item.id}
+                                    onClick={() => onRowClick && onRowClick(item)}
+                                    className={`hover:bg-gray-50/50 transition-colors ${onRowClick ? 'cursor-pointer' : ''}`}
+                                >
                                     {columns.map((col) => (
                                         <td key={`${item.id}-${col.key}`} className={`px-6 py-4 whitespace-nowrap text-gray-700 ${col.align === 'right' ? 'text-right' : col.align === 'center' ? 'text-center' : 'text-left'}`}>
                                             {col.render ? col.render(item) : (item as any)[col.key]}
                                         </td>
                                     ))}
                                     {actions && (
-                                        <td className="px-6 py-4 whitespace-nowrap text-right">
+                                        <td className="px-6 py-4 whitespace-nowrap text-right" onClick={(e) => e.stopPropagation()}>
                                             {actions(item)}
                                         </td>
                                     )}

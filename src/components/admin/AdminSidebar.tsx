@@ -25,9 +25,11 @@ import {
     Mail,
     Heart
 } from 'lucide-react';
+import { useAdminNotifications } from '../../context/AdminNotificationContext';
 
 export default function AdminSidebar({ onLogout, className }: { onLogout: () => void; className?: string }) {
     const pathname = usePathname();
+    const { counts } = useAdminNotifications();
 
     const navGroups = [
         {
@@ -39,7 +41,7 @@ export default function AdminSidebar({ onLogout, className }: { onLogout: () => 
         {
             label: 'Comunidade',
             items: [
-                { label: 'Membros', icon: Users, href: '/admin/membros' },
+                { label: 'Membros', icon: Users, href: '/admin/membros', badge: counts.members },
                 { label: 'Leads & Inscrições', icon: Target, href: '/admin/leads' },
                 { label: 'Emails do Sistema', icon: Mail, href: '/admin/emails' },
             ]
@@ -54,7 +56,7 @@ export default function AdminSidebar({ onLogout, className }: { onLogout: () => 
         {
             label: 'Espiritualidade & Eventos',
             items: [
-                { label: 'Peregrinações', icon: Plane, href: '/admin/peregrinacoes' },
+                { label: 'Peregrinações', icon: Plane, href: '/admin/peregrinacoes', badge: counts.bookings },
                 { label: 'Novenas', icon: Sparkles, href: '/admin/novenas' },
                 { label: 'Intenções', icon: Flame, href: '/admin/intentions' },
                 { label: 'Orações', icon: BookOpen, href: '/admin/prayers' },
@@ -63,7 +65,7 @@ export default function AdminSidebar({ onLogout, className }: { onLogout: () => 
         {
             label: 'Loja Online',
             items: [
-                { label: 'Encomendas', icon: FileText, href: '/admin/encomendas' },
+                { label: 'Encomendas', icon: FileText, href: '/admin/encomendas', badge: counts.orders },
                 { label: 'Produtos & Stock', icon: ShoppingBag, href: '/admin/loja' },
             ]
         },
@@ -126,6 +128,11 @@ export default function AdminSidebar({ onLogout, className }: { onLogout: () => 
                                             className={`w-5 h-5 transition-colors ${isActive ? 'text-garabandal-dark' : 'text-white/50 group-hover:text-white'}`}
                                         />
                                         {item.label}
+                                        {(item as any).badge > 0 && (
+                                            <span className="ml-auto bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full shadow-sm animate-pulse">
+                                                {(item as any).badge}
+                                            </span>
+                                        )}
                                     </Link>
                                 );
                             })}

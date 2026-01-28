@@ -15,9 +15,10 @@ export async function GET(req: Request) {
 
     try {
         // 1. Fetch Donations
+        // Prioritize direct columns, fall back to joined donors
         const { data: donations } = await supabaseServer
             .from('donations')
-            .select('id, amount_cents, currency, status, created_at, method, donors(full_name, email)')
+            .select('*')
             .order('created_at', { ascending: false });
 
         // 2. Fetch Store Orders
@@ -50,31 +51,70 @@ export async function GET(req: Request) {
         // 4. Fetch Quota Payments
         const { data: quotaPayments } = await supabaseServer
             .from('pagamentos_quotas')
-            .select('*, membros(nome, email)')
+            .select('*')
             .order('data_pagamento', { ascending: false });
+
+        // 5. Batch Fetch Profiles (Membros)
+        // Collect user_ids from Pilgrimages (booking.user_id) and Quotas (user_id)
+        const userIds = new Set<string>();
+
+        // From Pilgrimages
+        (pilgrimagePayments || []).forEach(p => {
+            const uid = (p.bookings as any)?.user_id;
+            if (uid) userIds.add(uid);
+        });
+
+        // From Quotas
+        (quotaPayments || []).forEach(q => {
+            if (q.user_id) userIds.add(q.user_id);
+        });
+
+        // Fetch Membros
+        const { data: profiles } = userIds.size > 0
+            ? await supabaseServer
+                .from('membros')
+                .select('id, nome, email, nif, address, postal_code') // Ensure these columns exist
+                .in('id', Array.from(userIds))
+            : { data: [] };
+
+        const profilesMap = new Map<string, any>();
+        (profiles || []).forEach(p => profilesMap.set(p.id, p));
+
 
         // Consolidate Data
         const transactions: any[] = [];
 
         // Map Donations
         (donations || []).forEach(d => {
+            // Logic: Prefer donor_* columns. If null, try to use joined donor (not joined here to save perf, usually donor_* is reliable for recent ones)
+            // Actually, for older data, donor_* might be null? 
+            // 'donors' table join was removed above. If we need it, we should add it back or rely on 'donor_id' fetch.
+            // Assumption: 'donor_name', 'donor_email' are populated for guest donations. 
+            // If they are missing, we might need a separate fetch for 'donors' table if 'donor_id' exists.
+
             transactions.push({
                 id: d.id,
                 category: 'donation',
                 reference: `DON-${d.id.slice(0, 8)}`,
                 amount: (d.amount_cents || 0) / 100,
                 currency: d.currency || 'EUR',
-                customer_name: (d.donors as any)?.full_name || 'Doador Anónimo',
-                customer_email: (d.donors as any)?.email || '—',
+                customer_name: d.donor_name || (d.donor_email ? 'Doador' : 'Anónimo'),
+                customer_email: d.donor_email || '—',
+                customer_nif: d.donor_nif,
+                customer_address: d.donor_address,
+                customer_city: d.donor_city,
+                customer_zip: d.donor_zip,
+                customer_country: d.donor_country,
                 status: d.status,
                 method: d.method,
                 provider: 'Stripe',
                 created_at: d.created_at,
+                invoice_sent_at: d.invoice_sent_at,
                 details_link: `/admin/doacoes?id=${d.id}`
             });
         });
 
-        // Map Store Orders
+        // Map Store Orders (Same as before)
         (orders || []).forEach(o => {
             transactions.push({
                 id: o.id,
@@ -99,6 +139,7 @@ export async function GET(req: Request) {
                     price: i.unit_price,
                     total: i.unit_price * i.qty
                 })),
+                invoice_sent_at: o.invoice_sent_at,
                 details_link: `/admin/loja?order=${o.id}`
             });
         });
@@ -106,38 +147,52 @@ export async function GET(req: Request) {
         // Map Pilgrimage Payments
         (pilgrimagePayments || []).forEach(p => {
             const tripTitle = (p.bookings as any)?.pilgrimages?.title || 'Peregrinação';
+            const userId = (p.bookings as any)?.user_id;
+            const profile = profilesMap.get(userId);
+
             transactions.push({
                 id: p.id,
                 category: 'pilgrimage',
                 reference: p.external_reference || `PILG-${p.id.slice(0, 8)}`,
                 amount: p.amount,
                 currency: 'EUR',
-                customer_name: tripTitle, // Using trip title as primary identifier here
-                customer_email: p.transaction_id || '—',
+                customer_name: profile?.nome || tripTitle,
+                customer_email: profile?.email || p.transaction_id || '—', // Use profile email first
+                customer_nif: profile?.nif,
+                customer_address: profile?.address,
+                customer_zip: profile?.postal_code,
                 status: p.status,
                 method: p.method,
                 provider: p.method === 'manual' ? 'Manual' : 'Online',
                 created_at: p.created_at,
                 proof_url: p.proof_url,
                 notes: p.notes,
+                invoice_sent_at: p.invoice_sent_at,
                 details_link: `/admin/peregrinacoes`
             });
         });
 
         // Map Quota Payments
         (quotaPayments || []).forEach(q => {
+            const userId = q.user_id;
+            const profile = profilesMap.get(userId);
+
             transactions.push({
                 id: q.id,
                 category: 'quota',
                 reference: q.external_reference || `QUOTA-${q.id.slice(0, 8)}`,
                 amount: q.valor,
                 currency: 'EUR',
-                customer_name: (q.membros as any)?.nome || 'Membro',
-                customer_email: (q.membros as any)?.email || '—',
+                customer_name: profile?.nome || 'Membro',
+                customer_email: profile?.email || '—',
+                customer_nif: profile?.nif,
+                customer_address: profile?.address,
+                customer_zip: profile?.postal_code,
                 status: q.estado,
                 method: q.metodo_pagamento,
                 provider: q.metodo_pagamento === 'stripe' ? 'Stripe' : 'Manual',
-                created_at: q.data_pagamento + 'T12:00:00Z', // Date only to ISO
+                created_at: q.data_pagamento + 'T12:00:00Z',
+                invoice_sent_at: q.invoice_sent_at,
                 details_link: `/admin/membros`
             });
         });

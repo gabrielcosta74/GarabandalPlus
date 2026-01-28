@@ -21,6 +21,7 @@ import {
   Home,
   MapPin
 } from 'lucide-react';
+import MobileBottomNav from './MobileBottomNav';
 
 type CartPreviewItem = {
   id: string;
@@ -204,22 +205,35 @@ export default function SiteHeader() {
               { href: '/peregrinacoes', label: 'Peregrinações' },
               { href: '/donations', label: 'Doações' },
               { href: '/loja-online', label: 'Loja' },
-              { href: membershipHref, label: hasMembership ? 'Membro' : 'Ser Membro' }
             ].map(link => (
               <Link
                 key={link.href}
                 href={link.href}
                 className={`
-                  px-5 py-2 rounded-full text-sm font-semibold transition-all duration-200
+                  relative group px-4 py-2 text-[15px] font-bold tracking-wide transition-colors duration-200
                   ${(pathname === link.href)
-                    ? 'bg-white text-slate-900 shadow-sm'
-                    : 'text-slate-500 hover:text-slate-900 hover:bg-black/5'
+                    ? 'text-slate-900'
+                    : 'text-slate-600 hover:text-slate-900'
                   }
                 `}
               >
                 {link.label}
+                <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-yellow-500 transition-all duration-300 group-hover:w-full opacity-0 group-hover:opacity-100" />
               </Link>
             ))}
+
+            <Link
+              href={membershipHref}
+              className={`
+                  ml-2 px-6 py-2.5 rounded-full text-[15px] font-bold tracking-wide transition-all duration-300 transform hover:-translate-y-0.5
+                  ${hasMembership
+                  ? 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200 shadow-sm'
+                  : 'bg-yellow-600 text-white hover:bg-yellow-700 hover:shadow-lg shadow-md'
+                }
+                `}
+            >
+              {hasMembership ? 'Área de Membro' : 'Ser Membro'}
+            </Link>
 
             {/* NEW: My Bookings Shortcurt (Desktop) */}
             {user && (
@@ -512,6 +526,12 @@ export default function SiteHeader() {
           </>
         )}
       </AnimatePresence >
+
+      {/* Mobile Bottom Navigation */}
+      <MobileBottomNav
+        onOpenMenu={() => setMobileOpen(true)}
+        hasMembership={hasMembership}
+      />
     </>
   );
 }

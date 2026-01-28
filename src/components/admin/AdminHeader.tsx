@@ -3,8 +3,13 @@
 
 import React from 'react';
 import { Search, Bell, Menu } from 'lucide-react';
+import { useState } from 'react';
+import { useAdminNotifications } from '../../context/AdminNotificationContext';
+import NotificationDropdown from './NotificationDropdown';
 
 export default function AdminHeader({ title, onMobileMenuOpen, userEmail }: { title: string, onMobileMenuOpen: () => void, userEmail?: string | null }) {
+    const [isNotifOpen, setIsNotifOpen] = useState(false);
+    const { counts } = useAdminNotifications();
     return (
         <header className="sticky top-0 z-20 bg-white/80 backdrop-blur-md border-b border-gray-100 px-6 py-4 flex items-center justify-between">
             <div className="flex items-center gap-4">
@@ -32,10 +37,23 @@ export default function AdminHeader({ title, onMobileMenuOpen, userEmail }: { ti
 
                 {/* Actions */}
                 <div className="flex items-center gap-2">
-                    <button className="p-2 text-gray-400 hover:text-garabandal-dark hover:bg-gray-100 rounded-full transition-all relative">
-                        <Bell className="w-5 h-5" />
-                        <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-white"></span>
-                    </button>
+                    <div className="relative">
+                        <button
+                            onClick={() => setIsNotifOpen(!isNotifOpen)}
+                            className={`p-2 rounded-full transition-all relative ${isNotifOpen ? 'bg-garabandal-gold/10 text-garabandal-dark' : 'text-gray-400 hover:text-garabandal-dark hover:bg-gray-100'}`}
+                        >
+                            <Bell className="w-5 h-5" />
+                            {counts.unreadNotifications > 0 && (
+                                <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-white animate-pulse"></span>
+                            )}
+                        </button>
+                        {isNotifOpen && (
+                            <>
+                                <div className="fixed inset-0 z-40" onClick={() => setIsNotifOpen(false)} />
+                                <NotificationDropdown onClose={() => setIsNotifOpen(false)} />
+                            </>
+                        )}
+                    </div>
 
                     <div className="h-8 w-px bg-gray-200 mx-1"></div>
 

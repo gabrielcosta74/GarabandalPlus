@@ -4,7 +4,9 @@ import { useEffect, useState } from 'react';
 import AdminShell from '../AdminShell';
 import { supabaseBrowser } from '../../../lib/supabase-browser';
 import { KpiCard, RevenueDistWidget, RevenueTrendWidget, LowStockList, RevenueTrendData, RevenueDistData } from '../../../components/admin/DashboardWidgets';
-import { ShoppingCart, Heart, Activity, AlertTriangle } from 'lucide-react';
+import { ShoppingCart, Heart, Activity, AlertTriangle, Bell, Check, ChevronRight } from 'lucide-react';
+import { useAdminNotifications } from '../../../context/AdminNotificationContext';
+import Link from 'next/link';
 
 interface DashboardV2Data {
   kpi: {
@@ -21,6 +23,64 @@ interface DashboardV2Data {
     recentTransactions: any[];
     lowStock: any[];
   };
+}
+
+function NotificationsWidget() {
+  const { notifications, markAsRead, isLoading } = useAdminNotifications();
+  const unreadCount = notifications.filter(n => !n.read_at).length;
+  // Show top 5
+  const displayList = notifications.slice(0, 5);
+
+  return (
+    <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm relative overflow-hidden">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <div className="relative">
+            <Bell size={20} className="text-garabandal-dark" />
+            {unreadCount > 0 && <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white"></span>}
+          </div>
+          <h3 className="text-lg font-bold text-slate-900">Notificações</h3>
+        </div>
+        <span className="text-xs font-medium text-slate-500">{unreadCount} novas</span>
+      </div>
+
+      <div className="space-y-4">
+        {isLoading ? (
+          <p className="text-sm text-gray-400">A carregar...</p>
+        ) : displayList.length === 0 ? (
+          <p className="text-sm text-gray-400 italic">Sem notificações recentes.</p>
+        ) : (
+          displayList.map((n) => (
+            <div key={n.id} className={`flex gap-3 relative group ${!n.read_at ? 'bg-blue-50/50 -mx-2 px-2 py-2 rounded-lg' : ''}`}>
+              <div className={`w-1.5 h-1.5 rounded-full mt-2 flex-shrink-0 ${!n.read_at ? 'bg-blue-500' : 'bg-transparent'}`} />
+              <div className="flex-1 min-w-0">
+                <p className={`text-sm ${!n.read_at ? 'font-bold text-gray-900' : 'font-medium text-gray-600'}`}>{n.title}</p>
+                <p className="text-xs text-gray-500 line-clamp-1">{n.message}</p>
+                {n.link && (
+                  <Link
+                    href={n.link}
+                    onClick={() => !n.read_at && markAsRead(n.id)}
+                    className="text-[10px] font-bold text-garabandal-gold hover:text-garabandal-dark mt-1 inline-flex items-center gap-0.5"
+                  >
+                    Ver <ChevronRight className="w-3 h-3" />
+                  </Link>
+                )}
+              </div>
+              {!n.read_at && (
+                <button
+                  onClick={() => markAsRead(n.id)}
+                  className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-gray-100 rounded text-gray-400 hover:text-green-600 absolute top-2 right-2"
+                  title="Marcar como lida"
+                >
+                  <Check className="w-3 h-3" />
+                </button>
+              )}
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
 }
 
 export default function AdminDashboardPage() {
@@ -45,7 +105,7 @@ export default function AdminDashboardPage() {
 
   if (loading) {
     return (
-      <AdminShell title="Dashboard V2" description="Carregando visão geral...">
+      <AdminShell title="Visão Geral" description="Carregando painel...">
         <div className="h-64 flex items-center justify-center">
           <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
         </div>
@@ -95,8 +155,8 @@ export default function AdminDashboardPage() {
                 <div key={i} className="flex items-center justify-between py-4 border-b border-slate-50 last:border-0 hover:bg-slate-50/50 px-2 rounded-lg transition-colors">
                   <div className="flex items-center gap-4">
                     <div className={`w-10 h-10 rounded-full flex items-center justify-center ${tx.type === 'shop' ? 'bg-blue-50 text-blue-600' :
-                        tx.type === 'donation' ? 'bg-rose-50 text-rose-600' :
-                          'bg-amber-50 text-amber-600'
+                      tx.type === 'donation' ? 'bg-rose-50 text-rose-600' :
+                        'bg-amber-50 text-amber-600'
                       }`}>
                       {tx.type === 'shop' && <ShoppingCart size={18} />}
                       {tx.type === 'donation' && <Heart size={18} />}
@@ -121,6 +181,9 @@ export default function AdminDashboardPage() {
 
         {/* 3. SIDEBAR AREA (Right 1/3) */}
         <div className="space-y-8">
+          {/* Notifications Widget */}
+          <NotificationsWidget />
+
           {/* Distributions */}
           <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
             <h3 className="text-lg font-bold text-slate-900 mb-2">Origem de Receita</h3>

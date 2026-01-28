@@ -164,13 +164,13 @@ export default function RegisterPage() {
         </div>
 
         <div className="flex items-start gap-3">
-          <div className="relative flex items-center h-6">
+          <div className="relative flex items-center justify-center">
             <input
               id="terms"
               type="checkbox"
               checked={acceptedTerms}
               onChange={(e) => setAcceptedTerms(e.target.checked)}
-              className="w-5 h-5 rounded border-gray-300 text-garabandal-gold focus:ring-garabandal-gold"
+              className="w-8 h-8 rounded border-gray-300 text-garabandal-gold focus:ring-garabandal-gold cursor-pointer transition-transform hover:scale-105"
             />
           </div>
           <label htmlFor="terms" className="text-xs text-white/60 lg:text-gray-500 leading-relaxed font-medium">

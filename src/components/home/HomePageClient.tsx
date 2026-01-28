@@ -7,14 +7,16 @@ import Pillars from './Pillars';
 import Campaign from './Campaign';
 import Sustain from './Sustain';
 import NextPilgrimage from './NextPilgrimage';
+import FeaturedStore from './FeaturedStore';
 import { DonationMeta } from '../../lib/donations';
 
 interface HomePageClientProps {
     meta: DonationMeta;
-    nextPilgrimage?: any; // We can be loose here or import the type if we export it
+    nextPilgrimage?: any;
+    featuredProducts?: any[];
 }
 
-const HomePageClient: React.FC<HomePageClientProps> = ({ meta, nextPilgrimage }) => {
+const HomePageClient: React.FC<HomePageClientProps> = ({ meta, nextPilgrimage, featuredProducts = [] }) => {
     const [loading, setLoading] = useState(true);
 
     return (
@@ -44,6 +46,7 @@ const HomePageClient: React.FC<HomePageClientProps> = ({ meta, nextPilgrimage })
                         <Hero />
                         <Pillars />
                         <Campaign meta={meta} />
+                        <FeaturedStore products={featuredProducts || []} />
                         {nextPilgrimage && <NextPilgrimage nextPilgrimage={nextPilgrimage} />}
                         <Sustain />
                     </div>

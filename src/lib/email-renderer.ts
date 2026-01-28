@@ -126,19 +126,19 @@ export const renderEmailShell = (input: {
           <!-- Header -->
           <div style="background:linear-gradient(135deg,#0f172a 0%,#1e293b 100%);padding:32px 40px;text-align:center;">
              <div style="margin-bottom:24px;">
-               <img src="${ASSETS_URL}/images/nossasenhoragarabandal.jpg" alt="Apostolado" style="width:80px;height:80px;border-radius:50%;border:3px solid rgba(255,255,255,0.2);object-fit:cover;">
+               <img src="${APP_URL}/images/nossasenhoragarabandal.jpg" alt="Apostolado" style="height:150px;width:auto;border-radius:8px;margin:0 auto;display:block;box-shadow:0 4px 6px rgba(0,0,0,0.1);">
              </div>
              <h1 style="color:#ffffff;margin:0;font-family:serif;font-size:24px;line-height:1.4;">${input.title}</h1>
-             <p style="color:#94a3b8;margin:12px 0 0;font-size:16px;">${input.subtitle || 'Notificação oficial'}</p>
+             <p style="color:#94a3b8;margin:12px 0 0;font-size:18px;">${input.subtitle || 'Notificação oficial'}</p>
           </div>
 
           <!-- Body -->
-          <div style="padding:40px;color:#334155;font-size:15px;line-height:1.6;">
+          <div style="padding:40px;color:#334155;font-size:17px;line-height:1.6;">
             ${input.bodyHtml}
           </div>
 
           <!-- Footer -->
-          <div style="background:#f1f5f9;padding:32px 40px;text-align:center;color:#64748b;font-size:12px;">
+          <div style="background:#f1f5f9;padding:32px 40px;text-align:center;color:#64748b;font-size:14px;">
             <p style="margin:0 0 12px;">${input.footer || ''}</p>
             <p style="margin:0;font-weight:600;color:#0f172a;">Associação do Apostolado de Garabandal</p>
           </div>
@@ -482,16 +482,16 @@ export const renderStoreBuyerEmail = (payload: {
             <ol style="margin: 0; padding-left: 20px; color: #14532d; line-height: 1.6;">
                 <li style="margin-bottom: 8px;">Aceda à sua área pessoal no nosso site.</li>
                 ${payload.accountExists
-                    ? '<li style="margin-bottom: 8px;">Como já tem conta, basta <strong>entrar com o seu email e password</strong>.</li>'
-                    : '<li style="margin-bottom: 8px;">Como é a sua primeira vez, <strong>crie uma senha</strong> usando este mesmo email.</li>'
-                }
+            ? '<li style="margin-bottom: 8px;">Como já tem conta, basta <strong>entrar com o seu email e password</strong>.</li>'
+            : '<li style="margin-bottom: 8px;">Como é a sua primeira vez, <strong>crie uma senha</strong> usando este mesmo email.</li>'
+        }
                 <li>Vá ao menu <strong>"Biblioteca"</strong> para ver os seus livros sempre que quiser.</li>
             </ol>
             <div style="margin-top: 16px; text-align: center;">
              ${payload.claimUrl
-                    ? `<a href="${payload.claimUrl}" style="background:#16a34a;color:#ffffff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold;display:inline-block;">ACEDER AGORA</a>`
-                    : `<a href="${APP_URL}/login" style="background:#16a34a;color:#ffffff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold;display:inline-block;">ENTRAR NA MINHA CONTA</a>`
-                }
+            ? `<a href="${payload.claimUrl}" style="background:#16a34a;color:#ffffff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold;display:inline-block;">ACEDER AGORA</a>`
+            : `<a href="${APP_URL}/login" style="background:#16a34a;color:#ffffff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold;display:inline-block;">ENTRAR NA MINHA CONTA</a>`
+        }
             </div>
         </div>
       `
@@ -505,9 +505,9 @@ export const renderStoreBuyerEmail = (payload: {
             </ol>
             <div style="margin-top: 16px; text-align: center;">
              ${payload.claimUrl
-                    ? `<a href="${payload.claimUrl}" style="background:#2563eb;color:#ffffff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold;display:inline-block;">ACOMPANHAR ENCOMENDA</a>`
-                    : `<a href="${APP_URL}/login" style="background:#2563eb;color:#ffffff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold;display:inline-block;">ENTRAR NA MINHA CONTA</a>`
-                }
+            ? `<a href="${payload.claimUrl}" style="background:#2563eb;color:#ffffff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold;display:inline-block;">ACOMPANHAR ENCOMENDA</a>`
+            : `<a href="${APP_URL}/login" style="background:#2563eb;color:#ffffff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold;display:inline-block;">ENTRAR NA MINHA CONTA</a>`
+        }
             </div>
         </div>
       `;
