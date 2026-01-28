@@ -11,8 +11,7 @@ type PaymentOption = {
   id: string;
   label: string;
   description: string;
-  provider: 'stripe' | 'reduniq';
-  solution?: number;
+  provider: 'stripe';
   iconSrc?: string;
   iconAlt: string;
 };
@@ -25,24 +24,6 @@ const paymentOptions: PaymentOption[] = [
     provider: 'stripe',
     iconSrc: '/payment-icons/stripe.svg',
     iconAlt: 'Stripe',
-  },
-  {
-    id: 'reduniq-mbway',
-    label: 'MB WAY',
-    description: 'Paga via telemóvel.',
-    provider: 'reduniq',
-    solution: 107,
-    iconSrc: '/payment-icons/mbway.svg',
-    iconAlt: 'MB WAY',
-  },
-  {
-    id: 'reduniq-mb',
-    label: 'Multibanco',
-    description: 'Pagamento de Serviços (Entidade/Ref).',
-    provider: 'reduniq',
-    solution: 108,
-    iconSrc: '/payment-icons/multibanco.svg',
-    iconAlt: 'Multibanco',
   },
 ];
 
@@ -120,25 +101,14 @@ export default function MemberQuotaPage() {
           type: 'membership',
           userId,
           provider: selectedPayment.provider,
-          reduniqSolution: selectedPayment.solution,
         }),
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         throw new Error(body?.message || 'Não foi possível iniciar o pagamento.');
       }
-      const { url, token } = await res.json();
+      const { url } = await res.json();
       if (!url) throw new Error('Resposta inesperada do servidor de pagamentos.');
-      if (selectedPayment.provider === 'reduniq' && token) {
-        try {
-          localStorage.setItem(
-            'reduniq:lastPayment',
-            JSON.stringify({ token, type: 'membership', amount: QUOTA_AMOUNT, userId }),
-          );
-        } catch (storageError) {
-          console.warn('Não foi possível guardar token Reduniq.', storageError);
-        }
-      }
       window.location.href = url;
     } catch (err: any) {
       setError(err?.message || 'Erro ao iniciar pagamento.');
@@ -148,35 +118,49 @@ export default function MemberQuotaPage() {
   };
 
   const normalizedStatus = quotaStatus === 'paid' ? 'pago' : quotaStatus;
-  const statusPaid = normalizedStatus === 'pago';
+  const isQuotaExpired = nextQuota
+    ? (() => {
+      const due = new Date(nextQuota);
+      if (Number.isNaN(due.getTime())) return false;
+      const today = new Date();
+      const todayUtc = Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate());
+      const dueUtc = Date.UTC(due.getUTCFullYear(), due.getUTCMonth(), due.getUTCDate());
+      return todayUtc > dueUtc;
+    })()
+    : false;
+  const statusPaid = normalizedStatus === 'pago' && !isQuotaExpired;
   const quotaStatusLabel = isFounder
     ? 'fundador'
     : statusPaid
       ? 'pago'
-      : normalizedStatus.includes('atras')
-        ? 'em atraso'
-        : normalizedStatus === 'pendente'
-          ? 'pendente'
-          : 'indefinido';
+      : isQuotaExpired
+        ? 'expirado'
+        : normalizedStatus.includes('atras')
+          ? 'em atraso'
+          : normalizedStatus === 'pendente'
+            ? 'pendente'
+            : 'indefinido';
 
   const nextQuotaPretty = nextQuota
     ? new Date(nextQuota).toLocaleDateString('pt-PT', { day: '2-digit', month: 'long', year: 'numeric' })
     : 'Sem data';
 
-  const renewWindowDays = 30;
   const canRenew = nextQuota
     ? (() => {
       const due = new Date(nextQuota);
-      const windowStart = new Date(due);
-      windowStart.setDate(due.getDate() - renewWindowDays);
-      return new Date() >= windowStart;
+      if (Number.isNaN(due.getTime())) return true;
+      const windowStart = new Date(Date.UTC(due.getUTCFullYear() - 1, 11, 1));
+      const today = new Date();
+      const todayUtc = Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate());
+      return todayUtc >= windowStart.getTime();
     })()
-    : false;
+    : true;
   const canPay = !isFounder && (
     !isMember ||
     !statusPaid ||
     !!canRenew ||
     quotaStatus === 'expirado' ||
+    isQuotaExpired ||
     (!isMember && !!profileData?.numero_socio) // Suspended check
   );
 

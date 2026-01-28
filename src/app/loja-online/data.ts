@@ -11,6 +11,7 @@ export type Product = {
   isPhysical: boolean;
   digitalUrl?: string | null;
   stock?: number | null;
+  allowedCountries?: string[] | null;
 };
 
 export type CartItem = {

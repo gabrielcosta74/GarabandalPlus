@@ -44,6 +44,10 @@ type SavedProfile = {
   postal_code?: string | null;
   country?: string | null;
   nif?: string | null;
+  is_membro?: boolean | null;
+  estado_quota?: string | null;
+  tipo_subscricao?: string | null;
+  proxima_quota?: string | null;
 };
 
 const countryOptions = listCountryOptions();
@@ -203,7 +207,7 @@ export default function CheckoutPage() {
       if (session?.user?.id) {
         const { data: profile } = await supabaseBrowser
           .from('membros')
-          .select('nome, email, telefone, address, postal_code, country, nif, is_membro, estado_quota, tipo_subscricao')
+          .select('nome, email, telefone, address, postal_code, country, nif, is_membro, estado_quota, tipo_subscricao, proxima_quota')
           .eq('id', session.user.id)
           .maybeSingle();
         if (profile) {

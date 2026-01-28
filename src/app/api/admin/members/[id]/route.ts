@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabaseServer } from '../../../../../lib/supabase';
+import { calculateNextQuotaDate } from '../../../../../lib/membership-logic';
 
 import { verifyAdmin } from '../../../../../lib/admin-auth';
 import { logAdminAction } from '../../../../../lib/admin-logger';
@@ -26,19 +27,13 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
             return NextResponse.json({ error: 'Member not found' }, { status: 404 });
         }
 
-        // Fetch Payments (join with bookings/payments logic or if there's a direct relation)
-        // Assuming 'payments' table has some relation or we search by email? 
-        // For simplicity, let's assume we look up payments linked to this member's email or ID if stored.
-        // If there's no direct link, we might return empty or try to match email.
         let payments: any[] = [];
-        if (member.email) {
-            const { data: pData } = await supabaseServer
-                .from('payments')
-                .select('*')
-                .eq('email', member.email) // Naive link by email if no user_id FK
-                .order('created_at', { ascending: false });
-            payments = pData || [];
-        }
+        const { data: pData } = await supabaseServer
+            .from('pagamentos_quotas')
+            .select('*')
+            .eq('user_id', id)
+            .order('data_pagamento', { ascending: false });
+        payments = pData || [];
 
         return NextResponse.json({ member, payments });
 
@@ -143,48 +138,33 @@ export async function POST(req: Request, { params }: { params: { id: string } })
         }
 
         if (action === 'register_payment') {
-            // Manual payment registration
-            // Create a payment record in 'payments' table?
-            // Or just update quota status?
-            // Let's Insert into 'payments' table if it exists
             const { amount, date, method, notes, update_quota } = data;
+            const paymentDate = date ? new Date(date) : new Date();
+            const validPaymentDate = Number.isNaN(paymentDate.getTime()) ? new Date() : paymentDate;
 
-            // 1. Get member email for linkage
-            const { data: member } = await supabaseServer.from('membros').select('email').eq('id', id).single();
+            await supabaseServer.from('pagamentos_quotas').insert({
+                user_id: id,
+                valor: amount,
+                metodo_pagamento: method || 'manual',
+                estado: 'pago',
+                data_pagamento: validPaymentDate.toISOString().slice(0, 10),
+            });
 
-            if (member?.email) {
-                await supabaseServer.from('payments').insert({
-                    email: member.email,
-                    amount: amount,
-                    status: 'paid',
-                    method: method,
-                    notes: notes,
-                    created_at: new Date().toISOString(), // or date
-                    // payment_date: date // if column exists
-                    type: 'MANUAL_ENTRY'
-                });
-            }
-
-            // 2. Update member quota status
             if (update_quota) {
-                // Rule: Quota covers current year, valid until Jan 31st of Next Year.
-                const today = new Date();
-                const nextYear = today.getFullYear() + 1;
-                // Deadline: Jan 31st of Next Year
-                const nextQuotaDate = new Date(Date.UTC(nextYear, 0, 31));
-
+                const nextQuotaDate = calculateNextQuotaDate(validPaymentDate);
                 await supabaseServer
                     .from('membros')
                     .update({
                         estado_quota: 'pago',
-                        proxima_quota: nextQuotaDate.toISOString().slice(0, 10)
+                        proxima_quota: nextQuotaDate.toISOString().slice(0, 10),
+                        is_membro: true,
                     })
                     .eq('id', id);
             }
 
-            return NextResponse.json({ success: true, message: 'Payment registered' });
-
             await logAdminAction(user.email, 'REGISTER_PAYMENT', { amount, method, notes, update_quota }, id);
+
+            return NextResponse.json({ success: true, message: 'Payment registered' });
         }
 
         return NextResponse.json({ error: 'Invalid action' }, { status: 400 });

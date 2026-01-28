@@ -53,14 +53,33 @@ export default function ThankYouPage() {
     const checkResult = async () => {
       setReduniqStatus('checking');
       try {
-        const res = await fetch('/api/reduniq/result', {
-          method: 'POST',
+        let endpoint = '/api/reduniq/result';
+        let body: any = { token };
+        let method = 'POST';
+
+        // NEW: Use specific status endpoint for donations to trigger meta processing
+        if (type === 'donation') {
+          endpoint = `/api/donations/status?token=${token}`;
+          method = 'GET';
+          body = undefined;
+        }
+
+        const res = await fetch(endpoint, {
+          method: method,
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ token }),
+          body: body ? JSON.stringify(body) : undefined,
         });
+
         if (!res.ok) throw new Error('Falha ao confirmar pagamento.');
         const data = await res.json();
-        const status = (data?.status as 'success' | 'pending' | 'failed' | 'unknown') || 'unknown';
+
+        // Handle both formats
+        // api/reduniq/result returns { status: 'success' }
+        // api/donations/status returns { status: 'succeeded' }
+        let status = data?.status;
+        if (status === 'succeeded') status = 'success'; // normalize
+
+        status = (status as 'success' | 'pending' | 'failed' | 'unknown') || 'unknown';
         setReduniqStatus(status === 'unknown' ? 'pending' : status);
       } catch (err) {
         console.warn('Não foi possível confirmar pagamento Reduniq:', err);
@@ -68,7 +87,7 @@ export default function ThankYouPage() {
       }
     };
     checkResult();
-  }, [provider, statusParam, tokenParam]);
+  }, [provider, statusParam, tokenParam, type]);
 
   useEffect(() => {
     if (type !== 'store') return;

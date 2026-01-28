@@ -13,7 +13,7 @@ export async function GET() {
     const { data, error } = await supabaseServer
       .from('store_products')
       .select(
-        'product_id, name, description, category, price, currency, stock, is_active, is_physical, image_url, digital_url',
+        'product_id, name, description, category, price, currency, stock, is_active, is_physical, image_url, digital_url, allowed_countries',
       )
       .eq('is_active', true)
       .order('name', { ascending: true });
@@ -36,6 +36,7 @@ export async function GET() {
       isPhysical: product.is_physical ?? true,
       digitalUrl: product.digital_url || null,
       stock: typeof product.stock === 'number' ? product.stock : null,
+      allowedCountries: product.allowed_countries || [],
     }));
 
     return NextResponse.json({ products });

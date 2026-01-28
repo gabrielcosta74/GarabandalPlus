@@ -5,7 +5,8 @@ import { getAppUrl } from './config';
 
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
 const siteUrl = getAppUrl();
-const MEMBERSHIP_RENEW_WINDOW_DAYS = 30;
+const MEMBERSHIP_RENEW_START_MONTH = 11; // December (0-based)
+const MEMBERSHIP_RENEW_START_DAY = 1;
 
 if (!stripeSecretKey) {
   console.warn('⚠️ STRIPE_SECRET_KEY não definido. A criação de checkout falhará.');
@@ -49,13 +50,14 @@ const isFounder = (member?: MemberSnapshot | null) => {
   return tipo.includes('fundador');
 };
 
-const isWithinRenewWindow = (proximaQuota?: string | null, windowDays = MEMBERSHIP_RENEW_WINDOW_DAYS) => {
+const isWithinRenewWindow = (proximaQuota?: string | null) => {
   if (!proximaQuota) return true; // sem data, deixamos pagar
-  const today = new Date();
   const quotaDate = new Date(proximaQuota);
-  const windowStart = new Date(quotaDate);
-  windowStart.setDate(quotaDate.getDate() - windowDays);
-  return today >= windowStart;
+  if (Number.isNaN(quotaDate.getTime())) return true;
+  const windowStart = new Date(Date.UTC(quotaDate.getUTCFullYear() - 1, MEMBERSHIP_RENEW_START_MONTH, MEMBERSHIP_RENEW_START_DAY));
+  const today = new Date();
+  const todayUtc = Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate());
+  return todayUtc >= windowStart.getTime();
 };
 
 async function ensureCanPayMembership(userId: string) {
@@ -113,6 +115,7 @@ export async function createCheckoutSession({
     await ensureCanPayMembership(userId);
   }
 
+  const normalizedAmount = type === 'membership' ? 25 : amount;
   const lineItemName = type === 'membership' ? 'Quota anual' : 'Donativo';
   const priceLabel = type === 'membership' ? 'Quota Apostolado' : 'Doação Apostolado';
 
@@ -124,7 +127,7 @@ export async function createCheckoutSession({
   const donorCountryValue = donorCountry?.trim().slice(0, 2).toUpperCase() || '';
   const donorNifValue = donorNif ? donorNif.replace(/\D/g, '').slice(0, 20) : '';
 
-  const successUrl = `${siteUrl.replace(/\/$/, '')}/thank-you?type=${type}&amount=${amount}`;
+  const successUrl = `${siteUrl.replace(/\/$/, '')}/thank-you?type=${type}&amount=${normalizedAmount}`;
   const cancelUrl =
     type === 'donation'
       ? `${siteUrl.replace(/\/$/, '')}/donations?canceled=true`
@@ -141,7 +144,7 @@ export async function createCheckoutSession({
         quantity: 1,
         price_data: {
           currency: 'eur',
-          unit_amount: Math.round(amount * 100),
+          unit_amount: Math.round(normalizedAmount * 100),
           product_data: { name: priceLabel, description: lineItemName },
         },
       },
@@ -166,7 +169,7 @@ export async function createCheckoutSession({
       if (type === 'donation') {
         await supabaseServer.from('donations').insert({
           user_id: userId ?? null,
-          amount_cents: Math.round(amount * 100),
+          amount_cents: Math.round(normalizedAmount * 100),
           currency: 'EUR',
           method: 'stripe_checkout',
           status: 'pending',
@@ -184,7 +187,7 @@ export async function createCheckoutSession({
       } else {
         await supabaseServer.from('pagamentos_quotas').insert({
           user_id: userId ?? null,
-          valor: amount,
+          valor: normalizedAmount,
           metodo_pagamento: 'stripe_checkout',
           estado: 'pendente',
           payment_intent_id: session.payment_intent,
@@ -209,6 +212,7 @@ export async function createReduniqPayment({
   orderRef,
 }: ReduniqCheckoutPayload) {
   if (!Number.isFinite(amount) || amount < 1) throw new Error('Valor inválido.');
+  const normalizedAmount = type === 'membership' ? 25 : amount;
 
   if (type === 'membership') {
     if (!userId) {
@@ -218,7 +222,7 @@ export async function createReduniqPayment({
   }
 
   const { token, redirectUrl, orderRef: reduniqOrderRef } = await initReduniqPayment({
-    amount,
+    amount: normalizedAmount,
     type,
     userId,
     solution: solution ?? undefined,
@@ -238,7 +242,7 @@ export async function createReduniqPayment({
         const donorNifValue = metadata?.donorNif?.trim() || null;
         await supabaseServer.from('donations').insert({
           user_id: userId ?? null,
-          amount_cents: Math.round(amount * 100),
+          amount_cents: Math.round(normalizedAmount * 100),
           currency: 'EUR',
           method: solution ? `reduniq_${solution}` : 'reduniq',
           status: 'pending',
@@ -256,7 +260,7 @@ export async function createReduniqPayment({
       } else {
         await supabaseServer.from('pagamentos_quotas').insert({
           user_id: userId ?? null,
-          valor: amount,
+          valor: normalizedAmount,
           metodo_pagamento: solution ? `reduniq_${solution}` : 'reduniq',
           estado: 'pendente',
           payment_intent_id: null,

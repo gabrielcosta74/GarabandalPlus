@@ -51,11 +51,6 @@ const getApiConfig = (): ReduniqApiConfig => {
   const username = process.env.REDUNIQ_API_USERNAME || '';
   const password = process.env.REDUNIQ_API_PASSWORD || '';
 
-  console.log('🔍 [REDUNIQ DEBUG] Environment:', process.env.REDUNIQ_ENV);
-  console.log('🔍 [REDUNIQ DEBUG] Username:', username ? `${username.substring(0, 3)}***` : 'EMPTY');
-  console.log('🔍 [REDUNIQ DEBUG] Password:', password ? `${password.substring(0, 3)}***` : 'EMPTY');
-  console.log('🔍 [REDUNIQ DEBUG] API URL:', apiUrl);
-
   if (!username || !password) {
     throw new Error('Credenciais REDUNIQ não configuradas.');
   }
@@ -72,6 +67,7 @@ const toOrderTimestamp = (date: Date) => {
 
 const requestReduniq = async <T>(payload: Record<string, unknown>) => {
   const { apiUrl } = getApiConfig();
+
   const response = await fetch(apiUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -79,9 +75,6 @@ const requestReduniq = async <T>(payload: Record<string, unknown>) => {
   });
 
   const data = (await response.json().catch(() => ({}))) as T;
-
-  console.log('📡 [REDUNIQ DEBUG] Response Status:', response.status, response.statusText);
-  console.log('📡 [REDUNIQ DEBUG] Response Data:', JSON.stringify(data, null, 2));
 
   if (!response.ok) {
     throw new Error((data as any)?.result?.message || 'Erro ao comunicar com a REDUNIQ.');

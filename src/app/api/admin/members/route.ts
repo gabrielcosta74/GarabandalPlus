@@ -41,7 +41,10 @@ export async function GET(req: Request) {
         const total = allMembers.length;
 
         const active = allMembers.filter(m => (m.estado_quota || '').toLowerCase() === 'pago' || (m.estado_quota || '').toLowerCase() === 'paid').length;
-        const overdue = allMembers.filter(m => (m.estado_quota || '').toLowerCase().includes('atras')).length;
+        const overdue = allMembers.filter(m => {
+            const status = (m.estado_quota || '').toLowerCase();
+            return status.includes('atras') || status.includes('expir');
+        }).length;
         const pending = allMembers.filter(m => (m.estado_quota || '').toLowerCase() === 'pendente').length;
 
         // Founders assumption: check type_subscription or low numbers? 
@@ -120,7 +123,7 @@ export async function POST(req: Request) {
 
             if (initial_payment) {
                 quotaStatus = 'pago';
-                const nextQuotaObj = calculateNextQuotaDate(null);
+                const nextQuotaObj = calculateNextQuotaDate(new Date());
                 nextQuotaDate = nextQuotaObj.toISOString().slice(0, 10);
             }
 
@@ -148,14 +151,12 @@ export async function POST(req: Request) {
 
             // 3. Log Initial Payment if selected
             if (initial_payment) {
-                await supabaseServer.from('payments').insert({
-                    email: email,
-                    amount: 25.00, // Standard Amount? Or should we accept it? Defaulting to 25.
-                    status: 'paid',
-                    method: payment_method || 'transfer',
-                    notes: 'Pagamento inicial na criação manual',
-                    created_at: new Date().toISOString(),
-                    type: 'MANUAL_ENTRY'
+                await supabaseServer.from('pagamentos_quotas').insert({
+                    user_id: userId,
+                    valor: 25.00,
+                    metodo_pagamento: payment_method || 'manual',
+                    estado: 'pago',
+                    data_pagamento: new Date().toISOString().slice(0, 10),
                 });
             }
 

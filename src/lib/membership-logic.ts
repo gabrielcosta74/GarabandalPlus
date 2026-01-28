@@ -4,19 +4,10 @@
  */
 
 // 1. Calculate Next Quota Date
-export const calculateNextQuotaDate = (currentDueDate?: string | null, referenceDate: Date = new Date()) => {
-    if (currentDueDate) {
-        const currentDue = new Date(currentDueDate);
-        // Always Jan 31st of the NEXT year relative to the current due date (annual renewal)
-        return new Date(Date.UTC(currentDue.getFullYear() + 1, 0, 31));
-    }
-
-    const currentYear = referenceDate.getFullYear();
-    const jan31CurrentYear = new Date(Date.UTC(currentYear, 0, 31));
-
-    // Simplified Rule: If paying quota now, it's for the current year, valid until Jan 31st of NEXT year.
-    // regardless of whether we are in Jan or Dec.
-    return new Date(Date.UTC(currentYear + 1, 0, 31));
+// Rule: payment on any date counts until Jan 31 of the NEXT year (relative to payment date year).
+export const calculateNextQuotaDate = (paymentDate: Date = new Date()) => {
+    const paymentYear = paymentDate.getUTCFullYear();
+    return new Date(Date.UTC(paymentYear + 1, 0, 31));
 };
 
 // 2. Calculate Expiration Date (1 day after quota date?)
@@ -55,14 +46,8 @@ export const determineMemberStatus = (
     const dueDate = new Date(nextQuotaDate);
     const diff = daysBetweenUtc(now, dueDate);
 
-    // Logic from Cron:
-    // if diff < 0 && !paid && !revoked -> atrasado
-    // if diff <= -31 && !paid && !revoked -> expirado
-
+    // No grace period: any day past due => expired.
     if (isPaid) return 'pago';
-
-    if (diff <= -31) return 'expirado';
-    if (diff < 0) return 'atrasado';
-
-    return status; // Unchanged (e.g. 'pendente' or 'pago' becoming 'atrasado'?)
+    if (diff < 0) return 'expirado';
+    return status || 'pendente';
 };

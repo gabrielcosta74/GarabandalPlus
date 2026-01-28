@@ -96,7 +96,7 @@ function LoginScreen() {
     <AuthLayout
       title="Bem-vindo"
       subtitle="Inicie sessão para gerir a sua conta e doações."
-      backgroundImage="https://images.unsplash.com/photo-1510303099958-3d5df0274191?q=80&w=3431&auto=format&fit=crop"
+      backgroundImage="/images/nossasenhoragarabandal.jpg"
       quote="A Fé é a luz que guia os nossos passos na escuridão."
     >
       <form onSubmit={handleLogin} className="space-y-6">

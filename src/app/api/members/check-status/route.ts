@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
+import { isActiveMember } from '../../../../lib/store-discounts';
 
 export const dynamic = 'force-dynamic';
 
@@ -69,9 +70,8 @@ export async function POST(request: Request) {
         // We assume 'membros' table has 'email' and 'is_membro' columns
         const { data: members, error } = await supabase
             .from('membros')
-            .select('email')
-            .in('email', cleanEmails)
-            .eq('is_membro', true); // Use actual column name
+            .select('email, is_membro, estado_quota, tipo_subscricao, proxima_quota')
+            .in('email', cleanEmails);
 
         if (error) {
             console.error('[API] Check Member Status Error:', error);
@@ -88,7 +88,7 @@ export async function POST(request: Request) {
         });
 
         members?.forEach((m: any) => {
-            if (m.email) {
+            if (m.email && isActiveMember(m)) {
                 results[m.email.toLowerCase()] = true;
             }
         });

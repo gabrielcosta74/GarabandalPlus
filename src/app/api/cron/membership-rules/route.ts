@@ -57,25 +57,13 @@ export async function GET(request: Request) {
         const isRevoked = status === 'expirado' || status === 'revogado';
 
         // 1. State Transitions (DB Updates)
-        // A. Mark as Overdue (Atrasado) if date passed and not paid/revoked
-        if (diffDays < 0 && !isPaid && !isRevoked && status !== 'atrasado') {
-            await supabaseServer.from('membros').update({ estado_quota: 'atrasado' }).eq('id', member.id);
-            results.push({ userId: member.id, action: 'set_overdue', success: true });
-        }
-
-        // B. Revoke (Expirado) if > 30 days past due (Grace Period)
-        // diffDays = -31 means 31 days passed since due date.
-        if (diffDays <= -31 && !isPaid && !isRevoked) {
-            // Revoke membership
-            await supabaseServer.from('membros').update({
-                estado_quota: 'expirado',
-                is_membro: false
-            }).eq('id', member.id);
-
+        // No grace period: membership expires immediately after due date.
+        if (diffDays < 0 && !isPaid && !isRevoked) {
+            await supabaseServer
+                .from('membros')
+                .update({ estado_quota: 'expirado', is_membro: false })
+                .eq('id', member.id);
             results.push({ userId: member.id, action: 'set_expired', success: true });
-
-            // Send Revocation Email?
-            // Logic below might handle notification if we add a type for 'revoked'
         }
 
         // 2. Notifications (Reminders)
@@ -96,17 +84,8 @@ export async function GET(request: Request) {
         } else if (diffDays === 1) {
             notificationType = 'quota_reminder_1d';
             reminderPayload = { daysUntilDue: 1 };
-        } else if (diffDays === -7) {
-            notificationType = 'quota_overdue_7d';
-            reminderPayload = { daysOverdue: 7 };
-        } else if (diffDays === -14) {
-            notificationType = 'quota_overdue_14d';
-            reminderPayload = { daysOverdue: 14 };
-        } else if (diffDays === -30) {
-            notificationType = 'quota_overdue_30d';
-            reminderPayload = { daysOverdue: 30 };
-        } else if (diffDays === -31) {
-            // Just expired. Send notice?
+        } else if (diffDays === -1) {
+            // First day after due date -> membership revoked.
             notificationType = 'membership_revoked';
         }
 

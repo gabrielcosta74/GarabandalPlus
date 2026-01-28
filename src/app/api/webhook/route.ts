@@ -28,7 +28,7 @@ export async function OPTIONS() {
   return NextResponse.json({ ok: true });
 }
 
-import { calculateNextQuotaDate, calculateExpirationDate } from '../../../lib/membership-logic';
+import { calculateNextQuotaDate } from '../../../lib/membership-logic';
 
 const formatISODate = (date: Date) => date.toISOString().slice(0, 10);
 
@@ -247,12 +247,11 @@ export async function POST(request: Request) {
               .eq('id', userId)
               .maybeSingle();
 
-            const nextQuotaDate = calculateNextQuotaDate(membro?.proxima_quota);
-            const expirationDate = calculateExpirationDate(nextQuotaDate);
+            const paymentDate = session.created ? new Date(session.created * 1000) : new Date();
+            const safePaymentDate = Number.isNaN(paymentDate.getTime()) ? new Date() : paymentDate;
+            const nextQuotaDate = calculateNextQuotaDate(safePaymentDate);
             const adesao = membro?.data_adesao ? membro.data_adesao : formatISODate(new Date());
-            const shouldAssignMemberNumber = !membro?.numero_socio || !membro?.is_membro;
             const wasMember = !!membro?.is_membro;
-            let numero_socio: number | undefined;
 
             const { error: membroUpdateError } = await supabaseServer
               .from('membros')
@@ -276,7 +275,7 @@ export async function POST(request: Request) {
                     kind: wasMember ? 'renewal' : 'new',
                     memberName: membro?.nome ?? null,
                     memberEmail: membro?.email ?? session.customer_details?.email ?? null,
-                    memberNumber: numero_socio ?? membro?.numero_socio ?? null,
+                    memberNumber: membro?.numero_socio ?? null,
                     amount: amountCents / 100,
                     currency: session.currency?.toUpperCase() ?? 'EUR',
                     paymentMethod: 'stripe_checkout',
@@ -307,7 +306,7 @@ export async function POST(request: Request) {
                 if (memberEmail) {
                   const membershipRef = paymentIntent || externalRef;
                   const finalMemberNumber =
-                    updatedMember?.numero_socio ?? numero_socio ?? membro?.numero_socio ?? null;
+                    updatedMember?.numero_socio ?? membro?.numero_socio ?? null;
                   const shouldAttachDiploma = !updatedMember?.diploma_enviado_at && !!finalMemberNumber;
                   let diplomaAttachment: { filename: string; content: Buffer; contentType?: string } | undefined;
 

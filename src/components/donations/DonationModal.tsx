@@ -1,6 +1,6 @@
 import { useState, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, CheckCircle, CreditCard, ChevronRight, Landmark, FileText, Upload, Loader2, AlertCircle } from 'lucide-react';
+import { X, CheckCircle, CreditCard, ChevronRight, Landmark, FileText, Upload, Loader2, AlertCircle, QrCode } from 'lucide-react';
 import { formatPostalCode, getPostalInputMode, getPostalInvalidMessage, validatePostalCode } from '../../lib/country-utils';
 import { supabaseBrowser } from '../../lib/supabase-browser';
 import { useCurrency } from '../providers/CurrencyProvider';
@@ -20,33 +20,30 @@ const paymentOptions: PaymentOption[] = [
     {
         id: 'reduniq-mbway',
         label: 'MB WAY',
-        description: 'Pagamento imediato.',
+        description: 'Pagamento móvel imediato',
         provider: 'reduniq',
-        solution: 107,
         iconSrc: '/payment-icons/mbway.svg',
         iconAlt: 'MB WAY',
     },
     {
         id: 'reduniq-mb',
         label: 'Multibanco',
-        description: 'Pagamento de Serviços.',
+        description: 'Pagamento de Serviços',
         provider: 'reduniq',
-        solution: 108,
         iconSrc: '/payment-icons/multibanco.svg',
         iconAlt: 'Multibanco',
     },
     {
         id: 'reduniq-pix',
         label: 'PIX',
-        description: 'Para nossos irmãos do Brasil.',
+        description: 'Instantâneo (Brasil)',
         provider: 'reduniq',
-        solution: 116,
         iconAlt: 'PIX',
     },
     {
         id: 'bank_transfer',
-        label: 'Transferência Bancária',
-        description: 'Dados para o seu banco.',
+        label: 'Transferência',
+        description: 'Transferência manual',
         provider: 'manual',
         iconAlt: 'IBAN',
     },
@@ -259,15 +256,13 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
         setError(null);
 
         try {
-            const res = await fetch('/api/checkout', {
+            // New Robust Flow: Call /api/donations/create
+            const res = await fetch('/api/donations/create', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     amount,
-                    currency,
-                    type: 'donation',
-                    provider: selectedPayment.provider,
-                    reduniqSolution: selectedPayment.solution,
+                    method: selectedPaymentId, // e.g. 'reduniq-mbway', 'reduniq-pix', etc.
                     donorName: formData.nome,
                     donorEmail: formData.email,
                     donorAddress: receiptRequired ? formData.morada : null,
@@ -282,13 +277,13 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
 
             if (!res.ok) {
                 const body = await res.json().catch(() => ({}));
-                throw new Error(body?.message || "Erro ao iniciar pagamento.");
+                throw new Error(body?.message || "Erro ao iniciar doação.");
             }
 
             const { url, token } = await res.json();
             if (!url) throw new Error("Erro de resposta do servidor.");
 
-            if (selectedPayment.provider === 'reduniq' && token) {
+            if (token) {
                 localStorage.setItem('reduniq:lastPayment', JSON.stringify({ token, type: 'donation', amount }));
             }
 
@@ -370,7 +365,13 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
                                                 {paymentOptions.map((opt) => (
                                                     <button key={opt.id} onClick={() => setSelectedPaymentId(opt.id)}
                                                         className={`p-4 rounded-xl border text-left flex items-center gap-3 transition-all ${selectedPaymentId === opt.id ? 'border-garabandal-gold bg-garabandal-gold/5 ring-1 ring-garabandal-gold' : 'border-gray-100 hover:border-gray-300'}`}>
-                                                        {opt.iconSrc ? <img src={opt.iconSrc} alt={opt.iconAlt} className="w-8 h-8 object-contain" /> : <div className="w-8 h-8 flex items-center justify-center bg-gray-100 rounded-lg"><Landmark className="w-5 h-5 text-gray-400" /></div>}
+                                                        {opt.iconSrc ? (
+                                                            <img src={opt.iconSrc} alt={opt.iconAlt} className="w-8 h-8 object-contain" />
+                                                        ) : opt.id === 'reduniq-pix' ? (
+                                                            <div className="w-8 h-8 flex items-center justify-center bg-gray-100 rounded-lg"><QrCode className="w-5 h-5 text-gray-500" /></div>
+                                                        ) : (
+                                                            <div className="w-8 h-8 flex items-center justify-center bg-gray-100 rounded-lg"><Landmark className="w-5 h-5 text-gray-400" /></div>
+                                                        )}
                                                         <div><div className="font-bold text-sm text-garabandal-dark">{opt.label}</div><div className="text-xs text-gray-500">{opt.description}</div></div>
                                                     </button>
                                                 ))}

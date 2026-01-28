@@ -3,7 +3,8 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
-import { ArrowLeft, Star } from 'lucide-react';
+import { ArrowLeft, Star, Eye, EyeOff } from 'lucide-react';
+import { useState } from 'react';
 
 interface AuthLayoutProps {
     children: React.ReactNode;
@@ -138,23 +139,40 @@ export default function AuthLayout({
 }
 
 // Input Component for this theme
-export const PremiumInput = ({ label, error, ...props }: React.InputHTMLAttributes<HTMLInputElement> & { label: string, error?: string }) => {
+export const PremiumInput = ({ label, error, type, ...props }: React.InputHTMLAttributes<HTMLInputElement> & { label: string, error?: string }) => {
+    const [showPassword, setShowPassword] = useState(false);
+    const isPassword = type === 'password';
+    const inputType = isPassword ? (showPassword ? 'text' : 'password') : type;
+
     return (
         <div className="group">
             <label className="block text-xs font-bold uppercase tracking-widest text-white/80 lg:text-gray-500 mb-2 ml-1 group-focus-within:text-garabandal-gold transition-colors">
                 {label}
             </label>
-            <input
-                className={`
-                    w-full px-5 py-4 rounded-xl outline-none transition-all duration-300
-                    bg-white/5 lg:bg-gray-50 
-                    border ${error ? 'border-red-400 lg:border-red-300' : 'border-white/10 lg:border-gray-100'}
-                    text-white lg:text-gray-900 placeholder:text-white/20 lg:placeholder:text-gray-400
-                    focus:bg-white/10 lg:focus:bg-white focus:border-garabandal-gold/50 lg:focus:border-garabandal-gold
-                    focus:ring-4 focus:ring-garabandal-gold/10 lg:focus:ring-garabandal-gold/5
-                `}
-                {...props}
-            />
+            <div className="relative">
+                <input
+                    type={inputType}
+                    className={`
+                        w-full px-5 py-4 rounded-xl outline-none transition-all duration-300
+                        bg-white/5 lg:bg-gray-50 
+                        border ${error ? 'border-red-400 lg:border-red-300' : 'border-white/10 lg:border-gray-100'}
+                        text-white lg:text-gray-900 placeholder:text-white/20 lg:placeholder:text-gray-400
+                        focus:bg-white/10 lg:focus:bg-white focus:border-garabandal-gold/50 lg:focus:border-garabandal-gold
+                        focus:ring-4 focus:ring-garabandal-gold/10 lg:focus:ring-garabandal-gold/5
+                        ${isPassword ? 'pr-12' : ''}
+                    `}
+                    {...props}
+                />
+                {isPassword && (
+                    <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-4 top-1/2 -translate-y-1/2 text-white/40 lg:text-gray-400 hover:text-white lg:hover:text-garabandal-dark transition-colors p-1"
+                    >
+                        {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
+                )}
+            </div>
             {error && (
                 <motion.p
                     initial={{ opacity: 0, height: 0 }}

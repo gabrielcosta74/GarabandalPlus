@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { supabaseServer } from '../../../../lib/supabase';
+import { supabaseServer } from '../../../../../lib/supabase';
 
 // Helper to validate Admin Session
 const isAdmin = async (req: Request) => {
@@ -11,9 +11,17 @@ const isAdmin = async (req: Request) => {
     return !error && !!user;
 };
 
-export async function GET(req: Request) {
+export async function PATCH(
+    req: Request,
+    { params }: { params: { id: string } }
+) {
     if (!await isAdmin(req)) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const id = params.id;
+    if (!id) {
+        return NextResponse.json({ error: 'Product ID required' }, { status: 400 });
     }
 
     if (!supabaseServer) {
@@ -21,16 +29,19 @@ export async function GET(req: Request) {
     }
 
     try {
-        const { data: products, error } = await supabaseServer
+        const body = await req.json();
+        const { data, error } = await supabaseServer
             .from('store_products')
-            .select('*')
-            .order('name', { ascending: true });
+            .update(body)
+            .eq('product_id', id)
+            .select()
+            .single();
 
         if (error) throw error;
 
-        return NextResponse.json({ products: products || [] });
+        return NextResponse.json({ product: data });
     } catch (error) {
-        console.error("Admin Products API Error:", error);
+        console.error("Admin Product Patch Error:", error);
         return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
     }
 }

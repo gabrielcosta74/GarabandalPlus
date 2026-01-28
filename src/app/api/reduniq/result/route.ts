@@ -5,6 +5,7 @@ import { sendDonationReceiptEmail, sendMemberReceiptEmail, sendMembershipNotific
 import { processPaidStoreOrder } from '../../../../lib/store-orders';
 import { supabaseServer } from '../../../../lib/supabase';
 import { ensureNotificationRecord, markNotificationSent } from '../../../../lib/email-notifications';
+import { calculateNextQuotaDate } from '../../../../lib/membership-logic';
 
 
 export const runtime = 'nodejs';
@@ -17,27 +18,6 @@ const bodySchema = z.object({
 });
 
 const formatISODate = (date: Date) => date.toISOString().slice(0, 10);
-
-const calculateNextQuotaDate = (currentDueDate?: string | null) => {
-  const today = new Date();
-
-  if (currentDueDate) {
-    const currentDue = new Date(currentDueDate);
-    return new Date(currentDue.getFullYear() + 1, 0, 31);
-  }
-
-  const jan31CurrentYear = new Date(today.getFullYear(), 0, 31);
-  if (today <= jan31CurrentYear) {
-    return jan31CurrentYear;
-  }
-  return new Date(today.getFullYear() + 1, 0, 31);
-};
-
-const calculateExpirationDate = (quotaDate: Date) => {
-  const expiration = new Date(quotaDate);
-  expiration.setDate(quotaDate.getDate() + 1);
-  return expiration;
-};
 
 const getNextMemberNumber = async (supabaseServer: any) => {
   const { data, error } = await supabaseServer
@@ -241,10 +221,12 @@ export async function POST(request: Request) {
               .eq('id', userId)
               .maybeSingle();
 
-            const nextQuotaDate = calculateNextQuotaDate(membro?.proxima_quota);
-            const expirationDate = calculateExpirationDate(nextQuotaDate);
+            const paymentDateRaw = result?.transaction?.date;
+            const paymentDate = paymentDateRaw ? new Date(paymentDateRaw) : new Date();
+            const safePaymentDate = Number.isNaN(paymentDate.getTime()) ? new Date() : paymentDate;
+            const nextQuotaDate = calculateNextQuotaDate(safePaymentDate);
             const adesao = membro?.data_adesao ? membro.data_adesao : formatISODate(new Date());
-            const shouldAssignMemberNumber = !membro?.numero_socio || !membro?.is_membro;
+            const shouldAssignMemberNumber = !membro?.numero_socio;
             const wasMember = !!membro?.is_membro;
             let numero_socio: number | undefined;
 
@@ -262,7 +244,6 @@ export async function POST(request: Request) {
                 is_membro: true,
                 estado_quota: 'pago',
                 proxima_quota: formatISODate(nextQuotaDate),
-                data_expiracao: formatISODate(expirationDate),
                 data_adesao: adesao,
                 updated_at: new Date().toISOString(),
                 ...(Number.isFinite(numero_socio) ? { numero_socio } : {}),

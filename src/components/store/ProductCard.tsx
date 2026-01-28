@@ -3,7 +3,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Product } from '../../app/loja-online/data';
-import { ShoppingCart } from 'lucide-react';
+import { ShoppingCart, Globe } from 'lucide-react';
 import { useCurrency } from '../providers/CurrencyProvider';
 
 interface ProductCardProps {
@@ -58,9 +58,19 @@ const ProductCard: React.FC<ProductCardProps> = ({
                             <p className="text-2xl font-medium text-garabandal-dark tracking-tight">
                                 {formatPrice(product.price)}
                             </p>
-                            <p className="text-[10px] text-gray-400 uppercase tracking-wider font-medium">
-                                IVA incluído
-                            </p>
+                            <div className="flex flex-col gap-1">
+                                <p className="text-[10px] text-gray-400 uppercase tracking-wider font-medium">
+                                    IVA incluído
+                                </p>
+                                {product.allowedCountries && product.allowedCountries.length > 0 && (
+                                    <div className="flex items-center gap-1 text-[10px] text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100 w-fit" title={product.allowedCountries.join(', ')}>
+                                        <Globe size={10} />
+                                        <span className="font-bold uppercase tracking-wide">
+                                            {product.allowedCountries.length === 1 ? 'Envio Restrito' : 'Envio Limitado'}
+                                        </span>
+                                    </div>
+                                )}
+                            </div>
                         </div>
                         {typeof product.stock === 'number' && product.stock > 0 && product.stock < 10 && (
                             <span className="text-[10px] text-amber-600 font-bold uppercase tracking-wider bg-amber-50 px-2 py-1 rounded border border-amber-100">

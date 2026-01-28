@@ -33,7 +33,7 @@ const normalizeCountry = (value?: string | null) => (value || '').trim().toUpper
 export const isPhysicalShippingAllowed = (country?: string | null) => {
   const code = normalizeCountry(country);
   if (!code) return false;
-  return code === 'BR' || code === 'US' || EU_COUNTRIES.has(code);
+  return code === 'BR' || code === 'PT';
 };
 
 export const getShippingZone = (country?: string | null) => {
@@ -56,15 +56,12 @@ export const getShippingCost = (country?: string | null, hasPhysical = false) =>
   if (!isPhysicalShippingAllowed(country)) return null;
   const zone = getShippingZone(country);
   if (zone === 'pt' || zone === 'br') return 0;
-  if (zone === 'us') return 25;
-  if (zone === 'eu') return 15;
+  // Others are not allowed anymore
   return null;
 };
 
 export const getShippingLabel = (country?: string | null) => {
   const zone = getShippingZone(country);
   if (zone === 'pt' || zone === 'br') return 'Grátis';
-  if (zone === 'us') return '25€';
-  if (zone === 'eu') return '15€';
   return '—';
 };

@@ -3,12 +3,14 @@ import { z } from 'zod';
 import { createCheckoutSession } from '../../../lib/payments';
 import { validatePostalCode } from '../../../lib/country-utils';
 import { getAppUrl } from '../../../lib/config';
+import { initReduniqPayment } from '../../../lib/reduniq';
 
 const bodySchema = z.object({
   amount: z.number().positive(), // Validated but overridden for membership
   type: z.enum(['donation', 'membership']),
   userId: z.string().optional(),
-  provider: z.enum(['stripe']).default('stripe'), // Enforce Stripe
+  provider: z.enum(['stripe', 'reduniq']).default('stripe'),
+  reduniqSolution: z.number().optional(),
   // Donation fields
   donorName: z.string().trim().min(1).optional(),
   donorEmail: z.string().trim().min(3).optional(),
@@ -43,7 +45,32 @@ export async function POST(request: Request) {
       // ... (Keep existing postal code validation if desired, omitting for brevity/focus on Stripe)
     }
 
-    // 2. Create Stripe Session
+    // 2. Handle Reduniq
+    if (provider === 'reduniq') {
+      const reduniqResult = await initReduniqPayment({
+        amount: data.amount,
+        type: type,
+        userId: userId,
+        solution: data.reduniqSolution,
+        metadata: {
+          donorName: donorName || '',
+          donorEmail: donorEmail || '',
+          donorAddress: data.donorAddress || '',
+          donorCity: data.donorCity || '',
+          donorZip: data.donorZip || '',
+          donorCountry: data.donorCountry || '',
+          donorNif: data.donorNif || '',
+          donorMessage: data.donorMessage || '',
+        },
+      });
+
+      return NextResponse.json({
+        url: reduniqResult.redirectUrl,
+        token: reduniqResult.token
+      });
+    }
+
+    // 3. Create Stripe Session
     // createCheckoutSession handles URLs internally based on type
     const checkoutUrl = await createCheckoutSession({
       amount: data.amount,

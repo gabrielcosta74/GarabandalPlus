@@ -90,7 +90,7 @@ export default function RegisterPage() {
       <AuthLayout
         title="Verifique o seu email"
         subtitle="Enviámos um link de confirmação."
-        backgroundImage="https://images.unsplash.com/photo-1605810230434-7631ac76ec81?q=80&w=2670&auto=format&fit=crop"
+        backgroundImage="/images/nossasenhoragarabandal.jpg"
       >
         <div className="text-center py-10">
           <motion.div
@@ -119,7 +119,7 @@ export default function RegisterPage() {
     <AuthLayout
       title="Criar Conta"
       subtitle="Junte-se à nossa comunidade digital."
-      backgroundImage="https://images.unsplash.com/photo-1605810230434-7631ac76ec81?q=80&w=2670&auto=format&fit=crop"
+      backgroundImage="/images/nossasenhoragarabandal.jpg"
       quote="A Penitência salva as almas e o mundo."
     >
       <form onSubmit={handleRegister} className="space-y-6">

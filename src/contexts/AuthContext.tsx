@@ -14,6 +14,7 @@ type MemberData = {
     is_membro: boolean;
     estado_quota: string | null;
     tipo_subscricao: string | null;
+    proxima_quota?: string | null;
     numero_socio?: number | null;
     nome?: string | null;
     avatar_url?: string | null;
@@ -44,7 +45,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         const { data } = await supabaseBrowser
             .from('membros')
-            .select('is_membro, estado_quota, tipo_subscricao, numero_socio, nome, avatar_url')
+            .select('is_membro, estado_quota, tipo_subscricao, proxima_quota, numero_socio, nome, avatar_url')
             .eq('id', userId)
             .maybeSingle();
 

@@ -7,7 +7,7 @@ export async function getProduct(id: string): Promise<Product | null> {
     try {
         const { data, error } = await supabaseServer
             .from('store_products')
-            .select('product_id, name, description, category, price, currency, stock, is_active, is_physical, image_url, digital_url')
+            .select('product_id, name, description, category, price, currency, stock, is_active, is_physical, image_url, digital_url, allowed_countries')
             .eq('product_id', id)
             .eq('is_active', true)
             .maybeSingle();
@@ -27,6 +27,7 @@ export async function getProduct(id: string): Promise<Product | null> {
             isPhysical: data.is_physical ?? true,
             digitalUrl: data.digital_url || null,
             stock: typeof data.stock === 'number' ? data.stock : null,
+            allowedCountries: data.allowed_countries || [],
         };
     } catch (err) {
         console.error('Error fetching product:', err);

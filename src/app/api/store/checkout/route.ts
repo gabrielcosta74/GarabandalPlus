@@ -84,7 +84,7 @@ export async function POST(request: Request) {
     if (buyerUserId) {
       const { data: member } = await supabaseServer
         .from('membros')
-        .select('is_membro, estado_quota, tipo_subscricao')
+        .select('is_membro, estado_quota, tipo_subscricao, proxima_quota')
         .eq('id', buyerUserId)
         .maybeSingle();
       if (isActiveMember(member)) {
@@ -113,7 +113,7 @@ export async function POST(request: Request) {
 
     const { data: productRows, error: productError } = await supabaseServer
       .from('store_products')
-      .select('product_id, name, price, is_physical, is_active, stock')
+      .select('product_id, name, price, is_physical, is_active, stock, allowed_countries')
       .in(
         'product_id',
         normalizedItems.map((item) => item.id),
@@ -138,6 +138,7 @@ export async function POST(request: Request) {
         qty: item.qty,
         isPhysical: product.is_physical ?? true,
         stock: typeof product.stock === 'number' ? product.stock : null,
+        allowedCountries: product.allowed_countries,
       };
     });
 
@@ -155,16 +156,44 @@ export async function POST(request: Request) {
       qty: number;
       isPhysical: boolean;
       stock: number | null;
+      allowedCountries: string[] | null;
     }>;
 
     const hasPhysical = itemsResolved.some((item) => item.isPhysical);
     const shippingCost = getShippingCost(shipping?.country, hasPhysical);
     if (hasPhysical && !isPhysicalShippingAllowed(shipping?.country)) {
       return NextResponse.json(
-        { message: 'Envio físico disponível apenas para países da UE, Brasil e Estados Unidos.', code: 'SHIPPING_BLOCKED', requestId },
+        { message: 'Envio físico disponível apenas para Portugal e Brasil.', code: 'SHIPPING_BLOCKED', requestId },
         { status: 400 },
       );
     }
+
+    // START: Dynamic Country Availability Check
+    if (hasPhysical && shipping?.country) {
+      const countryCode = shipping.country.toUpperCase();
+      const blockedProduct = itemsResolved.find((item) => {
+        if (!item.isPhysical) return false;
+        // If allowedCountries is defined and not empty, enforce it.
+        // If null or empty, it falls back to standard rules (PT/BR checked above).
+        if (item.allowedCountries && item.allowedCountries.length > 0) {
+          return !item.allowedCountries.includes(countryCode);
+        }
+        return false;
+      });
+
+      if (blockedProduct) {
+        return NextResponse.json(
+          {
+            message: `O produto "${blockedProduct.name}" não envia para o seu país (${shipping.country}).`,
+            code: 'SHIPPING_COUNTRY_RESTRICTED',
+            requestId
+          },
+          { status: 400 },
+        );
+      }
+    }
+    // END: Dynamic Country Availability Check
+
     if (hasPhysical && shippingCost === null) {
       return NextResponse.json(
         { message: 'Não foi possível calcular os portes para o país selecionado.', code: 'SHIPPING_INVALID', requestId },

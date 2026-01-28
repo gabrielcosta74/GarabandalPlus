@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useMemo, useState, useEffect } from 'react';
 import VIPLayout from '../../components/member/VIPLayout';
 import { supabaseBrowser } from '../../lib/supabase-browser';
+import { isActiveMember } from '../../lib/store-discounts';
 import {
   CreditCard,
   ShieldCheck,
@@ -90,10 +91,8 @@ export default function MemberDashboardPage() {
     loadData();
   }, []);
 
-  const isValidMember = useMemo(() => {
-    const status = (member?.estado_quota || '').toLowerCase();
-    return status === 'pago' || status === 'paid' || status === 'ativo';
-  }, [member]);
+  /* REMOVED LOCAL LOGIC - Using shared lib/store-discounts.ts */
+  const isValidMember = useMemo(() => isActiveMember(member), [member]);
 
   const firstName = member?.nome?.split(' ')[0] || 'Membro';
 
@@ -135,8 +134,8 @@ export default function MemberDashboardPage() {
               </div>
               <div>
                 <p className="text-xs text-slate-400 uppercase tracking-wider font-medium">Estado Atual</p>
-                <p className={`text-lg font-bold ${isValidMember ? 'text-white' : 'text-red-400'}`}>
-                  {isValidMember ? 'Quota em Dia' : 'Pagamento Pendente'}
+                <p className={`text-lg font-bold ${loading ? 'text-slate-500 animate-pulse' : isValidMember ? 'text-white' : 'text-red-400'}`}>
+                  {loading ? 'A carregar...' : (isValidMember ? 'Quota em Dia' : 'Pagamento Pendente')}
                 </p>
                 <Link href="/member/quota" className="text-xs text-yellow-500 hover:text-yellow-400 hover:underline">
                   Gerir quota &rarr;

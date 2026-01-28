@@ -7,8 +7,9 @@ import { motion } from "framer-motion";
 import { Product, loadCart, saveCart } from "../../data";
 import StoreLayoutWrapper from "../../../../components/store/StoreLayoutWrapper";
 import ProductCard from "../../../../components/store/ProductCard";
-import { ShoppingCart, ArrowLeft, Check, Truck, ShieldCheck, CreditCard } from "lucide-react";
+import { ShoppingCart, ArrowLeft, Check, Truck, ShieldCheck, CreditCard, Globe } from "lucide-react";
 import { useCurrency } from "../../../../components/providers/CurrencyProvider";
+import { listCountryOptions } from "../../../../lib/country-utils";
 
 const getVatRate = (product: Product) => (product.isPhysical ? 0.06 : 0.23);
 
@@ -200,6 +201,40 @@ export default function ProductClient({ product, relatedProducts }: ProductClien
                                 <span>Pagamento 100% Seguro</span>
                             </div>
                         </div>
+
+                        {/* Availability Info */}
+                        {product.isPhysical && (
+                            <div className="mb-8 p-4 bg-gray-50 rounded-2xl border border-gray-100">
+                                <div className="flex items-start gap-3">
+                                    <div className="p-2 bg-white rounded-lg border border-gray-100 shadow-sm text-blue-600">
+                                        <Globe size={20} />
+                                    </div>
+                                    <div>
+                                        <h3 className="font-bold text-gray-900 text-sm mb-1">Disponibilidade de Envio</h3>
+                                        {product.allowedCountries && product.allowedCountries.length > 0 ? (
+                                            <div className="text-sm text-gray-600">
+                                                <p className="mb-2">Este produto só pode ser enviado para:</p>
+                                                <div className="flex flex-wrap gap-2">
+                                                    {product.allowedCountries.map(code => {
+                                                        const country = listCountryOptions().find(c => c.code === code);
+                                                        return (
+                                                            <span key={code} className="inline-flex items-center px-2.5 py-1 rounded-md bg-white border border-gray-200 text-xs font-medium text-gray-700 shadow-sm">
+                                                                <span className="mr-1.5 text-xs font-mono text-gray-400">{code}</span>
+                                                                {country?.label || code}
+                                                            </span>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <p className="text-sm text-gray-600">
+                                                Este produto pode ser enviado para <span className="font-bold text-green-600">todo o mundo</span>.
+                                            </p>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
 
                     </motion.div>
                 </div>
