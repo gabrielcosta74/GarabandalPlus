@@ -317,7 +317,7 @@ export default function PilgrimageDetailPage() {
                                                     </div>
 
                                                     <ul className="space-y-4">
-                                                        {((pilgrimage.included_items?.length || 0) > 0 ? pilgrimage.included_items : globalLogistics?.included_items || []).map((item, i) => (
+                                                        {((pilgrimage.included_items?.length || 0) > 0 ? (pilgrimage.included_items || []) : globalLogistics?.included_items || []).map((item, i) => (
                                                             <li key={i} className="flex items-start gap-4 group">
                                                                 <div className="w-6 h-6 rounded-full bg-green-100 flex items-center justify-center text-green-600 shrink-0 mt-0.5 group-hover:bg-green-600 group-hover:text-white transition-colors">
                                                                     <CheckCircle2 className="w-4 h-4" />

@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
-import AuthLayout, { PremiumInput } from '../../components/auth/AuthLayout';
+import AuthLayout, { PremiumInput, GoogleButton } from '../../components/auth/AuthLayout';
 import { supabaseBrowser } from '../../lib/supabase-browser';
 import { motion } from 'framer-motion';
 import { ArrowRight, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
@@ -134,48 +134,62 @@ export default function RegisterPage() {
           </motion.div>
         )}
 
-        <div className="space-y-4">
-          <PremiumInput
-            label="Email"
-            type="email"
-            placeholder="exemplo@email.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            disabled={loading}
-          />
+        <div className="space-y-6">
+          <GoogleButton isLoading={loading} text="Registar com Google" />
 
-          <PremiumInput
-            label="Password"
-            type="password"
-            placeholder="Min. 6 caracteres"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            disabled={loading}
-          />
-
-          <PremiumInput
-            label="Confirmar Password"
-            type="password"
-            placeholder="Repita a password"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            disabled={loading}
-          />
-        </div>
-
-        <div className="flex items-start gap-3">
           <div className="relative flex items-center justify-center">
-            <input
-              id="terms"
-              type="checkbox"
-              checked={acceptedTerms}
-              onChange={(e) => setAcceptedTerms(e.target.checked)}
-              className="w-8 h-8 rounded border-gray-300 text-garabandal-gold focus:ring-garabandal-gold cursor-pointer transition-transform hover:scale-105"
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-gray-200 lg:border-white/10"></div>
+            </div>
+            <span className="relative z-10 bg-white lg:bg-transparent px-2 text-xs text-gray-400 font-bold uppercase tracking-widest">
+              Ou registar com email
+            </span>
+          </div>
+
+          <div className="space-y-4">
+            <PremiumInput
+              label="Email"
+              type="email"
+              placeholder="exemplo@email.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              disabled={loading}
+            />
+
+            <PremiumInput
+              label="Password"
+              type="password"
+              placeholder="Min. 6 caracteres"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              disabled={loading}
+            />
+
+            <PremiumInput
+              label="Confirmar Password"
+              type="password"
+              placeholder="Repita a password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              disabled={loading}
             />
           </div>
-          <label htmlFor="terms" className="text-xs text-white/60 lg:text-gray-500 leading-relaxed font-medium">
-            Li e aceito os <a href="#" className="underline hover:text-garabandal-gold">Termos e Condições</a> e a <a href="#" className="underline hover:text-garabandal-gold">Política de Privacidade</a> do Apostolado de Garabandal.
-          </label>
+
+          <div className="flex items-start gap-3">
+            <div className="relative flex items-center justify-center">
+              <input
+                id="terms"
+                type="checkbox"
+                checked={acceptedTerms}
+                onChange={(e) => setAcceptedTerms(e.target.checked)}
+                className="w-8 h-8 rounded border-gray-300 text-garabandal-gold focus:ring-garabandal-gold cursor-pointer transition-transform hover:scale-105"
+              />
+            </div>
+            <label htmlFor="terms" className="text-xs text-white/60 lg:text-gray-500 leading-relaxed font-medium">
+              Li e aceito os <a href="#" className="underline hover:text-garabandal-gold">Termos e Condições</a> e a <a href="#" className="underline hover:text-garabandal-gold">Política de Privacidade</a> do Apostolado de Garabandal.
+            </label>
+          </div>
+
         </div>
 
         <button

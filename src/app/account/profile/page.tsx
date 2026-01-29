@@ -6,36 +6,30 @@ import DashboardShell from '../../../components/dashboard/DashboardShell';
 import MemberProfileModal from '../../../components/member-profile/MemberProfileModal';
 import ChangePasswordModal from '../../../components/auth/ChangePasswordModal';
 import { supabaseBrowser } from '../../../lib/supabase-browser';
+import { useAuth } from '../../../contexts/AuthContext';
 import { User, MapPin, Shield, Edit2, KeyRound, LogOut, CheckCircle2 } from 'lucide-react';
 
 export default function AccountProfilePage() {
+  // Use centralized AuthContext for data to ensure synchronization
+  const { memberData, user, refreshMemberData } = useAuth();
+
   const [showProfile, setShowProfile] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
-  const [profileData, setProfileData] = useState<Record<string, any> | null>(null);
-  const [userId, setUserId] = useState('');
-  const [userEmail, setUserEmail] = useState('');
+
+  // Security states
   const [securityMessage, setSecurityMessage] = useState('');
   const [securityLoading, setSecurityLoading] = useState(false);
   const [securityStatus, setSecurityStatus] = useState<'success' | 'error' | null>(null);
   const router = useRouter();
 
+  // Refresh data on mount to ensure freshness
   useEffect(() => {
-    const loadProfile = async () => {
-      if (!supabaseBrowser) return;
-      const { data } = await supabaseBrowser.auth.getUser();
-      if (!data.user?.id) return;
-      setUserId(data.user.id);
-      setUserEmail(data.user.email ?? '');
-      const { data: member } = await supabaseBrowser
-        .from('membros')
-        .select('nome, email, telefone, address, postal_code, country, nif, is_membro, numero_socio, estado_quota, proxima_quota, avatar_url')
-        .eq('id', data.user.id)
-        .maybeSingle();
-      setProfileData(member ?? {});
-    };
-    loadProfile();
-  }, []);
+    refreshMemberData();
+  }, [refreshMemberData]);
 
+  // Derived state for display
+  const profileDisplay = memberData || ({} as any);
+  const currentEmail = user?.email || '';
 
   // Legacy password reset replaced by ChangePasswordModal
 
@@ -73,8 +67,6 @@ export default function AccountProfilePage() {
     </div>
   );
 
-
-
   const HeroSection = () => (
     <div className="relative w-full h-80 rounded-3xl overflow-hidden mb-8 shadow-xl">
       <div className="absolute inset-0 bg-gradient-to-br from-garabandal-dark via-slate-900 to-garabandal-gold/20">
@@ -85,10 +77,10 @@ export default function AccountProfilePage() {
         <div className="relative group">
           <div className="w-32 h-32 rounded-full p-1 bg-gradient-to-br from-garabandal-gold to-yellow-600 shadow-2xl">
             <div className="w-full h-full rounded-full bg-slate-900 flex items-center justify-center overflow-hidden border-4 border-slate-900">
-              {profileData?.avatar_url ? (
-                <img src={profileData.avatar_url} alt="Profile" className="w-full h-full object-cover" />
+              {profileDisplay.avatar_url ? (
+                <img src={profileDisplay.avatar_url} alt="Profile" className="w-full h-full object-cover" />
               ) : (
-                <span className="font-serif text-4xl text-garabandal-gold">{profileData?.nome?.charAt(0) || userEmail.charAt(0)}</span>
+                <span className="font-serif text-4xl text-garabandal-gold">{profileDisplay.nome?.charAt(0) || currentEmail.charAt(0)}</span>
               )}
             </div>
           </div>
@@ -101,10 +93,10 @@ export default function AccountProfilePage() {
         </div>
 
         <div>
-          <h2 className="font-serif text-3xl font-bold text-white mb-1">{profileData?.nome || 'Utilizador'}</h2>
-          {profileData?.is_membro ? (
+          <h2 className="font-serif text-3xl font-bold text-white mb-1">{profileDisplay.nome || 'Utilizador'}</h2>
+          {profileDisplay.is_membro ? (
             <p className="text-garabandal-gold font-medium tracking-wide uppercase text-xs">
-              Membro • Nº {profileData?.numero_socio || '---'}
+              Membro • Nº {profileDisplay.numero_socio || '---'}
             </p>
           ) : (
             <p className="text-slate-400 font-medium tracking-wide uppercase text-xs">
@@ -130,12 +122,12 @@ export default function AccountProfilePage() {
 
       <MemberProfileModal
         visible={showProfile}
-        userId={userId}
-        initialData={profileData ?? {}}
+        userId={user?.id || ''}
+        initialData={profileDisplay}
         onClose={() => setShowProfile(false)}
-        onSaved={() => {
+        onSaved={async () => {
+          await refreshMemberData();
           setShowProfile(false);
-          window.location.reload();
         }}
       />
 
@@ -170,10 +162,10 @@ export default function AccountProfilePage() {
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6">
-              <Field label="Nome" value={profileData?.nome} />
-              <Field label="Email" value={profileData?.email || userEmail} />
-              <Field label="Telefone" value={profileData?.telefone} />
-              <Field label="NIF" value={profileData?.nif} />
+              <Field label="Nome" value={profileDisplay.nome} />
+              <Field label="Email" value={profileDisplay.email || currentEmail} />
+              <Field label="Telefone" value={profileDisplay.telefone} />
+              <Field label="NIF" value={profileDisplay.nif} />
             </div>
           </div>
 
@@ -199,10 +191,10 @@ export default function AccountProfilePage() {
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6">
               <div className="sm:col-span-2">
-                <Field label="Endereço" value={profileData?.address} />
+                <Field label="Endereço" value={profileDisplay.address} />
               </div>
-              <Field label="Código Postal" value={profileData?.postal_code} />
-              <Field label="País" value={profileData?.country} />
+              <Field label="Código Postal" value={profileDisplay.postal_code} />
+              <Field label="País" value={profileDisplay.country} />
             </div>
           </div>
         </div >

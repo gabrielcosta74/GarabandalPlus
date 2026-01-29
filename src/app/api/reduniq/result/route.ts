@@ -19,20 +19,8 @@ const bodySchema = z.object({
 
 const formatISODate = (date: Date) => date.toISOString().slice(0, 10);
 
-const getNextMemberNumber = async (supabaseServer: any) => {
-  const { data, error } = await supabaseServer
-    .from('membros')
-    .select('numero_socio')
-    .not('numero_socio', 'is', null)
-    .order('numero_socio', { ascending: false })
-    .limit(1)
-    .maybeSingle();
+import { getNextMemberNumber } from '../../../../lib/membership-db';
 
-  if (error) throw error;
-
-  const current = Number(data?.numero_socio ?? 0);
-  return Number.isFinite(current) && current > 0 ? current + 1 : 1;
-};
 
 const mapPrivateData = (entries?: Array<{ name?: string; value?: string }>) => {
   if (!entries) return {};

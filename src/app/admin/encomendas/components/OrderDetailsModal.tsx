@@ -40,6 +40,7 @@ export type OrderDetailRow = {
     billing_postal_code?: string | null;
     billing_country?: string | null;
     status: string;
+    payment_reference?: string | null;
 };
 
 import {
@@ -182,8 +183,8 @@ export default function OrderDetailsModal({ order, onClose, onToggleInvoice, onM
                                 <button
                                     onClick={() => onToggleInvoice(order)}
                                     className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${order.invoice_sent_at
-                                            ? 'bg-green-100 text-green-700 hover:bg-green-200'
-                                            : 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200 shadow-sm'
+                                        ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                                        : 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200 shadow-sm'
                                         }`}
                                 >
                                     {order.invoice_sent_at ? (

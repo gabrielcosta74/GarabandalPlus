@@ -29,6 +29,7 @@ export async function OPTIONS() {
 }
 
 import { calculateNextQuotaDate } from '../../../lib/membership-logic';
+import { getNextMemberNumber } from '../../../lib/membership-db';
 
 const formatISODate = (date: Date) => date.toISOString().slice(0, 10);
 
@@ -252,6 +253,15 @@ export async function POST(request: Request) {
             const nextQuotaDate = calculateNextQuotaDate(safePaymentDate);
             const adesao = membro?.data_adesao ? membro.data_adesao : formatISODate(new Date());
             const wasMember = !!membro?.is_membro;
+            let numero_socio: number | undefined;
+
+            if (!membro?.numero_socio) {
+              try {
+                numero_socio = await getNextMemberNumber(supabaseServer);
+              } catch (err) {
+                console.error('Erro ao obter número de sócio (Stripe):', err);
+              }
+            }
 
             const { error: membroUpdateError } = await supabaseServer
               .from('membros')
@@ -261,6 +271,7 @@ export async function POST(request: Request) {
                 data_adesao: adesao,
                 is_membro: true,
                 updated_at: new Date().toISOString(),
+                ...(Number.isFinite(numero_socio) ? { numero_socio } : {}),
               })
               .eq('id', userId);
 
@@ -304,7 +315,7 @@ export async function POST(request: Request) {
                 const memberEmail = updatedMember?.email ?? membro?.email ?? session.customer_details?.email ?? null;
                 if (memberEmail) {
                   const membershipRef = paymentIntent || externalRef;
-                  const finalMemberNumber = updatedMember?.numero_socio ?? membro?.numero_socio ?? null;
+                  const finalMemberNumber = updatedMember?.numero_socio ?? membro?.numero_socio ?? numero_socio ?? null;
                   const shouldAttachDiploma = !updatedMember?.diploma_enviado_at && !!finalMemberNumber;
                   let diplomaAttachment: { filename: string; content: Buffer; contentType?: string } | undefined;
 

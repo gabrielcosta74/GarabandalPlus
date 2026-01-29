@@ -65,8 +65,8 @@ export async function GET(request: Request) {
   try {
     const lookupEmail = normalizeEmail(tokenRow.buyer_email);
     if (lookupEmail) {
-      const { data, error } = await supabaseServer.auth.admin.getUserByEmail(lookupEmail);
-      emailExists = !error && !!data?.user;
+      const { data: users, error } = await supabaseServer.auth.admin.listUsers();
+      emailExists = !error && users.users.some(u => u.email?.toLowerCase() === lookupEmail.toLowerCase());
     }
   } catch (err) {
     emailExists = false;
@@ -83,12 +83,12 @@ export async function GET(request: Request) {
     hasDigital: (digitalAccess || []).length > 0,
     shipping: order
       ? {
-          address1: order.shipping_address1,
-          address2: order.shipping_address2,
-          city: order.shipping_city,
-          postalCode: order.shipping_postal_code,
-          country: order.shipping_country,
-        }
+        address1: order.shipping_address1,
+        address2: order.shipping_address2,
+        city: order.shipping_city,
+        postalCode: order.shipping_postal_code,
+        country: order.shipping_country,
+      }
       : null,
     emailExists,
     expiresAt: tokenRow.expires_at,

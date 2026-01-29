@@ -355,12 +355,13 @@ export default function SiteHeader() {
                                 <div className="h-px bg-slate-100 my-1" />
                                 <button
                                   onClick={(e) => {
+                                    e.preventDefault();
                                     e.stopPropagation();
                                     handleLogout();
                                   }}
-                                  className="w-full flex items-center gap-3 px-3 py-2 text-sm font-bold text-red-600 hover:bg-red-50 rounded-lg transition-colors text-left"
+                                  className="w-full flex items-center gap-3 px-3 py-2 text-sm font-bold text-red-600 hover:bg-red-50 rounded-lg transition-colors text-left cursor-pointer group"
                                 >
-                                  <LogOut className="w-4 h-4" /> Sair da conta
+                                  <LogOut className="w-4 h-4 group-hover:scale-110 transition-transform" /> Sair da conta
                                 </button>
                               </div>
                             </motion.div>

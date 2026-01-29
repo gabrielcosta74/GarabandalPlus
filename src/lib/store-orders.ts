@@ -175,8 +175,8 @@ export const processPaidStoreOrder = async ({
   let accountExists: boolean | null = null;
   if (buyerEmailResolved) {
     try {
-      const { data, error } = await supabaseServer.auth.admin.getUserByEmail(buyerEmailResolved);
-      accountExists = !error && !!data?.user;
+      const { data: users, error } = await supabaseServer.auth.admin.listUsers();
+      accountExists = !error && users.users.some((u: any) => u.email?.toLowerCase() === buyerEmailResolved.toLowerCase());
     } catch (err) {
       accountExists = null;
     }

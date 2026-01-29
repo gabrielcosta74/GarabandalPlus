@@ -3,7 +3,7 @@ import { Facebook, Instagram, Mail, MapPin } from 'lucide-react';
 
 export default function SiteFooter() {
   return (
-    <footer className="bg-[#050911] pt-20 pb-10 border-t border-white/5">
+    <footer className="bg-[#050911] pt-20 pb-10 border-t border-white/5 relative z-10">
       <div className="container mx-auto px-6">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-16">
           <div className="col-span-1 md:col-span-2">
@@ -26,13 +26,9 @@ export default function SiteFooter() {
           <div>
             <h5 className="text-white font-medium uppercase tracking-widest text-sm mb-6">Contacto</h5>
             <ul className="space-y-4 text-white/50 text-sm font-light">
-              <li className="flex items-start">
-                <MapPin size={16} className="mr-3 mt-1 text-garabandal-gold" />
-                <span>San Sebastián de Garabandal,<br />Cantábria, Espanha</span>
-              </li>
               <li className="flex items-center">
                 <Mail size={16} className="mr-3 text-garabandal-gold" />
-                <span>contacto@garabandal.org</span>
+                <span>geral@apostoladodegarabandal.com</span>
               </li>
             </ul>
             <div className="flex space-x-4 mt-6">

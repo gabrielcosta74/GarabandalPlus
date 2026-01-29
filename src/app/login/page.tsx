@@ -3,7 +3,7 @@
 import { Suspense, useMemo, useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import AuthLayout, { PremiumInput } from '../../components/auth/AuthLayout';
+import AuthLayout, { PremiumInput, GoogleButton } from '../../components/auth/AuthLayout';
 import { supabaseBrowser } from '../../lib/supabase-browser';
 import { motion } from 'framer-motion';
 import { ArrowRight, Loader2, AlertCircle } from 'lucide-react';
@@ -111,32 +111,45 @@ function LoginScreen() {
           </motion.div>
         )}
 
-        <div className="space-y-4">
-          <PremiumInput
-            label="Email"
-            type="email"
-            placeholder="exemplo@email.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            disabled={loading}
-          />
+        <div className="space-y-6">
+          <GoogleButton isLoading={loading} text="Entrar com Google" />
 
-          <div className="space-y-1">
+          <div className="relative flex items-center justify-center">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-gray-200 lg:border-white/10"></div>
+            </div>
+            <span className="relative z-10 bg-white lg:bg-transparent px-2 text-xs text-gray-400 font-bold uppercase tracking-widest">
+              Ou entrar com email
+            </span>
+          </div>
+
+          <div className="space-y-4">
             <PremiumInput
-              label="Password"
-              type="password"
-              placeholder="••••••••"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              label="Email"
+              type="email"
+              placeholder="exemplo@email.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               disabled={loading}
             />
-            <div className="flex justify-end">
-              <Link
-                href="/auth/forgot-password"
-                className="text-xs font-bold text-garabandal-gold hover:text-yellow-600 transition-colors uppercase tracking-wider mt-2"
-              >
-                Esqueceu a password?
-              </Link>
+
+            <div className="space-y-1">
+              <PremiumInput
+                label="Password"
+                type="password"
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                disabled={loading}
+              />
+              <div className="flex justify-end">
+                <Link
+                  href="/auth/forgot-password"
+                  className="text-xs font-bold text-garabandal-gold hover:text-yellow-600 transition-colors uppercase tracking-wider mt-2"
+                >
+                  Esqueceu a password?
+                </Link>
+              </div>
             </div>
           </div>
         </div>

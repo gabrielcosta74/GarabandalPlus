@@ -76,8 +76,14 @@ export default function BookingsManager({ pilgrimageId }: { pilgrimageId: string
     const fetchBookings = async () => {
         setLoading(true);
         try {
+            const { data: { session } } = await supabaseBrowser.auth.getSession();
+            const token = session?.access_token;
+
             const response = await fetch(`/api/admin/bookings/${pilgrimageId}?t=${Date.now()}`, {
-                cache: 'no-store'
+                cache: 'no-store',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
             });
             const json = await response.json();
 

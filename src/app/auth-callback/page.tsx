@@ -115,7 +115,31 @@ export default function AuthCallbackPage() {
           return;
         }
 
-        // 6. SUCCESS -> REDIRECT
+        // 6. SUCCESS -> Ensuring Member Record Exists (Critical for Google Auth)
+        // Check if user has a member record
+        const { data: memberCheck } = await supabaseBrowser
+          .from('membros')
+          .select('id')
+          .eq('id', (await supabaseBrowser.auth.getUser()).data.user?.id)
+          .maybeSingle();
+
+        if (!memberCheck) {
+          const user = (await supabaseBrowser.auth.getUser()).data.user;
+          if (user?.id) {
+            console.log('Creating default member record for new social login user...');
+            await supabaseBrowser.from('membros').insert({
+              id: user.id,
+              email: user.email,
+              nome: user.user_metadata?.full_name || user.email?.split('@')[0],
+              avatar_url: user.user_metadata?.avatar_url,
+              is_membro: false,
+              tipo_subscricao: 'regulares',
+              data_adesao: new Date().toISOString(),
+              estado_quota: 'pendente',
+            });
+          }
+        }
+
         handleRedirect(type, nextQuery);
       } catch (err) {
         console.error('Auth callback error:', err);

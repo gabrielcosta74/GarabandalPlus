@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Check, Lock, ChevronLeft, CreditCard } from "lucide-react";
+import { X, Check, Lock, ChevronLeft, CreditCard, Eye, EyeOff } from "lucide-react";
 import { supabaseBrowser } from "../../lib/supabase-browser";
 import { useAuth } from "../../contexts/AuthContext";
 import {
@@ -18,6 +18,7 @@ import {
     withCountryPrefix,
 } from "../../lib/country-utils";
 import { useCurrency } from "../providers/CurrencyProvider";
+import { GoogleButton } from "../auth/AuthLayout";
 
 interface MembershipModalProps {
     isOpen: boolean;
@@ -60,6 +61,33 @@ const InputField = ({ label, ...props }: React.InputHTMLAttributes<HTMLInputElem
     </div>
 );
 
+const PasswordInput = ({ label, ...props }: React.InputHTMLAttributes<HTMLInputElement> & { label: string }) => {
+    const [show, setShow] = useState(false);
+    return (
+        <div className="group">
+            <label className="block text-xs font-bold uppercase tracking-widest text-gray-400 mb-1.5 ml-1 group-focus-within:text-garabandal-gold transition-colors">
+                {label}
+            </label>
+            <div className="relative">
+                <input
+                    {...props}
+                    type={show ? "text" : "password"}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3.5 outline-none transition-all duration-300
+                    text-gray-900 placeholder:text-gray-400 pr-12
+                    focus:bg-white focus:border-garabandal-gold focus:ring-4 focus:ring-garabandal-gold/10"
+                />
+                <button
+                    type="button"
+                    onClick={() => setShow(!show)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-2"
+                >
+                    {show ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+            </div>
+        </div>
+    );
+};
+
 const SelectField = ({ label, children, ...props }: React.SelectHTMLAttributes<HTMLSelectElement> & { label: string }) => (
     <div className="group relative">
         <label className="block text-xs font-bold uppercase tracking-widest text-gray-400 mb-1.5 ml-1 group-focus-within:text-garabandal-gold transition-colors">
@@ -95,6 +123,7 @@ export default function MembershipModal({ isOpen, onClose, impact }: MembershipM
     const [isNewAccount, setIsNewAccount] = useState(false);
     const [authLoading, setAuthLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [acceptedTerms, setAcceptedTerms] = useState(false);
 
     // Form Data
     const [formData, setFormData] = useState({
@@ -229,6 +258,7 @@ export default function MembershipModal({ isOpen, onClose, impact }: MembershipM
             if (authMode === 'signup') {
                 if (password.length < 6) throw new Error("A password deve ter 6+ caracteres.");
                 if (password !== confirmPassword) throw new Error("As passwords não coincidem.");
+                if (!acceptedTerms) throw new Error("Tens de aceitar os termos e condições.");
 
                 const redirectTo = `${window.location.origin}/auth-callback`;
                 const { data, error: upErr } = await supabaseBrowser.auth.signUp({
@@ -442,6 +472,22 @@ export default function MembershipModal({ isOpen, onClose, impact }: MembershipM
                                                 </button>
                                             </div>
 
+                                            <div className="mb-6">
+                                                <GoogleButton
+                                                    isLoading={authLoading}
+                                                    text={authMode === 'login' ? "Entrar com Google" : "Registar com Google"}
+                                                    className="bg-white border-gray-200 shadow-sm hover:shadow-md py-3"
+                                                />
+                                                <div className="relative flex items-center justify-center mt-6">
+                                                    <div className="absolute inset-0 flex items-center">
+                                                        <div className="w-full border-t border-gray-200"></div>
+                                                    </div>
+                                                    <span className="relative z-10 bg-white px-2 text-[10px] text-gray-400 font-bold uppercase tracking-widest">
+                                                        Ou com email
+                                                    </span>
+                                                </div>
+                                            </div>
+
                                             <div className="space-y-5">
                                                 <InputField
                                                     label="Email"
@@ -450,20 +496,35 @@ export default function MembershipModal({ isOpen, onClose, impact }: MembershipM
                                                     onChange={e => setFormData(p => ({ ...p, email: e.target.value }))}
                                                 />
 
-                                                <InputField
+                                                <PasswordInput
                                                     label="Password"
-                                                    type="password"
                                                     value={password}
                                                     onChange={e => setPassword(e.target.value)}
                                                 />
 
                                                 {authMode === 'signup' && (
-                                                    <InputField
-                                                        label="Confirmar Password"
-                                                        type="password"
-                                                        value={confirmPassword}
-                                                        onChange={e => setConfirmPassword(e.target.value)}
-                                                    />
+                                                    <>
+                                                        <PasswordInput
+                                                            label="Confirmar Password"
+                                                            value={confirmPassword}
+                                                            onChange={e => setConfirmPassword(e.target.value)}
+                                                        />
+
+                                                        <div className="flex items-start gap-3 mt-4">
+                                                            <div className="relative flex items-center justify-center mt-0.5">
+                                                                <input
+                                                                    id="modal-terms"
+                                                                    type="checkbox"
+                                                                    checked={acceptedTerms}
+                                                                    onChange={(e) => setAcceptedTerms(e.target.checked)}
+                                                                    className="w-5 h-5 rounded border-gray-300 text-garabandal-gold focus:ring-garabandal-gold cursor-pointer"
+                                                                />
+                                                            </div>
+                                                            <label htmlFor="modal-terms" className="text-xs text-gray-500 leading-relaxed font-medium">
+                                                                Li e aceito os e a <a href="#" className="underline hover:text-garabandal-gold">Política de Privacidade</a> do Apostolado de Garabandal.
+                                                            </label>
+                                                        </div>
+                                                    </>
                                                 )}
                                             </div>
 
@@ -658,8 +719,9 @@ export default function MembershipModal({ isOpen, onClose, impact }: MembershipM
                             </div>
                         </div>
                     </motion.div>
-                </div>
+                </div >
             )}
-        </AnimatePresence>
+
+        </AnimatePresence >
     );
 }

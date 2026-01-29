@@ -22,17 +22,21 @@ export default function WaitlistManager({ pilgrimageId }: { pilgrimageId: string
     const [loading, setLoading] = useState(true);
 
     const fetchWaitlist = async () => {
-        if (!supabaseBrowser) return;
         setLoading(true);
         try {
-            const { data, error } = await supabaseBrowser
-                .from('pilgrimage_waitlists')
-                .select('*')
-                .eq('pilgrimage_id', pilgrimageId)
-                .order('created_at', { ascending: true });
+            const { data: { session } } = await supabaseBrowser.auth.getSession();
+            const token = session?.access_token;
 
-            if (error) throw error;
-            setLeads(data || []);
+            const res = await fetch(`/api/admin/pilgrimages/${pilgrimageId}/waitlist`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (!res.ok) throw new Error("Failed to fetch waitlist");
+
+            const json = await res.json();
+            setLeads(json.waitlist || []);
         } catch (err) {
             console.error("Error fetching waitlist:", err);
         } finally {
