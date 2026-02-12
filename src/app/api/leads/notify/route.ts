@@ -4,11 +4,17 @@ import { supabaseServer } from '../../../../lib/supabase';
 import { sendAbandonmentRecoveryEmail } from '../../../../lib/email';
 import { WhatsAppService } from '../../../../lib/whatsapp';
 import { getAppUrl } from '../../../../lib/config';
+import { verifyAdmin } from '../../../../lib/admin-auth';
 
 export async function POST(req: Request) {
     if (!supabaseServer) {
         console.error('[Manual Notify] Supabase not configured');
         return NextResponse.json({ error: "Server Configuration Error" }, { status: 500 });
+    }
+
+    const { authorized, error: authError } = await verifyAdmin(req);
+    if (!authorized) {
+        return NextResponse.json({ error: authError || 'Unauthorized' }, { status: 401 });
     }
 
     try {
@@ -142,4 +148,3 @@ export async function POST(req: Request) {
         }, { status: 500 });
     }
 }
-

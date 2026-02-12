@@ -1,8 +1,10 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { ArrowRight, ShoppingBag } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { buildProductPath } from '../../lib/slug';
 
 type FeaturedProduct = {
     id: string;
@@ -59,10 +61,12 @@ export default function FeaturedStore({ products }: { products: FeaturedProduct[
                         >
                             {/* Image */}
                             <div className="aspect-[4/5] relative overflow-hidden bg-slate-800">
-                                <img
+                                <Image
                                     src={product.image}
                                     alt={product.name}
-                                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                                    fill
+                                    sizes="(min-width: 1024px) 18vw, (min-width: 768px) 25vw, 50vw"
+                                    className="object-cover transition-transform duration-700 group-hover:scale-110"
                                 />
                                 {/* Overlay Gradient */}
                                 <div className="absolute inset-0 bg-gradient-to-t from-slate-900/90 via-transparent to-transparent opacity-60" />
@@ -84,7 +88,7 @@ export default function FeaturedStore({ products }: { products: FeaturedProduct[
                                         {formatPrice(product.price)}
                                     </span>
                                     <Link
-                                        href={`/loja-online/produto/${product.id}`}
+                                        href={buildProductPath(product.id, product.name)}
                                         className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-yellow-500 hover:text-slate-900 transition-colors backdrop-blur-md"
                                         aria-label="Ver Produto"
                                     >

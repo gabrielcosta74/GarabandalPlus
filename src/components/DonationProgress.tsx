@@ -13,9 +13,7 @@ const formatCurrency = (value: number) =>
 const loadMeta = cache(async (): Promise<DonationMeta> => {
   const siteUrl = getAppUrl();
   try {
-    const res = await fetch(`${siteUrl}/api/donations/meta`, {
-      cache: 'no-store',
-    });
+    const res = await fetch(`${siteUrl}/api/donations/meta`);
     if (!res.ok) return { goal: 2500, raised: 0 };
     const data = await res.json();
     if (typeof data?.goal === 'number' && typeof data?.raised === 'number') {

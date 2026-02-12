@@ -1,6 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { getExchangeRate } from '../../lib/currency';
 
 type Currency = 'EUR' | 'BRL';
 
@@ -28,19 +29,8 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
 
                     if (forcedCurrency === 'BRL') {
                         setCurrency('BRL');
-                        // Fetch rate even if forced
-                        try {
-                            const res = await fetch('https://api.exchangerate-api.com/v4/latest/EUR');
-                            const data = await res.json();
-                            if (data && data.rates && data.rates.BRL) {
-                                setRate(data.rates.BRL);
-                            } else {
-                                setRate(6.5);
-                            }
-                        } catch (e) {
-                            console.warn("Could not fetch rate, using fallback", e);
-                            setRate(6.5);
-                        }
+                        const fetchedRate = await getExchangeRate('BRL');
+                        setRate(fetchedRate);
                         setIsLoading(false);
                         return;
                     }
@@ -52,16 +42,8 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
 
                 if (isBrazil) {
                     setCurrency('BRL');
-
-                    // 2. Fetch Exchange Rate
-                    const res = await fetch('https://api.exchangerate-api.com/v4/latest/EUR');
-                    const data = await res.json();
-                    if (data && data.rates && data.rates.BRL) {
-                        setRate(data.rates.BRL);
-                    } else {
-                        // Fallback safe rate
-                        setRate(6.5);
-                    }
+                    const fetchedRate = await getExchangeRate('BRL');
+                    setRate(fetchedRate);
                 }
             } catch (error) {
                 console.error("Failed to detect currency:", error);

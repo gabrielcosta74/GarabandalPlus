@@ -31,20 +31,12 @@ export default function AdminShell({
       if (!supabaseBrowser) return;
       const { data } = await supabaseBrowser.auth.getSession();
       const token = data.session?.access_token;
+
       if (!token) {
-        router.replace('/admin');
+        if (mounted) router.replace('/admin');
         return;
       }
-      try {
-        const res = await fetch('/api/admin/dashboard', {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (res.status === 401 || res.status === 403) {
-          if (mounted) router.replace('/');
-        }
-      } catch (err) {
-        console.warn('Nao foi possivel validar admin:', err);
-      }
+      // Rely on API routes to enforce role security instead of double-checking here
     };
     verifyAdmin();
     return () => {

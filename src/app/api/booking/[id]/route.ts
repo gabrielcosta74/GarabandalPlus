@@ -40,6 +40,7 @@ export async function GET(
                         cover_image,
                         deposit_value
                     ),
+                    pilgrims (*),
                     payments:pilgrimage_payments (
                         id,
                         amount,
@@ -55,6 +56,7 @@ export async function GET(
 
             console.log("📊 [API] Query result - Error:", error);
             console.log("📊 [API] Query result - Data:", booking ? "Found" : "Not found");
+            console.log("👥 [API] Pilgrims count:", booking?.pilgrims?.length || 0);
 
             if (error || !booking) {
                 console.error("❌ [API Booking GET] Invalid token or query failed");

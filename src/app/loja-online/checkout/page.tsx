@@ -50,7 +50,49 @@ type SavedProfile = {
   proxima_quota?: string | null;
 };
 
+type PaymentOption = {
+  id: string;
+  label: string;
+  description: string;
+  provider: 'stripe' | 'reduniq';
+  reduniqSolution?: number;
+  iconSrc?: string;
+};
+
 const countryOptions = listCountryOptions();
+const paymentOptions: PaymentOption[] = [
+  {
+    id: 'reduniq_card',
+    label: 'Cartão de Crédito',
+    description: 'Visa / Mastercard (Reduniq).',
+    provider: 'reduniq',
+    reduniqSolution: 106,
+    iconSrc: '/payment-icons/reduniq.png',
+  },
+  {
+    id: 'reduniq_mbway',
+    label: 'MB WAY',
+    description: 'Pagamento instantâneo.',
+    provider: 'reduniq',
+    reduniqSolution: 107,
+    iconSrc: '/payment-icons/mbway.svg',
+  },
+  {
+    id: 'reduniq_multibanco',
+    label: 'Multibanco',
+    description: 'Pagamento de serviços.',
+    provider: 'reduniq',
+    reduniqSolution: 108,
+    iconSrc: '/payment-icons/multibanco.svg',
+  },
+  {
+    id: 'stripe',
+    label: 'Stripe (Cartão / Apple Pay)',
+    description: 'Checkout Stripe seguro e imediato.',
+    provider: 'stripe',
+    iconSrc: '/payment-icons/stripe.svg',
+  },
+];
 const ADDRESS_AUTOCOMPLETE_ENABLED = process.env.NEXT_PUBLIC_ADDRESS_AUTOCOMPLETE === '1';
 const PHOTON_ENDPOINT = 'https://photon.komoot.io/api';
 
@@ -108,6 +150,7 @@ export default function CheckoutPage() {
   const [addressSuggestions, setAddressSuggestions] = useState<AddressSuggestion[]>([]);
   const [addressLoading, setAddressLoading] = useState(false);
   const [isMemberActive, setIsMemberActive] = useState(false);
+  const [selectedPaymentId, setSelectedPaymentId] = useState(paymentOptions[0].id);
 
 
   // Set default billing logic based on cart type
@@ -119,6 +162,10 @@ export default function CheckoutPage() {
 
   const countryMeta = useMemo(() => resolveCountryMeta(shipping.country), [shipping.country]);
   const billingCountryMeta = useMemo(() => resolveCountryMeta(billing.country), [billing.country]);
+  const selectedPayment = useMemo(
+    () => paymentOptions.find((option) => option.id === selectedPaymentId) ?? paymentOptions[0],
+    [selectedPaymentId],
+  );
   const nifLabel = shipping.country === 'BR' ? 'CPF (opcional)' : 'NIF / CPF (opcional)';
   const nifHelper =
     shipping.country === 'BR'
@@ -141,11 +188,12 @@ export default function CheckoutPage() {
         return {
           ...product,
           qty: item.qty,
+          variantName: item.variantName,
           price: product.price,
           total: product.price * item.qty,
         };
       })
-      .filter(Boolean) as Array<Product & { qty: number; total: number; price: number }>;
+      .filter(Boolean) as Array<Product & { qty: number; total: number; price: number; variantName?: string }>;
   }, [cart, products]);
 
   const hasPhysical = cartEntries.some((item) => item.isPhysical);
@@ -243,7 +291,7 @@ export default function CheckoutPage() {
     const loadProducts = async () => {
       setLoadingProducts(true);
       try {
-        const res = await fetch('/api/store/products');
+        const res = await fetch('/api/store/products?includeVariants=0');
         if (!res.ok) return;
         const data = await res.json();
         setProducts(data.products || []);
@@ -388,6 +436,10 @@ export default function CheckoutPage() {
         body: JSON.stringify({
           items: cartEntries.map((item) => ({ id: item.id, name: item.name, price: item.price, qty: item.qty })),
           total: totalWithShipping,
+          provider: selectedPayment.provider,
+          ...(selectedPayment.provider === 'reduniq' && selectedPayment.reduniqSolution
+            ? { reduniqSolution: selectedPayment.reduniqSolution }
+            : {}),
           buyer,
           shipping: hasPhysical ? shipping : null,
           billing: billingSameAsShipping ? { ...shipping, address1: `${shipping.address1} ${shipping.doorNumber}`.trim() } : billing,
@@ -424,7 +476,7 @@ export default function CheckoutPage() {
       {/* Checkout Header */}
       <header className="bg-white border-b border-gray-100 sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <Link href="/loja-online" className="flex items-center gap-2 text-sm font-medium text-gray-500 hover:text-garabandal-dark transition-colors">
+          <Link href="/loja" className="flex items-center gap-2 text-sm font-medium text-gray-500 hover:text-garabandal-dark transition-colors">
             <ArrowLeft className="w-4 h-4" />
             Voltar à Loja
           </Link>
@@ -487,7 +539,7 @@ export default function CheckoutPage() {
                       <div className="text-center py-12">
                         <ShoppingBag className="w-12 h-12 text-gray-300 mx-auto mb-4" />
                         <p className="text-gray-500">O carrinho está vazio.</p>
-                        <Link href="/loja-online" className="mt-4 inline-block text-garabandal-gold font-bold hover:underline">
+                        <Link href="/loja" className="mt-4 inline-block text-garabandal-gold font-bold hover:underline">
                           Ir para a loja
                         </Link>
                       </div>
@@ -502,6 +554,7 @@ export default function CheckoutPage() {
                               <div className="flex justify-between items-start gap-2">
                                 <div>
                                   <h3 className="font-bold text-gray-900 truncate">{item.name}</h3>
+                                  {item.variantName && <p className="text-xs font-bold text-slate-600">{item.variantName}</p>}
                                   <p className="text-sm text-gray-500">{formatPrice(item.price)}</p>
                                 </div>
                                 <button onClick={() => updateQty(item.id, 0)} className="text-gray-400 hover:text-red-500 transition-colors p-1">
@@ -704,15 +757,57 @@ export default function CheckoutPage() {
                 {step === 3 && (
                   <div className="space-y-6">
                     <h2 className="font-serif text-2xl font-bold text-garabandal-dark">Pagamento</h2>
-                    <div className="bg-gray-50 rounded-2xl p-6 border border-gray-200">
-                      <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 bg-white rounded-xl shadow-sm flex items-center justify-center">
-                          <img src="/payment-icons/stripe.svg" alt="Stripe" className="h-6 opacity-80" onError={(e) => e.currentTarget.style.display = 'none'} />
-                          <CreditCard className="h-6 w-6 text-gray-900" style={{ display: 'none' }} />
-                        </div>
+                    <div className="space-y-3">
+                      {paymentOptions.map((option) => {
+                        const active = selectedPaymentId === option.id;
+                        return (
+                          <button
+                            key={option.id}
+                            type="button"
+                            onClick={() => setSelectedPaymentId(option.id)}
+                            className={`w-full text-left rounded-2xl p-4 border transition-all ${
+                              active
+                                ? 'border-garabandal-gold bg-garabandal-gold/5 shadow-sm'
+                                : 'border-gray-200 bg-gray-50 hover:bg-white'
+                            }`}
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className="w-11 h-11 bg-white rounded-xl shadow-sm flex items-center justify-center shrink-0">
+                                {option.iconSrc ? (
+                                  <img
+                                    src={option.iconSrc}
+                                    alt={option.label}
+                                    className="h-6 opacity-90"
+                                    onError={(e) => {
+                                      e.currentTarget.style.display = 'none';
+                                    }}
+                                  />
+                                ) : (
+                                  <CreditCard className="h-5 w-5 text-gray-700" />
+                                )}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="font-bold text-gray-900">{option.label}</p>
+                                <p className="text-sm text-gray-500">{option.description}</p>
+                              </div>
+                              {active && (
+                                <span className="text-xs font-bold uppercase tracking-wider text-garabandal-dark bg-garabandal-gold/20 px-2 py-1 rounded-full">
+                                  Selecionado
+                                </span>
+                              )}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <div className="bg-gray-50 rounded-2xl p-4 border border-gray-200">
+                      <div className="flex items-start gap-3 text-sm text-gray-600">
+                        <ShieldCheck className="w-5 h-5 text-garabandal-gold mt-0.5" />
                         <div>
-                          <h3 className="font-bold text-gray-900">Cartão de Crédito / Débito</h3>
-                          <p className="text-sm text-gray-500">Processado com segurança pelo Stripe. Suporta Apple Pay e Google Pay.</p>
+                          <p className="font-semibold text-gray-900">Pagamento seguro</p>
+                          <p>
+                            Serás redirecionado para o terminal de pagamento selecionado e, no final, voltas para a página de confirmação.
+                          </p>
                         </div>
                       </div>
                     </div>

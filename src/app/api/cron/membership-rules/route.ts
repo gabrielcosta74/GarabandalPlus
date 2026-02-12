@@ -5,6 +5,7 @@ import { ensureNotificationRecord, markNotificationSent } from '../../../../lib/
 import { getAppUrl } from '../../../../lib/config';
 
 import { daysBetweenUtc } from '../../../../lib/membership-logic';
+import { isPaidStatus, isRevokedStatus } from '../../../../lib/membership-status';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -22,12 +23,13 @@ const isFounderType = (value?: string | null) => (value || '').toLowerCase().inc
 export async function GET(request: Request) {
     if (!supabaseServer) return NextResponse.json({ message: 'Supabase nao configurado' }, { status: 500 });
 
-    const secret = process.env.CRON_SECRET;
-    if (secret) {
-        const authHeader = request.headers.get('authorization') || '';
-        if (authHeader !== `Bearer ${secret}`) {
-            return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
-        }
+    const secret = process.env.CRON_SECRET || '';
+    if (!secret) {
+        return NextResponse.json({ message: 'CRON_SECRET não configurado.' }, { status: 500 });
+    }
+    const authHeader = request.headers.get('authorization') || '';
+    if (authHeader !== `Bearer ${secret}`) {
+        return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     }
 
     const { data: membros, error } = await supabaseServer
@@ -52,13 +54,12 @@ export async function GET(request: Request) {
         if (Number.isNaN(dueDate.getTime())) continue;
 
         const diffDays = daysBetweenUtc(today, dueDate); // Positive = Future, Negative = Past
-        const status = (member.estado_quota || '').toLowerCase();
-        const isPaid = status === 'pago';
-        const isRevoked = status === 'expirado' || status === 'revogado';
+        const isPaid = isPaidStatus(member.estado_quota);
+        const isRevoked = isRevokedStatus(member.estado_quota) || (member.estado_quota || '').toLowerCase() === 'expirado';
 
         // 1. State Transitions (DB Updates)
         // No grace period: membership expires immediately after due date.
-        if (diffDays < 0 && !isPaid && !isRevoked) {
+        if (diffDays < 0 && !isRevoked) {
             await supabaseServer
                 .from('membros')
                 .update({ estado_quota: 'expirado', is_membro: false })
@@ -73,20 +74,21 @@ export async function GET(request: Request) {
         let notificationType: string | null = null;
         let reminderPayload: { daysUntilDue?: number; daysOverdue?: number } = {};
 
-        if (isPaid) continue; // No reminders for paid members
-
-        if (diffDays === 30) {
-            notificationType = 'quota_reminder_30d';
-            reminderPayload = { daysUntilDue: 30 };
-        } else if (diffDays === 7) {
-            notificationType = 'quota_reminder_7d';
-            reminderPayload = { daysUntilDue: 7 };
-        } else if (diffDays === 1) {
-            notificationType = 'quota_reminder_1d';
-            reminderPayload = { daysUntilDue: 1 };
-        } else if (diffDays === -1) {
+        if (diffDays === -1 && !isRevoked) {
             // First day after due date -> membership revoked.
             notificationType = 'membership_revoked';
+        } else if (!isPaid && !isRevoked) {
+            // Reminders only for members who are not paid and not revoked.
+            if (diffDays === 30) {
+                notificationType = 'quota_reminder_30d';
+                reminderPayload = { daysUntilDue: 30 };
+            } else if (diffDays === 7) {
+                notificationType = 'quota_reminder_7d';
+                reminderPayload = { daysUntilDue: 7 };
+            } else if (diffDays === 1) {
+                notificationType = 'quota_reminder_1d';
+                reminderPayload = { daysUntilDue: 1 };
+            }
         }
 
         if (!notificationType) continue;

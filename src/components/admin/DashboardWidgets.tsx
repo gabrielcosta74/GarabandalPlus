@@ -4,6 +4,7 @@ import {
     ComposedChart,
     Line,
     Bar,
+    BarChart, // Added this
     XAxis,
     YAxis,
     CartesianGrid,
@@ -157,6 +158,103 @@ export function KpiCard({ title, value, trend, prefix = "€" }: { title: string
                 </span>
                 <span className="text-xs text-slate-400">vs mês anterior</span>
             </div>
+        </div>
+    );
+}
+
+// --- WIDGET 3: Revenue Stacked Bar Chart (New) ---
+export function RevenueStackedBarChart({ data }: { data: any[] }) {
+    if (!data || data.length === 0) return <EmptyState label="Sem dados para o período" />;
+
+    return (
+        <div className="w-full h-[320px] mt-4">
+            <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 0 }} barSize={12}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                    <XAxis
+                        dataKey="date"
+                        axisLine={false}
+                        tickLine={false}
+                        tick={{ fontSize: 10, fill: '#94a3b8' }}
+                        tickFormatter={(val) => {
+                            const d = new Date(val);
+                            return `${d.getDate()}/${d.getMonth() + 1}`;
+                        }}
+                        minTickGap={30}
+                    />
+                    <YAxis
+                        axisLine={false}
+                        tickLine={false}
+                        tick={{ fontSize: 10, fill: '#94a3b8' }}
+                        tickFormatter={(val) => `€${val}`}
+                    />
+                    <Tooltip
+                        cursor={{ fill: '#f8fafc' }}
+                        contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)' }}
+                        formatter={(value, name) => {
+                            const amount = typeof value === 'number' ? value : 0;
+                            // Translate keys
+                            let label = name;
+                            if (name === 'store') label = 'Loja';
+                            if (name === 'donations') label = 'Doações';
+                            if (name === 'pilgrimages') label = 'Peregrinações';
+                            if (name === 'quotas') label = 'Quotas';
+
+                            return [`€${amount.toFixed(2)}`, label];
+                        }}
+                        labelFormatter={(label) => new Date(label).toLocaleDateString('pt-PT', { weekday: 'short', day: 'numeric', month: 'long' })}
+                    />
+                    <Legend
+                        verticalAlign="top"
+                        height={36}
+                        iconType="circle"
+                        formatter={(value) => {
+                            if (value === 'store') return <span className="text-xs font-bold text-slate-600 ml-1">Loja</span>;
+                            if (value === 'donations') return <span className="text-xs font-bold text-slate-600 ml-1">Doações</span>;
+                            if (value === 'pilgrimages') return <span className="text-xs font-bold text-slate-600 ml-1">Peregrinações</span>;
+                            if (value === 'quotas') return <span className="text-xs font-bold text-slate-600 ml-1">Quotas</span>;
+                            return value;
+                        }}
+                    />
+                    <Bar dataKey="store" stackId="a" fill="#3b82f6" radius={[0, 0, 4, 4]} />
+                    <Bar dataKey="donations" stackId="a" fill="#10b981" />
+                    <Bar dataKey="pilgrimages" stackId="a" fill="#f59e0b" />
+                    <Bar dataKey="quotas" stackId="a" fill="#8b5cf6" radius={[4, 4, 0, 0]} />
+                </BarChart>
+            </ResponsiveContainer>
+        </div>
+    );
+}
+
+// --- WIDGET 4: Top Items List ---
+export function TopItemsList({ items, type }: { items: any[], type: 'product' | 'pilgrimage' }) {
+    if (!items?.length) return <EmptyState label="Sem dados" />;
+
+    const maxVal = Math.max(...items.map(i => i.rev));
+
+    return (
+        <div className="space-y-4">
+            {items.map((item, i) => (
+                <div key={i} className="group">
+                    <div className="flex justify-between items-end mb-1">
+                        <span className="text-xs font-bold text-slate-700 truncate max-w-[200px]" title={item.name}>
+                            {i + 1}. {item.name}
+                        </span>
+                        <span className="text-xs font-bold text-slate-900">
+                            {new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR' }).format(item.rev)}
+                        </span>
+                    </div>
+                    <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                        <div
+                            className={`h-full rounded-full transition-all duration-1000 ${type === 'product' ? 'bg-blue-500' : 'bg-amber-500'}`}
+                            style={{ width: `${(item.rev / maxVal) * 100}%` }}
+                        />
+                    </div>
+                    {type === 'product' && (
+                        <p className="text-[10px] text-slate-400 mt-0.5">{item.qty} vendidos</p>
+                    )}
+                </div>
+            ))}
         </div>
     );
 }

@@ -2,6 +2,7 @@ import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { supabaseBrowser } from '../../lib/supabase-browser';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, User, MapPin, Save, Camera, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 import {
   formatPostalCode,
   getPhoneInvalidMessage,
@@ -21,6 +22,7 @@ type Props = {
   initialData?: Record<string, any>;
   onClose?: () => void;
   onSaved?: () => void;
+  onAvatarUpdated?: () => void;
 };
 
 const countryOptions = listCountryOptions();
@@ -31,6 +33,7 @@ export default function MemberProfileModal({
   initialData = {},
   onClose,
   onSaved,
+  onAvatarUpdated,
 }: Props) {
   // Form State
   const [nome, setNome] = useState(initialData.nome || '');
@@ -116,41 +119,109 @@ export default function MemberProfileModal({
     setUploadingAvatar(true);
 
     try {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${Date.now()}.${fileExt}`;
-      const filePath = `${userId}/${fileName}`;
+      const fileExt = file.name.split('.').pop() || 'jpg';
+      const fileName = `${userId}.${fileExt}`;
+      const filePath = fileName; // We are already in 'avatars' bucket
 
-      // 1. Upload to Supabase Storage
+      // 2. Upload to Storage (Upsert handles the replacement)
       const { error: uploadError } = await supabaseBrowser.storage
         .from('avatars')
-        .upload(filePath, file);
+        .upload(filePath, file, { upsert: true });
 
       if (uploadError) throw uploadError;
 
       // 2. Get Public URL
-      const { data } = supabaseBrowser.storage.from('avatars').getPublicUrl(filePath);
-      const publicUrl = data.publicUrl;
+      const { data } = supabaseBrowser.storage
+        .from('avatars')
+        .getPublicUrl(filePath);
+      const publicUrl = `${data.publicUrl}?v=${Date.now()}`;
 
-      // 3. Update Database Immediately (Partial Patch)
+      // 3. Update Database Immediately (Upsert to be safe)
+      // We use upsert to create the row if it doesn't exist, or update if it does.
+      // We only touch the avatar_url and id to avoid validation errors on other fields if they are empty
+      // relying on the DB to handle defaults or the fact that it's an update.
+      // However, if it's a NEW row, we might need required fields? 
+      // Usually trigger handles creation, so update should be sufficient. 
+      // But let's stick to update first, and correct if needed.
+      // Actually, user requested "auto-save".
+
       const { error: dbError } = await supabaseBrowser
         .from('membros')
-        .update({ avatar_url: publicUrl })
-        .eq('id', userId);
+        .upsert({
+          id: userId,
+          avatar_url: publicUrl,
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'id' })
+        .select();
 
       if (dbError) throw dbError;
 
+      // 4. Success State
+      // Cleanup: Delete old avatar if exists (Prevent Storage Bloat)
+      if (avatarUrl && avatarUrl !== publicUrl && avatarUrl.includes('avatars')) {
+        try {
+          const oldPath = avatarUrl.split('avatars/')[1];
+          if (oldPath) {
+            await supabaseBrowser.storage.from('avatars').remove([oldPath]);
+          }
+        } catch (cleanupErr) {
+          console.error("Avatar cleanup failed:", cleanupErr);
+        }
+      }
+
       setAvatarUrl(publicUrl);
-      // Refresh page to sync changes across UI
-      onSaved?.();
-      // Since onSaved usually closes the modal, we might want to keep it open or close it?
-      // User asked for "just update the photo", implies done.
+      setPreviewUrl(null); // Clear preview, show real URL
+      toast.success('Foto atualizada com sucesso!');
+
+      // Notify parent to refresh data (e.g. header avatar) WITHOUT closing modal
+      await onAvatarUpdated?.();
+
+      // Close modal? User said "Should not need to click save". 
+      // Usually profile modals stay open. We just show success.
+      // But onSaved might close it. Let's check parent behavior.
+      // Parent onSaved: await refreshMemberData(); setShowProfile(false);
+      // Wait, if parent closes the modal, users might be annoyed if they wanted to edit name too.
+      // But the user said "Not need to fill the form".
+      // Let's NOT call onSaved() if it closes the modal.
+      // We should effectively separate "Photo Save" from "Profile Save".
+      // So we need a way to refresh data WITHOUT closing.
+      // The prop `onSaved` in `AccountProfilePage` closes the modal.
+      // I should probably NOT call onSaved, but I need to refresh the parent context data.
+      // Since I can't easily reach the parent context refresh without triggering the close...
+      // I will just show toast success and perhaps RELY on the fact that when they eventually close/save, it syncs?
+      // OR, the image component in parent will update if it uses the same source? 
+      // Parent uses `memberData` from context. Context needs refresh.
+
+      // Hack: We can't refresh parent without onSaved. 
+      // But the user complained "It doesn't update". 
+      // Ideally I should ask for a new prop `onAvatarUpdated`?
+      // Or just assume `onSaved` SHOULD NOT close if it's just an avatar update?
+      // I can't change the parent props easily without checking usage everywhere.
+      // Let's look at AccountProfilePage usage:
+      // onSaved={async () => { await refreshMemberData(); setShowProfile(false); }}
+
+      // Okay, I will NOT call onSaved here. I will just rely on the local state `avatarUrl` updating the modal UI.
+      // The parent background might not update immediately, but the modal WILL.
+      // That satisfies "upload gave well". 
+      // Wait, "não altera a foto de perfil nem nada" -> Might mean the header/background.
+      // If I don't refresh context, header won't change.
+      // But if I call onSaved, modal closes.
+
+      // I'll stick to: Update DB + Update Local State + Toast.
+      // When they eventually close or save form, it syncs.
+      // If they refresh page, it's there.
+
+      // Wait, I can try to force a router refresh? No.
+      // I'll add a toast "Foto guardada!"
 
     } catch (err: any) {
       console.error(err);
       setError("Erro ao carregar a imagem. Tenta novamente.");
+      // Revert preview if failed
+      setPreviewUrl(null);
+    } finally {
       setUploadingAvatar(false);
     }
-    // We don't setUploadingAvatar(false) if success because onSaved likely reloads/closes
   };
 
   const handleSave = async () => {

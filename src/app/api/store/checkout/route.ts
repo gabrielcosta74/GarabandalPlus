@@ -7,6 +7,7 @@ import { getShippingCost, getShippingOrigin, getShippingZone, isPhysicalShipping
 import { applyMemberDiscount, isActiveMember, MEMBER_DISCOUNT_RATE } from '../../../../lib/store-discounts';
 import { getAppUrl } from '../../../../lib/config';
 import { normalizeEmail } from '../../../../lib/normalize';
+import { reduniqClient } from '../../../../lib/reduniq/client';
 
 const itemSchema = z.object({
   id: z.string().min(1),
@@ -25,6 +26,8 @@ const isValidNif = (value: string | null | undefined, country: string | null | u
 const bodySchema = z.object({
   items: z.array(itemSchema).min(1),
   total: z.number().positive(),
+  provider: z.enum(['stripe', 'reduniq']).default('stripe'),
+  reduniqSolution: z.number().int().optional(),
   buyer: z.object({
     fullName: z.string().min(1),
     email: z.string().email(),
@@ -57,7 +60,7 @@ export async function POST(request: Request) {
     const authHeader = request.headers.get('authorization') || '';
     const bearerToken = authHeader.toLowerCase().startsWith('bearer ') ? authHeader.slice(7).trim() : null;
     const json = await request.json();
-    const { items, total, buyer, shipping, billing } = bodySchema.parse(json);
+    const { items, total, provider, reduniqSolution, buyer, shipping, billing } = bodySchema.parse(json);
     const buyerEmail = normalizeEmail(buyer.email);
 
     const normalizedItems = items.map((item) => ({ id: item.id, qty: item.qty }));
@@ -232,6 +235,8 @@ export async function POST(request: Request) {
     }
 
     const orderRef = `store_${Date.now()}`;
+    const paymentProvider = provider === 'reduniq' ? 'reduniq' : 'stripe';
+    const paymentMethod = provider === 'reduniq' ? 'reduniq' : 'stripe_checkout';
     const metadata = {
       type: 'store',
       orderRef,
@@ -247,6 +252,7 @@ export async function POST(request: Request) {
       shippingZone: getShippingZone(shipping?.country),
       shippingOrigin: getShippingOrigin(shipping?.country),
       memberDiscount: memberDiscountRate ? String(memberDiscountRate) : '',
+      paymentProvider,
     };
 
     if (supabaseServer) {
@@ -274,8 +280,8 @@ export async function POST(request: Request) {
           total_amount: roundedTotal,
           currency: 'EUR',
           status: 'pending',
-          payment_provider: 'stripe',
-          payment_method: 'stripe_checkout',
+          payment_provider: paymentProvider,
+          payment_method: paymentMethod,
           shipping_address1: shipping?.address1 ?? null,
           shipping_address2: shipping?.address2 || shipping?.doorNumber
             ? `${shipping?.address2 ?? ''}${shipping?.address2 ? ' ' : ''}Porta ${shipping?.doorNumber ?? ''}`.trim()
@@ -320,13 +326,78 @@ export async function POST(request: Request) {
       }
     }
 
+    const siteUrl = getAppUrl();
+
+    if (provider === 'reduniq') {
+      const successUrl = `${siteUrl}/thank-you?type=store&amount=${roundedTotal}&provider=reduniq&orderRef=${orderRef}&status=success`;
+      const cancelUrl = `${siteUrl}/thank-you?type=store&amount=${roundedTotal}&provider=reduniq&orderRef=${orderRef}&status=failed&canceled=true`;
+      const countryCode = (shipping?.country || billing?.country || 'PT').slice(0, 2).toUpperCase();
+      const languageCode = countryCode === 'PT' || countryCode === 'BR' ? 'por' : 'eng';
+      const itemSummary = itemsResolved
+        .slice(0, 3)
+        .map((item) => `${item.qty}x ${item.name}`)
+        .join(', ');
+      const description = `Loja Online: ${itemSummary || 'Pedido'}${itemsResolved.length > 3 ? '...' : ''}`;
+
+      const attemptInit = async (solution?: number) =>
+        reduniqClient.initiatePayment({
+          amount: roundedTotal,
+          orderRef,
+          customerName: buyer.fullName,
+          customerEmail: buyer.email,
+          returnUrlOk: successUrl,
+          returnUrlError: cancelUrl,
+          notificationUrl: `${siteUrl}/api/webhooks/reduniq`,
+          description,
+          solution,
+          languageCode,
+          action: 101,
+        });
+
+      let initResult = await attemptInit(reduniqSolution);
+      if (!initResult.success && reduniqSolution) {
+        const msg = (initResult.error || '').toLowerCase();
+        const code = (initResult.resultCode || '').toLowerCase();
+        const looksLikeInvalidSolution =
+          msg.includes('invalid payment solution') ||
+          (msg.includes('invalid parameter') && msg.includes('payment.solution')) ||
+          code.startsWith('003');
+
+        if (looksLikeInvalidSolution) {
+          console.warn(`[Reduniq][Store] Solution ${reduniqSolution} rejeitada; fallback para terminal geral.`);
+          initResult = await attemptInit(undefined);
+        }
+      }
+
+      if (!initResult.success || !initResult.url) {
+        return NextResponse.json(
+          { message: initResult.error || 'Falha ao iniciar pagamento Reduniq.', code: 'REDUNIQ_INIT_FAILED', requestId },
+          { status: 502 },
+        );
+      }
+
+      if (supabaseServer) {
+        try {
+          await supabaseServer
+            .from('store_orders')
+            .update({
+              payment_reference: initResult.token || initResult.transactionId || orderRef,
+            })
+            .eq('order_ref', orderRef);
+        } catch (err) {
+          console.warn('Não foi possível guardar referência Reduniq no pedido.', err);
+        }
+      }
+
+      return NextResponse.json({ url: initResult.url, orderRef, requestId });
+    }
+
     if (!stripe) {
       return NextResponse.json({ message: 'Stripe não configurado.', code: 'STRIPE_MISSING', requestId }, { status: 500 });
     }
 
-    const siteUrl = getAppUrl();
     const successUrl = `${siteUrl}/thank-you?type=store&amount=${roundedTotal}&provider=stripe&session_id={CHECKOUT_SESSION_ID}`;
-    const cancelUrl = `${siteUrl}/loja-online/checkout?canceled=true`;
+    const cancelUrl = `${siteUrl}/thank-you?type=store&amount=${roundedTotal}&provider=stripe&status=failed&canceled=true`;
 
     const lineItems = itemsResolved.map((item) => ({
       quantity: item.qty,

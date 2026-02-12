@@ -26,7 +26,7 @@ export async function GET(req: Request) {
             .select(`
                 *,
                 category:categories(name, slug),
-                variants:product_variants(stock)
+                variants:product_variants(*)
             `)
             .order('name', { ascending: true });
 
@@ -66,17 +66,21 @@ export async function POST(req: Request) {
         const { data: product, error: prodError } = await supabaseServer
             .from('store_products')
             .insert({
+                product_id: crypto.randomUUID(),
+                sku: body.sku, // Editable reference
                 name: body.name,
                 description: body.description,
-                category_id: body.category_id, // Now expecting UUID
+                category_id: body.category_id,
                 price: body.price,
                 is_active: body.is_active,
                 is_physical: body.is_physical,
+                type_id: body.type_id, // NEW
+                metadata: body.metadata || {}, // NEW
                 image_url: body.image_url,
                 digital_url: body.digital_url,
                 tax_rate: body.tax_rate || 23,
                 specifications: body.specifications || {},
-                //Legacy fields for compatibility, eventually remove
+                //Legacy fields
                 category: body.category_name,
                 stock: 0
             })
@@ -85,21 +89,37 @@ export async function POST(req: Request) {
 
         if (prodError) throw prodError;
 
-        // 2. Create Default Variant (if not complex)
-        // If it sends variants explicitly, we would handle them here, but for simple creation:
-        const { error: varError } = await supabaseServer
-            .from('product_variants')
-            .insert({
-                product_id: product.product_id, // it's TEXT now
-                name: 'Padrão',
-                stock: body.stock || 0,
-                sku: body.sku || `SKU-${Date.now()}`,
-                attributes: { is_default: true }
-            });
+        // 2. Create Variants
+        if (body.variants && body.variants.length > 0) {
+            const varsToInsert = body.variants.map((v: any) => ({
+                product_id: product.product_id,
+                name: v.name,
+                stock: v.stock || 0,
+                sku: v.sku || `${body.sku}-${v.name.toUpperCase().slice(0, 3)}`,
+                attributes: v.attributes || {}
+            }));
 
-        if (varError) {
-            // Rollback ideally, but simplified:
-            console.error("Error creating default variant:", varError);
+            const { error: varError } = await supabaseServer
+                .from('product_variants')
+                .insert(varsToInsert);
+
+            if (varError) {
+                console.error("Error creating variants:", varError);
+                throw new Error(`Error creating variants: ${varError.message}`);
+            }
+        } else {
+            // Default Variant (Legacy/Simple)
+            const { error: varError } = await supabaseServer
+                .from('product_variants')
+                .insert({
+                    product_id: product.product_id,
+                    name: 'Padrão',
+                    stock: body.stock || 0, // Fallback to body.stock
+                    sku: body.sku || `SKU-${Date.now()}`,
+                    attributes: { is_default: true }
+                });
+
+            if (varError) console.error("Error creating default variant:", varError);
         }
 
         return NextResponse.json({ success: true, product });

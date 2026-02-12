@@ -47,11 +47,14 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
             .from('store_products')
             .update({
                 name: body.name,
+                sku: body.sku, // Allow updating SKU
                 description: body.description,
                 category_id: body.category_id,
                 price: body.price,
                 is_active: body.is_active,
                 is_physical: body.is_physical,
+                type_id: body.type_id, // NEW
+                metadata: body.metadata, // NEW
                 image_url: body.image_url,
                 digital_url: body.digital_url,
                 tax_rate: body.tax_rate,
@@ -63,23 +66,79 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 
         if (prodError) throw prodError;
 
-        // 2. Update Default Variant Stock (Simplified for now - later we handle multi-variant)
-        // Check if default variant exists
-        if (typeof body.stock === 'number') {
+        // 2. Sync Variants
+        if (body.variants && Array.isArray(body.variants)) {
+            // A. Fetch existing IDs to determine deletions
+            const { data: existingVars } = await supabaseServer
+                .from('product_variants')
+                .select('id')
+                .eq('product_id', params.id);
+
+            const existingIds = existingVars?.map(v => v.id) || [];
+            const payloadIds = body.variants.filter((v: any) => v.id).map((v: any) => v.id);
+            const toDelete = existingIds.filter(id => !payloadIds.includes(id));
+
+            // B. Delete removed variants
+            if (toDelete.length > 0) {
+                await supabaseServer.from('product_variants').delete().in('id', toDelete);
+            }
+
+            // C. Prepare data
+            const cleanVariants = body.variants.map((v: any) => ({
+                ...(v.id ? { id: v.id } : {}), // Only include ID if exists
+                product_id: params.id,
+                name: v.name || "Opção Standard",
+                stock: v.stock || 0,
+                sku: v.sku || `SKU-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+                attributes: v.attributes || {}
+            }));
+
+            // D. Upsert (Handles both updates and inserts if ID matches, but for new ones without ID we strictly use insert to let DB generate UUID? 
+            // Actually Supabase upsert needs ID to match. If no ID, it inserts.
+            // But we cleaned the ID from object if it didn't exist.
+            const { error: upsertError } = await supabaseServer
+                .from('product_variants')
+                .upsert(cleanVariants, { onConflict: 'id' });
+
+            if (upsertError) {
+                console.error("Variant Upsert Error:", upsertError);
+                throw upsertError;
+            }
+        } else if (typeof body.stock === 'number') {
+            // Fallback for simple stock update (Legacy support)
             const { error: varError } = await supabaseServer
                 .from('product_variants')
                 .update({ stock: body.stock })
                 .eq('product_id', params.id)
                 .contains('attributes', { is_default: true });
-
-            // If update failed (maybe no default variant caused by migration gap?), create it?
-            // For now, robustly ignore or log.
-            if (varError) console.warn("Variant update warning:", varError);
         }
 
         return NextResponse.json({ success: true });
     } catch (error: any) {
         console.error("Update Product Error:", error);
+        return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+}
+
+export async function DELETE(req: Request, { params }: { params: { id: string } }) {
+    if (!await isAdmin(req)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!supabaseServer) return NextResponse.json({ error: 'DB Config Error' }, { status: 500 });
+
+    try {
+        // Deleting the product will automatically delete variants due to CASCADE if set up, 
+        // but let's be explicit if not.
+        await supabaseServer.from('product_variants').delete().eq('product_id', params.id);
+
+        const { error } = await supabaseServer
+            .from('store_products')
+            .delete()
+            .eq('product_id', params.id);
+
+        if (error) throw error;
+
+        return NextResponse.json({ success: true });
+    } catch (error: any) {
+        console.error("Delete Product Error:", error);
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
 }

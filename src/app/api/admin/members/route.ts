@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { supabaseServer } from '../../../../lib/supabase';
 import { sendWelcomeEmail } from '../../../../lib/email';
 import { calculateNextQuotaDate } from '../../../../lib/membership-logic';
+import { isPaidStatus, normalizeQuotaStatus } from '../../../../lib/membership-status';
 
 // ... (keep isAdmin helper)
 // Helper to validate Admin Session
@@ -40,12 +41,9 @@ export async function GET(req: Request) {
         const allMembers = members || [];
         const total = allMembers.length;
 
-        const active = allMembers.filter(m => (m.estado_quota || '').toLowerCase() === 'pago' || (m.estado_quota || '').toLowerCase() === 'paid').length;
-        const overdue = allMembers.filter(m => {
-            const status = (m.estado_quota || '').toLowerCase();
-            return status.includes('atras') || status.includes('expir');
-        }).length;
-        const pending = allMembers.filter(m => (m.estado_quota || '').toLowerCase() === 'pendente').length;
+        const active = allMembers.filter(m => isPaidStatus(m.estado_quota)).length;
+        const overdue = allMembers.filter(m => normalizeQuotaStatus(m.estado_quota) === 'expirado').length;
+        const pending = allMembers.filter(m => normalizeQuotaStatus(m.estado_quota) === 'pendente').length;
 
         // Founders assumption: check type_subscription or low numbers? 
         // Using 'tipo_subscricao' if available, otherwise 0

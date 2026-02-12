@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import DashboardShell from '../../components/dashboard/DashboardShell';
 import { supabaseBrowser } from '../../lib/supabase-browser';
 import {
@@ -126,95 +125,56 @@ const OrderTimeline = ({ order }: { order: Order }) => {
   );
 };
 
+import useSWR from 'swr';
+import { User } from '@supabase/supabase-js';
+
+import { useAuth } from '../../contexts/AuthContext';
+
+const fetchOrders = async (url: string) => {
+  const { data: { session } } = await supabaseBrowser.auth.getSession();
+  if (!session) throw new Error("No session");
+
+  const res = await fetch(url, {
+    headers: { Authorization: `Bearer ${session.access_token}` }
+  });
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body?.message || 'Erro ao carregar');
+  }
+  return res.json();
+};
+
 export default function EncomendasPage() {
-  const [loading, setLoading] = useState(true);
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const [loggedIn, setLoggedIn] = useState(false);
+  const { user, loading: authLoading } = useAuth();
+
   const [expandedOrder, setExpandedOrder] = useState<string | null>(null);
-  const router = useRouter();
 
   const toggleOrder = (ref: string) => {
     if (expandedOrder === ref) setExpandedOrder(null);
     else setExpandedOrder(ref);
   };
 
-  useEffect(() => {
-    let mounted = true;
+  // Use SWR for data
+  const { data: payload, error: swrError, isLoading: swrLoading } = useSWR(
+    user ? '/api/store/orders' : null,
+    fetchOrders,
+    {
+      revalidateOnFocus: false,
+      shouldRetryOnError: false
+    }
+  );
 
-    const load = async () => {
-      if (!supabaseBrowser) {
-        setError('Sessão indisponível.');
-        setLoading(false);
-        return;
-      }
-
-      // Retry mechanism for session
-      let token = (await supabaseBrowser.auth.getSession()).data.session?.access_token;
-      if (!token) {
-        // Wait a bit and try again (handles hydration race)
-        await new Promise(r => setTimeout(r, 500));
-        token = (await supabaseBrowser.auth.getSession()).data.session?.access_token;
-      }
-
-      if (!token) {
-        if (mounted) {
-          setLoggedIn(false);
-          setLoading(false);
-          // Optional: Don't redirect immediately, let them see "Entra para ver"
-          // router.replace('/login?next=/encomendas'); 
-        }
-        return;
-      }
-
-      if (mounted) setLoggedIn(true);
-
-      try {
-        const res = await fetch('/api/store/orders', {
-          headers: { Authorization: `Bearer ${token}` },
-          cache: 'no-store'
-        });
-        if (!res.ok) {
-          const body = await res.json().catch(() => ({}));
-          throw new Error(body?.message || 'Não foi possível carregar as encomendas.');
-        }
-        const payload = await res.json();
-        if (mounted) {
-          setOrders(payload.orders || []);
-          setError(null);
-        }
-      } catch (err: any) {
-        if (mounted) setError(err?.message || 'Erro ao carregar encomendas.');
-      } finally {
-        if (mounted) setLoading(false);
-      }
-    };
-    load();
-    return () => { mounted = false; };
-  }, [router]);
+  const orders: Order[] = payload?.orders || [];
+  const loading = authLoading || (!!user && swrLoading);
+  const error = swrError?.message;
 
   return (
     <DashboardShell
       title="As Minhas Encomendas"
       subtitle="Acompanha o estado das tuas compras e consulta o histórico."
     >
-      {!loggedIn ? (
-        <div className="bg-white rounded-3xl p-12 text-center border border-gray-100 shadow-sm">
-          <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-6">
-            <ShoppingBag className="w-8 h-8 text-gray-400" />
-          </div>
-          <h2 className="font-serif text-2xl font-bold text-garabandal-dark mb-2">Entra para ver as tuas encomendas</h2>
-          <p className="text-gray-500 max-w-md mx-auto mb-8">Usa o mesmo email da compra para associar automaticamente.</p>
-          <div className="flex items-center justify-center gap-4">
-            <Link href="/login?next=/encomendas" className="px-6 py-2.5 bg-garabandal-gold text-garabandal-dark font-bold rounded-xl hover:bg-yellow-400 transition-colors">
-              Entrar
-            </Link>
-            <Link href="/register" className="px-6 py-2.5 bg-white text-gray-600 font-bold rounded-xl border border-gray-200 hover:bg-gray-50 transition-colors">
-              Criar conta
-            </Link>
-          </div>
-        </div>
-      ) : loading ? (
+      {loading ? (
         <div className="py-20 flex justify-center">
           <div className="animate-spin w-8 h-8 border-2 border-garabandal-gold border-t-transparent rounded-full" />
         </div>

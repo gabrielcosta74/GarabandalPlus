@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect, useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import DashboardShell from '../../components/dashboard/DashboardShell';
 import { supabaseBrowser } from '../../lib/supabase-browser';
 import { Search, Filter, BookOpen, Download, PackageOpen, FileText } from 'lucide-react';
@@ -25,67 +24,47 @@ type LibraryItem = {
   };
 };
 
+import useSWR from 'swr';
+import { User } from '@supabase/supabase-js';
+
+import { useAuth } from '../../contexts/AuthContext';
+
+const fetchLibrary = async (url: string) => {
+  const { data: { session } } = await supabaseBrowser.auth.getSession();
+  if (!session) throw new Error("No session");
+
+  const res = await fetch(url, {
+    headers: { Authorization: `Bearer ${session.access_token}` }
+  });
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body?.message || 'Erro ao carregar');
+  }
+  return res.json();
+};
+
 export default function BibliotecaPage() {
-  const [loading, setLoading] = useState(true);
-  const [items, setItems] = useState<LibraryItem[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const [loggedIn, setLoggedIn] = useState(false);
+  const { user, loading: authLoading } = useAuth();
+
   const [searchQuery, setSearchQuery] = useState('');
   const [filterFormat, setFilterFormat] = useState<'all' | 'pdf' | 'epub'>('all');
-  const router = useRouter();
 
-  useEffect(() => {
-    let mounted = true;
+  // Use SWR for data - conditional fetching
+  const { data: payload, error: swrError, isLoading: swrLoading } = useSWR(
+    user ? '/api/store/library' : null,
+    fetchLibrary,
+    {
+      revalidateOnFocus: false,
+      shouldRetryOnError: false
+    }
+  );
 
-    const load = async () => {
-      if (!supabaseBrowser) {
-        setError('Sessão indisponível.');
-        setLoading(false);
-        return;
-      }
+  // ... data loaded via SWR ...
 
-      // Retry mechanism for session
-      let token = (await supabaseBrowser.auth.getSession()).data.session?.access_token;
-      if (!token) {
-        await new Promise(r => setTimeout(r, 500));
-        token = (await supabaseBrowser.auth.getSession()).data.session?.access_token;
-      }
-
-      if (!token) {
-        if (mounted) {
-          setLoggedIn(false);
-          setLoading(false);
-          // router.replace('/login?next=/biblioteca');
-        }
-        return;
-      }
-
-      if (mounted) setLoggedIn(true);
-      if (mounted) setLoading(true);
-
-      try {
-        const res = await fetch('/api/store/library', {
-          headers: { Authorization: `Bearer ${token}` },
-          cache: 'no-store'
-        });
-        if (!res.ok) {
-          const body = await res.json().catch(() => ({}));
-          throw new Error(body?.message || 'Não foi possível carregar a biblioteca.');
-        }
-        const payload = await res.json();
-        if (mounted) {
-          setItems(payload.items || []);
-          setError(null);
-        }
-      } catch (err: any) {
-        if (mounted) setError(err?.message || 'Erro ao carregar biblioteca.');
-      } finally {
-        if (mounted) setLoading(false);
-      }
-    };
-    load();
-    return () => { mounted = false; };
-  }, [router]);
+  const items: LibraryItem[] = payload?.items || [];
+  const loading = authLoading || (!!user && swrLoading);
+  const error = swrError?.message;
 
   const filteredItems = useMemo(() => {
     return items.filter((item) => {
@@ -116,23 +95,7 @@ export default function BibliotecaPage() {
       title="Biblioteca Digital"
       subtitle="Acede aos teus livros e documentos digitais a qualquer momento."
     >
-      {!loggedIn ? (
-        <div className="bg-white rounded-3xl p-12 text-center border border-gray-100 shadow-sm">
-          <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-6">
-            <BookOpen className="w-8 h-8 text-gray-400" />
-          </div>
-          <h2 className="font-serif text-2xl font-bold text-garabandal-dark mb-2">Entra para ver os teus PDFs</h2>
-          <p className="text-gray-500 max-w-md mx-auto mb-8">Usa o mesmo email da compra para desbloquear automaticamente os teus conteúdos digitais.</p>
-          <div className="flex items-center justify-center gap-4">
-            <Link href="/login?next=/biblioteca" className="px-6 py-2.5 bg-garabandal-gold text-garabandal-dark font-bold rounded-xl hover:bg-yellow-400 transition-colors">
-              Entrar
-            </Link>
-            <Link href="/register" className="px-6 py-2.5 bg-white text-gray-600 font-bold rounded-xl border border-gray-200 hover:bg-gray-50 transition-colors">
-              Criar conta
-            </Link>
-          </div>
-        </div>
-      ) : loading ? (
+      {loading ? (
         <div className="py-20 flex justify-center">
           <div className="animate-spin w-8 h-8 border-2 border-garabandal-gold border-t-transparent rounded-full" />
         </div>

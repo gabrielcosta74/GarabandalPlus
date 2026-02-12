@@ -14,7 +14,7 @@ export default function AdminConfiguracoesPage() {
             <CreditCard className="w-6 h-6" />
           </div>
           <h3 className="text-lg font-bold text-gray-900 mb-2">Pagamentos</h3>
-          <p className="text-sm text-gray-500 mb-4">Moeda EUR, métodos ativos (Stripe, Reduniq) e configurações de checkout.</p>
+          <p className="text-sm text-gray-500 mb-4">Moeda EUR, métodos ativos (Stripe) e configurações de checkout.</p>
           <div className="flex items-center text-sm font-medium text-blue-600 group-hover:text-blue-700">
             Gerir Regras <ChevronRight className="w-4 h-4 ml-1" />
           </div>

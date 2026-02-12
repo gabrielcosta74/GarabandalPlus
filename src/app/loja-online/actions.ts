@@ -1,8 +1,9 @@
 'use server';
 
 import { supabaseServer } from '../../lib/supabase';
+import { unstable_cache } from 'next/cache';
 
-export async function getFeaturedProducts() {
+const getFeaturedProductsCached = unstable_cache(async () => {
     if (!supabaseServer) return [];
 
     try {
@@ -31,4 +32,8 @@ export async function getFeaturedProducts() {
         console.error('Error in getFeaturedProducts:', err);
         return [];
     }
+}, ['featured-products'], { revalidate: 300 });
+
+export async function getFeaturedProducts() {
+    return getFeaturedProductsCached();
 }

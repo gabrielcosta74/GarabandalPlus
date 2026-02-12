@@ -5,6 +5,7 @@ import { sendAbandonmentRecoveryEmail } from '../../../../lib/email';
 import { WhatsAppService } from '../../../../lib/whatsapp';
 import { getAppUrl } from '../../../../lib/config';
 
+export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 // CRON Endpoint - Should be called every 10-15 minutes or hour
@@ -13,9 +14,14 @@ export async function GET(req: Request) {
         return NextResponse.json({ error: "Server Configuration Error" }, { status: 500 });
     }
 
-    // Optional: Secure with a CRON_SECRET header if using Vercel Cron
-    // const authHeader = req.headers.get('authorization');
-    // if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) { ... }
+    const secret = process.env.CRON_SECRET || '';
+    if (!secret) {
+        return NextResponse.json({ message: 'CRON_SECRET não configurado.' }, { status: 500 });
+    }
+    const authHeader = req.headers.get('authorization') || '';
+    if (authHeader !== `Bearer ${secret}`) {
+        return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    }
 
     try {
         // 1. Find Abandoned Leads 

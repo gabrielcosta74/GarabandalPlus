@@ -9,7 +9,7 @@ export async function POST(request: Request) {
   const VE_SECRET = process.env.TEST_DIPLOMA_SECRET || '';
   const headerSecret = request.headers.get('x-test-secret') || '';
 
-  if (process.env.NODE_ENV === 'production' && process.env.TEST_DIPLOMA_SECRET && headerSecret !== process.env.TEST_DIPLOMA_SECRET) {
+  if (!VE_SECRET || headerSecret !== VE_SECRET) {
     return NextResponse.json({ message: 'Nao autorizado' }, { status: 404 });
   }
 

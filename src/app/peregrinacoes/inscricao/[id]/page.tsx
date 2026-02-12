@@ -21,9 +21,7 @@ import {
     Check,
     Loader2,
     Package,
-    Landmark,
-    Smartphone,
-    QrCode
+    Landmark
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { pt } from 'date-fns/locale';
@@ -56,6 +54,49 @@ type Booking = {
     payment_plan?: { date: string; amount: number }[];
 };
 
+type PaymentOption = {
+    id: string;
+    label: string;
+    description: string;
+    provider: 'stripe' | 'reduniq';
+    reduniqSolution?: number;
+    iconSrc?: string;
+};
+
+const paymentOptions: PaymentOption[] = [
+    {
+        id: 'reduniq_card',
+        label: 'Cartão de Crédito',
+        description: 'Visa / Mastercard (Reduniq)',
+        provider: 'reduniq',
+        reduniqSolution: 106,
+        iconSrc: '/payment-icons/reduniq.png',
+    },
+    {
+        id: 'reduniq_mbway',
+        label: 'MB WAY',
+        description: 'Pagamento instantâneo',
+        provider: 'reduniq',
+        reduniqSolution: 107,
+        iconSrc: '/payment-icons/mbway.svg',
+    },
+    {
+        id: 'reduniq_multibanco',
+        label: 'Multibanco',
+        description: 'Referência para pagamento',
+        provider: 'reduniq',
+        reduniqSolution: 108,
+        iconSrc: '/payment-icons/multibanco.svg',
+    },
+    {
+        id: 'stripe',
+        label: 'Stripe',
+        description: 'Cartão / Apple Pay / Google Pay',
+        provider: 'stripe',
+        iconSrc: '/payment-icons/stripe.svg',
+    },
+];
+
 /* -------------------------------------------------------------------------- */
 /*                                  Component                                 */
 /* -------------------------------------------------------------------------- */
@@ -68,6 +109,11 @@ export default function BookingDashboardPage() {
     const [processing, setProcessing] = useState(false);
     const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
     const isSuccess = searchParams?.get('success') === 'true';
+    const providerParam = (searchParams?.get('provider') || '').toLowerCase();
+    const orderRefParam = searchParams?.get('orderRef');
+    const reduniqTokenParam = searchParams?.get('token');
+    const statusParam = (searchParams?.get('status') || '').toLowerCase();
+    const canceledParam = (searchParams?.get('canceled') || '').toLowerCase();
     const currencyParam = searchParams?.get('currency') === 'BRL' ? 'BRL' : 'EUR';
 
     // Currency Hook
@@ -75,9 +121,18 @@ export default function BookingDashboardPage() {
     const isConverted = currencyParam !== 'EUR';
 
     const sessionId = searchParams?.get('session_id');
+    const [selectedPaymentId, setSelectedPaymentId] = useState(paymentOptions[0].id);
+    const [reduniqConfirming, setReduniqConfirming] = useState(false);
+    const [reduniqHandledKey, setReduniqHandledKey] = useState<string | null>(null);
+    const [reduniqFeedback, setReduniqFeedback] = useState<{
+        kind: 'success' | 'info' | 'error';
+        title: string;
+        message: string;
+    } | null>(null);
 
     useEffect(() => {
         const verifyPayment = async () => {
+            if (providerParam === 'reduniq') return;
             if (isSuccess && sessionId) {
                 setProcessing(true); // Show spinner or loading state
                 try {
@@ -101,7 +156,80 @@ export default function BookingDashboardPage() {
         };
 
         verifyPayment();
-    }, [isSuccess, sessionId, router]);
+    }, [isSuccess, sessionId, router, providerParam]);
+
+    useEffect(() => {
+        if (providerParam !== 'reduniq') return;
+
+        const key = `${orderRefParam || ''}|${reduniqTokenParam || ''}|${statusParam || ''}|${canceledParam || ''}`;
+        if (!key || reduniqHandledKey === key) return;
+        setReduniqHandledKey(key);
+
+        const hasFailureHint = statusParam === 'failed' || statusParam === 'error' || statusParam === 'canceled' || canceledParam === 'true';
+
+        if (!orderRefParam && !reduniqTokenParam) {
+            if (hasFailureHint) {
+                setReduniqFeedback({
+                    kind: 'error',
+                    title: 'Pagamento não concluído',
+                    message: 'A doação da peregrinação foi cancelada ou recusada.',
+                });
+            }
+            return;
+        }
+
+        const confirmPayment = async () => {
+            setReduniqConfirming(true);
+            setProcessing(true);
+            try {
+                const res = await fetch('/api/reduniq/confirm', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        ...(orderRefParam ? { orderRef: orderRefParam } : {}),
+                        ...(reduniqTokenParam ? { token: reduniqTokenParam } : {}),
+                    }),
+                });
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok || !data?.success) {
+                    throw new Error(data?.message || 'Falha ao confirmar pagamento Reduniq.');
+                }
+
+                const txStatus = String(data?.transactionStatus || '');
+                if (txStatus === '4') {
+                    setReduniqFeedback({
+                        kind: 'success',
+                        title: 'Pagamento confirmado',
+                        message: 'Recebemos a tua doação. A reserva será atualizada de imediato.',
+                    });
+                    await fetchBooking(true);
+                } else if (txStatus === '3' || hasFailureHint) {
+                    setReduniqFeedback({
+                        kind: 'error',
+                        title: 'Pagamento não concluído',
+                        message: data?.resultMessage || 'A transação terminou com erro ou foi cancelada.',
+                    });
+                } else {
+                    setReduniqFeedback({
+                        kind: 'info',
+                        title: 'Pagamento em processamento',
+                        message: data?.resultMessage || 'Aguardamos confirmação final da Reduniq. Atualiza a página em instantes.',
+                    });
+                }
+            } catch (err: any) {
+                setReduniqFeedback({
+                    kind: 'error',
+                    title: 'Falha na confirmação',
+                    message: err?.message || 'Não foi possível confirmar o estado do pagamento Reduniq.',
+                });
+            } finally {
+                setReduniqConfirming(false);
+                setProcessing(false);
+            }
+        };
+
+        confirmPayment();
+    }, [providerParam, orderRefParam, reduniqTokenParam, statusParam, canceledParam, reduniqHandledKey]);
 
     const [booking, setBooking] = useState<Booking | null>(null);
     const [loading, setLoading] = useState(true);
@@ -118,6 +246,7 @@ export default function BookingDashboardPage() {
     // Onboarding State
     const [showOnboarding, setShowOnboarding] = useState(false);
     const [showBankModal, setShowBankModal] = useState(false); // New State for Bank Modal
+    const selectedPayment = paymentOptions.find((option) => option.id === selectedPaymentId) || paymentOptions[0];
 
     useEffect(() => {
         const params = new URLSearchParams(window.location.search);
@@ -131,7 +260,7 @@ export default function BookingDashboardPage() {
     }, []);
 
     // -- Derived State (Moved to Top) --
-    const depositValue = Number(booking?.pilgrimage?.deposit_value) || 0;
+    const depositValue = (Number(booking?.pilgrimage?.deposit_value) || 0) * (booking?.pilgrims?.length || 1);
     const totalAmount = booking?.total_amount || 0;
     const paidAmount = booking?.paid_amount || 0;
 
@@ -333,22 +462,27 @@ export default function BookingDashboardPage() {
         </VIPLayout>
     );
 
-    // Mock Handlers for buttons (since logic was missing)
-    // Stripe Handler
-    const handleStripePayment = async () => {
+    const handleOnlinePayment = async () => {
         setProcessing(true);
+        setReduniqFeedback(null);
         try {
             const res = await fetch('/api/payments/checkout', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ bookingId: id, priceType: paymentMode })
+                body: JSON.stringify({
+                    bookingId: id,
+                    priceType: paymentMode,
+                    provider: selectedPayment.provider,
+                    ...(selectedPayment.provider === 'reduniq' && selectedPayment.reduniqSolution
+                        ? { reduniqSolution: selectedPayment.reduniqSolution }
+                        : {})
+                })
             });
             const data = await res.json();
 
             if (!res.ok) throw new Error(data.error || "Erro ao iniciar doação");
 
             if (data.url) {
-                // Redirect to Stripe
                 window.location.href = data.url;
             }
         } catch (e: any) {
@@ -365,6 +499,17 @@ export default function BookingDashboardPage() {
     const handleReceiptUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
+
+        const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/heic', 'image/heif', 'application/pdf'];
+        if (!allowedTypes.includes(file.type)) {
+            alert("Tipo de ficheiro inválido. Use JPG, PNG, WEBP, HEIC ou PDF.");
+            return;
+        }
+
+        if (file.size > 10 * 1024 * 1024) {
+            alert("O ficheiro é demasiado grande (máximo 10MB).");
+            return;
+        }
 
         setUploading(true);
         try {
@@ -548,7 +693,7 @@ export default function BookingDashboardPage() {
                                                 </div>
                                                 <div>
                                                     <p className="font-bold text-xl text-slate-900">{hasPlan ? (paymentPlan.length + 2) : 3}. Peregrinação</p>
-                                                            <p className="text-slate-400">{isFullyPaid ? 'Desejamos-lhe uma excelente viagem!' : 'Aguardamos pela conclusão das doações'}</p>
+                                                    <p className="text-slate-400">{isFullyPaid ? 'Desejamos-lhe uma excelente viagem!' : 'Aguardamos pela conclusão das doações'}</p>
                                                 </div>
                                             </div>
                                         </div>
@@ -614,8 +759,60 @@ export default function BookingDashboardPage() {
 
                                             {/* OPÇÃO 1: DOAÇÃO AUTOMÁTICA (Destaque Principal) */}
                                             <div className="space-y-4">
+                                                <div className="grid gap-2">
+                                                    {paymentOptions.map((option) => {
+                                                        const active = option.id === selectedPaymentId;
+                                                        return (
+                                                            <button
+                                                                key={option.id}
+                                                                type="button"
+                                                                onClick={() => setSelectedPaymentId(option.id)}
+                                                                className={`w-full rounded-xl border px-3 py-2 text-left transition-all flex items-center gap-3 ${active
+                                                                    ? 'border-yellow-400 bg-yellow-500/15 text-white'
+                                                                    : 'border-white/15 bg-white/5 text-white/80 hover:bg-white/10'
+                                                                    }`}
+                                                            >
+                                                                <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center shrink-0">
+                                                                    {option.iconSrc ? (
+                                                                        <img
+                                                                            src={option.iconSrc}
+                                                                            alt={option.label}
+                                                                            className="h-5 w-auto"
+                                                                            onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                                                                        />
+                                                                    ) : (
+                                                                        <CreditCard className="w-4 h-4 text-slate-900" />
+                                                                    )}
+                                                                </div>
+                                                                <div className="min-w-0">
+                                                                    <p className="font-bold text-sm">{option.label}</p>
+                                                                    <p className="text-[11px] text-white/60">{option.description}</p>
+                                                                </div>
+                                                            </button>
+                                                        );
+                                                    })}
+                                                </div>
+
+                                                {(reduniqConfirming || reduniqFeedback) && (
+                                                    <div className={`rounded-xl border px-4 py-3 text-sm ${reduniqConfirming
+                                                        ? 'border-blue-500/40 bg-blue-500/15 text-blue-100'
+                                                        : reduniqFeedback?.kind === 'success'
+                                                            ? 'border-green-500/40 bg-green-500/15 text-green-100'
+                                                            : reduniqFeedback?.kind === 'info'
+                                                                ? 'border-amber-500/40 bg-amber-500/15 text-amber-100'
+                                                                : 'border-red-500/40 bg-red-500/15 text-red-100'
+                                                        }`}>
+                                                        <p className="font-bold">
+                                                            {reduniqConfirming ? 'A confirmar pagamento Reduniq...' : reduniqFeedback?.title}
+                                                        </p>
+                                                        <p className="text-xs mt-1 opacity-90">
+                                                            {reduniqConfirming ? 'Estamos a validar o estado da transação no gateway.' : reduniqFeedback?.message}
+                                                        </p>
+                                                    </div>
+                                                )}
+
                                                 <button
-                                                    onClick={handleStripePayment}
+                                                    onClick={handleOnlinePayment}
                                                     disabled={processing}
                                                     className="w-full py-6 px-6 bg-yellow-500 hover:bg-yellow-400 text-slate-950 rounded-2xl font-extrabold text-2xl transition-all shadow-[0_10px_40px_rgba(234,179,8,0.3)] active:scale-95 disabled:opacity-50 flex flex-col items-center justify-center gap-1 group relative overflow-hidden"
                                                 >
@@ -625,44 +822,14 @@ export default function BookingDashboardPage() {
                                                         <>
                                                             <div className="flex items-center gap-3">
                                                                 <CreditCard className="w-6 h-6" />
-                                                                <span>DOAR ONLINE</span>
+                                                                <span>{selectedPayment.provider === 'reduniq' ? 'DOAR VIA REDUNIQ' : 'DOAR VIA STRIPE'}</span>
                                                             </div>
                                                             <p className="text-[10px] font-bold uppercase opacity-60 tracking-widest group-hover:opacity-80 transition-opacity">
-                                                                Rápido e Automático
+                                                                Pagamento online seguro
                                                             </p>
                                                         </>
                                                     )}
                                                 </button>
-
-                                                {/* Payment Methods Badges - REVISED */}
-                                                <div className="flex flex-wrap items-center justify-center gap-3 mt-4">
-                                                    {/* Pix - Highlighted */}
-                                                    <div className="bg-green-600 text-white px-3 py-2 rounded-xl flex items-center gap-2 shadow-lg shadow-green-900/50 scale-105 border border-green-400 relative group cursor-help transition-transform hover:scale-110" title="Disponível para contas do Brasil">
-                                                        <QrCode className="w-5 h-5 text-white" />
-                                                        <span className="font-bold text-sm tracking-wide">Pix (Brasil)</span>
-                                                        <span className="absolute -top-2 -right-2 flex h-3 w-3">
-                                                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                                                            <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
-                                                        </span>
-                                                    </div>
-
-                                                    {/* MBWay - White BG fix */}
-                                                    <div className="bg-white px-2 py-1.5 rounded-lg flex items-center gap-1.5 opacity-90 hover:opacity-100 transition-opacity" title="MBWay">
-                                                        <img src="/payment-icons/mbway.svg" alt="MBWay" className="h-6 w-auto" />
-                                                    </div>
-
-                                                    {/* Cards - Explicit Logos */}
-                                                    <div className="bg-white px-3 py-1.5 rounded-lg flex items-center gap-2 opacity-90 hover:opacity-100 transition-opacity">
-                                                        <img src="https://upload.wikimedia.org/wikipedia/commons/4/41/Visa_Logo.png" alt="Visa" className="h-4 w-auto object-contain" />
-                                                        <div className="w-[1px] h-4 bg-slate-200" />
-                                                        <img src="https://upload.wikimedia.org/wikipedia/commons/b/b7/MasterCard_Logo.svg" alt="Mastercard" className="h-4 w-auto object-contain" />
-                                                    </div>
-
-                                                    {/* Apple Pay */}
-                                                    <div className="bg-white text-black px-3 py-1.5 rounded-lg flex items-center gap-1.5 opacity-90 hover:opacity-100 transition-opacity" title="Apple Pay">
-                                                        <span className="text-black text-sm font-bold font-sans">Pay</span>
-                                                    </div>
-                                                </div>
                                                 <p className="text-white/40 text-[10px] font-medium uppercase tracking-widest mt-3">
                                                     Processamento Seguro e Imediato
                                                 </p>
@@ -730,7 +897,7 @@ export default function BookingDashboardPage() {
                             <div className="bg-slate-50 rounded-4xl p-10 border border-slate-200">
                                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
                                     <div>
-                                    <h3 className="text-2xl font-bold text-slate-900">Plano de Doações Selecionado</h3>
+                                        <h3 className="text-2xl font-bold text-slate-900">Plano de Doações Selecionado</h3>
                                         <p className="text-slate-500">Agendamento das suas próximas mensalidades (Dia 10 de cada mês)</p>
                                     </div>
                                     <div className="bg-indigo-100 text-indigo-700 px-4 py-2 rounded-xl font-bold">

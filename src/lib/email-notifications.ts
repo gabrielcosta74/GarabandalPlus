@@ -67,6 +67,24 @@ export const ensureNotificationRecord = async (
     .maybeSingle();
 
   if (insertError) {
+    // Concurrent requests may race on unique(type, reference).
+    if (String((insertError as any)?.code || '') === '23505') {
+      const { data: racedExisting, error: raceFetchError } = await supabaseServer
+        .from('email_notifications')
+        .select('id, sent_at')
+        .eq('type', input.type)
+        .eq('reference', reference)
+        .limit(1)
+        .maybeSingle();
+
+      if (!raceFetchError && racedExisting?.sent_at) {
+        return { shouldSend: false, recordId: racedExisting.id };
+      }
+      if (!raceFetchError && racedExisting?.id) {
+        return { shouldSend: true, recordId: racedExisting.id };
+      }
+    }
+
     console.warn('Nao foi possivel criar registo de email:', insertError);
     return { shouldSend: true, recordId: null };
   }

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabaseServer } from '../../../../lib/supabase';
+import { isActiveMember } from '../../../../lib/store-discounts';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -9,10 +10,11 @@ export async function GET() {
     return NextResponse.json({ message: 'Supabase não configurado.' }, { status: 500 });
   }
 
-  const { count } = await supabaseServer
+  const { data: members } = await supabaseServer
     .from('membros')
-    .select('id', { count: 'exact', head: true })
-    .eq('is_membro', true);
+    .select('is_membro, estado_quota, tipo_subscricao, proxima_quota');
+
+  const count = (members || []).filter(isActiveMember).length;
 
   const { data: metaRow } = await supabaseServer
     .from('donations_meta')

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import AdminLayout from '../../../../components/admin/AdminLayout';
 import { supabaseBrowser } from '../../../../lib/supabase-browser';
+import { normalizeQuotaStatus } from '../../../../lib/membership-status';
 import {
   User,
   Mail,
@@ -459,7 +460,7 @@ export default function AdminMemberDetailPage() {
                   <div className="grid grid-cols-2 gap-4">
                     <div className="p-4 bg-gray-50 rounded-xl">
                       <span className="text-xs text-gray-500 block">Estado Quota</span>
-                      <strong className={`capitalize ${member.estado_quota === 'pago' ? 'text-green-600' : 'text-red-500'}`}>{member.estado_quota || '—'}</strong>
+                    <strong className={`capitalize ${normalizeQuotaStatus(member.estado_quota) === 'pago' ? 'text-green-600' : 'text-red-500'}`}>{member.estado_quota || '—'}</strong>
                     </div>
                     <div className="p-4 bg-gray-50 rounded-xl">
                       <span className="text-xs text-gray-500 block">Próxima Quota</span>
@@ -814,8 +815,6 @@ export default function AdminMemberDetailPage() {
                       <option value="mbway">MB Way</option>
                       <option value="multibanco">Ref. Multibanco</option>
                       <option value="stripe">Stripe (Cartão)</option>
-                      <option value="reduniq">Reduniq (Cartão)</option>
-                      <option value="reduniq_pix">Reduniq Pix</option>
                       <option value="paypal">PayPal</option>
                       <option value="other">Outro</option>
                     </select>

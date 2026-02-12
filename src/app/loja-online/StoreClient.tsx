@@ -10,6 +10,7 @@ import StoreHero from "../../components/store/StoreHero";
 import FilterBar from "../../components/store/FilterBar";
 import ProductCard from "../../components/store/ProductCard";
 import { motion, AnimatePresence } from "framer-motion";
+import { buildProductPath } from "../../lib/slug";
 
 export default function StoreClient() {
     const [products, setProducts] = useState<Product[]>([]);
@@ -23,7 +24,7 @@ export default function StoreClient() {
         const loadProducts = async () => {
             setLoadingProducts(true);
             try {
-                const res = await fetch("/api/store/products");
+                const res = await fetch("/api/store/products?includeVariants=0");
                 if (!res.ok) return;
                 const data = await res.json();
                 setProducts(data.products || []);
@@ -101,7 +102,7 @@ export default function StoreClient() {
                                 <ProductCard
                                     key={product.id}
                                     product={product}
-                                    onClick={() => router.push(`/loja-online/produto/${product.id}`)}
+                                    onClick={() => router.push(buildProductPath(product.id, product.name))}
                                     onAddToCart={(e: React.MouseEvent) => {
                                         e.stopPropagation();
                                         addToCart(product.id);

@@ -10,14 +10,13 @@ import {
     Clock,
     ShoppingBag,
     BookOpen,
-    Menu,
-    X,
     LogOut,
     ShieldCheck,
     LayoutDashboard,
     Settings
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
+import { QuotaWarning } from '../membership/QuotaWarning';
 
 type DashboardShellProps = {
     title: string;
@@ -28,7 +27,7 @@ type DashboardShellProps = {
 export default function DashboardShell({ title, subtitle, children }: DashboardShellProps) {
     const router = useRouter();
     const pathname = usePathname();
-    const [isMobileOpen, setIsMobileOpen] = useState(false);
+
     const { user, memberData, isMember, loading, isAuthenticated, signOut } = useAuth();
 
     useEffect(() => {
@@ -53,7 +52,12 @@ export default function DashboardShell({ title, subtitle, children }: DashboardS
         {
             section: 'Membro', items: [
                 { label: 'Resumo', href: '/member', icon: LayoutDashboard, hidden: !isMember },
-                { label: 'Quota Anual', href: '/member/quota', icon: ShieldCheck, hidden: !isMember },
+                {
+                    label: 'Quota Anual',
+                    href: (isMember || memberData?.numero_socio) ? '/member/quota' : '/tornar-membro',
+                    icon: ShieldCheck,
+                    hidden: false
+                },
             ]
         },
         {
@@ -77,64 +81,7 @@ export default function DashboardShell({ title, subtitle, children }: DashboardS
         <div className="min-h-screen bg-garabandal-mist pt-24 lg:pt-28">
             <div className="container mx-auto px-4 sm:px-6 lg:px-8 flex items-start gap-8">
 
-                {/* Mobile Sidebar Overlay */}
-                <AnimatePresence>
-                    {isMobileOpen && (
-                        <>
-                            <motion.div
-                                initial={{ opacity: 0 }}
-                                animate={{ opacity: 1 }}
-                                exit={{ opacity: 0 }}
-                                onClick={() => setIsMobileOpen(false)}
-                                className="fixed inset-0 bg-black/20 z-40 lg:hidden backdrop-blur-sm"
-                            />
-                            <motion.aside
-                                initial={{ x: '-100%' }}
-                                animate={{ x: 0 }}
-                                exit={{ x: '-100%' }}
-                                transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-                                className="fixed inset-y-0 left-0 w-64 bg-white shadow-2xl z-50 lg:hidden flex flex-col pt-safe-top"
-                            >
-                                <div className="p-6 border-b border-gray-100 flex items-center justify-between">
-                                    <h2 className="font-serif text-xl font-bold text-garabandal-dark">Menu</h2>
-                                    <button onClick={() => setIsMobileOpen(false)} className="p-2 -mr-2 text-gray-400 hover:text-gray-600">
-                                        <X className="w-5 h-5" />
-                                    </button>
-                                </div>
-                                <nav className="flex-1 overflow-y-auto p-4 space-y-6">
-                                    {navItems.map((group, idx) => {
-                                        const visibleItems = group.items.filter(i => !i.hidden);
-                                        if (visibleItems.length === 0) return null;
-                                        return (
-                                            <div key={idx}>
-                                                <h3 className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-3 px-3">{group.section}</h3>
-                                                <div className="space-y-1">
-                                                    {visibleItems.map(item => (
-                                                        <Link
-                                                            key={item.href}
-                                                            href={item.href}
-                                                            onClick={() => setIsMobileOpen(false)}
-                                                            className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all ${pathname === item.href ? 'bg-garabandal-gold/10 text-garabandal-dark font-medium' : 'text-gray-600 hover:bg-gray-50'}`}
-                                                        >
-                                                            <item.icon className={`w-5 h-5 ${pathname === item.href ? 'text-garabandal-gold' : 'text-gray-400'}`} />
-                                                            {item.label}
-                                                        </Link>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
-                                </nav>
-                                <div className="p-4 border-t border-gray-100">
-                                    <button onClick={handleLogout} className="flex items-center gap-3 px-3 py-2.5 text-red-600 hover:bg-red-50 rounded-xl w-full transition-colors text-sm font-medium">
-                                        <LogOut className="w-5 h-5" />
-                                        Terminar Sessão
-                                    </button>
-                                </div>
-                            </motion.aside>
-                        </>
-                    )}
-                </AnimatePresence>
+
 
                 {/* Desktop Sticky Sidebar */}
                 <aside className="hidden lg:flex flex-col w-64 bg-white rounded-2xl shadow-sm border border-gray-100 sticky top-32 max-h-[calc(100vh-160px)] z-10 shrink-0">
@@ -188,18 +135,14 @@ export default function DashboardShell({ title, subtitle, children }: DashboardS
                 <main className="flex-1 min-w-0 pb-12">
                     <div className="lg:hidden mb-6 flex items-center justify-between">
                         <h1 className="font-serif text-2xl font-bold text-garabandal-dark">{title}</h1>
-                        <button
-                            onClick={() => setIsMobileOpen(true)}
-                            className="p-2 -mr-2 text-gray-500 hover:bg-white rounded-lg bg-white shadow-sm border border-gray-100"
-                        >
-                            <Menu className="w-6 h-6" />
-                        </button>
                     </div>
 
                     <div className="hidden lg:block mb-8">
                         <h1 className="font-serif text-3xl font-bold text-garabandal-dark mb-2">{title}</h1>
                         {subtitle && <p className="text-gray-500">{subtitle}</p>}
                     </div>
+
+                    <QuotaWarning memberData={memberData} className="mb-8" />
 
                     <motion.div
                         initial={{ opacity: 0, y: 10 }}

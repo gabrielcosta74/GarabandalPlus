@@ -146,6 +146,22 @@
 
 ---
 
+## Extra: Reduniq Donations (Manual)
+
+**Objective**: Create and confirm a donation via Reduniq using terminal requests.
+
+### Steps:
+1. Start dev server: `npm run dev`
+2. Run: `bash scripts/reduniq-manual-test.sh`
+3. Open the printed `redirectUrl` in a browser and complete payment
+4. Re-run steps 3 and 4 from the script to verify `getResult` and trigger DB update via `/api/reduniq/confirm`
+
+### Notes:
+- `/api/reduniq/confirm` is idempotent and uses `transaction.status` (not `result.code`) to decide success.
+- Admin endpoints `/api/reduniq/{search,capture,refund,void}` require `REDUNIQ_ADMIN_SECRET`.
+
+---
+
 ## Quick Verification Checklist
 
 After each test, verify:

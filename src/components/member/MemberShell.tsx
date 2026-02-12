@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import styles from './member.module.css';
 import { supabaseBrowser } from '../../lib/supabase-browser';
+import { isActiveMember } from '../../lib/store-discounts';
 
 type Props = {
   title: string;
@@ -52,8 +53,13 @@ export default function MemberShell({ title, subtitle, children, onMemberLoaded 
         .select('is_membro, nome, numero_socio, estado_quota, proxima_quota, tipo_subscricao, data_adesao')
         .eq('id', data.session.user.id)
         .maybeSingle();
-      if (!member?.is_membro) {
-        router.replace('/tornar-membro');
+      const isActive = isActiveMember(member);
+      if (!isActive) {
+        if (member?.numero_socio) {
+          router.replace('/member/quota');
+        } else {
+          router.replace('/tornar-membro');
+        }
         return;
       }
       setMemberInfo(member);

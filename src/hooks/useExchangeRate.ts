@@ -1,5 +1,6 @@
 
 import { useState, useEffect } from 'react';
+import { getExchangeRate } from '../lib/currency';
 
 /**
  * useExchangeRate Hook
@@ -23,39 +24,11 @@ export const useExchangeRate = (targetCurrency: string = 'BRL') => {
 
         const fetchRate = async () => {
             try {
-                // Check Cache (1 Hour validity)
-                const cached = localStorage.getItem(`exchange_rate_EUR_${targetCurrency}`);
-                if (cached) {
-                    const { value, timestamp } = JSON.parse(cached);
-                    const now = new Date().getTime();
-                    if (now - timestamp < 3600000) { // 1 Hour
-                        setRate(value);
-                        setLoading(false);
-                        return;
-                    }
-                }
-
-                // Fetch from API (Free open access endpoint)
-                const res = await fetch('https://api.exchangerate-api.com/v4/latest/EUR');
-                const data = await res.json();
-
-                const newRate = data.rates[targetCurrency];
-
-                if (newRate) {
-                    setRate(newRate);
-                    localStorage.setItem(`exchange_rate_EUR_${targetCurrency}`, JSON.stringify({
-                        value: newRate,
-                        timestamp: new Date().getTime()
-                    }));
-                } else {
-                    throw new Error(`Currency ${targetCurrency} not found`);
-                }
-
+                const newRate = await getExchangeRate(targetCurrency);
+                setRate(newRate);
             } catch (err: any) {
                 console.error("Exchange rate fetch error:", err);
                 setError(err.message);
-                // Fallback (approximate logic or keep null)
-                // We keep null so UI knows to fallback to EUR
             } finally {
                 setLoading(false);
             }

@@ -3,15 +3,13 @@ import Stripe from 'stripe';
 import { stripe } from '../../../lib/payments';
 import { supabaseServer } from '../../../lib/supabase';
 import {
-  sendMembershipNotification,
-  sendMemberReceiptEmail,
-  sendMemberDiplomaEmail,
-  sendDonationReceiptEmail,
-} from '../../../lib/email';
-import { ensureNotificationRecord, markNotificationSent } from '../../../lib/email-notifications';
-import { processPaidStoreOrder } from '../../../lib/store-orders';
-import { generateMemberDiplomaPdf } from '../../../lib/member-diploma';
-import { createAdminNotification } from '../../../lib/admin-notifications';
+  handleDonationSuccess,
+  handleMembershipSuccess,
+  handlePilgrimageSuccess,
+  handleStoreSuccess,
+  handlePaymentFailedOrCanceled,
+  PaymentHandlerContext
+} from '../../../lib/payment-handlers';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -28,8 +26,7 @@ export async function OPTIONS() {
   return NextResponse.json({ ok: true });
 }
 
-import { calculateNextQuotaDate } from '../../../lib/membership-logic';
-import { getNextMemberNumber } from '../../../lib/membership-db';
+
 
 const formatISODate = (date: Date) => date.toISOString().slice(0, 10);
 
@@ -62,434 +59,44 @@ export async function POST(request: Request) {
   if (event.type === 'checkout.session.completed') {
     const session = event.data.object as Stripe.Checkout.Session;
     const type = (session.metadata?.type as 'donation' | 'membership' | 'store' | 'pilgrimage_payment' | undefined) ?? 'donation';
-    const userId = session.metadata?.userId || null;
+    // const userId = session.metadata?.userId || null; // Handled in context
     const amountCents = session.amount_total ?? 0;
     const paymentIntent = session.payment_intent as string | null;
     const externalRef = session.id;
-    const orderRef = session.metadata?.orderRef || session.metadata?.order_ref || null;
 
     if (supabaseServer) {
       try {
+        const context: PaymentHandlerContext = {
+          supabaseServer,
+          amountCents,
+          currency: session.currency?.toUpperCase() ?? 'EUR',
+          paymentReference: typeof paymentIntent === 'string' ? paymentIntent : externalRef, // Best effort reference
+          externalReference: externalRef,
+          method: 'stripe_checkout',
+          metadata: session.metadata || {},
+          customerDetails: {
+            name: session.customer_details?.name,
+            email: session.customer_details?.email,
+            address: session.customer_details?.address,
+            phone: session.customer_details?.phone
+          },
+          paymentDate: session.created ? new Date(session.created * 1000) : new Date()
+        };
+
         if (type === 'donation') {
-          const meta = session.metadata || {};
-          const donorNameMeta = normalizeMeta(meta.donorName);
-          const donorEmailMeta = normalizeMeta(meta.donorEmail);
-          const donorAddressMeta = normalizeMeta(meta.donorAddress);
-          const donorCityMeta = normalizeMeta(meta.donorCity);
-          const donorZipMeta = normalizeMeta(meta.donorZip);
-          const donorCountryMeta = normalizeMeta(meta.donorCountry)?.toUpperCase() || null;
-          const donorNifMeta = normalizeMeta(meta.donorNif);
-          const address = session.customer_details?.address || null;
-          const donorName = session.customer_details?.name || donorNameMeta || null;
-          const donorEmail = session.customer_details?.email || donorEmailMeta || null;
-          const donorAddress = address?.line1 || address?.line2 || donorAddressMeta || null;
-          const donorCity = address?.city || donorCityMeta || null;
-          const donorZip = address?.postal_code || donorZipMeta || null;
-          const donorCountry = address?.country || donorCountryMeta || null;
-
-          const donationUpdate: Record<string, any> = { status: 'succeeded' };
-          if (donorName) donationUpdate.donor_name = donorName;
-          if (donorEmail) donationUpdate.donor_email = donorEmail;
-          if (donorAddress) donationUpdate.donor_address = donorAddress;
-          if (donorCity) donationUpdate.donor_city = donorCity;
-          if (donorZip) donationUpdate.donor_zip = donorZip;
-          if (donorCountry) donationUpdate.donor_country = donorCountry;
-          if (donorNifMeta) donationUpdate.donor_nif = donorNifMeta;
-
-          const { data: updated, error: updErr } = await supabaseServer
-            .from('donations')
-            .update(donationUpdate)
-            .not('status', 'eq', 'succeeded')
-            .or(
-              [
-                paymentIntent ? `payment_intent_id.eq.${paymentIntent}` : '',
-                `external_reference.eq.${externalRef}`,
-              ].filter(Boolean).join(','),
-            )
-            .select();
-
-          if (updErr) throw updErr;
-          const updatedCount = updated?.length ?? 0;
-
-          if (!updatedCount) {
-            await supabaseServer.from('donations').upsert(
-              {
-                user_id: userId,
-                amount_cents: amountCents,
-                currency: session.currency?.toUpperCase() ?? 'EUR',
-                method: 'stripe_checkout',
-                status: 'succeeded',
-                payment_intent_id: paymentIntent,
-                external_reference: externalRef,
-                description: 'Doação (checkout)',
-                donor_name: donorName,
-                donor_email: donorEmail,
-                donor_address: donorAddress,
-                donor_city: donorCity,
-                donor_zip: donorZip,
-                donor_country: donorCountry,
-                donor_nif: donorNifMeta,
-              },
-              { onConflict: 'external_reference' },
-            );
-          }
-
-          const increment = amountCents / 100;
-          if (increment > 0) {
-            const { data: metaRow } = await supabaseServer
-              .from('donations_meta')
-              .select('id, goal_eur, raised_eur')
-              .order('created_at', { ascending: false })
-              .limit(1)
-              .maybeSingle();
-
-            const goal = metaRow?.goal_eur ?? 100000;
-            const currentRaised = metaRow?.raised_eur ?? 0;
-            const newRaised = Number(currentRaised) + increment;
-
-            if (metaRow?.id) {
-              await supabaseServer
-                .from('donations_meta')
-                .update({ raised_eur: newRaised, goal_eur: goal })
-                .eq('id', metaRow.id);
-            } else {
-              await supabaseServer
-                .from('donations_meta')
-                .insert({ goal_eur: goal, raised_eur: newRaised });
-            }
-          }
-
-          if (donorEmail && amountCents > 0) {
-            const donationRef = paymentIntent || externalRef;
-            const notification = await ensureNotificationRecord(supabaseServer, {
-              type: 'donation_paid',
-              reference: donationRef,
-              userId,
-              email: donorEmail,
-            });
-            if (notification.shouldSend) {
-              try {
-                await sendDonationReceiptEmail({
-                  toEmail: donorEmail,
-                  donorName,
-                  amount: amountCents / 100,
-                  currency: session.currency?.toUpperCase() ?? 'EUR',
-                  paymentReference: donationRef,
-                  paidAt: new Date().toISOString(),
-                  method: 'stripe_checkout',
-                });
-                await markNotificationSent(supabaseServer, notification.recordId);
-              } catch (err) {
-                console.error('Erro ao enviar email de doacao:', err);
-              }
-            }
-          }
-
-          await createAdminNotification(
-            'donation',
-            'Nova Doação Recebida',
-            `Doador: ${donorName || donorEmail || 'Anónimo'} - €${(amountCents / 100).toFixed(2)}`,
-            '/admin/doacoes'
-          );
-
+          await handleDonationSuccess(context);
         } else if (type === 'membership') {
-          const { data: updated, error: updErr } = await supabaseServer
-            .from('pagamentos_quotas')
-            .update({ estado: 'pago', valor: amountCents / 100 })
-            .or(
-              [
-                paymentIntent ? `payment_intent_id.eq.${paymentIntent}` : '',
-                `external_reference.eq.${externalRef}`,
-              ].filter(Boolean).join(','),
-            )
-            .select();
-          if (updErr) throw updErr;
-
-          const updatedCount = updated?.length ?? 0;
-
-          if (!updatedCount) {
-            await supabaseServer.from('pagamentos_quotas').upsert(
-              {
-                user_id: userId,
-                valor: amountCents / 100,
-                metodo_pagamento: 'stripe_checkout',
-                estado: 'pago',
-                payment_intent_id: paymentIntent,
-                external_reference: externalRef,
-                data_pagamento: new Date().toISOString().slice(0, 10),
-              },
-              { onConflict: 'external_reference' },
-            );
-          }
-
-          let paymentRow: { id: string; email_notificado_at: string | null } | null = null;
-          try {
-            const { data } = await supabaseServer
-              .from('pagamentos_quotas')
-              .select('id, email_notificado_at')
-              .or(
-                [
-                  paymentIntent ? `payment_intent_id.eq.${paymentIntent}` : '',
-                  `external_reference.eq.${externalRef}`,
-                ].filter(Boolean).join(','),
-              )
-              .order('created_at', { ascending: false })
-              .limit(1)
-              .maybeSingle();
-            paymentRow = data ?? null;
-          } catch (err) {
-            console.warn('Nao foi possivel validar email_notificado_at:', err);
-          }
-
-          if (userId) {
-            const { data: membro } = await supabaseServer
-              .from('membros')
-              .select('proxima_quota, data_adesao, numero_socio, is_membro, nome, email, diploma_enviado_at')
-              .eq('id', userId)
-              .maybeSingle();
-
-            const paymentDate = session.created ? new Date(session.created * 1000) : new Date();
-            const safePaymentDate = Number.isNaN(paymentDate.getTime()) ? new Date() : paymentDate;
-            const nextQuotaDate = calculateNextQuotaDate(safePaymentDate);
-            const adesao = membro?.data_adesao ? membro.data_adesao : formatISODate(new Date());
-            const wasMember = !!membro?.is_membro;
-            let numero_socio: number | undefined;
-
-            if (!membro?.numero_socio) {
-              try {
-                numero_socio = await getNextMemberNumber(supabaseServer);
-              } catch (err) {
-                console.error('Erro ao obter número de sócio (Stripe):', err);
-              }
-            }
-
-            const { error: membroUpdateError } = await supabaseServer
-              .from('membros')
-              .update({
-                estado_quota: 'pago',
-                proxima_quota: formatISODate(nextQuotaDate),
-                data_adesao: adesao,
-                is_membro: true,
-                updated_at: new Date().toISOString(),
-                ...(Number.isFinite(numero_socio) ? { numero_socio } : {}),
-              })
-              .eq('id', userId);
-
-            if (membroUpdateError) {
-              console.error('Erro ao atualizar membro após pagamento:', membroUpdateError);
-            } else {
-              try {
-                const shouldNotify = !paymentRow?.email_notificado_at;
-                if (shouldNotify) {
-                  await sendMembershipNotification({
-                    kind: wasMember ? 'renewal' : 'new',
-                    memberName: membro?.nome ?? null,
-                    memberEmail: membro?.email ?? session.customer_details?.email ?? null,
-                    memberNumber: membro?.numero_socio ?? null,
-                    amount: amountCents / 100,
-                    currency: session.currency?.toUpperCase() ?? 'EUR',
-                    paymentMethod: 'stripe_checkout',
-                    paymentReference: paymentIntent || externalRef,
-                    nextQuotaDate: formatISODate(nextQuotaDate),
-                    paidAt: new Date().toISOString(),
-                  });
-
-                  if (paymentRow?.id) {
-                    try {
-                      await supabaseServer
-                        .from('pagamentos_quotas')
-                        .update({ email_notificado_at: new Date().toISOString() })
-                        .eq('id', paymentRow.id);
-                    } catch (err) {
-                      console.warn('Nao foi possivel marcar email_notificado_at:', err);
-                    }
-                  }
-                }
-
-                const { data: updatedMember } = await supabaseServer
-                  .from('membros')
-                  .select('nome, email, numero_socio, diploma_enviado_at')
-                  .eq('id', userId)
-                  .maybeSingle();
-
-                const memberEmail = updatedMember?.email ?? membro?.email ?? session.customer_details?.email ?? null;
-                if (memberEmail) {
-                  const membershipRef = paymentIntent || externalRef;
-                  const finalMemberNumber = updatedMember?.numero_socio ?? membro?.numero_socio ?? numero_socio ?? null;
-                  const shouldAttachDiploma = !updatedMember?.diploma_enviado_at && !!finalMemberNumber;
-                  let diplomaAttachment: { filename: string; content: Buffer; contentType?: string } | undefined;
-
-                  if (shouldAttachDiploma) {
-                    try {
-                      const pdfBytes = await generateMemberDiplomaPdf({
-                        memberName: updatedMember?.nome || membro?.nome || memberEmail,
-                        memberNumber: Number(finalMemberNumber),
-                        issuedAt: new Date().toISOString(),
-                      });
-                      diplomaAttachment = {
-                        filename: `diploma-socio-${finalMemberNumber}.pdf`,
-                        content: Buffer.from(pdfBytes),
-                        contentType: 'application/pdf',
-                      };
-                    } catch (err) {
-                      console.error('Erro ao gerar diploma:', err);
-                    }
-                  }
-
-                  const notification = await ensureNotificationRecord(supabaseServer, {
-                    type: wasMember ? 'membership_renewal' : 'membership_paid',
-                    reference: membershipRef,
-                    userId,
-                    email: memberEmail,
-                  });
-                  if (notification.shouldSend) {
-                    const sent = await sendMemberReceiptEmail({
-                      toEmail: memberEmail,
-                      memberName: updatedMember?.nome ?? membro?.nome ?? null,
-                      memberNumber: finalMemberNumber,
-                      amount: amountCents / 100,
-                      currency: session.currency?.toUpperCase() ?? 'EUR',
-                      paymentMethod: 'stripe_checkout',
-                      paymentReference: membershipRef,
-                      nextQuotaDate: formatISODate(nextQuotaDate),
-                      paidAt: new Date().toISOString(),
-                      kind: wasMember ? 'renewal' : 'new',
-                      attachments: diplomaAttachment ? [diplomaAttachment] : undefined,
-                      hasDiploma: !!diplomaAttachment,
-                    });
-
-                    if (sent) {
-                      await markNotificationSent(supabaseServer, notification.recordId);
-                    }
-
-                    if (sent && shouldAttachDiploma) {
-                      try {
-                        await supabaseServer
-                          .from('membros')
-                          .update({ diploma_enviado_at: new Date().toISOString() })
-                          .eq('id', userId);
-                      } catch (err) {
-                        console.warn('Nao foi possivel marcar diploma_enviado_at:', err);
-                      }
-                    }
-                  } else if (shouldAttachDiploma && diplomaAttachment) {
-                    const diplomaSent = await sendMemberDiplomaEmail({
-                      toEmail: memberEmail,
-                      memberName: updatedMember?.nome ?? membro?.nome ?? null,
-                      memberNumber: Number(finalMemberNumber),
-                      issuedAt: new Date().toISOString(),
-                      attachments: [diplomaAttachment],
-                    });
-                    if (diplomaSent) {
-                      try {
-                        await supabaseServer
-                          .from('membros')
-                          .update({ diploma_enviado_at: new Date().toISOString() })
-                          .eq('id', userId);
-                      } catch (err) {
-                        console.warn('Nao foi possivel marcar diploma_enviado_at:', err);
-                      }
-                    }
-                  }
-                }
-              } catch (err) {
-                console.error('Erro ao enviar email de quota:', err);
-              }
-            }
-
-            const notifTitle = wasMember ? 'Renovação de Quota' : 'Nova Inscrição de Sócio';
-            await createAdminNotification(
-              'member',
-              notifTitle,
-              `Membro: ${membro?.nome || userId} - €${(amountCents / 100).toFixed(2)}`,
-              '/admin/membros'
-            );
-          }
-
+          await handleMembershipSuccess(context);
         } else if (type === 'pilgrimage_payment') {
-          const bookingId = session.metadata?.booking_id;
-          const amountPaid = amountCents / 100;
-
-          if (bookingId) {
-            const { data: booking, error: fetchErr } = await supabaseServer
-              .from('bookings')
-              .select('paid_amount, pilgrimage:pilgrimages(deposit_value)')
-              .eq('id', bookingId)
-              .single();
-
-            if (!fetchErr && booking) {
-              const newPaidAmount = (booking.paid_amount || 0) + amountPaid;
-              const depositValue = (booking.pilgrimage as any)?.deposit_value || 500;
-
-              let updates: any = {
-                paid_amount: newPaidAmount,
-                last_payment_date: new Date().toISOString()
-              };
-
-              if (newPaidAmount >= depositValue) {
-                updates.status = 'confirmed';
-              }
-
-              await supabaseServer
-                .from('bookings')
-                .update(updates)
-                .eq('id', bookingId);
-
-              await supabaseServer
-                .from('pilgrimage_payments')
-                .upsert({
-                  booking_id: bookingId,
-                  amount: amountPaid,
-                  payment_intent_id: paymentIntent,
-                  external_reference: externalRef,
-                  status: 'succeeded',
-                  method: 'stripe',
-                  date: new Date().toISOString(),
-                  notes: 'Pagamento via Stripe (Automático)'
-                }, { onConflict: 'external_reference' });
-
-              console.log(`✅ [Webhook] Pilgrimage payment recorded for Booking ${bookingId}: ${amountPaid}€`);
-
-              await createAdminNotification(
-                'booking',
-                'Pagamento Peregrinação',
-                `Reserva #${bookingId} - €${amountPaid.toFixed(2)}`,
-                `/admin/peregrinacoes/inscricao/${bookingId}`
-              );
-            }
-          }
+          await handlePilgrimageSuccess(context);
+        } else if (type === 'store') {
+          await handleStoreSuccess(context);
         }
-
-      } catch (err) {
-        console.error('Erro ao gravar no Supabase:', err);
+      } catch (err: any) {
+        console.error(`Erro ao processar webhook (${type}):`, err);
+        return NextResponse.json({ message: 'Error processing webhook', error: err.message }, { status: 500 });
       }
-
-      // Loja (Stripe)
-      if (type === 'store' && orderRef) {
-        try {
-          await processPaidStoreOrder({
-            supabaseServer,
-            orderRef,
-            amountCents,
-            paymentReference: paymentIntent || externalRef,
-            buyerName: session.customer_details?.name || null,
-            buyerEmail: session.customer_details?.email || null,
-            buyerPhone: session.customer_details?.phone || null,
-            paymentProvider: 'stripe',
-            paymentMethod: 'stripe_checkout',
-          });
-
-          await createAdminNotification(
-            'order',
-            'Nova Encomenda Loja',
-            `Ref: ${orderRef} - €${(amountCents / 100).toFixed(2)}`,
-            `/admin/encomendas?search=${orderRef}`
-          );
-        } catch (err) {
-          console.error('Erro ao processar encomenda da loja (Stripe):', err);
-        }
-      }
-    } // Closes if (supabaseServer)
+    }
   } // Closes if (checkout.session.completed)
 
   if (event.type === 'payment_intent.payment_failed') {
@@ -499,44 +106,17 @@ export async function POST(request: Request) {
     const type = (pi.metadata?.type as 'donation' | 'membership' | 'store' | undefined) ?? undefined;
 
     if (supabaseServer) {
-      try {
-        if (type === 'donation') {
-          await supabaseServer
-            .from('donations')
-            .update({ status: 'failed' })
-            .or(
-              [
-                `payment_intent_id.eq.${paymentIntent}`,
-                externalRef ? `external_reference.eq.${externalRef}` : '',
-              ].filter(Boolean).join(','),
-            );
-        } else if (type === 'membership') {
-          await supabaseServer
-            .from('pagamentos_quotas')
-            .update({ estado: 'failed' })
-            .or(
-              [
-                `payment_intent_id.eq.${paymentIntent}`,
-                externalRef ? `external_reference.eq.${externalRef}` : '',
-              ].filter(Boolean).join(','),
-            );
-        } else if (type === 'store') {
-          const orderRef = pi.metadata?.orderRef || pi.metadata?.order_ref || null;
-          if (orderRef) {
-            await supabaseServer
-              .from('store_orders')
-              .update({
-                status: 'failed',
-                payment_provider: 'stripe',
-                payment_method: 'stripe_checkout',
-                payment_reference: paymentIntent,
-              })
-              .eq('order_ref', orderRef);
-          }
-        }
-      } catch (err) {
-        console.error('Erro ao marcar falha:', err);
-      }
+      // Construct partial context for failure handling
+      const context: PaymentHandlerContext = {
+        supabaseServer,
+        amountCents: pi.amount,
+        currency: pi.currency,
+        paymentReference: paymentIntent,
+        externalReference: externalRef || '',
+        method: 'stripe_checkout',
+        metadata: pi.metadata
+      };
+      await handlePaymentFailedOrCanceled(context, 'failed');
     }
   }
 
@@ -547,44 +127,16 @@ export async function POST(request: Request) {
     const type = (session.metadata?.type as 'donation' | 'membership' | 'store' | undefined) ?? undefined;
 
     if (supabaseServer) {
-      try {
-        if (type === 'donation') {
-          await supabaseServer
-            .from('donations')
-            .update({ status: 'canceled' })
-            .or(
-              [
-                paymentIntent ? `payment_intent_id.eq.${paymentIntent}` : '',
-                `external_reference.eq.${externalRef}`,
-              ].filter(Boolean).join(','),
-            );
-        } else if (type === 'membership') {
-          await supabaseServer
-            .from('pagamentos_quotas')
-            .update({ estado: 'canceled' })
-            .or(
-              [
-                paymentIntent ? `payment_intent_id.eq.${paymentIntent}` : '',
-                `external_reference.eq.${externalRef}`,
-              ].filter(Boolean).join(','),
-            );
-        } else if (type === 'store') {
-          const orderRef = session.metadata?.orderRef || session.metadata?.order_ref || null;
-          if (orderRef) {
-            await supabaseServer
-              .from('store_orders')
-              .update({
-                status: 'canceled',
-                payment_provider: 'stripe',
-                payment_method: 'stripe_checkout',
-                payment_reference: paymentIntent || externalRef,
-              })
-              .eq('order_ref', orderRef);
-          }
-        }
-      } catch (err) {
-        console.error('Erro ao marcar expirado:', err);
-      }
+      const context: PaymentHandlerContext = {
+        supabaseServer,
+        amountCents: session.amount_total || 0,
+        currency: session.currency || 'eur',
+        paymentReference: paymentIntent || '', // might be null if expired before intent
+        externalReference: externalRef,
+        method: 'stripe_checkout',
+        metadata: session.metadata || {}
+      };
+      await handlePaymentFailedOrCanceled(context, 'canceled');
     }
   }
 

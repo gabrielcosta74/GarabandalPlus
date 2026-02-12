@@ -2,8 +2,9 @@
 
 import { createClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
+import { unstable_cache } from 'next/cache';
 
-export async function getPilgrimagesAction() {
+const getPilgrimagesCached = unstable_cache(async () => {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
     const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
@@ -43,4 +44,8 @@ export async function getPilgrimagesAction() {
         console.error("❌ [ServerAction] Exception:", e);
         return { data: [], error: e.message };
     }
+}, ['pilgrimage-list'], { revalidate: 300 });
+
+export async function getPilgrimagesAction() {
+    return getPilgrimagesCached();
 }

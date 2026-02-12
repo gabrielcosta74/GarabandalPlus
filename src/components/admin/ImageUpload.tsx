@@ -11,9 +11,10 @@ interface ImageUploadProps {
     path: string;
     label?: string;
     className?: string;
+    fixedFilename?: string;
 }
 
-export default function ImageUpload({ value, onChange, bucket, path, label = "Imagem", className = "" }: ImageUploadProps) {
+export default function ImageUpload({ value, onChange, bucket, path, label = "Imagem", className = "", fixedFilename }: ImageUploadProps) {
     const [uploading, setUploading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -24,8 +25,11 @@ export default function ImageUpload({ value, onChange, bucket, path, label = "Im
 
         try {
             const extension = file.name.split('.').pop() || 'jpg';
-            // Clean filename to avoid issues
-            const filename = `${path}/${Date.now()}_${Math.random().toString(36).substring(7)}.${extension}`;
+
+            // Phase 2: Use fixed filename if provided, otherwise generate random
+            const filename = fixedFilename
+                ? `${path}/${fixedFilename}.${extension}`
+                : `${path}/${Date.now()}_${Math.random().toString(36).substring(7)}.${extension}`;
 
             const { error: uploadError } = await supabaseBrowser.storage
                 .from(bucket)
@@ -38,6 +42,17 @@ export default function ImageUpload({ value, onChange, bucket, path, label = "Im
                 .getPublicUrl(filename);
 
             if (data?.publicUrl) {
+                // Cleanup: Delete old image if it exists and belongs to the same bucket
+                if (value && value.includes(bucket)) {
+                    try {
+                        const oldPath = value.split(`${bucket}/`)[1];
+                        if (oldPath) {
+                            await supabaseBrowser.storage.from(bucket).remove([oldPath]);
+                        }
+                    } catch (cleanupErr) {
+                        console.error('Failed to cleanup old image:', cleanupErr);
+                    }
+                }
                 onChange(data.publicUrl);
             }
         } catch (err: any) {

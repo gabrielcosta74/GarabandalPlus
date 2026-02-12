@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { supabaseServer } from '../../../../lib/supabase';
 
 export const runtime = 'nodejs';
-export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 export async function GET() {
   if (!supabaseServer) {
@@ -21,6 +21,6 @@ export async function GET() {
 
   return NextResponse.json(
     { goal, raised },
-    { headers: { 'Cache-Control': 'no-store' } }
+    { headers: { 'Cache-Control': 'no-store, max-age=0' } }
   );
 }

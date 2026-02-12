@@ -8,20 +8,30 @@ const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 const playfair = Playfair_Display({ subsets: ['latin'], variable: '--font-playfair' });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(APP_URL),
   title: {
     template: '%s | Apostolado de Garabandal',
     default: 'Apostolado de Garabandal',
   },
-  description: 'O espaço oficial da Associação do Apostolado de Garabandal. Um lugar de fé, oração e divulgação da Mensagem.',
-  keywords: ['Garabandal', 'Apostolado', 'Oração', 'Fé', 'Virgem Maria', 'Aparições'],
+  description: 'Santuário virtual do Apostolado de Garabandal. Peregrinações, doações e missão de evangelização com foco na fé e na mensagem de Nossa Senhora.',
+  keywords: [
+    'Garabandal',
+    'Apostolado de Garabandal',
+    'Peregrinação católica',
+    'Doações católicas',
+    'Mensagem de Garabandal',
+    'Santuário virtual',
+    'Nossa Senhora',
+    'Evangelização'
+  ],
   authors: [{ name: 'Apostolado de Garabandal' }],
   openGraph: {
     type: 'website',
-    locale: 'pt_PT',
+    locale: 'pt_BR',
     url: APP_URL,
     siteName: 'Apostolado de Garabandal',
     title: 'Apostolado de Garabandal',
-    description: 'O espaço oficial da Associação do Apostolado de Garabandal.',
+    description: 'Santuário virtual com peregrinações, doações e missão de evangelização.',
     images: [
       {
         url: '/images/og-image.jpg',
@@ -30,6 +40,15 @@ export const metadata: Metadata = {
         alt: 'Apostolado de Garabandal',
       },
     ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Apostolado de Garabandal',
+    description: 'Santuário virtual com peregrinações, doações e missão de evangelização.',
+    images: ['/images/og-image.jpg'],
+  },
+  verification: {
+    google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION || undefined,
   },
   icons: {
     icon: '/favicon.ico',
@@ -42,9 +61,35 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="pt">
+    <html lang="pt-BR">
       <head />
       <body className={inter.className}>
+        <script
+          type="application/ld+json"
+          // eslint-disable-next-line react/no-danger
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              '@context': 'https://schema.org',
+              '@graph': [
+                {
+                  '@type': 'Organization',
+                  name: 'Apostolado de Garabandal',
+                  url: APP_URL,
+                  logo: `${APP_URL}/images/og-image.jpg`,
+                  sameAs: [
+                    'https://www.instagram.com/apostoladodegarabandaloficial/'
+                  ]
+                },
+                {
+                  '@type': 'WebSite',
+                  name: 'Apostolado de Garabandal',
+                  url: APP_URL,
+                  inLanguage: 'pt-BR'
+                }
+              ]
+            })
+          }}
+        />
         <ClientLayout>
           {children}
         </ClientLayout>

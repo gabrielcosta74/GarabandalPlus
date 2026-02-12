@@ -26,6 +26,16 @@ interface MembershipModalProps {
     impact: { members: number; raised: number; goal: number };
 }
 
+type PaymentOption = {
+    id: string;
+    label: string;
+    description: string;
+    iconSrc: string;
+    badge?: string;
+    provider: "stripe" | "reduniq";
+    reduniqSolution?: number;
+};
+
 const slides = [
     {
         title: "Pertencer a uma missão viva",
@@ -45,6 +55,41 @@ const slides = [
 ];
 
 const countryOptions = listCountryLabels();
+
+const paymentOptions: PaymentOption[] = [
+    {
+        id: "reduniq_card",
+        label: "Cartão de Crédito",
+        description: "Visa / Mastercard (Reduniq).",
+        iconSrc: "/payment-icons/reduniq.png",
+        badge: "Recomendado",
+        provider: "reduniq",
+        reduniqSolution: 106,
+    },
+    {
+        id: "reduniq_mbway",
+        label: "MB WAY",
+        description: "Pagamento instantâneo.",
+        iconSrc: "/payment-icons/mbway.svg",
+        provider: "reduniq",
+        reduniqSolution: 107,
+    },
+    {
+        id: "reduniq_multibanco",
+        label: "Multibanco",
+        description: "Pagamento de serviços.",
+        iconSrc: "/payment-icons/multibanco.svg",
+        provider: "reduniq",
+        reduniqSolution: 108,
+    },
+    {
+        id: "stripe",
+        label: "Stripe (Cartão / Apple Pay)",
+        description: "Pagamento seguro via Stripe.",
+        iconSrc: "/payment-icons/stripe.svg",
+        provider: "stripe",
+    }
+];
 
 // Helper Components (Defined outside to prevent re-renders)
 const InputField = ({ label, ...props }: React.InputHTMLAttributes<HTMLInputElement> & { label: string }) => (
@@ -137,25 +182,14 @@ export default function MembershipModal({ isOpen, onClose, impact }: MembershipM
     });
 
     // Payment
-    const [selectedPaymentId, setSelectedPaymentId] = useState("stripe");
+    const [selectedPaymentId, setSelectedPaymentId] = useState(paymentOptions[0].id);
     const [paymentUrl, setPaymentUrl] = useState<string | null>(null);
     const [paymentError, setPaymentError] = useState<string | null>(null);
 
     const countryMeta = useMemo(() => resolveCountryMeta(formData.pais), [formData.pais]);
 
-    const paymentOptions = [
-        {
-            id: "stripe",
-            label: "Cartão / Apple Pay",
-            description: "Pagamento seguro via Stripe.",
-            iconSrc: "/payment-icons/stripe.svg",
-            badge: "Recomendado",
-            provider: "stripe"
-        }
-    ];
-
     const selectedPayment = paymentOptions.find((o) => o.id === selectedPaymentId) || paymentOptions[0];
-    const { user: authUser } = useAuth();
+    const { user: authUser, memberData: authMemberData } = useAuth();
 
     // Logic: Session
     useEffect(() => {
@@ -166,7 +200,14 @@ export default function MembershipModal({ isOpen, onClose, impact }: MembershipM
                 setSessionEmail(authUser.email ?? null);
                 setIsNewAccount(false);
                 setFormData((prev) => (prev.email ? prev : { ...prev, email: authUser.email || "" }));
-                setStep(2);
+
+                // Check if profile is complete
+                const isComplete = authMemberData?.nome && authMemberData?.email && authMemberData?.telefone && authMemberData?.address && authMemberData?.postal_code && authMemberData?.country;
+                if (isComplete) {
+                    setStep(3);
+                } else {
+                    setStep(2);
+                }
                 return;
             }
             if (!supabaseBrowser) return;
@@ -176,7 +217,18 @@ export default function MembershipModal({ isOpen, onClose, impact }: MembershipM
                 setSessionEmail(data.session.user.email ?? null);
                 setIsNewAccount(false);
                 setFormData((prev) => (prev.email ? prev : { ...prev, email: data.session?.user?.email || "" }));
-                setStep(2); // Skip auth if logged in
+
+                // For direct supabase session we wait for Context sync, but set step 2 for now. 
+                // Context Effect below will handle pre-fill. 
+                // Actually, let's keep it simple here. The context sync effect checks isOpen.
+                // We should rely on the context sync to update checking completeness, but setStep is stateful.
+                // Let's stick to step 2 here as we might not have memberData immediately if just loaded session from raw supabase.
+                // BUT, if we have authMemberData from context, we can jump.
+                if (authMemberData?.nome && authMemberData?.email) {
+                    setStep(3);
+                } else {
+                    setStep(2);
+                }
             } else {
                 setStep(1);
             }
@@ -190,30 +242,32 @@ export default function MembershipModal({ isOpen, onClose, impact }: MembershipM
         return () => clearInterval(timer);
     }, [isOpen, authUser]);
 
-    // Logic: Load Member Profile if logged in
+    // Logic: Load Member Profile from Context and Skip Step if Complete
     useEffect(() => {
-        const loadMemberProfile = async () => {
-            if (!supabaseBrowser || !sessionUserId) return;
-            const { data } = await supabaseBrowser
-                .from("membros")
-                .select("nome, email, telefone, address, postal_code, country, nif")
-                .eq("id", sessionUserId)
-                .maybeSingle();
+        if (!isOpen || !authMemberData) return;
 
-            if (!data) return;
+        setFormData((prev) => ({
+            nome: prev.nome || authMemberData.nome || "",
+            email: prev.email || authMemberData.email || authUser?.email || "",
+            telefone: prev.telefone || authMemberData.telefone || "",
+            morada: prev.morada || authMemberData.address || "",
+            codigoPostal: prev.codigoPostal || authMemberData.postal_code || "",
+            pais: prev.pais || (authMemberData.country ? (resolveCountryMeta(authMemberData.country)?.name || authMemberData.country) : ""),
+            nif: prev.nif || authMemberData.nif || "",
+        }));
 
-            setFormData((prev) => ({
-                nome: prev.nome || data.nome || "",
-                email: prev.email || data.email || sessionEmail || "",
-                telefone: prev.telefone || data.telefone || "",
-                morada: prev.morada || data.address || "",
-                codigoPostal: prev.codigoPostal || data.postal_code || "",
-                pais: prev.pais || resolveCountryMeta(data.country)?.name || data.country || "",
-                nif: prev.nif || data.nif || "",
-            }));
-        };
-        loadMemberProfile();
-    }, [sessionUserId, sessionEmail]);
+        // Skip to payment if data is already robust (check mandatory fields)
+        if (step === 2 &&
+            authMemberData.nome &&
+            authMemberData.email &&
+            authMemberData.telefone &&
+            authMemberData.address &&
+            authMemberData.postal_code &&
+            authMemberData.country) {
+            setStep(3);
+        }
+
+    }, [isOpen, authMemberData, authUser]);
 
     // Logic: Auto-redirect for payment
     useEffect(() => {
@@ -331,8 +385,14 @@ export default function MembershipModal({ isOpen, onClose, impact }: MembershipM
                     amount: 25, // Validated on server as forced 25
                     type: "membership",
                     userId: sessionUserId,
-                    provider: "stripe",
-                    // No reduniqSolution needed
+                    provider: selectedPayment.provider,
+                    donorName: formData.nome?.trim() || undefined,
+                    donorEmail: formData.email?.trim().toLowerCase() || undefined,
+                    donorCountry: countryMeta?.code || undefined,
+                    donorNif: formData.nif?.trim() || undefined,
+                    ...(selectedPayment.provider === "reduniq" && selectedPayment.reduniqSolution
+                        ? { reduniqSolution: selectedPayment.reduniqSolution }
+                        : {}),
                 })
             });
 
@@ -351,6 +411,9 @@ export default function MembershipModal({ isOpen, onClose, impact }: MembershipM
 
     // Determine if back button should be shown
     const canGoBack = step > 1 && step < 4 && !(step === 2 && sessionUserId);
+
+    // Check renewal status
+    const isRenewal = !!authMemberData?.numero_socio;
 
     return (
         <AnimatePresence>
@@ -377,7 +440,7 @@ export default function MembershipModal({ isOpen, onClose, impact }: MembershipM
 
                                 <div className="bg-white/80 backdrop-blur-sm p-6 rounded-2xl border border-white/50 shadow-sm mb-6">
                                     <div className="text-4xl font-serif text-garabandal-dark mb-1">{formatPrice(25)}</div>
-                                    <div className="text-xs text-gray-500 uppercase tracking-wider mb-4">Quota Anual</div>
+                                    <div className="text-xs text-gray-500 uppercase tracking-wider mb-4">{isRenewal ? 'Renovação Anual' : 'Quota Anual'}</div>
                                     <div className="space-y-3">
                                         {["Vídeos Exclusivos", "Altar de Intenções", "Voucher Peregrinação", "Missas Anuais"].map((item, i) => (
                                             <div key={i} className="flex items-center gap-2 text-sm text-gray-600">
@@ -428,7 +491,7 @@ export default function MembershipModal({ isOpen, onClose, impact }: MembershipM
                                         <h3 className="font-serif text-xl font-bold text-garabandal-dark leading-none">
                                             {step === 1 && "Criar Conta"}
                                             {step === 2 && "Dados Pessoais"}
-                                            {step === 3 && "Pagamento"}
+                                            {step === 3 && (isRenewal ? "Renovar Quota" : "Método de Pagamento")}
                                             {step === 4 && "Confirmação"}
                                         </h3>
                                     </div>
@@ -630,8 +693,8 @@ export default function MembershipModal({ isOpen, onClose, impact }: MembershipM
                                             className="max-w-xl mx-auto"
                                         >
                                             <div className="mb-8">
-                                                <h4 className="text-2xl font-serif text-garabandal-dark mb-2">Método de Pagamento</h4>
-                                                <p className="text-gray-500 text-sm">Escolha como pretende realizar o donativo de {formatPrice(25)}.</p>
+                                                <h4 className="text-2xl font-serif text-garabandal-dark mb-2">{isRenewal ? 'Renovar Quota' : 'Tornar-se Membro'}</h4>
+                                                <p className="text-gray-500 text-sm">Escolha como pretende pagar a quota de {formatPrice(25)}.</p>
                                             </div>
 
                                             <div className="space-y-4">

@@ -2,6 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { motion } from 'framer-motion';
 import { ArrowRight, Calendar, MapPin, Users } from 'lucide-react';
 import { format } from 'date-fns';
@@ -68,10 +69,12 @@ const NextPilgrimage: React.FC<NextPilgrimageProps> = ({ nextPilgrimage }) => {
                             {/* Image Section - Mobile First sizing */}
                             <div className="w-full md:w-1/2 h-72 md:h-auto relative overflow-hidden shrink-0">
                                 <div className="absolute inset-0 bg-slate-200">
-                                    <img
+                                    <Image
                                         src={nextPilgrimage.cover_image || '/images/pilgrimage-placeholder.jpg'}
                                         alt={nextPilgrimage.title}
-                                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                                        fill
+                                        sizes="(min-width: 1024px) 50vw, 100vw"
+                                        className="object-cover group-hover:scale-105 transition-transform duration-700"
                                     />
                                 </div>
                                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent md:bg-gradient-to-r md:from-transparent md:to-black/10" />

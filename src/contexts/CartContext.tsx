@@ -6,6 +6,8 @@ import { loadCart } from '../app/loja-online/data';
 type CartItem = {
     id: string;
     qty: number;
+    variantId?: string;
+    variantName?: string;
 };
 
 type Product = {
@@ -41,7 +43,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         if (productsCache.current.length > 0) return;
 
         try {
-            const res = await fetch('/api/store/products');
+            const res = await fetch('/api/store/products?includeVariants=0');
             if (res.ok) {
                 const data = await res.json();
                 productsCache.current = (data.products || []).map((p: any) => ({

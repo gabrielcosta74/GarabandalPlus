@@ -10,16 +10,19 @@ export default function ThankYouPage() {
   const [type, setType] = useState('donation');
   const [amount, setAmount] = useState<string | null>(null);
   const [provider, setProvider] = useState<string | null>(null);
-  const [statusParam, setStatusParam] = useState<string | null>(null);
-  const [tokenParam, setTokenParam] = useState<string | null>(null);
   const [sessionIdParam, setSessionIdParam] = useState<string | null>(null);
+  const [orderRefParam, setOrderRefParam] = useState<string | null>(null);
+  const [tokenParam, setTokenParam] = useState<string | null>(null);
+  const [statusParam, setStatusParam] = useState<string | null>(null);
+  const [canceledParam, setCanceledParam] = useState<string | null>(null);
   const [confirmStatus, setConfirmStatus] = useState<'idle' | 'confirming' | 'done' | 'failed'>('idle');
   const [digitalLinks, setDigitalLinks] = useState<Array<{ name: string; url: string }>>([]);
   const [confirmedEmail, setConfirmedEmail] = useState<string | null>(null);
   const [accountExists, setAccountExists] = useState<boolean>(false);
   const [hasDigital, setHasDigital] = useState<boolean | null>(null);
   const [hasPhysical, setHasPhysical] = useState<boolean | null>(null);
-  const [reduniqStatus, setReduniqStatus] = useState<'idle' | 'checking' | 'success' | 'pending' | 'failed' | 'unknown'>('idle');
+  const [reduniqConfirmStatus, setReduniqConfirmStatus] = useState<'idle' | 'confirming' | 'done' | 'failed'>('idle');
+  const [reduniqConfirm, setReduniqConfirm] = useState<any | null>(null);
 
   // --- Logic Preserved from Original ---
   useEffect(() => {
@@ -28,77 +31,23 @@ export default function ThankYouPage() {
     setType(nextType);
     setAmount(search.get('amount'));
     setProvider(search.get('provider'));
-    setStatusParam(search.get('status'));
-    setTokenParam(search.get('token'));
     setSessionIdParam(search.get('session_id'));
+    setOrderRefParam(search.get('orderRef'));
+    setTokenParam(search.get('token'));
+    setStatusParam(search.get('status'));
+    setCanceledParam(search.get('canceled'));
     setReady(true);
   }, []);
 
   useEffect(() => {
-    if (provider !== 'reduniq') return;
-    const stored = typeof window !== 'undefined' ? localStorage.getItem('reduniq:lastPayment') : null;
-    let storedToken: string | null = null;
-    if (stored) {
-      try {
-        storedToken = JSON.parse(stored)?.token || null;
-      } catch {
-        storedToken = null;
-      }
-    }
-    const token = tokenParam || storedToken;
-    if (!token) {
-      setReduniqStatus(statusParam === 'error' ? 'failed' : 'unknown');
-      return;
-    }
-    const checkResult = async () => {
-      setReduniqStatus('checking');
-      try {
-        let endpoint = '/api/reduniq/result';
-        let body: any = { token };
-        let method = 'POST';
-
-        // NEW: Use specific status endpoint for donations to trigger meta processing
-        if (type === 'donation') {
-          endpoint = `/api/donations/status?token=${token}`;
-          method = 'GET';
-          body = undefined;
-        }
-
-        const res = await fetch(endpoint, {
-          method: method,
-          headers: { 'Content-Type': 'application/json' },
-          body: body ? JSON.stringify(body) : undefined,
-        });
-
-        if (!res.ok) throw new Error('Falha ao confirmar pagamento.');
-        const data = await res.json();
-
-        // Handle both formats
-        // api/reduniq/result returns { status: 'success' }
-        // api/donations/status returns { status: 'succeeded' }
-        let status = data?.status;
-        if (status === 'succeeded') status = 'success'; // normalize
-
-        status = (status as 'success' | 'pending' | 'failed' | 'unknown') || 'unknown';
-        setReduniqStatus(status === 'unknown' ? 'pending' : status);
-      } catch (err) {
-        console.warn('Não foi possível confirmar pagamento Reduniq:', err);
-        setReduniqStatus(statusParam === 'error' ? 'failed' : 'pending');
-      }
-    };
-    checkResult();
-  }, [provider, statusParam, tokenParam, type]);
-
-  useEffect(() => {
     if (type !== 'store') return;
-    if (provider === 'reduniq' && reduniqStatus !== 'success') return;
     try {
       localStorage.removeItem('store:cart');
       localStorage.removeItem('store:checkout');
     } catch (err) {
       console.warn('Nao foi possivel limpar carrinho.', err);
     }
-  }, [provider, reduniqStatus, type]);
+  }, [type]);
 
   useEffect(() => {
     if (!ready) return;
@@ -128,32 +77,39 @@ export default function ThankYouPage() {
     confirmPayment();
   }, [confirmStatus, provider, ready, sessionIdParam, type]);
 
+  useEffect(() => {
+    if (!ready) return;
+    if (provider !== 'reduniq') return;
+    if (!orderRefParam && !tokenParam) return;
+    if (reduniqConfirmStatus !== 'idle') return;
+
+    const confirmReduniq = async () => {
+      setReduniqConfirmStatus('confirming');
+      try {
+        const res = await fetch('/api/reduniq/confirm', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ...(orderRefParam ? { orderRef: orderRefParam } : {}),
+            ...(tokenParam ? { token: tokenParam } : {}),
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok || !data?.success) {
+          throw new Error(data?.message || 'Falha ao confirmar pagamento Reduniq.');
+        }
+        setReduniqConfirm(data);
+        setReduniqConfirmStatus('done');
+      } catch (err) {
+        console.warn('Nao foi possivel confirmar pagamento Reduniq:', err);
+        setReduniqConfirmStatus('failed');
+      }
+    };
+
+    confirmReduniq();
+  }, [orderRefParam, provider, ready, reduniqConfirmStatus, tokenParam]);
+
   // --- UI Helpers ---
-
-  const title = useMemo(() => {
-    if (provider === 'reduniq') {
-      if (reduniqStatus === 'failed') return 'Pagamento Incompleto';
-      if (reduniqStatus === 'pending' || reduniqStatus === 'checking') return 'Processando Pagamento...';
-      if (reduniqStatus === 'unknown') return 'Verifique o Estado';
-      if (type === 'membership') return 'Quota Regularizada';
-      if (type === 'store') return 'Compra Efetuada';
-      return 'Donativo Recebido';
-    }
-    if (type === 'membership') return 'Bem-vindo à Família';
-    if (type === 'store') return 'Compra Confirmada';
-    return 'Obrigado pelo Apoio';
-  }, [provider, reduniqStatus, type]);
-
-  const description = useMemo(() => {
-    if (provider === 'reduniq') {
-      if (reduniqStatus === 'failed') return 'Houve um problema com a transação. Por favor, tente novamente ou contacte o suporte.';
-      if (reduniqStatus === 'pending' || reduniqStatus === 'checking') return 'Estamos a aguardar confirmação do banco. Se usou MB Way, verifique o seu telemóvel.';
-      if (reduniqStatus === 'unknown') return 'Pagamento registado. Aguarde o email de confirmação.';
-    }
-    if (type === 'membership') return 'A tua quota está ativa. Podes consultar o estado e benefícios na tua área de membro.';
-    if (type === 'store') return 'Enviámos um email com os detalhes da tua encomenda. Podes acompanhar o estado na tua área pessoal.';
-    return 'O teu donativo ajuda a manter viva a mensagem de Garabandal. Nossa Senhora de Garabandal rogai por nós.';
-  }, [provider, reduniqStatus, type]);
 
   const amountText = useMemo(() => {
     if (!amount) return null;
@@ -170,6 +126,34 @@ export default function ThankYouPage() {
 
   const showDigital = type === 'store' && (hasDigital ?? digitalLinks.length > 0);
   const showPhysical = type === 'store' && (hasPhysical ?? false);
+  const isStoreConfirming = type === 'store' && confirmStatus === 'confirming';
+  const isStoreFailed = type === 'store' && confirmStatus === 'failed';
+  const isReduniq = provider === 'reduniq';
+  const reduniqTxStatus = reduniqConfirm?.transactionStatus ? String(reduniqConfirm.transactionStatus) : null;
+  const hasFailedReturnStatus = statusParam === 'failed' || statusParam === 'error' || statusParam === 'canceled' || canceledParam === 'true';
+  const isGenericFailed = hasFailedReturnStatus && provider !== 'reduniq' && type !== 'store';
+  const isReduniqPending = isReduniq && reduniqConfirmStatus === 'done' && (reduniqTxStatus === '0' || reduniqTxStatus === '1' || reduniqTxStatus === '2');
+  const isReduniqFailed = isReduniq && (reduniqConfirmStatus === 'failed' || (reduniqConfirmStatus === 'done' && reduniqTxStatus === '3') || (reduniqConfirmStatus === 'idle' && hasFailedReturnStatus));
+  const isReduniqSuccess = isReduniq && reduniqConfirmStatus === 'done' && reduniqTxStatus === '4';
+  const headerFailed = isStoreFailed || isReduniqFailed || isGenericFailed;
+
+  const title = useMemo(() => {
+    if (headerFailed) return 'Pagamento Não Concluído';
+    if (type === 'membership') return 'Bem-vindo à Família';
+    if (type === 'store') return 'Compra Confirmada';
+    return 'Obrigado pelo Apoio';
+  }, [type, headerFailed]);
+
+  const description = useMemo(() => {
+    if (headerFailed) {
+      if (type === 'membership') return 'A quota não foi concluída. Podes tentar novamente em segurança.';
+      if (type === 'store') return 'A compra não foi concluída. Verifica os dados de pagamento e tenta de novo.';
+      return 'A doação não foi concluída. Podes voltar a tentar quando quiseres.';
+    }
+    if (type === 'membership') return 'A tua quota está ativa. Podes consultar o estado e benefícios na tua área de membro.';
+    if (type === 'store') return 'Enviámos um email com os detalhes da tua encomenda. Podes acompanhar o estado na tua área pessoal.';
+    return 'O teu donativo ajuda a manter viva a mensagem de Garabandal. Nossa Senhora de Garabandal rogai por nós.';
+  }, [type, headerFailed]);
 
   if (!ready) {
     return (
@@ -203,11 +187,11 @@ export default function ThankYouPage() {
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}
               transition={{ type: "spring", stiffness: 200, damping: 15, delay: 0.2 }}
-              className={`w-24 h-24 rounded-full flex items-center justify-center ${reduniqStatus === 'failed' ? 'bg-red-500/20 text-red-500' : 'bg-green-500/20 text-green-500'} mb-4 relative z-10`}
+              className={`w-24 h-24 rounded-full flex items-center justify-center ${headerFailed ? 'bg-red-500/20 text-red-500' : 'bg-green-500/20 text-green-500'} mb-4 relative z-10`}
             >
-              {reduniqStatus === 'checking' || confirmStatus === 'confirming' ? (
+              {isStoreConfirming || (isReduniq && reduniqConfirmStatus === 'confirming') ? (
                 <Loader2 className="w-10 h-10 animate-spin" />
-              ) : reduniqStatus === 'failed' ? (
+              ) : headerFailed ? (
                 <div className="w-10 h-10 font-bold text-3xl">!</div>
               ) : (
                 <Check className="w-10 h-10" />
@@ -215,7 +199,7 @@ export default function ThankYouPage() {
             </motion.div>
 
             {/* Pulsing ring behind */}
-            {!(reduniqStatus === 'failed') && (
+            {!headerFailed && (
               <motion.div
                 animate={{ scale: [1, 1.5], opacity: [0.5, 0] }}
                 transition={{ duration: 2, repeat: Infinity }}
@@ -246,6 +230,71 @@ export default function ThankYouPage() {
 
         {/* Details / Next Steps */}
         <div className="p-8 md:p-10 bg-[#111]">
+          {isReduniq && (
+            <div className={`mb-8 rounded-2xl border p-6 ${
+              isReduniqFailed
+                ? 'border-red-500/30 bg-red-500/10'
+                : isReduniqPending || reduniqConfirmStatus === 'confirming'
+                  ? 'border-blue-500/30 bg-blue-500/10'
+                  : isReduniqSuccess
+                    ? 'border-green-500/30 bg-green-500/10'
+                    : 'border-white/10 bg-white/5'
+            }`}>
+              <div className="flex items-start gap-3">
+                <div className={`mt-0.5 ${
+                  isReduniqFailed ? 'text-red-400' : isReduniqPending || reduniqConfirmStatus === 'confirming' ? 'text-blue-300' : 'text-green-400'
+                }`}>
+                  {reduniqConfirmStatus === 'confirming' ? <Loader2 className="w-5 h-5 animate-spin" /> : <CreditCard className="w-5 h-5" />}
+                </div>
+                <div className="flex-1">
+                  <div className="font-bold text-white">
+                    {reduniqConfirmStatus === 'confirming'
+                      ? 'A confirmar com a Reduniq...'
+                      : isReduniqSuccess
+                        ? 'Pagamento confirmado'
+                        : isReduniqPending
+                          ? 'Pagamento em processamento'
+                          : isReduniqFailed
+                            ? 'Pagamento não confirmado'
+                            : 'Estado do pagamento'}
+                  </div>
+                  <div className="text-sm text-white/60 mt-1 leading-relaxed">
+                    {reduniqConfirmStatus === 'confirming'
+                      ? 'Estamos a validar o estado real da transação (via getResult).'
+                      : isReduniqSuccess
+                        ? 'A transação foi confirmada pela Reduniq.'
+                        : isReduniqPending
+                          ? 'A transação ainda está em curso. Se for Pagamento de Serviços/MB, pode demorar alguns minutos.'
+                          : isReduniqFailed
+                            ? 'A transação foi recusada, cancelada ou terminou com erro.'
+                            : 'Não foi possível determinar o estado da transação.'}
+                  </div>
+
+                  {(orderRefParam || reduniqConfirm?.transactionId) && (
+                    <div className="mt-3 text-xs text-white/50 flex flex-wrap gap-3">
+                      {orderRefParam && <span>Ref: {orderRefParam}</span>}
+                      {reduniqConfirm?.transactionId && <span>Transação: {reduniqConfirm.transactionId}</span>}
+                      {reduniqConfirm?.resultCode && <span>Código: {reduniqConfirm.resultCode}</span>}
+                    </div>
+                  )}
+
+                  {Array.isArray(reduniqConfirm?.extraData) && reduniqConfirm.extraData.length > 0 && (
+                    <div className="mt-4 grid md:grid-cols-2 gap-3">
+                      {reduniqConfirm.extraData
+                        .filter((x: any) => x?.name && x?.value)
+                        .slice(0, 6)
+                        .map((item: any, idx: number) => (
+                          <div key={idx} className="rounded-xl border border-white/10 bg-black/20 px-4 py-3">
+                            <div className="text-[10px] uppercase tracking-widest text-white/40 font-bold">{String(item.name)}</div>
+                            <div className="text-sm text-white">{String(item.value)}</div>
+                          </div>
+                        ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
 
           {type === 'store' && (showDigital || showPhysical) && (
             <div className="grid md:grid-cols-2 gap-6 mb-8">
@@ -295,7 +344,7 @@ export default function ThankYouPage() {
             </div>
           )}
 
-          {type === 'membership' && (
+          {type === 'membership' && !headerFailed && (
             <div className="bg-white/5 p-6 rounded-2xl border border-white/5 mb-8 flex items-start gap-4">
               <div className="p-3 bg-yellow-500/20 rounded-xl text-yellow-500">
                 <ShieldCheck className="w-6 h-6" />
@@ -339,13 +388,23 @@ export default function ThankYouPage() {
                 ) : null}
               </>
             ) : type === 'membership' ? (
-              <Link
-                href="/member"
-                className="w-full md:w-auto px-8 py-3 rounded-xl bg-yellow-600 hover:bg-yellow-500 text-white font-bold transition-all shadow-lg shadow-yellow-900/20 flex items-center justify-center gap-2"
-              >
-                Área de Membro
-                <ArrowRight className="w-4 h-4" />
-              </Link>
+              headerFailed ? (
+                <Link
+                  href="/tornar-membro?join=1"
+                  className="w-full md:w-auto px-8 py-3 rounded-xl bg-yellow-600 hover:bg-yellow-500 text-white font-bold transition-all shadow-lg shadow-yellow-900/20 flex items-center justify-center gap-2"
+                >
+                  Tentar Novamente
+                  <ArrowRight className="w-4 h-4" />
+                </Link>
+              ) : (
+                <Link
+                  href="/member"
+                  className="w-full md:w-auto px-8 py-3 rounded-xl bg-yellow-600 hover:bg-yellow-500 text-white font-bold transition-all shadow-lg shadow-yellow-900/20 flex items-center justify-center gap-2"
+                >
+                  Área de Membro
+                  <ArrowRight className="w-4 h-4" />
+                </Link>
+              )
             ) : (
               <Link
                 href="/donations"

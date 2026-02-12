@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { supabaseServer } from '../../../../../lib/supabase';
 import { calculateNextQuotaDate } from '../../../../../lib/membership-logic';
+import { normalizeQuotaStatus } from '../../../../../lib/membership-status';
 
 import { verifyAdmin } from '../../../../../lib/admin-auth';
 import { logAdminAction } from '../../../../../lib/admin-logger';
@@ -68,7 +69,10 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
         // ['nome', 'email', 'telefone', 'address', 'postal_code', 'country', 'nif', 'numero_socio', 'estado_quota', 'tipo_subscricao', 'is_membro', 'proxima_quota', 'data_adesao'];
 
         // Applying the structure from the provided "Code Edit"
-        if (body.estado_quota !== undefined) updates.estado_quota = body.estado_quota;
+        if (body.estado_quota !== undefined) {
+            const normalized = normalizeQuotaStatus(body.estado_quota);
+            updates.estado_quota = normalized ?? String(body.estado_quota).trim().toLowerCase();
+        }
         if (body.proxima_quota !== undefined) updates.proxima_quota = body.proxima_quota;
         if (body.tipo_subscricao !== undefined) updates.tipo_subscricao = body.tipo_subscricao;
         if (body.numero_socio !== undefined) updates.numero_socio = body.numero_socio;
@@ -118,7 +122,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
         if (action === 'revoke_status') {
             const { data: member, error } = await supabaseServer
                 .from('membros')
-                .update({ is_membro: false, estado_quota: 'Cancelado' })
+                .update({ is_membro: false, estado_quota: 'revogado' })
                 .eq('id', id)
                 .select()
                 .single();
@@ -129,7 +133,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
         if (action === 'restore_status') {
             const { data: member, error } = await supabaseServer
                 .from('membros')
-                .update({ is_membro: true, estado_quota: 'Ativo' }) // Default to active or pending?
+                .update({ is_membro: true, estado_quota: 'pago' })
                 .eq('id', id)
                 .select()
                 .single();

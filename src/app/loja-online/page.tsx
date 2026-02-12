@@ -1,11 +1,5 @@
-import { Metadata } from 'next';
-import StoreClient from './StoreClient';
+import { redirect } from 'next/navigation';
 
-export const metadata: Metadata = {
-  title: 'Loja Oficial',
-  description: 'Adquira terços, livros e artigos religiosos oficiais. Apoie a divulgação da mensagem de Garabandal.',
-};
-
-export default function LojaPage() {
-  return <StoreClient />;
+export default function StorePage() {
+  redirect('/loja');
 }

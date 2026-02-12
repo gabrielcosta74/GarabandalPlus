@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabaseServer } from '../../../../lib/supabase';
-import { startOfMonth, subMonths, endOfMonth, format, subDays } from 'date-fns';
+import { startOfMonth, subDays, format, differenceInDays, sub } from 'date-fns';
 
 // Helper to validate Admin Session
 const isAdmin = async (req: Request) => {
@@ -22,70 +22,103 @@ export async function GET(req: Request) {
     }
 
     try {
+        const { searchParams } = new URL(req.url);
+
+        // --- 1. DATE RANGE LOGIC ---
         const now = new Date();
-        const last30Start = subDays(now, 30);
-        const prev30Start = subDays(now, 60);
+        const fromParam = searchParams.get('from');
+        const toParam = searchParams.get('to');
 
-        // Helper for safe fetching
-        const safeFetch = async (name: string, promise: Promise<any>) => {
-            try {
-                const res = await promise;
-                if (res.error) throw res.error;
-                return res.data || [];
-            } catch (e: any) {
-                console.error(`Error fetching ${name}:`, e.message);
-                return [];
-            }
-        };
+        // Defaults to last 30 days if not specified
+        const currentEnd = toParam ? new Date(toParam) : now;
+        const currentStart = fromParam ? new Date(fromParam) : subDays(now, 30);
 
-        console.log("Fetching dashboard data (V4 - Columns Fixed)...");
+        // Calculate Previous Period (Same Duration, Immediately Preceding)
+        const durationDays = Math.max(1, differenceInDays(currentEnd, currentStart));
+        const prevEnd = subDays(currentStart, 1);
+        const prevStart = subDays(prevEnd, durationDays);
 
         // 1. DATA SOURCE FETCHING
-        const [donationsAll, ordersAll, pilgrimPaymentsAll, quotasAll, lowStock] = await Promise.all([
-            // Donations: amount_cents, created_at, status
-            safeFetch('donations', supabaseServer
-                .from('donations')
+        // Helper to safe fetch but LOG errors
+        const safeQuery = async (params: any) => {
+            const { data, error } = await params;
+            if (error) {
+                console.error("Dashboard DB Error:", error);
+                return [];
+            }
+            return data || [];
+        };
+
+        const fetchStart = prevStart;
+        const fetchEnd = currentEnd;
+
+        // Fetch Orders FIRST
+        const orders = await safeQuery(
+            supabaseServer.from('store_orders')
+                .select('total_amount, created_at, id, buyer_name, status, order_ref')
+                .in('status', ['paid', 'succeeded', 'delivered'])
+                .gte('created_at', fetchStart.toISOString())
+                .lte('created_at', fetchEnd.toISOString())
+        );
+
+        // Fetch Items separate (to avoid FK/embedding issues)
+        const orderRefs = orders.map((o: any) => o.order_ref).filter(Boolean);
+        let orderItems: any[] = [];
+
+        if (orderRefs.length > 0) {
+            // Fetch in chunks if needed or just all (limit to sane amount if necessary)
+            const { data: itemsData, error: itemsErr } = await supabaseServer
+                .from('store_order_items')
+                .select('name, qty, unit_price, order_ref')
+                .in('order_ref', orderRefs);
+
+            if (itemsErr) console.error("Error fetching order items:", itemsErr);
+            else orderItems = itemsData || [];
+        }
+
+        const [donationsRaw, pilgrimPaymentsRaw, quotasRaw, lowStockRaw] = await Promise.all([
+            // Donations
+            supabaseServer.from('donations')
                 .select('amount_cents, created_at, status')
-                .in('status', ['succeeded', 'pago', 'verified']) as any
-            ),
-            // Store Orders: total_amount, created_at, buyer_name (NOT customer_name), status
-            safeFetch('orders', supabaseServer
-                .from('store_orders')
-                .select('total_amount, created_at, id, buyer_name, status')
-                .in('status', ['paid', 'succeeded', 'delivered']) as any
-            ),
-            // Pilgrimage PAYMENTS (Revenue): amount, created_at, status
-            safeFetch('pilgrim_payments', supabaseServer
-                .from('pilgrimage_payments')
-                .select('amount, created_at, status')
-                .in('status', ['succeeded', 'verified', 'paid']) as any
-            ),
-            // Quotas: valor, data_pagamento (NO created_at), estado
-            safeFetch('quotas', supabaseServer
-                .from('pagamentos_quotas')
+                .in('status', ['succeeded', 'pago', 'verified'])
+                .gte('created_at', fetchStart.toISOString())
+                .lte('created_at', fetchEnd.toISOString()),
+
+            // Pilgrimages
+            supabaseServer.from('pilgrimage_payments')
+                .select('amount, created_at, status, booking:bookings(pilgrimage:pilgrimages(title))')
+                .in('status', ['succeeded', 'verified', 'paid'])
+                .gte('created_at', fetchStart.toISOString())
+                .lte('created_at', fetchEnd.toISOString()),
+
+            // Quotas
+            supabaseServer.from('pagamentos_quotas')
                 .select('valor, data_pagamento, estado')
-                .in('estado', ['pago', 'paid']) as any
-            ),
+                .in('estado', ['pago', 'paid'])
+                .gte('data_pagamento', fetchStart.toISOString())
+                .lte('data_pagamento', fetchEnd.toISOString()),
+
             // Low Stock
-            safeFetch('lowStock', supabaseServer
-                .from('store_products')
+            supabaseServer.from('store_products')
                 .select('id, name, stock')
                 .lt('stock', 10)
                 .order('stock', { ascending: true })
-                .limit(5) as any
-            )
+                .limit(5)
         ]);
 
-        console.log(`[DEBUG] Final Counts: Don=${donationsAll.length}, Ord=${ordersAll.length}, PilPay=${pilgrimPaymentsAll.length}, Quot=${quotasAll.length}`);
+        const donations = donationsRaw.data || [];
+        const pilgrimPayments = pilgrimPaymentsRaw.data || [];
+        const quotas = quotasRaw.data || [];
+        const lowStock = lowStockRaw.data || [];
 
-        // 2. HELPER FUNCTIONS
+        // --- 3. HELPER FUNCTIONS ---
         const parseDate = (item: any) => {
             if (item.data_pagamento) return new Date(item.data_pagamento);
             if (item.created_at) return new Date(item.created_at);
-            return new Date(); // Fallback to now (shouldn't happen with correct queries)
+            return new Date();
         };
 
-        const getRevenue = (item: any, type: 'donation' | 'order' | 'pilgrimage' | 'quota') => {
+        const getRevenue = (item: any, type: string) => {
             if (type === 'donation') return (Number(item.amount_cents) || 0) / 100;
             if (type === 'order') return Number(item.total_amount) || 0;
             if (type === 'pilgrimage') return Number(item.amount) || 0;
@@ -93,152 +126,170 @@ export async function GET(req: Request) {
             return 0;
         };
 
-        // 3. KPI CALCS
+        const isInPeriod = (date: Date, start: Date, end: Date) => date >= start && date <= end;
 
-        // --- Total Revenue (All Time) ---
-        const revDonations = donationsAll.reduce((acc: number, i: any) => acc + getRevenue(i, 'donation'), 0);
-        const revOrders = ordersAll.reduce((acc: number, i: any) => acc + getRevenue(i, 'order'), 0);
-        const revPilgrims = pilgrimPaymentsAll.reduce((acc: number, i: any) => acc + getRevenue(i, 'pilgrimage'), 0);
-        const revQuotas = quotasAll.reduce((acc: number, i: any) => acc + getRevenue(i, 'quota'), 0);
+        // --- 4. DATA PROCESSING ---
+        let currentRev = 0, prevRev = 0;
+        let currentOrders = 0, prevOrders = 0;
+        let currentDonations = 0, prevDonations = 0;
 
-        const totalRevenue = revDonations + revOrders + revPilgrims + revQuotas;
+        // Buckets for Graphs
+        const dailyData: Record<string, { date: string, store: number, donations: number, pilgrimages: number, quotas: number }> = {};
 
-        // --- Trends Helpers ---
+        for (let i = 0; i <= durationDays; i++) {
+            const d = subDays(currentEnd, i);
+            if (d < currentStart) break;
+            const dayStr = format(d, 'yyyy-MM-dd');
+            dailyData[dayStr] = { date: dayStr, store: 0, donations: 0, pilgrimages: 0, quotas: 0 };
+        }
+
+        // Top Lists Buckets
+        const productsMap: Record<string, { name: string, rev: number, qty: number }> = {};
+        const pilgrimagesMap: Record<string, { name: string, rev: number }> = {};
+
+        // Process Donations
+        for (const item of donations) {
+            const date = parseDate(item);
+            const amount = getRevenue(item, 'donation');
+
+            if (isInPeriod(date, currentStart, currentEnd)) {
+                currentRev += amount;
+                currentDonations += amount;
+                const dayStr = format(date, 'yyyy-MM-dd');
+                if (dailyData[dayStr]) dailyData[dayStr].donations += amount;
+            } else if (isInPeriod(date, prevStart, prevEnd)) {
+                prevRev += amount;
+                prevDonations += amount;
+            }
+        }
+
+        // Process Orders
+        // Enhance orders with items manually
+        const ordersWithItems = orders.map((o: any) => ({
+            ...o,
+            items: orderItems.filter((i: any) => i.order_ref === o.order_ref)
+        }));
+
+        for (const item of ordersWithItems) {
+            const date = parseDate(item);
+            const amount = getRevenue(item, 'order');
+
+            if (isInPeriod(date, currentStart, currentEnd)) {
+                currentRev += amount;
+                currentOrders++;
+                const dayStr = format(date, 'yyyy-MM-dd');
+                if (dailyData[dayStr]) dailyData[dayStr].store += amount;
+
+                // Process Items for Top Products
+                if (item.items) {
+                    item.items.forEach((p: any) => {
+                        const name = p.name || 'Produto sem nome';
+                        if (!productsMap[name]) productsMap[name] = { name, rev: 0, qty: 0 };
+                        productsMap[name].rev += (Number(p.unit_price) * Number(p.qty));
+                        productsMap[name].qty += Number(p.qty);
+                    });
+                }
+
+            } else if (isInPeriod(date, prevStart, prevEnd)) {
+                prevRev += amount;
+                prevOrders++;
+            }
+        }
+
+        // Process Pilgrimages
+        for (const item of pilgrimPayments) {
+            const date = parseDate(item);
+            const amount = getRevenue(item, 'pilgrimage');
+
+            if (isInPeriod(date, currentStart, currentEnd)) {
+                currentRev += amount;
+                const dayStr = format(date, 'yyyy-MM-dd');
+                if (dailyData[dayStr]) dailyData[dayStr].pilgrimages += amount;
+
+                // Process Name for Top Pilgrimages
+                // @ts-ignore
+                const title = item.booking?.pilgrimage?.title || 'Pagamento Avulso';
+                if (!pilgrimagesMap[title]) pilgrimagesMap[title] = { name: title, rev: 0 };
+                pilgrimagesMap[title].rev += amount;
+
+            } else if (isInPeriod(date, prevStart, prevEnd)) {
+                prevRev += amount;
+            }
+        }
+
+        // Process Quotas
+        for (const item of quotas) {
+            const date = parseDate(item);
+            const amount = getRevenue(item, 'quota');
+
+            if (isInPeriod(date, currentStart, currentEnd)) {
+                currentRev += amount;
+                const dayStr = format(date, 'yyyy-MM-dd');
+                if (dailyData[dayStr]) dailyData[dayStr].quotas += amount;
+            } else if (isInPeriod(date, prevStart, prevEnd)) {
+                prevRev += amount;
+            }
+        }
+
+        // --- 5. CALCULATE TRENDS ---
         const calcTrend = (curr: number, prev: number) => {
             if (prev === 0) return curr === 0 ? 0 : 100;
             return ((curr - prev) / prev) * 100;
         };
 
-        const filterPeriod = (items: any[], start: Date, end: Date) =>
-            items.filter(i => {
-                const d = parseDate(i);
-                return d >= start && d <= end;
-            });
+        const revenueTrend = calcTrend(currentRev, prevRev);
+        const ordersTrend = calcTrend(currentOrders, prevOrders);
+        const donationsTrend = calcTrend(currentDonations, prevDonations);
+        const aov = currentOrders > 0 ? (currentRev / currentOrders) : 0;
 
-        const sumPeriod = (items: any[], start: Date, end: Date, type: 'donation' | 'order' | 'pilgrimage' | 'quota') =>
-            filterPeriod(items, start, end).reduce((acc: number, i: any) => acc + getRevenue(i, type), 0);
+        // --- 6. FORMAT OUTPUT ---
 
-        // --- Revenue Trend (Last 30 vs Prev 30) ---
-        const revLast30 =
-            sumPeriod(donationsAll, last30Start, now, 'donation') +
-            sumPeriod(ordersAll, last30Start, now, 'order') +
-            sumPeriod(pilgrimPaymentsAll, last30Start, now, 'pilgrimage') +
-            sumPeriod(quotasAll, last30Start, now, 'quota');
+        // Sort Daily Data
+        const chartData = Object.values(dailyData).sort((a, b) => a.date.localeCompare(b.date));
 
-        const revPrev30 =
-            sumPeriod(donationsAll, prev30Start, last30Start, 'donation') +
-            sumPeriod(ordersAll, prev30Start, last30Start, 'order') +
-            sumPeriod(pilgrimPaymentsAll, prev30Start, last30Start, 'pilgrimage') +
-            sumPeriod(quotasAll, prev30Start, last30Start, 'quota');
+        // Sort Top Lists
+        const topProducts = Object.values(productsMap)
+            .sort((a, b) => b.rev - a.rev)
+            .slice(0, 5);
 
-        const revenueTrend = calcTrend(revLast30, revPrev30);
+        const topPilgrimages = Object.values(pilgrimagesMap)
+            .sort((a, b) => b.rev - a.rev)
+            .slice(0, 5);
 
-        // --- Orders Trend (Store) ---
-        const ordLast30 = filterPeriod(ordersAll, last30Start, now).length;
-        const ordPrev30 = filterPeriod(ordersAll, prev30Start, last30Start).length;
-        const ordersTrend = calcTrend(ordLast30, ordPrev30);
-
-        // --- Donations Trend ---
-        const donLast30 = sumPeriod(donationsAll, last30Start, now, 'donation');
-        const donPrev30 = sumPeriod(donationsAll, prev30Start, last30Start, 'donation');
-        const donationsTrend = calcTrend(donLast30, donPrev30);
-
-        // --- AOV (Store) ---
-        const aov = ordersAll.length ? revOrders / ordersAll.length : 0;
-
-        // 4. CHARTS GENERATION
-        // Daily Bucket
-        const dailyMap: Record<string, { revenue: number, orders: number }> = {};
-        for (let i = 0; i < 30; i++) {
-            const d = format(subDays(now, i), 'yyyy-MM-dd');
-            dailyMap[d] = { revenue: 0, orders: 0 };
-        }
-
-        const addToDaily = (items: any[], type: 'donation' | 'order' | 'pilgrimage' | 'quota') => {
-            // Only process items in last 30 days
-            filterPeriod(items, last30Start, now).forEach(item => {
-                const day = format(parseDate(item), 'yyyy-MM-dd');
-                if (dailyMap[day]) {
-                    dailyMap[day].revenue += getRevenue(item, type);
-                    if (type === 'order') dailyMap[day].orders += 1;
-                }
-            });
-        };
-
-        addToDaily(donationsAll, 'donation');
-        addToDaily(ordersAll, 'order');
-        addToDaily(pilgrimPaymentsAll, 'pilgrimage');
-        addToDaily(quotasAll, 'quota');
-
-        const revenueTrendChart = Object.entries(dailyMap)
-            .sort(([a], [b]) => a.localeCompare(b))
-            .map(([date, d]) => ({
-                date,
-                revenue: Number(d.revenue.toFixed(2)),
-                orders: d.orders
-            }));
-
-        const revenueDistribution = [
-            { name: 'Loja', value: revOrders },
-            { name: 'Doações', value: revDonations },
-            { name: 'Peregrinações', value: revPilgrims },
-            { name: 'Quotas', value: revQuotas }
-        ].filter(i => i.value > 0);
-
-        // 5. RECENT ACTIVITY (Mixed)
-        const recentRaw = [
-            ...ordersAll.map((i: any) => ({
-                ...i,
-                type: 'shop',
-                label: 'Encomenda Loja',
-                amount: getRevenue(i, 'order'),
-                customer_name: i.buyer_name || 'Cliente Loja', // Fixed from customer_name logic
-                date: parseDate(i)
-            })),
-            ...donationsAll.map((i: any) => ({
-                id: i.id || Math.random().toString(),
-                type: 'donation',
-                label: 'Doação',
-                amount: getRevenue(i, 'donation'),
-                customer_name: 'Doador',
-                status: i.status || 'succeeded',
-                date: parseDate(i)
-            })),
-            ...pilgrimPaymentsAll.map((i: any) => ({
-                id: i.id || Math.random().toString(),
-                type: 'booking',
-                label: 'Pagamento Peregrinação',
-                amount: getRevenue(i, 'pilgrimage'),
-                customer_name: 'Peregrino',
-                status: i.status || 'verified',
-                date: parseDate(i)
-            })),
-            ...quotasAll.map((i: any) => ({
-                id: i.id || Math.random().toString(),
-                type: 'quota',
-                label: 'Quota',
-                amount: getRevenue(i, 'quota'),
-                customer_name: 'Membro',
-                status: i.estado || 'pago',
-                date: parseDate(i)
-            }))
-        ].sort((a, b) => b.date.getTime() - a.date.getTime())
-            .slice(0, 10);
+        // Recent Transactions
+        const recentMerged = [
+            ...orders.filter((i: any) => isInPeriod(parseDate(i), currentStart, currentEnd)).map((i: any) => ({ ...i, type: 'shop', amount: getRevenue(i, 'order'), label: 'Loja', customer: i.buyer_name, date: parseDate(i) })),
+            ...donations.filter((i: any) => isInPeriod(parseDate(i), currentStart, currentEnd)).map((i: any) => ({ ...i, type: 'donation', amount: getRevenue(i, 'donation'), label: 'Doação', customer: 'Doador', date: parseDate(i) })),
+            ...pilgrimPayments.filter((i: any) => isInPeriod(parseDate(i), currentStart, currentEnd)).map((i: any) => ({ ...i, type: 'booking', amount: getRevenue(i, 'pilgrimage'), label: 'Peregrinação', customer: 'Peregrino', date: parseDate(i) })),
+        ].sort((a, b) => b.date.getTime() - a.date.getTime()).slice(0, 10);
 
         return NextResponse.json({
             kpi: {
-                revenue: { value: totalRevenue, trend: revenueTrend, last30: revLast30 },
-                orders: { value: ordersAll.length, trend: ordersTrend, last30: ordLast30 },
-                donations: { value: revDonations, trend: donationsTrend, last30: donLast30 },
+                revenue: { value: currentRev, trend: revenueTrend, prev: prevRev },
+                orders: { value: currentOrders, trend: ordersTrend, prev: prevOrders },
+                donations: { value: currentDonations, trend: donationsTrend, prev: prevDonations },
                 aov: { value: aov, trend: 0 }
             },
             charts: {
-                revenueTrend: revenueTrendChart,
-                revenueDistribution
+                revenueOverTime: chartData,
+                revenueDistribution: [
+                    { name: 'Loja', value: chartData.reduce((a, b) => a + b.store, 0) },
+                    { name: 'Doações', value: chartData.reduce((a, b) => a + b.donations, 0) },
+                    { name: 'Peregrinações', value: chartData.reduce((a, b) => a + b.pilgrimages, 0) },
+                    { name: 'Quotas', value: chartData.reduce((a, b) => a + b.quotas, 0) },
+                ].filter(x => x.value > 0)
             },
             tables: {
-                recentTransactions: recentRaw,
-                lowStock: lowStock || []
+                topProducts,
+                topPilgrimages,
+                recentTransactions: recentMerged,
+                lowStock
+            },
+            meta: {
+                from: currentStart,
+                to: currentEnd,
+                prevFrom: prevStart,
+                prevTo: prevEnd
             }
         });
 

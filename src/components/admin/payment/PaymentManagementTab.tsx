@@ -21,6 +21,7 @@ interface PaymentManagementTabProps {
         pilgrimage: {
             deposit_value: number;
         };
+        pilgrims?: any[];
     };
     onUpdate: () => Promise<void>;
 }
@@ -178,7 +179,7 @@ export default function PaymentManagementTab({
                 <InstallmentTracker
                     totalAmount={booking.total_amount}
                     paidAmount={booking.paid_amount}
-                    depositValue={booking.pilgrimage.deposit_value}
+                    depositValue={booking.pilgrimage.deposit_value * (booking.pilgrims?.length || 1)}
                     paymentPlan={booking.payment_plan}
                     payments={booking.payments}
                 />

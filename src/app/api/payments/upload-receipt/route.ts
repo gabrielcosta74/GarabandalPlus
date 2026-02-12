@@ -12,6 +12,17 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: "Server Configuration Error" }, { status: 500 });
     }
 
+    const MAX_RECEIPT_SIZE_BYTES = 10 * 1024 * 1024; // 10MB
+    const ALLOWED_MIME_TYPES = new Set([
+        'image/jpeg',
+        'image/jpg',
+        'image/png',
+        'image/webp',
+        'image/heic',
+        'image/heif',
+        'application/pdf'
+    ]);
+
     try {
         const body = await req.json();
         const { bookingId, fileData, fileName, fileType, installmentLabel, installmentAmount, token } = body;
@@ -60,6 +71,14 @@ export async function POST(req: Request) {
 
         // 1. Convert base64 to Buffer
         const buffer = Buffer.from(fileData, 'base64');
+
+        if (buffer.length > MAX_RECEIPT_SIZE_BYTES) {
+            return NextResponse.json({ error: "Ficheiro demasiado grande (máximo 10MB)." }, { status: 413 });
+        }
+
+        if (fileType && !ALLOWED_MIME_TYPES.has(String(fileType).toLowerCase())) {
+            return NextResponse.json({ error: "Tipo de ficheiro inválido. Use JPG, PNG, WEBP, HEIC ou PDF." }, { status: 415 });
+        }
 
         // SECURITY: User-scoped path (receipts/{user_id}/{booking_id}/timestamp_file.jpg)
         const filePath = `receipts/${userId}/${bookingId}/${Date.now()}_${fileName}`;

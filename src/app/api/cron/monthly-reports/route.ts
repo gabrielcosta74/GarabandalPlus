@@ -24,12 +24,13 @@ export async function GET(request: Request) {
     return NextResponse.json({ message: 'Supabase nao configurado' }, { status: 500 });
   }
 
-  const secret = process.env.CRON_SECRET;
-  if (secret) {
-    const authHeader = request.headers.get('authorization') || '';
-    if (authHeader !== `Bearer ${secret}`) {
-      return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
-    }
+  const secret = process.env.CRON_SECRET || '';
+  if (!secret) {
+    return NextResponse.json({ message: 'CRON_SECRET não configurado.' }, { status: 500 });
+  }
+  const authHeader = request.headers.get('authorization') || '';
+  if (authHeader !== `Bearer ${secret}`) {
+    return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
   }
 
   const { year, month, start, end } = getPreviousMonth();

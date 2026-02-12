@@ -1,6 +1,7 @@
 "use client";
 
 import React from 'react';
+import Image from 'next/image';
 import { motion } from 'framer-motion';
 import { Product } from '../../app/loja-online/data';
 import { ShoppingCart, Globe } from 'lucide-react';
@@ -12,17 +13,25 @@ interface ProductCardProps {
     onAddToCart: (e: React.MouseEvent) => void;
 }
 
-const ProductCard: React.FC<ProductCardProps> = ({
+const ProductCard = React.forwardRef<HTMLDivElement, ProductCardProps>(({
     product,
     onClick,
     onAddToCart,
-}) => {
+}, ref) => {
     const { formatPrice } = useCurrency();
-    const isSoldOut = product.stock === 0;
+    const totalVariantStock = product.variants?.reduce((acc: number, v: any) => acc + (v.stock || 0), 0) || 0;
+    const hasStock = (product.variants && product.variants.length > 0)
+        ? totalVariantStock > 0
+        : (product.stock === null ? true : (product.stock ?? 0) > 0);
+
+    // Digital products are never sold out unless explicitly inactive (which they wouldn't be here)
+    const isDigital = product.type_id?.includes('book_digital') || product.type_id === 'digital_generic' || product.type === 'digital';
+    const isSoldOut = !isDigital && !hasStock;
 
     return (
         <motion.div
             layout
+            ref={ref}
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             whileHover={{ y: -8 }}
@@ -36,10 +45,12 @@ const ProductCard: React.FC<ProductCardProps> = ({
                         {product.tag}
                     </div>
                 )}
-                <img
+                <Image
                     src={product.image}
                     alt={product.name}
-                    className="w-full h-full object-contain transform transition-transform duration-700 group-hover:scale-110 drop-shadow-sm"
+                    fill
+                    sizes="(min-width: 1280px) 20vw, (min-width: 1024px) 25vw, (min-width: 640px) 33vw, 50vw"
+                    className="object-contain transform transition-transform duration-700 group-hover:scale-110 drop-shadow-sm"
                 />
             </div>
 
@@ -77,6 +88,19 @@ const ProductCard: React.FC<ProductCardProps> = ({
                                 Restam {product.stock}
                             </span>
                         )}
+                        {/* Show if it has variants/sizes available */}
+                        {product.variants && product.variants.length > 0 && (
+                            <div className="flex gap-1">
+                                {product.variants.slice(0, 3).map((v: any) => (
+                                    <span key={v.sku} className="text-[10px] text-slate-500 font-bold uppercase bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
+                                        {v.name}
+                                    </span>
+                                ))}
+                                {product.variants.length > 3 && (
+                                    <span className="text-[10px] text-slate-400 font-bold px-1">+</span>
+                                )}
+                            </div>
+                        )}
                     </div>
 
                     <motion.button
@@ -103,6 +127,8 @@ const ProductCard: React.FC<ProductCardProps> = ({
             </div>
         </motion.div>
     );
-};
+});
+
+ProductCard.displayName = 'ProductCard';
 
 export default ProductCard;

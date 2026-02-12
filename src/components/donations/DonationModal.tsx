@@ -10,23 +10,40 @@ type PaymentOption = {
     id: string;
     label: string;
     description: string;
-    provider: 'reduniq' | 'manual';
-    solution?: number;
+    provider: 'stripe' | 'reduniq' | 'manual';
     iconSrc?: string;
     iconAlt: string;
+    highlight?: boolean;
 };
+
 
 const paymentOptions: PaymentOption[] = [
     {
-        id: 'reduniq-mbway',
+        id: 'reduniq_card',
+        label: 'Cartão de Crédito',
+        description: 'Visa / Mastercard',
+        provider: 'reduniq',
+        iconSrc: '/payment-icons/cards.svg',
+        iconAlt: 'Cartão',
+    },
+    {
+        id: 'reduniq_mbway',
         label: 'MB WAY',
-        description: 'Pagamento móvel imediato',
+        description: 'Pagamento Instantâneo',
         provider: 'reduniq',
         iconSrc: '/payment-icons/mbway.svg',
         iconAlt: 'MB WAY',
     },
     {
-        id: 'reduniq-mb',
+        id: 'reduniq_pix',
+        label: 'PIX',
+        description: 'Pagamento Instantâneo',
+        provider: 'reduniq',
+        iconAlt: 'PIX',
+        highlight: true,
+    },
+    {
+        id: 'reduniq_multibanco',
         label: 'Multibanco',
         description: 'Pagamento de Serviços',
         provider: 'reduniq',
@@ -34,15 +51,8 @@ const paymentOptions: PaymentOption[] = [
         iconAlt: 'Multibanco',
     },
     {
-        id: 'reduniq-pix',
-        label: 'PIX',
-        description: 'Instantâneo (Brasil)',
-        provider: 'reduniq',
-        iconAlt: 'PIX',
-    },
-    {
         id: 'bank_transfer',
-        label: 'Transferência',
+        label: 'Transferência Bancária',
         description: 'Transferência manual',
         provider: 'manual',
         iconAlt: 'IBAN',
@@ -59,8 +69,8 @@ interface DonationModalProps {
 export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
     const { formatPrice, currency } = useCurrency();
     const [step, setStep] = useState(1);
-    const [selectedPreset, setSelectedPreset] = useState(25);
-    const [customAmount, setCustomAmount] = useState('25');
+    const [selectedPreset, setSelectedPreset] = useState(50);
+    const [customAmount, setCustomAmount] = useState('50');
     const [selectedPaymentId, setSelectedPaymentId] = useState(paymentOptions[0].id);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -106,6 +116,12 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
 
         if (!supabaseBrowser) {
             setError("Erro: Cliente Supabase não inicializado.");
+            return;
+        }
+
+        const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/heic', 'image/heif', 'application/pdf'];
+        if (!allowedTypes.includes(file.type)) {
+            setError("Tipo de ficheiro inválido. Use JPG, PNG, WEBP, HEIC ou PDF.");
             return;
         }
 
@@ -210,21 +226,13 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
             }
             setStep(2);
         } else if (step === 2) {
-            if (receiptRequired) {
-                if (!formData.nome.trim() || !formData.email.trim()) {
-                    setError("Nome e email são obrigatórios para emissão de recibo.");
-                    return;
-                }
-                if (!/^\S+@\S+\.\S+$/.test(formData.email)) {
-                    setError("Email inválido.");
-                    return;
-                }
-            } else {
-                // If not required, but user filled email, validate format
-                if (formData.email.trim() && !/^\S+@\S+\.\S+$/.test(formData.email)) {
-                    setError("Email inválido.");
-                    return;
-                }
+            if (!formData.nome.trim() || !formData.email.trim()) {
+                setError("Nome e email são obrigatórios.");
+                return;
+            }
+            if (!/^\S+@\S+\.\S+$/.test(formData.email)) {
+                setError("Email inválido.");
+                return;
             }
 
             if (receiptRequired) {
@@ -255,14 +263,19 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
         setLoading(true);
         setError(null);
 
+        const chosenProvider = selectedPayment.provider === 'reduniq' ? 'reduniq' : 'stripe';
+        // Use general terminal for all Reduniq methods as requested
+        const reduniqSolution = undefined;
+
         try {
-            // New Robust Flow: Call /api/donations/create
-            const res = await fetch('/api/donations/create', {
+            // Checkout for donations (Stripe or Reduniq)
+            const res = await fetch('/api/checkout', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     amount,
-                    method: selectedPaymentId, // e.g. 'reduniq-mbway', 'reduniq-pix', etc.
+                    type: 'donation',
+                    provider: chosenProvider,
                     donorName: formData.nome,
                     donorEmail: formData.email,
                     donorAddress: receiptRequired ? formData.morada : null,
@@ -271,7 +284,8 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
                     donorCountry: formData.pais,
                     donorNif: receiptRequired ? formData.nif.replace(/\D/g, '') : null,
                     donorMessage: formData.mensagem || null,
-                    receiptRequired
+                    receiptRequired,
+                    ...(reduniqSolution ? { reduniqSolution } : {})
                 }),
             });
 
@@ -280,12 +294,8 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
                 throw new Error(body?.message || "Erro ao iniciar doação.");
             }
 
-            const { url, token } = await res.json();
+            const { url } = await res.json();
             if (!url) throw new Error("Erro de resposta do servidor.");
-
-            if (token) {
-                localStorage.setItem('reduniq:lastPayment', JSON.stringify({ token, type: 'donation', amount }));
-            }
 
             window.location.href = url;
         } catch (err: any) {
@@ -364,11 +374,16 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                                 {paymentOptions.map((opt) => (
                                                     <button key={opt.id} onClick={() => setSelectedPaymentId(opt.id)}
-                                                        className={`p-4 rounded-xl border text-left flex items-center gap-3 transition-all ${selectedPaymentId === opt.id ? 'border-garabandal-gold bg-garabandal-gold/5 ring-1 ring-garabandal-gold' : 'border-gray-100 hover:border-gray-300'}`}>
+                                                        className={`p-4 rounded-xl border text-left flex items-center gap-3 transition-all relative overflow-hidden ${selectedPaymentId === opt.id ? 'border-garabandal-gold bg-garabandal-gold/5 ring-1 ring-garabandal-gold' : 'border-gray-100 hover:border-gray-300'} ${opt.highlight ? 'ring-1 ring-green-500/30 bg-green-50/50' : ''}`}>
+                                                        {opt.highlight && (
+                                                            <div className="absolute top-0 right-0 bg-green-500 text-white text-[10px] uppercase font-bold px-2 py-0.5 rounded-bl-lg">
+                                                                Novo
+                                                            </div>
+                                                        )}
                                                         {opt.iconSrc ? (
                                                             <img src={opt.iconSrc} alt={opt.iconAlt} className="w-8 h-8 object-contain" />
-                                                        ) : opt.id === 'reduniq-pix' ? (
-                                                            <div className="w-8 h-8 flex items-center justify-center bg-gray-100 rounded-lg"><QrCode className="w-5 h-5 text-gray-500" /></div>
+                                                        ) : opt.id === 'reduniq_pix' ? (
+                                                            <div className="w-8 h-8 flex items-center justify-center bg-green-100 rounded-lg"><QrCode className="w-5 h-5 text-green-600" /></div>
                                                         ) : (
                                                             <div className="w-8 h-8 flex items-center justify-center bg-gray-100 rounded-lg"><Landmark className="w-5 h-5 text-gray-400" /></div>
                                                         )}
@@ -557,4 +572,3 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
         </AnimatePresence>
     );
 }
-

@@ -233,7 +233,7 @@ export async function POST(req: Request) {
                 amount: totalDepositAmount,
                 method: body.payment_method === 'installments' ? 'bank_transfer' : 'stripe',
                 status: 'pending',
-                date: new Date().toISOString(),
+                created_at: new Date().toISOString(),
                 notes: 'Sinal de Inscrição (Automático)'
             });
 

@@ -50,7 +50,7 @@ export async function getAdminCounts() {
         const { count: membersProblem } = await supabaseServer
             .from('members')
             .select('*', { count: 'exact', head: true })
-            .or('estado_quota.eq.pendente,estado_quota.eq.em_atraso,estado_quota.ilike.%atras%');
+            .or('estado_quota.eq.pendente,estado_quota.eq.expirado');
 
 
         // 3. Bookings: Pending Payment

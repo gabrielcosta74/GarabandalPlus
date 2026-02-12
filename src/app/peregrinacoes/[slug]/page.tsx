@@ -41,8 +41,6 @@ const SpiritMap = dynamic(() => import('../../../components/pilgrimage/SpiritMap
 });
 import UniversalStickyBar from '../../../components/pilgrimage/UniversalStickyBar';
 import ExitIntentPopup from '../../../components/pilgrimage/ExitIntentPopup';
-import { BrochureDownloadModal } from '../../../components/pilgrimage/BrochureDownloadModal';
-import FixedWhatsAppFab from '../../../components/pilgrimage/FixedWhatsAppFab';
 import { SpecificWaitlistForm } from '../../../components/pilgrimage/SpecificWaitlistForm';
 import { useCurrency } from '../../../components/providers/CurrencyProvider';
 
@@ -96,6 +94,7 @@ type GlobalLogistics = {
     accommodation_description: string;
     accommodation_image: string;
     included_items: string[];
+    not_included_items?: string[];
 };
 
 type Stage = {
@@ -245,6 +244,14 @@ export default function PilgrimageDetailPage() {
     const confirmedPax = (pilgrimage as any).confirmed_pax || 0;
     const remainingSpots = Math.max(0, pilgrimage.total_vacancies - confirmedPax);
     const isWaitlist = pilgrimage.status === 'waitlist' || remainingSpots <= 0;
+    const includedItemsToShow =
+        (pilgrimage.included_items?.length || 0) > 0
+            ? (pilgrimage.included_items || [])
+            : (globalLogistics?.included_items || []);
+    const notIncludedItemsToShow =
+        (pilgrimage.not_included_items?.length || 0) > 0
+            ? (pilgrimage.not_included_items || [])
+            : (globalLogistics?.not_included_items || []);
 
     return (
         <VIPLayout allowPublic={true}>
@@ -292,7 +299,7 @@ export default function PilgrimageDetailPage() {
                             </div>
 
                             {/* Inclusions (New Section with Global Fallback) */}
-                            {((pilgrimage.included_items?.length || 0) > 0 || (globalLogistics?.included_items?.length || 0) > 0 || (pilgrimage.not_included_items?.length || 0) > 0) && (
+                            {(includedItemsToShow.length > 0 || notIncludedItemsToShow.length > 0) && (
                                 <div className="space-y-6">
                                     <h2 className="text-2xl font-serif font-bold text-slate-900 flex items-center gap-2">
                                         <CheckCircle2 className="w-6 h-6 text-yellow-600" /> O que está incluído
@@ -317,7 +324,7 @@ export default function PilgrimageDetailPage() {
                                                     </div>
 
                                                     <ul className="space-y-4">
-                                                        {((pilgrimage.included_items?.length || 0) > 0 ? (pilgrimage.included_items || []) : globalLogistics?.included_items || []).map((item, i) => (
+                                                        {includedItemsToShow.map((item, i) => (
                                                             <li key={i} className="flex items-start gap-4 group">
                                                                 <div className="w-6 h-6 rounded-full bg-green-100 flex items-center justify-center text-green-600 shrink-0 mt-0.5 group-hover:bg-green-600 group-hover:text-white transition-colors">
                                                                     <CheckCircle2 className="w-4 h-4" />
@@ -326,7 +333,7 @@ export default function PilgrimageDetailPage() {
                                                             </li>
                                                         ))}
                                                         {/* If both empty (unlikely due to check), show empty msg */}
-                                                        {((pilgrimage.included_items?.length || 0) === 0 && (globalLogistics?.included_items?.length || 0) === 0) && (
+                                                        {includedItemsToShow.length === 0 && (
                                                             <li className="text-slate-400 italic">Detalhes brevemente.</li>
                                                         )}
                                                     </ul>
@@ -345,8 +352,8 @@ export default function PilgrimageDetailPage() {
                                                     </div>
 
                                                     <ul className="space-y-3">
-                                                        {pilgrimage.not_included_items && pilgrimage.not_included_items.length > 0 ? (
-                                                            pilgrimage.not_included_items.map((item, i) => (
+                                                        {notIncludedItemsToShow.length > 0 ? (
+                                                            notIncludedItemsToShow.map((item, i) => (
                                                                 <li key={i} className="flex items-start gap-3 text-slate-500 text-sm leading-snug">
                                                                     <X className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
                                                                     <span>{item}</span>
@@ -588,7 +595,6 @@ export default function PilgrimageDetailPage() {
                     </div>
                 </div>
             </div>
-            <FixedWhatsAppFab pilgrimageId={pilgrimage.id} />
             <ExitIntentPopup pilgrimageId={pilgrimage.id} />
         </VIPLayout >
     );

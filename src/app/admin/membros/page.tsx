@@ -6,6 +6,7 @@ import AdminLayout from '../../../components/admin/AdminLayout';
 import AdminStatCard from '../../../components/admin/AdminStatCard';
 import AdminTable from '../../../components/admin/AdminTable';
 import { supabaseBrowser } from '../../../lib/supabase-browser';
+import { isPaidStatus, normalizeQuotaStatus } from '../../../lib/membership-status';
 import {
   Users,
   UserCheck,
@@ -46,10 +47,10 @@ const formatDate = (value?: string | null) =>
   value ? new Date(value).toLocaleDateString('pt-PT') : '—';
 
 const getStatusLabel = (member: MemberRow) => {
-  const estado = (member.estado_quota || '').toLowerCase();
+  const estado = normalizeQuotaStatus(member.estado_quota);
   if (!member.is_membro) return 'Nao membro';
-  if (estado === 'pago' || estado === 'paid') return 'Ativo';
-  if (estado.includes('atras')) return 'Em atraso';
+  if (estado === 'pago') return 'Ativo';
+  if (estado === 'expirado') return 'Em atraso';
   if (estado === 'pendente') return 'Pendente';
   return estado ? estado : 'Indefinido';
 };
@@ -178,10 +179,11 @@ export default function AdminMembrosPage() {
 
   const filteredMembers = useMemo(() => {
     return members.filter(member => {
+      const normalized = normalizeQuotaStatus(member.estado_quota);
       const statusMatch = statusFilter === 'all' ||
-        (statusFilter === 'active' && (member.estado_quota === 'pago' || member.estado_quota === 'paid')) ||
-        (statusFilter === 'overdue' && member.estado_quota?.includes('atras')) ||
-        (statusFilter === 'pending' && member.estado_quota === 'pendente') ||
+        (statusFilter === 'active' && isPaidStatus(member.estado_quota)) ||
+        (statusFilter === 'overdue' && normalized === 'expirado') ||
+        (statusFilter === 'pending' && normalized === 'pendente') ||
         (statusFilter === 'inactive' && !member.is_membro);
 
       const typeMatch = typeFilter === 'all' || member.tipo_subscricao?.toLowerCase().includes(typeFilter);

@@ -129,6 +129,7 @@ export default function AccountProfilePage() {
           await refreshMemberData();
           setShowProfile(false);
         }}
+        onAvatarUpdated={refreshMemberData}
       />
 
       <HeroSection />

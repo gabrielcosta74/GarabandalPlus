@@ -3,12 +3,16 @@ import HomePageClient from '../components/home/HomePageClient';
 import { Metadata } from 'next';
 import { getPilgrimagesAction } from './peregrinacoes/actions';
 import { getFeaturedProducts } from './loja-online/actions';
+import { APP_URL } from '../lib/config';
 
-export const dynamic = 'force-dynamic';
+export const revalidate = 300;
 
 export const metadata: Metadata = {
-  title: 'Início',
-  description: 'Bem-vindo ao Santuário Virtual de Garabandal. Envie as suas intenções, faça parte da comunidade e apoie a nossa missão de evangelização.',
+  title: 'Apostolado de Garabandal',
+  description: 'Santuário virtual do Apostolado de Garabandal. Peregrinações católicas, doações para a missão e vida de oração.',
+  alternates: {
+    canonical: `${APP_URL}/`,
+  },
 };
 
 export default async function Page() {

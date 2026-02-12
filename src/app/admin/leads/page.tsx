@@ -66,6 +66,7 @@ export default function AdminLeadsPage() {
     // Filters
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState<'all' | 'draft' | 'notified' | 'recovered'>('all');
+    const [accessToken, setAccessToken] = useState<string | null>(null);
 
     const fetchLeads = async () => {
         if (!supabaseBrowser) return;
@@ -90,6 +91,15 @@ export default function AdminLeadsPage() {
         fetchLeads();
     }, []);
 
+    useEffect(() => {
+        const loadToken = async () => {
+            if (!supabaseBrowser) return;
+            const { data } = await supabaseBrowser.auth.getSession();
+            setAccessToken(data.session?.access_token || null);
+        };
+        loadToken();
+    }, []);
+
     const handleManualRecovery = async (lead: Lead) => {
         if (!confirm(`Enviar notificação manual para ${lead.email}?`)) return;
         setSending(lead.id);
@@ -97,7 +107,10 @@ export default function AdminLeadsPage() {
         try {
             const res = await fetch('/api/leads/notify', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+                },
                 body: JSON.stringify({ leadId: lead.id })
             });
 

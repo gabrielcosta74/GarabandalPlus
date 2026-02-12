@@ -27,6 +27,7 @@ type GlobalLogistics = {
     accommodation_description: string;
     accommodation_image: string;
     included_items: string[];
+    not_included_items: string[];
 };
 
 type Testimonial = {
@@ -51,7 +52,8 @@ export default function GlobalContentPage() {
         accommodation_rating: '',
         accommodation_description: '',
         accommodation_image: '',
-        included_items: []
+        included_items: [],
+        not_included_items: []
     });
 
     // Testimonials State
@@ -324,6 +326,49 @@ export default function GlobalContentPage() {
                                     ))}
                                     <button
                                         onClick={() => setLogistics({ ...logistics, included_items: [...(logistics.included_items || []), ''] })}
+                                        className="mt-4 text-sm font-bold text-white bg-slate-900 hover:bg-slate-800 px-4 py-2 rounded-lg flex items-center gap-2 w-fit transition-all"
+                                    >
+                                        <Plus className="w-4 h-4" /> Adicionar Item
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Exclusions Card */}
+                            <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200">
+                                <h3 className="text-lg font-bold text-slate-900 mb-6 flex items-center gap-2">
+                                    <List className="w-5 h-5 text-red-500" />
+                                    O que NÃO está incluído? (Lista Padrão)
+                                </h3>
+                                <div className="space-y-3">
+                                    {logistics.not_included_items?.map((item, idx) => (
+                                        <div key={idx} className="flex gap-2">
+                                            <span className="w-8 h-8 flex items-center justify-center bg-slate-100 rounded-full text-xs font-bold text-slate-500 flex-shrink-0">
+                                                {idx + 1}
+                                            </span>
+                                            <input
+                                                type="text"
+                                                className="flex-1 p-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-900 outline-none"
+                                                value={item}
+                                                onChange={(e) => {
+                                                    const newItems = [...(logistics.not_included_items || [])];
+                                                    newItems[idx] = e.target.value;
+                                                    setLogistics({ ...logistics, not_included_items: newItems });
+                                                }}
+                                            />
+                                            <button
+                                                onClick={() => {
+                                                    const newItems = [...(logistics.not_included_items || [])];
+                                                    newItems.splice(idx, 1);
+                                                    setLogistics({ ...logistics, not_included_items: newItems });
+                                                }}
+                                                className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                            >
+                                                <Trash2 className="w-4 h-4" />
+                                            </button>
+                                        </div>
+                                    ))}
+                                    <button
+                                        onClick={() => setLogistics({ ...logistics, not_included_items: [...(logistics.not_included_items || []), ''] })}
                                         className="mt-4 text-sm font-bold text-white bg-slate-900 hover:bg-slate-800 px-4 py-2 rounded-lg flex items-center gap-2 w-fit transition-all"
                                     >
                                         <Plus className="w-4 h-4" /> Adicionar Item

@@ -6,6 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { formatCurrency, loadCart } from '../../app/loja-online/data';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../contexts/AuthContext';
+import { isActiveMember } from '../../lib/store-discounts';
 import {
   ShoppingBag,
   Menu,
@@ -13,13 +14,16 @@ import {
   User,
   ChevronDown,
   Package,
-  CreditCard,
-  LayoutDashboard,
   LogOut,
   Heart,
   Store,
   Home,
-  MapPin
+  MapPin,
+  ShieldCheck,
+  BookOpen,
+  CreditCard,
+  LayoutDashboard,
+  Settings
 } from 'lucide-react';
 import MobileBottomNav from './MobileBottomNav';
 
@@ -30,6 +34,7 @@ type CartPreviewItem = {
   price: number;
   currency: string;
   image: string;
+  variantName?: string;
 };
 
 /* -------------------------------------------------------------------------- */
@@ -42,7 +47,7 @@ export default function SiteHeader() {
 
   // -- State --
   const { user, isMember, memberData, loading, signOut } = useAuth();
-  const [mobileOpen, setMobileOpen] = useState(false);
+  const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [cartCount, setCartCount] = useState(0);
   const [cartPreview, setCartPreview] = useState<CartPreviewItem[]>([]);
   const [cartPreviewVisible, setCartPreviewVisible] = useState(false);
@@ -74,7 +79,7 @@ export default function SiteHeader() {
     const ensureProducts = async () => {
       if (productsCache.current.length > 0) return;
       try {
-        const res = await fetch('/api/store/products');
+        const res = await fetch('/api/store/products?includeVariants=0');
         if (res.ok) {
           const data = await res.json();
           productsCache.current = (data.products || []).map((p: any) => ({
@@ -97,7 +102,7 @@ export default function SiteHeader() {
       const preview = items.map(item => {
         const found = productsCache.current.find(p => p.id === item.id);
         if (!found) return null;
-        return { ...found, qty: item.qty };
+        return { ...found, qty: item.qty, variantName: item.variantName };
       }).filter(Boolean) as CartPreviewItem[];
       setCartPreview(preview.slice(0, 3));
     };
@@ -132,7 +137,7 @@ export default function SiteHeader() {
   // Logout Handler
   const handleLogout = async () => {
     await signOut();
-    setMobileOpen(false);
+    setIsMobileOpen(false);
     setUserMenuOpen(false);
     router.replace('/');
     router.refresh();
@@ -140,13 +145,13 @@ export default function SiteHeader() {
 
   // 3. Scroll Lock for Mobile Menu
   useEffect(() => {
-    if (mobileOpen) {
+    if (isMobileOpen) {
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = '';
     }
     return () => { document.body.style.overflow = ''; };
-  }, [mobileOpen]);
+  }, [isMobileOpen]);
 
   /* ------------------------------- Renderers -------------------------------- */
 
@@ -279,6 +284,7 @@ export default function SiteHeader() {
                           <img src={item.image} alt="" className="w-12 h-12 object-cover rounded-lg border border-slate-200/50" />
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-semibold text-slate-900 truncate">{item.name}</p>
+                            {item.variantName && <p className="text-xs font-bold text-slate-600">{item.variantName}</p>}
                             <p className="text-xs text-slate-500">{item.qty}x {formatCurrency(item.price)}</p>
                           </div>
                         </div>
@@ -302,15 +308,30 @@ export default function SiteHeader() {
                     <div className="relative">
                       <button
                         onClick={() => setUserMenuOpen(!userMenuOpen)}
-                        className="flex items-center gap-2 pl-1 pr-3 py-1 bg-white border border-slate-200 rounded-full hover:border-slate-300 transition-colors"
+                        className="flex items-center gap-3 pl-1 pr-4 py-1.5 bg-white border border-slate-200 rounded-full hover:border-slate-300 hover:shadow-md transition-all cursor-pointer group"
                       >
-                        <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-700 font-bold text-xs">
-                          {user.email?.[0].toUpperCase()}
+                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-slate-800 to-slate-900 text-yellow-500 flex items-center justify-center font-serif font-bold text-lg border-2 border-white shadow-sm ring-2 ring-slate-100 group-hover:ring-yellow-500/30 transition-all">
+                          {memberData?.avatar_url ? (
+                            <img src={memberData.avatar_url} alt="Profile" className="w-full h-full object-cover rounded-full" />
+                          ) : (
+                            user.email?.[0].toUpperCase()
+                          )}
+
                         </div>
-                        <span className="text-sm font-semibold text-slate-700 max-w-[100px] truncate">
-                          {user.email?.split('@')[0]}
-                        </span>
-                        <ChevronDown className="w-4 h-4 text-slate-400" />
+                        <div className="flex flex-col items-start">
+                          <span className="text-xs font-bold text-slate-900 leading-none">
+                            Minha Conta
+                          </span>
+                          <span className="text-[10px] font-medium text-slate-500 max-w-[100px] truncate leading-tight">
+                            {user.email?.split('@')[0]}
+                          </span>
+                        </div>
+                        <motion.div
+                          animate={{ rotate: userMenuOpen ? 180 : 0 }}
+                          transition={{ duration: 0.2 }}
+                        >
+                          <ChevronDown className="w-4 h-4 text-slate-400 group-hover:text-slate-600" />
+                        </motion.div>
                       </button>
 
                       <AnimatePresence>
@@ -318,51 +339,140 @@ export default function SiteHeader() {
                           <>
                             <div className="fixed inset-0 z-40" onClick={() => setUserMenuOpen(false)} />
                             <motion.div
-                              initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                              animate={{ opacity: 1, y: 0, scale: 1 }}
+                              initial={{ opacity: 0, y: 15, scale: 0.95, rotateX: -5 }}
+                              animate={{ opacity: 1, y: 0, scale: 1, rotateX: 0 }}
                               exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                              className="absolute top-full right-0 mt-2 w-64 bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden z-50"
+                              transition={{ type: "spring", stiffness: 300, damping: 20 }}
+                              className="absolute top-full right-0 mt-3 w-80 bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/20 ring-1 ring-black/5 overflow-hidden z-50 origin-top-right"
                             >
-                              <div className="p-4 bg-slate-50 border-b border-slate-100">
-                                <p className="font-bold text-slate-900 truncate">{user.email}</p>
-                                <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${isMember ? 'bg-yellow-100 text-yellow-800' : 'bg-slate-200 text-slate-600'}`}>
-                                  {isMember ? 'Membro Ativo' : 'Visitante'}
-                                </span>
+                              {/* Header */}
+                              <div className="p-6 bg-gradient-to-br from-slate-900 to-slate-800 text-white relative overflow-hidden">
+                                <div className="absolute top-0 right-0 p-4 opacity-10">
+                                  <div className="w-32 h-32 rounded-full bg-yellow-500 blur-3xl" />
+                                </div>
+                                <div className="relative z-10 flex items-center gap-4">
+                                  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-yellow-500 to-yellow-600 flex items-center justify-center text-slate-900 font-serif font-bold text-2xl shadow-lg border-4 border-white/10">
+                                    {memberData?.avatar_url ? (
+                                      <img src={memberData.avatar_url} alt="Profile" className="w-full h-full object-cover rounded-full" />
+                                    ) : (
+                                      user.email?.[0].toUpperCase()
+                                    )}
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="font-bold text-lg leading-tight truncate">{user.email?.split('@')[0]}</p>
+                                    <p className="text-xs text-slate-400 truncate mb-2">{user.email}</p>
+                                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${isMember ? 'bg-yellow-500 text-slate-900' : 'bg-slate-700 text-slate-300'}`}>
+                                      {isMember ? (
+                                        <><span className="w-1.5 h-1.5 rounded-full bg-slate-900 animate-pulse" /> Membro Ativo</>
+                                      ) : (
+                                        'Visitante'
+                                      )}
+                                    </span>
+                                  </div>
+                                </div>
                               </div>
-                              <div className="p-2 space-y-1">
-                                <Link href="/peregrinacoes/minhas-inscricoes" className="flex items-center gap-3 px-3 py-2 text-sm font-bold text-yellow-800 bg-yellow-50 hover:bg-yellow-100 rounded-lg transition-colors mb-2">
-                                  <Package className="w-4 h-4" /> Minhas Inscrições
-                                </Link>
 
-                                <Link href="/account/profile" className="flex items-center gap-3 px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900 rounded-lg transition-colors">
-                                  <User className="w-4 h-4" /> Perfil
-                                </Link>
-                                <Link href="/encomendas" className="flex items-center gap-3 px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900 rounded-lg transition-colors">
-                                  <ShoppingBag className="w-4 h-4" /> Minhas Compras (Loja)
-                                </Link>
-                                {isMember && (
-                                  <Link href="/member" className="flex items-center gap-3 px-3 py-2 text-sm font-medium text-yellow-600 bg-yellow-50/50 hover:bg-yellow-50 rounded-lg transition-colors">
-                                    <LayoutDashboard className="w-4 h-4" /> Área de Membro
+                              {/* Menu Items */}
+                              <div className="p-2">
+                                <div className="px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                                  A Minha Atividade
+                                </div>
+                                <div className="space-y-1">
+                                  <Link href="/peregrinacoes/minhas-inscricoes" onClick={() => setUserMenuOpen(false)} className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition-all group">
+                                    <div className="w-8 h-8 rounded-lg bg-yellow-50 text-yellow-600 flex items-center justify-center group-hover:bg-yellow-100 transition-colors">
+                                      <Package className="w-4 h-4" />
+                                    </div>
+                                    <div>
+                                      <p className="leading-none">Minhas Inscrições</p>
+                                      <p className="text-[10px] text-slate-400 mt-0.5">Gerir peregrinações</p>
+                                    </div>
                                   </Link>
-                                )}
+                                  <Link href="/encomendas" onClick={() => setUserMenuOpen(false)} className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition-all group">
+                                    <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:bg-indigo-100 transition-colors">
+                                      <ShoppingBag className="w-4 h-4" />
+                                    </div>
+                                    <div>
+                                      <p className="leading-none">Minhas Compras</p>
+                                      <p className="text-[10px] text-slate-400 mt-0.5">Histórico da loja</p>
+                                    </div>
+                                  </Link>
+                                </div>
 
-                                {/* ADMIN LINK */}
-                                {(user.email?.toLowerCase() === 'geral@apostoladodegarabandal.com' || user.email === 'Gabrielcosta2908@gmail.com') && (
-                                  <Link href="/admin" className="flex items-center gap-3 px-3 py-2 text-sm font-bold text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors mt-1">
-                                    <LayoutDashboard className="w-4 h-4" /> Painel Admin
+                                <div className="mt-2 px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-400 border-t border-slate-100">
+                                  Gestão de Conta
+                                </div>
+                                <div className="space-y-1">
+                                  {/* QUOTA MANAGEMENT */}
+                                  {(isMember || !!memberData?.numero_socio) && (() => {
+                                    const active = isActiveMember(memberData);
+                                    const isOverdue = !active && !!memberData?.numero_socio;
+
+                                    return (
+                                      <Link href="/member/quota" onClick={() => setUserMenuOpen(false)} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all group ${isOverdue ? 'bg-red-50 text-red-700 hover:bg-red-100' : 'text-slate-700 hover:bg-slate-50 hover:text-slate-900'}`}>
+                                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${isOverdue ? 'bg-white text-red-600' : 'bg-green-50 text-green-600 group-hover:bg-green-100'}`}>
+                                          <ShieldCheck className="w-4 h-4" />
+                                        </div>
+                                        <div className="flex-1">
+                                          <div className="flex items-center justify-between">
+                                            <p className="leading-none font-bold">Gerir Quota</p>
+                                            {isOverdue && <span className="text-[10px] bg-red-200 text-red-800 px-1.5 py-0.5 rounded-full font-bold uppercase tracking-wide animate-pulse">Atraso</span>}
+                                          </div>
+                                          <p className={`text-[10px] mt-0.5 ${isOverdue ? 'text-red-500 font-semibold' : 'text-slate-400'}`}>
+                                            {isOverdue ? 'Regularizar situação' : 'Verificar estado'}
+                                          </p>
+                                        </div>
+                                      </Link>
+                                    );
+                                  })()}
+
+                                  {isMember && (
+                                    <Link href="/member" onClick={() => setUserMenuOpen(false)} className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition-all group">
+                                      <div className="w-8 h-8 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center group-hover:bg-purple-100 transition-colors">
+                                        <LayoutDashboard className="w-4 h-4" />
+                                      </div>
+                                      <div>
+                                        <p className="leading-none">Área de Membro</p>
+                                        <p className="text-[10px] text-slate-400 mt-0.5">Conteúdos exclusivos</p>
+                                      </div>
+                                    </Link>
+                                  )}
+                                  <Link href="/account/profile" onClick={() => setUserMenuOpen(false)} className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition-all group">
+                                    <div className="w-8 h-8 rounded-lg bg-slate-100 text-slate-500 flex items-center justify-center group-hover:bg-slate-200 transition-colors">
+                                      <User className="w-4 h-4" />
+                                    </div>
+                                    <div>
+                                      <p className="leading-none">Meu Perfil</p>
+                                      <p className="text-[10px] text-slate-400 mt-0.5">Dados pessoais</p>
+                                    </div>
                                   </Link>
-                                )}
-                                <div className="h-px bg-slate-100 my-1" />
-                                <button
-                                  onClick={(e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    handleLogout();
-                                  }}
-                                  className="w-full flex items-center gap-3 px-3 py-2 text-sm font-bold text-red-600 hover:bg-red-50 rounded-lg transition-colors text-left cursor-pointer group"
-                                >
-                                  <LogOut className="w-4 h-4 group-hover:scale-110 transition-transform" /> Sair da conta
-                                </button>
+
+                                  {/* ADMIN LINK */}
+                                  {(user.email?.toLowerCase() === 'geral@apostoladodegarabandal.com' || user.email === 'Gabrielcosta2908@gmail.com') && (
+                                    <Link href="/admin" className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-red-600 bg-red-50 hover:bg-red-100 transition-all group mt-1">
+                                      <div className="w-8 h-8 rounded-lg bg-white/50 text-red-600 flex items-center justify-center">
+                                        <LayoutDashboard className="w-4 h-4" />
+                                      </div>
+                                      <div>
+                                        <p className="leading-none font-bold">Painel de Administrador</p>
+                                        <p className="text-[10px] text-red-400 mt-0.5">Acesso restrito</p>
+                                      </div>
+                                    </Link>
+                                  )}
+                                </div>
+
+                                <div className="p-2 mt-1 border-t border-slate-100">
+                                  <button
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      handleLogout();
+                                    }}
+                                    className="w-full flex items-center justify-center gap-2 px-3 py-2.5 text-sm font-bold text-red-600 bg-red-50 hover:bg-red-100 rounded-xl transition-colors"
+                                  >
+                                    <LogOut className="w-4 h-4" />
+                                    Terminar Sessão
+                                  </button>
+                                </div>
                               </div>
                             </motion.div>
                           </>
@@ -389,7 +499,7 @@ export default function SiteHeader() {
 
             {/* Mobile Menu Toggle */}
             <button
-              onClick={() => setMobileOpen(true)}
+              onClick={() => setIsMobileOpen(true)}
               className="lg:hidden p-2 rounded-xl text-slate-700 hover:bg-slate-100 transition-colors focus:outline-none"
               aria-label="Abrir Menu"
             >
@@ -405,14 +515,14 @@ export default function SiteHeader() {
         - Slide-in from right
       */}
       <AnimatePresence>
-        {mobileOpen && (
+        {isMobileOpen && (
           <>
             {/* Backdrop */}
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              onClick={() => setMobileOpen(false)}
+              onClick={() => setIsMobileOpen(false)}
               className="fixed inset-0 z-[150] bg-slate-900/60 backdrop-blur-sm lg:hidden"
             />
 
@@ -428,7 +538,7 @@ export default function SiteHeader() {
               <div className="h-20 flex items-center justify-between px-6 border-b border-slate-100 bg-white sticky top-0 z-10">
                 <span className="font-serif text-xl font-bold text-slate-900">Menu</span>
                 <button
-                  onClick={() => setMobileOpen(false)}
+                  onClick={() => setIsMobileOpen(false)}
                   className="p-2 -mr-2 text-slate-400 hover:text-slate-900 hover:bg-slate-100 rounded-full transition-colors"
                 >
                   <X className="w-6 h-6" />
@@ -437,90 +547,96 @@ export default function SiteHeader() {
 
               {/* Drawer Content */}
               <div className="flex-1 overflow-y-auto px-6 py-6 scrollbar-hide">
-                {/* Public Links */}
-                <div className="space-y-1 mb-8">
-                  <NavLink href="/" icon={Home} label="Início" onClick={() => setMobileOpen(false)} />
-                  <NavLink href="/peregrinacoes" icon={MapPin} label="Peregrinações" onClick={() => setMobileOpen(false)} />
-                  <NavLink href="/donations" icon={Heart} label="Doações" onClick={() => setMobileOpen(false)} />
-                  <NavLink href="/loja-online" icon={Store} label="Loja" onClick={() => setMobileOpen(false)} />
-                </div>
 
+                {/* 1. User Context Section (Top Importance) */}
                 {user && (
-                  <div className="space-y-1 mb-6 bg-yellow-50/50 p-2 rounded-xl border border-yellow-100">
-                    <p className="text-xs font-bold text-yellow-800 uppercase tracking-widest px-4 mb-2">A Minha Área</p>
-                    <NavLink href="/peregrinacoes/minhas-inscricoes" icon={Package} label="Minhas Inscrições" onClick={() => setMobileOpen(false)} />
-                    <NavLink href="/encomendas" icon={ShoppingBag} label="Compras da Loja" onClick={() => setMobileOpen(false)} />
+                  <div className="mb-8">
+                    <div className="flex items-center gap-3 mb-6 bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                      <div className="w-12 h-12 rounded-full bg-slate-200 flex items-center justify-center text-slate-700 font-bold overflow-hidden border-2 border-white shadow-sm">
+                        {memberData?.avatar_url ? (
+                          <img src={memberData.avatar_url} alt="Profile" className="w-full h-full object-cover" />
+                        ) : (
+                          user.email?.[0].toUpperCase()
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-bold text-slate-900 truncate">{memberData?.nome || user.email?.split('@')[0]}</p>
+                        <p className="text-xs text-slate-500 truncate">{user.email}</p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-1">
+                      <p className="text-xs font-bold text-yellow-800 uppercase tracking-widest px-2 mb-2 flex items-center gap-2">
+                        <User className="w-3 h-3" /> A Minha Conta
+                      </p>
+                      <NavLink href="/account/profile" icon={User} label="Meu Perfil" onClick={() => setIsMobileOpen(false)} />
+                      <NavLink href="/peregrinacoes/minhas-inscricoes" icon={Package} label="Minhas Inscrições" onClick={() => setIsMobileOpen(false)} />
+                      <NavLink href="/encomendas" icon={ShoppingBag} label="Minhas Compras" onClick={() => setIsMobileOpen(false)} />
+                      {(hasMembership || !!memberData?.numero_socio) && (
+                        <NavLink href="/member/quota" icon={ShieldCheck} label="Gerir Quota" onClick={() => setIsMobileOpen(false)} />
+                      )}
+                      {hasMembership ? (
+                        <NavLink href="/member" icon={LayoutDashboard} label="Área de Membro" onClick={() => setIsMobileOpen(false)} />
+                      ) : (
+                        <NavLink href="/tornar-membro" icon={CreditCard} label="Tornar-se Membro" onClick={() => setIsMobileOpen(false)} />
+                      )}
+                    </div>
                   </div>
                 )}
 
-                {/* Member Area */}
+                {/* 2. Main Navigation (Public) */}
                 <div className="space-y-1 mb-8">
-                  <p className="text-xs font-bold text-slate-400 uppercase tracking-widest px-4 mb-3">Membros & Orações</p>
-                  {hasMembership ? (
-                    <>
-                      <NavLink href="/member" icon={LayoutDashboard} label="Painel de Membro" onClick={() => setMobileOpen(false)} />
-                      <NavLink href="/member/prayers" icon={CreditCard} label="Orações e Novenas" onClick={() => setMobileOpen(false)} />
-                    </>
-                  ) : (
-                    <Link
-                      href="/tornar-membro"
-                      onClick={() => setMobileOpen(false)}
-                      className="flex items-center gap-3 px-4 py-3 rounded-xl bg-yellow-50 text-yellow-700 font-bold hover:bg-yellow-100 transition-colors"
-                    >
-                      <CreditCard className="w-5 h-5" />
-                      Tornar-se Membro
-                    </Link>
-                  )}
+                  <p className="text-xs font-bold text-slate-400 uppercase tracking-widest px-2 mb-2 flex items-center gap-2">
+                    <Store className="w-3 h-3" /> Navegação
+                  </p>
+                  <NavLink href="/" icon={Home} label="Início" onClick={() => setIsMobileOpen(false)} />
+                  <NavLink href="/peregrinacoes" icon={MapPin} label="Peregrinações" onClick={() => setIsMobileOpen(false)} />
+                  <NavLink href="/donations" icon={Heart} label="Doações" onClick={() => setIsMobileOpen(false)} />
+                  <NavLink href="/loja-online" icon={Store} label="Loja Online" onClick={() => setIsMobileOpen(false)} />
                 </div>
 
-                {/* User Section */}
-                <div className="pt-6 border-t border-slate-100">
-                  {user ? (
-                    <div className="bg-slate-50 rounded-2xl p-4">
-                      <div className="flex items-center gap-3 mb-4">
-                        <div className="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center text-slate-700 font-bold">
-                          {user.email?.[0].toUpperCase()}
-                        </div>
-                        <div className="flex-1 overflow-hidden">
-                          <p className="font-bold text-slate-900 truncate">{user.email}</p>
-                          <p className="text-xs text-slate-500">{isMember ? 'Membro' : 'Visitante'}</p>
-                        </div>
-                      </div>
-                      <div className="space-y-2">
-                        <Link href="/account/profile" onClick={() => setMobileOpen(false)} className="flex items-center gap-3 px-3 py-2 text-sm font-medium text-slate-600 bg-white border border-slate-200 rounded-lg">
-                          <User className="w-4 h-4" /> Meu Perfil
-                        </Link>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleLogout();
-                          }}
-                          className="w-full flex items-center gap-3 px-3 py-2 text-sm font-bold text-red-600 bg-red-50 border border-red-100 rounded-lg hover:bg-red-100 transition-colors"
-                        >
-                          <LogOut className="w-4 h-4" /> Terminar Sessão
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-2 gap-3">
-                      <Link
-                        href="/login"
-                        onClick={() => setMobileOpen(false)}
-                        className="flex justify-center py-3 rounded-xl border border-slate-200 font-bold text-slate-700 hover:bg-slate-50"
-                      >
-                        Entrar
-                      </Link>
-                      <Link
-                        href="/register"
-                        onClick={() => setMobileOpen(false)}
-                        className="flex justify-center py-3 rounded-xl font-bold text-white shadow-sm"
-                        style={{ backgroundColor: '#ca8a04' }}
-                      >
-                        Criar Conta
-                      </Link>
-                    </div>
-                  )}
-                </div>
+                {/* 3. Member Specifics (If Active) */}
+                {hasMembership && (
+                  <div className="space-y-1 mb-8">
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest px-2 mb-2 flex items-center gap-2">
+                      <ShieldCheck className="w-3 h-3" /> Conteúdos
+                    </p>
+                    <NavLink href="/member/prayers" icon={Heart} label="Orações e Novenas" onClick={() => setIsMobileOpen(false)} />
+                    <NavLink href="/biblioteca" icon={BookOpen} label="Biblioteca" onClick={() => setIsMobileOpen(false)} />
+                  </div>
+                )}
+
+                {/* 4. Action / Logout */}
+                {!user ? (
+                  <div className="mt-4 pt-6 border-t border-slate-100 grid grid-cols-2 gap-3">
+                    <Link
+                      href="/login"
+                      onClick={() => setIsMobileOpen(false)}
+                      className="flex justify-center py-3 rounded-xl border border-slate-200 font-bold text-slate-700 hover:bg-slate-50"
+                    >
+                      Entrar
+                    </Link>
+                    <Link
+                      href="/register"
+                      onClick={() => setIsMobileOpen(false)}
+                      className="flex justify-center py-3 rounded-xl font-bold text-white shadow-sm bg-yellow-600"
+                    >
+                      Criar Conta
+                    </Link>
+                  </div>
+                ) : (
+                  <div className="mt-4 pt-6 border-t border-slate-100">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleLogout();
+                      }}
+                      className="w-full flex items-center gap-3 px-4 py-3 text-sm font-bold text-red-600 bg-red-50 border border-red-100 rounded-xl hover:bg-red-100 transition-colors"
+                    >
+                      <LogOut className="w-5 h-5" /> Terminar Sessão
+                    </button>
+                  </div>
+                )}
 
               </div>
             </motion.div>
@@ -530,7 +646,7 @@ export default function SiteHeader() {
 
       {/* Mobile Bottom Navigation */}
       <MobileBottomNav
-        onOpenMenu={() => setMobileOpen(true)}
+        onOpenMenu={() => setIsMobileOpen(true)}
         hasMembership={hasMembership}
       />
     </>

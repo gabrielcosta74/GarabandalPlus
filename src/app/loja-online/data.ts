@@ -12,11 +12,21 @@ export type Product = {
   digitalUrl?: string | null;
   stock?: number | null;
   allowedCountries?: string[] | null;
+  taxRate?: number;
+  specifications?: any;
+  variants?: any[];
+  categoryId?: string | null;
+  is_physical?: boolean;
+  type?: 'fisico' | 'digital';
+  type_id?: string;
+  metadata?: Record<string, any>;
 };
 
 export type CartItem = {
   id: string;
   qty: number;
+  variantId?: string;
+  variantName?: string;
 };
 
 export const loadCart = () => {

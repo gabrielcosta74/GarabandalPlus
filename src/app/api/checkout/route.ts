@@ -1,16 +1,19 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
+
+export const runtime = 'nodejs';
+
 import { createCheckoutSession } from '../../../lib/payments';
 import { validatePostalCode } from '../../../lib/country-utils';
 import { getAppUrl } from '../../../lib/config';
-import { initReduniqPayment } from '../../../lib/reduniq';
 
 const bodySchema = z.object({
   amount: z.number().positive(), // Validated but overridden for membership
   type: z.enum(['donation', 'membership']),
   userId: z.string().optional(),
   provider: z.enum(['stripe', 'reduniq']).default('stripe'),
-  reduniqSolution: z.number().optional(),
+  reduniqSolution: z.number().int().optional(),
+  reduniqAction: z.union([z.literal(100), z.literal(101)]).optional(),
   // Donation fields
   donorName: z.string().trim().min(1).optional(),
   donorEmail: z.string().trim().min(3).optional(),
@@ -28,6 +31,9 @@ export async function POST(request: Request) {
     const json = await request.json();
     const data = bodySchema.parse(json);
     const { type, userId, provider, donorName, donorEmail } = data;
+    const orderRef = provider === 'reduniq'
+      ? `reduniq_${Date.now()}_${Math.random().toString(36).substring(7)}`
+      : undefined;
 
     // 1. Enforce Rules
     if (type === 'membership') {
@@ -45,37 +51,16 @@ export async function POST(request: Request) {
       // ... (Keep existing postal code validation if desired, omitting for brevity/focus on Stripe)
     }
 
-    // 2. Handle Reduniq
-    if (provider === 'reduniq') {
-      const reduniqResult = await initReduniqPayment({
-        amount: data.amount,
-        type: type,
-        userId: userId,
-        solution: data.reduniqSolution,
-        metadata: {
-          donorName: donorName || '',
-          donorEmail: donorEmail || '',
-          donorAddress: data.donorAddress || '',
-          donorCity: data.donorCity || '',
-          donorZip: data.donorZip || '',
-          donorCountry: data.donorCountry || '',
-          donorNif: data.donorNif || '',
-          donorMessage: data.donorMessage || '',
-        },
-      });
-
-      return NextResponse.json({
-        url: reduniqResult.redirectUrl,
-        token: reduniqResult.token
-      });
-    }
-
-    // 3. Create Stripe Session
-    // createCheckoutSession handles URLs internally based on type
+    // 2. Create Session (Stripe or Reduniq)
+    // createCheckoutSession handles URLs internally based on type and provider
     const checkoutUrl = await createCheckoutSession({
       amount: data.amount,
       type: type,
       userId: userId,
+      provider: provider, // Passed through
+      orderRef,
+      reduniqSolution: data.reduniqSolution,
+      reduniqAction: data.reduniqAction,
       donorName: data.donorName,
       donorEmail: data.donorEmail,
       donorAddress: data.donorAddress || undefined,
@@ -87,10 +72,10 @@ export async function POST(request: Request) {
     });
 
     if (!checkoutUrl) {
-      throw new Error('Falha ao obter URL do Stripe.');
+      throw new Error('Falha ao obter URL de pagamento.');
     }
 
-    return NextResponse.json({ url: checkoutUrl });
+    return NextResponse.json({ url: checkoutUrl, ...(orderRef ? { orderRef } : {}) });
 
   } catch (err: any) {
     console.error('Erro em /api/checkout:', err);

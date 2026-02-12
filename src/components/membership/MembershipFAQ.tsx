@@ -6,8 +6,8 @@ import { Plus, Minus } from "lucide-react";
 
 const faqs = [
     {
-        question: "Posso pagar com MB WAY?",
-        answer: "Sim. No passo de pagamento tens a opção 'Reduniq' que permite pagar via MB WAY, Multibanco e cartões de crédito nacionais."
+        question: "Posso pagar com cartão?",
+        answer: "Sim. O pagamento é feito com cartão através do Stripe (inclui Apple Pay quando disponível)."
     },
     {
         question: "Preciso criar uma conta?",

@@ -12,5 +12,5 @@ BEGIN
     -- Add the new constraint including 'stripe'
     ALTER TABLE pilgrimage_payments 
     ADD CONSTRAINT pilgrimage_payments_method_check 
-    CHECK (method IN ('reduniq', 'wise', 'bank_transfer', 'mbway', 'manual', 'stripe'));
+    CHECK (method IN ('wise', 'bank_transfer', 'mbway', 'manual', 'stripe'));
 END $$;

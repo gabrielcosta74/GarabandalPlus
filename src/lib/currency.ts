@@ -5,17 +5,21 @@ export interface ExchangeRate {
     fetchedAt: string;
 }
 
-const CACHE_KEY = 'garabandal_exchange_rate_eur_brl';
+const CACHE_PREFIX = 'garabandal_exchange_rate_EUR_';
 const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours
 
 /**
- * Fetches the current EUR to BRL exchange rate.
+ * Fetches the current EUR to target exchange rate.
  * Uses a public API (Frankfurter) and handles caching.
  */
-export async function getExchangeRate(): Promise<number> {
+export async function getExchangeRate(targetCurrency: string = 'BRL'): Promise<number> {
+    if (targetCurrency === 'EUR') return 1;
+
+    const cacheKey = `${CACHE_PREFIX}${targetCurrency}`;
+
     // Try to get from local storage if in browser
     if (typeof window !== 'undefined') {
-        const cached = localStorage.getItem(CACHE_KEY);
+        const cached = localStorage.getItem(cacheKey);
         if (cached) {
             const parsed: ExchangeRate = JSON.parse(cached);
             const age = Date.now() - new Date(parsed.fetchedAt).getTime();
@@ -26,12 +30,16 @@ export async function getExchangeRate(): Promise<number> {
     }
 
     try {
-        const response = await fetch('https://api.frankfurter.app/latest?from=EUR&to=BRL');
+        const response = await fetch(`https://api.frankfurter.app/latest?from=EUR&to=${encodeURIComponent(targetCurrency)}`);
         const data = await response.json();
-        const rate = data.rates.BRL;
+        const rate = data?.rates?.[targetCurrency];
+
+        if (typeof rate !== 'number') {
+            throw new Error(`Currency ${targetCurrency} not found`);
+        }
 
         if (typeof window !== 'undefined') {
-            localStorage.setItem(CACHE_KEY, JSON.stringify({
+            localStorage.setItem(cacheKey, JSON.stringify({
                 rate,
                 fetchedAt: new Date().toISOString()
             }));
@@ -40,7 +48,10 @@ export async function getExchangeRate(): Promise<number> {
         return rate;
     } catch (error) {
         console.error('Failed to fetch exchange rate:', error);
-        return 6.15; // Realistic fallback for early 2026 if API fails
+        if (targetCurrency === 'BRL') {
+            return 6.15; // Realistic fallback for early 2026 if API fails
+        }
+        return 1;
     }
 }
 

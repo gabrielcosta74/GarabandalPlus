@@ -65,10 +65,10 @@ create table if not exists pilgrimage_payments (
   booking_id uuid references bookings(id) on delete cascade not null,
   user_id uuid references auth.users(id) not null, -- Who made the payment
   amount decimal(10,2) not null,
-  method text not null check (method in ('reduniq', 'wise', 'bank_transfer', 'mbway', 'manual')),
+  method text not null check (method in ('wise', 'bank_transfer', 'mbway', 'manual')),
   status text not null default 'pending_verification' check (status in ('pending_verification', 'verified', 'failed')),
   proof_url text, -- URL to the uploaded receipt (for manual methods)
-  transaction_id text, -- External ID from Reduniq/Stripe
+  transaction_id text, -- External ID from Stripe
   verified_at timestamp with time zone,
   verified_by uuid references auth.users(id), -- Admin who verified it
   created_at timestamp with time zone default now()

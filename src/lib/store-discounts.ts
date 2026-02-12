@@ -1,3 +1,5 @@
+import { normalizeQuotaStatus } from './membership-status';
+
 export const MEMBER_DISCOUNT_RATE = 0.05;
 
 type MemberRecord = {
@@ -11,12 +13,12 @@ const roundCurrency = (value: number) => Math.round(value * 100) / 100;
 
 export const isActiveMember = (member?: MemberRecord | null) => {
   if (!member) return false;
-  const status = (member.estado_quota || '').toLowerCase();
+  const status = normalizeQuotaStatus(member.estado_quota);
   const tipo = (member.tipo_subscricao || '').toLowerCase();
   const isFounder = tipo.includes('fundador');
   if (isFounder) return true;
   if (!member?.is_membro) return false;
-  const isPaid = status === 'pago' || status === 'paid' || status === 'ativo';
+  const isPaid = status === 'pago';
   if (!isPaid) return false;
 
   if (!member.proxima_quota) return true;

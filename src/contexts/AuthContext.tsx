@@ -67,54 +67,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     useEffect(() => {
         let mounted = true;
 
-        const loadSession = async () => {
-            if (!supabaseBrowser) {
-                setLoading(false);
-                return;
-            }
+        if (!supabaseBrowser) {
+            setLoading(false);
+            return;
+        }
 
-            try {
-                const { data } = await supabaseBrowser.auth.getSession();
-                const currentSession = data.session;
-                const sessionUser = currentSession?.user;
-
-                if (mounted) {
-                    setSessionState(currentSession);
-                    setUser(sessionUser ? { id: sessionUser.id, email: sessionUser.email } : null);
-
-                    if (sessionUser?.id) {
-                        try {
-                            await loadMemberData(sessionUser.id);
-                        } catch (err) {
-                            console.error('Error loading member data:', err);
-                        }
-                    }
-                }
-            } catch (error) {
-                console.error('Error during session load:', error);
-            } finally {
-                if (mounted) {
-                    setLoading(false);
-                }
-            }
-        };
-
-        loadSession();
-
-        // Listen for auth changes
-        const { data: listener } = supabaseBrowser?.auth.onAuthStateChange(async (_event, currentSession) => {
+        const syncSessionState = async (currentSession: Session | null) => {
             if (!mounted) return;
 
             setSessionState(currentSession);
             const sessionUser = currentSession?.user;
             setUser(sessionUser ? { id: sessionUser.id, email: sessionUser.email } : null);
 
-            if (sessionUser?.id) {
-                await loadMemberData(sessionUser.id);
-            } else {
-                setMemberData(null);
+            try {
+                if (sessionUser?.id) {
+                    await loadMemberData(sessionUser.id);
+                } else {
+                    setMemberData(null);
+                }
+            } catch (err) {
+                console.error('Error loading member data:', err);
+            } finally {
+                if (mounted) setLoading(false);
             }
-        }) ?? { data: { subscription: { unsubscribe() { } } } };
+        };
+
+        supabaseBrowser.auth.getSession()
+            .then(({ data: { session: currentSession } }) => syncSessionState(currentSession))
+            .catch((err) => {
+                console.error('Error retrieving initial session:', err);
+                if (mounted) setLoading(false);
+            });
+
+        const { data: listener } = supabaseBrowser.auth.onAuthStateChange((_event, currentSession) => {
+            syncSessionState(currentSession);
+        });
 
         return () => {
             mounted = false;
@@ -128,10 +115,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         if (newSession) {
             // CRITICAL: Set local state IMMEDIATELY for instant authentication
-            console.log('⚡ [Auth] Setting session state immediately');
             setSessionState(newSession);
             setUser(newSession.user ? { id: newSession.user.id, email: newSession.user.email } : null);
-            console.log('✅ [Auth] Session state set - user is now authenticated');
+            setLoading(false); // Ensure loading is clear
 
             // Then sync with Supabase in background (don't block)
             supabaseBrowser.auth.setSession({

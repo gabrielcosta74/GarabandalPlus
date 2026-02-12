@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from 'react';
 import DashboardShell from '../../../components/dashboard/DashboardShell';
 import MemberProfileModal from '../../../components/member-profile/MemberProfileModal';
 import { supabaseBrowser } from '../../../lib/supabase-browser';
+import { resolveCountryMeta } from '../../../lib/country-utils';
+import { normalizeQuotaStatus } from '../../../lib/membership-status';
 import { ShieldCheck, CreditCard, AlertTriangle, CheckCircle2, Clock } from 'lucide-react';
 import { motion } from 'framer-motion';
 
@@ -11,15 +13,43 @@ type PaymentOption = {
   id: string;
   label: string;
   description: string;
-  provider: 'stripe';
+  provider: 'stripe' | 'reduniq';
+  reduniqSolution?: number;
   iconSrc?: string;
   iconAlt: string;
 };
 
 const paymentOptions: PaymentOption[] = [
   {
+    id: 'reduniq_card',
+    label: 'Cartão de Crédito',
+    description: 'Visa / Mastercard (Reduniq).',
+    provider: 'reduniq',
+    reduniqSolution: 106,
+    iconSrc: '/payment-icons/reduniq.png',
+    iconAlt: 'Reduniq',
+  },
+  {
+    id: 'reduniq_mbway',
+    label: 'MB WAY',
+    description: 'Pagamento instantâneo.',
+    provider: 'reduniq',
+    reduniqSolution: 107,
+    iconSrc: '/payment-icons/mbway.svg',
+    iconAlt: 'MB WAY',
+  },
+  {
+    id: 'reduniq_multibanco',
+    label: 'Multibanco',
+    description: 'Pagamento de serviços.',
+    provider: 'reduniq',
+    reduniqSolution: 108,
+    iconSrc: '/payment-icons/multibanco.svg',
+    iconAlt: 'Multibanco',
+  },
+  {
     id: 'stripe',
-    label: 'Cartão / Apple Pay',
+    label: 'Stripe (Cartão / Apple Pay)',
     description: 'Pagamento imediato e seguro.',
     provider: 'stripe',
     iconSrc: '/payment-icons/stripe.svg',
@@ -50,6 +80,10 @@ export default function MemberQuotaPage() {
     () => paymentOptions.find((option) => option.id === selectedPaymentId) ?? paymentOptions[0],
     [selectedPaymentId],
   );
+  const donorCountryCode = useMemo(
+    () => resolveCountryMeta(profileData?.country || null)?.code,
+    [profileData?.country],
+  );
 
   useEffect(() => {
     const loadUser = async () => {
@@ -65,7 +99,7 @@ export default function MemberQuotaPage() {
         .maybeSingle();
       setProfileData(member ?? {});
       setShowProfile(false);
-      const status = (member?.estado_quota || 'indefinido').toLowerCase();
+      const status = normalizeQuotaStatus(member?.estado_quota) ?? 'indefinido';
       setQuotaStatus(status);
       setNextQuota(member?.proxima_quota ?? null);
       setIsMember(!!member?.is_membro);
@@ -101,6 +135,13 @@ export default function MemberQuotaPage() {
           type: 'membership',
           userId,
           provider: selectedPayment.provider,
+          donorName: profileData?.nome || undefined,
+          donorEmail: profileData?.email || undefined,
+          donorCountry: donorCountryCode || undefined,
+          donorNif: profileData?.nif || undefined,
+          ...(selectedPayment.provider === 'reduniq' && selectedPayment.reduniqSolution
+            ? { reduniqSolution: selectedPayment.reduniqSolution }
+            : {}),
         }),
       });
       if (!res.ok) {
@@ -117,7 +158,6 @@ export default function MemberQuotaPage() {
     }
   };
 
-  const normalizedStatus = quotaStatus === 'paid' ? 'pago' : quotaStatus;
   const isQuotaExpired = nextQuota
     ? (() => {
       const due = new Date(nextQuota);
@@ -128,18 +168,19 @@ export default function MemberQuotaPage() {
       return todayUtc > dueUtc;
     })()
     : false;
+  const normalizedStatus = normalizeQuotaStatus(quotaStatus) ?? 'indefinido';
+  const isExpiredStatus = normalizedStatus === 'expirado';
+  const isPendingStatus = normalizedStatus === 'pendente';
   const statusPaid = normalizedStatus === 'pago' && !isQuotaExpired;
   const quotaStatusLabel = isFounder
     ? 'fundador'
     : statusPaid
       ? 'pago'
-      : isQuotaExpired
+      : isQuotaExpired || isExpiredStatus
         ? 'expirado'
-        : normalizedStatus.includes('atras')
-          ? 'em atraso'
-          : normalizedStatus === 'pendente'
-            ? 'pendente'
-            : 'indefinido';
+        : isPendingStatus
+          ? 'pendente'
+          : 'indefinido';
 
   const nextQuotaPretty = nextQuota
     ? new Date(nextQuota).toLocaleDateString('pt-PT', { day: '2-digit', month: 'long', year: 'numeric' })
@@ -159,7 +200,7 @@ export default function MemberQuotaPage() {
     !isMember ||
     !statusPaid ||
     !!canRenew ||
-    quotaStatus === 'expirado' ||
+    isExpiredStatus ||
     isQuotaExpired ||
     (!isMember && !!profileData?.numero_socio) // Suspended check
   );
@@ -203,28 +244,28 @@ export default function MemberQuotaPage() {
           </div>
 
           {canPay ? (
-            <div className={`rounded-2xl p-4 flex items-start gap-3 border ${quotaStatus === 'expirado' || (!isMember && !!profileData?.numero_socio)
+            <div className={`rounded-2xl p-4 flex items-start gap-3 border ${isExpiredStatus || (!isMember && !!profileData?.numero_socio)
               ? 'bg-red-50 border-red-100'
               : 'bg-blue-50 border-blue-100'
               }`}>
-              <AlertTriangle className={`w-5 h-5 mt-0.5 shrink-0 ${quotaStatus === 'expirado' || (!isMember && !!profileData?.numero_socio)
+              <AlertTriangle className={`w-5 h-5 mt-0.5 shrink-0 ${isExpiredStatus || (!isMember && !!profileData?.numero_socio)
                 ? 'text-red-600'
                 : 'text-blue-600'
                 }`} />
               <div>
-                <p className={`font-bold text-sm ${quotaStatus === 'expirado' || (!isMember && !!profileData?.numero_socio)
+                <p className={`font-bold text-sm ${isExpiredStatus || (!isMember && !!profileData?.numero_socio)
                   ? 'text-red-800'
                   : 'text-blue-800'
                   }`}>
-                  {quotaStatus === 'expirado' || (!isMember && !!profileData?.numero_socio)
+                  {isExpiredStatus || (!isMember && !!profileData?.numero_socio)
                     ? 'Conta Suspensa'
                     : 'Renovação Necessária'}
                 </p>
-                <p className={`text-xs mt-1 ${quotaStatus === 'expirado' || (!isMember && !!profileData?.numero_socio)
+                <p className={`text-xs mt-1 ${isExpiredStatus || (!isMember && !!profileData?.numero_socio)
                   ? 'text-red-600'
                   : 'text-blue-600'
                   }`}>
-                  {quotaStatus === 'expirado' || (!isMember && !!profileData?.numero_socio)
+                  {isExpiredStatus || (!isMember && !!profileData?.numero_socio)
                     ? 'A sua conta está suspensa devido a quotas em atraso. Regularize agora para reativar o acesso imediato.'
                     : 'A tua quota expira em breve ou está em atraso. Renova agora para manteres os teus benefícios.'}
                 </p>

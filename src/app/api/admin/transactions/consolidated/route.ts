@@ -3,6 +3,8 @@ import { supabaseServer } from '../../../../../lib/supabase';
 
 import { verifyAdmin } from '../../../../../lib/admin-auth';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(req: Request) {
     const { authorized, error } = await verifyAdmin(req);
     if (!authorized) {
@@ -126,7 +128,7 @@ export async function GET(req: Request) {
                 customer_email: o.customer_email,
                 status: o.status,
                 method: o.payment_method,
-                provider: o.payment_reference?.startsWith('re_') ? 'Reduniq' : 'Stripe',
+                provider: 'Stripe',
                 created_at: o.created_at,
                 customer_nif: o.buyer_nif,
                 customer_address: o.billing_address || o.shipping_address1,

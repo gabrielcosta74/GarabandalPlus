@@ -7,6 +7,7 @@ import MembershipBenefits from "../../components/membership/MembershipBenefits";
 import MembershipImpact from "../../components/membership/MembershipImpact";
 import MembershipFAQ from "../../components/membership/MembershipFAQ";
 import MembershipModal from "../../components/membership/MembershipModal";
+import { QuotaWarning } from "../../components/membership/QuotaWarning";
 import { useAuth } from "../../contexts/AuthContext";
 
 function TornarMembroContent() {
@@ -62,6 +63,9 @@ function TornarMembroContent() {
 
     return (
         <main className="min-h-screen bg-white">
+            <div className="container mx-auto px-4 sm:px-6 lg:px-8 mt-24 lg:mt-28 mb-4">
+                <QuotaWarning memberData={memberData} />
+            </div>
             <MembershipHero onJoinClick={() => setModalOpen(true)} />
             <MembershipBenefits />
             <MembershipImpact stats={impact} />

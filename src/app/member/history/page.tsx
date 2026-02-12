@@ -20,17 +20,23 @@ const formatDate = (dateStr?: string) => {
   });
 };
 
+import { useAuth } from '../../../contexts/AuthContext';
+
 export default function MemberHistoryPage() {
+  const { user, loading: authLoading } = useAuth();
   const [payments, setPayments] = useState<Array<Record<string, any>>>([]);
   const [bookings, setBookings] = useState<Array<Record<string, any>>>([]);
-  const [loading, setLoading] = useState(true);
+  const [dataLoading, setDataLoading] = useState(true);
 
   useEffect(() => {
     const loadHistory = async () => {
-      if (!supabaseBrowser) return;
+      if (authLoading) return;
+      if (!user?.id) {
+        setDataLoading(false);
+        return;
+      }
 
-      const { data: { user } } = await supabaseBrowser.auth.getUser();
-      if (!user?.id) return;
+      if (!supabaseBrowser) return;
 
       const [quotasRes, bookingsRes] = await Promise.all([
         supabaseBrowser
@@ -48,10 +54,13 @@ export default function MemberHistoryPage() {
 
       setPayments(quotasRes.data ?? []);
       setBookings(bookingsRes.data ?? []);
-      setLoading(false);
+      setDataLoading(false);
     };
+
     loadHistory();
-  }, []);
+  }, [user, authLoading]);
+
+  const loading = authLoading || dataLoading;
 
   return (
     <DashboardShell
@@ -59,6 +68,26 @@ export default function MemberHistoryPage() {
       subtitle="Consulta as tuas viagens e pagamentos."
     >
       <div className="space-y-8">
+
+        {/* SUBSCRIPTION STATUS CHECK */}
+        <section className="bg-white rounded-3xl p-8 border border-slate-100 shadow-sm">
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+            <div>
+              <h3 className="text-xl font-bold text-slate-900 mb-2">Estado da Subscrição</h3>
+              <p className="text-slate-500 text-sm max-w-xl">
+                Consulta a validade da tua quota anual. Mantém a subscrição ativa para aceder a conteúdos exclusivos e descontos.
+              </p>
+            </div>
+            <div>
+              {/* We will need to fetch member status or pass it. Since we fetch payments, let's fetch member status too or use a derived state if feasible, but user data is loaded in useEffect. */}
+              {/* Actually, let's just link to the quota page for simplicity and clarity as requested "directions clear" */}
+              <Link href="/member/quota" className="inline-flex items-center gap-2 px-5 py-3 bg-slate-900 text-white font-bold rounded-xl hover:bg-slate-800 transition-colors">
+                <CheckCircle2 className="w-5 h-5" />
+                Verificar Estado
+              </Link>
+            </div>
+          </div>
+        </section>
 
         {/* SECTION: PILGRIMAGE BOOKINGS */}
         <section>

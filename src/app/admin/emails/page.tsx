@@ -118,7 +118,7 @@ const EMAIL_TEMPLATES = {
         recipient: 'Admin',
         when: 'Sent after a membership payment is confirmed.',
         why: 'Notify admins about new or renewed memberships.',
-        technical: 'Webhook: /api/webhook or /api/reduniq/result -> sendMembershipNotification',
+        technical: 'Webhook: /api/webhook -> sendMembershipNotification',
         render: () => renderMembershipEmail(MOCK_MEMBER),
     },
     'member-receipt': {
@@ -128,7 +128,7 @@ const EMAIL_TEMPLATES = {
         recipient: 'Member',
         when: 'Sent when a membership payment succeeds.',
         why: 'Provide payment confirmation and membership details.',
-        technical: 'Webhook: /api/webhook or /api/reduniq/result -> sendMemberReceiptEmail',
+        technical: 'Webhook: /api/webhook -> sendMemberReceiptEmail',
         render: () => renderMemberReceiptEmail(MOCK_MEMBER_RECEIPT),
     },
     'member-diploma': {
@@ -222,7 +222,7 @@ const EMAIL_TEMPLATES = {
         recipient: 'Donor',
         when: 'Sent immediately after a successful donation.',
         why: 'Provide a receipt and thank you message.',
-        technical: 'Webhook: /api/webhook or /api/reduniq/result -> sendDonationReceiptEmail',
+        technical: 'Webhook: /api/webhook -> sendDonationReceiptEmail',
         render: () => renderDonationReceiptEmail(MOCK_DONATION),
     },
     'donation-notification': {

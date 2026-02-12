@@ -52,12 +52,13 @@ export default function CourseEditor() {
 
     const loadCourse = async () => {
         setLoading(true);
-        if (!supabaseBrowser) {
+        const supabase = supabaseBrowser;
+        if (!supabase) {
             setLoading(false);
             return;
         }
 
-        const { data: course, error } = await supabaseBrowser
+        const { data: course, error } = await supabase
             .from('academy_courses')
             .select('*')
             .eq('id', id)
@@ -78,7 +79,7 @@ export default function CourseEditor() {
                 slug: course.slug || ''
             });
 
-            const { data: eps } = await supabaseBrowser
+            const { data: eps } = await supabase
                 .from('academy_episodes')
                 .select('*')
                 .eq('course_id', id)
@@ -96,7 +97,8 @@ export default function CourseEditor() {
     };
 
     const handleSave = async () => {
-        if (!supabaseBrowser) return;
+        const supabase = supabaseBrowser;
+        if (!supabase) return;
         setSaving(true);
 
         const courseData = {
@@ -107,11 +109,11 @@ export default function CourseEditor() {
         let courseId = id;
 
         if (isNew) {
-            const { data, error } = await supabaseBrowser.from('academy_courses').insert([courseData]).select().single();
+            const { data, error } = await supabase.from('academy_courses').insert([courseData]).select().single();
             if (error) { alert('Erro ao criar: ' + error.message); setSaving(false); return; }
             courseId = data.id;
         } else {
-            const { error } = await supabaseBrowser.from('academy_courses').update(courseData).eq('id', id);
+            const { error } = await supabase.from('academy_courses').update(courseData).eq('id', id);
             if (error) { alert('Erro ao atualizar: ' + error.message); setSaving(false); return; }
         }
 
@@ -125,9 +127,9 @@ export default function CourseEditor() {
                 videoId = singleVideoUrl;
             }
 
-            await supabaseBrowser.from('academy_episodes').delete().eq('course_id', courseId);
+            await supabase.from('academy_episodes').delete().eq('course_id', courseId);
             if (videoId) {
-                await supabaseBrowser.from('academy_episodes').insert([{
+                await supabase.from('academy_episodes').insert([{
                     course_id: courseId,
                     title: formData.title,
                     video_id: videoId,
@@ -148,9 +150,9 @@ export default function CourseEditor() {
                     position: index + 1
                 };
                 if (ep.id) {
-                    await supabaseBrowser.from('academy_episodes').update(epData).eq('id', ep.id);
+                    await supabase.from('academy_episodes').update(epData).eq('id', ep.id);
                 } else {
-                    await supabaseBrowser.from('academy_episodes').insert([epData]);
+                    await supabase.from('academy_episodes').insert([epData]);
                 }
             }
         }
@@ -170,8 +172,9 @@ export default function CourseEditor() {
         if (!confirm('Apagar aula?')) return;
         const newEps = [...episodes];
         const toDelete = newEps[index];
-        if (toDelete.id && supabaseBrowser) {
-            supabaseBrowser.from('academy_episodes').delete().eq('id', toDelete.id).then();
+        const supabase = supabaseBrowser;
+        if (toDelete.id && supabase) {
+            supabase.from('academy_episodes').delete().eq('id', toDelete.id).then();
         }
         newEps.splice(index, 1);
         setEpisodes(newEps);
