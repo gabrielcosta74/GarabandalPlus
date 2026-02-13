@@ -3,11 +3,13 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { ShoppingBag, ArrowLeft, Truck, Package, Info, AlertCircle, ShoppingCart, Check, Download } from 'lucide-react';
+import { ShoppingBag, ArrowLeft, Truck, Package, Info, AlertCircle, ShoppingCart, Check, Download, Globe } from 'lucide-react';
 import { Product, loadCart, saveCart, CartItem } from '../../loja-online/data';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 import AddToCartModal from '../../../components/store/AddToCartModal';
+import { inferIsDigitalProduct } from '../../../lib/product-kind';
+import { listCountryOptions } from '../../../lib/country-utils';
 
 export default function ProductDetailsPage() {
     const params = useParams();
@@ -29,20 +31,31 @@ export default function ProductDetailsPage() {
 
     const fetchProduct = async (productId: string) => {
         try {
-            const res = await fetch(`/api/store/products/${productId}`);
+            const res = await fetch(`/api/store/products/${productId}?t=${Date.now()}`, {
+                cache: 'no-store'
+            });
             if (!res.ok) throw new Error('Failed');
             const data = await res.json();
             // Assuming data.product contains the product details and needs mapping
             const productData = {
                 ...data.product, // Keep existing properties from data.product
                 categoryId: data.product.category_id,
-                is_physical: data.product.is_physical,
-                type: data.product.is_physical ? 'fisico' : 'digital',
+                is_physical: data.product.is_physical ?? data.product.isPhysical,
+                isPhysical: data.product.isPhysical ?? data.product.is_physical,
                 type_id: data.product.type_id,
                 metadata: data.product.metadata || {},
                 stock: data.product.stock,
+                allowedCountries: data.product.allowed_countries || data.product.allowedCountries || [],
                 variants: data.product.variants || data.product.product_variants || [],
             };
+            const isDigital = inferIsDigitalProduct({
+                isPhysical: productData.isPhysical,
+                typeId: productData.type_id,
+                category: productData.category,
+                name: productData.name,
+                digitalUrl: (productData as any).digitalUrl,
+            });
+            productData.type = isDigital ? 'digital' : 'fisico';
             setProduct(productData);
 
             // Auto-select first variant if exists
@@ -95,7 +108,9 @@ export default function ProductDetailsPage() {
 
         // Fetch related products for upsell (simple random logic for now)
         try {
-            const res = await fetch('/api/store/products?includeVariants=0');
+            const res = await fetch(`/api/store/products?includeVariants=0&t=${Date.now()}`, {
+                cache: 'no-store'
+            });
             const data = await res.json();
             const others = (data.products || []).filter((p: any) => p.id !== product.id).sort(() => 0.5 - Math.random()).slice(0, 2);
             setRelatedProducts(others);
@@ -155,8 +170,28 @@ export default function ProductDetailsPage() {
         );
     }
 
-    // Strict Type Logic
-    const isDigital = product.type_id === 'book_digital' || product.type_id === 'event_ticket' || product.type_id === 'digital_generic';
+    // Robust type detection to avoid mixed messaging (digital vs physical vs clothing)
+    const normalizeText = (value: unknown) =>
+        String(value || '')
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .toLowerCase();
+    const normalizedTypeId = normalizeText(product.type_id);
+    const normalizedCategory = normalizeText(product.category);
+    const isClothing =
+        normalizedTypeId === 'clothing' ||
+        normalizedTypeId.includes('apparel') ||
+        normalizedCategory.includes('vestu') ||
+        normalizedCategory.includes('roupa');
+    const isDigital = inferIsDigitalProduct({
+        isPhysical: product.isPhysical ?? product.is_physical,
+        typeId: product.type_id,
+        category: product.category,
+        name: product.name,
+        digitalUrl: (product as any).digitalUrl,
+    });
+    const productMode: 'digital' | 'clothing' | 'physical' =
+        isDigital ? 'digital' : isClothing ? 'clothing' : 'physical';
 
     // Fallback for stock check
     const currentStock = selectedVariant ? selectedVariant.stock : product.stock;
@@ -165,8 +200,14 @@ export default function ProductDetailsPage() {
         ? totalVariantStock > 0
         : (product.stock ?? 0) > 0;
 
-    const isOutOfStock = !isDigital && !hasStock;
+    const isOutOfStock = productMode !== 'digital' && !hasStock;
     const isBook = product.type_id?.includes('book') || product.category?.includes('Livro');
+    const countryOptions = listCountryOptions();
+    const allowedCountryLabels = (product.allowedCountries || [])
+        .map((code) => {
+            const country = countryOptions.find((c) => c.code === code);
+            return { code, label: country?.label || code };
+        });
 
     return (
         <div className="min-h-screen bg-white pb-20">
@@ -275,9 +316,9 @@ export default function ProductDetailsPage() {
                             <div className="space-y-4">
                                 <div className="flex justify-between items-baseline">
                                     <label className="block text-xs font-bold uppercase text-slate-500">
-                                        {product.type_id === 'clothing' ? 'Tamanho' : 'Opção'}
+                                        {isClothing ? 'Tamanho' : 'Opção'}
                                     </label>
-                                    {selectedVariant && (
+                                    {!isDigital && selectedVariant && (
                                         <motion.span
                                             initial={{ opacity: 0 }} animate={{ opacity: 1 }}
                                             className={`text-xs font-bold ${selectedVariant.stock > 0 ? 'text-emerald-600' : 'text-red-500'}`}
@@ -291,23 +332,23 @@ export default function ProductDetailsPage() {
                                         <button
                                             key={v.sku}
                                             onClick={() => setSelectedVariant(v)}
-                                            disabled={v.stock === 0}
+                                            disabled={!isDigital && v.stock === 0}
                                             className={`h-12 min-w-[3.5rem] px-4 rounded-xl border-2 text-sm font-bold transition-all relative overflow-hidden flex items-center justify-center
                                                 ${selectedVariant?.sku === v.sku
                                                     ? 'border-slate-900 bg-slate-900 text-white shadow-lg shadow-slate-900/10 scale-105'
-                                                    : v.stock === 0
+                                                    : (!isDigital && v.stock === 0)
                                                         ? 'border-slate-100 bg-slate-50 text-slate-300 cursor-not-allowed decoration-slate-300'
                                                         : 'border-slate-200 bg-white text-slate-700 hover:border-slate-400 hover:bg-slate-50'
                                                 }
                                             `}
                                         >
                                             {v.name}
-                                            {v.stock === 0 && <div className="absolute inset-0 bg-white/40 rotate-45 transform translate-y-1/2" />}
+                                            {!isDigital && v.stock === 0 && <div className="absolute inset-0 bg-white/40 rotate-45 transform translate-y-1/2" />}
                                         </button>
                                     ))}
                                 </div>
                             </div>
-                        ) : (product.type_id === 'clothing' || product.category === 'Vestuário') ? (
+                        ) : isClothing ? (
                             // Fallback for clothing without variants: Explicit "Single Size" selector
                             <div className="space-y-4">
                                 <label className="block text-xs font-bold uppercase text-slate-500">Tamanho</label>
@@ -369,15 +410,30 @@ export default function ProductDetailsPage() {
 
                             {/* Features / Assurance */}
                             <div className="grid grid-cols-2 gap-4 mt-8">
-                                {isDigital ? (
+                                {productMode === 'digital' ? (
                                     <>
                                         <div className="flex items-center gap-3 p-4 bg-purple-50 rounded-xl border border-purple-100">
                                             <Download className="w-5 h-5 text-purple-500" />
-                                            <span className="text-xs font-bold text-purple-800">Entrega Digital Imediata</span>
+                                            <span className="text-xs font-bold text-purple-800">Acesso Digital Imediato</span>
                                         </div>
                                         <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-xl border border-slate-100">
                                             <Check className="w-5 h-5 text-slate-400" />
-                                            <span className="text-xs font-bold text-slate-600">Verificado & Seguro</span>
+                                            <span className="text-xs font-bold text-slate-600">Disponível na tua Biblioteca</span>
+                                        </div>
+                                    </>
+                                ) : productMode === 'clothing' ? (
+                                    <>
+                                        <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-xl border border-slate-100">
+                                            <Package className="w-5 h-5 text-slate-400" />
+                                            <span className="text-xs font-bold text-slate-600">Seleção de Tamanho/Variante</span>
+                                        </div>
+                                        <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-xl border border-slate-100">
+                                            <Truck className="w-5 h-5 text-slate-400" />
+                                            <span className="text-xs font-bold text-slate-600">
+                                                {product.allowedCountries && product.allowedCountries.length > 0
+                                                    ? 'Envio para países selecionados'
+                                                    : 'Envio protegido'}
+                                            </span>
                                         </div>
                                     </>
                                 ) : (
@@ -388,11 +444,48 @@ export default function ProductDetailsPage() {
                                         </div>
                                         <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-xl border border-slate-100">
                                             <Truck className="w-5 h-5 text-slate-400" />
-                                            <span className="text-xs font-bold text-slate-600">Envio para todo o Mundo</span>
+                                            <span className="text-xs font-bold text-slate-600">
+                                                {product.allowedCountries && product.allowedCountries.length > 0
+                                                    ? 'Envio para países selecionados'
+                                                    : 'Envio para todo o Mundo'}
+                                            </span>
                                         </div>
                                     </>
                                 )}
                             </div>
+
+                            {productMode !== 'digital' && (
+                                <div className="mt-6 rounded-2xl border border-blue-100 bg-blue-50/60 p-4">
+                                    <div className="flex items-start gap-3">
+                                        <Globe className="w-5 h-5 text-blue-600 mt-0.5" />
+                                        <div className="flex-1">
+                                            <p className="text-sm font-bold text-slate-900">Disponibilidade de Stock por País</p>
+                                            {allowedCountryLabels.length > 0 ? (
+                                                <>
+                                                    <p className="text-sm text-slate-700 mt-1">
+                                                        Stock disponível para envio apenas nos seguintes países:
+                                                    </p>
+                                                    <div className="flex flex-wrap gap-2 mt-3">
+                                                        {allowedCountryLabels.map((country) => (
+                                                            <span
+                                                                key={country.code}
+                                                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-white border border-blue-100 text-xs font-medium text-slate-700"
+                                                            >
+                                                                <span className="font-mono text-slate-400">{country.code}</span>
+                                                                <span>{country.label}</span>
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                </>
+                                            ) : (
+                                                <p className="text-sm text-slate-700 mt-1">
+                                                    Stock disponível para envio internacional (todos os países).
+                                                </p>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
                         </div>
 
                         {/* Specs Table */}

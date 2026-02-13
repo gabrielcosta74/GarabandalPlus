@@ -16,30 +16,39 @@ const getPilgrimagesCached = unstable_cache(async () => {
     console.log("⚡ [ServerAction] Fetching pilgrimages...");
 
     try {
-        // 1. Try RPC
-        const { data: rpcData, error: rpcError } = await supabase.rpc('get_pilgrimage_list', {});
-
-        if (!rpcError && rpcData) {
-            console.log("✅ [ServerAction] RPC Success:", rpcData.length);
-            return { data: rpcData, error: null };
-        }
-
-        console.warn("⚠️ [ServerAction] RPC Failed/Empty, trying fallback:", rpcError);
-
-        // 2. Fallback
-        const { data: tableData, error: tableError } = await supabase
-            .from('pilgrimages')
-            .select('*')
-            .order('start_date', { ascending: true });
+        const [{ data: rpcData, error: rpcError }, { data: tableData, error: tableError }] = await Promise.all([
+            supabase.rpc('get_pilgrimage_list', {}),
+            supabase.from('pilgrimages').select('*').order('start_date', { ascending: true }),
+        ]);
 
         if (tableError) {
-            console.error("❌ [ServerAction] Table Fallback Failed:", tableError);
-            return { data: [], error: tableError.message };
+            console.error("❌ [ServerAction] Table query failed:", tableError);
+        }
+        if (rpcError) {
+            console.warn("⚠️ [ServerAction] RPC failed:", rpcError);
         }
 
-        console.log("✅ [ServerAction] Table Fallback Success:", tableData?.length);
-        return { data: tableData, error: null };
+        const rpcList = Array.isArray(rpcData) ? rpcData : [];
+        const tableList = Array.isArray(tableData) ? tableData : [];
 
+        // Prefer table data when it has more rows than RPC.
+        // This prevents stale/over-filtered SQL functions from hiding pilgrimages.
+        const chosenRaw = tableList.length > rpcList.length ? tableList : rpcList;
+        const chosen = Array.from(
+            new Map(chosenRaw.map((row: any) => [row.id, row])).values()
+        ).sort((a: any, b: any) => {
+            const aDate = new Date(a?.start_date || 0).getTime();
+            const bDate = new Date(b?.start_date || 0).getTime();
+            return aDate - bDate;
+        });
+
+        if (tableList.length > rpcList.length) {
+            console.warn(`⚠️ [ServerAction] RPC returned ${rpcList.length}, table returned ${tableList.length}. Using table data.`);
+        } else {
+            console.log(`✅ [ServerAction] Using RPC data (${rpcList.length})`);
+        }
+
+        return { data: chosen, error: null };
     } catch (e: any) {
         console.error("❌ [ServerAction] Exception:", e);
         return { data: [], error: e.message };

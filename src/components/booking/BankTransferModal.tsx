@@ -10,10 +10,35 @@ interface BankTransferModalProps {
     totalAmount: string | number; // Formatted amount or number
     formattedTotal?: string; // Explicit formatted string override
     iban: string;
+    beneficiaryName?: string;
+    bankName?: string;
+    bicSwift?: string;
+    addressStreet?: string;
+    addressPostalCode?: string;
+    addressCity?: string;
+    addressCountry?: string;
+    referenceNote?: string;
+    supportEmail?: string;
     onUploadClick: () => void;
 }
 
-export default function BankTransferModal({ isOpen, onClose, totalAmount, formattedTotal, iban, onUploadClick }: BankTransferModalProps) {
+export default function BankTransferModal({
+    isOpen,
+    onClose,
+    totalAmount,
+    formattedTotal,
+    iban,
+    beneficiaryName,
+    bankName,
+    bicSwift,
+    addressStreet,
+    addressPostalCode,
+    addressCity,
+    addressCountry,
+    referenceNote,
+    supportEmail,
+    onUploadClick,
+}: BankTransferModalProps) {
     const [mounted, setMounted] = useState(false);
     const [copied, setCopied] = useState(false);
 
@@ -82,7 +107,7 @@ export default function BankTransferModal({ isOpen, onClose, totalAmount, format
                                     >
                                         <div className="space-y-1">
                                             <p className="font-mono text-lg md:text-xl font-bold text-blue-900 break-all">{iban}</p>
-                                            <p className="text-xs text-blue-600 font-medium">Conta: Associação Garabandal</p>
+                                            {beneficiaryName && <p className="text-xs text-blue-600 font-medium">Conta: {beneficiaryName}</p>}
                                         </div>
                                         <div className="p-2 bg-blue-200 rounded-lg text-blue-700 group-hover:scale-105 transition-transform">
                                             {copied ? <CheckCircle2 className="w-5 h-5" /> : <Copy className="w-5 h-5" />}
@@ -90,6 +115,39 @@ export default function BankTransferModal({ isOpen, onClose, totalAmount, format
                                     </button>
                                     <p className="text-center text-xs text-slate-400">Clique acima para copiar o IBAN</p>
                                 </div>
+
+                                {(bankName || bicSwift || referenceNote || supportEmail || addressStreet || addressPostalCode || addressCity || addressCountry) && (
+                                    <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200 space-y-2">
+                                        {bankName && (
+                                            <p className="text-sm text-slate-700">
+                                                <span className="font-bold">Banco:</span> {bankName}
+                                            </p>
+                                        )}
+                                        {bicSwift && (
+                                            <p className="text-sm text-slate-700">
+                                                <span className="font-bold">BIC/SWIFT:</span> {bicSwift}
+                                            </p>
+                                        )}
+                                        {referenceNote && (
+                                            <p className="text-sm text-slate-700">
+                                                <span className="font-bold">Referência:</span> {referenceNote}
+                                            </p>
+                                        )}
+                                        {supportEmail && (
+                                            <p className="text-sm text-slate-700">
+                                                <span className="font-bold">Contacto:</span> {supportEmail}
+                                            </p>
+                                        )}
+                                        {(addressStreet || addressPostalCode || addressCity || addressCountry) && (
+                                            <p className="text-sm text-slate-700">
+                                                <span className="font-bold">Morada:</span>{' '}
+                                                {[addressStreet, [addressPostalCode, addressCity].filter(Boolean).join(' '), addressCountry]
+                                                    .filter((part) => part && part.trim().length > 0)
+                                                    .join(', ')}
+                                            </p>
+                                        )}
+                                    </div>
+                                )}
 
                                 {/* Instructions */}
                                 <div className="bg-amber-50 rounded-2xl p-5 border border-amber-100 space-y-3">

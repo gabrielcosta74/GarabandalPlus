@@ -2,7 +2,6 @@
 import { NextResponse } from 'next/server';
 import { supabaseServer } from '../../../../lib/supabase';
 import { sendAbandonmentRecoveryEmail } from '../../../../lib/email';
-import { WhatsAppService } from '../../../../lib/whatsapp';
 import { getAppUrl } from '../../../../lib/config';
 import { verifyAdmin } from '../../../../lib/admin-auth';
 
@@ -54,8 +53,6 @@ export async function POST(req: Request) {
         });
 
         let emailSent = false;
-        let whatsappSent = false;
-
         // Generate Recovery Link
         const origin = getAppUrl();
         const recoveryLink = `${origin}/peregrinacoes/${lead.pilgrimages?.slug || 'geral'}/inscrever?resume=${lead.id}&email=${encodeURIComponent(lead.email)}`;
@@ -81,27 +78,10 @@ export async function POST(req: Request) {
             });
         }
 
-        // Send WhatsApp (If phone exists)
-        if (lead.phone && lead.phone.length > 8) {
-            console.log(`[Manual Notify] Attempting to send WhatsApp to ${lead.phone}...`);
-            try {
-                await WhatsAppService.sendMessage(
-                    lead.phone,
-                    `Olá ${lead.name || 'Peregrino'}! 🕊️\n\nVimos que não conseguiu terminar a sua inscrição para *${lead.pilgrimages?.title || 'Garabandal'}*. \n\nGuardámos o seu lugar temporariamente. Clique aqui para continuar: ${recoveryLink}`
-                );
-                whatsappSent = true;
-                console.log(`[Manual Notify] WhatsApp sent successfully`);
-            } catch (waErr: any) {
-                console.error(`[Manual Notify] WhatsApp send failed:`, waErr);
-            }
-        } else {
-            console.log(`[Manual Notify] Skipping WhatsApp (no valid phone number)`);
-        }
-
         // 3. Mark as Notified
-        console.log(`[Manual Notify] Email sent: ${emailSent}, WhatsApp sent: ${whatsappSent}`);
+        console.log(`[Manual Notify] Email sent: ${emailSent}`);
 
-        if (emailSent || whatsappSent) {
+        if (emailSent) {
             console.log(`[Manual Notify] Updating database status...`);
             const { error: updateError } = await supabaseServer
                 .from('booking_leads')
@@ -119,22 +99,19 @@ export async function POST(req: Request) {
 
             return NextResponse.json({
                 success: true,
-                method: emailSent ? 'email' : 'whatsapp',
+                method: 'email',
                 details: {
                     emailSent,
-                    whatsappSent,
                     leadId: lead.id
                 }
             });
         } else {
             console.error(`[Manual Notify] FAILED: No notification channel succeeded`);
             return NextResponse.json({
-                error: "Failed to send notification via any channel",
+                error: "Failed to send notification via email",
                 details: {
                     emailAttempted: true,
                     emailSent: false,
-                    whatsappAttempted: !!lead.phone,
-                    whatsappSent: false
                 }
             }, { status: 500 });
         }

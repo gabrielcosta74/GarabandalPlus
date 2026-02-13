@@ -186,7 +186,15 @@ export default function RegisterPage() {
               />
             </div>
             <label htmlFor="terms" className="text-xs text-white/60 lg:text-gray-500 leading-relaxed font-medium">
-              Li e aceito os <a href="#" className="underline hover:text-garabandal-gold">Termos e Condições</a> e a <a href="#" className="underline hover:text-garabandal-gold">Política de Privacidade</a> do Apostolado de Garabandal.
+              Li e aceito os{' '}
+              <Link href="/termos" className="underline hover:text-garabandal-gold" target="_blank">
+                Termos e Condições
+              </Link>{' '}
+              e a{' '}
+              <Link href="/privacidade" className="underline hover:text-garabandal-gold" target="_blank">
+                Política de Privacidade
+              </Link>{' '}
+              do Apostolado de Garabandal.
             </label>
           </div>
 

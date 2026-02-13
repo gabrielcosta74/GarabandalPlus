@@ -17,6 +17,7 @@ interface FeaturedPilgrimage {
     end_date: string;
     base_price: number;
     total_vacancies: number;
+    current_vacancies?: number;
     confirmed_pax: number;
     effective_vacancies: number;
 }
@@ -159,7 +160,12 @@ export function PilgrimageHero({ featuredPilgrimage }: { featuredPilgrimage?: Fe
                                         <span className="text-[10px] uppercase tracking-widest text-slate-500 font-bold block mb-1">Vagas</span>
                                         <span className="text-sm font-bold text-green-400 flex items-center justify-end gap-1">
                                             <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-                                            {featuredPilgrimage.effective_vacancies} Restantes
+                                            {Number.isFinite(Number(featuredPilgrimage.effective_vacancies))
+                                                ? Number(featuredPilgrimage.effective_vacancies)
+                                                : Number.isFinite(Number((featuredPilgrimage as any).current_vacancies))
+                                                    ? Math.max(0, Number((featuredPilgrimage as any).current_vacancies))
+                                                    : Math.max(0, Number(featuredPilgrimage.total_vacancies || 0) - Number(featuredPilgrimage.confirmed_pax || 0))
+                                            } Restantes
                                         </span>
                                     </div>
                                 </div>

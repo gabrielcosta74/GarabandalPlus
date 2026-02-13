@@ -3,11 +3,11 @@ import { Trash2 } from 'lucide-react';
 interface DetailedItineraryItem {
     id?: string;
     pilgrimage_id?: string;
-    day_number: number;
-    title: string;
-    description: string;
-    image_url: string;
-    display_order: number;
+    day_number: number | null;
+    title: string | null;
+    description: string | null;
+    image_url: string | null;
+    display_order: number | null;
 }
 
 interface DetailedItineraryTabProps {
@@ -66,7 +66,7 @@ export default function DetailedItineraryTab({
                                 <div className="md:col-span-2">
                                     <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Título do Dia</label>
                                     <input
-                                        value={item.title}
+                                        value={item.title || ''}
                                         onChange={e => updateDetailedItem(idx, 'title', e.target.value)}
                                         className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg font-bold"
                                         placeholder="Ex: Chegada a Santander"
@@ -76,7 +76,7 @@ export default function DetailedItineraryTab({
                                     <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Dia Nº</label>
                                     <input
                                         type="number"
-                                        value={item.day_number}
+                                        value={item.day_number ?? idx + 1}
                                         onChange={e => updateDetailedItem(idx, 'day_number', parseInt(e.target.value))}
                                         className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-center font-mono"
                                     />
@@ -86,7 +86,7 @@ export default function DetailedItineraryTab({
                             <div>
                                 <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Descrição das Atividades</label>
                                 <textarea
-                                    value={item.description}
+                                    value={item.description || ''}
                                     onChange={e => updateDetailedItem(idx, 'description', e.target.value)}
                                     className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-sm h-24 resize-none"
                                     placeholder="Detalhe o programa para este dia..."
@@ -100,6 +100,22 @@ export default function DetailedItineraryTab({
                                     className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-sm"
                                     placeholder="https://..."
                                 />
+                                {item.image_url?.trim() && (
+                                    <div className="mt-3">
+                                        <span className="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Preview</span>
+                                        <div className="mt-1 w-full max-w-sm rounded-lg overflow-hidden border border-slate-200 bg-slate-50">
+                                            <img
+                                                src={item.image_url}
+                                                alt={`Preview dia ${item.day_number}`}
+                                                className="w-full h-40 object-cover"
+                                                loading="lazy"
+                                                onError={(e) => {
+                                                    e.currentTarget.src = '/images/produto-placeholder.jpg';
+                                                }}
+                                            />
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </div>

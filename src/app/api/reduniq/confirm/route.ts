@@ -102,7 +102,18 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, message: 'Não foi possível obter token para validar.' }, { status: 400 });
     }
 
-    const result = await reduniqClient.getResult(tokenToUse);
+    let result = await reduniqClient.getResult(tokenToUse);
+    const maybeInvalidTokenCode = result.ok && result.data?.result?.code === '00100007';
+
+    // If token from URL is invalid, fall back to the token stored for this orderRef.
+    if (maybeInvalidTokenCode && orderRefParam) {
+      const storedToken = await findTokenByOrderRef(orderRefParam);
+      if (storedToken && storedToken !== tokenToUse) {
+        result = await reduniqClient.getResult(storedToken);
+        tokenToUse = storedToken;
+      }
+    }
+
     if (!result.ok) {
       return NextResponse.json({
         success: false,

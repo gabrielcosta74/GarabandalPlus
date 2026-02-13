@@ -50,6 +50,14 @@ const nextConfig = {
       {
         protocol: 'https',
         hostname: 'myportugalholiday.com',
+      },
+      {
+        protocol: 'https',
+        hostname: '*.clvaw-cdnwnd.com',
+      },
+      {
+        protocol: 'https',
+        hostname: '**.clvaw-cdnwnd.com',
       }
     ],
   },

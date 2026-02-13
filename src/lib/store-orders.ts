@@ -4,6 +4,7 @@ import { createDigitalAccessToken, createOrderAccessToken } from './store-access
 import { getShippingCost } from './shipping-rules';
 import { getAppUrl } from './config';
 import { normalizeEmail } from './normalize';
+import { inferIsDigitalProduct } from './product-kind';
 
 type ProcessPaidStoreOrderInput = {
   supabaseServer: any;
@@ -27,7 +28,10 @@ type StoreOrderItemRow = {
 type StoreProductRow = {
   product_id: string;
   is_physical: boolean | null;
+  type_id: string | null;
+  category?: string | null;
   digital_url: string | null;
+  stock?: number | null;
 };
 
 const formatCurrency = (value: number, currency = 'EUR') =>
@@ -117,7 +121,7 @@ export const processPaidStoreOrder = async ({
   const { data: productRows } = productIds.length
     ? await supabaseServer
       .from('store_products')
-      .select('product_id, is_physical, digital_url')
+      .select('product_id, is_physical, type_id, category, digital_url')
       .in('product_id', productIds)
     : { data: [] };
 
@@ -125,9 +129,20 @@ export const processPaidStoreOrder = async ({
     ((productRows || []) as StoreProductRow[]).map((row) => [row.product_id, row]),
   );
 
+  const isProductDigital = (product?: StoreProductRow | null) => {
+    if (!product) return false;
+    return inferIsDigitalProduct({
+      isPhysical: product.is_physical,
+      typeId: product.type_id,
+      category: product.category,
+      name: null,
+      digitalUrl: product.digital_url,
+    });
+  };
+
   const digitalItems = itemRows.filter((item) => {
     const product = productMap.get(item.product_id);
-    return product && product.is_physical === false;
+    return isProductDigital(product);
   });
 
   if (digitalItems.length) {
@@ -320,11 +335,12 @@ export const processPaidStoreOrder = async ({
       try {
         const { data: productRow } = await supabaseServer
           .from('store_products')
-          .select('stock')
+          .select('stock, is_physical, type_id, category, digital_url')
           .eq('product_id', item.product_id)
           .maybeSingle();
 
-        if (typeof productRow?.stock === 'number') {
+        const digital = isProductDigital(productRow as StoreProductRow | null);
+        if (!digital && typeof productRow?.stock === 'number') {
           const newStock = Math.max(productRow.stock - item.qty, 0);
           await supabaseServer
             .from('store_products')

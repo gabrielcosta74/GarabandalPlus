@@ -1,63 +1,15 @@
-import { useState, useMemo, useRef } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, CheckCircle, CreditCard, ChevronRight, Landmark, FileText, Upload, Loader2, AlertCircle, QrCode } from 'lucide-react';
 import { formatPostalCode, getPostalInputMode, getPostalInvalidMessage, validatePostalCode } from '../../lib/country-utils';
 import { supabaseBrowser } from '../../lib/supabase-browser';
 import { useCurrency } from '../providers/CurrencyProvider';
-
-// ---- Types ----
-type PaymentOption = {
-    id: string;
-    label: string;
-    description: string;
-    provider: 'stripe' | 'reduniq' | 'manual';
-    iconSrc?: string;
-    iconAlt: string;
-    highlight?: boolean;
-};
-
-
-const paymentOptions: PaymentOption[] = [
-    {
-        id: 'reduniq_card',
-        label: 'Cartão de Crédito',
-        description: 'Visa / Mastercard',
-        provider: 'reduniq',
-        iconSrc: '/payment-icons/cards.svg',
-        iconAlt: 'Cartão',
-    },
-    {
-        id: 'reduniq_mbway',
-        label: 'MB WAY',
-        description: 'Pagamento Instantâneo',
-        provider: 'reduniq',
-        iconSrc: '/payment-icons/mbway.svg',
-        iconAlt: 'MB WAY',
-    },
-    {
-        id: 'reduniq_pix',
-        label: 'PIX',
-        description: 'Pagamento Instantâneo',
-        provider: 'reduniq',
-        iconAlt: 'PIX',
-        highlight: true,
-    },
-    {
-        id: 'reduniq_multibanco',
-        label: 'Multibanco',
-        description: 'Pagamento de Serviços',
-        provider: 'reduniq',
-        iconSrc: '/payment-icons/multibanco.svg',
-        iconAlt: 'Multibanco',
-    },
-    {
-        id: 'bank_transfer',
-        label: 'Transferência Bancária',
-        description: 'Transferência manual',
-        provider: 'manual',
-        iconAlt: 'IBAN',
-    },
-];
+import { UNIFIED_DONATION_PAYMENT_OPTIONS } from '../../lib/payment-options';
+import {
+    BANK_TRANSFER_SITE_CONTENT_KEY,
+    DEFAULT_BANK_TRANSFER_DETAILS,
+    normalizeBankTransferDetails,
+} from '../../lib/bank-transfer-details';
 
 const quickAmounts = [10, 25, 50, 100, 250];
 
@@ -71,10 +23,12 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
     const [step, setStep] = useState(1);
     const [selectedPreset, setSelectedPreset] = useState(50);
     const [customAmount, setCustomAmount] = useState('50');
-    const [selectedPaymentId, setSelectedPaymentId] = useState(paymentOptions[0].id);
+    const [selectedPaymentId, setSelectedPaymentId] = useState(UNIFIED_DONATION_PAYMENT_OPTIONS[0].id);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [receiptRequired, setReceiptRequired] = useState(false);
+    const [copiedIban, setCopiedIban] = useState(false);
+    const [bankTransferDetails, setBankTransferDetails] = useState(DEFAULT_BANK_TRANSFER_DETAILS);
 
     // Proof state
     const [proofUrl, setProofUrl] = useState<string | null>(null);
@@ -98,9 +52,27 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
         return Number.isFinite(parsed) && parsed > 0 ? parsed : selectedPreset;
     }, [customAmount, selectedPreset]);
 
-    const selectedPayment = paymentOptions.find(p => p.id === selectedPaymentId) || paymentOptions[0];
+    const selectedPayment = UNIFIED_DONATION_PAYMENT_OPTIONS.find(p => p.id === selectedPaymentId) || UNIFIED_DONATION_PAYMENT_OPTIONS[0];
 
     const nifLabel = formData.pais === 'BR' ? 'CPF' : 'NIF';
+
+    useEffect(() => {
+        const fetchBankTransferDetails = async () => {
+            if (!supabaseBrowser) return;
+
+            const { data } = await supabaseBrowser
+                .from('site_content')
+                .select('content')
+                .eq('key', BANK_TRANSFER_SITE_CONTENT_KEY)
+                .maybeSingle();
+
+            if (data?.content) {
+                setBankTransferDetails(normalizeBankTransferDetails(data.content));
+            }
+        };
+
+        fetchBankTransferDetails();
+    }, []);
 
     const isValidNif = (value: string, country: string) => {
         const digits = value.replace(/\D/g, '');
@@ -183,6 +155,16 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
     };
 
     const handleManualDonation = async () => {
+        if (uploadingProof) {
+            setError("Aguarde: o comprovativo ainda está a ser carregado.");
+            return;
+        }
+
+        if (!proofUrl) {
+            setError("Para concluir por transferência bancária, é obrigatório enviar o comprovativo.");
+            return;
+        }
+
         setLoading(true);
         setError(null);
         try {
@@ -211,7 +193,7 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
 
             setStep(4); // Success step
         } catch (err: any) {
-            setError(err.message);
+            setError(err?.message || "Não foi possível registar a doação. Verifique os dados e tente novamente.");
         } finally {
             setLoading(false);
         }
@@ -264,9 +246,6 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
         setError(null);
 
         const chosenProvider = selectedPayment.provider === 'reduniq' ? 'reduniq' : 'stripe';
-        // Use general terminal for all Reduniq methods as requested
-        const reduniqSolution = undefined;
-
         try {
             // Checkout for donations (Stripe or Reduniq)
             const res = await fetch('/api/checkout', {
@@ -285,7 +264,6 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
                     donorNif: receiptRequired ? formData.nif.replace(/\D/g, '') : null,
                     donorMessage: formData.mensagem || null,
                     receiptRequired,
-                    ...(reduniqSolution ? { reduniqSolution } : {})
                 }),
             });
 
@@ -303,6 +281,8 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
             setLoading(false);
         }
     };
+
+    const canSubmitManualDonation = !!proofUrl && !uploadingProof && !loading;
 
     return (
         <AnimatePresence>
@@ -372,7 +352,7 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
                                         <div>
                                             <h3 className="font-bold text-garabandal-dark mb-4">Método de Pagamento</h3>
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                                {paymentOptions.map((opt) => (
+                                                {UNIFIED_DONATION_PAYMENT_OPTIONS.map((opt) => (
                                                     <button key={opt.id} onClick={() => setSelectedPaymentId(opt.id)}
                                                         className={`p-4 rounded-xl border text-left flex items-center gap-3 transition-all relative overflow-hidden ${selectedPaymentId === opt.id ? 'border-garabandal-gold bg-garabandal-gold/5 ring-1 ring-garabandal-gold' : 'border-gray-100 hover:border-gray-300'} ${opt.highlight ? 'ring-1 ring-green-500/30 bg-green-50/50' : ''}`}>
                                                         {opt.highlight && (
@@ -381,9 +361,7 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
                                                             </div>
                                                         )}
                                                         {opt.iconSrc ? (
-                                                            <img src={opt.iconSrc} alt={opt.iconAlt} className="w-8 h-8 object-contain" />
-                                                        ) : opt.id === 'reduniq_pix' ? (
-                                                            <div className="w-8 h-8 flex items-center justify-center bg-green-100 rounded-lg"><QrCode className="w-5 h-5 text-green-600" /></div>
+                                                            <img src={opt.iconSrc} alt={opt.iconAlt || opt.label} className="w-8 h-8 object-contain" />
                                                         ) : (
                                                             <div className="w-8 h-8 flex items-center justify-center bg-gray-100 rounded-lg"><Landmark className="w-5 h-5 text-gray-400" /></div>
                                                         )}
@@ -482,14 +460,54 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
                                             <div className="space-y-1 relative z-10">
                                                 <p className="text-[10px] uppercase font-bold text-garabandal-gold/80">IBAN</p>
                                                 <div className="text-lg md:text-xl font-mono font-bold cursor-pointer hover:text-garabandal-gold break-all"
-                                                    onClick={() => { navigator.clipboard.writeText('PT50 0033 0000 0000 0000 0000 0'); alert('Copiado!'); }}>
-                                                    PT50 0033 0000 0000 0000 0000 0
+                                                    onClick={() => {
+                                                        navigator.clipboard.writeText(bankTransferDetails.iban);
+                                                        setCopiedIban(true);
+                                                        setTimeout(() => setCopiedIban(false), 1800);
+                                                    }}>
+                                                    {bankTransferDetails.iban}
                                                 </div>
+                                                {copiedIban && <p className="text-xs text-green-300 font-bold mt-1">IBAN copiado</p>}
                                             </div>
                                             <div className="grid grid-cols-2 gap-4 border-t border-white/10 pt-4">
-                                                <div><p className="text-[10px] uppercase text-garabandal-gold/80 mb-1">Titular</p><p className="text-xs font-bold">Assoc. Mensagem de Garabandal</p></div>
-                                                <div><p className="text-[10px] uppercase text-garabandal-gold/80 mb-1">Banco</p><p className="text-xs font-bold">Millennium BCP</p></div>
+                                                <div><p className="text-[10px] uppercase text-garabandal-gold/80 mb-1">Titular</p><p className="text-xs font-bold">{bankTransferDetails.beneficiary_name}</p></div>
+                                                <div><p className="text-[10px] uppercase text-garabandal-gold/80 mb-1">Banco</p><p className="text-xs font-bold">{bankTransferDetails.bank_name}</p></div>
                                             </div>
+                                            {(bankTransferDetails.bic_swift || bankTransferDetails.reference_note) && (
+                                                <div className="grid grid-cols-1 gap-2 border-t border-white/10 pt-4">
+                                                    {bankTransferDetails.bic_swift && (
+                                                        <div>
+                                                            <p className="text-[10px] uppercase text-garabandal-gold/80 mb-1">BIC/SWIFT</p>
+                                                            <p className="text-xs font-bold">{bankTransferDetails.bic_swift}</p>
+                                                        </div>
+                                                    )}
+                                                    {bankTransferDetails.reference_note && (
+                                                        <div>
+                                                            <p className="text-[10px] uppercase text-garabandal-gold/80 mb-1">Referência</p>
+                                                            <p className="text-xs">{bankTransferDetails.reference_note}</p>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+                                            {(bankTransferDetails.address_street || bankTransferDetails.address_postal_code || bankTransferDetails.address_city || bankTransferDetails.address_country) && (
+                                                <div className="border-t border-white/10 pt-4">
+                                                    <p className="text-[10px] uppercase text-garabandal-gold/80 mb-1">Morada</p>
+                                                    <p className="text-xs">
+                                                        {[
+                                                            bankTransferDetails.address_street,
+                                                            [bankTransferDetails.address_postal_code, bankTransferDetails.address_city].filter(Boolean).join(' '),
+                                                            bankTransferDetails.address_country
+                                                        ]
+                                                            .filter((part) => part && part.trim().length > 0)
+                                                            .join(', ')}
+                                                    </p>
+                                                </div>
+                                            )}
+                                            {bankTransferDetails.support_email && (
+                                                <p className="text-[11px] text-gray-200 border-t border-white/10 pt-3">
+                                                    Dúvidas: {bankTransferDetails.support_email}
+                                                </p>
+                                            )}
                                         </div>
 
                                         <div className="bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl p-6 text-center space-y-4">
@@ -518,15 +536,25 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
                                             )}
 
                                             <input type="file" ref={fileInputRef} onChange={handleUploadProof} className="hidden" accept="image/*,application/pdf" />
+
+                                            {!proofUrl && (
+                                                <div className="bg-amber-50 text-amber-800 p-3 rounded-xl text-xs font-semibold border border-amber-100">
+                                                    O comprovativo é obrigatório para concluir a doação por transferência bancária.
+                                                </div>
+                                            )}
                                         </div>
 
                                         <button
                                             onClick={handleManualDonation}
-                                            disabled={loading}
-                                            className="w-full py-4 bg-garabandal-dark text-white font-bold rounded-2xl hover:bg-black transition-all flex items-center justify-center gap-2 shadow-lg shadow-black/10 disabled:opacity-50"
+                                            disabled={!canSubmitManualDonation}
+                                            className="w-full py-4 bg-garabandal-dark text-white font-bold rounded-2xl hover:bg-black transition-all flex items-center justify-center gap-2 shadow-lg shadow-black/10 disabled:opacity-50 disabled:cursor-not-allowed"
                                         >
                                             {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <CheckCircle className="w-5 h-5" />}
-                                            Concluir e Enviar
+                                            {uploadingProof
+                                                ? 'A carregar comprovativo...'
+                                                : !proofUrl
+                                                    ? 'Anexa o comprovativo para continuar'
+                                                    : 'Concluir e Enviar'}
                                         </button>
                                     </motion.div>
                                 )}

@@ -36,6 +36,7 @@ type Pilgrimage = {
     end_date: string;
     total_vacancies: number;
     current_vacancies: number;
+    manual_occupied_pax?: number;
     base_price: number;
     status: string;
     deposit_value: number;
@@ -88,6 +89,7 @@ export default function PilgrimageEditorPage() {
         base_price: 0,
         total_vacancies: 0,
         current_vacancies: 0,
+        manual_occupied_pax: 0,
         deposit_value: 0,
         status: 'open',
         included_items: [],
@@ -105,6 +107,24 @@ export default function PilgrimageEditorPage() {
     // Search Suggestions State (for Itinerary)
     const [suggestions, setSuggestions] = useState<Record<number, any[]>>({});
     const [searchTimeouts, setSearchTimeouts] = useState<Record<number, NodeJS.Timeout>>({});
+    const uuidV4LikeRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    const isUuid = (value: unknown) => typeof value === 'string' && uuidV4LikeRegex.test(value);
+    const normalizeText = (value: unknown) => (value ?? '').toString().trim().replace(/\s+/g, ' ').toLowerCase();
+    const normalizeCoordinate = (value: unknown) => {
+        const num = Number(value);
+        if (!Number.isFinite(num)) return '';
+        return num.toFixed(6);
+    };
+    const makeUuid = () => {
+        if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+            return crypto.randomUUID();
+        }
+        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+            const r = Math.random() * 16 | 0;
+            const v = c === 'x' ? r : (r & 0x3 | 0x8);
+            return v.toString(16);
+        });
+    };
 
     useEffect(() => {
         if (!isNew) {
@@ -161,6 +181,26 @@ export default function PilgrimageEditorPage() {
         }
     };
 
+    const syncVacanciesFromServer = async (pilgrimageId: string) => {
+        if (!supabaseBrowser) return null;
+        const { data: sessionData } = await supabaseBrowser.auth.getSession();
+        const token = sessionData.session?.access_token;
+        if (!token) return null;
+
+        const res = await fetch(`/api/admin/pilgrimages/${pilgrimageId}/vacancies`, {
+            method: 'POST',
+            headers: {
+                Authorization: `Bearer ${token}`,
+            },
+        });
+
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok) {
+            throw new Error(body?.error || 'Erro ao recalcular vagas');
+        }
+        return body?.vacancies || null;
+    };
+
     const handleSave = async () => {
         if (!supabaseBrowser) { toast.error('Erro de configuração Supabase'); return; }
         setSaving(true);
@@ -180,60 +220,193 @@ export default function PilgrimageEditorPage() {
             if (error) throw error;
             pid = data.id;
 
-            // 2. Upsert Stages
-            if (stages.length > 0) {
-                const stagesToSave = stages.map(({ id, ...rest }) => {
-                    const stagePayload: any = { ...rest, pilgrimage_id: pid };
-                    if (id && !id.toString().startsWith('temp')) {
-                        stagePayload.id = id;
-                    }
-                    return stagePayload;
-                });
+            const syncedVacancies = await syncVacanciesFromServer(pid);
+            if (syncedVacancies) {
+                setForm((prev) => ({
+                    ...prev,
+                    total_vacancies: Number(syncedVacancies.total_vacancies ?? prev.total_vacancies ?? 0),
+                    current_vacancies: Number(syncedVacancies.current_vacancies ?? prev.current_vacancies ?? 0),
+                    manual_occupied_pax: Number(syncedVacancies.manual_occupied_pax ?? prev.manual_occupied_pax ?? 0),
+                }));
+            }
 
+            // 2. Sync Stages (dedupe + stable IDs + remove stale duplicates)
+            const stageSeen = new Set<string>();
+            const uniqueStages = stages
+                .map((stage, index) => ({
+                    id: isUuid(stage.id) ? stage.id : makeUuid(),
+                    pilgrimage_id: pid,
+                    title: (stage.title ?? '').toString(),
+                    description: (stage.description ?? '').toString(),
+                    lat: Number.isFinite(Number(stage.lat)) ? Number(stage.lat) : 0,
+                    lng: Number.isFinite(Number(stage.lng)) ? Number(stage.lng) : 0,
+                    image_url: (stage.image_url ?? '').toString(),
+                    display_order: index + 1,
+                }))
+                .filter((stage) => {
+                    const key = [
+                        normalizeText(stage.title),
+                        normalizeText(stage.description),
+                        normalizeText(stage.image_url),
+                        normalizeCoordinate(stage.lat),
+                        normalizeCoordinate(stage.lng),
+                    ].join('|');
+                    if (stageSeen.has(key)) return false;
+                    stageSeen.add(key);
+                    return true;
+                })
+                .map((stage, index) => ({ ...stage, display_order: index + 1 }));
+
+            const stageIdsToKeep = uniqueStages.map((s) => s.id);
+            const { data: existingStageRows, error: existingStageError } = await supabaseBrowser
+                .from('pilgrimage_stages')
+                .select('id')
+                .eq('pilgrimage_id', pid);
+            if (existingStageError) throw existingStageError;
+
+            const existingStageIds = (existingStageRows || []).map((row: any) => row.id).filter(Boolean);
+            const stageIdsToDelete = existingStageIds.filter((existingId: string) => !stageIdsToKeep.includes(existingId));
+            if (stageIdsToDelete.length > 0) {
+                const { error: deleteStageError } = await supabaseBrowser
+                    .from('pilgrimage_stages')
+                    .delete()
+                    .in('id', stageIdsToDelete);
+                if (deleteStageError) throw deleteStageError;
+            }
+
+            if (uniqueStages.length > 0) {
                 const { error: sError } = await supabaseBrowser
                     .from('pilgrimage_stages')
-                    .upsert(stagesToSave);
+                    .upsert(uniqueStages, { onConflict: 'id' });
                 if (sError) throw sError;
             }
 
-            // 3. Upsert Detailed Itinerary
-            if (detailedItems.length > 0) {
-                const itemsToSave = detailedItems.map(({ id, ...rest }) => {
-                    const itemPayload: any = { ...rest, pilgrimage_id: pid };
-                    if (id && !id.toString().startsWith('temp')) {
-                        itemPayload.id = id;
-                    }
-                    return itemPayload;
-                });
+            setStages(uniqueStages);
 
+            // 3. Sync Detailed Itinerary (dedupe + stable IDs + remove stale duplicates)
+            const itinerarySeen = new Set<string>();
+            const uniqueDetailedItems = detailedItems
+                .map((item, index) => {
+                    const parsedDay = Number(item.day_number);
+                    const safeDay = Number.isFinite(parsedDay) && parsedDay > 0 ? parsedDay : index + 1;
+                    return {
+                        id: isUuid(item.id) ? item.id : makeUuid(),
+                        pilgrimage_id: pid,
+                        day_number: safeDay,
+                        title: (item.title ?? '').toString(),
+                        description: (item.description ?? '').toString(),
+                        image_url: (item.image_url ?? '').toString(),
+                        display_order: index + 1,
+                    };
+                })
+                .filter((item) => {
+                    const key = [
+                        item.day_number,
+                        normalizeText(item.title),
+                        normalizeText(item.description),
+                        normalizeText(item.image_url),
+                    ].join('|');
+                    if (itinerarySeen.has(key)) return false;
+                    itinerarySeen.add(key);
+                    return true;
+                })
+                .map((item, index) => ({ ...item, display_order: index + 1 }));
+
+            const itineraryIdsToKeep = uniqueDetailedItems.map((item) => item.id);
+            const { data: existingItineraryRows, error: existingItineraryError } = await supabaseBrowser
+                .from('pilgrimage_itinerary_items')
+                .select('id')
+                .eq('pilgrimage_id', pid);
+            if (existingItineraryError) throw existingItineraryError;
+
+            const existingItineraryIds = (existingItineraryRows || []).map((row: any) => row.id).filter(Boolean);
+            const itineraryIdsToDelete = existingItineraryIds.filter((existingId: string) => !itineraryIdsToKeep.includes(existingId));
+            if (itineraryIdsToDelete.length > 0) {
+                const { error: deleteItineraryError } = await supabaseBrowser
+                    .from('pilgrimage_itinerary_items')
+                    .delete()
+                    .in('id', itineraryIdsToDelete);
+                if (deleteItineraryError) throw deleteItineraryError;
+            }
+
+            if (uniqueDetailedItems.length > 0) {
                 const { error: dError } = await supabaseBrowser
                     .from('pilgrimage_itinerary_items')
-                    .upsert(itemsToSave);
+                    .upsert(uniqueDetailedItems, { onConflict: 'id' });
                 if (dError) throw dError;
             }
 
-            // 4. Upsert Team
-            if (teamMembers.length > 0) {
-                const teamToSave = teamMembers.map(({ id, ...rest }) => {
-                    const teamPayload: any = { ...rest, pilgrimage_id: pid };
-                    if (id && !id.toString().startsWith('temp')) {
-                        teamPayload.id = id;
-                    }
-                    return teamPayload;
-                });
+            setDetailedItems(uniqueDetailedItems);
 
+            // 4. Sync Team (dedupe + stable IDs + remove stale duplicates)
+            const teamSeen = new Set<string>();
+            const uniqueTeamMembers = teamMembers
+                .map((member, index) => ({
+                    id: isUuid(member.id) ? member.id : makeUuid(),
+                    pilgrimage_id: pid,
+                    name: (member.name ?? '').toString(),
+                    role: (member.role ?? '').toString(),
+                    country: (member.country ?? '').toString().toUpperCase(),
+                    image_url: (member.image_url ?? '').toString(),
+                    is_special_guest: Boolean(member.is_special_guest),
+                    description: (member.description ?? '').toString(),
+                    display_order: index + 1,
+                }))
+                .filter((member) => {
+                    const key = [
+                        normalizeText(member.name),
+                        normalizeText(member.role),
+                        normalizeText(member.country),
+                        normalizeText(member.description),
+                        normalizeText(member.image_url),
+                        member.is_special_guest ? '1' : '0',
+                    ].join('|');
+                    if (teamSeen.has(key)) return false;
+                    teamSeen.add(key);
+                    return true;
+                })
+                .map((member, index) => ({ ...member, display_order: index + 1 }));
+
+            const teamIdsToKeep = uniqueTeamMembers.map((member) => member.id);
+            const { data: existingTeamRows, error: existingTeamError } = await supabaseBrowser
+                .from('pilgrimage_team_members')
+                .select('id')
+                .eq('pilgrimage_id', pid);
+            if (existingTeamError) throw existingTeamError;
+
+            const existingTeamIds = (existingTeamRows || []).map((row: any) => row.id).filter(Boolean);
+            const teamIdsToDelete = existingTeamIds.filter((existingId: string) => !teamIdsToKeep.includes(existingId));
+            if (teamIdsToDelete.length > 0) {
+                const { error: deleteTeamError } = await supabaseBrowser
+                    .from('pilgrimage_team_members')
+                    .delete()
+                    .in('id', teamIdsToDelete);
+                if (deleteTeamError) throw deleteTeamError;
+            }
+
+            if (uniqueTeamMembers.length > 0) {
                 const { error: tError } = await supabaseBrowser
                     .from('pilgrimage_team_members')
-                    .upsert(teamToSave);
+                    .upsert(uniqueTeamMembers, { onConflict: 'id' });
                 if (tError) throw tError;
             }
 
-            toast.success('Peregrinação guardada com sucesso!');
+            setTeamMembers(uniqueTeamMembers);
+
+            const removedStages = stages.length - uniqueStages.length;
+            const removedDetailed = detailedItems.length - uniqueDetailedItems.length;
+            const removedTeam = teamMembers.length - uniqueTeamMembers.length;
+            if (removedStages > 0 || removedDetailed > 0 || removedTeam > 0) {
+                toast.success(`Peregrinação guardada. Duplicados removidos: roteiro 3D (${removedStages}), itinerário detalhado (${removedDetailed}) e equipa (${removedTeam}).`);
+            } else {
+                toast.success('Peregrinação guardada com sucesso!');
+            }
             if (isNew) router.push(`/admin/peregrinacoes/${pid}`);
 
         } catch (err: any) {
             console.error(err);
-            toast.error('Erro ao guardar: ' + err.message);
+            const details = err?.details || err?.hint || '';
+            toast.error('Erro ao guardar: ' + err.message + (details ? ` (${details})` : ''));
         } finally {
             setSaving(false);
         }

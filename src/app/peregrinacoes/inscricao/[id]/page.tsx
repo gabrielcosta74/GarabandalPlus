@@ -15,6 +15,7 @@ import {
     FileText,
     ChevronDown,
     ChevronUp,
+    ChevronRight,
     MapPin,
     Calendar,
     Users,
@@ -28,6 +29,12 @@ import { pt } from 'date-fns/locale';
 import InstallmentTracker from '../../../../components/booking/InstallmentTracker';
 import BookingOnboardingModal from '../../../../components/booking/BookingOnboardingModal';
 import BankTransferModal from '../../../../components/booking/BankTransferModal'; // Imported BankTransferModal
+import { UNIFIED_ONLINE_PAYMENT_OPTIONS } from '../../../../lib/payment-options';
+import {
+    BANK_TRANSFER_SITE_CONTENT_KEY,
+    DEFAULT_BANK_TRANSFER_DETAILS,
+    normalizeBankTransferDetails,
+} from '../../../../lib/bank-transfer-details';
 
 /* -------------------------------------------------------------------------- */
 /*                                    Types                                   */
@@ -61,41 +68,22 @@ type PaymentOption = {
     provider: 'stripe' | 'reduniq';
     reduniqSolution?: number;
     iconSrc?: string;
+    iconAlt?: string;
 };
 
-const paymentOptions: PaymentOption[] = [
-    {
-        id: 'reduniq_card',
-        label: 'Cartão de Crédito',
-        description: 'Visa / Mastercard (Reduniq)',
-        provider: 'reduniq',
-        reduniqSolution: 106,
-        iconSrc: '/payment-icons/reduniq.png',
-    },
-    {
-        id: 'reduniq_mbway',
-        label: 'MB WAY',
-        description: 'Pagamento instantâneo',
-        provider: 'reduniq',
-        reduniqSolution: 107,
-        iconSrc: '/payment-icons/mbway.svg',
-    },
-    {
-        id: 'reduniq_multibanco',
-        label: 'Multibanco',
-        description: 'Referência para pagamento',
-        provider: 'reduniq',
-        reduniqSolution: 108,
-        iconSrc: '/payment-icons/multibanco.svg',
-    },
-    {
-        id: 'stripe',
-        label: 'Stripe',
-        description: 'Cartão / Apple Pay / Google Pay',
-        provider: 'stripe',
-        iconSrc: '/payment-icons/stripe.svg',
-    },
-];
+const paymentOptions: PaymentOption[] = UNIFIED_ONLINE_PAYMENT_OPTIONS.map((option) => ({
+    id: option.id,
+    label: option.label,
+    description: option.description,
+    provider: option.provider === 'reduniq' ? 'reduniq' : 'stripe',
+    reduniqSolution:
+        option.id === 'reduniq_card' ? 106 :
+            option.id === 'reduniq_mbway' ? 107 :
+                option.id === 'reduniq_multibanco' ? 108 :
+                    undefined,
+    iconSrc: option.iconSrc,
+    iconAlt: option.iconAlt,
+}));
 
 /* -------------------------------------------------------------------------- */
 /*                                  Component                                 */
@@ -111,7 +99,7 @@ export default function BookingDashboardPage() {
     const isSuccess = searchParams?.get('success') === 'true';
     const providerParam = (searchParams?.get('provider') || '').toLowerCase();
     const orderRefParam = searchParams?.get('orderRef');
-    const reduniqTokenParam = searchParams?.get('token');
+    const reduniqTokenParam = searchParams?.getAll('token')?.at(-1) || null;
     const statusParam = (searchParams?.get('status') || '').toLowerCase();
     const canceledParam = (searchParams?.get('canceled') || '').toLowerCase();
     const currencyParam = searchParams?.get('currency') === 'BRL' ? 'BRL' : 'EUR';
@@ -246,7 +234,7 @@ export default function BookingDashboardPage() {
     // Onboarding State
     const [showOnboarding, setShowOnboarding] = useState(false);
     const [showBankModal, setShowBankModal] = useState(false); // New State for Bank Modal
-    const selectedPayment = paymentOptions.find((option) => option.id === selectedPaymentId) || paymentOptions[0];
+    const [bankTransferDetails, setBankTransferDetails] = useState(DEFAULT_BANK_TRANSFER_DETAILS);
 
     useEffect(() => {
         const params = new URLSearchParams(window.location.search);
@@ -262,7 +250,11 @@ export default function BookingDashboardPage() {
     // -- Derived State (Moved to Top) --
     const depositValue = (Number(booking?.pilgrimage?.deposit_value) || 0) * (booking?.pilgrims?.length || 1);
     const totalAmount = booking?.total_amount || 0;
-    const paidAmount = booking?.paid_amount || 0;
+    const successfulStatuses = ['verified', 'succeeded', 'paid', 'manual'];
+    const successfulPaidFromPayments = (booking?.payments || [])
+        .filter((p: any) => successfulStatuses.includes(String(p?.status || '').toLowerCase()))
+        .reduce((sum: number, p: any) => sum + (Number(p?.amount) || 0), 0);
+    const paidAmount = Math.max(booking?.paid_amount || 0, successfulPaidFromPayments);
 
     const isFullyPaid = totalAmount > 0 && paidAmount >= totalAmount;
     const isDepositPaid = depositValue > 0 && paidAmount >= depositValue;
@@ -336,9 +328,17 @@ export default function BookingDashboardPage() {
         }
 
         try {
-            // Check for token in URL
+            // Check for secure booking view token in URL
             const urlParams = new URLSearchParams(window.location.search);
-            const token = urlParams.get('token');
+            const directViewToken = urlParams.get('viewToken');
+            const tokenValues = urlParams.getAll('token');
+            const legacyViewTokenFromDuplicate = providerParam === 'reduniq' && !directViewToken && tokenValues.length > 1
+                ? tokenValues[0]
+                : null;
+            const legacyToken = providerParam === 'reduniq'
+                ? legacyViewTokenFromDuplicate
+                : (tokenValues[0] || null);
+            const token = directViewToken || legacyToken;
 
             // Use token if available, otherwise use session
             const url = token
@@ -369,7 +369,25 @@ export default function BookingDashboardPage() {
     //  Initial fetch
     useEffect(() => {
         if (id) fetchBooking(false);
-    }, [id]);
+    }, [id, providerParam]);
+
+    useEffect(() => {
+        const fetchBankTransferDetails = async () => {
+            if (!supabaseBrowser) return;
+
+            const { data } = await supabaseBrowser
+                .from('site_content')
+                .select('content')
+                .eq('key', BANK_TRANSFER_SITE_CONTENT_KEY)
+                .maybeSingle();
+
+            if (data?.content) {
+                setBankTransferDetails(normalizeBankTransferDetails(data.content));
+            }
+        };
+
+        fetchBankTransferDetails();
+    }, []);
 
     // Auto-refresh every 30 seconds
     useEffect(() => {
@@ -387,7 +405,11 @@ export default function BookingDashboardPage() {
 
     // Check if we have a token in URL - if so, don't show auth errors
     const urlParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
-    const hasToken = urlParams?.get('token');
+    const tokenValuesForAuth = urlParams?.getAll('token') || [];
+    const hasLegacyViewTokenInReduniq = providerParam === 'reduniq' && !urlParams?.get('viewToken') && tokenValuesForAuth.length > 1
+        ? tokenValuesForAuth[0]
+        : null;
+    const hasToken = urlParams?.get('viewToken') || (providerParam === 'reduniq' ? hasLegacyViewTokenInReduniq : (tokenValuesForAuth[0] || null));
 
     // Inline Login Prompt if Auth Failed (but NOT if we have a valid token)
     if (authError && !booking && !hasToken) {
@@ -462,9 +484,16 @@ export default function BookingDashboardPage() {
         </VIPLayout>
     );
 
-    const handleOnlinePayment = async () => {
+    const handleOnlinePayment = async (paymentOverrideId?: string) => {
+        const paymentIdToUse = paymentOverrideId || selectedPaymentId;
+        const selectedOption = paymentOptions.find((opt) => opt.id === paymentIdToUse);
+        if (!selectedOption) return;
+        setSelectedPaymentId(selectedOption.id);
+
         setProcessing(true);
         setReduniqFeedback(null);
+
+        // 1. Start checkout
         try {
             const res = await fetch('/api/payments/checkout', {
                 method: 'POST',
@@ -472,21 +501,50 @@ export default function BookingDashboardPage() {
                 body: JSON.stringify({
                     bookingId: id,
                     priceType: paymentMode,
-                    provider: selectedPayment.provider,
-                    ...(selectedPayment.provider === 'reduniq' && selectedPayment.reduniqSolution
-                        ? { reduniqSolution: selectedPayment.reduniqSolution }
-                        : {})
-                })
+                    provider: selectedOption.provider,
+                    amountToPay,
+                    ...(selectedOption.provider === 'reduniq' && selectedOption.reduniqSolution
+                        ? { reduniqSolution: selectedOption.reduniqSolution }
+                        : {}),
+                }),
             });
             const data = await res.json();
 
             if (!res.ok) throw new Error(data.error || "Erro ao iniciar doação");
 
             if (data.url) {
-                window.location.href = data.url;
+                const paymentUrl = String(data.url || '').trim();
+                if (!paymentUrl) {
+                    throw new Error("URL de pagamento vazia.");
+                }
+
+                let redirectTo: string;
+                try {
+                    redirectTo = new URL(paymentUrl, window.location.origin).toString();
+                } catch {
+                    // Fallback for edge cases where raw URL contains characters accepted by gateway but not by URL parser
+                    try {
+                        redirectTo = encodeURI(paymentUrl);
+                    } catch {
+                        throw new Error("URL de pagamento inválida. Tenta novamente.");
+                    }
+                }
+
+                try {
+                    window.location.assign(redirectTo);
+                } catch {
+                    // Final fallback using href assignment
+                    window.location.href = redirectTo;
+                }
+                return;
             }
+            throw new Error("Gateway não devolveu URL de pagamento.");
         } catch (e: any) {
-            alert("Erro: " + e.message);
+            const msg = String(e?.message || 'Erro ao iniciar doação');
+            const safeMsg = msg.toLowerCase().includes('expected pattern')
+                ? 'Falha a abrir o gateway de pagamento. Tenta novamente.'
+                : msg;
+            alert("Erro: " + safeMsg);
             setProcessing(false);
         }
     };
@@ -519,9 +577,13 @@ export default function BookingDashboardPage() {
             reader.onload = async () => {
                 const base64Content = reader.result?.toString().split(',')[1];
 
-                // Get token from URL if present
+                // Get booking view token from URL if present
                 const urlParams = new URLSearchParams(window.location.search);
-                const viewToken = urlParams.get('token');
+                const tokenValues = urlParams.getAll('token');
+                const legacyViewTokenFromDuplicate = providerParam === 'reduniq' && !urlParams.get('viewToken') && tokenValues.length > 1
+                    ? tokenValues[0]
+                    : null;
+                const viewToken = urlParams.get('viewToken') || (providerParam === 'reduniq' ? legacyViewTokenFromDuplicate : (tokenValues[0] || null));
 
                 const res = await fetch('/api/payments/upload-receipt', {
                     method: 'POST',
@@ -757,42 +819,42 @@ export default function BookingDashboardPage() {
                                                 {isConverted && exchangeRate && <p className="text-white/50 text-xs">Aprox. {amountToPay} € (Taxa: {exchangeRate})</p>}
                                             </div>
 
-                                            {/* OPÇÃO 1: DOAÇÃO AUTOMÁTICA (Destaque Principal) */}
-                                            <div className="space-y-4">
-                                                <div className="grid gap-2">
-                                                    {paymentOptions.map((option) => {
-                                                        const active = option.id === selectedPaymentId;
-                                                        return (
-                                                            <button
-                                                                key={option.id}
-                                                                type="button"
-                                                                onClick={() => setSelectedPaymentId(option.id)}
-                                                                className={`w-full rounded-xl border px-3 py-2 text-left transition-all flex items-center gap-3 ${active
-                                                                    ? 'border-yellow-400 bg-yellow-500/15 text-white'
-                                                                    : 'border-white/15 bg-white/5 text-white/80 hover:bg-white/10'
-                                                                    }`}
-                                                            >
-                                                                <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center shrink-0">
-                                                                    {option.iconSrc ? (
-                                                                        <img
-                                                                            src={option.iconSrc}
-                                                                            alt={option.label}
-                                                                            className="h-5 w-auto"
-                                                                            onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                                                                        />
-                                                                    ) : (
-                                                                        <CreditCard className="w-4 h-4 text-slate-900" />
-                                                                    )}
-                                                                </div>
-                                                                <div className="min-w-0">
-                                                                    <p className="font-bold text-sm">{option.label}</p>
-                                                                    <p className="text-[11px] text-white/60">{option.description}</p>
-                                                                </div>
-                                                            </button>
-                                                        );
-                                                    })}
-                                                </div>
+                                            {/* LISTA UNIFICADA DE PAGAMENTOS (Direct Action) */}
+                                            <div className="space-y-3 animate-in fade-in slide-in-from-bottom-4 duration-500">
 
+                                                {/* 1. OPÇÕES ONLINE (Imediato) */}
+                                                {paymentOptions.map((option) => (
+                                                    <button
+                                                        key={option.id}
+                                                        onClick={() => handleOnlinePayment(option.id)}
+                                                        disabled={processing}
+                                                        className="w-full relative group overflow-hidden rounded-2xl border-2 border-white/10 bg-white/5 hover:bg-white/10 hover:border-yellow-500/50 transition-all p-4 flex items-center gap-4 text-left disabled:opacity-50 disabled:cursor-not-allowed"
+                                                    >
+                                                        <div className="w-12 h-12 rounded-xl bg-white flex items-center justify-center shrink-0 shadow-lg group-hover:scale-110 transition-transform duration-300">
+                                                            {option.iconSrc ? (
+                                                                <img
+                                                                    src={option.iconSrc}
+                                                                    alt={option.label}
+                                                                    className="h-7 w-auto object-contain"
+                                                                    onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                                                                />
+                                                            ) : (
+                                                                <CreditCard className="w-6 h-6 text-slate-900" />
+                                                            )}
+                                                        </div>
+                                                        <div className="flex-1">
+                                                            <p className="font-bold text-lg text-white group-hover:text-yellow-400 transition-colors">
+                                                                Pagar com {option.label.replace(' / ', '/')}
+                                                            </p>
+                                                            <p className="text-xs text-white/50">{option.description}</p>
+                                                        </div>
+                                                        <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center group-hover:bg-yellow-500 group-hover:text-slate-900 transition-all">
+                                                            <ChevronRight className="w-5 h-5" />
+                                                        </div>
+                                                    </button>
+                                                ))}
+
+                                                {/* Feedback Reduniq */}
                                                 {(reduniqConfirming || reduniqFeedback) && (
                                                     <div className={`rounded-xl border px-4 py-3 text-sm ${reduniqConfirming
                                                         ? 'border-blue-500/40 bg-blue-500/15 text-blue-100'
@@ -803,46 +865,21 @@ export default function BookingDashboardPage() {
                                                                 : 'border-red-500/40 bg-red-500/15 text-red-100'
                                                         }`}>
                                                         <p className="font-bold">
-                                                            {reduniqConfirming ? 'A confirmar pagamento Reduniq...' : reduniqFeedback?.title}
+                                                            {reduniqConfirming ? 'A confirmar pagamento...' : reduniqFeedback?.title}
                                                         </p>
                                                         <p className="text-xs mt-1 opacity-90">
-                                                            {reduniqConfirming ? 'Estamos a validar o estado da transação no gateway.' : reduniqFeedback?.message}
+                                                            {reduniqConfirming ? 'Aguarde um momento.' : reduniqFeedback?.message}
                                                         </p>
                                                     </div>
                                                 )}
 
-                                                <button
-                                                    onClick={handleOnlinePayment}
-                                                    disabled={processing}
-                                                    className="w-full py-6 px-6 bg-yellow-500 hover:bg-yellow-400 text-slate-950 rounded-2xl font-extrabold text-2xl transition-all shadow-[0_10px_40px_rgba(234,179,8,0.3)] active:scale-95 disabled:opacity-50 flex flex-col items-center justify-center gap-1 group relative overflow-hidden"
-                                                >
-                                                    {processing ? (
-                                                        <Loader2 className="animate-spin w-8 h-8" />
-                                                    ) : (
-                                                        <>
-                                                            <div className="flex items-center gap-3">
-                                                                <CreditCard className="w-6 h-6" />
-                                                                <span>{selectedPayment.provider === 'reduniq' ? 'DOAR VIA REDUNIQ' : 'DOAR VIA STRIPE'}</span>
-                                                            </div>
-                                                            <p className="text-[10px] font-bold uppercase opacity-60 tracking-widest group-hover:opacity-80 transition-opacity">
-                                                                Pagamento online seguro
-                                                            </p>
-                                                        </>
-                                                    )}
-                                                </button>
-                                                <p className="text-white/40 text-[10px] font-medium uppercase tracking-widest mt-3">
-                                                    Processamento Seguro e Imediato
-                                                </p>
-                                            </div>
+                                                {/* SEPARATOR */}
+                                                <div className="relative py-2">
+                                                    <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-white/10"></div></div>
+                                                    <div className="relative flex justify-center"><span className="bg-slate-950 px-4 text-[10px] text-white/50 uppercase tracking-widest font-bold">OU</span></div>
+                                                </div>
 
-                                            {/* SEPARATOR "OR" */}
-                                            <div className="relative py-2">
-                                                <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-white/10"></div></div>
-                                                <div className="relative flex justify-center"><span className="bg-slate-950 px-4 text-[10px] text-white/50 uppercase tracking-widest font-bold">OU ENTÃO</span></div>
-                                            </div>
-
-                                            {/* OPÇÃO 2: TRANSFERÊNCIA BANCÁRIA (Secundário) */}
-                                            <div className="space-y-4">
+                                                {/* 2. TRANSFERÊNCIA BANCÁRIA (Manual) */}
                                                 {isVerifying ? (
                                                     <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl text-amber-500 text-sm font-bold flex flex-col items-center gap-2">
                                                         <Clock className="w-6 h-6" />
@@ -850,19 +887,23 @@ export default function BookingDashboardPage() {
                                                         <p className="text-[10px] font-medium opacity-70">Aguarde a validação da nossa equipa.</p>
                                                     </div>
                                                 ) : (
-                                                    <>
-                                                        <button
-                                                            onClick={() => setShowBankModal(true)}
-                                                            className="w-full py-4 px-6 bg-white/5 hover:bg-white/10 border-2 border-dashed border-white/20 hover:border-white/40 text-white rounded-xl font-bold transition-all flex items-center justify-center gap-3 group"
-                                                        >
-                                                            <Landmark className="w-5 h-5 text-slate-400 group-hover:text-white transition-colors" />
-                                                            <span>ou Transferência Bancária</span>
-                                                        </button>
-                                                        <p className="text-[10px] text-white/30 italic max-w-xs mx-auto">
-                                                            Pode transferir pelo Multibanco ou Homebanking e enviar o comprovativo da doação.
-                                                        </p>
-                                                    </>
+                                                    <button
+                                                        onClick={() => setShowBankModal(true)}
+                                                        className="w-full rounded-2xl border-2 border-dashed border-white/20 hover:border-white/40 hover:bg-white/5 transition-all p-4 flex items-center gap-4 text-left group"
+                                                    >
+                                                        <div className="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center shrink-0 text-white group-hover:scale-110 transition-transform">
+                                                            <Landmark className="w-6 h-6" />
+                                                        </div>
+                                                        <div className="flex-1">
+                                                            <p className="font-bold text-lg text-white group-hover:text-amber-300 transition-colors">
+                                                                Transferência Bancária
+                                                            </p>
+                                                            <p className="text-xs text-white/50">Envie o comprovativo manualmente</p>
+                                                        </div>
+                                                        <ChevronRight className="w-5 h-5 text-white/30 group-hover:text-white transition-colors" />
+                                                    </button>
                                                 )}
+
                                             </div>
 
                                             {/* Hidden File Input for Modal Callback */}
@@ -943,7 +984,16 @@ export default function BookingDashboardPage() {
                 onClose={() => setShowBankModal(false)}
                 totalAmount={amountToPay}
                 formattedTotal={formatPrice(amountToPay)}
-                iban="PT50 0033 0000 0000 0000 0000 0"
+                iban={bankTransferDetails.iban}
+                beneficiaryName={bankTransferDetails.beneficiary_name}
+                bankName={bankTransferDetails.bank_name}
+                bicSwift={bankTransferDetails.bic_swift}
+                addressStreet={bankTransferDetails.address_street}
+                addressPostalCode={bankTransferDetails.address_postal_code}
+                addressCity={bankTransferDetails.address_city}
+                addressCountry={bankTransferDetails.address_country}
+                referenceNote={bankTransferDetails.reference_note}
+                supportEmail={bankTransferDetails.support_email}
                 onUploadClick={handleManualUpload}
             />
         </VIPLayout>

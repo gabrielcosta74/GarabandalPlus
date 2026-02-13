@@ -2,11 +2,9 @@
 
 import { useState } from "react";
 import { createPortal } from "react-dom";
-import { FileText, Smartphone, Mail, X, CheckCircle, Download, ShieldCheck } from "lucide-react";
+import { FileText, Mail, X, CheckCircle, ShieldCheck } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { useCurrency } from "../providers/CurrencyProvider";
-import PhoneInput from 'react-phone-number-input';
-import 'react-phone-number-input/style.css';
 
 interface BrochureDownloadModalProps {
     pilgrimageId: string;
@@ -25,7 +23,7 @@ export function BrochureDownloadModal({ pilgrimageId, slug, className, trigger, 
     const open = isControlled ? forceOpen : internalOpen;
     const setOpen = isControlled ? onOpenChange! : setInternalOpen;
 
-    const [channel, setChannel] = useState<"whatsapp" | "email">("whatsapp");
+    const channel: "email" = "email";
     const [inputValue, setInputValue] = useState("");
     const [name, setName] = useState("");
     const [loading, setLoading] = useState(false);
@@ -42,10 +40,9 @@ export function BrochureDownloadModal({ pilgrimageId, slug, className, trigger, 
                 body: JSON.stringify({
                     pilgrimageId,
                     name,
-                    email: channel === "email" ? inputValue : undefined,
-                    phone: channel === "whatsapp" ? inputValue : undefined,
+                    email: inputValue,
                     type: "brochure_request",
-                    channel_preference: channel,
+                    channel_preference: "email",
                     currency: currency // Pass currency preference
                 }),
             });
@@ -97,7 +94,7 @@ export function BrochureDownloadModal({ pilgrimageId, slug, className, trigger, 
                                 </div>
                                 <h2 className="text-2xl font-serif font-bold text-gray-900">Enviado!</h2>
                                 <p className="text-lg text-gray-600">
-                                    {channel === 'whatsapp' ? 'Verifique o seu WhatsApp.' : 'Verifique o seu Email.'}
+                                    Verifique o seu Email.
                                     <br />O programa já está a caminho.
                                 </p>
                                 <button
@@ -136,34 +133,9 @@ export function BrochureDownloadModal({ pilgrimageId, slug, className, trigger, 
                                 </div>
 
                                 <div className="p-8">
-                                    {/* Channel Selector - Refined Pills */}
-                                    <div className="flex p-1 bg-slate-100 rounded-2xl mb-8">
-                                        <button
-                                            type="button"
-                                            onClick={() => setChannel("whatsapp")}
-                                            className={cn(
-                                                "flex-1 flex items-center justify-center gap-2 py-3 rounded-xl transition-all font-bold text-sm",
-                                                channel === "whatsapp"
-                                                    ? "bg-white text-slate-900 shadow-sm"
-                                                    : "text-slate-500 hover:text-slate-700"
-                                            )}
-                                        >
-                                            <Smartphone className="w-4 h-4" />
-                                            WhatsApp
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => setChannel("email")}
-                                            className={cn(
-                                                "flex-1 flex items-center justify-center gap-2 py-3 rounded-xl transition-all font-bold text-sm",
-                                                channel === "email"
-                                                    ? "bg-white text-slate-900 shadow-sm"
-                                                    : "text-slate-500 hover:text-slate-700"
-                                            )}
-                                        >
-                                            <Mail className="w-4 h-4" />
-                                            Email
-                                        </button>
+                                    <div className="flex items-center justify-center gap-2 p-3 bg-slate-100 rounded-2xl mb-8 text-slate-700">
+                                        <Mail className="w-4 h-4" />
+                                        <span className="text-sm font-bold">Envio por Email</span>
                                     </div>
 
                                     <form onSubmit={handleSubmit} className="space-y-6">
@@ -179,47 +151,16 @@ export function BrochureDownloadModal({ pilgrimageId, slug, className, trigger, 
 
                                         <div className="space-y-2">
                                             <label htmlFor="contact" className="text-xs font-bold text-slate-400 uppercase tracking-widest">
-                                                {channel === "whatsapp" ? "WhatsApp (Brasil/Internacional)" : "O seu melhor Email"}
+                                                O seu melhor Email
                                             </label>
-
-                                            {channel === "whatsapp" ? (
-                                                <div className="phone-input-container">
-                                                    <PhoneInput
-                                                        international
-                                                        defaultCountry="BR"
-                                                        value={inputValue}
-                                                        onChange={(val) => setInputValue(val || "")}
-                                                        className="w-full h-14 px-5 rounded-2xl text-lg bg-slate-50 border border-slate-200 focus-within:border-garabandal-gold focus-within:ring-4 focus-within:ring-garabandal-gold/5 outline-none transition-all flex items-center gap-3"
-                                                        placeholder="Digite seu celular"
-                                                    />
-                                                    <style jsx global>{`
-                                                        .PhoneInputInput {
-                                                            background: transparent;
-                                                            border: none;
-                                                            outline: none;
-                                                            font-size: 1.125rem;
-                                                            flex: 1;
-                                                            height: 100%;
-                                                            color: #0f172a;
-                                                        }
-                                                        .PhoneInputCountry {
-                                                            padding: 4px;
-                                                            background: white;
-                                                            border-radius: 8px;
-                                                            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-                                                        }
-                                                    `}</style>
-                                                </div>
-                                            ) : (
-                                                <input
-                                                    id="contact"
-                                                    type="email"
-                                                    required
-                                                    value={inputValue} onChange={e => setInputValue(e.target.value)}
-                                                    className="w-full h-14 px-5 rounded-2xl text-lg bg-slate-50 border border-slate-200 focus:border-garabandal-gold focus:ring-4 focus:ring-garabandal-gold/5 outline-none transition-all placeholder:text-slate-300"
-                                                    placeholder="Ex: maria@email.com"
-                                                />
-                                            )}
+                                            <input
+                                                id="contact"
+                                                type="email"
+                                                required
+                                                value={inputValue} onChange={e => setInputValue(e.target.value)}
+                                                className="w-full h-14 px-5 rounded-2xl text-lg bg-slate-50 border border-slate-200 focus:border-garabandal-gold focus:ring-4 focus:ring-garabandal-gold/5 outline-none transition-all placeholder:text-slate-300"
+                                                placeholder="Ex: maria@email.com"
+                                            />
                                         </div>
 
                                         <button
@@ -227,9 +168,7 @@ export function BrochureDownloadModal({ pilgrimageId, slug, className, trigger, 
                                             disabled={loading || !name || !inputValue}
                                             className={cn(
                                                 "w-full h-16 text-lg font-bold rounded-2xl mt-4 shadow-2xl transition-all active:scale-95 flex items-center justify-center gap-3",
-                                                channel === "whatsapp"
-                                                    ? "bg-[#25D366] hover:bg-[#20bd5a] text-white shadow-green-500/20"
-                                                    : "bg-slate-900 hover:bg-slate-800 text-white shadow-slate-900/20",
+                                                "bg-slate-900 hover:bg-slate-800 text-white shadow-slate-900/20",
                                                 loading && "opacity-70 cursor-not-allowed"
                                             )}
                                         >
@@ -237,8 +176,8 @@ export function BrochureDownloadModal({ pilgrimageId, slug, className, trigger, 
                                                 <div className="w-6 h-6 border-3 border-white/30 border-t-white rounded-full animate-spin" />
                                             ) : (
                                                 <>
-                                                    {channel === 'whatsapp' ? <Smartphone className="w-5 h-5" /> : <Mail className="w-5 h-5" />}
-                                                    <span>Receber no meu {channel === 'whatsapp' ? 'WhatsApp' : 'Email'}</span>
+                                                    <Mail className="w-5 h-5" />
+                                                    <span>Receber no meu Email</span>
                                                 </>
                                             )}
                                         </button>

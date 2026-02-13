@@ -8,11 +8,11 @@ import {
     Search,
     MapPin,
     Calendar,
-    Users,
     ChevronRight,
-    MoreVertical,
     Plane,
-    CheckCircle2
+    CheckCircle2,
+    Trash2,
+    Copy
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { pt } from 'date-fns/locale';
@@ -38,6 +38,8 @@ export default function AdminPilgrimagesPage() {
     const [pilgrimages, setPilgrimages] = useState<Pilgrimage[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
+    const [deletingId, setDeletingId] = useState<string | null>(null);
+    const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
 
     useEffect(() => {
         fetchPilgrimages();
@@ -82,6 +84,87 @@ export default function AdminPilgrimagesPage() {
         p.slug.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
+    const handleDelete = async (id: string, title: string) => {
+        if (!supabaseBrowser) return;
+
+        const ok = window.confirm(
+            `Tem a certeza que deseja eliminar a peregrinação "${title}"?\n\nEsta ação é irreversível e irá remover reservas, itinerários e dados associados.`
+        );
+        if (!ok) return;
+
+        setDeletingId(id);
+        try {
+            const { data: sessionData } = await supabaseBrowser.auth.getSession();
+            const token = sessionData.session?.access_token;
+            if (!token) {
+                alert('Sessão inválida. Faça login novamente.');
+                return;
+            }
+
+            const res = await fetch(`/api/admin/pilgrimages/${id}`, {
+                method: 'DELETE',
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            });
+
+            const body = await res.json().catch(() => ({}));
+            if (!res.ok) {
+                throw new Error(body?.error || 'Erro ao eliminar peregrinação');
+            }
+
+            setPilgrimages((prev) => prev.filter((p) => p.id !== id));
+            alert('Peregrinação eliminada com sucesso.');
+        } catch (e: any) {
+            alert(`Erro ao eliminar: ${e.message}`);
+        } finally {
+            setDeletingId(null);
+        }
+    };
+
+    const handleDuplicate = async (id: string, title: string) => {
+        if (!supabaseBrowser) return;
+        const ok = window.confirm(`Duplicar a peregrinação "${title}"?\n\nSerá criada uma nova versão com status "Encerradas" para edição.`);
+        if (!ok) return;
+
+        setDuplicatingId(id);
+        try {
+            const { data: sessionData } = await supabaseBrowser.auth.getSession();
+            const token = sessionData.session?.access_token;
+            if (!token) {
+                alert('Sessão inválida. Faça login novamente.');
+                return;
+            }
+
+            const res = await fetch(`/api/admin/pilgrimages/${id}/duplicate`, {
+                method: 'POST',
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            });
+
+            const body = await res.json().catch(() => ({}));
+            if (!res.ok) {
+                throw new Error(body?.error || 'Erro ao duplicar peregrinação');
+            }
+
+            await fetchPilgrimages();
+            const removedStages = Number(body?.summary?.stages?.skippedDuplicates || 0);
+            const removedItinerary = Number(body?.summary?.itinerary?.skippedDuplicates || 0);
+            const removedTotal = removedStages + removedItinerary;
+
+            const message = removedTotal > 0
+                ? `Peregrinação duplicada com sucesso:\n${body?.pilgrimage?.title || 'Cópia criada'}\n\nDuplicados removidos automaticamente:\n- Roteiro 3D: ${removedStages}\n- Itinerário detalhado: ${removedItinerary}`
+                : `Peregrinação duplicada com sucesso:\n${body?.pilgrimage?.title || 'Cópia criada'}`;
+
+            alert(message);
+        } catch (e: any) {
+            alert(`Erro ao duplicar: ${e.message}`);
+        } finally {
+            setDuplicatingId(null);
+        }
+    };
+
     return (
         <AdminLayout title="Peregrinações" isLoading={loading}>
             <div className="space-y-8">
@@ -98,7 +181,8 @@ export default function AdminPilgrimagesPage() {
 
                     <Link
                         href="/admin/peregrinacoes/nova"
-                        className="bg-slate-900 hover:bg-slate-800 text-white px-5 py-3 rounded-xl flex items-center gap-2 font-medium shadow-lg hover:shadow-xl transition-all"
+                        className="bg-slate-900 hover:bg-slate-800 !text-white font-bold px-5 py-3 rounded-xl flex items-center gap-2 shadow-lg hover:shadow-xl transition-all"
+                        style={{ color: 'white' }}
                     >
                         <Plus className="w-5 h-5" />
                         Criar Nova Viagem
@@ -131,15 +215,14 @@ export default function AdminPilgrimagesPage() {
                 ) : (
                     <div className="grid grid-cols-1 gap-4">
                         {filtered.map((item) => (
-                            <Link
-                                href={`/admin/peregrinacoes/${item.id}`}
+                            <div
                                 key={item.id}
-                                className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 hover:shadow-md hover:border-slate-300 transition-all group"
+                                className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 hover:shadow-md hover:border-slate-300 transition-all"
                             >
                                 <div className="flex flex-col md:flex-row md:items-center gap-6">
 
                                     {/* Image / Date Box */}
-                                    <div className="w-20 h-20 rounded-xl bg-slate-100 flex flex-col items-center justify-center border border-slate-100 flex-shrink-0 overflow-hidden relative">
+                                    <Link href={`/admin/peregrinacoes/${item.id}`} className="w-20 h-20 rounded-xl bg-slate-100 flex flex-col items-center justify-center border border-slate-100 flex-shrink-0 overflow-hidden relative group">
                                         {item.cover_image ? (
                                             <img src={item.cover_image} className="w-full h-full object-cover" />
                                         ) : (
@@ -148,10 +231,10 @@ export default function AdminPilgrimagesPage() {
                                                 <span className="text-2xl font-bold text-slate-700">{format(new Date(item.start_date), 'dd')}</span>
                                             </>
                                         )}
-                                    </div>
+                                    </Link>
 
                                     {/* Info */}
-                                    <div className="flex-1">
+                                    <Link href={`/admin/peregrinacoes/${item.id}`} className="flex-1 group">
                                         <div className="flex items-center gap-3 mb-1">
                                             <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border ${getStatusColor(item.status)}`}>
                                                 {getStatusLabel(item.status)}
@@ -195,19 +278,46 @@ export default function AdminPilgrimagesPage() {
                                                 {item.slug}
                                             </span>
                                         </div>
-                                    </div>
+                                    </Link>
 
                                     {/* Price & Action */}
                                     <div className="text-right flex flex-col items-end gap-1">
                                         <span className="text-sm text-slate-400">Desde</span>
                                         <span className="text-xl font-bold text-slate-900">{item.base_price}€</span>
-                                        <div className="mt-2 w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center group-hover:bg-slate-900 group-hover:text-white transition-colors">
-                                            <ChevronRight className="w-4 h-4" />
+                                        <div className="mt-2 flex items-center gap-2">
+                                            <button
+                                                type="button"
+                                                onClick={() => handleDuplicate(item.id, item.title)}
+                                                disabled={duplicatingId === item.id}
+                                                className="h-8 px-3 rounded-full bg-indigo-50 text-indigo-700 flex items-center justify-center gap-1 hover:bg-indigo-600 hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-xs font-semibold"
+                                                title="Duplicar peregrinação"
+                                            >
+                                                <Copy className="w-4 h-4" />
+                                                {duplicatingId === item.id ? 'A duplicar...' : 'Duplicar'}
+                                            </button>
+                                            <Link
+                                                href={`/admin/peregrinacoes/${item.id}`}
+                                                className="h-8 px-3 rounded-full bg-slate-50 text-slate-700 flex items-center justify-center gap-1 hover:bg-slate-900 hover:text-white transition-colors text-xs font-semibold"
+                                                title="Editar"
+                                            >
+                                                <ChevronRight className="w-4 h-4" />
+                                                Editar
+                                            </Link>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleDelete(item.id, item.title)}
+                                                disabled={deletingId === item.id}
+                                                className="h-8 px-3 rounded-full bg-red-50 text-red-700 flex items-center justify-center gap-1 hover:bg-red-600 hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-xs font-semibold"
+                                                title="Eliminar peregrinação"
+                                            >
+                                                <Trash2 className="w-4 h-4" />
+                                                {deletingId === item.id ? 'A eliminar...' : 'Eliminar'}
+                                            </button>
                                         </div>
                                     </div>
 
                                 </div>
-                            </Link>
+                            </div>
                         ))}
                     </div>
                 )}

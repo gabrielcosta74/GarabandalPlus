@@ -8,6 +8,7 @@ import { applyMemberDiscount, isActiveMember, MEMBER_DISCOUNT_RATE } from '../..
 import { getAppUrl } from '../../../../lib/config';
 import { normalizeEmail } from '../../../../lib/normalize';
 import { reduniqClient } from '../../../../lib/reduniq/client';
+import { inferIsDigitalProduct } from '../../../../lib/product-kind';
 
 const itemSchema = z.object({
   id: z.string().min(1),
@@ -116,7 +117,7 @@ export async function POST(request: Request) {
 
     const { data: productRows, error: productError } = await supabaseServer
       .from('store_products')
-      .select('product_id, name, price, is_physical, is_active, stock, allowed_countries')
+      .select('product_id, name, category, price, is_physical, is_active, stock, allowed_countries, type_id, digital_url')
       .in(
         'product_id',
         normalizedItems.map((item) => item.id),
@@ -134,13 +135,21 @@ export async function POST(request: Request) {
       if (!product || product.is_active === false) return null;
       const basePrice = Number(product.price ?? 0);
       const price = applyMemberDiscount(basePrice, memberDiscountRate > 0);
+      const isDigital = inferIsDigitalProduct({
+        isPhysical: product.is_physical,
+        typeId: (product as any).type_id,
+        category: (product as any).category,
+        name: product.name,
+        digitalUrl: (product as any).digital_url,
+      });
+      const isPhysical = !isDigital;
       return {
         id: product.product_id,
         name: product.name || 'Produto',
         price,
         qty: item.qty,
-        isPhysical: product.is_physical ?? true,
-        stock: typeof product.stock === 'number' ? product.stock : null,
+        isPhysical,
+        stock: isPhysical && typeof product.stock === 'number' ? product.stock : null,
         allowedCountries: product.allowed_countries,
       };
     });
@@ -259,7 +268,7 @@ export async function POST(request: Request) {
       try {
         try {
           for (const item of itemsResolved) {
-            if (typeof item.stock === 'number' && item.stock < item.qty) {
+            if (item.isPhysical && typeof item.stock === 'number' && item.stock < item.qty) {
               return NextResponse.json(
                 { message: `Stock insuficiente para ${item.name}.`, code: 'INSUFFICIENT_STOCK', requestId },
                 { status: 400 },

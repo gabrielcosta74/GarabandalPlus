@@ -6,6 +6,7 @@ import { motion } from 'framer-motion';
 import { Product } from '../../app/loja-online/data';
 import { ShoppingCart, Globe } from 'lucide-react';
 import { useCurrency } from '../providers/CurrencyProvider';
+import { inferIsDigitalProduct } from '../../lib/product-kind';
 
 interface ProductCardProps {
     product: Product;
@@ -19,13 +20,21 @@ const ProductCard = React.forwardRef<HTMLDivElement, ProductCardProps>(({
     onAddToCart,
 }, ref) => {
     const { formatPrice } = useCurrency();
+    const isDigital = inferIsDigitalProduct({
+        isPhysical: product.isPhysical,
+        typeId: product.type_id,
+        category: product.category,
+        name: product.name,
+        digitalUrl: (product as any).digitalUrl,
+    });
+
     const totalVariantStock = product.variants?.reduce((acc: number, v: any) => acc + (v.stock || 0), 0) || 0;
-    const hasStock = (product.variants && product.variants.length > 0)
+    const hasStock = isDigital
+        ? true
+        : (product.variants && product.variants.length > 0)
         ? totalVariantStock > 0
         : (product.stock === null ? true : (product.stock ?? 0) > 0);
 
-    // Digital products are never sold out unless explicitly inactive (which they wouldn't be here)
-    const isDigital = product.type_id?.includes('book_digital') || product.type_id === 'digital_generic' || product.type === 'digital';
     const isSoldOut = !isDigital && !hasStock;
 
     return (
@@ -83,7 +92,7 @@ const ProductCard = React.forwardRef<HTMLDivElement, ProductCardProps>(({
                                 )}
                             </div>
                         </div>
-                        {typeof product.stock === 'number' && product.stock > 0 && product.stock < 10 && (
+                        {!isDigital && typeof product.stock === 'number' && product.stock > 0 && product.stock < 10 && (
                             <span className="text-[10px] text-amber-600 font-bold uppercase tracking-wider bg-amber-50 px-2 py-1 rounded border border-amber-100">
                                 Restam {product.stock}
                             </span>

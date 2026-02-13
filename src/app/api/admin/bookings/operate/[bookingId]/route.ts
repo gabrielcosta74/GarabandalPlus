@@ -26,6 +26,16 @@ export async function DELETE(
             return NextResponse.json({ error: authError || 'Unauthorized' }, { status: 401 });
         }
 
+        const { data: bookingRow, error: bookingError } = await supabaseServer
+            .from('bookings')
+            .select('id, pilgrimage_id')
+            .eq('id', bookingId)
+            .maybeSingle();
+
+        if (bookingError) {
+            return NextResponse.json({ error: bookingError.message }, { status: 500 });
+        }
+
         // 2. Perform Delete
         // RELIES ON CASCADE DELETE in Postgres for pilgrims and payments
         const { error } = await supabaseServer
@@ -38,9 +48,17 @@ export async function DELETE(
             return NextResponse.json({ error: error.message }, { status: 500 });
         }
 
-        return NextResponse.json({ success: true });
+        if (bookingRow?.pilgrimage_id) {
+            const { error: vacancyError } = await supabaseServer.rpc('recalculate_pilgrimage_vacancies', {
+                p_pilgrimage_id: bookingRow.pilgrimage_id
+            });
+            if (vacancyError) {
+                console.error('Error recalculating vacancies after booking delete:', vacancyError);
+            }
+        }
 
         await logAdminAction(user.email, 'DELETE_BOOKING', {}, bookingId);
+        return NextResponse.json({ success: true });
 
     } catch (err: any) {
         console.error('Delete booking error:', err);

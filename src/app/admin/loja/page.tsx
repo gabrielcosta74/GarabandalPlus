@@ -28,6 +28,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ProductView, normalizeProduct, PRODUCT_DEFINITIONS, ProductTypeDefinition } from './utils';
 import CustomSelect from '../../../components/admin/ui/CustomSelect';
 import VariantManager, { Variant } from '../../../components/admin/store/VariantManager';
+import { listCountryOptions } from '../../../lib/country-utils';
 
 // --- COMPONENTS ---
 
@@ -86,6 +87,7 @@ export default function AdminLojaPage() {
   const [activeTab, setActiveTab] = useState<'general' | 'details' | 'price'>('general');
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const countryOptions = useMemo(() => listCountryOptions(), []);
 
   // Load Data
   useEffect(() => {
@@ -121,9 +123,9 @@ export default function AdminLojaPage() {
 
   const kpis = useMemo(() => {
     const total = products.length;
-    const lowStock = products.filter(p => p.type === 'fisico' && p.stock <= p.lowStockThreshold).length;
+    const lowStock = products.filter(p => p.type === 'fisico' && typeof p.stock === 'number' && p.stock <= p.lowStockThreshold).length;
     const active = products.filter(p => p.status === 'ativo').length;
-    const revenuePotential = products.reduce((acc, p) => acc + (p.price * (p.type === 'fisico' ? p.stock : 0)), 0);
+    const revenuePotential = products.reduce((acc, p) => acc + (p.price * (p.type === 'fisico' && typeof p.stock === 'number' ? p.stock : 0)), 0);
     return { total, lowStock, active, revenuePotential };
   }, [products]);
 
@@ -196,6 +198,20 @@ export default function AdminLojaPage() {
     setDraft({ ...draft, sku: `${prefix}-${random}` });
   };
 
+  const categoryLooksDigital = (categoryId?: string | null) => {
+    if (!categoryId) return false;
+    const selectedCategory = categories.find((c) => c.id === categoryId);
+    const slug = String(selectedCategory?.slug || '').toLowerCase();
+    const name = String(selectedCategory?.name || '').toLowerCase();
+    return (
+      slug.includes('digital') ||
+      name.includes('digital') ||
+      name.includes('e-book') ||
+      name.includes('ebook') ||
+      name.includes('pdf')
+    );
+  };
+
   const handleSave = async () => {
     if (!draft || !supabaseBrowser) return;
     if (!draft.name || !draft.sku) {
@@ -208,7 +224,15 @@ export default function AdminLojaPage() {
       const { data: { session } } = await supabaseBrowser.auth.getSession();
       if (!session) throw new Error("No Session");
 
-      const def = PRODUCT_DEFINITIONS[draft.typeId];
+      const categoryIsDigital = categoryLooksDigital(draft.categoryId);
+      const shouldBeDigital = draft.type === 'digital' || categoryIsDigital;
+      const isPhysical = !shouldBeDigital;
+      const normalizedTypeId = shouldBeDigital
+        ? (draft.typeId && PRODUCT_DEFINITIONS[draft.typeId] && !PRODUCT_DEFINITIONS[draft.typeId].isPhysical ? draft.typeId : 'digital_generic')
+        : (draft.typeId && PRODUCT_DEFINITIONS[draft.typeId] && PRODUCT_DEFINITIONS[draft.typeId].isPhysical ? draft.typeId : 'religious_article');
+      const selectedCategory = categories.find((c) => c.id === draft.categoryId);
+
+      const def = PRODUCT_DEFINITIONS[normalizedTypeId];
       // Calculate total stock from variants if we are using them
       const shouldUseVariants = def?.hasVariants;
       const finalStock = (shouldUseVariants && draft.variants.length > 0)
@@ -219,18 +243,20 @@ export default function AdminLojaPage() {
         name: draft.name,
         sku: draft.sku,
         category_id: draft.categoryId,
+        category_name: selectedCategory?.name || null,
         description: draft.description,
         price: draft.price,
-        stock: draft.type === 'fisico' ? finalStock : null,
+        stock: isPhysical ? finalStock : null,
         is_active: draft.status === 'ativo',
         image_url: draft.image,
-        digital_url: draft.type === 'digital' ? draft.digitalUrl : null,
-        type_id: draft.typeId,
+        digital_url: shouldBeDigital ? (draft.digitalUrl || null) : null,
+        type_id: normalizedTypeId,
         metadata: draft.metadata,
-        is_physical: draft.type === 'fisico',
+        is_physical: isPhysical,
         specifications: draft.specifications,
         tax_rate: draft.taxRate,
-        variants: shouldUseVariants ? draft.variants : []
+        allowed_countries: isPhysical ? (draft.allowedCountries || []) : [],
+        variants: isPhysical && shouldUseVariants ? draft.variants : []
       };
 
       const method = draft.id ? 'PATCH' : 'POST';
@@ -315,6 +341,14 @@ export default function AdminLojaPage() {
   };
 
   const currentDef = draft?.typeId ? PRODUCT_DEFINITIONS[draft.typeId] : null;
+  const toggleAllowedCountry = (countryCode: string) => {
+    if (!draft) return;
+    const current = Array.isArray(draft.allowedCountries) ? draft.allowedCountries : [];
+    const next = current.includes(countryCode)
+      ? current.filter((code) => code !== countryCode)
+      : [...current, countryCode];
+    setDraft({ ...draft, allowedCountries: next });
+  };
 
   return (
     <AdminLayout title="Gestão de Loja">
@@ -387,8 +421,8 @@ export default function AdminLojaPage() {
                       <div className="text-xs text-slate-400">{p.category}</div>
                     </td>
                     <td className="px-6 py-4 text-center">
-                      {p.type === 'digital' ? <span className="text-slate-300">—</span> : (
-                        <span className={`font-bold ${p.stock <= p.lowStockThreshold ? 'text-red-500' : 'text-slate-700'}`}>{p.stock}</span>
+                      {p.type === 'digital' ? <span className="font-bold text-emerald-600">Infinito</span> : (
+                        <span className={`font-bold ${typeof p.stock === 'number' && p.stock <= p.lowStockThreshold ? 'text-red-500' : 'text-slate-700'}`}>{p.stock ?? 0}</span>
                       )}
                     </td>
                     <td className="px-6 py-4 text-right font-mono text-slate-700">{p.price.toFixed(2)}€</td>
@@ -493,7 +527,39 @@ export default function AdminLojaPage() {
                             label="Categoria"
                             value={draft.categoryId ?? ''}
                             options={categories.map(c => ({ value: c.id, label: c.name }))}
-                            onChange={(val) => setDraft({ ...draft, categoryId: val })}
+                            onChange={(val) => {
+                              const selectedCategory = categories.find(c => c.id === val);
+                              const slug = String(selectedCategory?.slug || '').toLowerCase();
+                              const name = String(selectedCategory?.name || '').toLowerCase();
+                              const isDigitalCategory =
+                                slug.includes('digital') ||
+                                name.includes('digital') ||
+                                name.includes('e-book') ||
+                                name.includes('ebook') ||
+                                name.includes('pdf');
+
+                              if (isDigitalCategory) {
+                                setDraft({
+                                  ...draft,
+                                  categoryId: val,
+                                  type: 'digital',
+                                  typeId: PRODUCT_DEFINITIONS[draft.typeId]?.isPhysical ? 'digital_generic' : (draft.typeId || 'digital_generic'),
+                                  stock: null,
+                                  variants: []
+                                });
+                              } else {
+                                const looksLikeBookPhysical =
+                                  slug.includes('livro') || name.includes('livro');
+                                const nextPhysicalTypeId = looksLikeBookPhysical ? 'book_physical' : 'religious_article';
+                                setDraft({
+                                  ...draft,
+                                  categoryId: val,
+                                  type: 'fisico',
+                                  typeId: PRODUCT_DEFINITIONS[draft.typeId]?.isPhysical ? draft.typeId : nextPhysicalTypeId,
+                                  stock: typeof draft.stock === 'number' ? draft.stock : 0
+                                });
+                              }
+                            }}
                           />
                           <CustomSelect
                             label="Estado"
@@ -561,6 +627,59 @@ export default function AdminLojaPage() {
                             />
                           </div>
                         )}
+
+                        {draft.type === 'fisico' && (
+                          <div className="bg-white p-6 rounded-2xl border border-slate-200">
+                            <div className="flex items-center justify-between gap-4 mb-4">
+                              <div>
+                                <h3 className="font-bold text-slate-900">Países com Stock/Envio disponível</h3>
+                                <p className="text-xs text-slate-500 mt-1">
+                                  Se não selecionares nenhum país, o produto fica disponível para envio mundial.
+                                </p>
+                              </div>
+                              <div className="flex gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => setDraft({ ...draft, allowedCountries: ['PT', 'BR'] })}
+                                  className="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors"
+                                >
+                                  PT + BR
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setDraft({ ...draft, allowedCountries: [] })}
+                                  className="px-3 py-1.5 rounded-lg text-xs font-bold bg-red-50 text-red-600 hover:bg-red-100 transition-colors"
+                                >
+                                  Limpar
+                                </button>
+                              </div>
+                            </div>
+                            <div className="max-h-64 overflow-y-auto border border-slate-200 rounded-xl p-3 grid grid-cols-1 sm:grid-cols-2 gap-2 bg-slate-50">
+                              {countryOptions.map((country) => {
+                                const selected = (draft.allowedCountries || []).includes(country.code);
+                                return (
+                                  <label
+                                    key={country.code}
+                                    className={`flex items-center gap-2 rounded-lg px-2 py-1.5 cursor-pointer border transition-colors ${
+                                      selected
+                                        ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                                        : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100'
+                                    }`}
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      checked={selected}
+                                      onChange={() => toggleAllowedCountry(country.code)}
+                                      className="accent-emerald-600"
+                                    />
+                                    <span className="text-xs font-mono text-slate-400">{country.code}</span>
+                                    <span className="text-xs font-medium">{country.label}</span>
+                                  </label>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
 
@@ -601,6 +720,15 @@ export default function AdminLojaPage() {
                                 baseSku={draft.sku}
                               />
                             )}
+                          </div>
+                        )}
+
+                        {draft.type === 'digital' && (
+                          <div className="p-6 bg-emerald-50 rounded-2xl border border-emerald-100">
+                            <h3 className="font-bold text-emerald-900 mb-1">Stock Digital</h3>
+                            <p className="text-sm text-emerald-700">
+                              Produtos digitais têm stock infinito. Não é necessário gerir variantes nem inventário.
+                            </p>
                           </div>
                         )}
                       </div>

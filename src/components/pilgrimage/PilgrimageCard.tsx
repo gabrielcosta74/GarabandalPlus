@@ -18,30 +18,66 @@ export function PilgrimageCard({ pilgrimage, index }: PilgrimageCardProps) {
     const startDate = new Date(pilgrimage.start_date);
     const endDate = new Date(pilgrimage.end_date);
     const confirmedPax = pilgrimage.confirmed_pax || 0;
-    const remainingSpots = Math.max(0, pilgrimage.total_vacancies - confirmedPax);
+    const effectiveVacanciesRaw = Number(pilgrimage.effective_vacancies);
+    const currentVacanciesRaw = Number(pilgrimage.current_vacancies);
+    const remainingSpots = Number.isFinite(effectiveVacanciesRaw)
+        ? Math.max(0, effectiveVacanciesRaw)
+        : Number.isFinite(currentVacanciesRaw)
+            ? Math.max(0, currentVacanciesRaw)
+            : Math.max(0, Number(pilgrimage.total_vacancies || 0) - Number(confirmedPax || 0));
     const isWaitlist = pilgrimage.status === 'waitlist' || (remainingSpots <= 0 && pilgrimage.status !== 'closed');
     const isClosed = pilgrimage.status === 'closed';
 
-    // Status Logic
+    // Status Logic & Styles
+    let cardStyle = "bg-white border-slate-100 hover:border-yellow-500/30 hover:shadow-[0_20px_50px_-12px_rgba(37,99,235,0.1)]";
+    let imageOverlay = "bg-gradient-to-t from-black/60 via-transparent to-transparent md:bg-gradient-to-r md:from-transparent md:to-black/5";
     let statusBadge;
-    if (isWaitlist) {
+    let actionButton;
+
+    if (isClosed) {
+        // SOLD OUT STYLE
+        cardStyle = "bg-slate-50 border-slate-200 opacity-90 grayscale-[0.8] hover:grayscale-0 transition-all duration-500";
+        imageOverlay = "bg-slate-900/40 mix-blend-multiply";
         statusBadge = (
-            <span className="bg-white/95 backdrop-blur-md text-orange-600 text-xs font-bold px-4 py-2 rounded-full uppercase tracking-wider shadow-lg flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-orange-500 animate-pulse" /> Vagas Esgotadas
+            <div className="absolute top-4 left-4 z-20 -rotate-12 border-4 border-red-600 px-4 py-2 rounded-xl bg-red-600/10 backdrop-blur-sm">
+                <span className="text-xl md:text-2xl font-black text-red-600 uppercase tracking-widest shadow-sm">
+                    Esgotado
+                </span>
+            </div>
+        );
+        actionButton = (
+            <span className="text-sm font-bold text-slate-400 uppercase tracking-widest px-6 py-3 rounded-xl border-2 border-slate-200 bg-slate-100 cursor-not-allowed">
+                Indisponível
             </span>
         );
-    } else if (isClosed) {
+    } else if (isWaitlist) {
+        // WAITLIST FOMO STYLE
+        cardStyle = "bg-amber-50/30 border-amber-200 hover:border-amber-400 hover:shadow-[0_20px_50px_-12px_rgba(245,158,11,0.2)]";
         statusBadge = (
-            <span className="bg-white/95 backdrop-blur-md text-red-600 text-xs font-bold px-4 py-2 rounded-full uppercase tracking-wider shadow-lg flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-red-500" /> Esgotado
-            </span>
+            <div className="absolute top-4 left-4 z-20 flex flex-col gap-2">
+                <span className="bg-amber-500 text-white text-xs font-bold px-4 py-2 rounded-full uppercase tracking-wider shadow-lg flex items-center gap-2 w-fit animate-pulse">
+                    <Clock className="w-3.5 h-3.5" /> Últimas Vagas
+                </span>
+            </div>
+        );
+        actionButton = (
+            <div className="flex items-center gap-2 px-6 py-3 rounded-xl bg-amber-500 text-white font-bold text-sm uppercase tracking-wide hover:bg-amber-600 transition-colors shadow-lg shadow-amber-500/20 group-hover:scale-105 duration-300">
+                Entrar em Lista de Espera
+                <ChevronRight className="w-4 h-4" />
+            </div>
         );
     } else {
+        // OPEN STYLE
         statusBadge = (
             <span className="bg-white/95 backdrop-blur-md text-green-700 text-xs font-bold px-4 py-2 rounded-full uppercase tracking-wider shadow-lg flex items-center gap-2">
                 <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
                 Inscrições Abertas
             </span>
+        );
+        actionButton = (
+            <div className="h-12 w-12 rounded-full bg-slate-50 border-2 border-slate-100 flex items-center justify-center text-slate-400 group-hover:bg-yellow-500 group-hover:border-yellow-500 group-hover:text-white transition-all shadow-sm group-hover:shadow-lg group-hover:shadow-yellow-500/30">
+                <ChevronRight className="w-5 h-5" />
+            </div>
         );
     }
 
@@ -55,33 +91,34 @@ export function PilgrimageCard({ pilgrimage, index }: PilgrimageCardProps) {
         >
             <Link
                 href={`/peregrinacoes/${pilgrimage.slug}`}
-                className="group bg-white rounded-[2rem] border border-slate-100 overflow-hidden hover:border-yellow-500/30 transition-all hover:shadow-[0_20px_50px_-12px_rgba(37,99,235,0.1)] flex flex-col md:flex-row h-full relative"
+                className={`group rounded-[2.5rem] border overflow-hidden flex flex-col md:flex-row h-full relative no-underline ${cardStyle}`}
             >
                 {/* Image Section */}
-                <div className="md:w-5/12 relative overflow-hidden h-72 md:h-auto overflow-hidden">
+                <div className="md:w-5/12 relative h-72 md:h-auto overflow-hidden">
                     {pilgrimage.cover_image ? (
-                        <div className="absolute inset-0 bg-slate-200">
+                        <>
                             <Image
                                 src={pilgrimage.cover_image}
                                 alt={pilgrimage.title}
                                 fill
                                 sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                                className="object-cover transform group-hover:scale-110 transition-transform duration-[1.5s]"
+                                className="object-cover transform group-hover:scale-105 transition-transform duration-[1.5s]"
                             />
-                        </div>
+                            {/* Texture Overlay */}
+                            <div className={`absolute inset-0 ${imageOverlay} transition-colors duration-500`} />
+                        </>
                     ) : (
                         <div className="absolute inset-0 bg-slate-200" />
                     )}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent md:bg-gradient-to-r md:from-transparent md:to-black/5" />
 
                     {/* Badge */}
-                    <div className="absolute top-6 left-6 z-10">
+                    <div className="absolute top-6 left-6 z-10 w-full">
                         {statusBadge}
                     </div>
                 </div>
 
                 {/* Content Section */}
-                <div className="p-6 md:p-10 flex-1 flex flex-col justify-center relative bg-gradient-to-b from-white to-slate-50/50">
+                <div className="p-6 md:p-10 flex-1 flex flex-col justify-center relative">
                     <div className="flex items-center gap-3 text-yellow-600 text-xs font-bold uppercase tracking-wider mb-3">
                         <Calendar className="w-4 h-4" />
                         <span>
@@ -103,7 +140,7 @@ export function PilgrimageCard({ pilgrimage, index }: PilgrimageCardProps) {
                         {pilgrimage.description}
                     </p>
 
-                    <div className="flex items-end justify-between border-t border-slate-100 pt-6 mt-auto">
+                    <div className="flex items-end justify-between border-t border-slate-100/50 pt-6 mt-auto">
                         <div className="flex flex-col">
                             <span className="text-[10px] text-slate-400 uppercase tracking-widest font-bold mb-1">Valor por pessoa</span>
                             <div className="flex flex-col">
@@ -111,31 +148,29 @@ export function PilgrimageCard({ pilgrimage, index }: PilgrimageCardProps) {
                                     <span className="text-lg text-slate-400 line-through font-medium decoration-red-400 decoration-2 opacity-60">
                                         {formatPrice(pilgrimage.base_price * 1.15)}
                                     </span>
-                                    <span className="text-3xl font-bold text-slate-900 tracking-tight">{formatPrice(pilgrimage.base_price)}</span>
+                                    <span className={`text-3xl font-bold tracking-tight ${isClosed ? 'text-slate-400' : 'text-slate-900'}`}>
+                                        {formatPrice(pilgrimage.base_price)}
+                                    </span>
                                 </div>
                                 {currency === 'BRL' && (
                                     <span className="text-[9px] text-yellow-600 font-bold uppercase tracking-tighter mt-1 italic">
-                                        * Câmbio Automático (Conversão aproximada)
+                                        * Câmbio Automático
                                     </span>
                                 )}
                             </div>
-                            <span className="text-sm text-green-600 font-bold mt-2 bg-green-50 px-2 py-0.5 rounded-md w-fit">
-                                Doação Promocional
-                            </span>
                         </div>
 
                         <div className="flex items-center gap-4">
                             <div className="hidden md:block text-right">
                                 <span className="text-[10px] text-slate-400 uppercase tracking-widest font-bold block mb-1">Disponibilidade</span>
-                                <div className="flex items-center justify-end gap-1.5 text-sm font-bold text-slate-700">
-                                    <Users className="w-4 h-4 text-slate-400" />
-                                    {remainingSpots} Lugares
+                                <div className={`flex items-center justify-end gap-1.5 text-sm font-bold ${isWaitlist ? 'text-amber-600' : 'text-slate-700'}`}>
+                                    <Users className="w-4 h-4" />
+                                    {isClosed ? 'Esgotado' : `${remainingSpots} Lugares`}
                                 </div>
                             </div>
 
-                            <div className="h-12 w-12 rounded-full bg-slate-50 border-2 border-slate-100 flex items-center justify-center text-slate-400 group-hover:bg-yellow-500 group-hover:border-yellow-500 group-hover:text-white transition-all shadow-sm group-hover:shadow-lg group-hover:shadow-yellow-500/30">
-                                <ChevronRight className="w-5 h-5" />
-                            </div>
+                            {/* Dynamic Action Button */}
+                            {actionButton}
                         </div>
                     </div>
                 </div>

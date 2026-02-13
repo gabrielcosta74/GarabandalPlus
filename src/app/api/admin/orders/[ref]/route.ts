@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { supabaseServer } from '../../../../../lib/supabase';
 import { sendStoreShippingEmail } from '../../../../../lib/email';
+import { ensureNotificationRecord, markNotificationSent } from '../../../../../lib/email-notifications';
 
 export async function PATCH(
     request: Request,
@@ -57,14 +58,28 @@ export async function PATCH(
         // If marked as shipped, send email
         if (shippingStatus === 'enviado') {
             try {
-                await sendStoreShippingEmail({
-                    orderRef: order.order_ref,
-                    buyerName: order.buyer_name,
-                    buyerEmail: order.buyer_email,
-                    tracking: order.shipping_tracking,
-                    shippedAt: order.shipped_at
+                const notify = await ensureNotificationRecord(supabaseServer, {
+                    type: 'store_order_shipped',
+                    reference: order.order_ref,
+                    email: order.buyer_email
                 });
-                console.log('Email de envio enviado para', order.buyer_email);
+
+                if (notify.shouldSend) {
+                    const emailSent = await sendStoreShippingEmail({
+                        orderRef: order.order_ref,
+                        buyerName: order.buyer_name,
+                        buyerEmail: order.buyer_email,
+                        tracking: order.shipping_tracking,
+                        shippedAt: order.shipped_at
+                    });
+
+                    if (emailSent && notify.recordId) {
+                        await markNotificationSent(supabaseServer, notify.recordId);
+                    }
+                    console.log('Email de envio enviado para', order.buyer_email);
+                } else {
+                    console.log('Email de envio já registado anteriormente para', order.buyer_email);
+                }
             } catch (emailErr) {
                 console.error('Falha ao enviar email de envio:', emailErr);
                 // Don't fail the request, just log

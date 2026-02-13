@@ -6,6 +6,7 @@ import { CartItem, Product, loadCart, saveCart } from '../data';
 import { supabaseBrowser } from '../../../lib/supabase-browser';
 import { isActiveMember } from '../../../lib/store-discounts';
 import { useCurrency } from '../../../components/providers/CurrencyProvider';
+import { UNIFIED_ONLINE_PAYMENT_OPTIONS } from '../../../lib/payment-options';
 import {
   formatPostalCode,
   getPostalInputMode,
@@ -18,7 +19,7 @@ import {
 } from '../../../lib/country-utils';
 import { getShippingCost, getShippingLabel, getShippingOrigin, isPhysicalShippingAllowed } from '../../../lib/shipping-rules';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Check, ChevronRight, CreditCard, User, ShoppingBag, MapPin, ArrowLeft, ShieldCheck, Loader2 } from 'lucide-react';
+import { Check, ChevronRight, CreditCard, User, ShoppingBag, MapPin, ArrowLeft, ShieldCheck, Loader2, QrCode } from 'lucide-react';
 
 const getVatRate = (product: Product) => (product.isPhysical ? 0.06 : 0.23);
 
@@ -50,49 +51,7 @@ type SavedProfile = {
   proxima_quota?: string | null;
 };
 
-type PaymentOption = {
-  id: string;
-  label: string;
-  description: string;
-  provider: 'stripe' | 'reduniq';
-  reduniqSolution?: number;
-  iconSrc?: string;
-};
-
 const countryOptions = listCountryOptions();
-const paymentOptions: PaymentOption[] = [
-  {
-    id: 'reduniq_card',
-    label: 'Cartão de Crédito',
-    description: 'Visa / Mastercard (Reduniq).',
-    provider: 'reduniq',
-    reduniqSolution: 106,
-    iconSrc: '/payment-icons/reduniq.png',
-  },
-  {
-    id: 'reduniq_mbway',
-    label: 'MB WAY',
-    description: 'Pagamento instantâneo.',
-    provider: 'reduniq',
-    reduniqSolution: 107,
-    iconSrc: '/payment-icons/mbway.svg',
-  },
-  {
-    id: 'reduniq_multibanco',
-    label: 'Multibanco',
-    description: 'Pagamento de serviços.',
-    provider: 'reduniq',
-    reduniqSolution: 108,
-    iconSrc: '/payment-icons/multibanco.svg',
-  },
-  {
-    id: 'stripe',
-    label: 'Stripe (Cartão / Apple Pay)',
-    description: 'Checkout Stripe seguro e imediato.',
-    provider: 'stripe',
-    iconSrc: '/payment-icons/stripe.svg',
-  },
-];
 const ADDRESS_AUTOCOMPLETE_ENABLED = process.env.NEXT_PUBLIC_ADDRESS_AUTOCOMPLETE === '1';
 const PHOTON_ENDPOINT = 'https://photon.komoot.io/api';
 
@@ -150,7 +109,7 @@ export default function CheckoutPage() {
   const [addressSuggestions, setAddressSuggestions] = useState<AddressSuggestion[]>([]);
   const [addressLoading, setAddressLoading] = useState(false);
   const [isMemberActive, setIsMemberActive] = useState(false);
-  const [selectedPaymentId, setSelectedPaymentId] = useState(paymentOptions[0].id);
+  const [selectedPaymentId, setSelectedPaymentId] = useState(UNIFIED_ONLINE_PAYMENT_OPTIONS[0].id);
 
 
   // Set default billing logic based on cart type
@@ -163,7 +122,7 @@ export default function CheckoutPage() {
   const countryMeta = useMemo(() => resolveCountryMeta(shipping.country), [shipping.country]);
   const billingCountryMeta = useMemo(() => resolveCountryMeta(billing.country), [billing.country]);
   const selectedPayment = useMemo(
-    () => paymentOptions.find((option) => option.id === selectedPaymentId) ?? paymentOptions[0],
+    () => UNIFIED_ONLINE_PAYMENT_OPTIONS.find((option) => option.id === selectedPaymentId) ?? UNIFIED_ONLINE_PAYMENT_OPTIONS[0],
     [selectedPaymentId],
   );
   const nifLabel = shipping.country === 'BR' ? 'CPF (opcional)' : 'NIF / CPF (opcional)';
@@ -437,9 +396,6 @@ export default function CheckoutPage() {
           items: cartEntries.map((item) => ({ id: item.id, name: item.name, price: item.price, qty: item.qty })),
           total: totalWithShipping,
           provider: selectedPayment.provider,
-          ...(selectedPayment.provider === 'reduniq' && selectedPayment.reduniqSolution
-            ? { reduniqSolution: selectedPayment.reduniqSolution }
-            : {}),
           buyer,
           shipping: hasPhysical ? shipping : null,
           billing: billingSameAsShipping ? { ...shipping, address1: `${shipping.address1} ${shipping.doorNumber}`.trim() } : billing,
@@ -758,25 +714,29 @@ export default function CheckoutPage() {
                   <div className="space-y-6">
                     <h2 className="font-serif text-2xl font-bold text-garabandal-dark">Pagamento</h2>
                     <div className="space-y-3">
-                      {paymentOptions.map((option) => {
+                      {UNIFIED_ONLINE_PAYMENT_OPTIONS.map((option) => {
                         const active = selectedPaymentId === option.id;
                         return (
                           <button
                             key={option.id}
                             type="button"
                             onClick={() => setSelectedPaymentId(option.id)}
-                            className={`w-full text-left rounded-2xl p-4 border transition-all ${
-                              active
-                                ? 'border-garabandal-gold bg-garabandal-gold/5 shadow-sm'
-                                : 'border-gray-200 bg-gray-50 hover:bg-white'
-                            }`}
+                            className={`w-full text-left rounded-2xl p-4 border transition-all relative overflow-hidden ${active
+                              ? 'border-garabandal-gold bg-garabandal-gold/5 shadow-sm'
+                              : 'border-gray-200 bg-gray-50 hover:bg-white'
+                              }`}
                           >
+                            {option.highlight && (
+                              <div className="absolute top-0 right-0 bg-green-500 text-white text-[10px] uppercase font-bold px-2 py-0.5 rounded-bl-lg">
+                                Novo
+                              </div>
+                            )}
                             <div className="flex items-center gap-3">
                               <div className="w-11 h-11 bg-white rounded-xl shadow-sm flex items-center justify-center shrink-0">
                                 {option.iconSrc ? (
                                   <img
                                     src={option.iconSrc}
-                                    alt={option.label}
+                                    alt={option.iconAlt || option.label}
                                     className="h-6 opacity-90"
                                     onError={(e) => {
                                       e.currentTarget.style.display = 'none';
@@ -911,14 +871,24 @@ export default function CheckoutPage() {
                 </div>
 
                 <div className="bg-gray-50 px-6 py-4 border-t border-gray-100 flex items-center justify-center gap-4 opacity-60 grayscale hover:grayscale-0 transition-all">
-                  <img src="/payment-icons/stripe.svg" className="h-6" alt="Stripe" />
-                  <img src="/payment-icons/mbway.svg" className="h-6" alt="MBWAY" />
-                  <img src="/payment-icons/multibanco.svg" className="h-6" alt="Multibanco" />
+                  {UNIFIED_ONLINE_PAYMENT_OPTIONS.map(opt => (
+                    <div key={opt.id} title={opt.label}>
+                      {opt.iconSrc ? (
+                        <img src={opt.iconSrc} className="h-6 w-auto" alt={opt.label} />
+                      ) : (
+                        <CreditCard className="h-6 w-6 text-gray-400" />
+                      )}
+                    </div>
+                  ))}
                 </div>
               </div>
 
               <p className="text-center text-xs text-gray-400 px-4">
-                Ao confirmar a encomenda, concordas com os nossos <Link href="/termos" className="underline hover:text-gray-600">Termos e Condições</Link>.
+                Ao confirmar a encomenda, concordas com os nossos{" "}
+                <Link href="/termos" className="underline hover:text-gray-600">Termos e Condições</Link>,{" "}
+                <Link href="/privacidade" className="underline hover:text-gray-600">Política de Privacidade</Link>{" "}
+                e{" "}
+                <Link href="/cookies" className="underline hover:text-gray-600">Política de Cookies</Link>.
               </p>
             </div>
           </div>

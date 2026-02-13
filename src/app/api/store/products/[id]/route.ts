@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
 import { supabaseServer } from '../../../../../lib/supabase';
+import { inferIsDigitalProduct } from '../../../../../lib/product-kind';
 
 export const runtime = 'nodejs';
-export const revalidate = 300;
+export const dynamic = 'force-dynamic';
 
 export async function GET(
     request: Request,
@@ -46,21 +47,32 @@ export async function GET(
 
         const productData = product as any;
         const categoryInfo = productData.category_info;
+        const category = Array.isArray(categoryInfo)
+            ? categoryInfo[0]?.name
+            : categoryInfo?.name || productData.category || null;
+        const isDigital = inferIsDigitalProduct({
+            isPhysical: productData.is_physical,
+            typeId: productData.type_id,
+            category,
+            name: productData.name,
+            digitalUrl: productData.digital_url,
+        });
+        const isPhysical = !isDigital;
 
         const mappedProduct = {
             id: productData.product_id,
             name: productData.name || 'Produto',
             description: productData.description || '',
-            category: Array.isArray(categoryInfo) ? categoryInfo[0]?.name : categoryInfo?.name || productData.category || null,
+            category,
             categoryId: productData.category_id || null,
             price: Number(productData.price ?? 0),
             currency: productData.currency || 'EUR',
             image: productData.image_url || '/images/produto-placeholder.jpg',
-            tag: productData.is_physical ? 'Fisico' : 'Digital',
-            format: productData.is_physical ? 'Produto físico' : 'PDF digital',
-            isPhysical: productData.is_physical ?? true,
+            tag: isPhysical ? 'Fisico' : 'Digital',
+            format: isPhysical ? 'Produto físico' : 'PDF digital',
+            isPhysical,
             digitalUrl: productData.digital_url || null,
-            stock: typeof productData.stock === 'number' ? productData.stock : null,
+            stock: isPhysical && typeof productData.stock === 'number' ? productData.stock : null,
             allowedCountries: productData.allowed_countries || [],
             taxRate: productData.tax_rate ?? 0.23,
             specifications: productData.specifications || {},
@@ -71,7 +83,9 @@ export async function GET(
 
         return NextResponse.json({ product: mappedProduct }, {
             headers: {
-                'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=86400',
+                'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+                Pragma: 'no-cache',
+                Expires: '0',
             },
         });
     } catch (err) {

@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabaseServer } from '../../../../lib/supabase';
 import { sendBookingConfirmationEmail } from '../../../../lib/email';
-import { WhatsAppService } from '../../../../lib/whatsapp';
 import { getAppUrl } from '../../../../lib/config';
 import { parseRoomInfo } from '../../../../lib/utils';
 import { generateViewToken, generateIdempotencyKey } from '../../../../lib/auth-utils';
@@ -195,7 +194,25 @@ export async function POST(req: Request) {
             throw new Error(`Erro no cálculo do preço: O total resultou em 0€. Verifique se os preços estão configurados e se as datas de nascimento dos peregrinos estão corretas.`);
         }
 
-        // 4. ATOMIC BOOKING TRANSACTION (Insert w/ Vacancy Check)
+        // 4. Vacancy Sync Auto-Repair
+        // `create_booking_atomic` relies on `pilgrimages.current_vacancies`.
+        // Keep it aligned with: total - manual_occupied - active web bookings.
+        try {
+            const { data: vacancySyncData, error: vacancySyncError } = await supabaseServer
+                .rpc('recalculate_pilgrimage_vacancies', { p_pilgrimage_id: pilgrimage_id });
+            if (vacancySyncError) throw vacancySyncError;
+
+            const vacancySyncRow = Array.isArray(vacancySyncData) ? vacancySyncData[0] : vacancySyncData;
+            if (vacancySyncRow) {
+                console.log(
+                    `✅ [API] Vacancy sync: total=${vacancySyncRow.total_vacancies}, manual=${vacancySyncRow.manual_occupied_pax}, web=${vacancySyncRow.web_occupied_pax}, available=${vacancySyncRow.current_vacancies}`
+                );
+            }
+        } catch (vacancySyncError) {
+            console.warn('⚠️ [API] Vacancy sync pre-check failed, continuing with atomic RPC:', vacancySyncError);
+        }
+
+        // 5. ATOMIC BOOKING TRANSACTION (Insert w/ Vacancy Check)
         const bookingNotes = `Payment Plan: ${payment_method} | Created via API ${isNewUser ? '(New Account)' : ''}`;
 
         const { data: atomicResult, error: atomicError } = await supabaseServer.rpc('create_booking_atomic', {
@@ -241,6 +258,14 @@ export async function POST(req: Request) {
             console.error("❌ [API] Payment Insert Error:", paymentError);
             // Don't throw - payment can be added manually later
             console.warn("⚠️ [API] Continuing without initial payment record. Admin can add manually.");
+        }
+
+        // 6.1 Re-sync vacancies.
+        // Booking creation no longer means occupied seat; only paid deposit does.
+        try {
+            await supabaseServer.rpc('recalculate_pilgrimage_vacancies', { p_pilgrimage_id: pilgrimage_id });
+        } catch (syncErr) {
+            console.warn('⚠️ [API] Vacancy sync after booking creation failed:', syncErr);
         }
 
         // 7. Generate Magic Link & Send Email
@@ -292,24 +317,6 @@ export async function POST(req: Request) {
         } catch (emailErr) {
             console.error("⚠️ [API] Email sending failed:", emailErr);
         }
-
-        // 8. Send WhatsApp Notification (Async - do not block response)
-        try {
-            // We use the first pilgrim's data for the notification
-            // Note: In detailed implementation, we might want to check if the user consented to WA.
-            const mainPilgrim = pilgrimsToInsert[0]; // { full_name, phone, ... }
-            // We pass the simplified booking structure or just the needed fields
-            await WhatsAppService.sendWelcomeMessage(
-                {
-                    id: booking.id,
-                    pilgrims: [{ full_name: mainPilgrim.full_name, phone: mainPilgrim.whatsapp || mainPilgrim.phone }]
-                },
-                pilgrimage.title
-            );
-        } catch (waErr) {
-            console.error("⚠️ [API] WhatsApp sending failed:", waErr);
-        }
-
 
         console.log("✅ [API] Success! Booking ID:", booking.id);
 

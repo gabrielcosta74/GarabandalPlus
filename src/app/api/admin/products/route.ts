@@ -34,12 +34,17 @@ export async function GET(req: Request) {
 
         // Transform data to include total stock from variants
         const enriched = products?.map((p: any) => {
-            const totalStock = p.variants?.reduce((sum: number, v: any) => sum + (v.stock || 0), 0);
+            const hasPhysicalVariants = (p.is_physical ?? true) && Array.isArray(p.variants) && p.variants.length > 0;
+            const totalStock = hasPhysicalVariants
+                ? p.variants.reduce((sum: number, v: any) => sum + (v.stock || 0), 0)
+                : null;
             return {
                 ...p,
                 category_name: p.category?.name,
                 category_slug: p.category?.slug,
-                stock: totalStock ?? p.stock // Fallback to legacy stock if no variants
+                // Only override stock when physical variants exist.
+                // For digital products, keep DB stock (normally null = infinite).
+                stock: totalStock ?? p.stock
             };
         });
 
@@ -78,11 +83,12 @@ export async function POST(req: Request) {
                 metadata: body.metadata || {}, // NEW
                 image_url: body.image_url,
                 digital_url: body.digital_url,
-                tax_rate: body.tax_rate || 23,
+                allowed_countries: Array.isArray(body.allowed_countries) ? body.allowed_countries : [],
+                tax_rate: typeof body.tax_rate === 'number' ? body.tax_rate : 0.23,
                 specifications: body.specifications || {},
                 //Legacy fields
                 category: body.category_name,
-                stock: 0
+                stock: body.is_physical ? (typeof body.stock === 'number' ? body.stock : 0) : null
             })
             .select()
             .single();
@@ -90,7 +96,7 @@ export async function POST(req: Request) {
         if (prodError) throw prodError;
 
         // 2. Create Variants
-        if (body.variants && body.variants.length > 0) {
+        if (body.is_physical && body.variants && body.variants.length > 0) {
             const varsToInsert = body.variants.map((v: any) => ({
                 product_id: product.product_id,
                 name: v.name,
@@ -107,14 +113,14 @@ export async function POST(req: Request) {
                 console.error("Error creating variants:", varError);
                 throw new Error(`Error creating variants: ${varError.message}`);
             }
-        } else {
+        } else if (body.is_physical) {
             // Default Variant (Legacy/Simple)
             const { error: varError } = await supabaseServer
                 .from('product_variants')
                 .insert({
                     product_id: product.product_id,
                     name: 'Padrão',
-                    stock: body.stock || 0, // Fallback to body.stock
+                    stock: typeof body.stock === 'number' ? body.stock : 0, // Fallback to body.stock
                     sku: body.sku || `SKU-${Date.now()}`,
                     attributes: { is_default: true }
                 });

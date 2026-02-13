@@ -112,43 +112,43 @@ type EmailTemplate = {
 
 const EMAIL_TEMPLATES = {
     'member-welcome': {
-        label: '👋 Membership Payment (Admin)',
-        title: 'Membership Welcome',
-        category: 'Membership & Quotas',
+        label: '👋 Pagamento de Quota (Admin)',
+        title: 'Notificação de Pagamento de Quota',
+        category: 'Membros & Quotas',
         recipient: 'Admin',
-        when: 'Sent after a membership payment is confirmed.',
-        why: 'Notify admins about new or renewed memberships.',
+        when: 'Enviado após confirmação de pagamento de quota.',
+        why: 'Notificar o admin de nova adesão ou renovação.',
         technical: 'Webhook: /api/webhook -> sendMembershipNotification',
         render: () => renderMembershipEmail(MOCK_MEMBER),
     },
     'member-receipt': {
-        label: '🧾 Member Receipt',
-        title: 'Member Receipt',
-        category: 'Membership & Quotas',
-        recipient: 'Member',
-        when: 'Sent when a membership payment succeeds.',
-        why: 'Provide payment confirmation and membership details.',
+        label: '🧾 Recibo de Quota',
+        title: 'Recibo para Membro',
+        category: 'Membros & Quotas',
+        recipient: 'Membro',
+        when: 'Enviado quando o pagamento da quota é confirmado.',
+        why: 'Confirmar pagamento e partilhar detalhes da quota.',
         technical: 'Webhook: /api/webhook -> sendMemberReceiptEmail',
         render: () => renderMemberReceiptEmail(MOCK_MEMBER_RECEIPT),
     },
     'member-diploma': {
-        label: '🎓 Member Diploma',
-        title: 'Member Diploma',
-        category: 'Membership & Quotas',
-        recipient: 'Member',
-        when: 'Sent after a new member payment when a diploma is generated.',
-        why: 'Deliver the membership diploma to the new member.',
-        technical: 'Webhook: /api/webhook -> sendMemberDiplomaEmail',
+        label: '🎓 Diploma de Membro',
+        title: 'Envio de Diploma',
+        category: 'Membros & Quotas',
+        recipient: 'Membro',
+        when: 'Usado quando existe geração explícita de diploma (fluxo manual/teste).',
+        why: 'Entregar diploma digital ao membro.',
+        technical: 'API: /api/test/diploma -> sendMemberDiplomaEmail (teste)',
         render: () => renderMemberDiplomaEmail(MOCK_MEMBER_DIPLOMA),
     },
     'member-reminder': {
-        label: '⏰ Quota Reminder',
-        title: 'Quota Reminder',
-        category: 'Membership & Quotas',
-        recipient: 'Member',
-        when: 'Daily cron checks upcoming and overdue quotas.',
-        why: 'Remind members to renew their quota on time.',
-        technical: 'Cron: /api/cron/quota-reminders -> sendQuotaReminderEmail',
+        label: '⏰ Lembrete de Quota',
+        title: 'Lembrete de Renovação',
+        category: 'Membros & Quotas',
+        recipient: 'Membro',
+        when: 'Enviado por rotina diária conforme proximidade de vencimento.',
+        why: 'Lembrar a renovação da quota atempadamente.',
+        technical: 'Cron: /api/cron/membership-rules -> sendQuotaReminderEmail',
         render: () =>
             renderQuotaReminderEmail({
                 toEmail: 'test@test.com',
@@ -160,12 +160,12 @@ const EMAIL_TEMPLATES = {
             }),
     },
     'quota-warning': {
-        label: '⚠️ Quota Warning',
-        title: 'Quota Warning',
-        category: 'Membership & Quotas',
-        recipient: 'Member',
-        when: 'Sent when a quota is close to expiring.',
-        why: 'Warn members before their quota expires.',
+        label: '⚠️ Aviso de Quota',
+        title: 'Aviso de Vencimento Próximo',
+        category: 'Membros & Quotas',
+        recipient: 'Membro',
+        when: 'Enviado quando a quota está próxima do vencimento.',
+        why: 'Alertar antes da expiração da quota.',
         technical: 'Cron: /api/cron/membership-rules -> sendQuotaWarningEmail',
         render: () =>
             renderQuotaWarningEmail({
@@ -176,12 +176,12 @@ const EMAIL_TEMPLATES = {
             }),
     },
     'quota-overdue': {
-        label: '⌛ Quota Overdue',
-        title: 'Quota Overdue',
-        category: 'Membership & Quotas',
-        recipient: 'Member',
-        when: 'Sent after the quota date has passed (grace period).',
-        why: 'Notify members that their quota is overdue.',
+        label: '⌛ Quota em Atraso',
+        title: 'Notificação de Atraso',
+        category: 'Membros & Quotas',
+        recipient: 'Membro',
+        when: 'Enviado após o vencimento da quota.',
+        why: 'Informar que a quota está em atraso.',
         technical: 'Cron: /api/cron/membership-rules -> sendQuotaOverdueEmail',
         render: () =>
             renderQuotaOverdueEmail({
@@ -191,12 +191,12 @@ const EMAIL_TEMPLATES = {
             }),
     },
     'quota-revoked': {
-        label: '⛔ Membership Revoked',
-        title: 'Membership Revoked',
-        category: 'Membership & Quotas',
-        recipient: 'Member',
-        when: 'Sent after the grace period ends without payment.',
-        why: 'Inform that membership access is suspended and how to reactivate.',
+        label: '⛔ Membro Suspenso',
+        title: 'Suspensão de Estado de Membro',
+        category: 'Membros & Quotas',
+        recipient: 'Membro',
+        when: 'Enviado após período de tolerância sem regularização.',
+        why: 'Informar suspensão de acesso e como reativar.',
         technical: 'Cron: /api/cron/membership-rules -> sendMembershipRevokedEmail',
         render: () =>
             renderMembershipRevokedEmail({
@@ -206,52 +206,52 @@ const EMAIL_TEMPLATES = {
             }),
     },
     'account-welcome': {
-        label: '✨ Account Welcome',
-        title: 'Welcome Email',
-        category: 'Membership & Quotas',
-        recipient: 'Member',
-        when: 'Template available after account activation (not automated yet).',
-        why: 'Welcome the user and direct them to login.',
-        technical: 'Template available (no sender wired).',
+        label: '✨ Boas-vindas de Conta',
+        title: 'Email de Boas-vindas',
+        category: 'Membros & Quotas',
+        recipient: 'Membro',
+        when: 'Enviado na criação manual de membro no admin.',
+        why: 'Dar boas-vindas e orientar para login.',
+        technical: 'API: /api/admin/members -> sendWelcomeEmail',
         render: () => renderWelcomeEmail({ name: 'Maria Silva', email: 'maria@exemplo.com' }),
     },
     'donation-receipt': {
-        label: '❤️ Donation Receipt',
-        title: 'Donation Receipt',
-        category: 'Donations',
-        recipient: 'Donor',
-        when: 'Sent immediately after a successful donation.',
-        why: 'Provide a receipt and thank you message.',
+        label: '❤️ Recibo de Doação',
+        title: 'Confirmação de Doação',
+        category: 'Doações',
+        recipient: 'Doador',
+        when: 'Enviado após doação confirmada com sucesso.',
+        why: 'Agradecer e confirmar o registo da doação.',
         technical: 'Webhook: /api/webhook -> sendDonationReceiptEmail',
         render: () => renderDonationReceiptEmail(MOCK_DONATION),
     },
     'donation-notification': {
-        label: '📣 Donation Notification (Admin)',
-        title: 'Donation Notification',
-        category: 'Donations',
+        label: '📣 Notificação de Doação (Admin)',
+        title: 'Notificação de Doação',
+        category: 'Doações',
         recipient: 'Admin',
-        when: 'Sent when a manual donation is recorded.',
-        why: 'Notify admins for accounting follow-up.',
+        when: 'Enviado quando uma doação manual é registada.',
+        why: 'Permitir seguimento administrativo/contabilístico.',
         technical: 'API: /api/donations/manual -> sendDonationNotification',
         render: () => renderDonationNotification(MOCK_DONATION_NOTIFICATION),
     },
     'store-owner': {
-        label: '🛍️ New Store Order (Admin)',
-        title: 'Store Order (Admin)',
-        category: 'Online Store',
-        recipient: 'Store Admin',
-        when: 'Sent after a store checkout completes.',
-        why: 'Notify the store owner about a new order.',
+        label: '🛍️ Nova Encomenda (Admin)',
+        title: 'Notificação de Encomenda (Admin)',
+        category: 'Loja Online',
+        recipient: 'Admin da Loja',
+        when: 'Enviado após checkout com pagamento confirmado.',
+        why: 'Notificar nova encomenda para processamento.',
         technical: 'Store flow -> sendStoreOwnerEmail',
         render: () => renderStoreOwnerEmail(MOCK_STORE),
     },
     'store-confirm': {
-        label: '🧾 Store Order Confirmation',
-        title: 'Store Order Confirmation',
-        category: 'Online Store',
-        recipient: 'Buyer',
-        when: 'Sent immediately after a successful purchase.',
-        why: 'Confirm the order and provide access details.',
+        label: '🧾 Confirmação de Encomenda',
+        title: 'Confirmação para Cliente',
+        category: 'Loja Online',
+        recipient: 'Cliente',
+        when: 'Enviado logo após compra bem-sucedida.',
+        why: 'Confirmar encomenda e partilhar detalhes de acesso/entrega.',
         technical: 'Store flow -> sendStoreBuyerEmail',
         render: () =>
             renderStoreBuyerEmail({
@@ -265,12 +265,12 @@ const EMAIL_TEMPLATES = {
             }),
     },
     'store-preparing': {
-        label: '📦 Order Preparing',
-        title: 'Order Preparing',
-        category: 'Online Store',
-        recipient: 'Buyer',
-        when: 'Sent after payment for orders with physical items.',
-        why: 'Inform the customer that the order is being prepared.',
+        label: '📦 Encomenda em Preparação',
+        title: 'Atualização de Preparação',
+        category: 'Loja Online',
+        recipient: 'Cliente',
+        when: 'Enviado para encomendas físicas após confirmação de pagamento.',
+        why: 'Informar que a encomenda está em preparação.',
         technical: 'Store flow -> sendStorePreparingEmail',
         render: () =>
             renderStorePreparingEmail({
@@ -280,12 +280,12 @@ const EMAIL_TEMPLATES = {
             }),
     },
     'store-shipped': {
-        label: '🚚 Order Shipped',
-        title: 'Order Shipped',
-        category: 'Online Store',
-        recipient: 'Buyer',
-        when: 'Sent when an admin adds tracking and marks the order as shipped.',
-        why: 'Share tracking details and confirm dispatch.',
+        label: '🚚 Encomenda Enviada',
+        title: 'Atualização de Envio',
+        category: 'Loja Online',
+        recipient: 'Cliente',
+        when: 'Enviado quando o admin marca a encomenda como enviada.',
+        why: 'Partilhar tracking e confirmar despacho.',
         technical: 'Admin: /api/admin/orders/[ref]/ship -> sendStoreShippingEmail',
         render: () =>
             renderStoreShippingEmail({
@@ -296,12 +296,12 @@ const EMAIL_TEMPLATES = {
             }),
     },
     'lead-waitlist': {
-        label: '📋 Waitlist Confirmation',
-        title: 'Waitlist Confirmation',
-        category: 'Leads & Pilgrimages',
-        recipient: 'Lead',
-        when: 'Sent when a lead is captured without a pilgrimage date.',
-        why: 'Confirm the waiting list registration.',
+        label: '📋 Confirmação de Lista de Espera',
+        title: 'Confirmação de Interesse',
+        category: 'Leads & Peregrinações',
+        recipient: 'Interessado',
+        when: 'Enviado quando o lead é captado sem data específica.',
+        why: 'Confirmar registo na lista de espera geral.',
         technical: 'API: /api/leads/capture -> sendGeneralLeadEmail',
         render: () =>
             renderGeneralLeadEmail({
@@ -310,12 +310,12 @@ const EMAIL_TEMPLATES = {
             }),
     },
     'lead-brochure': {
-        label: '🧭 Brochure Delivery',
-        title: 'Pilgrimage Brochure',
-        category: 'Leads & Pilgrimages',
-        recipient: 'Lead',
-        when: 'Sent when a lead requests the pilgrimage brochure.',
-        why: 'Deliver the requested PDF itinerary.',
+        label: '🧭 Envio de Roteiro',
+        title: 'Roteiro da Peregrinação',
+        category: 'Leads & Peregrinações',
+        recipient: 'Interessado',
+        when: 'Enviado quando o lead pede o roteiro em PDF.',
+        why: 'Entregar o material solicitado.',
         technical: 'API: /api/leads/capture -> sendBrochureEmail',
         render: () =>
             renderBrochureEmail({
@@ -326,12 +326,12 @@ const EMAIL_TEMPLATES = {
             }),
     },
     'lead-abandonment': {
-        label: '↩️ Abandonment Recovery',
-        title: 'Abandonment Recovery',
-        category: 'Leads & Pilgrimages',
-        recipient: 'Lead',
-        when: 'Sent after 30 minutes of inactivity on a draft registration.',
-        why: 'Encourage the user to complete the registration.',
+        label: '↩️ Recuperação de Inscrição',
+        title: 'Retoma de Inscrição',
+        category: 'Leads & Peregrinações',
+        recipient: 'Interessado',
+        when: 'Enviado após inatividade em inscrição iniciada.',
+        why: 'Incentivar conclusão do processo de inscrição.',
         technical: 'Cron: /api/cron/recover-leads -> sendAbandonmentRecoveryEmail',
         render: () =>
             renderAbandonmentRecoveryEmail({
@@ -342,12 +342,12 @@ const EMAIL_TEMPLATES = {
             }),
     },
     'booking-confirmation': {
-        label: '✅ Booking Confirmation',
-        title: 'Booking Confirmation',
-        category: 'Leads & Pilgrimages',
-        recipient: 'Pilgrim',
-        when: 'Sent after a pilgrimage pre-booking is created.',
-        why: 'Confirm the reservation and provide the payment link.',
+        label: '✅ Confirmação de Inscrição',
+        title: 'Confirmação de Inscrição',
+        category: 'Leads & Peregrinações',
+        recipient: 'Peregrino',
+        when: 'Enviado após criação da inscrição na peregrinação.',
+        why: 'Confirmar inscrição e partilhar link seguro de gestão.',
         technical: 'API: /api/booking/create -> sendBookingConfirmationEmail',
         render: () =>
             renderBookingConfirmationEmail({
@@ -403,14 +403,14 @@ export default function EmailPreviewPage() {
     }, [activeTemplate]);
 
     return (
-        <AdminLayout title="System Emails Preview">
+        <AdminLayout title="Previews de Emails do Sistema">
             <div className="flex h-[calc(100vh-140px)] bg-slate-50 rounded-xl border border-slate-200 overflow-hidden">
 
                 {/* Sidebar */}
                 <aside className="w-80 bg-white border-r border-slate-200 flex flex-col overflow-y-auto">
                     <div className="p-4 border-b border-slate-100">
-                        <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Email System</h2>
-                        <p className="text-[10px] text-slate-400 mt-1">Select a template to view details</p>
+                        <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Sistema de Emails</h2>
+                        <p className="text-[10px] text-slate-400 mt-1">Selecione um template para ver os detalhes</p>
                     </div>
                     <nav className="flex-1 p-2 space-y-4">
                         <button
@@ -421,7 +421,7 @@ export default function EmailPreviewPage() {
                                     : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
                             }`}
                         >
-                            <span>📋 All Emails</span>
+                            <span>📋 Todos os Emails</span>
                             {activeView === 'overview' && <ChevronRight className="w-4 h-4 text-indigo-500" />}
                         </button>
 
@@ -451,25 +451,25 @@ export default function EmailPreviewPage() {
                             <div>
                                 <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
                                     <Mail className="w-5 h-5 text-indigo-500" />
-                                    {isOverview ? 'All System Emails' : activeTemplate?.title}
+                                    {isOverview ? 'Todos os Emails do Sistema' : activeTemplate?.title}
                                 </h2>
                                 {isOverview ? (
                                     <p className="text-sm text-slate-500 mt-2">
-                                        {TEMPLATE_LIST.length} templates available. Click any email in the list to preview.
+                                        {TEMPLATE_LIST.length} templates disponíveis. Clique num email para abrir o preview.
                                     </p>
                                 ) : (
                                     <div className="mt-3 space-y-2">
                                         <div className="flex items-start gap-2 text-sm text-slate-600">
                                             <Info className="w-4 h-4 text-slate-400 mt-0.5" />
-                                            <span><strong>Recipient:</strong> {activeTemplate?.recipient}</span>
+                                            <span><strong>Destinatário:</strong> {activeTemplate?.recipient}</span>
                                         </div>
                                         <div className="flex items-start gap-2 text-sm text-slate-600">
                                             <Info className="w-4 h-4 text-slate-400 mt-0.5" />
-                                            <span><strong>When:</strong> {activeTemplate?.when}</span>
+                                            <span><strong>Quando:</strong> {activeTemplate?.when}</span>
                                         </div>
                                         <div className="flex items-start gap-2 text-sm text-slate-600">
                                             <Info className="w-4 h-4 text-slate-400 mt-0.5" />
-                                            <span><strong>Why:</strong> {activeTemplate?.why}</span>
+                                            <span><strong>Objetivo:</strong> {activeTemplate?.why}</span>
                                         </div>
                                         <div className="flex items-start gap-2 text-xs text-slate-500 font-mono bg-slate-50 p-2 rounded border border-slate-100">
                                             <CheckCircle className="w-3 h-3 text-emerald-500 mt-0.5" />
@@ -522,12 +522,8 @@ export default function EmailPreviewPage() {
                                                             <div className="text-xs text-slate-500">{template.recipient}</div>
                                                         </div>
                                                         <div className="text-xs text-slate-600 space-y-1">
-                                                            <div>
-                                                                <span className="font-semibold text-slate-500">When:</span> {template.when}
-                                                            </div>
-                                                            <div>
-                                                                <span className="font-semibold text-slate-500">Why:</span> {template.why}
-                                                            </div>
+                                                            <div><span className="font-semibold text-slate-500">Quando:</span> {template.when}</div>
+                                                            <div><span className="font-semibold text-slate-500">Objetivo:</span> {template.why}</div>
                                                         </div>
                                                     </div>
                                                 </button>
@@ -547,7 +543,7 @@ export default function EmailPreviewPage() {
                                 <iframe
                                     srcDoc={htmlContent}
                                     className="w-full h-full border-none bg-white"
-                                    title="Email Preview"
+                                    title="Pré-visualização de Email"
                                 />
                             </div>
                         )}

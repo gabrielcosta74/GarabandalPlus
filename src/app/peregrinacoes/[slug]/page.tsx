@@ -54,6 +54,7 @@ type Pilgrimage = {
     end_date: string;
     total_vacancies: number;
     current_vacancies: number;
+    effective_vacancies?: number;
     base_price: number;
     status: string;
     flight_departure_time?: string;
@@ -242,7 +243,11 @@ export default function PilgrimageDetailPage() {
     const endDate = new Date(pilgrimage.end_date);
     const isClosed = pilgrimage.status === 'closed';
     const confirmedPax = (pilgrimage as any).confirmed_pax || 0;
-    const remainingSpots = Math.max(0, pilgrimage.total_vacancies - confirmedPax);
+    const remainingSpots = Number.isFinite(Number((pilgrimage as any).effective_vacancies))
+        ? Math.max(0, Number((pilgrimage as any).effective_vacancies))
+        : Number.isFinite(Number(pilgrimage.current_vacancies))
+            ? Math.max(0, Number(pilgrimage.current_vacancies))
+            : Math.max(0, pilgrimage.total_vacancies - confirmedPax);
     const isWaitlist = pilgrimage.status === 'waitlist' || remainingSpots <= 0;
     const includedItemsToShow =
         (pilgrimage.included_items?.length || 0) > 0

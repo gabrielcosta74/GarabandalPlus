@@ -1385,7 +1385,7 @@ export default function PilgrimageBookingPage() {
                                                     <div className="mt-1">
                                                         <input type="checkbox" {...methods.register('terms_accepted')} className="w-5 h-5 text-yellow-500 rounded border-slate-700 bg-slate-800 focus:ring-yellow-500" />
                                                     </div>
-                                                    <span className="text-sm text-slate-400 group-hover:text-slate-300 transition-colors">Li e aceito os <a href="#" target="_blank" className="underline font-bold text-slate-200">Termos e Condições</a> de Inscrição na Peregrinação.</span>
+                                                    <span className="text-sm text-slate-400 group-hover:text-slate-300 transition-colors">Li e aceito os <a href="/termos#peregrinacoes" target="_blank" className="underline font-bold text-slate-200">Termos e Condições</a> de Inscrição na Peregrinação.</span>
                                                 </label>
                                                 {errors.terms_accepted && <p className="text-red-500 text-xs font-bold animate-bounce tracking-wide">{errors.terms_accepted.message}</p>}
                                             </div>

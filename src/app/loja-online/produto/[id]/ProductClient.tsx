@@ -10,6 +10,7 @@ import ProductCard from "../../../../components/store/ProductCard";
 import { ShoppingCart, ArrowLeft, Check, Truck, ShieldCheck, CreditCard, Globe } from "lucide-react";
 import { useCurrency } from "../../../../components/providers/CurrencyProvider";
 import { listCountryOptions } from "../../../../lib/country-utils";
+import { inferIsDigitalProduct } from "../../../../lib/product-kind";
 
 const getVatRate = (product: Product) => (product.isPhysical ? 0.06 : 0.23);
 
@@ -70,7 +71,23 @@ export default function ProductClient({ product, relatedProducts }: ProductClien
     // 2. Main Render
     const rate = getVatRate(product);
     const breakdown = getVatBreakdown(product.price, rate);
-    const isSoldOut = product.stock === 0;
+    const normalizedTypeId = (product.type_id || '').toLowerCase();
+    const normalizedCategory = (product.category || '').toLowerCase();
+    const isClothing =
+        normalizedTypeId === 'clothing' ||
+        normalizedTypeId.includes('apparel') ||
+        normalizedCategory.includes('vestu') ||
+        normalizedCategory.includes('roupa');
+    const isDigital = inferIsDigitalProduct({
+        isPhysical: product.isPhysical ?? product.is_physical,
+        typeId: product.type_id,
+        category: product.category,
+        name: product.name,
+        digitalUrl: (product as any).digitalUrl,
+    });
+    const productMode: 'digital' | 'clothing' | 'physical' =
+        isDigital ? 'digital' : isClothing ? 'clothing' : 'physical';
+    const isSoldOut = productMode !== 'digital' && product.stock === 0;
 
     return (
         <StoreLayoutWrapper>
@@ -121,7 +138,7 @@ export default function ProductClient({ product, relatedProducts }: ProductClien
                             <div className="text-sm font-bold uppercase tracking-widest text-gray-400">
                                 {product.format}
                             </div>
-                            {typeof product.stock === "number" && (
+                            {productMode !== 'digital' && typeof product.stock === "number" && (
                                 <div className={`text-sm font-bold uppercase tracking-widest px-3 py-1 rounded-full ${isSoldOut ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>
                                     {isSoldOut ? "Esgotado" : `Stock: ${product.stock}`}
                                 </div>
@@ -192,18 +209,44 @@ export default function ProductClient({ product, relatedProducts }: ProductClien
 
                         {/* Trust Badges */}
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs text-gray-400 mb-8">
-                            <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
-                                <Truck size={16} className="text-garabandal-gold" />
-                                <span>Envio seguro para todo o mundo</span>
-                            </div>
-                            <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
-                                <ShieldCheck size={16} className="text-garabandal-gold" />
-                                <span>Pagamento 100% Seguro</span>
-                            </div>
+                            {productMode === 'digital' ? (
+                                <>
+                                    <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
+                                        <Check size={16} className="text-garabandal-gold" />
+                                        <span>Acesso imediato após pagamento</span>
+                                    </div>
+                                    <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
+                                        <ShieldCheck size={16} className="text-garabandal-gold" />
+                                        <span>Pagamento 100% Seguro</span>
+                                    </div>
+                                </>
+                            ) : productMode === 'clothing' ? (
+                                <>
+                                    <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
+                                        <Truck size={16} className="text-garabandal-gold" />
+                                        <span>Envio protegido com embalagem adequada</span>
+                                    </div>
+                                    <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
+                                        <ShieldCheck size={16} className="text-garabandal-gold" />
+                                        <span>Pagamento 100% Seguro</span>
+                                    </div>
+                                </>
+                            ) : (
+                                <>
+                                    <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
+                                        <Truck size={16} className="text-garabandal-gold" />
+                                        <span>Envio seguro para todo o mundo</span>
+                                    </div>
+                                    <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
+                                        <ShieldCheck size={16} className="text-garabandal-gold" />
+                                        <span>Pagamento 100% Seguro</span>
+                                    </div>
+                                </>
+                            )}
                         </div>
 
                         {/* Availability Info */}
-                        {product.isPhysical && (
+                        {productMode !== 'digital' && (
                             <div className="mb-8 p-4 bg-gray-50 rounded-2xl border border-gray-100">
                                 <div className="flex items-start gap-3">
                                     <div className="p-2 bg-white rounded-lg border border-gray-100 shadow-sm text-blue-600">
@@ -213,7 +256,7 @@ export default function ProductClient({ product, relatedProducts }: ProductClien
                                         <h3 className="font-bold text-gray-900 text-sm mb-1">Disponibilidade de Envio</h3>
                                         {product.allowedCountries && product.allowedCountries.length > 0 ? (
                                             <div className="text-sm text-gray-600">
-                                                <p className="mb-2">Este produto só pode ser enviado para:</p>
+                                                <p className="mb-2">Stock disponível para envio apenas nos seguintes países:</p>
                                                 <div className="flex flex-wrap gap-2">
                                                     {product.allowedCountries.map(code => {
                                                         const country = listCountryOptions().find(c => c.code === code);
@@ -228,7 +271,7 @@ export default function ProductClient({ product, relatedProducts }: ProductClien
                                             </div>
                                         ) : (
                                             <p className="text-sm text-gray-600">
-                                                Este produto pode ser enviado para <span className="font-bold text-green-600">todo o mundo</span>.
+                                                Stock disponível para envio internacional (<span className="font-bold text-green-600">todos os países</span>).
                                             </p>
                                         )}
                                     </div>

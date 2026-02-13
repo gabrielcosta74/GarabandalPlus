@@ -22,6 +22,29 @@ export async function GET(
     }
 
     try {
+        const successfulStatuses = ['verified', 'succeeded', 'paid', 'manual'];
+        const normalizeBookingPaidAmount = async (booking: any) => {
+            if (!booking) return booking;
+
+            const payments = Array.isArray(booking.payments) ? booking.payments : [];
+            const successfulPaidTotal = payments
+                .filter((p: any) => successfulStatuses.includes(String(p?.status || '').toLowerCase()))
+                .reduce((sum: number, p: any) => sum + (Number(p?.amount) || 0), 0);
+
+            const currentPaid = Number(booking.paid_amount) || 0;
+            const normalizedPaid = Math.max(currentPaid, successfulPaidTotal);
+            booking.paid_amount = normalizedPaid;
+
+            if (Math.abs(currentPaid - normalizedPaid) > 0.009) {
+                await supabaseServer!
+                    .from('bookings')
+                    .update({ paid_amount: normalizedPaid, last_payment_date: new Date().toISOString() })
+                    .eq('id', booking.id);
+            }
+
+            return booking;
+        };
+
         // MODE 1: Token-based public view (for success page after booking)
         if (token) {
             console.log("🔑 [API] Token-based access attempt");
@@ -71,6 +94,8 @@ export async function GET(
                     amount: Number(p.amount)
                 }));
             }
+
+            await normalizeBookingPaidAmount(booking);
 
             console.log("✅ [API] Booking found with token, returning data");
             return NextResponse.json(booking);
@@ -126,6 +151,8 @@ export async function GET(
                 amount: Number(p.amount)
             }));
         }
+
+        await normalizeBookingPaidAmount(booking);
 
         return NextResponse.json(booking);
 

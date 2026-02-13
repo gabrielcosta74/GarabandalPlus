@@ -82,14 +82,46 @@ export async function POST(req: Request) {
         const totalPaid = allPayments.reduce((acc, p) => acc + (Number(p.amount) || 0), 0);
         console.log(`🚀 [API] New Total Paid for Booking ${bookingId}: ${totalPaid}`);
 
+        const { data: bookingData, error: bookingDataError } = await supabaseServer
+            .from('bookings')
+            .select('id, pilgrimage_id, status, pilgrimage:pilgrimages(deposit_value)')
+            .eq('id', bookingId)
+            .single();
+
+        if (bookingDataError || !bookingData) {
+            console.error('❌ [API] Error fetching booking for status update:', bookingDataError);
+            return NextResponse.json({ error: 'Erro ao carregar dados da reserva.' }, { status: 500 });
+        }
+
+        const { count: pilgrimsCount } = await supabaseServer
+            .from('pilgrims')
+            .select('id', { count: 'exact', head: true })
+            .eq('booking_id', bookingId);
+
+        const depositValue = Number((bookingData.pilgrimage as any)?.deposit_value || 0);
+        const requiredDeposit = depositValue * Math.max(1, Number(pilgrimsCount || 1));
+        const nextStatus = totalPaid >= requiredDeposit ? 'confirmed' : 'pending';
+
         const { error: updateBookingError } = await supabaseServer
             .from('bookings')
-            .update({ paid_amount: totalPaid })
+            .update({
+                paid_amount: totalPaid,
+                status: nextStatus,
+                last_payment_date: new Date().toISOString(),
+            })
             .eq('id', bookingId);
 
         if (updateBookingError) {
             console.error('❌ [API] Error updating booking:', updateBookingError);
             return NextResponse.json({ error: 'Erro ao atualizar total da reserva.' }, { status: 500 });
+        }
+
+        if (bookingData.pilgrimage_id) {
+            const { error: vacancySyncError } = await supabaseServer
+                .rpc('recalculate_pilgrimage_vacancies', { p_pilgrimage_id: bookingData.pilgrimage_id });
+            if (vacancySyncError) {
+                console.error('❌ [API] Error syncing vacancies after payment verify:', vacancySyncError);
+            }
         }
 
         console.log("🚀 [API] Success!");

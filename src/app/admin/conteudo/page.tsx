@@ -4,11 +4,19 @@ import { useEffect, useState } from 'react';
 import { supabaseBrowser } from '../../../lib/supabase-browser';
 import AdminLayout from '../../../components/admin/AdminLayout';
 import ImageUpload from '../../../components/admin/ImageUpload';
+import { Toaster, toast } from 'sonner';
+import {
+    BANK_TRANSFER_SITE_CONTENT_KEY,
+    DEFAULT_BANK_TRANSFER_DETAILS,
+    normalizeBankTransferDetails,
+    type BankTransferDetails,
+} from '../../../lib/bank-transfer-details';
 import {
     Save,
     Bus,
     Hotel,
     List,
+    Landmark,
     MessageSquare,
     Plus,
     Trash2,
@@ -55,6 +63,7 @@ export default function GlobalContentPage() {
         included_items: [],
         not_included_items: []
     });
+    const [bankDetails, setBankDetails] = useState<BankTransferDetails>(DEFAULT_BANK_TRANSFER_DETAILS);
 
     // Testimonials State
     const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
@@ -72,10 +81,14 @@ export default function GlobalContentPage() {
         const { data: cData } = await supabaseBrowser
             .from('site_content')
             .select('*')
-            .in('key', ['logistics_global']);
+            .in('key', ['logistics_global', BANK_TRANSFER_SITE_CONTENT_KEY]);
 
         if (cData && cData.length > 0) {
-            setLogistics(cData[0].content);
+            const logisticsRow = cData.find((row: any) => row.key === 'logistics_global');
+            const bankDetailsRow = cData.find((row: any) => row.key === BANK_TRANSFER_SITE_CONTENT_KEY);
+
+            if (logisticsRow?.content) setLogistics(logisticsRow.content);
+            if (bankDetailsRow?.content) setBankDetails(normalizeBankTransferDetails(bankDetailsRow.content));
         }
 
         // 2. Fetch Testimonials
@@ -90,19 +103,39 @@ export default function GlobalContentPage() {
     };
 
     const saveLogistics = async () => {
-        if (!supabaseBrowser) return;
+        if (!supabaseBrowser) {
+            toast.error('Erro de configuração: cliente Supabase indisponível.');
+            return;
+        }
         setSaving(true);
 
-        const { error } = await supabaseBrowser
-            .from('site_content')
-            .upsert({
-                key: 'logistics_global',
-                content: logistics,
-                updated_at: new Date().toISOString()
-            });
+        try {
+            const { error } = await supabaseBrowser
+                .from('site_content')
+                .upsert([
+                    {
+                        key: 'logistics_global',
+                        content: logistics,
+                        updated_at: new Date().toISOString()
+                    },
+                    {
+                        key: BANK_TRANSFER_SITE_CONTENT_KEY,
+                        content: bankDetails,
+                        updated_at: new Date().toISOString()
+                    }
+                ]);
 
-        if (error) alert('Erro ao guardar logística: ' + error.message);
-        setSaving(false);
+            if (error) {
+                toast.error(`Erro ao guardar alterações: ${error.message}`);
+                return;
+            }
+
+            toast.success('Alterações guardadas com sucesso.');
+        } catch (err: any) {
+            toast.error(`Erro inesperado ao guardar: ${err?.message || 'erro desconhecido'}`);
+        } finally {
+            setSaving(false);
+        }
     };
 
     const handleSaveTestimonial = async () => {
@@ -116,7 +149,7 @@ export default function GlobalContentPage() {
             .single();
 
         if (error) {
-            alert('Erro ao guardar: ' + error.message);
+            toast.error('Erro ao guardar testemunho: ' + error.message);
         } else if (data) {
             // Update local list
             setTestimonials(prev => {
@@ -129,6 +162,7 @@ export default function GlobalContentPage() {
                 return [...prev, data];
             });
             setEditingTestimonial(null);
+            toast.success('Testemunho guardado com sucesso.');
         }
         setSaving(false);
     };
@@ -140,10 +174,11 @@ export default function GlobalContentPage() {
         const { error } = await supabaseBrowser.from('testimonials').delete().eq('id', id);
 
         if (error) {
-            alert('Erro ao apagar: ' + error.message);
+            toast.error('Erro ao apagar: ' + error.message);
         } else {
             setTestimonials(prev => prev.filter(t => t.id !== id));
             if (editingTestimonial?.id === id) setEditingTestimonial(null);
+            toast.success('Testemunho apagado com sucesso.');
         }
     };
 
@@ -159,6 +194,7 @@ export default function GlobalContentPage() {
 
     return (
         <AdminLayout title="Conteúdo Global" isLoading={loading}>
+            <Toaster position="top-right" richColors />
             <div className="flex flex-col lg:flex-row gap-8 pb-20">
                 {/* Sidebar Navigation */}
                 <div className="w-full lg:w-64 flex-shrink-0 space-y-2">
@@ -373,6 +409,121 @@ export default function GlobalContentPage() {
                                     >
                                         <Plus className="w-4 h-4" /> Adicionar Item
                                     </button>
+                                </div>
+                            </div>
+
+                            {/* Bank Transfer Data Card */}
+                            <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200">
+                                <h3 className="text-lg font-bold text-slate-900 mb-6 flex items-center gap-2">
+                                    <Landmark className="w-5 h-5 text-indigo-500" />
+                                    Dados Bancários (Transferência)
+                                </h3>
+                                <p className="text-sm text-slate-500 mb-6">
+                                    Estes dados são usados automaticamente nas páginas de doação e inscrição quando o utilizador escolhe transferência bancária.
+                                </p>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="md:col-span-2">
+                                        <label className="block text-sm font-bold text-slate-700 mb-2">IBAN</label>
+                                        <input
+                                            type="text"
+                                            className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 outline-none font-mono"
+                                            value={bankDetails.iban}
+                                            onChange={(e) => setBankDetails({ ...bankDetails, iban: e.target.value })}
+                                            placeholder="Ex: PT50 0033 0000 0000 0000 0000 0"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-bold text-slate-700 mb-2">Titular / Beneficiário</label>
+                                        <input
+                                            type="text"
+                                            className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 outline-none"
+                                            value={bankDetails.beneficiary_name}
+                                            onChange={(e) => setBankDetails({ ...bankDetails, beneficiary_name: e.target.value })}
+                                            placeholder="Ex: Associação ..."
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-bold text-slate-700 mb-2">Banco</label>
+                                        <input
+                                            type="text"
+                                            className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 outline-none"
+                                            value={bankDetails.bank_name}
+                                            onChange={(e) => setBankDetails({ ...bankDetails, bank_name: e.target.value })}
+                                            placeholder="Ex: Millennium BCP"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-bold text-slate-700 mb-2">BIC / SWIFT</label>
+                                        <input
+                                            type="text"
+                                            className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 outline-none"
+                                            value={bankDetails.bic_swift}
+                                            onChange={(e) => setBankDetails({ ...bankDetails, bic_swift: e.target.value })}
+                                            placeholder="Opcional"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-bold text-slate-700 mb-2">Email de Suporte</label>
+                                        <input
+                                            type="email"
+                                            className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 outline-none"
+                                            value={bankDetails.support_email}
+                                            onChange={(e) => setBankDetails({ ...bankDetails, support_email: e.target.value })}
+                                            placeholder="Ex: geral@..."
+                                        />
+                                    </div>
+                                    <div className="md:col-span-2">
+                                        <label className="block text-sm font-bold text-slate-700 mb-2">Nota de Referência</label>
+                                        <textarea
+                                            className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl h-24 resize-none focus:ring-2 focus:ring-slate-900 outline-none"
+                                            value={bankDetails.reference_note}
+                                            onChange={(e) => setBankDetails({ ...bankDetails, reference_note: e.target.value })}
+                                            placeholder="Ex: Indique no descritivo o email e referência da inscrição."
+                                        />
+                                    </div>
+                                    <div className="md:col-span-2 pt-2">
+                                        <h4 className="text-sm font-bold text-slate-800 mb-3">Endereço da Associação</h4>
+                                    </div>
+                                    <div className="md:col-span-2">
+                                        <label className="block text-sm font-bold text-slate-700 mb-2">Rua / Morada</label>
+                                        <input
+                                            type="text"
+                                            className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 outline-none"
+                                            value={bankDetails.address_street}
+                                            onChange={(e) => setBankDetails({ ...bankDetails, address_street: e.target.value })}
+                                            placeholder="Ex: Rua ..., nº ..., andar ..."
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-bold text-slate-700 mb-2">Código Postal</label>
+                                        <input
+                                            type="text"
+                                            className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 outline-none"
+                                            value={bankDetails.address_postal_code}
+                                            onChange={(e) => setBankDetails({ ...bankDetails, address_postal_code: e.target.value })}
+                                            placeholder="Ex: 1000-001"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-bold text-slate-700 mb-2">Cidade</label>
+                                        <input
+                                            type="text"
+                                            className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 outline-none"
+                                            value={bankDetails.address_city}
+                                            onChange={(e) => setBankDetails({ ...bankDetails, address_city: e.target.value })}
+                                            placeholder="Ex: Lisboa"
+                                        />
+                                    </div>
+                                    <div className="md:col-span-2">
+                                        <label className="block text-sm font-bold text-slate-700 mb-2">País</label>
+                                        <input
+                                            type="text"
+                                            className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 outline-none"
+                                            value={bankDetails.address_country}
+                                            onChange={(e) => setBankDetails({ ...bankDetails, address_country: e.target.value })}
+                                            placeholder="Ex: Portugal"
+                                        />
+                                    </div>
                                 </div>
                             </div>
                         </div>

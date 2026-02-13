@@ -6,56 +6,9 @@ import MemberProfileModal from '../../../components/member-profile/MemberProfile
 import { supabaseBrowser } from '../../../lib/supabase-browser';
 import { resolveCountryMeta } from '../../../lib/country-utils';
 import { normalizeQuotaStatus } from '../../../lib/membership-status';
-import { ShieldCheck, CreditCard, AlertTriangle, CheckCircle2, Clock } from 'lucide-react';
+import { ShieldCheck, CreditCard, AlertTriangle, CheckCircle2, Clock, QrCode } from 'lucide-react';
+import { UNIFIED_ONLINE_PAYMENT_OPTIONS } from '../../../lib/payment-options';
 import { motion } from 'framer-motion';
-
-type PaymentOption = {
-  id: string;
-  label: string;
-  description: string;
-  provider: 'stripe' | 'reduniq';
-  reduniqSolution?: number;
-  iconSrc?: string;
-  iconAlt: string;
-};
-
-const paymentOptions: PaymentOption[] = [
-  {
-    id: 'reduniq_card',
-    label: 'Cartão de Crédito',
-    description: 'Visa / Mastercard (Reduniq).',
-    provider: 'reduniq',
-    reduniqSolution: 106,
-    iconSrc: '/payment-icons/reduniq.png',
-    iconAlt: 'Reduniq',
-  },
-  {
-    id: 'reduniq_mbway',
-    label: 'MB WAY',
-    description: 'Pagamento instantâneo.',
-    provider: 'reduniq',
-    reduniqSolution: 107,
-    iconSrc: '/payment-icons/mbway.svg',
-    iconAlt: 'MB WAY',
-  },
-  {
-    id: 'reduniq_multibanco',
-    label: 'Multibanco',
-    description: 'Pagamento de serviços.',
-    provider: 'reduniq',
-    reduniqSolution: 108,
-    iconSrc: '/payment-icons/multibanco.svg',
-    iconAlt: 'Multibanco',
-  },
-  {
-    id: 'stripe',
-    label: 'Stripe (Cartão / Apple Pay)',
-    description: 'Pagamento imediato e seguro.',
-    provider: 'stripe',
-    iconSrc: '/payment-icons/stripe.svg',
-    iconAlt: 'Stripe',
-  },
-];
 
 const formatCurrency = (value: number) =>
   new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR' }).format(value);
@@ -65,7 +18,7 @@ const QUOTA_AMOUNT = 25;
 export default function MemberQuotaPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [selectedPaymentId, setSelectedPaymentId] = useState(paymentOptions[0].id);
+  const [selectedPaymentId, setSelectedPaymentId] = useState(UNIFIED_ONLINE_PAYMENT_OPTIONS[0].id);
   const [userId, setUserId] = useState('');
   const [profileData, setProfileData] = useState<Record<string, any> | null>(null);
   const [showProfile, setShowProfile] = useState(false);
@@ -77,7 +30,7 @@ export default function MemberQuotaPage() {
   const [loadingData, setLoadingData] = useState(true);
 
   const selectedPayment = useMemo(
-    () => paymentOptions.find((option) => option.id === selectedPaymentId) ?? paymentOptions[0],
+    () => UNIFIED_ONLINE_PAYMENT_OPTIONS.find((option) => option.id === selectedPaymentId) ?? UNIFIED_ONLINE_PAYMENT_OPTIONS[0],
     [selectedPaymentId],
   );
   const donorCountryCode = useMemo(
@@ -139,9 +92,6 @@ export default function MemberQuotaPage() {
           donorEmail: profileData?.email || undefined,
           donorCountry: donorCountryCode || undefined,
           donorNif: profileData?.nif || undefined,
-          ...(selectedPayment.provider === 'reduniq' && selectedPayment.reduniqSolution
-            ? { reduniqSolution: selectedPayment.reduniqSolution }
-            : {}),
         }),
       });
       if (!res.ok) {
@@ -293,14 +243,20 @@ export default function MemberQuotaPage() {
             <p className="text-sm text-gray-500 mb-6">Seleciona o método de pagamento preferido.</p>
 
             <div className="space-y-3 mb-8">
-              {paymentOptions.map((option) => (
+              {UNIFIED_ONLINE_PAYMENT_OPTIONS.map((option) => (
                 <button
                   key={option.id}
                   onClick={() => setSelectedPaymentId(option.id)}
                   className={`w-full flex items-center gap-4 p-4 rounded-xl border-2 transition-all ${selectedPaymentId === option.id ? 'border-garabandal-gold bg-garabandal-gold/5' : 'border-gray-100 hover:border-gray-200 bg-white'}`}
                 >
                   <div className="w-10 h-10 rounded-lg bg-white shadow-sm border border-gray-100 flex items-center justify-center p-2 shrink-0">
-                    {option.iconSrc && <img src={option.iconSrc} alt={option.iconAlt} className="w-full h-full object-contain" />}
+                    {option.iconSrc ? (
+                      <img src={option.iconSrc} alt={option.iconAlt || option.label} className="w-full h-full object-contain" />
+                    ) : option.id === 'reduniq_pix' ? (
+                      <QrCode className="w-5 h-5 text-green-600" />
+                    ) : (
+                      <CreditCard className="w-5 h-5 text-gray-500" />
+                    )}
                   </div>
                   <div className="text-left flex-1">
                     <div className="font-bold text-gray-900 text-sm">{option.label}</div>

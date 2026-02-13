@@ -383,18 +383,28 @@ export async function handlePilgrimageSuccess(ctx: PaymentHandlerContext): Promi
 
     const { data: booking } = await supabaseServer
         .from('bookings')
-        .select('status, pilgrimage:pilgrimages(deposit_value)')
+        .select('status, pilgrimage_id, pilgrimage:pilgrimages(deposit_value)')
         .eq('id', bookingId)
         .maybeSingle();
 
+    const { count: pilgrimsCount } = await supabaseServer
+        .from('pilgrims')
+        .select('id', { count: 'exact', head: true })
+        .eq('booking_id', bookingId);
+
     const depositValue = Number((booking?.pilgrimage as any)?.deposit_value || 500);
+    const requiredDeposit = depositValue * Math.max(1, Number(pilgrimsCount || 1));
     const bookingUpdates: any = {
         paid_amount: totalPaid,
         last_payment_date: new Date().toISOString(),
     };
 
-    if (totalPaid >= depositValue) bookingUpdates.status = 'confirmed';
+    if (totalPaid >= requiredDeposit) bookingUpdates.status = 'confirmed';
     await supabaseServer.from('bookings').update(bookingUpdates).eq('id', bookingId);
+
+    if ((booking as any)?.pilgrimage_id) {
+        await supabaseServer.rpc('recalculate_pilgrimage_vacancies', { p_pilgrimage_id: (booking as any).pilgrimage_id });
+    }
 
     if (didTransitionNow) {
         await createAdminNotification('booking', 'Pagamento Peregrinação', `Reserva #${bookingId} - €${amountPaid.toFixed(2)}`, `/admin/peregrinacoes/inscricao/${bookingId}`);

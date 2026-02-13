@@ -25,7 +25,7 @@ export async function POST(req: Request) {
         // 2. Get the user_id from the booking (since admin is inserting on behalf of user)
         const { data: booking, error: bookingError } = await supabaseServer
             .from('bookings')
-            .select('user_id, paid_amount')
+            .select('user_id, paid_amount, pilgrimage_id, pilgrimage:pilgrimages(deposit_value)')
             .eq('id', bookingId)
             .single();
 
@@ -57,9 +57,24 @@ export async function POST(req: Request) {
         }
 
         // 4. Update the booking paid_amount
+        const newTotalPaid = currentPaid + registerAmount;
+
+        const { count: pilgrimsCount } = await supabaseServer
+            .from('pilgrims')
+            .select('id', { count: 'exact', head: true })
+            .eq('booking_id', bookingId);
+
+        const depositValue = Number((booking.pilgrimage as any)?.deposit_value || 0);
+        const requiredDeposit = depositValue * Math.max(1, Number(pilgrimsCount || 1));
+        const nextStatus = newTotalPaid >= requiredDeposit ? 'confirmed' : 'pending';
+
         const { error: updateError } = await supabaseServer
             .from('bookings')
-            .update({ paid_amount: currentPaid + registerAmount })
+            .update({
+                paid_amount: newTotalPaid,
+                status: nextStatus,
+                last_payment_date: new Date().toISOString(),
+            })
             .eq('id', bookingId);
 
         if (updateError) {
@@ -67,7 +82,15 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: `Erro ao atualizar reserva: ${updateError.message}` }, { status: 500 });
         }
 
-        return NextResponse.json({ success: true, newTotal: currentPaid + registerAmount });
+        if (booking.pilgrimage_id) {
+            const { error: vacancySyncError } = await supabaseServer
+                .rpc('recalculate_pilgrimage_vacancies', { p_pilgrimage_id: booking.pilgrimage_id });
+            if (vacancySyncError) {
+                console.error('Error syncing vacancies after manual register:', vacancySyncError);
+            }
+        }
+
+        return NextResponse.json({ success: true, newTotal: newTotalPaid });
 
         // Log asynchronously
         await logAdminAction(user.email, 'REGISTER_PAYMENT', { bookingId, amount, method, notes }, userId);

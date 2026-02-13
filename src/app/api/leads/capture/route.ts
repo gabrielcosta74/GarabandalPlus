@@ -1,7 +1,6 @@
 
 import { NextResponse } from 'next/server';
 import { supabaseServer } from '../../../../lib/supabase';
-import { WhatsAppService } from '../../../../lib/whatsapp';
 import { APP_URL } from '../../../../lib/config';
 import { sendBrochureEmail } from '../../../../lib/email';
 
@@ -116,17 +115,7 @@ export async function POST(req: Request) {
 
             console.log(`[SoftCapture] Delivering brochure to ${name} via ${channel_preference}: ${pdfLink}`);
 
-            if (channel_preference === 'whatsapp' && phone) {
-                try {
-                    await WhatsAppService.sendMessage(
-                        phone,
-                        `Olá ${name}! Aqui está o roteiro detalhado para a *${pilgrimageTitle}* que pediu. 📄\n\nQualquer dúvida, estamos aqui.\n\n${pdfLink}`,
-                        `brochure_${result.id}_${Date.now()}`
-                    );
-                } catch (waError) {
-                    console.error("WA Send Failed", waError);
-                }
-            } else if (channel_preference === 'email' && email) {
+            if (email) {
                 try {
                     await sendBrochureEmail({
                         email,
@@ -137,6 +126,8 @@ export async function POST(req: Request) {
                 } catch (emailError) {
                     console.error("Email Brochure Send Failed", emailError);
                 }
+            } else {
+                console.info("[SoftCapture] Brochure delivery skipped: no email provided.");
             }
         }
 
@@ -168,4 +159,3 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
 }
-

@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Check, Lock, ChevronLeft, CreditCard, Eye, EyeOff } from "lucide-react";
+import { X, Check, Lock, ChevronLeft, CreditCard, Eye, EyeOff, QrCode } from "lucide-react";
 import { supabaseBrowser } from "../../lib/supabase-browser";
 import { useAuth } from "../../contexts/AuthContext";
 import {
@@ -19,22 +20,13 @@ import {
 } from "../../lib/country-utils";
 import { useCurrency } from "../providers/CurrencyProvider";
 import { GoogleButton } from "../auth/AuthLayout";
+import { UNIFIED_ONLINE_PAYMENT_OPTIONS } from "../../lib/payment-options";
 
 interface MembershipModalProps {
     isOpen: boolean;
     onClose: () => void;
     impact: { members: number; raised: number; goal: number };
 }
-
-type PaymentOption = {
-    id: string;
-    label: string;
-    description: string;
-    iconSrc: string;
-    badge?: string;
-    provider: "stripe" | "reduniq";
-    reduniqSolution?: number;
-};
 
 const slides = [
     {
@@ -55,41 +47,6 @@ const slides = [
 ];
 
 const countryOptions = listCountryLabels();
-
-const paymentOptions: PaymentOption[] = [
-    {
-        id: "reduniq_card",
-        label: "Cartão de Crédito",
-        description: "Visa / Mastercard (Reduniq).",
-        iconSrc: "/payment-icons/reduniq.png",
-        badge: "Recomendado",
-        provider: "reduniq",
-        reduniqSolution: 106,
-    },
-    {
-        id: "reduniq_mbway",
-        label: "MB WAY",
-        description: "Pagamento instantâneo.",
-        iconSrc: "/payment-icons/mbway.svg",
-        provider: "reduniq",
-        reduniqSolution: 107,
-    },
-    {
-        id: "reduniq_multibanco",
-        label: "Multibanco",
-        description: "Pagamento de serviços.",
-        iconSrc: "/payment-icons/multibanco.svg",
-        provider: "reduniq",
-        reduniqSolution: 108,
-    },
-    {
-        id: "stripe",
-        label: "Stripe (Cartão / Apple Pay)",
-        description: "Pagamento seguro via Stripe.",
-        iconSrc: "/payment-icons/stripe.svg",
-        provider: "stripe",
-    }
-];
 
 // Helper Components (Defined outside to prevent re-renders)
 const InputField = ({ label, ...props }: React.InputHTMLAttributes<HTMLInputElement> & { label: string }) => (
@@ -182,13 +139,13 @@ export default function MembershipModal({ isOpen, onClose, impact }: MembershipM
     });
 
     // Payment
-    const [selectedPaymentId, setSelectedPaymentId] = useState(paymentOptions[0].id);
+    const [selectedPaymentId, setSelectedPaymentId] = useState(UNIFIED_ONLINE_PAYMENT_OPTIONS[0].id);
     const [paymentUrl, setPaymentUrl] = useState<string | null>(null);
     const [paymentError, setPaymentError] = useState<string | null>(null);
 
     const countryMeta = useMemo(() => resolveCountryMeta(formData.pais), [formData.pais]);
 
-    const selectedPayment = paymentOptions.find((o) => o.id === selectedPaymentId) || paymentOptions[0];
+    const selectedPayment = UNIFIED_ONLINE_PAYMENT_OPTIONS.find((o) => o.id === selectedPaymentId) || UNIFIED_ONLINE_PAYMENT_OPTIONS[0];
     const { user: authUser, memberData: authMemberData } = useAuth();
 
     // Logic: Session
@@ -390,9 +347,6 @@ export default function MembershipModal({ isOpen, onClose, impact }: MembershipM
                     donorEmail: formData.email?.trim().toLowerCase() || undefined,
                     donorCountry: countryMeta?.code || undefined,
                     donorNif: formData.nif?.trim() || undefined,
-                    ...(selectedPayment.provider === "reduniq" && selectedPayment.reduniqSolution
-                        ? { reduniqSolution: selectedPayment.reduniqSolution }
-                        : {}),
                 })
             });
 
@@ -584,7 +538,15 @@ export default function MembershipModal({ isOpen, onClose, impact }: MembershipM
                                                                 />
                                                             </div>
                                                             <label htmlFor="modal-terms" className="text-xs text-gray-500 leading-relaxed font-medium">
-                                                                Li e aceito os e a <a href="#" className="underline hover:text-garabandal-gold">Política de Privacidade</a> do Apostolado de Garabandal.
+                                                                Li e aceito os{" "}
+                                                                <Link href="/termos" target="_blank" className="underline hover:text-garabandal-gold">
+                                                                    Termos e Condições
+                                                                </Link>{" "}
+                                                                e a{" "}
+                                                                <Link href="/privacidade" target="_blank" className="underline hover:text-garabandal-gold">
+                                                                    Política de Privacidade
+                                                                </Link>{" "}
+                                                                do Apostolado de Garabandal.
                                                             </label>
                                                         </div>
                                                     </>
@@ -698,7 +660,7 @@ export default function MembershipModal({ isOpen, onClose, impact }: MembershipM
                                             </div>
 
                                             <div className="space-y-4">
-                                                {paymentOptions.map(opt => (
+                                                {UNIFIED_ONLINE_PAYMENT_OPTIONS.map(opt => (
                                                     <button
                                                         key={opt.id}
                                                         onClick={() => setSelectedPaymentId(opt.id)}
@@ -708,12 +670,18 @@ export default function MembershipModal({ isOpen, onClose, impact }: MembershipM
                                                                 : 'border-gray-100 hover:border-gray-200 bg-white hover:bg-gray-50'}`}
                                                     >
                                                         <div className="w-14 h-14 flex items-center justify-center bg-white rounded-xl shadow-sm border border-gray-100 p-2 shrink-0">
-                                                            <img src={opt.iconSrc} alt={opt.label} className="w-full h-full object-contain" />
+                                                            {opt.iconSrc ? (
+                                                                <img src={opt.iconSrc} alt={opt.iconAlt || opt.label} className="w-full h-full object-contain" />
+                                                            ) : opt.id === 'reduniq_pix' ? (
+                                                                <QrCode className="w-6 h-6 text-green-600" />
+                                                            ) : (
+                                                                <CreditCard className="w-6 h-6 text-gray-500" />
+                                                            )}
                                                         </div>
                                                         <div className="flex-1 min-w-0">
                                                             <div className="flex items-center gap-2 mb-1">
                                                                 <span className="font-bold text-garabandal-dark text-lg">{opt.label}</span>
-                                                                {'badge' in opt && (
+                                                                {opt.badge && (
                                                                     <span className="bg-green-100 text-green-700 text-[10px] font-bold uppercase px-2 py-0.5 rounded-full">
                                                                         {opt.badge}
                                                                     </span>

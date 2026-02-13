@@ -2,7 +2,6 @@
 import { NextResponse } from 'next/server';
 import { supabaseServer } from '../../../../lib/supabase';
 import { sendAbandonmentRecoveryEmail } from '../../../../lib/email';
-import { WhatsAppService } from '../../../../lib/whatsapp';
 import { getAppUrl } from '../../../../lib/config';
 
 export const runtime = 'nodejs';
@@ -49,7 +48,6 @@ export async function GET(req: Request) {
         for (const lead of leads) {
             console.log(`[Cron] Recovering lead ${lead.id} (${lead.email})...`);
             let emailSent = false;
-            let whatsappSent = false;
 
             // Generate Recovery Link (Pointing to resume step ?)
             // For now, simple link to the pilgrimage page or a specific resume param
@@ -70,21 +68,8 @@ export async function GET(req: Request) {
                 console.error(`[Cron] Failed to send email to ${lead.email}`, err);
             }
 
-            // Send WhatsApp (If phone exists)
-            if (lead.phone && lead.phone.length > 8) {
-                try {
-                    await WhatsAppService.sendMessage(
-                        lead.phone,
-                        `Olá ${lead.name || 'Peregrino'}! 🕊️\n\nVimos que não conseguiu terminar a sua inscrição para *${lead.pilgrimages?.title || 'Garabandal'}*. \n\nGuardámos o seu lugar temporariamente. Clique aqui para continuar: ${recoveryLink}`
-                    );
-                    whatsappSent = true;
-                } catch (waErr) {
-                    console.error(`[Cron] Failed to send WA to ${lead.phone}`, waErr);
-                }
-            }
-
             // 3. Mark as Notified
-            if (emailSent || whatsappSent) {
+            if (emailSent) {
                 await supabaseServer
                     .from('booking_leads')
                     .update({

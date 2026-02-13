@@ -73,19 +73,32 @@ export async function GET(req: NextRequest) {
 
         const { data: booking } = await supabaseServer
             .from('bookings')
-            .select('total_amount')
+            .select('id, total_amount, pilgrimage_id, pilgrimage:pilgrimages(deposit_value)')
             .eq('id', bookingId)
             .single();
 
         if (booking) {
+            const { count: pilgrimsCount } = await supabaseServer
+                .from('pilgrims')
+                .select('id', { count: 'exact', head: true })
+                .eq('booking_id', bookingId);
+
+            const depositValue = Number((booking.pilgrimage as any)?.deposit_value || 0);
+            const requiredDeposit = depositValue * Math.max(1, Number(pilgrimsCount || 1));
+            const isDepositPaid = totalPaid >= (requiredDeposit - 0.01);
             const isFullyPaid = totalPaid >= (booking.total_amount - 0.05);
             await supabaseServer
                 .from('bookings')
                 .update({
                     paid_amount: totalPaid,
-                    status: isFullyPaid ? 'confirmed' : 'pending'
+                    status: isFullyPaid || isDepositPaid ? 'confirmed' : 'pending',
+                    last_payment_date: new Date().toISOString(),
                 })
                 .eq('id', bookingId);
+
+            if (booking.pilgrimage_id) {
+                await supabaseServer.rpc('recalculate_pilgrimage_vacancies', { p_pilgrimage_id: booking.pilgrimage_id });
+            }
         }
 
         return NextResponse.json({ paid: true, totalPaid });

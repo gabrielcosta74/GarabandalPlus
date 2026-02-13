@@ -135,13 +135,13 @@ const FONTS = {
 /* -------------------------------------------------------------------------- */
 
 export const formatCurrency = (value: number, currency = 'EUR') =>
-    new Intl.NumberFormat('pt-BR', { style: 'currency', currency }).format(value);
+    new Intl.NumberFormat('pt-PT', { style: 'currency', currency }).format(value);
 
 export const formatDate = (value?: string | null) => {
     if (!value) return '-';
     const parsed = new Date(value);
     if (Number.isNaN(parsed.getTime())) return value;
-    return parsed.toLocaleDateString('pt-BR');
+    return parsed.toLocaleDateString('pt-PT');
 };
 
 /* -------------------------------------------------------------------------- */
@@ -166,7 +166,7 @@ const Layout = ({ title, preview, children }: { title: string; preview?: string;
       <div style="background:${COLORS.bg};padding:32px;text-align:center;color:${COLORS.textLight};font-size:13px;">
         <p style="margin:0 0 12px;">${title} • Apostolado de Garabandal</p>
         <p style="margin:0;font-weight:600;color:${COLORS.heading};">Unindo FÉ e ESPERANÇA.</p>
-        <p style="margin:12px 0 0;font-size:11px;opacity:0.7;">Se precisa de ajuda, responda a este email.</p>
+        <p style="margin:12px 0 0;font-size:11px;opacity:0.7;">Se precisar de ajuda, basta responder a este email.</p>
       </div>
     </div>
   </div>
@@ -176,7 +176,7 @@ const Layout = ({ title, preview, children }: { title: string; preview?: string;
 
 const Header = ({ title, subtitle, image = `${APP_URL}/images/nossasenhoragarabandal.jpg` }: { title: string; subtitle?: string; image?: string }) => `
 <div style="background:linear-gradient(rgba(15,23,42,0.9), rgba(15,23,42,0.9)), url('${image}');background-size:cover;background-position:center;padding:48px 40px;text-align:center;">
-    <img src="${APP_URL}/icon.png" width="48" height="48" style="background:white;border-radius:50%;padding:4px;margin-bottom:24px;box-shadow:0 4px 6px rgba(0,0,0,0.2);">
+    <div style="width:64px;height:64px;border-radius:9999px;margin:0 auto 24px;background:#ffffff;background-image:url('${APP_URL}/images/nossasenhoragarabandal.jpg');background-size:cover;background-position:center;box-shadow:0 4px 6px rgba(0,0,0,0.2);border:2px solid rgba(255,255,255,0.9);"></div>
     <h1 style="color:white;margin:0;font-family:${FONTS.serif};font-size:28px;line-height:1.3;letter-spacing:-0.5px;">${title}</h1>
     ${subtitle ? `<p style="color:#CBD5E1;margin:12px 0 0;font-size:16px;font-weight:400;">${subtitle}</p>` : ''}
 </div>
@@ -240,7 +240,7 @@ export const renderMembershipEmail = (payload: MembershipNotificationInput) => {
             title: isRenewal ? 'Renovação de Anuidade' : 'Nova Inscrição de Membro',
             children: `
                 ${Header({
-                title: isRenewal ? 'Anuidade Renovada' : 'Novo Membro Registrado',
+                title: isRenewal ? 'Anuidade Renovada' : 'Novo Membro Registado',
                 subtitle: memberLabel
             })}
                 ${Section({
@@ -272,7 +272,7 @@ export const renderMemberReceiptEmail = (payload: MemberReceiptInput) => {
         subject: `Recibo Apostolado - ${amountText}`,
         html: Layout({
             title: 'Recibo de Pagamento',
-            preview: `Confirmação de pagamento da sua anuidade.`,
+            preview: `Confirmação do pagamento da sua anuidade.`,
             children: `
                 ${Header({
                 title: 'Pagamento Confirmado',
@@ -281,7 +281,7 @@ export const renderMemberReceiptEmail = (payload: MemberReceiptInput) => {
                 ${Section({
                 children: `
                         ${Text(`Olá <strong>${memberLabel}</strong>,`)}
-                        ${Text('Confirmamos a recepção do pagamento da sua anuidade. A sua contribuição é essencial para mantermos viva a mensagem de Garabandal.')}
+                        ${Text('Confirmamos a receção do pagamento da sua anuidade. A sua contribuição é essencial para manter viva a missão de Garabandal.')}
                         
                         ${payload.hasDiploma ? `
                             <div style="background:${COLORS.primaryLight};border:1px solid ${COLORS.primary};border-radius:12px;padding:16px;margin-bottom:24px;text-align:center;">
@@ -323,8 +323,8 @@ export const renderWelcomeEmail = (payload: { name: string; email: string }) => 
                 ${Section({
                 children: `
                         ${Text(`Olá <strong>${payload.name}</strong>,`)}
-                        ${Text('É com muita alegria que o recebemos na nossa comunidade digital. A sua conta foi ativada com sucesso.')}
-                        ${Text('Agora você tem acesso direto a:')}
+                        ${Text('É com alegria que o acolhemos na nossa comunidade digital. A sua conta foi ativada com sucesso.')}
+                        ${Text('Agora tem acesso direto a:')}
                         
                         <div style="display:grid;gap:12px;margin:24px 0;">
                             <div style="background:${COLORS.bg};padding:12px 16px;border-radius:8px;">✅ Inscrição facilitada em peregrinações</div>
@@ -332,7 +332,7 @@ export const renderWelcomeEmail = (payload: { name: string; email: string }) => 
                             <div style="background:${COLORS.bg};padding:12px 16px;border-radius:8px;">✅ Conteúdos exclusivos (para membros)</div>
                         </div>
 
-                        ${Button({ label: 'Acessar Minha Conta', url: `${APP_URL}/login` })}
+                        ${Button({ label: 'Aceder à Minha Conta', url: `${APP_URL}/login` })}
                         ${Text('Que Nossa Senhora do Carmo o abençoe.', 'text-align:center;font-style:italic;margin-top:24px;color:' + COLORS.textLight)}
                     `
             })}
@@ -351,26 +351,26 @@ export const renderBookingConfirmationEmail = (payload: {
     magicLink: string;
 }) => {
     return {
-        subject: `Pré-reserva Confirmada: ${payload.pilgrimageName}`,
+        subject: `Inscrição recebida: ${payload.pilgrimageName}`,
         html: Layout({
-            title: 'Pré-reserva Confirmada',
+            title: 'Inscrição Recebida',
             children: `
                 ${Header({
-                title: 'Pré-reserva Confirmada',
+                title: 'Inscrição Recebida',
                 subtitle: payload.pilgrimageName
             })}
                 ${Section({
                 children: `
-                        ${Text('A sua pré-inscrição foi registada com sucesso. O seu lugar está reservado temporariamente.')}
+                        ${Text('A sua inscrição foi registada com sucesso.')}
                         ${Card({
                     children: `
                                 ${InfoRow({ label: 'Peregrinação', value: payload.pilgrimageName })}
-                                ${InfoRow({ label: 'Sinal Pago', value: formatCurrency(payload.amount) })}
+                                ${InfoRow({ label: 'Sinal', value: formatCurrency(payload.amount) })}
                                 ${InfoRow({ label: 'Valor Total', value: formatCurrency(payload.totalAmount), isLast: true })}
                             `
                 })}
-                        ${Text('Para garantir definitivamente o seu lugar e concluir o processo, clique no botão abaixo:')}
-                        ${Button({ label: 'Concluir Inscrição', url: payload.magicLink })}
+                        ${Text('Para acompanhar a sua inscrição e concluir os próximos passos, use o botão abaixo:')}
+                        ${Button({ label: 'Gerir Inscrição', url: payload.magicLink })}
                     `
             })}
             `
@@ -383,19 +383,19 @@ export const renderQuotaReminderEmail = (payload: QuotaReminderInput) => {
     const daysText = isOverdue ? `${payload.daysOverdue} dias em atraso` : `${payload.daysUntilDue} dias para vencer`;
 
     return {
-        subject: isOverdue ? `Urgente: Anuidade em Atraso` : `Lembrete: Renovação de Anuidade`,
+        subject: isOverdue ? `Ação necessária: anuidade em atraso` : `Lembrete: renovação da anuidade`,
         html: Layout({
-            title: 'Status da Anuidade',
+            title: 'Estado da Anuidade',
             children: `
                 ${Header({
                 title: isOverdue ? 'Anuidade em Atraso' : 'Renovação de Anuidade',
-                subtitle: isOverdue ? 'Por favor regularize sua situação' : 'Mantenha seus benefícios ativos'
+                subtitle: isOverdue ? 'Regularize a sua situação' : 'Mantenha os seus benefícios ativos'
             })}
                 ${Section({
                 children: `
                         ${Text(`Olá <strong>${payload.memberName || 'Membro'}</strong>,`)}
                         ${Text(isOverdue
-                    ? 'Notamos que a sua anuidade está pendente. Para continuar apoiando o Apostolado e mantendo seu acesso, pedimos que regularize o pagamento.'
+                    ? 'A sua anuidade encontra-se pendente. Para manter o acesso ativo, pedimos a regularização do pagamento.'
                     : 'Este é um lembrete amigável de que a sua anuidade anual vence em breve.')}
                         
                         ${Card({
@@ -420,14 +420,14 @@ export const renderQuotaReminderEmail = (payload: QuotaReminderInput) => {
 export const renderDonationReceiptEmail = (payload: DonationReceiptInput) => {
     const amountText = formatCurrency(payload.amount, payload.currency || 'EUR');
     return {
-        subject: `Obrigado pela sua Doação - ${amountText}`,
+        subject: `Doação registada com sucesso - ${amountText}`,
         html: Layout({
-            title: 'Doação Recebida',
+            title: 'Doação Registada',
             children: `
-                ${Header({ title: 'Obrigado pela Generosidade', subtitle: 'Doação Confirmada' })}
+                ${Header({ title: 'Obrigado pela sua generosidade', subtitle: 'Doação confirmada' })}
                 ${Section({
                 children: `
-                        ${Text(`Obrigado, <strong>${payload.donorName || 'Benfeitor'}</strong>. Sua ajuda é fundamental.`)}
+                        ${Text(`Obrigado, <strong>${payload.donorName || 'Benfeitor'}</strong>. O seu apoio é fundamental para a missão do Apostolado.`)}
                         ${Card({
                     children: `
                                 ${InfoRow({ label: 'Valor', value: amountText })}
@@ -435,6 +435,7 @@ export const renderDonationReceiptEmail = (payload: DonationReceiptInput) => {
                                 ${InfoRow({ label: 'Referência', value: payload.paymentReference || '-', isLast: true })}
                             `
                 })}
+                        ${Text('Guardaremos este registo para efeitos administrativos e fiscais, quando aplicável.')}
                     `
             })}
             `
@@ -444,16 +445,16 @@ export const renderDonationReceiptEmail = (payload: DonationReceiptInput) => {
 
 export const renderGeneralLeadEmail = (payload: GeneralLeadInput) => {
     return {
-        subject: 'Bem-vindo à Lista de Espera',
+        subject: 'Recebemos o seu interesse',
         html: Layout({
-            title: 'Lista de Espera',
+            title: 'Interesse Registado',
             children: `
-                ${Header({ title: 'Bem-vindo', subtitle: 'Lista de Espera' })}
+                ${Header({ title: 'Obrigado pelo seu interesse', subtitle: 'Apostolado de Garabandal' })}
                 ${Section({
                 children: `
                         ${Text(`Olá <strong>${payload.name || 'Peregrino'}</strong>,`)}
-                        ${Text('Agradecemos o seu interesse. Assim que tivermos novidades ou novas vagas, você será o primeiro a saber.')}
-                        ${Button({ label: 'Visitar Site', url: APP_URL })}
+                        ${Text('Recebemos o seu contacto com sucesso. Assim que existirem novidades ou novas vagas, entraremos em contacto por email.')}
+                        ${Button({ label: 'Ver Peregrinações', url: `${APP_URL}/peregrinacoes` })}
                     `
             })}
             `
@@ -463,14 +464,196 @@ export const renderGeneralLeadEmail = (payload: GeneralLeadInput) => {
 
 // Default exports for backward compatibility or less critical emails
 // Using a generic wrapper for the existing logic if needed, or simple implementation
-export const renderStoreOwnerEmail = (payload: any) => ({ subject: `Nova Encomenda ${payload.orderRef}`, html: Layout({ title: 'Admin Loja', children: Section({ children: Text('Nova encomenda recebida. Verifique o painel administrativo.') }) }) });
-export const renderStoreBuyerEmail = (payload: any) => ({ subject: `Encomenda Recebida ${payload.orderRef}`, html: Layout({ title: 'Encomenda', children: Section({ children: Text('Recebemos a sua encomenda. Obrigado!') }) }) });
-export const renderStoreShippingEmail = (payload: any) => ({ subject: `Encomenda Enviada ${payload.orderRef}`, html: Layout({ title: 'Enviado', children: Section({ children: Text('A sua encomenda foi enviada.') }) }) });
-export const renderStorePreparingEmail = (payload: any) => ({ subject: `A preparar encomenda ${payload.orderRef}`, html: Layout({ title: 'A Preparar', children: Section({ children: Text('Estamos a preparar a sua encomenda.') }) }) });
-export const renderAbandonmentRecoveryEmail = (payload: AbandonmentRecoveryInput) => ({ subject: 'Não perca o seu lugar', html: Layout({ title: 'Retomar', children: Section({ children: `${Text('Não concluiu a sua inscrição.')} ${Button({ label: 'Retomar Agora', url: payload.recoveryLink })}` }) }) });
-export const renderDonationNotification = (payload: any) => ({ subject: 'Nova Doação Admin', html: Layout({ title: 'Admin', children: Section({ children: Text(`Recebida doação de ${formatCurrency(payload.amount)}`) }) }) });
-export const renderBrochureEmail = (payload: BrochureEmailInput) => ({ subject: 'O seu Roteiro', html: Layout({ title: 'Roteiro', children: Section({ children: `${Text('Aqui está o roteiro solicitado.')} ${Button({ label: 'Baixar PDF', url: payload.pdfUrl })}` }) }) });
-export const renderQuotaWarningEmail = (payload: any) => ({ subject: 'Aviso de Vencimento', html: Layout({ title: 'Aviso', children: Section({ children: `${Text('Sua cota vence em breve.')} ${Button({ label: 'Pagar', url: payload.payLink })}` }) }) });
-export const renderQuotaOverdueEmail = (payload: any) => ({ subject: 'Cota Vencida', html: Layout({ title: 'Vencido', children: Section({ children: `${Text('Sua cota venceu.')} ${Button({ label: 'Regularizar', url: payload.payLink })}` }) }) });
-export const renderMembershipRevokedEmail = (payload: any) => ({ subject: 'Aviso Importante', html: Layout({ title: 'Aviso', children: Section({ children: Text('Sua associação foi suspensa por falta de pagamento.') }) }) });
-export const renderMemberDiplomaEmail = (payload: MemberDiplomaInput) => ({ subject: 'Seu Diploma', html: Layout({ title: 'Diploma', children: Section({ children: Text('Seu diploma segue em anexo.') }) }) });
+export const renderStoreOwnerEmail = (payload: any) => ({
+    subject: `Nova encomenda recebida (${payload.orderRef})`,
+    html: Layout({
+        title: 'Nova Encomenda',
+        children: `
+            ${Header({ title: 'Nova encomenda na loja', subtitle: `Ref. ${payload.orderRef}` })}
+            ${Section({
+                children: `
+                    ${Text('Foi registada uma nova encomenda no site.')}
+                    ${Card({
+                        children: `
+                            ${InfoRow({ label: 'Referência', value: payload.orderRef || '-' })}
+                            ${InfoRow({ label: 'Cliente', value: payload.buyerName || '-' })}
+                            ${InfoRow({ label: 'Email', value: payload.buyerEmail || '-' })}
+                            ${InfoRow({ label: 'Total', value: payload.total || '-', isLast: true })}
+                        `
+                    })}
+                    ${Button({ label: 'Abrir Admin', url: `${APP_URL}/admin/encomendas` })}
+                `
+            })}
+        `
+    })
+});
+
+export const renderStoreBuyerEmail = (payload: any) => ({
+    subject: `Encomenda confirmada (${payload.orderRef})`,
+    html: Layout({
+        title: 'Encomenda Confirmada',
+        children: `
+            ${Header({ title: 'Recebemos a sua encomenda', subtitle: `Ref. ${payload.orderRef}` })}
+            ${Section({
+                children: `
+                    ${Text(`Olá <strong>${payload.buyerName || 'cliente'}</strong>,`)}
+                    ${Text('Obrigado pela sua compra. A encomenda foi registada com sucesso.')}
+                    ${Card({
+                        children: `
+                            ${InfoRow({ label: 'Referência', value: payload.orderRef || '-' })}
+                            ${InfoRow({ label: 'Subtotal', value: payload.subtotal || '-' })}
+                            ${InfoRow({ label: 'IVA', value: payload.vat || '-' })}
+                            ${InfoRow({ label: 'Total', value: payload.total || '-', isLast: true })}
+                        `
+                    })}
+                    ${payload.claimUrl ? Button({ label: 'Associar Encomenda à Conta', url: payload.claimUrl }) : ''}
+                `
+            })}
+        `
+    })
+});
+
+export const renderStoreShippingEmail = (payload: any) => ({
+    subject: `Encomenda enviada (${payload.orderRef})`,
+    html: Layout({
+        title: 'Encomenda Enviada',
+        children: `
+            ${Header({ title: 'A sua encomenda foi enviada', subtitle: `Ref. ${payload.orderRef}` })}
+            ${Section({
+                children: `
+                    ${Text(`Olá <strong>${payload.buyerName || 'cliente'}</strong>,`)}
+                    ${Text('A sua encomenda já saiu para entrega.')}
+                    ${Card({
+                        children: `
+                            ${InfoRow({ label: 'Referência', value: payload.orderRef || '-' })}
+                            ${InfoRow({ label: 'Tracking', value: payload.tracking || 'Será atualizado em breve' })}
+                            ${InfoRow({ label: 'Data de envio', value: formatDate(payload.shippedAt), isLast: true })}
+                        `
+                    })}
+                `
+            })}
+        `
+    })
+});
+
+export const renderStorePreparingEmail = (payload: any) => ({
+    subject: `Estamos a preparar a sua encomenda (${payload.orderRef})`,
+    html: Layout({
+        title: 'Encomenda em Preparação',
+        children: `
+            ${Header({ title: 'Estamos a preparar a sua encomenda', subtitle: `Ref. ${payload.orderRef}` })}
+            ${Section({
+                children: `
+                    ${Text(`Olá <strong>${payload.buyerName || 'cliente'}</strong>,`)}
+                    ${Text('A sua encomenda está em preparação. Assim que for enviada, receberá nova atualização por email.')}
+                `
+            })}
+        `
+    })
+});
+
+export const renderAbandonmentRecoveryEmail = (payload: AbandonmentRecoveryInput) => ({
+    subject: 'Continue a sua inscrição',
+    html: Layout({
+        title: 'Inscrição por Concluir',
+        children: `
+            ${Header({ title: 'Ainda vai a tempo de concluir', subtitle: payload.pilgrimageName })}
+            ${Section({
+                children: `
+                    ${Text(`Olá <strong>${payload.name || 'peregrino'}</strong>,`)}
+                    ${Text('A sua inscrição ficou pendente. Pode retomar exatamente no ponto onde ficou através do botão abaixo.')}
+                    ${Button({ label: 'Retomar Inscrição', url: payload.recoveryLink })}
+                `
+            })}
+        `
+    })
+});
+
+export const renderDonationNotification = (payload: any) => ({
+    subject: `Nova doação registada (${formatCurrency(payload.amount)})`,
+    html: Layout({
+        title: 'Nova Doação',
+        children: Section({
+            children: `
+                ${Text('Foi registada uma nova doação no sistema.')}
+                ${Card({
+                    children: `
+                        ${InfoRow({ label: 'Doador', value: payload.donorName || '-' })}
+                        ${InfoRow({ label: 'Email', value: payload.donorEmail || '-' })}
+                        ${InfoRow({ label: 'Valor', value: formatCurrency(payload.amount) })}
+                        ${InfoRow({ label: 'Método', value: payload.paymentMethod || '-', isLast: true })}
+                    `
+                })}
+            `
+        })
+    })
+});
+
+export const renderBrochureEmail = (payload: BrochureEmailInput) => ({
+    subject: `Roteiro solicitado: ${payload.pilgrimageName}`,
+    html: Layout({
+        title: 'Roteiro da Peregrinação',
+        children: Section({
+            children: `
+                ${Text(`Olá <strong>${payload.name}</strong>,`)}
+                ${Text(`Segue o roteiro solicitado para <strong>${payload.pilgrimageName}</strong>.`)}
+                ${Button({ label: 'Baixar PDF', url: payload.pdfUrl })}
+            `
+        })
+    })
+});
+
+export const renderQuotaWarningEmail = (payload: any) => ({
+    subject: 'Lembrete: anuidade prestes a vencer',
+    html: Layout({
+        title: 'Lembrete de Anuidade',
+        children: Section({
+            children: `
+                ${Text(`Olá <strong>${payload.name || 'membro'}</strong>,`)}
+                ${Text(`A sua anuidade vence em ${payload.daysRemaining} dia(s). Para manter o acesso ativo, regularize atempadamente.`)}
+                ${Button({ label: 'Regularizar Pagamento', url: payload.payLink })}
+            `
+        })
+    })
+});
+
+export const renderQuotaOverdueEmail = (payload: any) => ({
+    subject: 'Anuidade em atraso',
+    html: Layout({
+        title: 'Anuidade em Atraso',
+        children: Section({
+            children: `
+                ${Text(`Olá <strong>${payload.name || 'membro'}</strong>,`)}
+                ${Text('A sua anuidade encontra-se em atraso. Regularize para manter os benefícios de membro ativos.')}
+                ${Button({ label: 'Regularizar Agora', url: payload.payLink })}
+            `
+        })
+    })
+});
+
+export const renderMembershipRevokedEmail = (payload: any) => ({
+    subject: 'Estado de membro suspenso',
+    html: Layout({
+        title: 'Suspensão de Membro',
+        children: Section({
+            children: `
+                ${Text(`Olá <strong>${payload.name || 'membro'}</strong>,`)}
+                ${Text('O seu estado de membro foi suspenso por falta de pagamento da anuidade. Pode reativar o acesso assim que regularizar o valor em dívida.')}
+                ${payload.payLink ? Button({ label: 'Reativar Membro', url: payload.payLink }) : ''}
+            `
+        })
+    })
+});
+
+export const renderMemberDiplomaEmail = (payload: MemberDiplomaInput) => ({
+    subject: 'O seu diploma de membro',
+    html: Layout({
+        title: 'Diploma de Membro',
+        children: Section({
+            children: `
+                ${Text(`Olá <strong>${payload.memberName || 'membro'}</strong>,`)}
+                ${Text('Enviamos em anexo o seu diploma digital de membro do Apostolado de Garabandal.')}
+            `
+        })
+    })
+});

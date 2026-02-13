@@ -53,9 +53,11 @@ const HomePageClient: React.FC<HomePageClientProps> = ({ meta, nextPilgrimage, f
                     {/* Content */}
                     <div className="relative z-10">
                         {/* Member Warning Injection */}
-                        <div className="container mx-auto px-4 sm:px-6 lg:px-8 mt-24 lg:mt-28 mb-4">
-                            <QuotaWarning memberData={memberData} />
-                        </div>
+                        {/* Member Warning Injection */}
+                        <QuotaWarning
+                            memberData={memberData}
+                            className="container mx-auto mt-24 lg:mt-28 mb-4"
+                        />
 
                         <Hero />
                         <Pillars />

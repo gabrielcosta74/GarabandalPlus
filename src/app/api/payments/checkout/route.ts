@@ -4,6 +4,36 @@ import { supabaseServer } from '../../../../lib/supabase';
 import { getAppUrl } from '../../../../lib/config';
 import { reduniqClient } from '../../../../lib/reduniq/client';
 
+const normalizeRedirectUrl = (candidate: string, baseOrigin: string): string => {
+    const raw = String(candidate || '').trim();
+    if (!raw) throw new Error('URL de pagamento vazia.');
+
+    let parsed: URL | null = null;
+    try {
+        parsed = new URL(raw);
+    } catch {
+        try {
+            parsed = new URL(raw, baseOrigin);
+        } catch {
+            throw new Error('URL de pagamento inválida.');
+        }
+    }
+
+    if (!parsed || (parsed.protocol !== 'https:' && parsed.protocol !== 'http:')) {
+        throw new Error('URL de pagamento inválida.');
+    }
+
+    return parsed.toString();
+};
+
+const toSafeCheckoutError = (error: unknown): string => {
+    const raw = (error as any)?.message ? String((error as any).message) : 'Erro ao iniciar pagamento.';
+    if (raw.toLowerCase().includes('expected pattern')) {
+        return 'Configuração de pagamento inválida. Contacte o suporte.';
+    }
+    return raw;
+};
+
 export async function POST(req: Request) {
     try {
         if (!supabaseServer) {
@@ -16,6 +46,10 @@ export async function POST(req: Request) {
         const priceType = body?.priceType === 'deposit' ? 'deposit' : 'full';
         const provider = body?.provider === 'reduniq' ? 'reduniq' : 'stripe';
         const reduniqSolution = Number.isInteger(body?.reduniqSolution) ? Number(body.reduniqSolution) : undefined;
+        const requestedAmountRaw = Number(body?.amountToPay);
+        const requestedAmount = Number.isFinite(requestedAmountRaw) && requestedAmountRaw > 0
+            ? Math.round(requestedAmountRaw * 100) / 100
+            : null;
 
         if (!bookingId) {
             return NextResponse.json({ error: 'bookingId em falta.' }, { status: 400 });
@@ -24,7 +58,11 @@ export async function POST(req: Request) {
         // 1. Fetch Booking Details
         const { data: booking, error: bookingError } = await supabaseServer
             .from('bookings')
-            .select('*, pilgrimage:pilgrimages(title, deposit_value)')
+            .select(`
+                *,
+                pilgrimage:pilgrimages(title, deposit_value),
+                payments:pilgrimage_payments(amount, status)
+            `)
             .eq('id', bookingId)
             .single();
 
@@ -36,8 +74,12 @@ export async function POST(req: Request) {
         let amountToPay = 0;
         let lineItemTitle = `Pagamento - ${booking.pilgrimage.title}`;
 
-        const total = booking.total_amount;
-        const paid = booking.paid_amount;
+        const total = Number(booking.total_amount) || 0;
+        const successfulStatuses = ['verified', 'succeeded', 'paid', 'manual'];
+        const successfulPaidFromPayments = (booking.payments || [])
+            .filter((p: any) => successfulStatuses.includes(String(p?.status || '').toLowerCase()))
+            .reduce((sum: number, p: any) => sum + (Number(p?.amount) || 0), 0);
+        const paid = Math.max(Number(booking.paid_amount) || 0, successfulPaidFromPayments);
         const deposit = booking.pilgrimage.deposit_value;
 
         if (priceType === 'deposit') {
@@ -47,6 +89,16 @@ export async function POST(req: Request) {
             // Full Payment
             amountToPay = total - paid;
             lineItemTitle = `Pagamento Total - ${booking.pilgrimage.title}`;
+        }
+
+        const totalRemaining = Math.max(0, Math.round((total - paid) * 100) / 100);
+
+        if (requestedAmount !== null) {
+            if (requestedAmount > totalRemaining + 0.009) {
+                return NextResponse.json({ error: "Valor inválido para pagamento." }, { status: 400 });
+            }
+            amountToPay = requestedAmount;
+            lineItemTitle = `Pagamento - ${booking.pilgrimage.title}`;
         }
 
         if (amountToPay <= 0) {
@@ -61,8 +113,10 @@ export async function POST(req: Request) {
         // 3A. Reduniq Checkout
         if (provider === 'reduniq') {
             const orderRef = `pilgrimage_${bookingPrefix}_${Date.now()}`;
-            const successUrl = `${origin}/peregrinacoes/inscricao/${booking.id}?provider=reduniq&orderRef=${orderRef}&status=success`;
-            const cancelUrl = `${origin}/peregrinacoes/inscricao/${booking.id}?provider=reduniq&orderRef=${orderRef}&status=failed&canceled=true`;
+            const viewToken = typeof booking.view_token === 'string' ? booking.view_token : null;
+            const viewTokenQuery = viewToken ? `&viewToken=${encodeURIComponent(viewToken)}` : '';
+            const successUrl = `${origin}/peregrinacoes/inscricao/${booking.id}?provider=reduniq&orderRef=${orderRef}&status=success${viewTokenQuery}`;
+            const cancelUrl = `${origin}/peregrinacoes/inscricao/${booking.id}?provider=reduniq&orderRef=${orderRef}&status=failed&canceled=true${viewTokenQuery}`;
 
             const attemptInit = async (solution?: number) => reduniqClient.initiatePayment({
                 amount: safeAmountToPay,
@@ -92,7 +146,7 @@ export async function POST(req: Request) {
             }
 
             if (!initResult.success || !initResult.url) {
-                return NextResponse.json({ error: initResult.error || 'Falha ao iniciar pagamento Reduniq.' }, { status: 502 });
+                return NextResponse.json({ error: toSafeCheckoutError(initResult.error || 'Falha ao iniciar pagamento Reduniq.') }, { status: 502 });
             }
 
             try {
@@ -111,7 +165,8 @@ export async function POST(req: Request) {
                 console.warn('Não foi possível criar registo preliminar de peregrinação (Reduniq):', dbErr);
             }
 
-            return NextResponse.json({ url: initResult.url, orderRef });
+            const normalizedGatewayUrl = normalizeRedirectUrl(initResult.url, origin);
+            return NextResponse.json({ url: normalizedGatewayUrl, orderRef });
         }
 
         // 3B. Stripe Checkout
@@ -160,10 +215,15 @@ export async function POST(req: Request) {
             console.warn('Não foi possível criar registo preliminar de peregrinação (Stripe):', dbErr);
         }
 
-        return NextResponse.json({ url: session.url });
+        if (!session.url) {
+            return NextResponse.json({ error: 'URL de pagamento Stripe inválida.' }, { status: 502 });
+        }
+
+        const normalizedStripeUrl = normalizeRedirectUrl(session.url, origin);
+        return NextResponse.json({ url: normalizedStripeUrl });
 
     } catch (error: any) {
         console.error("Checkout Error:", error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        return NextResponse.json({ error: toSafeCheckoutError(error) }, { status: 500 });
     }
 }

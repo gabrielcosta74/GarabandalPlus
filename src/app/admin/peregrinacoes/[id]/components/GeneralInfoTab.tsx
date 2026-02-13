@@ -1,4 +1,4 @@
-import { FileText, Image as ImageIcon, Link as LinkIcon, Calendar, Euro, Users, AlertCircle, CheckCircle } from 'lucide-react';
+import { FileText, Image as ImageIcon, Link as LinkIcon, Calendar, Euro, Users, CheckCircle } from 'lucide-react';
 import ImageUpload from '../../../../../components/admin/ImageUpload';
 
 interface GeneralInfoTabProps {
@@ -7,6 +7,20 @@ interface GeneralInfoTabProps {
 }
 
 export default function GeneralInfoTab({ form, setForm }: GeneralInfoTabProps) {
+    const toNonNegativeInt = (value: string, fallback = 0) => {
+        const parsed = Number.parseInt(value, 10);
+        if (!Number.isFinite(parsed) || parsed < 0) return fallback;
+        return parsed;
+    };
+
+    const totalVacancies = Number.isFinite(Number(form.total_vacancies)) ? Number(form.total_vacancies) : 0;
+    const manualOccupied = Number.isFinite(Number(form.manual_occupied_pax)) ? Number(form.manual_occupied_pax) : 0;
+    const currentVacancies = Number.isFinite(Number(form.current_vacancies))
+        ? Number(form.current_vacancies)
+        : Math.max(0, totalVacancies - manualOccupied);
+    const webOccupied = Math.max(0, totalVacancies - manualOccupied - currentVacancies);
+    const estimatedAvailableAfterSave = Math.max(0, totalVacancies - manualOccupied - webOccupied);
+
     const statusOptions = [
         { value: 'open', label: 'Abertas', description: 'Aceitar inscrições', color: 'bg-emerald-50 border-emerald-200 text-emerald-700 ring-emerald-500' },
         { value: 'waitlist', label: 'Lista de Espera', description: 'Sem vagas imediatas', color: 'bg-amber-50 border-amber-200 text-amber-700 ring-amber-500' },
@@ -183,18 +197,49 @@ export default function GeneralInfoTab({ form, setForm }: GeneralInfoTabProps) {
                         </div>
 
                         <div className="col-span-2 pt-4 border-t border-slate-50">
-                            <div className="bg-blue-50 rounded-xl p-4 flex items-center justify-between">
-                                <div>
-                                    <label className="block text-xs font-bold text-blue-800 uppercase tracking-wider mb-1">Capacidade Total</label>
+                            <div className="bg-blue-50 rounded-xl p-4 border border-blue-100 space-y-4">
+                                <label className="block text-xs font-bold text-blue-800 uppercase tracking-wider mb-1">
+                                    Capacidade & Ocupação
+                                </label>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    <div className="bg-white p-3 rounded-lg border border-blue-100">
+                                        <span className="text-[10px] text-blue-600 font-bold uppercase block mb-1">Capacidade Total</span>
+                                        <div className="flex items-center gap-2">
+                                            <Users className="w-4 h-4 text-blue-500" />
+                                            <input
+                                                type="number"
+                                                min={0}
+                                                className="w-full text-right font-bold text-blue-900 outline-none"
+                                                value={totalVacancies}
+                                                onChange={e => setForm({ ...form, total_vacancies: toNonNegativeInt(e.target.value, 0) })}
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="bg-white p-3 rounded-lg border border-blue-100">
+                                        <span className="text-[10px] text-blue-600 font-bold uppercase block mb-1">Ocupados (Manual/Histórico)</span>
+                                        <div className="flex items-center gap-2">
+                                            <Users className="w-4 h-4 text-blue-500" />
+                                            <input
+                                                type="number"
+                                                min={0}
+                                                className="w-full text-right font-bold text-blue-900 outline-none"
+                                                value={manualOccupied}
+                                                onChange={e => setForm({ ...form, manual_occupied_pax: toNonNegativeInt(e.target.value, 0) })}
+                                            />
+                                        </div>
+                                    </div>
                                 </div>
-                                <div className="flex items-center gap-2 bg-white px-3 py-1 rounded-lg border border-blue-100 shadow-sm">
-                                    <Users className="w-4 h-4 text-blue-500" />
-                                    <input
-                                        type="number"
-                                        className="w-16 text-right font-bold text-blue-900 outline-none"
-                                        value={form.total_vacancies}
-                                        onChange={e => setForm({ ...form, total_vacancies: parseInt(e.target.value) })}
-                                    />
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    <div className="bg-white p-3 rounded-lg border border-emerald-100">
+                                        <span className="text-[10px] text-emerald-700 font-bold uppercase block mb-1">Lugares Disponíveis</span>
+                                        <div className="text-xl font-black text-emerald-700">{Math.max(0, currentVacancies)}</div>
+                                        <p className="text-[10px] text-emerald-600 mt-1">Valor sincronizado com inscrições web + ocupação manual.</p>
+                                    </div>
+                                    <div className="bg-white p-3 rounded-lg border border-slate-100">
+                                        <span className="text-[10px] text-slate-500 font-bold uppercase block mb-1">Ocupados na Web (Taxa Paga)</span>
+                                        <div className="text-xl font-black text-slate-700">{webOccupied}</div>
+                                        <p className="text-[10px] text-slate-500 mt-1">Estimativa após guardar: {estimatedAvailableAfterSave} disponíveis.</p>
+                                    </div>
                                 </div>
                             </div>
                         </div>

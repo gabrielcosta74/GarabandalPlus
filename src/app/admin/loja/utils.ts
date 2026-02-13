@@ -14,6 +14,7 @@ export interface ProductRow {
     name?: string | null;
     sku?: string | null;
     category_name?: string | null;
+    category_slug?: string | null;
     category_id?: string | null;
     price?: number | string | null;
     currency?: string | null;
@@ -41,7 +42,7 @@ export interface ProductView {
     categoryId: string | null;
     price: number;
     currency: string;
-    stock: number;
+    stock: number | null;
     type: 'fisico' | 'digital';
     status: string;
     image: string;
@@ -163,6 +164,25 @@ export const PRODUCT_DEFINITIONS: Record<string, ProductTypeDefinition> = {
 export const normalizeProduct = (p: ProductRow): ProductView => {
     // Infer definition to help normalization if needed
     // const def = PRODUCT_DEFINITIONS[p.type_id || 'religious_article'];
+    const isDigitalType = !!(p.type_id && ['book_digital', 'event_ticket', 'digital_generic'].includes(p.type_id));
+    const normalizeText = (value: unknown) =>
+        String(value || '')
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .toLowerCase();
+
+    const categoryName = normalizeText(p.category_name);
+    const categorySlug = normalizeText(p.category_slug);
+    const categoryLooksDigital =
+        categoryName.includes('digit') ||
+        categoryName.includes('e-book') ||
+        categoryName.includes('ebook') ||
+        categoryName.includes('pdf') ||
+        categorySlug.includes('digit');
+    const isDigital = p.is_physical === false || isDigitalType || !!p.digital_url || categoryLooksDigital;
+    const normalizedStock = isDigital
+        ? null
+        : (typeof p.stock === 'number' ? p.stock : 0);
 
     return {
         id: p.product_id,
@@ -172,11 +192,10 @@ export const normalizeProduct = (p: ProductRow): ProductView => {
         categoryId: p.category_id || null,
         price: Number(p.price || 0),
         currency: p.currency || 'EUR',
-        stock: p.stock ?? 0,
+        stock: normalizedStock,
         typeId: p.type_id || 'religious_article',
         metadata: p.metadata || {},
-        // If it looks like a digital book or ticket, force digital type manually if bool is missing
-        type: p.is_physical || (p.type_id && !['book_digital', 'event_ticket', 'digital_generic'].includes(p.type_id)) ? 'fisico' : 'digital',
+        type: isDigital ? 'digital' : 'fisico',
         status: p.is_active ? 'ativo' : 'inativo',
         image: p.image_url || '',
         digitalUrl: p.digital_url || '',

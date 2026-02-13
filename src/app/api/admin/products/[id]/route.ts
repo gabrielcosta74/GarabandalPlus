@@ -42,6 +42,8 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     try {
         const body = await req.json();
 
+        const isPhysical = body.is_physical !== false;
+
         // 1. Update Product
         const { error: prodError } = await supabaseServer
             .from('store_products')
@@ -57,17 +59,18 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
                 metadata: body.metadata, // NEW
                 image_url: body.image_url,
                 digital_url: body.digital_url,
+                allowed_countries: Array.isArray(body.allowed_countries) ? body.allowed_countries : [],
                 tax_rate: body.tax_rate,
                 specifications: body.specifications,
                 category: body.category_name, // Legacy
-                stock: body.stock // Temporarily sync legacy stock
+                stock: isPhysical ? body.stock : null // Digital products keep infinite stock (null)
             })
             .eq('product_id', params.id);
 
         if (prodError) throw prodError;
 
         // 2. Sync Variants
-        if (body.variants && Array.isArray(body.variants)) {
+        if (isPhysical && Array.isArray(body.variants) && body.variants.length > 0) {
             // A. Fetch existing IDs to determine deletions
             const { data: existingVars } = await supabaseServer
                 .from('product_variants')
@@ -104,13 +107,43 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
                 console.error("Variant Upsert Error:", upsertError);
                 throw upsertError;
             }
-        } else if (typeof body.stock === 'number') {
+        } else if (isPhysical && typeof body.stock === 'number') {
             // Fallback for simple stock update (Legacy support)
-            const { error: varError } = await supabaseServer
+            const { data: defaultVariant, error: fetchDefaultError } = await supabaseServer
                 .from('product_variants')
-                .update({ stock: body.stock })
+                .select('id')
                 .eq('product_id', params.id)
-                .contains('attributes', { is_default: true });
+                .contains('attributes', { is_default: true })
+                .maybeSingle();
+
+            if (fetchDefaultError) throw fetchDefaultError;
+
+            if (defaultVariant?.id) {
+                const { error: varError } = await supabaseServer
+                    .from('product_variants')
+                    .update({ stock: body.stock })
+                    .eq('id', defaultVariant.id);
+
+                if (varError) throw varError;
+            } else {
+                const { error: insertDefaultError } = await supabaseServer
+                    .from('product_variants')
+                    .insert({
+                        product_id: params.id,
+                        name: 'Padrão',
+                        stock: body.stock,
+                        sku: body.sku || `SKU-${Date.now()}`,
+                        attributes: { is_default: true }
+                    });
+
+                if (insertDefaultError) throw insertDefaultError;
+            }
+        } else if (!isPhysical) {
+            // Digital products: no stock variants
+            await supabaseServer
+                .from('product_variants')
+                .delete()
+                .eq('product_id', params.id);
         }
 
         return NextResponse.json({ success: true });

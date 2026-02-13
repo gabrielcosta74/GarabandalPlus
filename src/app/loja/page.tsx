@@ -7,6 +7,7 @@ import { ShoppingBag, Search, Filter, X } from 'lucide-react';
 import ProductCard from '../../components/store/ProductCard';
 import { Product } from '../loja-online/data';
 import { buildProductPath } from '../../lib/slug';
+import { inferIsDigitalProduct } from '../../lib/product-kind';
 
 // Categories for filter
 // Categories for filter
@@ -25,13 +26,25 @@ export default function StorePage() {
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedCategory, setSelectedCategory] = useState('all');
 
+    const isDigitalProduct = (product: Product) => {
+        return inferIsDigitalProduct({
+            isPhysical: (product as any).isPhysical,
+            typeId: (product as any).type_id,
+            category: (product as any).category,
+            name: product.name,
+            digitalUrl: (product as any).digitalUrl,
+        });
+    };
+
     useEffect(() => {
         fetchProducts();
     }, []);
 
     const fetchProducts = async () => {
         try {
-            const res = await fetch('/api/store/products?includeVariants=0');
+            const res = await fetch(`/api/store/products?includeVariants=0&t=${Date.now()}`, {
+                cache: 'no-store'
+            });
             const data = await res.json();
             setProducts(data.products || []);
         } catch (error) {
@@ -54,10 +67,7 @@ export default function StorePage() {
                     (product.category ? product.category.includes('Livro') : false) ||
                     (product.type_id ? product.type_id.includes('book') : false);
             } else if (selectedCategory === 'Livro Digital' || selectedCategory === 'Digitais') {
-                matchesCategory = product.category === 'Livro Digital' ||
-                    product.type === 'digital' ||
-                    product.tag === 'Digital' ||
-                    product.type_id === 'book_digital';
+                matchesCategory = isDigitalProduct(product);
             } else if (selectedCategory === 'Vestuário') {
                 matchesCategory = product.category === 'Vestuário' ||
                     product.type_id === 'clothing';
@@ -74,19 +84,54 @@ export default function StorePage() {
         <div className="min-h-screen bg-slate-50 pb-20">
             {/* Compact Store Hero */}
             <div className="bg-slate-900 border-b border-slate-800">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-32 pb-12 md:pb-16">
-                    <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-                        <div>
-                            <h1 className="text-3xl md:text-4xl font-serif font-bold text-white tracking-tight">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-32 pb-16 md:pb-24 text-center">
+                    <div className="flex flex-col items-center justify-center gap-8">
+                        <div className="max-w-2xl mx-auto">
+                            <h1 className="text-3xl md:text-5xl font-serif font-bold text-white tracking-tight mb-4">
                                 Loja Online
                             </h1>
-                            <p className="mt-2 text-slate-400 text-sm md:text-base max-w-lg">
+                            <p className="text-slate-400 text-base md:text-lg max-w-xl mx-auto leading-relaxed">
                                 Encontre livros, terços e materiais de formação do Apostolado.
                             </p>
+                        </div>
+
+                        {/* Payment Cards Integration - Centered & Larger */}
+                        <div className="bg-white/5 backdrop-blur-md border border-white/10 p-6 rounded-2xl flex flex-col items-center gap-4 w-full max-w-3xl mx-auto transform hover:scale-[1.01] transition-all duration-300">
+                            <p className="text-xs md:text-sm font-bold uppercase tracking-[0.2em] text-slate-400">
+                                Pagamentos 100% Seguros
+                            </p>
+                            <div className="flex flex-wrap items-center justify-center gap-4 md:gap-6">
+                                {/* MULTIBANCO */}
+                                <div className="bg-white h-10 w-16 md:h-12 md:w-20 rounded-lg flex items-center justify-center opacity-90 hover:opacity-100 transition-opacity shadow-lg" title="Multibanco">
+                                    <img src="/payment-icons/multibanco.svg" alt="Multibanco" className="h-5 md:h-6 w-auto" />
+                                </div>
+                                {/* MB WAY */}
+                                <div className="bg-white h-10 w-16 md:h-12 md:w-20 rounded-lg flex items-center justify-center opacity-90 hover:opacity-100 transition-opacity shadow-lg" title="MB WAY">
+                                    <img src="/payment-icons/mbway.svg" alt="MB Way" className="h-5 md:h-6 w-auto" />
+                                </div>
+                                {/* VISA */}
+                                <div className="bg-white h-10 w-16 md:h-12 md:w-20 rounded-lg flex items-center justify-center opacity-90 hover:opacity-100 transition-opacity shadow-lg" title="Visa">
+                                    <img src="/payment-icons/visa.svg" alt="Visa" className="h-3 md:h-4 w-auto" />
+                                </div>
+                                {/* MASTERCARD */}
+                                <div className="bg-white h-10 w-16 md:h-12 md:w-20 rounded-lg flex items-center justify-center opacity-90 hover:opacity-100 transition-opacity shadow-lg" title="Mastercard">
+                                    <img src="/payment-icons/mastercard.svg" alt="Mastercard" className="h-6 md:h-8 w-auto" />
+                                </div>
+                                {/* PIX - HIGHLIGHT */}
+                                <div className="relative group">
+                                    <div className="absolute -inset-1 bg-gradient-to-r from-pink-500 to-purple-600 rounded-xl blur opacity-40 group-hover:opacity-60 transition-opacity"></div>
+                                    <div className="relative bg-slate-900 border border-white/10 h-10 md:h-12 px-4 md:px-6 rounded-lg flex items-center gap-3">
+                                        <img src="/payment-icons/pix-original.png" alt="PIX" className="h-5 md:h-6 w-auto" />
+                                        <span className="text-xs md:text-sm font-bold text-white whitespace-nowrap">Brasil 🇧🇷</span>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
+
+
 
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-8 relative z-10">
 
