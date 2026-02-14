@@ -9,6 +9,9 @@ type ReduniqInitParams = {
     description?: string;
     solution?: number;
     languageCode?: string;
+    action?: 100 | 101;
+    mode?: 'redirect' | 'lightbox' | 'iframe' | 'webless';
+    targetOriginUrl?: string;
 };
 
 type ReduniqInitResponse = {
@@ -78,12 +81,17 @@ export class ReduniqClient {
         }
 
         let response: Response;
+        const controller = new AbortController();
+        const timeoutMs = Number(process.env.REDUNIQ_API_TIMEOUT_MS || 15000);
+        const timeout = setTimeout(() => controller.abort(), Number.isFinite(timeoutMs) ? timeoutMs : 15000);
         try {
             response = await fetch(this.getEndpoint(), {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+                    'Accept': 'application/json',
                 },
+                signal: controller.signal,
                 body: JSON.stringify(payload)
             });
         } catch (error: any) {
@@ -92,6 +100,8 @@ export class ReduniqClient {
                 status: 0,
                 error: `Fetch failed: ${error?.message || 'Unknown network error'}`,
             };
+        } finally {
+            clearTimeout(timeout);
         }
 
         const text = await response.text();
@@ -139,6 +149,12 @@ export class ReduniqClient {
             }
 
             const resultCode = result.data?.result?.code;
+            if (resultCode === '00100001') {
+                return { success: false, message: 'Authentication failed (check REDUNIQ_API_USER/REDUNIQ_API_PASSWORD).', data: result.data };
+            }
+            if (resultCode === '00100002') {
+                return { success: false, message: 'Merchant has no associated payment solutions.', data: result.data };
+            }
             return {
                 success: true,
                 message: `Gateway reachable (result.code ${resultCode || 'unknown'})`,
@@ -158,6 +174,7 @@ export class ReduniqClient {
             const amountCents = Math.round(params.amount * 100);
             const orderDate = this.formatDateTime(new Date());
             const { firstName, lastName } = this.splitName(params.customerName);
+            const action = params.action ?? 101;
 
             const buyer: Record<string, string> = {};
             if (firstName) buyer.firstName = firstName;
@@ -172,7 +189,7 @@ export class ReduniqClient {
                 },
                 payment: {
                     amount: amountCents,
-                    action: 101,
+                    action,
                     description: (params.description || 'Pagamento').slice(0, 255),
                     ...(params.solution ? { solution: params.solution } : {})
                 },
@@ -182,9 +199,11 @@ export class ReduniqClient {
                     taxes: 0,
                     date: orderDate,
                 },
+                ...(params.mode ? { mode: params.mode } : {}),
                 returnUrlOk: params.returnUrlOk,
                 returnUrlError: params.returnUrlError,
                 ...(params.notificationUrl ? { notificationUrl: params.notificationUrl } : {}),
+                ...(params.targetOriginUrl ? { targetOriginUrl: params.targetOriginUrl } : {}),
                 ...(params.languageCode ? { languageCode: params.languageCode } : {}),
                 privateData: [
                     { name: 'orderRef', value: params.orderRef }
@@ -237,6 +256,83 @@ export class ReduniqClient {
         return await this.post(payload);
     }
 
+    async doCapture(params: {
+        transactionId: string;
+        amountCents: number;
+        action?: 200 | 201;
+        reference?: string;
+        comment?: string;
+    }): Promise<PostResult> {
+        const payload: any = {
+            method: 'doCapture',
+            api: { username: this.username, password: this.secret },
+            transaction: { id: params.transactionId },
+            payment: { amount: params.amountCents, action: params.action ?? 200 },
+            ...(params.reference ? { reference: params.reference } : {}),
+            ...(params.comment ? { comment: params.comment } : {}),
+        };
+        return await this.post(payload);
+    }
+
+    async doRefund(params: {
+        transactionId: string;
+        amountCents: number;
+        reference?: string;
+        comment?: string;
+    }): Promise<PostResult> {
+        const payload: any = {
+            method: 'doRefund',
+            api: { username: this.username, password: this.secret },
+            transaction: { id: params.transactionId },
+            payment: { amount: params.amountCents, action: 300 },
+            ...(params.reference ? { reference: params.reference } : {}),
+            ...(params.comment ? { comment: params.comment } : {}),
+        };
+        return await this.post(payload);
+    }
+
+    async doVoid(params: {
+        transactionId: string;
+        reference?: string;
+        comment?: string;
+    }): Promise<PostResult> {
+        const payload: any = {
+            method: 'doVoid',
+            api: { username: this.username, password: this.secret },
+            transaction: { id: params.transactionId },
+            ...(params.reference ? { reference: params.reference } : {}),
+            ...(params.comment ? { comment: params.comment } : {}),
+        };
+        return await this.post(payload);
+    }
+
+    async searchTransactions(params: {
+        startDate?: string; // YYYY-MM-DD
+        endDate?: string; // YYYY-MM-DD
+        orderRef?: string;
+        transactionId?: string;
+        solution?: number;
+        status?: 1 | 2 | 3 | 4;
+        offset?: number;
+        limit?: number;
+    }): Promise<PostResult> {
+        const payload: any = {
+            method: 'searchTransactions',
+            api: { username: this.username, password: this.secret },
+            filter: {
+                ...(params.startDate ? { startDate: params.startDate } : {}),
+                ...(params.endDate ? { endDate: params.endDate } : {}),
+                ...(params.orderRef ? { orderRef: params.orderRef } : {}),
+                ...(params.transactionId ? { transactionId: params.transactionId } : {}),
+                ...(typeof params.solution === 'number' ? { solution: params.solution } : {}),
+                ...(typeof params.status === 'number' ? { status: String(params.status) } : {}),
+            },
+            ...(typeof params.offset === 'number' ? { offset: params.offset } : {}),
+            ...(typeof params.limit === 'number' ? { limit: params.limit } : {}),
+        };
+        return await this.post(payload);
+    }
+
     async getOrderStatus(token: string): Promise<ReduniqResultResponse> {
         try {
             if (!this.username || !this.secret || !this.endpoint) {
@@ -252,16 +348,37 @@ export class ReduniqClient {
             const resultCode = data?.result?.code;
             const statusCode = String(data?.transaction?.status || '');
 
+            // Gateway-level errors where we should not try to interpret transaction.status.
+            if (typeof resultCode === 'string') {
+                if (resultCode === '00100007') {
+                    return { success: false, error: 'Invalid token', resultCode, raw: data };
+                }
+                // "payment process not started / in progress" are not terminal errors
+                if (resultCode !== '00100008' && resultCode !== '00100009') {
+                    if (resultCode.startsWith('001000') || resultCode.startsWith('002000') || resultCode.startsWith('003000')) {
+                        return {
+                            success: false,
+                            error: data?.result?.message || `Reduniq gateway error (${resultCode})`,
+                            resultCode,
+                            raw: data,
+                        };
+                    }
+                }
+            }
+
             let status: ReduniqResultResponse['status'] = 'unknown';
             if (statusCode === '4') status = 'success';
-            else if (statusCode === '1' || statusCode === '2') status = 'pending';
             else if (statusCode === '3') status = 'failed';
+            else if (statusCode === '0' || statusCode === '1' || statusCode === '2' || statusCode === '') status = 'pending';
 
-            if (resultCode?.startsWith('008')) status = 'pending';
-            if (resultCode && resultCode !== '00000000' && status === 'unknown') status = 'failed';
+            // Some async methods return a "waiting confirmation" code (example: 00800000)
+            if (typeof resultCode === 'string' && resultCode.startsWith('008')) status = 'pending';
 
             const privateData = Array.isArray(data?.privateData) ? data.privateData : [];
-            const orderRef = privateData.find((item: any) => item?.name === 'orderRef')?.value;
+            const orderRef =
+                data?.order?.ref ||
+                privateData.find((item: any) => item?.name === 'orderRef')?.value ||
+                privateData.find((item: any) => item?.name === 'order.ref')?.value;
 
             return {
                 success: true,

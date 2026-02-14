@@ -1,9 +1,13 @@
 import { NextResponse } from 'next/server';
 import { ReduniqClient } from '../../../lib/reduniq/client';
+import { requireReduniqAdmin } from '../reduniq/_auth';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+export async function GET(request: Request) {
+    const auth = requireReduniqAdmin(request);
+    if (!auth.ok) return auth.response;
+
     const envStatus = {
         hasUser: !!process.env.REDUNIQ_API_USER,
         hasPass: !!process.env.REDUNIQ_API_PASSWORD,
