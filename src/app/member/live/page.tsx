@@ -131,7 +131,7 @@ export default function LivePage() {
                             controls
                             playsInline
                             muted
-                            poster="/images/placeholder-garabandal.jpg"
+                            poster="/images/igrejagarabandal.jpg"
                         />
 
                         {userInteracted && (playbackStatus === 'connecting' || playbackStatus === 'buffering') && (

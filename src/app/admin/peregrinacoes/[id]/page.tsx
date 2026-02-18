@@ -12,7 +12,10 @@ import {
     Users,
     Ticket,
     FileText,
-    Clock
+    Clock,
+    ChevronRight,
+    ChevronLeft,
+    CheckCircle2
 } from 'lucide-react';
 import BookingsManager from '../../../../components/admin/BookingsManager';
 import WaitlistManager from '../../../../components/admin/WaitlistManager';
@@ -24,6 +27,7 @@ import ItineraryTab from './components/ItineraryTab';
 import DetailedItineraryTab from './components/DetailedItineraryTab';
 import TeamTab from './components/TeamTab';
 import { Toaster, toast } from 'sonner';
+import { motion, AnimatePresence } from 'framer-motion';
 
 // --- Types ---
 type Pilgrimage = {
@@ -71,6 +75,17 @@ type Pilgrimage = {
     } | null;
 };
 
+const TABS = [
+    { id: 'general', label: 'Informação Geral', icon: FileText, description: 'Títulos, datas e descrição' },
+    { id: 'logistics', label: 'Logística', icon: Plane, description: 'Voos e alojamento' },
+    { id: 'pricing', label: 'Preços', icon: Hotel, description: 'Valores e suplementos' },
+    { id: 'itinerary', label: 'Roteiro 3D', icon: MapPin, description: 'Mapa interativo' },
+    { id: 'detailed', label: 'Itinerário', icon: List, description: 'Dia a dia detalhado' },
+    { id: 'team', label: 'Equipa', icon: Users, description: 'Guias e convidados' },
+    { id: 'bookings', label: 'Inscrições', icon: Ticket, show: (isNew: boolean) => !isNew, description: 'Gestão de passageiros' },
+    { id: 'waitlist', label: 'Lista de Espera', icon: Clock, show: (isNew: boolean) => !isNew, description: 'Gestão de interessados' }
+];
+
 export default function PilgrimageEditorPage() {
     const params = useParams();
     const router = useRouter();
@@ -79,7 +94,7 @@ export default function PilgrimageEditorPage() {
 
     const [loading, setLoading] = useState(!isNew);
     const [saving, setSaving] = useState(false);
-    const [activeTab, setActiveTab] = useState<'general' | 'logistics' | 'pricing' | 'itinerary' | 'detailed' | 'team' | 'bookings' | 'waitlist'>('general');
+    const [activeTab, setActiveTab] = useState('general');
 
     // State
     const [form, setForm] = useState<Partial<Pilgrimage>>({
@@ -230,7 +245,7 @@ export default function PilgrimageEditorPage() {
                 }));
             }
 
-            // 2. Sync Stages (dedupe + stable IDs + remove stale duplicates)
+            // 2. Sync Stages
             const stageSeen = new Set<string>();
             const uniqueStages = stages
                 .map((stage, index) => ({
@@ -258,32 +273,23 @@ export default function PilgrimageEditorPage() {
                 .map((stage, index) => ({ ...stage, display_order: index + 1 }));
 
             const stageIdsToKeep = uniqueStages.map((s) => s.id);
-            const { data: existingStageRows, error: existingStageError } = await supabaseBrowser
+            const { data: existingStageRows } = await supabaseBrowser
                 .from('pilgrimage_stages')
                 .select('id')
                 .eq('pilgrimage_id', pid);
-            if (existingStageError) throw existingStageError;
 
             const existingStageIds = (existingStageRows || []).map((row: any) => row.id).filter(Boolean);
             const stageIdsToDelete = existingStageIds.filter((existingId: string) => !stageIdsToKeep.includes(existingId));
             if (stageIdsToDelete.length > 0) {
-                const { error: deleteStageError } = await supabaseBrowser
-                    .from('pilgrimage_stages')
-                    .delete()
-                    .in('id', stageIdsToDelete);
-                if (deleteStageError) throw deleteStageError;
+                await supabaseBrowser.from('pilgrimage_stages').delete().in('id', stageIdsToDelete);
             }
 
             if (uniqueStages.length > 0) {
-                const { error: sError } = await supabaseBrowser
-                    .from('pilgrimage_stages')
-                    .upsert(uniqueStages, { onConflict: 'id' });
-                if (sError) throw sError;
+                await supabaseBrowser.from('pilgrimage_stages').upsert(uniqueStages, { onConflict: 'id' });
             }
-
             setStages(uniqueStages);
 
-            // 3. Sync Detailed Itinerary (dedupe + stable IDs + remove stale duplicates)
+            // 3. Sync Detailed Itinerary
             const itinerarySeen = new Set<string>();
             const uniqueDetailedItems = detailedItems
                 .map((item, index) => {
@@ -313,32 +319,23 @@ export default function PilgrimageEditorPage() {
                 .map((item, index) => ({ ...item, display_order: index + 1 }));
 
             const itineraryIdsToKeep = uniqueDetailedItems.map((item) => item.id);
-            const { data: existingItineraryRows, error: existingItineraryError } = await supabaseBrowser
+            const { data: existingItineraryRows } = await supabaseBrowser
                 .from('pilgrimage_itinerary_items')
                 .select('id')
                 .eq('pilgrimage_id', pid);
-            if (existingItineraryError) throw existingItineraryError;
 
             const existingItineraryIds = (existingItineraryRows || []).map((row: any) => row.id).filter(Boolean);
             const itineraryIdsToDelete = existingItineraryIds.filter((existingId: string) => !itineraryIdsToKeep.includes(existingId));
             if (itineraryIdsToDelete.length > 0) {
-                const { error: deleteItineraryError } = await supabaseBrowser
-                    .from('pilgrimage_itinerary_items')
-                    .delete()
-                    .in('id', itineraryIdsToDelete);
-                if (deleteItineraryError) throw deleteItineraryError;
+                await supabaseBrowser.from('pilgrimage_itinerary_items').delete().in('id', itineraryIdsToDelete);
             }
 
             if (uniqueDetailedItems.length > 0) {
-                const { error: dError } = await supabaseBrowser
-                    .from('pilgrimage_itinerary_items')
-                    .upsert(uniqueDetailedItems, { onConflict: 'id' });
-                if (dError) throw dError;
+                await supabaseBrowser.from('pilgrimage_itinerary_items').upsert(uniqueDetailedItems, { onConflict: 'id' });
             }
-
             setDetailedItems(uniqueDetailedItems);
 
-            // 4. Sync Team (dedupe + stable IDs + remove stale duplicates)
+            // 4. Sync Team
             const teamSeen = new Set<string>();
             const uniqueTeamMembers = teamMembers
                 .map((member, index) => ({
@@ -368,45 +365,28 @@ export default function PilgrimageEditorPage() {
                 .map((member, index) => ({ ...member, display_order: index + 1 }));
 
             const teamIdsToKeep = uniqueTeamMembers.map((member) => member.id);
-            const { data: existingTeamRows, error: existingTeamError } = await supabaseBrowser
+            const { data: existingTeamRows } = await supabaseBrowser
                 .from('pilgrimage_team_members')
                 .select('id')
                 .eq('pilgrimage_id', pid);
-            if (existingTeamError) throw existingTeamError;
 
             const existingTeamIds = (existingTeamRows || []).map((row: any) => row.id).filter(Boolean);
             const teamIdsToDelete = existingTeamIds.filter((existingId: string) => !teamIdsToKeep.includes(existingId));
             if (teamIdsToDelete.length > 0) {
-                const { error: deleteTeamError } = await supabaseBrowser
-                    .from('pilgrimage_team_members')
-                    .delete()
-                    .in('id', teamIdsToDelete);
-                if (deleteTeamError) throw deleteTeamError;
+                await supabaseBrowser.from('pilgrimage_team_members').delete().in('id', teamIdsToDelete);
             }
 
             if (uniqueTeamMembers.length > 0) {
-                const { error: tError } = await supabaseBrowser
-                    .from('pilgrimage_team_members')
-                    .upsert(uniqueTeamMembers, { onConflict: 'id' });
-                if (tError) throw tError;
+                await supabaseBrowser.from('pilgrimage_team_members').upsert(uniqueTeamMembers, { onConflict: 'id' });
             }
-
             setTeamMembers(uniqueTeamMembers);
 
-            const removedStages = stages.length - uniqueStages.length;
-            const removedDetailed = detailedItems.length - uniqueDetailedItems.length;
-            const removedTeam = teamMembers.length - uniqueTeamMembers.length;
-            if (removedStages > 0 || removedDetailed > 0 || removedTeam > 0) {
-                toast.success(`Peregrinação guardada. Duplicados removidos: roteiro 3D (${removedStages}), itinerário detalhado (${removedDetailed}) e equipa (${removedTeam}).`);
-            } else {
-                toast.success('Peregrinação guardada com sucesso!');
-            }
+            toast.success('Peregrinação guardada com sucesso!');
             if (isNew) router.push(`/admin/peregrinacoes/${pid}`);
 
         } catch (err: any) {
             console.error(err);
-            const details = err?.details || err?.hint || '';
-            toast.error('Erro ao guardar: ' + err.message + (details ? ` (${details})` : ''));
+            toast.error('Erro ao guardar: ' + err.message);
         } finally {
             setSaving(false);
         }
@@ -501,7 +481,36 @@ export default function PilgrimageEditorPage() {
         setDetailedItems(newItems);
     };
 
-    if (loading) return <div className="p-10 text-center flex items-center justify-center min-h-screen text-slate-500">A carregar dados...</div>;
+    const handleNextTab = () => {
+        const availableTabs = TABS.filter(t => !t.show || t.show(isNew));
+        const currentIndex = availableTabs.findIndex(t => t.id === activeTab);
+        if (currentIndex < availableTabs.length - 1) {
+            setActiveTab(availableTabs[currentIndex + 1].id);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+    };
+
+    const handlePrevTab = () => {
+        const availableTabs = TABS.filter(t => !t.show || t.show(isNew));
+        const currentIndex = availableTabs.findIndex(t => t.id === activeTab);
+        if (currentIndex > 0) {
+            setActiveTab(availableTabs[currentIndex - 1].id);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+    };
+
+    if (loading) return (
+        <div className="flex items-center justify-center min-h-screen bg-slate-50 text-slate-400 font-medium animate-pulse">
+            <div className="flex flex-col items-center gap-3">
+                <div className="w-8 h-8 rounded-full border-4 border-indigo-200 border-t-indigo-600 animate-spin" />
+                A carregar dados da peregrinação...
+            </div>
+        </div>
+    );
+
+    const activeTabIndex = TABS.filter(t => !t.show || t.show(isNew)).findIndex(t => t.id === activeTab);
+    const isLastTab = activeTabIndex === TABS.filter(t => !t.show || t.show(isNew)).length - 1;
+    const isFirstTab = activeTabIndex === 0;
 
     const toolbarActions = (
         <div className="flex items-center gap-3">
@@ -515,10 +524,16 @@ export default function PilgrimageEditorPage() {
             <button
                 onClick={handleSave}
                 disabled={saving}
-                className="flex items-center gap-2 bg-indigo-600 text-white px-6 py-2 rounded-xl hover:bg-indigo-700 disabled:opacity-50 transition-all font-bold shadow-lg shadow-indigo-100 active:scale-95 text-xs"
+                className="flex items-center gap-2 bg-indigo-600 text-white px-6 py-2.5 rounded-xl hover:bg-indigo-700 disabled:opacity-50 transition-all font-bold shadow-lg shadow-indigo-200 active:scale-95 text-xs group"
             >
-                <Save className="w-4 h-4" />
-                {saving ? '...' : 'Guardar'}
+                {saving ? (
+                    'A Guardar...'
+                ) : (
+                    <>
+                        <Save className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                        Guardar Alterações
+                    </>
+                )}
             </button>
         </div>
     );
@@ -529,59 +544,148 @@ export default function PilgrimageEditorPage() {
             showBackLink={true}
             toolbar={toolbarActions}
         >
-            <div className="bg-slate-50 pb-24 min-h-screen">
-                {/* Secondary Nav - Sticky */}
-                <div className="bg-white/80 backdrop-blur-md border-b border-slate-200 px-6 py-2 sticky top-0 z-30 shadow-sm overflow-x-auto no-scrollbar -mx-6 md:-mx-8">
-                    <div className="flex gap-1.5 min-w-max px-6 md:px-8">
-                        {[
-                            { id: 'general', label: 'Informação Geral', icon: FileText },
-                            { id: 'logistics', label: 'Logística & Voos', icon: Plane },
-                            { id: 'pricing', label: 'Preços & Quartos', icon: Hotel },
-                            { id: 'itinerary', label: 'Roteiro 3D', icon: MapPin },
-                            { id: 'detailed', label: 'Itinerário Detalhado', icon: List },
-                            { id: 'team', label: 'Equipa & Convidados', icon: Users },
-                            { id: 'bookings', label: 'Inscrições', icon: Ticket, show: !isNew },
-                            { id: 'waitlist', label: 'Lista de Espera', icon: Clock, show: !isNew }
-                        ].filter(tab => tab.show !== false).map(tab => (
-                            <button
-                                key={tab.id}
-                                onClick={() => setActiveTab(tab.id as any)}
-                                className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold transition-all ${activeTab === tab.id ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'}`}
-                            >
-                                <tab.icon className="w-3.5 h-3.5" />
-                                {tab.label}
-                            </button>
-                        ))}
+            <div className="bg-slate-50 min-h-screen pb-32">
+                {/* 1. Styled Tab Navigation */}
+                <div className="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
+                    <div className="w-full max-w-[1600px] mx-auto px-6 overflow-x-auto no-scrollbar">
+                        <div className="flex gap-2 min-w-max py-4">
+                            {TABS.filter(tab => !tab.show || tab.show(isNew)).map((tab) => {
+                                const isActive = activeTab === tab.id;
+                                return (
+                                    <button
+                                        key={tab.id}
+                                        onClick={() => setActiveTab(tab.id)}
+                                        className={`
+                                            relative flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold transition-all
+                                            ${isActive ? 'text-white' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800'}
+                                        `}
+                                    >
+                                        {isActive && (
+                                            <motion.div
+                                                layoutId="activeTab"
+                                                className="absolute inset-0 bg-slate-900 rounded-full shadow-lg shadow-slate-200"
+                                                initial={false}
+                                                transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+                                            />
+                                        )}
+                                        <span className="relative z-10 flex items-center gap-2">
+                                            <tab.icon className={`w-3.5 h-3.5 ${isActive ? 'text-indigo-300' : 'text-slate-400'}`} />
+                                            {tab.label}
+                                        </span>
+                                    </button>
+                                );
+                            })}
+                        </div>
                     </div>
                 </div>
 
-                <div className="px-8 py-10 w-full max-w-[1600px] mx-auto">
-                    {activeTab === 'general' && <GeneralInfoTab form={form} setForm={setForm} />}
-                    {activeTab === 'logistics' && <LogisticsTab form={form} setForm={setForm} />}
-                    {activeTab === 'pricing' && <PricingTab form={form} setForm={setForm} />}
-                    {activeTab === 'itinerary' && (
-                        <ItineraryTab
-                            stages={stages}
-                            setStages={setStages}
-                            addStage={addStage}
-                            removeStage={removeStage}
-                            handleLocationSearch={handleLocationSearch}
-                            suggestions={suggestions}
-                            selectLocation={selectLocation}
-                        />
-                    )}
-                    {activeTab === 'detailed' && (
-                        <DetailedItineraryTab
-                            detailedItems={detailedItems}
-                            setDetailedItems={setDetailedItems}
-                            addDetailedItem={addDetailedItem}
-                            removeDetailedItem={removeDetailedItem}
-                        />
-                    )}
-                    {activeTab === 'team' && <TeamTab teamMembers={teamMembers} setTeamMembers={setTeamMembers} />}
-                    {activeTab === 'bookings' && <BookingsManager pilgrimageId={id} />}
-                    {activeTab === 'waitlist' && <WaitlistManager pilgrimageId={id} />}
-                </div>
+                {/* 2. Content Area with Transitions */}
+                <main className="px-6 py-8 w-full max-w-[1600px] mx-auto">
+                    <AnimatePresence mode="wait">
+                        <motion.div
+                            key={activeTab}
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -10 }}
+                            transition={{ duration: 0.2 }}
+                            className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden min-h-[400px]"
+                        >
+                            {/* Tab Header (Purely Visual) */}
+                            <div className="px-8 py-6 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
+                                <div>
+                                    <h2 className="text-xl font-bold text-slate-800 flex items-center gap-3">
+                                        {(() => {
+                                            const t = TABS.find(t => t.id === activeTab);
+                                            const Icon = t?.icon || FileText;
+                                            return (
+                                                <>
+                                                    <div className="w-10 h-10 rounded-xl bg-white shadow-sm border border-slate-100 flex items-center justify-center text-indigo-600">
+                                                        <Icon className="w-5 h-5" />
+                                                    </div>
+                                                    {t?.label}
+                                                </>
+                                            );
+                                        })()}
+                                    </h2>
+                                    <p className="text-slate-400 text-xs mt-1 ml-14">
+                                        {TABS.find(t => t.id === activeTab)?.description}
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="p-8">
+                                {activeTab === 'general' && <GeneralInfoTab form={form} setForm={setForm} />}
+                                {activeTab === 'logistics' && <LogisticsTab form={form} setForm={setForm} />}
+                                {activeTab === 'pricing' && <PricingTab form={form} setForm={setForm} />}
+                                {activeTab === 'itinerary' && (
+                                    <ItineraryTab
+                                        stages={stages}
+                                        setStages={setStages}
+                                        addStage={addStage}
+                                        removeStage={removeStage}
+                                        handleLocationSearch={handleLocationSearch}
+                                        suggestions={suggestions}
+                                        selectLocation={selectLocation}
+                                    />
+                                )}
+                                {activeTab === 'detailed' && (
+                                    <DetailedItineraryTab
+                                        detailedItems={detailedItems}
+                                        setDetailedItems={setDetailedItems}
+                                        addDetailedItem={addDetailedItem}
+                                        removeDetailedItem={removeDetailedItem}
+                                    />
+                                )}
+                                {activeTab === 'team' && <TeamTab teamMembers={teamMembers} setTeamMembers={setTeamMembers} />}
+                                {activeTab === 'bookings' && <BookingsManager pilgrimageId={id} />}
+                                {activeTab === 'waitlist' && <WaitlistManager pilgrimageId={id} />}
+                            </div>
+
+                            {/* 3. Footer Navigation */}
+                            <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-between items-center sticky bottom-0">
+                                <button
+                                    onClick={handlePrevTab}
+                                    disabled={isFirstTab}
+                                    className={`
+                                        flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all
+                                        ${isFirstTab ? 'text-slate-300 cursor-not-allowed' : 'text-slate-500 hover:text-slate-800 hover:bg-white hover:shadow-sm'}
+                                    `}
+                                >
+                                    <ChevronLeft className="w-4 h-4" />
+                                    Anterior
+                                </button>
+
+                                <div className="flex items-center gap-2">
+                                    {/* Optional quick save in footer */}
+                                    <button
+                                        onClick={handleSave}
+                                        className="text-xs font-bold text-indigo-600 hover:text-indigo-700 px-4 py-2 hover:bg-indigo-50 rounded-lg transition-colors"
+                                    >
+                                        Guardar Rascunho
+                                    </button>
+
+                                    {!isLastTab ? (
+                                        <button
+                                            onClick={handleNextTab}
+                                            className="flex items-center gap-2 px-6 py-2.5 bg-slate-900 text-white rounded-xl hover:bg-slate-800 transition-all font-bold text-xs shadow-md shadow-slate-200 active:scale-95"
+                                        >
+                                            Próximo Passo
+                                            <ChevronRight className="w-4 h-4" />
+                                        </button>
+                                    ) : (
+                                        <button
+                                            onClick={handleSave}
+                                            className="flex items-center gap-2 px-6 py-2.5 bg-green-600 text-white rounded-xl hover:bg-green-700 transition-all font-bold text-xs shadow-lg shadow-green-200 active:scale-95"
+                                        >
+                                            <CheckCircle2 className="w-4 h-4" />
+                                            Finalizar Edição
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+                        </motion.div>
+                    </AnimatePresence>
+                </main>
             </div>
         </AdminShell>
     );

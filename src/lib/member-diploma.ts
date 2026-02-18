@@ -1,4 +1,4 @@
-import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
+import { PDFDocument, StandardFonts, rgb, degrees } from 'pdf-lib';
 import path from 'path';
 import fs from 'fs/promises';
 
@@ -14,7 +14,7 @@ const DEFAULT_LOGO_URL =
 const RIGHTS = [
   'Desconto de 5% em livros e publicacoes da Associacao.',
   'Desconto de 5% em congressos e conferencias organizadas pela Associacao.',
-  'Desconto de 5% em peregrinacoes e atividades sociais organizadas.',
+  '50 euros de desconto em peregrinacoes e atividades sociais organizadas.',
   'Ofertas de missas anuais pelas intencoes dos associados e familiares.',
   'Participar e votar na Assembleia Geral apos 2 anos de quotas pagas.',
 ];
@@ -29,7 +29,7 @@ const DUTIES = [
 const formatDatePt = (value?: string | null) => {
   const date = value ? new Date(value) : new Date();
   if (Number.isNaN(date.getTime())) return new Date().toLocaleDateString('pt-PT');
-  return date.toLocaleDateString('pt-PT');
+  return date.toLocaleDateString('pt-PT', { year: 'numeric', month: 'long', day: 'numeric' });
 };
 
 const wrapText = (text: string, maxWidth: number, font: any, size: number) => {
@@ -79,154 +79,295 @@ const loadLogoBytes = async () => {
   }
 };
 
+const loadSignatureBytes = async () => {
+  const localPath = process.env.MEMBER_DIPLOMA_SIGNATURE_PATH;
+  if (localPath) {
+    try {
+      return await fs.readFile(localPath);
+    } catch (err) {
+      console.warn('Nao foi possivel ler assinatura local:', err);
+    }
+  }
+
+  try {
+    const fallbackPath = path.join(process.cwd(), 'public', 'images', 'assinatura-garabandal.png');
+    return await fs.readFile(fallbackPath);
+  } catch {
+    // ignore
+  }
+
+  const url = process.env.MEMBER_DIPLOMA_SIGNATURE_URL;
+  if (url) {
+    try {
+      const response = await fetch(url);
+      if (!response.ok) throw new Error('Signature fetch failed');
+      const arrayBuffer = await response.arrayBuffer();
+      return Buffer.from(arrayBuffer);
+    } catch (err) {
+      console.warn('Nao foi possivel obter assinatura remota:', err);
+      return null;
+    }
+  }
+  return null;
+};
+
 export const generateMemberDiplomaPdf = async ({ memberName, memberNumber, issuedAt }: MemberDiplomaInput) => {
   const pdfDoc = await PDFDocument.create();
-  const page = pdfDoc.addPage([595.28, 841.89]);
+  // Landscape A4 for a more certificate-like feel: 841.89 x 595.28
+  const page = pdfDoc.addPage([841.89, 595.28]);
   const { width, height } = page.getSize();
 
-  const fontRegular = await pdfDoc.embedFont(StandardFonts.Helvetica);
-  const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+  // Load Classic Fonts
+  const fontRegular = await pdfDoc.embedFont(StandardFonts.TimesRoman);
+  const fontBold = await pdfDoc.embedFont(StandardFonts.TimesRomanBold);
+  const fontItalic = await pdfDoc.embedFont(StandardFonts.TimesRomanItalic);
+  const fontScript = await pdfDoc.embedFont(StandardFonts.ZapfDingbats); // Using generic for decorations if needed, or stick to Times for class
 
-  const margin = 52;
-  let cursorY = height - margin;
+  // Colors
+  const darkBlue = rgb(0.1, 0.15, 0.3);
+  const gold = rgb(0.7, 0.6, 0.2);
+  const textGrey = rgb(0.3, 0.3, 0.3);
 
+  // --- Background & Border ---
+  const margin = 40;
+  // Outer Border (Gold)
+  page.drawRectangle({
+    x: margin,
+    y: margin,
+    width: width - margin * 2,
+    height: height - margin * 2,
+    borderColor: gold,
+    borderWidth: 3,
+    color: rgb(0.99, 0.99, 0.98), // Cream background
+  });
+
+  // Inner Border (Blue)
+  page.drawRectangle({
+    x: margin + 5,
+    y: margin + 5,
+    width: width - (margin + 5) * 2,
+    height: height - (margin + 5) * 2,
+    borderColor: darkBlue,
+    borderWidth: 1,
+    opacity: 0, // No fill
+    borderOpacity: 0.8
+  });
+
+  let cursorY = height - 100;
+
+  // --- Logo ---
   const logoBytes = await loadLogoBytes();
   if (logoBytes) {
     let logo;
     try {
-      logo = await pdfDoc.embedJpg(logoBytes);
+      logo = await pdfDoc.embedJpg(logoBytes as unknown as Uint8Array);
     } catch {
       try {
-        logo = await pdfDoc.embedPng(logoBytes);
+        logo = await pdfDoc.embedPng(logoBytes as unknown as Uint8Array);
       } catch (err) {
         console.warn('Nao foi possivel embutir logo:', err);
       }
     }
     if (logo) {
-      const maxWidth = 140;
+      const maxWidth = 100;
       const scale = maxWidth / logo.width;
       const logoWidth = maxWidth;
       const logoHeight = logo.height * scale;
       page.drawImage(logo, {
         x: (width - logoWidth) / 2,
-        y: cursorY - logoHeight,
+        y: height - 130, // Position at top
         width: logoWidth,
         height: logoHeight,
       });
-      cursorY -= logoHeight + 18;
+      cursorY -= 60;
     }
   }
 
-  const titleSize = 24;
-  const title = 'Diploma de Membro';
+  // --- Title ---
+  cursorY = height - 160;
+  const title = 'DIPLOMA DE MEMBRO';
+  const titleSize = 32;
   const titleWidth = fontBold.widthOfTextAtSize(title, titleSize);
   page.drawText(title, {
     x: (width - titleWidth) / 2,
-    y: cursorY - titleSize,
+    y: cursorY,
     size: titleSize,
     font: fontBold,
-    color: rgb(0.12, 0.18, 0.3),
-  });
-  cursorY -= titleSize + 18;
-
-  const intro = `Certifica-se que ${memberName} e membro do Apostolado de Garabandal.`;
-  const introLines = wrapText(intro, width - margin * 2, fontRegular, 12);
-  introLines.forEach((line) => {
-    page.drawText(line, {
-      x: margin,
-      y: cursorY - 12,
-      size: 12,
-      font: fontRegular,
-      color: rgb(0.2, 0.26, 0.38),
-    });
-    cursorY -= 16;
+    color: darkBlue,
   });
 
-  const memberLine = `Numero de socio: ${memberNumber}`;
-  page.drawText(memberLine, {
-    x: margin,
-    y: cursorY - 14,
+  const subTitle = 'APOSTOLADO DE GARABANDAL';
+  const subTitleSize = 16;
+  const subTitleWidth = fontRegular.widthOfTextAtSize(subTitle, subTitleSize);
+  page.drawText(subTitle, {
+    x: (width - subTitleWidth) / 2,
+    y: cursorY - 25,
+    size: subTitleSize,
+    font: fontRegular,
+    color: gold,
+  });
+
+  // --- Main Content ---
+  cursorY -= 80;
+  const certText = 'Certifica-se que';
+  const certTextSize = 14;
+  const certTextWidth = fontItalic.widthOfTextAtSize(certText, certTextSize);
+  page.drawText(certText, {
+    x: (width - certTextWidth) / 2,
+    y: cursorY,
+    size: certTextSize,
+    font: fontItalic,
+    color: textGrey,
+  });
+
+  cursorY -= 40;
+  // Member Name (Large)
+  const nameSize = 36;
+  const nameWidth = fontBold.widthOfTextAtSize(memberName, nameSize);
+  page.drawText(memberName, {
+    x: (width - nameWidth) / 2,
+    y: cursorY,
+    size: nameSize,
+    font: fontBold,
+    color: darkBlue,
+  });
+
+  // Underline name
+  page.drawLine({
+    start: { x: (width - nameWidth) / 2 - 20, y: cursorY - 5 },
+    end: { x: (width + nameWidth) / 2 + 20, y: cursorY - 5 },
+    thickness: 1,
+    color: gold,
+  });
+
+  cursorY -= 30;
+  const memberSince = `é membro ativo com o número ${memberNumber}`;
+  const numberTextSize = 14;
+  const numberTextWidth = fontRegular.widthOfTextAtSize(memberSince, numberTextSize);
+  page.drawText(memberSince, {
+    x: (width - numberTextWidth) / 2,
+    y: cursorY,
+    size: numberTextSize,
+    font: fontRegular,
+    color: textGrey,
+  });
+
+  // --- Rights & Duties Columns ---
+  const colY = cursorY - 60;
+  const col1X = margin + 50;
+  const col2X = width / 2 + 20;
+  const colWidth = (width - margin * 2) / 2 - 60;
+
+  // Rights Column
+  page.drawText('DIREITOS DO MEMBRO', {
+    x: col1X,
+    y: colY,
     size: 12,
     font: fontBold,
-    color: rgb(0.12, 0.18, 0.3),
+    color: darkBlue,
   });
-  cursorY -= 28;
 
-  const sectionTitle = 'Direitos do associado';
-  page.drawText(sectionTitle, {
-    x: margin,
-    y: cursorY - 14,
-    size: 13,
-    font: fontBold,
-    color: rgb(0.12, 0.18, 0.3),
-  });
-  cursorY -= 22;
-
+  let rightY = colY - 20;
   RIGHTS.forEach((item) => {
-    const lines = wrapText(`- ${item}`, width - margin * 2, fontRegular, 11);
+    const lines = wrapText(`• ${item}`, colWidth + 20, fontRegular, 10);
     lines.forEach((line) => {
       page.drawText(line, {
-        x: margin,
-        y: cursorY - 12,
-        size: 11,
+        x: col1X,
+        y: rightY,
+        size: 10,
         font: fontRegular,
-        color: rgb(0.24, 0.3, 0.4),
+        color: textGrey,
       });
-      cursorY -= 14;
+      rightY -= 14;
     });
+    rightY -= 4; // Extra space between items
   });
 
-  cursorY -= 10;
-
-  const dutiesTitle = 'Deveres do associado';
-  page.drawText(dutiesTitle, {
-    x: margin,
-    y: cursorY - 14,
-    size: 13,
+  // Duties Column
+  page.drawText('DEVERES DO MEMBRO', {
+    x: col2X,
+    y: colY,
+    size: 12,
     font: fontBold,
-    color: rgb(0.12, 0.18, 0.3),
+    color: darkBlue,
   });
-  cursorY -= 22;
 
+  let dutyY = colY - 20;
   DUTIES.forEach((item) => {
-    const lines = wrapText(`- ${item}`, width - margin * 2, fontRegular, 11);
+    const lines = wrapText(`• ${item}`, colWidth, fontRegular, 10);
     lines.forEach((line) => {
       page.drawText(line, {
-        x: margin,
-        y: cursorY - 12,
-        size: 11,
+        x: col2X,
+        y: dutyY,
+        size: 10,
         font: fontRegular,
-        color: rgb(0.24, 0.3, 0.4),
+        color: textGrey,
       });
-      cursorY -= 14;
+      dutyY -= 14;
     });
+    dutyY -= 4;
   });
 
-  cursorY -= 18;
+  // --- Footer / Signature ---
+  const footerY = margin + 60;
 
-  page.drawText(`Data: ${formatDatePt(issuedAt)}`, {
-    x: margin,
-    y: cursorY - 12,
+  const dateText = `Emitido em Paços de Brandão, a ${formatDatePt(issuedAt)}`;
+  page.drawText(dateText, {
+    x: margin + 50,
+    y: footerY,
     size: 11,
-    font: fontRegular,
-    color: rgb(0.3, 0.36, 0.46),
+    font: fontItalic,
+    color: textGrey,
   });
 
-  const signatureLabel = 'Assinatura do responsavel';
-  const signatureWidth = fontRegular.widthOfTextAtSize(signatureLabel, 10);
-  page.drawText(signatureLabel, {
-    x: width - margin - signatureWidth,
-    y: cursorY - 12,
-    size: 10,
-    font: fontRegular,
-    color: rgb(0.45, 0.5, 0.6),
+  const sigLabel = 'A Direção';
+  const sigLabelWidth = fontBold.widthOfTextAtSize(sigLabel, 12);
+  const sigX = width - margin - 150;
+
+  // --- Draw Signature ---
+  const signatureBytes = await loadSignatureBytes();
+  if (signatureBytes) {
+    let signatureImg;
+    try {
+      signatureImg = await pdfDoc.embedPng(signatureBytes as unknown as Uint8Array);
+    } catch {
+      try {
+        signatureImg = await pdfDoc.embedJpg(signatureBytes as unknown as Uint8Array);
+      } catch (e) {
+        console.warn('Failed to embed signature', e);
+      }
+    }
+
+    if (signatureImg) {
+      const sigWidth = 100;
+      const sigScale = sigWidth / signatureImg.width;
+      const sigHeight = signatureImg.height * sigScale;
+
+      // Position signature above the line
+      page.drawImage(signatureImg, {
+        x: sigX + (150 - sigWidth) / 2,
+        y: footerY + 5, // Just above the line
+        width: sigWidth,
+        height: sigHeight,
+      });
+    }
+  }
+
+  // Label (Below line)
+  page.drawText(sigLabel, {
+    x: sigX + (150 - sigLabelWidth) / 2,
+    y: footerY - 15,
+    size: 12,
+    font: fontBold,
+    color: darkBlue,
   });
 
+  // Line
   page.drawLine({
-    start: { x: width - margin - 180, y: cursorY - 22 },
-    end: { x: width - margin, y: cursorY - 22 },
+    start: { x: sigX, y: footerY },
+    end: { x: sigX + 150, y: footerY },
     thickness: 1,
-    color: rgb(0.8, 0.83, 0.88),
+    color: darkBlue,
   });
 
   const pdfBytes = await pdfDoc.save();

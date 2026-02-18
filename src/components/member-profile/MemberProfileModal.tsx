@@ -20,6 +20,7 @@ type Props = {
   visible: boolean;
   userId: string;
   initialData?: Record<string, any>;
+  currentEmail?: string | null;
   onClose?: () => void;
   onSaved?: () => void;
   onAvatarUpdated?: () => void;
@@ -31,13 +32,13 @@ export default function MemberProfileModal({
   visible,
   userId,
   initialData = {},
+  currentEmail,
   onClose,
   onSaved,
   onAvatarUpdated,
 }: Props) {
   // Form State
   const [nome, setNome] = useState(initialData.nome || '');
-  const [email, setEmail] = useState(initialData.email || '');
   const [telefone, setTelefone] = useState(initialData.telefone || '');
   const [address, setAddress] = useState(initialData.address || initialData.morada || '');
   const [postalCode, setPostalCode] = useState(initialData.postal_code || initialData.postalCode || '');
@@ -50,7 +51,6 @@ export default function MemberProfileModal({
 
   // Avatar State
   const [avatarUrl, setAvatarUrl] = useState(initialData.avatar_url || '');
-  const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -61,7 +61,6 @@ export default function MemberProfileModal({
   useEffect(() => {
     if (visible && initialData) {
       setNome(initialData.nome || '');
-      setEmail(initialData.email || '');
       setTelefone(initialData.telefone || '');
       setAddress(initialData.address || initialData.morada || '');
       setPostalCode(initialData.postal_code || initialData.postalCode || '');
@@ -80,7 +79,6 @@ export default function MemberProfileModal({
 
   const validate = () => {
     if (!nome || nome.trim().length < 3) return 'Indica o nome completo.';
-    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return 'Email inválido.';
 
     // Address and Postal Code are now optional for flexibility
     // if (!address || address.trim().length < 3) return 'Indica a morada.';
@@ -112,7 +110,6 @@ export default function MemberProfileModal({
       return;
     }
 
-    setAvatarFile(file);
     const localPreview = URL.createObjectURL(file);
     setPreviewUrl(localPreview);
     setError(null);
@@ -251,7 +248,6 @@ export default function MemberProfileModal({
       const payload = {
         id: userId,
         nome: nome.trim(),
-        email: email.trim().toLowerCase(),
         telefone: normalizePhone(withCountryPrefix(telefone, country)),
         address: address.trim() || null,
         postal_code: postalCode.trim() || null,
@@ -372,16 +368,22 @@ export default function MemberProfileModal({
                     <input value={nome} onChange={(e) => setNome(e.target.value)} className={inputClass} placeholder="Nome completo" />
                   </div>
                   <div>
-                    <label className={labelClass}>Email *</label>
-                    <input value={email} onChange={(e) => setEmail(e.target.value)} className={inputClass} type="email" placeholder="email@exemplo.com" />
+                    <label className={labelClass}>Email da Conta</label>
+                    <input
+                      value={currentEmail || initialData.email || ''}
+                      className={`${inputClass} bg-gray-100`}
+                      type="email"
+                      readOnly
+                    />
+                    <p className="mt-1 ml-1 text-[11px] text-gray-500">Para alterar o email, usa a secção Segurança.</p>
                   </div>
                   <div>
                     <label className={labelClass}>Telefone *</label>
                     <input value={telefone} onChange={(e) => setTelefone(withCountryPrefix(e.target.value, country))} onBlur={() => setTelefone(normalizePhone(withCountryPrefix(telefone, country)))} className={inputClass} placeholder={countryMeta?.phoneExample} />
                   </div>
                   <div>
-                    <label className={labelClass}>NIF (opcional)</label>
-                    <input value={nif} onChange={(e) => setNif(e.target.value)} className={inputClass} placeholder="Número de contribuinte" />
+                    <label className={labelClass}>NIF / CPF (opcional)</label>
+                    <input value={nif} onChange={(e) => setNif(e.target.value)} className={inputClass} placeholder="Número de contribuinte (NIF/CPF)" />
                   </div>
                 </div>
               </div>
@@ -410,7 +412,7 @@ export default function MemberProfileModal({
                     <input value={address} onChange={(e) => setAddress(e.target.value)} className={inputClass} placeholder="Rua, número, andar" />
                   </div>
                   <div>
-                    <label className={labelClass}>Código Postal (opcional)</label>
+                    <label className={labelClass}>Código Postal / CEP (opcional)</label>
                     <input
                       value={postalCode}
                       onChange={(e) => setPostalCode(formatPostalCode(e.target.value, country))}

@@ -23,7 +23,8 @@ import {
   BookOpen,
   CreditCard,
   LayoutDashboard,
-  Settings
+  Settings,
+  Ticket
 } from 'lucide-react';
 import MobileBottomNav from './MobileBottomNav';
 
@@ -246,7 +247,7 @@ export default function SiteHeader() {
                 href="/peregrinacoes/minhas-inscricoes"
                 className="px-5 py-2 rounded-full text-sm font-bold bg-yellow-50 text-yellow-800 hover:bg-yellow-100 transition-all duration-200 border border-yellow-200/50 flex items-center gap-2"
               >
-                <Package className="w-4 h-4" />
+                <Ticket className="w-4 h-4" />
                 Minhas Inscrições
               </Link>
             )}
@@ -380,7 +381,7 @@ export default function SiteHeader() {
                                 <div className="space-y-1">
                                   <Link href="/peregrinacoes/minhas-inscricoes" onClick={() => setUserMenuOpen(false)} className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition-all group">
                                     <div className="w-8 h-8 rounded-lg bg-yellow-50 text-yellow-600 flex items-center justify-center group-hover:bg-yellow-100 transition-colors">
-                                      <Package className="w-4 h-4" />
+                                      <Ticket className="w-4 h-4" />
                                     </div>
                                     <div>
                                       <p className="leading-none">Minhas Inscrições</p>
@@ -570,7 +571,7 @@ export default function SiteHeader() {
                         <User className="w-3 h-3" /> A Minha Conta
                       </p>
                       <NavLink href="/account/profile" icon={User} label="Meu Perfil" onClick={() => setIsMobileOpen(false)} />
-                      <NavLink href="/peregrinacoes/minhas-inscricoes" icon={Package} label="Minhas Inscrições" onClick={() => setIsMobileOpen(false)} />
+                      <NavLink href="/peregrinacoes/minhas-inscricoes" icon={Ticket} label="Minhas Inscrições" onClick={() => setIsMobileOpen(false)} />
                       <NavLink href="/encomendas" icon={ShoppingBag} label="Minhas Compras" onClick={() => setIsMobileOpen(false)} />
                       {(hasMembership || !!memberData?.numero_socio) && (
                         <NavLink href="/member/quota" icon={ShieldCheck} label="Gerir Quota" onClick={() => setIsMobileOpen(false)} />

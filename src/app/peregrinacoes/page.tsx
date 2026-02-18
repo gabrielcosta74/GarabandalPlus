@@ -9,6 +9,8 @@ import { format } from 'date-fns';
 import { pt } from 'date-fns/locale';
 import { PilgrimageHero } from '../../components/pilgrimage/PilgrimageHero';
 import { PilgrimageCard } from '../../components/pilgrimage/PilgrimageCard';
+import { PastPilgrimagesGallery } from '../../components/pilgrimage/PastPilgrimagesGallery';
+import { PilgrimageTestimonials } from '../../components/pilgrimage/PilgrimageTestimonials';
 import { getPilgrimagesAction } from './actions';
 
 type Pilgrimage = {
@@ -84,11 +86,33 @@ export default function PilgrimagesPage() {
         };
     }, []);
 
+    const getRemainingSpots = (pilgrimage: Pilgrimage) => {
+        const effectiveRaw = Number((pilgrimage as any).effective_vacancies);
+        const currentRaw = Number((pilgrimage as any).current_vacancies);
+        const confirmedRaw = Number((pilgrimage as any).confirmed_pax || 0);
+        const totalRaw = Number((pilgrimage as any).total_vacancies || 0);
+
+        if (Number.isFinite(effectiveRaw)) return Math.max(0, effectiveRaw);
+        if (Number.isFinite(currentRaw)) return Math.max(0, currentRaw);
+        return Math.max(0, totalRaw - confirmedRaw);
+    };
+
+    const now = new Date();
+    const nextPilgrimageWithVacancies = pilgrimages.find((pilgrimage) => {
+        const remaining = getRemainingSpots(pilgrimage);
+        const startsAt = new Date(pilgrimage.start_date);
+        const isFuture = !Number.isNaN(startsAt.getTime()) && startsAt >= now;
+        const isAvailableStatus = pilgrimage.status !== 'closed' && pilgrimage.status !== 'waitlist';
+        return isFuture && isAvailableStatus && remaining > 0;
+    })
+        || pilgrimages.find((pilgrimage) => getRemainingSpots(pilgrimage) > 0)
+        || pilgrimages[0];
+
     return (
         <VIPLayout allowPublic={true}>
             <div className="bg-[#f8fafc] min-h-screen rounded-[2.5rem] p-6 md:p-10 shadow-sm overflow-hidden relative">
 
-                <PilgrimageHero featuredPilgrimage={pilgrimages.length > 0 ? pilgrimages[0] : undefined} />
+                <PilgrimageHero featuredPilgrimage={nextPilgrimageWithVacancies} />
 
                 <div className="relative z-10 max-w-6xl mx-auto">
                     {/* Trust Indicators / Value Prop */}
@@ -120,6 +144,15 @@ export default function PilgrimagesPage() {
                                 <p className="text-sm text-slate-500 leading-relaxed">Programa diário com missa, terço e conferências.</p>
                             </div>
                         </div>
+                    </div>
+
+
+                    {/* Testimonials Section - Strategic Position: Social Proof before Product */}
+                    <PilgrimageTestimonials />
+
+                    {/* Gallery Section */}
+                    <div className="mb-16 -mx-6 md:mx-0">
+                        <PastPilgrimagesGallery />
                     </div>
 
                     {/* Listings Header */}

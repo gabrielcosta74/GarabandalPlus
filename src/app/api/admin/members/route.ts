@@ -3,22 +3,12 @@ import { supabaseServer } from '../../../../lib/supabase';
 import { sendWelcomeEmail } from '../../../../lib/email';
 import { calculateNextQuotaDate } from '../../../../lib/membership-logic';
 import { isPaidStatus, normalizeQuotaStatus } from '../../../../lib/membership-status';
+import { verifyAdmin } from '../../../../lib/admin-auth';
 
-// ... (keep isAdmin helper)
-// Helper to validate Admin Session
-const isAdmin = async (req: Request) => {
-    if (!supabaseServer) return false;
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) return false;
-    const token = authHeader.replace('Bearer ', '');
-    const { data: { user }, error } = await supabaseServer.auth.getUser(token);
-    return !error && !!user;
-};
-
-// ... (keep GET)
 export async function GET(req: Request) {
-    if (!await isAdmin(req)) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const { authorized, error: authError } = await verifyAdmin(req);
+    if (!authorized) {
+        return NextResponse.json({ error: authError || 'Unauthorized' }, { status: 401 });
     }
 
     if (!supabaseServer) {
@@ -73,8 +63,9 @@ export async function GET(req: Request) {
 
 // POST: Create New Member
 export async function POST(req: Request) {
-    if (!await isAdmin(req)) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const { authorized, error: authError } = await verifyAdmin(req);
+    if (!authorized) {
+        return NextResponse.json({ error: authError || 'Unauthorized' }, { status: 401 });
     }
 
     if (!supabaseServer) {
@@ -83,33 +74,56 @@ export async function POST(req: Request) {
 
     try {
         const body = await req.json();
+        const makeInternalEmail = () =>
+            `membro.${Date.now()}.${Math.random().toString(36).slice(2, 8)}@sem-email.local`;
 
         // Action: Create Member
         if (body.action === 'create_member') {
-            const { email, nome, telefone, nif, address, postal_code, country } = body;
+            const createAccount = body.create_account !== false;
+            const nome = String(body.nome || '').trim();
+            const telefone = String(body.telefone || '').trim();
+            const nif = body.nif ? String(body.nif).trim() : null;
+            const address = body.address ? String(body.address).trim() : null;
+            const postal_code = body.postal_code ? String(body.postal_code).trim() : null;
+            const country = String(body.country || '').trim();
+            const providedEmail = body.email ? String(body.email).trim().toLowerCase() : '';
 
-            if (!email) return NextResponse.json({ error: 'Email obrigatorio' }, { status: 400 });
-
-            // Generate Secure Temporary Password
-            const tempPassword = `Membro.${Math.random().toString(36).slice(-6)}!`;
-
-            // 1. Create Auth User
-            const { data: authData, error: authError } = await supabaseServer.auth.admin.createUser({
-                email: email,
-                password: tempPassword,
-                email_confirm: true, // Auto-confirm
-                user_metadata: { nome }
-            });
-
-            if (authError) {
-                if (authError.message.includes('already registered') || authError.status === 422) {
-                    return NextResponse.json({ error: 'Este email já está registado.' }, { status: 409 });
-                }
-                throw authError;
+            if (!nome) return NextResponse.json({ error: 'Nome é obrigatório.' }, { status: 400 });
+            if (!telefone) return NextResponse.json({ error: 'Telefone é obrigatório.' }, { status: 400 });
+            if (!country) return NextResponse.json({ error: 'País é obrigatório.' }, { status: 400 });
+            if (createAccount && !providedEmail) {
+                return NextResponse.json({ error: 'Email é obrigatório para criar conta.' }, { status: 400 });
             }
-            if (!authData.user) throw new Error('Falha ao criar utilizador');
 
-            const userId = authData.user.id;
+            // For members without account/email, store a technical internal email to keep DB compatibility.
+            const email = providedEmail || makeInternalEmail();
+            const isInternalEmail = email.endsWith('@sem-email.local');
+
+            let userId = typeof crypto !== 'undefined' && crypto.randomUUID
+                ? crypto.randomUUID()
+                : `member-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+            let tempPassword: string | undefined;
+            let hasAccount = false;
+
+            if (createAccount) {
+                tempPassword = `Membro.${Math.random().toString(36).slice(-6)}!`;
+                const { data: authData, error: authError } = await supabaseServer.auth.admin.createUser({
+                    email,
+                    password: tempPassword,
+                    email_confirm: true, // Auto-confirm
+                    user_metadata: { nome }
+                });
+
+                if (authError) {
+                    if (authError.message.includes('already registered') || authError.status === 422) {
+                        return NextResponse.json({ error: 'Este email já está registado.' }, { status: 409 });
+                    }
+                    throw authError;
+                }
+                if (!authData.user) throw new Error('Falha ao criar utilizador');
+                userId = authData.user.id;
+                hasAccount = true;
+            }
 
             // 2. Update Profile in 'membros'
             const { initial_payment, payment_method } = body;
@@ -130,83 +144,99 @@ export async function POST(req: Request) {
                 .from('membros')
                 .upsert({
                     id: userId,
-                    email: email,
-                    nome: nome,
-                    telefone: telefone,
-                    nif: nif,
-                    address: address,
-                    postal_code: postal_code,
-                    country: country,
+                    email,
+                    nome,
+                    telefone,
+                    nif,
+                    address,
+                    postal_code,
+                    country,
                     data_adesao: joinDate,
                     is_membro: true,
                     estado_quota: quotaStatus,
                     proxima_quota: nextQuotaDate
                 });
 
-            if (profileError) {
-                console.error('Profile Update Error:', profileError);
-            }
+            if (profileError) throw profileError;
 
             // 3. Log Initial Payment if selected
+            let paymentWarning: string | null = null;
             if (initial_payment) {
-                await supabaseServer.from('pagamentos_quotas').insert({
+                const { error: paymentError } = await supabaseServer.from('pagamentos_quotas').insert({
                     user_id: userId,
                     valor: 25.00,
                     metodo_pagamento: payment_method || 'manual',
                     estado: 'pago',
                     data_pagamento: new Date().toISOString().slice(0, 10),
                 });
+                if (paymentError) {
+                    console.error('Initial payment insert failed:', paymentError);
+                    paymentWarning = 'Membro criado, mas o registo da quota inicial falhou.';
+                    await supabaseServer
+                        .from('membros')
+                        .update({ estado_quota: 'pendente', proxima_quota: null })
+                        .eq('id', userId);
+                }
             }
 
             // 4. Send Email (Awaited to ensure delivery, as users reported issues)
-            try {
+            if (hasAccount && !isInternalEmail) {
+                try {
                 // Always send the welcome email so they know about their account
-                await sendWelcomeEmail({ name: nome, email: email });
+                    await sendWelcomeEmail({ name: nome, email });
 
-                if (initial_payment) {
-                    // Fetch assigned member number
-                    const { data: memberData } = await supabaseServer
-                        .from('membros')
-                        .select('numero_socio')
-                        .eq('id', userId)
-                        .single();
+                    if (initial_payment) {
+                        // Fetch assigned member number
+                        const { data: memberData } = await supabaseServer
+                            .from('membros')
+                            .select('numero_socio')
+                            .eq('id', userId)
+                            .single();
 
-                    if (memberData?.numero_socio) {
-                        // Generate Diploma
-                        const { generateMemberDiplomaPdf } = await import('../../../../lib/member-diploma');
-                        const { sendMemberReceiptEmail } = await import('../../../../lib/email');
+                        if (memberData?.numero_socio) {
+                            // Generate Diploma
+                            const { generateMemberDiplomaPdf } = await import('../../../../lib/member-diploma');
+                            const { sendMemberReceiptEmail } = await import('../../../../lib/email');
 
-                        const pdfBytes = await generateMemberDiplomaPdf({
-                            memberName: nome,
-                            memberNumber: memberData.numero_socio,
-                            issuedAt: new Date().toISOString()
-                        });
+                            const pdfBytes = await generateMemberDiplomaPdf({
+                                memberName: nome,
+                                memberNumber: memberData.numero_socio,
+                                issuedAt: new Date().toISOString()
+                            });
 
-                        await sendMemberReceiptEmail({
-                            toEmail: email,
-                            memberName: nome,
-                            memberNumber: memberData.numero_socio,
-                            amount: 25.00,
-                            currency: 'EUR',
-                            paymentMethod: payment_method || 'manual',
-                            paymentReference: 'Manual/Admin',
-                            paidAt: new Date().toISOString(),
-                            kind: 'new',
-                            hasDiploma: true,
-                            attachments: [{
-                                filename: `diploma-socio-${memberData.numero_socio}.pdf`,
-                                content: Buffer.from(pdfBytes),
-                                contentType: 'application/pdf'
-                            }]
-                        });
+                            await sendMemberReceiptEmail({
+                                toEmail: email,
+                                memberName: nome,
+                                memberNumber: memberData.numero_socio,
+                                amount: 25.00,
+                                currency: 'EUR',
+                                paymentMethod: payment_method || 'manual',
+                                paymentReference: 'Manual/Admin',
+                                paidAt: new Date().toISOString(),
+                                kind: 'new',
+                                hasDiploma: true,
+                                attachments: [{
+                                    filename: `diploma-socio-${memberData.numero_socio}.pdf`,
+                                    content: Buffer.from(pdfBytes),
+                                    contentType: 'application/pdf'
+                                }]
+                            });
+                        }
                     }
+                } catch (err) {
+                    console.error('Failed to send email:', err);
+                    // Do not fail the request, just log
                 }
-            } catch (err) {
-                console.error('Failed to send email:', err);
-                // Do not fail the request, just log
             }
 
-            return NextResponse.json({ success: true, userId, temporaryPassword: tempPassword });
+            return NextResponse.json({
+                success: true,
+                userId,
+                temporaryPassword: tempPassword,
+                hasAccount,
+                memberEmail: isInternalEmail ? null : email,
+                warning: paymentWarning
+            });
         }
 
         return NextResponse.json({ error: 'Invalid Action' }, { status: 400 });

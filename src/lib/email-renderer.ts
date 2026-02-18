@@ -350,6 +350,10 @@ export const renderBookingConfirmationEmail = (payload: {
     paymentMethod: string;
     magicLink: string;
 }) => {
+    const registrationFee = Number(payload.amount) || 0;
+    const totalAmount = Number(payload.totalAmount) || 0;
+    const remainingAmount = Math.max(0, totalAmount - registrationFee);
+
     return {
         subject: `Inscrição recebida: ${payload.pilgrimageName}`,
         html: Layout({
@@ -362,14 +366,23 @@ export const renderBookingConfirmationEmail = (payload: {
                 ${Section({
                 children: `
                         ${Text('A sua inscrição foi registada com sucesso.')}
+                        ${Text('Para facilitar, deixamos o resumo de valores de forma direta:')}
                         ${Card({
                     children: `
                                 ${InfoRow({ label: 'Peregrinação', value: payload.pilgrimageName })}
-                                ${InfoRow({ label: 'Sinal', value: formatCurrency(payload.amount) })}
-                                ${InfoRow({ label: 'Valor Total', value: formatCurrency(payload.totalAmount), isLast: true })}
+                                ${InfoRow({ label: 'Taxa de Inscrição', value: formatCurrency(registrationFee) })}
+                                ${InfoRow({ label: 'Valor Restante', value: formatCurrency(remainingAmount) })}
+                                ${InfoRow({ label: 'Total (Taxa de Inscrição + Valor Restante)', value: formatCurrency(totalAmount), isLast: true })}
                             `
                 })}
-                        ${Text('Para acompanhar a sua inscrição e concluir os próximos passos, use o botão abaixo:')}
+                        ${Card({
+                    children: `
+                                <p style="margin:0;color:${COLORS.error};font-weight:700;">
+                                    Atenção: se a Taxa de Inscrição não for paga, o lugar não fica confirmado e pode perder a vaga.
+                                </p>
+                            `
+                })}
+                        ${Text('Para acompanhar a sua inscrição e concluir os próximos passos de pagamento, use o botão abaixo:')}
                         ${Button({ label: 'Gerir Inscrição', url: payload.magicLink })}
                     `
             })}

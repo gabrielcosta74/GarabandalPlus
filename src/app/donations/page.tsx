@@ -18,26 +18,26 @@ export default function DonationsPage() {
         mainEntity: [
             {
                 '@type': 'Question',
-                name: 'Como posso fazer uma doação?',
+                name: 'Quais métodos de pagamento estão disponíveis?',
                 acceptedAnswer: {
                     '@type': 'Answer',
-                    text: 'Você pode doar online pelo formulário nesta página. As doações ajudam a missão do Apostolado e obras de evangelização.'
+                    text: 'Pode doar com Cartão de Crédito, MB WAY, PIX, Multibanco ou por Transferência Bancária. Os métodos disponíveis aparecem no modal de doação.'
                 }
             },
             {
                 '@type': 'Question',
-                name: 'Receberei recibo da doação?',
+                name: 'Como funciona a transferência bancária?',
                 acceptedAnswer: {
                     '@type': 'Answer',
-                    text: 'Sim. Os recibos são emitidos manualmente pela administração após a confirmação do pagamento.'
+                    text: 'Ao escolher Transferência Bancária, mostramos os dados bancários e pedimos o envio do comprovativo no próprio formulário. A doação fica registada após esse envio.'
                 }
             },
             {
                 '@type': 'Question',
-                name: 'Para que a doação é utilizada?',
+                name: 'Posso pedir recibo da doação?',
                 acceptedAnswer: {
                     '@type': 'Answer',
-                    text: 'As doações apoiam peregrinações, ações de evangelização e projetos do Apostolado de Garabandal.'
+                    text: 'Sim. No formulário, ative a opção de recibo e preencha os dados necessários. A emissão e validação são feitas pela equipa administrativa após confirmação do pagamento.'
                 }
             }
         ]

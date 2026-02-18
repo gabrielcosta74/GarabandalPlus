@@ -23,7 +23,8 @@ import {
     Edit2,
     X,
     ChevronRight,
-    Loader2
+    Loader2,
+    Image as ImageIcon
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -48,7 +49,7 @@ type Testimonial = {
 };
 
 export default function GlobalContentPage() {
-    const [activeSection, setActiveSection] = useState<'logistics' | 'testimonials'>('logistics');
+    const [activeSection, setActiveSection] = useState<'logistics' | 'testimonials' | 'gallery' | 'banking'>('gallery');
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
 
@@ -68,6 +69,16 @@ export default function GlobalContentPage() {
     // Testimonials State
     const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
     const [editingTestimonial, setEditingTestimonial] = useState<Testimonial | null>(null);
+
+    // Gallery State
+    type GalleryImage = {
+        id: string;
+        image_url: string;
+        display_order: number;
+        is_active: boolean;
+        created_at: string;
+    };
+    const [galleryImages, setGalleryImages] = useState<GalleryImage[]>([]);
 
     useEffect(() => {
         fetchContent();
@@ -98,6 +109,15 @@ export default function GlobalContentPage() {
             .order('display_order');
 
         if (tData) setTestimonials(tData);
+
+        // 3. Fetch Gallery
+        const { data: gData } = await supabaseBrowser
+            .from('gallery_images')
+            .select('*')
+            .order('display_order', { ascending: true })
+            .order('created_at', { ascending: false });
+
+        if (gData) setGalleryImages(gData);
 
         setLoading(false);
     };
@@ -192,42 +212,145 @@ export default function GlobalContentPage() {
         });
     };
 
+    // Gallery Handlers
+    const handleGalleryImageAdded = async (url: string) => {
+        if (!url || !supabaseBrowser) return;
+
+        const { data, error } = await supabaseBrowser
+            .from('gallery_images')
+            .insert({
+                image_url: url,
+                display_order: galleryImages.length + 1,
+                is_active: true
+            })
+            .select()
+            .single();
+
+        if (error) {
+            toast.error('Erro ao adicionar imagem: ' + error.message);
+        } else if (data) {
+            setGalleryImages([data, ...galleryImages]); // Add to top
+            toast.success('Imagem adicionada à galeria');
+        }
+    };
+
+    const handleDeleteGalleryImage = async (id: string) => {
+        if (!supabaseBrowser) return;
+        if (!confirm('Tem a certeza que quer remover esta imagem?')) return;
+
+        const { error } = await supabaseBrowser
+            .from('gallery_images')
+            .delete()
+            .eq('id', id);
+
+        if (error) {
+            toast.error('Erro ao remover imagem');
+        } else {
+            setGalleryImages(prev => prev.filter(img => img.id !== id));
+            toast.success('Imagem removida');
+        }
+    };
+
+    const toggleGalleryImageActive = async (image: GalleryImage) => {
+        if (!supabaseBrowser) return;
+        const newVal = !image.is_active;
+
+        // Optimistic
+        setGalleryImages(prev => prev.map(img => img.id === image.id ? { ...img, is_active: newVal } : img));
+
+        const { error } = await supabaseBrowser
+            .from('gallery_images')
+            .update({ is_active: newVal })
+            .eq('id', image.id);
+
+        if (error) {
+            toast.error('Erro ao atualizar estado');
+            setGalleryImages(prev => prev.map(img => img.id === image.id ? { ...img, is_active: !newVal } : img));
+        }
+    };
+
     return (
         <AdminLayout title="Conteúdo Global" isLoading={loading}>
             <Toaster position="top-right" richColors />
             <div className="flex flex-col lg:flex-row gap-8 pb-20">
                 {/* Sidebar Navigation */}
-                <div className="w-full lg:w-64 flex-shrink-0 space-y-2">
-                    <button
-                        onClick={() => setActiveSection('logistics')}
-                        className={`w-full flex items-center justify-between p-4 rounded-xl text-left font-medium transition-all ${activeSection === 'logistics'
-                                ? 'bg-slate-900 text-white shadow-lg'
-                                : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'
-                            }`}
-                    >
-                        <span className="flex items-center gap-3">
-                            <Bus className="w-5 h-5" />
-                            Logística & Inclusões
-                        </span>
-                        {activeSection === 'logistics' && <ChevronRight className="w-4 h-4" />}
-                    </button>
+                <div className="w-full lg:w-64 flex-shrink-0 space-y-6">
 
-                    <button
-                        onClick={() => setActiveSection('testimonials')}
-                        className={`w-full flex items-center justify-between p-4 rounded-xl text-left font-medium transition-all ${activeSection === 'testimonials'
+                    {/* GROUP: PILGRIMAGES */}
+                    <div className="space-y-2">
+                        <div className="px-4 text-xs font-bold text-slate-400 uppercase tracking-wider">
+                            Página Peregrinações
+                        </div>
+
+                        <button
+                            onClick={() => setActiveSection('gallery')}
+                            className={`w-full flex items-center justify-between p-3 rounded-xl text-left font-medium transition-all ${activeSection === 'gallery'
                                 ? 'bg-slate-900 text-white shadow-lg'
-                                : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'
-                            }`}
-                    >
-                        <span className="flex items-center gap-3">
-                            <MessageSquare className="w-5 h-5" />
-                            Testemunhos
-                            <span className="bg-slate-200/20 px-2 py-0.5 rounded text-xs ml-auto">
-                                {testimonials.length}
+                                : 'text-slate-600 hover:bg-slate-50'
+                                }`}
+                        >
+                            <span className="flex items-center gap-3">
+                                <ImageIcon className="w-4 h-4" />
+                                Galeria de Fotos
+                                <span className={`px-2 py-0.5 rounded text-[10px] ml-auto ${activeSection === 'gallery' ? 'bg-white/20' : 'bg-slate-100'}`}>
+                                    {galleryImages.length}
+                                </span>
                             </span>
-                        </span>
-                        {activeSection === 'testimonials' && <ChevronRight className="w-4 h-4" />}
-                    </button>
+                            {activeSection === 'gallery' && <ChevronRight className="w-4 h-4" />}
+                        </button>
+
+                        <button
+                            onClick={() => setActiveSection('testimonials')}
+                            className={`w-full flex items-center justify-between p-3 rounded-xl text-left font-medium transition-all ${activeSection === 'testimonials'
+                                ? 'bg-slate-900 text-white shadow-lg'
+                                : 'text-slate-600 hover:bg-slate-50'
+                                }`}
+                        >
+                            <span className="flex items-center gap-3">
+                                <MessageSquare className="w-4 h-4" />
+                                Testemunhos
+                                <span className={`px-2 py-0.5 rounded text-[10px] ml-auto ${activeSection === 'testimonials' ? 'bg-white/20' : 'bg-slate-100'}`}>
+                                    {testimonials.length}
+                                </span>
+                            </span>
+                            {activeSection === 'testimonials' && <ChevronRight className="w-4 h-4" />}
+                        </button>
+
+                        <button
+                            onClick={() => setActiveSection('logistics')}
+                            className={`w-full flex items-center justify-between p-3 rounded-xl text-left font-medium transition-all ${activeSection === 'logistics'
+                                ? 'bg-slate-900 text-white shadow-lg'
+                                : 'text-slate-600 hover:bg-slate-50'
+                                }`}
+                        >
+                            <span className="flex items-center gap-3">
+                                <Bus className="w-4 h-4" />
+                                Logística Padrão
+                            </span>
+                            {activeSection === 'logistics' && <ChevronRight className="w-4 h-4" />}
+                        </button>
+                    </div>
+
+                    {/* GROUP: GENERAL */}
+                    <div className="space-y-2">
+                        <div className="px-4 text-xs font-bold text-slate-400 uppercase tracking-wider">
+                            Geral
+                        </div>
+                        <button
+                            onClick={() => setActiveSection('banking')}
+                            className={`w-full flex items-center justify-between p-3 rounded-xl text-left font-medium transition-all ${activeSection === 'banking'
+                                ? 'bg-slate-900 text-white shadow-lg'
+                                : 'text-slate-600 hover:bg-slate-50'
+                                }`}
+                        >
+                            <span className="flex items-center gap-3">
+                                <Landmark className="w-4 h-4" />
+                                Dados Bancários
+                            </span>
+                            {activeSection === 'banking' && <ChevronRight className="w-4 h-4" />}
+                        </button>
+                    </div>
+
                 </div>
 
                 {/* Main Content Area */}
@@ -412,15 +535,159 @@ export default function GlobalContentPage() {
                                 </div>
                             </div>
 
-                            {/* Bank Transfer Data Card */}
+
+                        </div>
+                    )}
+
+                    {/* TESTIMONIALS SECTION */}
+                    {activeSection === 'testimonials' && (
+                        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                            <div className="flex justify-between items-center mb-4">
+                                <div>
+                                    <h2 className="text-2xl font-bold font-serif text-slate-900">Testemunhos</h2>
+                                    <p className="text-slate-500">Gerencie o feedback dos peregrinos.</p>
+                                </div>
+                                <button
+                                    onClick={startNewTestimonial}
+                                    className="bg-slate-900 hover:bg-slate-800 text-white px-5 py-2.5 rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-slate-900/20 transition-all"
+                                >
+                                    <Plus className="w-4 h-4" />
+                                    Novo Testemunho
+                                </button>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
+                                {testimonials.map((t) => (
+                                    <div
+                                        key={t.id}
+                                        className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 relative group hover:shadow-md transition-all cursor-pointer"
+                                        onClick={() => setEditingTestimonial(t)}
+                                    >
+                                        <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); setEditingTestimonial(t); }}
+                                                className="p-2 text-slate-400 hover:text-blue-600 bg-slate-50 hover:bg-blue-50 rounded-lg"
+                                            >
+                                                <Edit2 className="w-4 h-4" />
+                                            </button>
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); if (t.id) handleDeleteTestimonial(t.id); }}
+                                                className="p-2 text-slate-400 hover:text-red-600 bg-slate-50 hover:bg-red-50 rounded-lg"
+                                            >
+                                                <Trash2 className="w-4 h-4" />
+                                            </button>
+                                        </div>
+
+                                        <div className="flex items-start gap-4">
+                                            <div className="w-16 h-16 bg-slate-100 rounded-full overflow-hidden flex-shrink-0 border border-slate-200">
+                                                {t.image_url ? (
+                                                    <img src={t.image_url} alt="" className="w-full h-full object-cover" />
+                                                ) : (
+                                                    <div className="w-full h-full flex items-center justify-center text-slate-300">
+                                                        <MessageSquare className="w-6 h-6" />
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <div>
+                                                <h3 className="font-bold text-slate-900 mb-0.5">{t.author_name}</h3>
+                                                <p className="text-xs text-slate-500 font-bold uppercase tracking-wider mb-3">{t.role}</p>
+                                                <p className="text-sm text-slate-600 line-clamp-3 italic">"{t.text}"</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+
+                    {/* GALLERY SECTION */}
+                    {activeSection === 'gallery' && (
+                        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                            <div className="mb-6">
+                                <h2 className="text-2xl font-bold font-serif text-slate-900">Galeria de Fotos</h2>
+                                <p className="text-slate-500">Imagens exibidas na secção "Momentos Eternos" da página de peregrinações.</p>
+                            </div>
+
+                            <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200">
+                                <div className="mb-8 p-6 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                                    <h4 className="text-sm font-bold text-slate-700 mb-4 flex items-center gap-2">
+                                        <Plus className="w-4 h-4" /> Adicionar Novas Fotos
+                                    </h4>
+                                    <div className="max-w-md">
+                                        <ImageUpload
+                                            bucket="site-content"
+                                            path="gallery/general"
+                                            onChange={handleGalleryImageAdded}
+                                            label="Carregar Foto"
+                                            className="w-full"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                                    {galleryImages.map((img) => (
+                                        <div key={img.id} className={`group relative aspect-square bg-slate-100 rounded-xl overflow-hidden border transition-all hover:shadow-md ${img.is_active ? 'border-slate-200' : 'border-red-200 opacity-60'}`}>
+                                            <img
+                                                src={img.image_url}
+                                                alt="Gallery"
+                                                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                                            />
+
+                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-between p-3">
+                                                <div className="flex justify-end">
+                                                    <button
+                                                        onClick={() => handleDeleteGalleryImage(img.id)}
+                                                        className="p-2 bg-red-500/80 hover:bg-red-500 text-white rounded-lg transition-colors"
+                                                        title="Remover"
+                                                    >
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </button>
+                                                </div>
+                                                <div className="flex justify-start">
+                                                    <button
+                                                        onClick={() => toggleGalleryImageActive(img)}
+                                                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${img.is_active ? 'bg-green-500 text-white' : 'bg-red-500 text-white'}`}
+                                                    >
+                                                        {img.is_active ? 'Visível' : 'Oculta'}
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                    {galleryImages.length === 0 && (
+                                        <div className="col-span-full py-12 text-center text-slate-400">
+                                            Sem imagens na galeria.
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                    {/* BANKING SECTION */}
+                    {activeSection === 'banking' && (
+                        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                            <div className="flex justify-between items-center mb-4">
+                                <div>
+                                    <h2 className="text-2xl font-bold font-serif text-slate-900">Dados Bancários</h2>
+                                    <p className="text-slate-500">Informação apresentada nas inscrições e doações.</p>
+                                </div>
+                                <button
+                                    onClick={saveLogistics} // Reusing saveLogistics since it saves both
+                                    disabled={saving}
+                                    className="bg-green-600 hover:bg-green-700 text-white px-6 py-2.5 rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-green-900/10 disabled:opacity-50 transition-all"
+                                >
+                                    {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                                    Guardar Alterações
+                                </button>
+                            </div>
+
                             <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200">
                                 <h3 className="text-lg font-bold text-slate-900 mb-6 flex items-center gap-2">
                                     <Landmark className="w-5 h-5 text-indigo-500" />
-                                    Dados Bancários (Transferência)
+                                    Transferência Bancária
                                 </h3>
-                                <p className="text-sm text-slate-500 mb-6">
-                                    Estes dados são usados automaticamente nas páginas de doação e inscrição quando o utilizador escolhe transferência bancária.
-                                </p>
+
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div className="md:col-span-2">
                                         <label className="block text-sm font-bold text-slate-700 mb-2">IBAN</label>
@@ -495,7 +762,7 @@ export default function GlobalContentPage() {
                                         />
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-bold text-slate-700 mb-2">Código Postal</label>
+                                        <label className="block text-sm font-bold text-slate-700 mb-2">Código Postal / CEP</label>
                                         <input
                                             type="text"
                                             className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 outline-none"
@@ -525,67 +792,6 @@ export default function GlobalContentPage() {
                                         />
                                     </div>
                                 </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* TESTIMONIALS SECTION */}
-                    {activeSection === 'testimonials' && (
-                        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                            <div className="flex justify-between items-center mb-4">
-                                <div>
-                                    <h2 className="text-2xl font-bold font-serif text-slate-900">Testemunhos</h2>
-                                    <p className="text-slate-500">Gerencie o feedback dos peregrinos.</p>
-                                </div>
-                                <button
-                                    onClick={startNewTestimonial}
-                                    className="bg-slate-900 hover:bg-slate-800 text-white px-5 py-2.5 rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-slate-900/20 transition-all"
-                                >
-                                    <Plus className="w-4 h-4" />
-                                    Novo Testemunho
-                                </button>
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
-                                {testimonials.map((t) => (
-                                    <div
-                                        key={t.id}
-                                        className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 relative group hover:shadow-md transition-all cursor-pointer"
-                                        onClick={() => setEditingTestimonial(t)}
-                                    >
-                                        <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <button
-                                                onClick={(e) => { e.stopPropagation(); setEditingTestimonial(t); }}
-                                                className="p-2 text-slate-400 hover:text-blue-600 bg-slate-50 hover:bg-blue-50 rounded-lg"
-                                            >
-                                                <Edit2 className="w-4 h-4" />
-                                            </button>
-                                            <button
-                                                onClick={(e) => { e.stopPropagation(); if (t.id) handleDeleteTestimonial(t.id); }}
-                                                className="p-2 text-slate-400 hover:text-red-600 bg-slate-50 hover:bg-red-50 rounded-lg"
-                                            >
-                                                <Trash2 className="w-4 h-4" />
-                                            </button>
-                                        </div>
-
-                                        <div className="flex items-start gap-4">
-                                            <div className="w-16 h-16 bg-slate-100 rounded-full overflow-hidden flex-shrink-0 border border-slate-200">
-                                                {t.image_url ? (
-                                                    <img src={t.image_url} alt="" className="w-full h-full object-cover" />
-                                                ) : (
-                                                    <div className="w-full h-full flex items-center justify-center text-slate-300">
-                                                        <MessageSquare className="w-6 h-6" />
-                                                    </div>
-                                                )}
-                                            </div>
-                                            <div>
-                                                <h3 className="font-bold text-slate-900 mb-0.5">{t.author_name}</h3>
-                                                <p className="text-xs text-slate-500 font-bold uppercase tracking-wider mb-3">{t.role}</p>
-                                                <p className="text-sm text-slate-600 line-clamp-3 italic">"{t.text}"</p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))}
                             </div>
                         </div>
                     )}
@@ -685,6 +891,6 @@ export default function GlobalContentPage() {
                     </>
                 )}
             </AnimatePresence>
-        </AdminLayout>
+        </AdminLayout >
     );
 }

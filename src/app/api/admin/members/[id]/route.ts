@@ -2,9 +2,32 @@ import { NextResponse } from 'next/server';
 import { supabaseServer } from '../../../../../lib/supabase';
 import { calculateNextQuotaDate } from '../../../../../lib/membership-logic';
 import { normalizeQuotaStatus } from '../../../../../lib/membership-status';
+import { sendMemberDiplomaEmail, sendMemberReceiptEmail } from '../../../../../lib/email';
+import { generateMemberDiplomaPdf } from '../../../../../lib/member-diploma';
 
 import { verifyAdmin } from '../../../../../lib/admin-auth';
 import { logAdminAction } from '../../../../../lib/admin-logger';
+
+const INTERNAL_EMAIL_SUFFIX = '@sem-email.local';
+
+const normalizePaymentType = (value?: unknown) => {
+    const raw = String(value || '').trim().toLowerCase();
+    if (raw === 'donation' || raw === 'doacao' || raw === 'doação') return 'donation';
+    return 'quota';
+};
+
+const inferPaymentTypeFromNotes = (notes?: string | null) => {
+    const text = (notes || '').toUpperCase();
+    if (text.includes('[TYPE:DONATION]') || text.includes('[DOAÇÃO]') || text.includes('[DOACAO]')) {
+        return 'donation';
+    }
+    if (text.includes('[TYPE:QUOTA]')) return 'quota';
+    return 'quota';
+};
+
+const isMissingNotesColumnError = (error: any) =>
+    String(error?.message || '').toLowerCase().includes('pagamentos_quotas.notes') &&
+    String(error?.message || '').toLowerCase().includes('does not exist');
 
 // GET: Fetch Member Details + Payments
 export async function GET(req: Request, { params }: { params: { id: string } }) {
@@ -29,12 +52,20 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
         }
 
         let payments: any[] = [];
-        const { data: pData } = await supabaseServer
+        const { data: pData, error: paymentsError } = await supabaseServer
             .from('pagamentos_quotas')
             .select('*')
             .eq('user_id', id)
             .order('data_pagamento', { ascending: false });
-        payments = pData || [];
+        if (paymentsError) throw paymentsError;
+        payments = (pData || []).map((payment: any) => {
+            const notes = String(payment?.notes || '').toUpperCase();
+            const payment_type =
+                notes.includes('[TYPE:DONATION]') || notes.includes('[DOAÇÃO]') || notes.includes('[DOACAO]')
+                    ? 'donation'
+                    : 'quota';
+            return { ...payment, payment_type };
+        });
 
         return NextResponse.json({ member, payments });
 
@@ -141,22 +172,59 @@ export async function POST(req: Request, { params }: { params: { id: string } })
             return NextResponse.json({ success: true, member });
         }
 
-        if (action === 'register_payment') {
-            const { amount, date, method, notes, update_quota } = data;
+        if (action === 'register_payment' || action === 'mark_paid') {
+            const amount = Number(data.amount ?? (action === 'mark_paid' ? 25 : 0));
+            if (!Number.isFinite(amount) || amount <= 0) {
+                return NextResponse.json({ error: 'Valor de pagamento inválido.' }, { status: 400 });
+            }
+
+            const { date, method, notes, update_quota } = data;
+            const paymentType = normalizePaymentType(data.payment_type);
             const paymentDate = date ? new Date(date) : new Date();
             const validPaymentDate = Number.isNaN(paymentDate.getTime()) ? new Date() : paymentDate;
+            const notesPrefix = paymentType === 'donation' ? '[TYPE:DONATION]' : '[TYPE:QUOTA]';
+            const finalNotes = `${notesPrefix}${notes ? ` ${String(notes).trim()}` : ''}`.trim();
 
-            await supabaseServer.from('pagamentos_quotas').insert({
+            const paymentDateIso = validPaymentDate.toISOString().slice(0, 10);
+            const paymentReference = action === 'mark_paid'
+                ? `manual-${Date.now()}`
+                : data.external_reference || null;
+
+            const insertPayload: any = {
                 user_id: id,
                 valor: amount,
                 metodo_pagamento: method || 'manual',
                 estado: 'pago',
-                data_pagamento: validPaymentDate.toISOString().slice(0, 10),
-            });
+                data_pagamento: paymentDateIso,
+                external_reference: paymentReference,
+                notes: finalNotes,
+            };
 
-            if (update_quota) {
+            let insertedPayment: any = null;
+            let insertError: any = null;
+            ({ data: insertedPayment, error: insertError } = await supabaseServer
+                .from('pagamentos_quotas')
+                .insert(insertPayload)
+                .select('id, valor, metodo_pagamento, data_pagamento, external_reference')
+                .single());
+
+            if (insertError && isMissingNotesColumnError(insertError)) {
+                delete insertPayload.notes;
+                ({ data: insertedPayment, error: insertError } = await supabaseServer
+                    .from('pagamentos_quotas')
+                    .insert(insertPayload)
+                    .select('id, valor, metodo_pagamento, data_pagamento, external_reference')
+                    .single());
+            }
+
+            if (insertError) throw insertError;
+
+            const shouldUpdateQuota = action === 'mark_paid'
+                ? true
+                : paymentType === 'quota' && !!update_quota;
+            if (shouldUpdateQuota) {
                 const nextQuotaDate = calculateNextQuotaDate(validPaymentDate);
-                await supabaseServer
+                const { error: updateMemberError } = await supabaseServer
                     .from('membros')
                     .update({
                         estado_quota: 'pago',
@@ -164,11 +232,160 @@ export async function POST(req: Request, { params }: { params: { id: string } })
                         is_membro: true,
                     })
                     .eq('id', id);
+                if (updateMemberError) throw updateMemberError;
             }
 
-            await logAdminAction(user.email, 'REGISTER_PAYMENT', { amount, method, notes, update_quota }, id);
+            await logAdminAction(
+                user.email,
+                action === 'mark_paid' ? 'MARK_QUOTA_PAID' : 'REGISTER_PAYMENT',
+                { amount, method, notes: finalNotes, paymentType, update_quota: shouldUpdateQuota },
+                id
+            );
 
-            return NextResponse.json({ success: true, message: 'Payment registered' });
+            if (action === 'mark_paid' && paymentType === 'quota') {
+                try {
+                    const { data: memberForEmail } = await supabaseServer
+                        .from('membros')
+                        .select('email, nome, numero_socio, proxima_quota')
+                        .eq('id', id)
+                        .single();
+
+                    if (memberForEmail?.email && !memberForEmail.email.endsWith(INTERNAL_EMAIL_SUFFIX)) {
+                        await sendMemberReceiptEmail({
+                            toEmail: memberForEmail.email,
+                            memberName: memberForEmail.nome,
+                            memberNumber: memberForEmail.numero_socio,
+                            amount: Number(insertedPayment?.valor || amount),
+                            currency: 'EUR',
+                            paymentMethod: insertedPayment?.metodo_pagamento || method || 'manual',
+                            paymentReference: insertedPayment?.external_reference || insertedPayment?.id || paymentReference,
+                            nextQuotaDate: memberForEmail.proxima_quota,
+                            paidAt: insertedPayment?.data_pagamento || paymentDateIso,
+                            kind: 'renewal',
+                            hasDiploma: false,
+                        });
+                    }
+                } catch (emailError) {
+                    console.error('Falha no envio automático do recibo após mark_paid:', emailError);
+                }
+            }
+
+            return NextResponse.json({ success: true, message: action === 'mark_paid' ? 'Quota marcada como paga.' : 'Pagamento registado.' });
+        }
+
+        if (action === 'resend_receipt') {
+            const { data: member, error: memberError } = await supabaseServer
+                .from('membros')
+                .select('id, nome, email, numero_socio, proxima_quota')
+                .eq('id', id)
+                .single();
+            if (memberError || !member) {
+                return NextResponse.json({ error: 'Membro não encontrado.' }, { status: 404 });
+            }
+            if (!member.email || member.email.endsWith(INTERNAL_EMAIL_SUFFIX)) {
+                return NextResponse.json({ error: 'Este membro não tem email para envio.' }, { status: 400 });
+            }
+
+            let paidPayments: any[] | null = null;
+            let paymentError: any = null;
+            ({ data: paidPayments, error: paymentError } = await supabaseServer
+                .from('pagamentos_quotas')
+                .select('id, valor, metodo_pagamento, data_pagamento, external_reference, notes, estado')
+                .eq('user_id', id)
+                .eq('estado', 'pago')
+                .order('data_pagamento', { ascending: false })
+                .limit(20));
+            if (paymentError && isMissingNotesColumnError(paymentError)) {
+                ({ data: paidPayments, error: paymentError } = await supabaseServer
+                    .from('pagamentos_quotas')
+                    .select('id, valor, metodo_pagamento, data_pagamento, external_reference, estado')
+                    .eq('user_id', id)
+                    .eq('estado', 'pago')
+                    .order('data_pagamento', { ascending: false })
+                    .limit(20));
+            }
+            if (paymentError) throw paymentError;
+            const latestPayment = (paidPayments || []).find((row: any) => inferPaymentTypeFromNotes(row.notes) === 'quota');
+            if (!latestPayment) {
+                return NextResponse.json({ error: 'Sem pagamentos pagos para reenviar recibo.' }, { status: 400 });
+            }
+
+            await sendMemberReceiptEmail({
+                toEmail: member.email,
+                memberName: member.nome,
+                memberNumber: member.numero_socio,
+                amount: Number(latestPayment.valor || 0),
+                currency: 'EUR',
+                paymentMethod: latestPayment.metodo_pagamento || 'manual',
+                paymentReference: latestPayment.external_reference || latestPayment.id,
+                nextQuotaDate: member.proxima_quota,
+                paidAt: latestPayment.data_pagamento,
+                kind: 'renewal',
+                hasDiploma: false,
+            });
+
+            await logAdminAction(
+                user.email,
+                'RESEND_MEMBER_RECEIPT',
+                { paymentId: latestPayment.id, amount: latestPayment.valor, method: latestPayment.metodo_pagamento },
+                id
+            );
+
+            return NextResponse.json({ success: true, message: 'Recibo reenviado com sucesso.' });
+        }
+
+        if (action === 'resend_diploma') {
+            const { data: member, error: memberError } = await supabaseServer
+                .from('membros')
+                .select('id, nome, email, numero_socio')
+                .eq('id', id)
+                .single();
+            if (memberError || !member) {
+                return NextResponse.json({ error: 'Membro não encontrado.' }, { status: 404 });
+            }
+            if (!member.email || member.email.endsWith(INTERNAL_EMAIL_SUFFIX)) {
+                return NextResponse.json({ error: 'Este membro não tem email para envio.' }, { status: 400 });
+            }
+            if (!member.numero_socio) {
+                return NextResponse.json({ error: 'Membro sem número de sócio. Não é possível gerar diploma.' }, { status: 400 });
+            }
+
+            const pdfBytes = await generateMemberDiplomaPdf({
+                memberName: member.nome || 'Membro',
+                memberNumber: Number(member.numero_socio),
+                issuedAt: new Date().toISOString(),
+            });
+
+            await sendMemberDiplomaEmail({
+                toEmail: member.email,
+                memberName: member.nome || 'Membro',
+                memberNumber: Number(member.numero_socio),
+                issuedAt: new Date().toISOString(),
+                attachments: [
+                    {
+                        filename: `diploma-socio-${member.numero_socio}.pdf`,
+                        content: Buffer.from(pdfBytes),
+                        contentType: 'application/pdf',
+                    },
+                ],
+            });
+
+            const { error: stampError } = await supabaseServer
+                .from('membros')
+                .update({ diploma_enviado_at: new Date().toISOString() })
+                .eq('id', id);
+            if (stampError) {
+                console.error('Não foi possível atualizar diploma_enviado_at:', stampError);
+            }
+
+            await logAdminAction(
+                user.email,
+                'RESEND_MEMBER_DIPLOMA',
+                { memberNumber: member.numero_socio },
+                id
+            );
+
+            return NextResponse.json({ success: true, message: 'Diploma reenviado com sucesso.' });
         }
 
         return NextResponse.json({ error: 'Invalid action' }, { status: 400 });

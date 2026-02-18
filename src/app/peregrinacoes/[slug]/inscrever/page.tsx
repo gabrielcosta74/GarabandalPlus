@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { supabaseBrowser } from '../../../../lib/supabase-browser';
 import { useForm, useFieldArray, FormProvider, useWatch, Controller } from 'react-hook-form';
@@ -49,7 +49,7 @@ const pilgrimSchema = z.object({
     birth_date: z.string({ required_error: "Data de nascimento obrigatória" }).min(1, "Data de nascimento obrigatória"),
     sex: z.enum(["M", "F"], { errorMap: () => ({ message: "Seleção do sexo obrigatória" }) }),
     address: z.string({ required_error: "Morada obrigatória" }).min(5, "Morada obrigatória"),
-    postal_code: z.string({ required_error: "Código Postal obrigatório" }).min(4, "Código Postal obrigatório"),
+    postal_code: z.string({ required_error: "Código Postal / CEP obrigatório" }).min(4, "Código Postal / CEP obrigatório"),
     city: z.string({ required_error: "Cidade obrigatória" }).min(2, "Cidade obrigatória"),
     country: z.string({ required_error: "País obrigatório" }).min(2, "País obrigatório"),
     cpf_nif: z.string().optional(),
@@ -600,10 +600,10 @@ function StepIdentification({ onNext, initialEmail, pilgrimageId }: { onNext: (e
                                 .PhoneInputInput:focus { border-color: #eab308; }
                             `}</style>
                             <PhoneInput
-                                placeholder="+351 912 345 678"
+                                placeholder="+55 11 91234-5678"
                                 value={phone}
                                 onChange={setPhone}
-                                defaultCountry="PT"
+                                defaultCountry="BR"
                                 international
                                 withCountryCallingCode
                             />
@@ -775,7 +775,7 @@ const PilgrimCard = ({ index, remove, control, register, errors, memberStatus, i
                         </select>
                     </div>
                     <div>
-                        <label className="text-base uppercase font-bold text-yellow-500 mb-2 block tracking-wide">Código Postal</label>
+                        <label className="text-base uppercase font-bold text-yellow-500 mb-2 block tracking-wide">Código Postal / CEP</label>
                         <div className="relative">
                             <input
                                 {...register(`pilgrims.${index}.postal_code`)}
@@ -922,8 +922,24 @@ export default function PilgrimageBookingPage() {
     }, [slug]);
 
     // Calculated Totals (Moved up for onSubmit access)
-    const depositTotal = (currentPilgrims?.length || 0) * (pilgrimage?.deposit_value || 0);
-    const totalBookingAmount = (currentPilgrims || []).map((f, i) => calculatePilgrimPrice(f, pilgrimage, rooms, i).finalPrice).reduce((a, b) => a + b, 0);
+    const pricedPilgrims = useMemo(() => {
+        return (currentPilgrims || []).map((pilgrim, index) => {
+            const effectiveEmail = (pilgrim.email || (index === 0 ? userEmail : '') || '').toLowerCase().trim();
+            const isMember = !!memberStatus[effectiveEmail];
+            const price = calculatePilgrimPrice(pilgrim, pilgrimage, rooms, index, isMember);
+            const memberDiscount = price.isMember && !price.isInfant ? 50 : 0;
+            const ageDiscount = Math.max(0, price.discount - memberDiscount);
+            const supplementTotal = Math.max(0, price.subtotal - price.basePrice - price.regFee);
+            return { pilgrim, index, email: effectiveEmail, isMember, price, memberDiscount, ageDiscount, supplementTotal };
+        });
+    }, [currentPilgrims, userEmail, memberStatus, pilgrimage, rooms]);
+
+    const baseTotal = pricedPilgrims.reduce((sum, p) => sum + Number(p.price.basePrice || 0), 0);
+    const depositTotal = pricedPilgrims.reduce((sum, p) => sum + Number(p.price.regFee || 0), 0);
+    const supplementsTotal = pricedPilgrims.reduce((sum, p) => sum + Number(p.supplementTotal || 0), 0);
+    const ageDiscountTotal = pricedPilgrims.reduce((sum, p) => sum + Number(p.ageDiscount || 0), 0);
+    const memberDiscountTotal = pricedPilgrims.reduce((sum, p) => sum + Number(p.memberDiscount || 0), 0);
+    const totalBookingAmount = pricedPilgrims.reduce((sum, p) => sum + Number(p.price.finalPrice || 0), 0);
 
     // Handlers
     const handleIdentitySubmit = (email: string, phone: string) => {
@@ -1080,23 +1096,22 @@ export default function PilgrimageBookingPage() {
                             <p class="font-bold text-yellow-600 mb-1">O que acontece agora?</p>
                             <ul class="list-disc list-inside text-sm text-slate-600 space-y-1">
                                 <li>Enviámos um email com o comprovativo.</li>
-                                <li>Vai ser redirecionado para a sua área de gestão.</li>
+                                <li>Vai ser redirecionado para a página de pagamentos.</li>
                             </ul>
                         </div>
                     </div>
                 `,
                 icon: 'success',
-                confirmButtonText: 'Ir para a minha Área',
+                confirmButtonText: 'Ir para Pagamentos',
                 confirmButtonColor: '#eab308',
                 timer: 5000,
                 timerProgressBar: true,
                 allowOutsideClick: false
             });
 
-            // Redirect to booking page with view_token for immediate access
-            // This bypasses the need for session to be set
-            // Add ?first_time=true if it's a new account to trigger the Onboarding Modal
-            const redirectUrl = `/peregrinacoes/inscricao/${result.booking_id}?token=${result.view_token}${result.new_account ? '&first_time=true' : ''}`;
+            // Always go directly to the booking payment page.
+            // Keep viewToken to guarantee immediate access even without active session.
+            const redirectUrl = `/peregrinacoes/inscricao/${result.booking_id}?viewToken=${encodeURIComponent(result.view_token || '')}${result.new_account ? '&first_time=true' : ''}`;
             console.log("🔄 [Frontend] Redirecting to:", redirectUrl);
             window.location.href = redirectUrl;
 
@@ -1257,10 +1272,7 @@ export default function PilgrimageBookingPage() {
                                             <div className="text-center"><h2 className="text-3xl font-bold text-white mb-2">Quase lá!</h2><p className="text-slate-400">Verifica o resumo final antes de confirmar.</p></div>
 
                                             <div className="bg-slate-950 p-6 rounded-3xl space-y-4 border border-white/5">
-                                                {currentPilgrims.map((f, i) => {
-                                                    const pEmail = f.email || (i === 0 ? userEmail : '');
-                                                    const isMember = memberStatus[pEmail?.toLowerCase().trim()] || false;
-                                                    const pPrice = calculatePilgrimPrice(f, pilgrimage, rooms, i, isMember);
+                                                {pricedPilgrims.map(({ pilgrim: f, index: i, price: pPrice }) => {
                                                     return (
                                                         <div key={i} className="flex justify-between items-center text-sm border-b border-white/5 pb-3 last:border-0 last:pb-0">
                                                             <div>
@@ -1274,7 +1286,7 @@ export default function PilgrimageBookingPage() {
                                                             </div>
                                                             <div className="text-right">
                                                                 <p className="text-white font-mono font-bold">{pPrice.finalPrice}€</p>
-                                                                {pPrice.isChild && <p className="text-[10px] text-emerald-400 font-bold">Dsc. Criança (50%)</p>}
+                                                                {pPrice.isChild && <p className="text-[10px] text-emerald-400 font-bold">Dsc. Criança (20%)</p>}
                                                                 {pPrice.isInfant && <p className="text-[10px] text-emerald-400 font-bold">Isenção Bebé</p>}
                                                             </div>
                                                         </div>
@@ -1284,16 +1296,28 @@ export default function PilgrimageBookingPage() {
                                                 <div className="pt-4 space-y-2 border-t border-white/10">
                                                     <div className="flex justify-between text-xs">
                                                         <span className="text-slate-500">Donativos Base</span>
-                                                        <span className="text-slate-300 font-mono">{currentPilgrims.length * (pilgrimage.base_price || 0)}€</span>
+                                                        <span className="text-slate-300 font-mono">{baseTotal}€</span>
                                                     </div>
                                                     <div className="flex justify-between text-xs">
                                                         <span className="text-slate-500">Taxas de Inscrição</span>
                                                         <span className="text-slate-300 font-mono">{depositTotal}€</span>
                                                     </div>
-                                                    {totalBookingAmount - (currentPilgrims.length * (pilgrimage.base_price || 0)) - depositTotal > 0 && (
+                                                    {supplementsTotal > 0 && (
                                                         <div className="flex justify-between text-xs">
                                                             <span className="text-slate-500">Suplementos de Alojamento</span>
-                                                            <span className="text-slate-300 font-mono">+{totalBookingAmount - (currentPilgrims.length * (pilgrimage.base_price || 0)) - depositTotal}€</span>
+                                                            <span className="text-slate-300 font-mono">+{supplementsTotal}€</span>
+                                                        </div>
+                                                    )}
+                                                    {ageDiscountTotal > 0 && (
+                                                        <div className="flex justify-between text-xs">
+                                                            <span className="text-slate-500">Desconto Criança/Bebé</span>
+                                                            <span className="text-emerald-400 font-mono">-{ageDiscountTotal}€</span>
+                                                        </div>
+                                                    )}
+                                                    {memberDiscountTotal > 0 && (
+                                                        <div className="flex justify-between text-xs">
+                                                            <span className="text-slate-500">Desconto de Membro</span>
+                                                            <span className="text-emerald-400 font-mono">-{memberDiscountTotal}€</span>
                                                         </div>
                                                     )}
                                                     <div className="flex justify-between items-center pt-2">
@@ -1385,7 +1409,9 @@ export default function PilgrimageBookingPage() {
                                                     <div className="mt-1">
                                                         <input type="checkbox" {...methods.register('terms_accepted')} className="w-5 h-5 text-yellow-500 rounded border-slate-700 bg-slate-800 focus:ring-yellow-500" />
                                                     </div>
-                                                    <span className="text-sm text-slate-400 group-hover:text-slate-300 transition-colors">Li e aceito os <a href="/termos#peregrinacoes" target="_blank" className="underline font-bold text-slate-200">Termos e Condições</a> de Inscrição na Peregrinação.</span>
+                                                    <span className="text-sm text-slate-400 group-hover:text-slate-300 transition-colors">
+                                                        Confirmo que li e aceito os <a href="/termos#peregrinacoes" target="_blank" className="underline font-bold text-slate-200">Termos e Condições</a> e a política de cancelamento das peregrinações.
+                                                    </span>
                                                 </label>
                                                 {errors.terms_accepted && <p className="text-red-500 text-xs font-bold animate-bounce tracking-wide">{errors.terms_accepted.message}</p>}
                                             </div>

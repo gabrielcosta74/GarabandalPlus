@@ -19,7 +19,8 @@ import {
   Film,
   ArrowRight,
   Sparkles,
-  Video
+  Video,
+  ScrollText
 } from 'lucide-react';
 import EventCard from '../../components/member/EventCard';
 import MemberTutorial from '../../components/onboarding/MemberTutorial';
@@ -150,28 +151,37 @@ export default function MemberDashboardPage() {
           <section>
             <div className="flex items-center justify-between mb-6">
               <h2 className="font-serif text-2xl font-bold text-white flex items-center gap-2">
-                <Calendar className="w-5 h-5 text-green-500" />
-                Próximo Encontro
+                <Calendar className="w-5 h-5 text-indigo-400" />
+                Agenda
               </h2>
-              <Link href="/member/calendar" className="text-sm font-bold text-green-400 hover:text-green-300 transition-colors flex items-center gap-1">
+              <Link href="/member/calendar" className="text-sm font-bold text-indigo-400 hover:text-indigo-300 transition-colors flex items-center gap-1">
                 Ver Calendário Completo <ArrowRight className="w-4 h-4" />
               </Link>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start" id="tut-event-section">
-              <EventCard event={nextEvent} />
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch" id="tut-event-section">
+              <div className="lg:col-span-2">
+                <EventCard event={nextEvent} />
+              </div>
 
-              {/* Optional Context / Helper Text for Desktop filler */}
-              <div className="hidden md:block bg-green-500/5 border border-green-500/10 rounded-xl p-6" id="tut-event-help">
-                <h3 className="text-lg font-bold text-green-100 flex items-center gap-2 mb-2">
-                  <Video className="w-5 h-5 text-green-500" /> Como participar?
+              {/* Context / Helper Text */}
+              <div className="hidden lg:flex flex-col justify-center bg-slate-900/50 border border-white/5 rounded-[2rem] p-8 h-full" id="tut-event-help">
+                <div className="w-12 h-12 bg-indigo-500/10 rounded-2xl flex items-center justify-center mb-6">
+                  <Video className="w-6 h-6 text-indigo-400" />
+                </div>
+                <h3 className="text-xl font-bold text-white mb-3">
+                  Como participar?
                 </h3>
-                <p className="text-green-200/60 text-sm leading-relaxed mb-4">
-                  Os nossos encontros são realizados online. Basta clicares no botão "Entrar Agora" qando a reunião começar. Podes consultar toda a agenda no calendário completo.
+                <p className="text-slate-400 text-sm leading-relaxed mb-6">
+                  Os encontros realizam-se através da plataforma Zoom ou Google Meet.
+                  <br /><br />
+                  Basta clicares no botão <strong>"Entrar na Sala"</strong> quando o evento começar. O link ficará ativo 10 minutos antes.
                 </p>
-                <Link href="/member/calendar" className="text-xs font-bold uppercase tracking-widest text-green-400 hover:underline hover:text-green-300">
-                  Ver todos os eventos &rarr;
-                </Link>
+                <div className="mt-auto pt-6 border-t border-white/5">
+                  <p className="text-xs text-slate-500 font-medium">
+                    Tens dúvidas? <a href="#" className="text-indigo-400 hover:underline">Contacta o suporte.</a>
+                  </p>
+                </div>
               </div>
             </div>
           </section>
@@ -267,7 +277,7 @@ export default function MemberDashboardPage() {
             {/* Card 6: Garabandal Em Direto (NEW) */}
             <Link href="/member/live" id="tut-live" className="group relative bg-slate-900 rounded-2xl border border-white/5 hover:border-red-500/30 overflow-hidden transition-all hover:shadow-2xl hover:shadow-red-900/20">
               <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent opacity-80" />
-              <div className="h-64 bg-[url('https://i.ytimg.com/vi/q1R5eO2t96c/hqdefault.jpg')] bg-cover bg-center opacity-40 group-hover:opacity-60 transition-opacity duration-500" />
+              <div className="h-64 bg-[url('/images/igrejagarabandal.webp')] bg-cover bg-center opacity-40 group-hover:opacity-60 transition-opacity duration-500" />
               <div className="absolute bottom-0 left-0 right-0 p-8">
                 <div className="w-12 h-12 bg-red-600/20 rounded-xl flex items-center justify-center backdrop-blur-sm mb-4 text-red-500">
                   <Video className="w-6 h-6 animate-pulse" />
@@ -337,16 +347,15 @@ export default function MemberDashboardPage() {
             </div>
           </Link>
 
-          <div className="bg-slate-900/50 p-6 rounded-2xl border border-white/5 flex items-start gap-4 relative overflow-hidden" id="tut-card">
-            <div className="p-3 bg-purple-500/10 rounded-xl text-purple-400 relative z-10">
-              <Gift className="w-6 h-6" />
+          <Link href="/member/direitos-deveres" id="tut-card" className="bg-slate-900/50 p-6 rounded-2xl border border-white/5 hover:bg-slate-800/50 hover:border-white/10 transition-all flex items-start gap-4">
+            <div className="p-3 bg-purple-500/10 rounded-xl text-purple-400">
+              <ScrollText className="w-6 h-6" />
             </div>
-            <div className="relative z-10">
-              <h3 className="text-white font-bold mb-1">Cartão de Sócio</h3>
-              <p className="text-sm text-slate-400 mb-2">O teu cartão digital disponível brevemente.</p>
-              <span className="text-[10px] uppercase font-bold tracking-wider bg-white/10 text-white px-2 py-1 rounded">Em Breve</span>
+            <div>
+              <h3 className="text-white font-bold mb-1">Direitos e Deveres</h3>
+              <p className="text-sm text-slate-400">Consulta o regulamento, benefícios e obrigações dos membros.</p>
             </div>
-          </div>
+          </Link>
         </section>
 
       </div>

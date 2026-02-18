@@ -7,20 +7,24 @@ export default function DonationFAQ() {
 
     const faqs = [
         {
+            q: 'Quais métodos de pagamento estão disponíveis?',
+            a: 'Pode doar com Cartão de Crédito, MB WAY, PIX, Multibanco ou por Transferência Bancária. Os métodos disponíveis aparecem no modal de doação.',
+        },
+        {
             q: 'A doação é segura?',
-            a: 'Absolutamente. Utilizamos o processador de pagamento Stripe com certificação de segurança máxima (PCI DSS). Os seus dados são encriptados e nunca guardamos informações de cartões.',
+            a: 'Sim. Os pagamentos online são processados por parceiros certificados e os dados sensíveis não são guardados por nós.',
         },
         {
-            q: 'Posso pedir recibo fiscal da doação?',
-            a: 'Sim. Durante o processo de doação, basta preencher os dados fiscais (NIF/CPF). O recibo será emitido e enviado para o seu email automaticamente após a confirmação do pagamento.',
+            q: 'Como funciona a transferência bancária?',
+            a: 'Ao escolher Transferência Bancária, mostramos os dados bancários e pedimos o envio do comprovativo no próprio formulário. A doação fica registada após esse envio.',
         },
         {
-            q: 'Existem outras formas de doar além do site?',
-            a: 'Sim. Aceitamos transferências bancárias diretas. Por favor, entre em contacto connosco através do email geral@apostoladodegarabandal.com para obter o IBAN.',
+            q: 'Posso pedir recibo da doação?',
+            a: 'Sim. No formulário, ative a opção de recibo e preencha os dados necessários. A emissão e validação são feitas pela equipa administrativa após confirmação do pagamento.',
         },
         {
-            q: 'Como sei que o dinheiro está a ser bem usado?',
-            a: 'A transparência é um pilar fundamental. Publicamos atualizações regulares sobre o progresso da obra e relatórios financeiros aqui no site. Pode também visitar-nos e ver a obra com os seus próprios olhos.',
+            q: 'Para que servem as doações?',
+            a: 'As doações apoiam a missão do Apostolado: peregrinações, evangelização e manutenção dos projetos e obras em curso.',
         }
     ];
 

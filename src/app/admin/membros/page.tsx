@@ -56,6 +56,12 @@ const getStatusLabel = (member: MemberRow) => {
 };
 
 export default function AdminMembrosPage() {
+  const isInternalMemberEmail = (email?: string | null) => !!email && email.endsWith('@sem-email.local');
+  const displayMemberEmail = (email?: string | null) => {
+    if (!email || isInternalMemberEmail(email)) return 'Sem email';
+    return email;
+  };
+
   const [members, setMembers] = useState<MemberRow[]>([]);
   const [summary, setSummary] = useState<Summary>({
     total: 0,
@@ -106,13 +112,14 @@ export default function AdminMembrosPage() {
   }, []);
 
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [successData, setSuccessData] = useState<{ email: string; password?: string } | null>(null);
+  const [successData, setSuccessData] = useState<{ hasAccount: boolean; email?: string | null; password?: string; warning?: string | null } | null>(null);
   const [createLoading, setCreateLoading] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
 
   const [createForm, setCreateForm] = useState({
     nome: '',
     email: '',
+    create_account: true,
     telefone: '',
     nif: '',
     address: '',
@@ -150,8 +157,10 @@ export default function AdminMembrosPage() {
 
       // Success!
       setSuccessData({
-        email: createForm.email,
-        password: data.temporaryPassword
+        hasAccount: !!data.hasAccount,
+        email: data.memberEmail || (createForm.create_account ? createForm.email : null),
+        password: data.temporaryPassword,
+        warning: data.warning || null,
       });
       setIsCreateModalOpen(false);
 
@@ -159,6 +168,7 @@ export default function AdminMembrosPage() {
       setCreateForm({
         nome: '',
         email: '',
+        create_account: true,
         telefone: '',
         nif: '',
         address: '',
@@ -207,7 +217,7 @@ export default function AdminMembrosPage() {
           </div>
           <div className="flex flex-col">
             <span className={`font-bold ${item.is_membro ? 'text-gray-900' : 'text-gray-400 line-through'}`}>{item.nome || '—'}</span>
-            <span className="text-xs text-gray-500">{item.email}</span>
+            <span className="text-xs text-gray-500">{displayMemberEmail(item.email)}</span>
           </div>
         </div>
       )
@@ -358,26 +368,48 @@ export default function AdminMembrosPage() {
                 />
               </div>
               <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de Registo</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setCreateForm({ ...createForm, create_account: true })}
+                    className={`px-3 py-2 rounded-lg text-sm font-medium border transition-colors ${createForm.create_account ? 'border-garabandal-gold bg-amber-50 text-amber-900' : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'}`}
+                  >
+                    Com Conta
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCreateForm({ ...createForm, create_account: false, email: '' })}
+                    className={`px-3 py-2 rounded-lg text-sm font-medium border transition-colors ${!createForm.create_account ? 'border-garabandal-gold bg-amber-50 text-amber-900' : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'}`}
+                  >
+                    Sem Conta
+                  </button>
+                </div>
+              </div>
+              <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
                 <input
-                  required
+                  required={createForm.create_account}
                   type="email"
+                  disabled={!createForm.create_account}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-garabandal-gold/20"
                   value={createForm.email}
                   onChange={e => setCreateForm({ ...createForm, email: e.target.value })}
+                  placeholder={createForm.create_account ? 'membro@email.com' : 'Não necessário para registo sem conta'}
                 />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Telefone</label>
                   <input
+                    required
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-garabandal-gold/20"
                     value={createForm.telefone}
                     onChange={e => setCreateForm({ ...createForm, telefone: e.target.value })}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">NIF</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">NIF / CPF</label>
                   <input
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-garabandal-gold/20"
                     value={createForm.nif}
@@ -398,17 +430,18 @@ export default function AdminMembrosPage() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Código Postal</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Código Postal / CEP</label>
                   <input
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-garabandal-gold/20"
                     value={createForm.postal_code}
                     onChange={e => setCreateForm({ ...createForm, postal_code: e.target.value })}
-                    placeholder="0000-000"
+                    placeholder="0000-000 / 00000-000"
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">País</label>
                   <input
+                    required
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-garabandal-gold/20"
                     value={createForm.country}
                     onChange={e => setCreateForm({ ...createForm, country: e.target.value })}
@@ -446,7 +479,9 @@ export default function AdminMembrosPage() {
                 </div>
               )}
               <div className="bg-blue-50 p-3 rounded-lg text-xs text-blue-800">
-                O membro será criado com uma senha temporária (gerida pelo sistema) e o email será marcado como confirmado.
+                {createForm.create_account
+                  ? 'Com conta: será criada senha temporária e o email ficará confirmado.'
+                  : 'Sem conta: o membro será gerido internamente pelo admin e poderá ter conta criada mais tarde.'}
               </div>
               <button
                 type="submit"
@@ -479,12 +514,18 @@ export default function AdminMembrosPage() {
             </p>
 
             <div className="bg-gray-50 p-4 rounded-xl text-left mb-6 border border-gray-100">
-              <div className="mb-3">
-                <span className="text-xs font-bold text-gray-400 uppercase tracking-wider block mb-1">Email de Login</span>
-                <div className="flex items-center justify-between">
-                  <span className="font-mono text-gray-900 font-medium">{successData.email}</span>
+              {successData.hasAccount ? (
+                <div className="mb-3">
+                  <span className="text-xs font-bold text-gray-400 uppercase tracking-wider block mb-1">Email de Login</span>
+                  <div className="flex items-center justify-between">
+                    <span className="font-mono text-gray-900 font-medium">{successData.email}</span>
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div className="mb-3 text-sm text-gray-700">
+                  Registo criado <strong>sem conta de acesso</strong>. Podes criar conta depois no detalhe do membro.
+                </div>
+              )}
               {successData.password && (
                 <div>
                   <span className="text-xs font-bold text-gray-400 uppercase tracking-wider block mb-1">Senha Temporária</span>
@@ -505,6 +546,9 @@ export default function AdminMembrosPage() {
                     ⚠️ Copie esta senha agora. Por segurança, não será mostrada novamente.
                   </p>
                 </div>
+              )}
+              {successData.warning && (
+                <p className="text-xs text-amber-600 mt-3">{successData.warning}</p>
               )}
             </div>
 

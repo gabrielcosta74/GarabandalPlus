@@ -3,8 +3,10 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { supabaseBrowser } from '../../../lib/supabase-browser';
-import { Plus, Search, Edit, Trash2, BookOpen, Eye, EyeOff } from 'lucide-react';
+import { Plus, Search, Edit3, Trash2, BookOpen, Eye, EyeOff, Loader2, Sparkles, Image as ImageIcon } from 'lucide-react';
 import AdminLayout from '../../../components/admin/AdminLayout';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Toaster, toast } from 'sonner';
 
 export default function AdminNovenasPage() {
     const [novenas, setNovenas] = useState<any[]>([]);
@@ -28,22 +30,29 @@ export default function AdminNovenasPage() {
         setLoading(false);
     };
 
-    const handleDelete = async (id: string) => {
+    const handleDelete = async (id: string, e: React.MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
         if (!confirm('Tem a certeza? Isto apagará a novena e todos os dias associados.')) return;
 
         if (!supabaseBrowser) return;
         await supabaseBrowser.from('novenas').delete().eq('id', id);
+        toast.success("Novena apagada com sucesso");
         loadNovenas();
     };
 
-    const togglePublish = async (novena: any) => {
+    const togglePublish = async (novena: any, e: React.MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
         if (!supabaseBrowser) return;
 
+        const newStatus = !novena.published;
         await supabaseBrowser
             .from('novenas')
-            .update({ published: !novena.published })
+            .update({ published: newStatus })
             .eq('id', novena.id);
 
+        toast.success(newStatus ? "Novena publicada" : "Novena retirada");
         loadNovenas();
     };
 
@@ -51,90 +60,176 @@ export default function AdminNovenasPage() {
         n.title.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
+    const containerVariants = {
+        hidden: { opacity: 0 },
+        show: {
+            opacity: 1,
+            transition: {
+                staggerChildren: 0.1
+            }
+        }
+    };
+
+    const itemVariants = {
+        hidden: { opacity: 0, y: 20 },
+        show: { opacity: 1, y: 0 }
+    };
+
     return (
-        <AdminLayout title="Novenas">
-            <div className="space-y-6">
-                <div className="flex items-center justify-between">
-                    <div>
-                        <h1 className="text-2xl font-bold text-gray-900">Novenas</h1>
-                        <p className="text-gray-500">Gestão de jornadas de oração</p>
+        <AdminLayout title="Novenas" hideHeader={true}>
+            <Toaster position="bottom-right" />
+            <div className="bg-slate-50 min-h-screen pb-20">
+                {/* Header Section */}
+                <div className="bg-white border-b border-slate-200 px-6 py-8 md:py-12 relative overflow-hidden">
+                    <div className="absolute top-0 right-0 p-12 opacity-5 pointer-events-none">
+                        <Sparkles className="w-64 h-64 text-indigo-600" />
                     </div>
-                    <Link
-                        href="/admin/novenas/new"
-                        className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 flex items-center gap-2 font-medium"
-                    >
-                        <Plus className="w-4 h-4" />
-                        Nova Novena
-                    </Link>
-                </div>
 
-                {/* Search */}
-                <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                    <input
-                        type="text"
-                        placeholder="Pesquisar novenas..."
-                        value={searchTerm}
-                        onChange={e => setSearchTerm(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none"
-                    />
-                </div>
-
-                {/* List */}
-                {loading ? (
-                    <div className="text-center py-20 text-gray-500">A carregar...</div>
-                ) : filtered.length === 0 ? (
-                    <div className="text-center py-20 bg-gray-50 rounded-xl border border-dashed border-gray-200">
-                        <BookOpen className="w-10 h-10 text-gray-300 mx-auto mb-3" />
-                        <p className="text-gray-500 font-medium">Nenhuma novena encontrada</p>
-                    </div>
-                ) : (
-                    <div className="grid grid-cols-1 gap-4">
-                        {filtered.map(novena => (
-                            <div key={novena.id} className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex items-center gap-4 hover:border-indigo-500/30 transition-all">
-                                <div className="w-16 h-16 bg-gray-100 rounded-lg flex-shrink-0 overflow-hidden">
-                                    {novena.image_url ? (
-                                        <img src={novena.image_url} className="w-full h-full object-cover" />
-                                    ) : (
-                                        <div className="w-full h-full flex items-center justify-center text-gray-400">
-                                            <BookOpen className="w-6 h-6" />
-                                        </div>
-                                    )}
-                                </div>
-                                <div className="flex-1">
-                                    <div className="flex items-center gap-2 mb-1">
-                                        <h3 className="font-bold text-gray-900">{novena.title}</h3>
-                                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${novena.published ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
-                                            {novena.published ? 'Publicado' : 'Rascunho'}
-                                        </span>
-                                    </div>
-                                    <p className="text-sm text-gray-500 line-clamp-1">{novena.description}</p>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <button
-                                        onClick={() => togglePublish(novena)}
-                                        className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
-                                        title={novena.published ? "Despublicar" : "Publicar"}
-                                    >
-                                        {novena.published ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-                                    </button>
-                                    <Link
-                                        href={`/admin/novenas/${novena.id}`}
-                                        className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                                    >
-                                        <Edit className="w-4 h-4" />
-                                    </Link>
-                                    <button
-                                        onClick={() => handleDelete(novena.id)}
-                                        className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                    >
-                                        <Trash2 className="w-4 h-4" />
-                                    </button>
-                                </div>
+                    <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-end justify-between gap-6 relative z-10">
+                        <div>
+                            <div className="flex items-center gap-2 text-indigo-600 mb-2">
+                                <span className="bg-indigo-50 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-widest border border-indigo-100">
+                                    Conteúdo Espiritual
+                                </span>
                             </div>
-                        ))}
+                            <h1 className="text-3xl md:text-4xl font-serif font-bold text-slate-900">
+                                Novenas e Orações
+                            </h1>
+                            <p className="text-slate-500 mt-2 text-lg max-w-xl leading-relaxed">
+                                Gerencie as jornadas de oração disponíveis para a comunidade.
+                            </p>
+                        </div>
+
+                        <Link
+                            href="/admin/novenas/new"
+                            className="bg-indigo-600 text-white pl-4 pr-6 py-3 rounded-xl hover:bg-indigo-700 transition-all font-bold shadow-lg shadow-indigo-200 active:scale-95 flex items-center gap-2 group"
+                        >
+                            <div className="bg-white/20 p-1 rounded-lg">
+                                <Plus className="w-4 h-4 group-hover:rotate-90 transition-transform" />
+                            </div>
+                            Criar Nova Novena
+                        </Link>
                     </div>
-                )}
+                </div>
+
+                <div className="max-w-7xl mx-auto px-6 py-8 space-y-8">
+                    {/* Search Bar */}
+                    <div className="relative max-w-md">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <Search className="h-5 w-5 text-slate-400" />
+                        </div>
+                        <input
+                            type="text"
+                            placeholder="Pesquisar por título..."
+                            value={searchTerm}
+                            onChange={e => setSearchTerm(e.target.value)}
+                            className="block w-full pl-10 pr-3 py-3 border border-slate-200 rounded-xl leading-5 bg-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 sm:text-sm shadow-sm transition-all"
+                        />
+                    </div>
+
+                    {/* Grid Content */}
+                    {loading ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            {[1, 2, 3].map(i => (
+                                <div key={i} className="bg-white rounded-2xl h-[300px] animate-pulse border border-slate-100" />
+                            ))}
+                        </div>
+                    ) : filtered.length === 0 ? (
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.9 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            className="text-center py-20 bg-white rounded-3xl border border-dashed border-slate-200 shadow-sm"
+                        >
+                            <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-6">
+                                <BookOpen className="w-10 h-10 text-slate-300" />
+                            </div>
+                            <h3 className="text-xl font-bold text-slate-900 mb-2">Sem novenas encontradas</h3>
+                            <p className="text-slate-500 max-w-sm mx-auto">
+                                Não encontramos resultados para "{searchTerm}". Tente outro termo ou crie uma nova novena.
+                            </p>
+                        </motion.div>
+                    ) : (
+                        <motion.div
+                            variants={containerVariants}
+                            initial="hidden"
+                            animate="show"
+                            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+                        >
+                            {filtered.map(novena => (
+                                <motion.div variants={itemVariants} key={novena.id}>
+                                    <Link href={`/admin/novenas/${novena.id}`} className="group block h-full">
+                                        <div className="bg-white rounded-3xl overflow-hidden border border-slate-100 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 h-full flex flex-col relative">
+
+                                            {/* Status Badge */}
+                                            <div className="absolute top-4 left-4 z-10">
+                                                <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider backdrop-blur-md shadow-sm border ${novena.published
+                                                        ? 'bg-emerald-500/90 text-white border-emerald-400'
+                                                        : 'bg-slate-500/90 text-white border-slate-400'
+                                                    }`}>
+                                                    {novena.published ? 'Publicada' : 'Rascunho'}
+                                                </span>
+                                            </div>
+
+                                            {/* Image Section */}
+                                            <div className="relative aspect-[4/3] bg-slate-100 overflow-hidden">
+                                                {novena.image_url ? (
+                                                    <img
+                                                        src={novena.image_url}
+                                                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                                                        alt={novena.title}
+                                                    />
+                                                ) : (
+                                                    <div className="w-full h-full flex flex-col items-center justify-center text-slate-300 bg-slate-50 group-hover:bg-indigo-50/30 transition-colors">
+                                                        <ImageIcon className="w-12 h-12 mb-2 opacity-50" />
+                                                        <span className="text-xs font-medium uppercase tracking-widest">Sem Capa</span>
+                                                    </div>
+                                                )}
+
+                                                {/* Hover Overlay */}
+                                                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300" />
+                                            </div>
+
+                                            {/* Content Section */}
+                                            <div className="p-6 flex-1 flex flex-col">
+                                                <div className="mb-4">
+                                                    <h3 className="text-xl font-serif font-bold text-slate-900 group-hover:text-indigo-600 transition-colors line-clamp-1 mb-2">
+                                                        {novena.title}
+                                                    </h3>
+                                                    <p className="text-slate-500 text-sm line-clamp-2 leading-relaxed h-[2.5em]">
+                                                        {novena.description || 'Sem descrição...'}
+                                                    </p>
+                                                </div>
+
+                                                <div className="mt-auto pt-4 border-t border-slate-50 flex items-center justify-between gap-2">
+                                                    <span className="text-xs font-bold text-slate-400 group-hover:text-indigo-500 uppercase tracking-wider transition-colors">
+                                                        Editar Detalhes
+                                                    </span>
+
+                                                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity translate-y-2 group-hover:translate-y-0 duration-300">
+                                                        <button
+                                                            onClick={(e) => togglePublish(novena, e)}
+                                                            className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                                                            title={novena.published ? "Despublicar" : "Publicar"}
+                                                        >
+                                                            {novena.published ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                                                        </button>
+                                                        <button
+                                                            onClick={(e) => handleDelete(novena.id, e)}
+                                                            className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                                            title="Apagar"
+                                                        >
+                                                            <Trash2 className="w-4 h-4" />
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </Link>
+                                </motion.div>
+                            ))}
+                        </motion.div>
+                    )}
+                </div>
             </div>
         </AdminLayout>
     );

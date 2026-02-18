@@ -8,7 +8,9 @@ import { APP_URL } from '../lib/config';
 export const revalidate = 300;
 
 export const metadata: Metadata = {
-  title: 'Apostolado de Garabandal',
+  title: {
+    absolute: 'Garabandal +',
+  },
   description: 'Santuário virtual do Apostolado de Garabandal. Peregrinações católicas, doações para a missão e vida de oração.',
   alternates: {
     canonical: `${APP_URL}/`,

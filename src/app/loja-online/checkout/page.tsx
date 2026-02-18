@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { CartItem, Product, loadCart, saveCart } from '../data';
 import { supabaseBrowser } from '../../../lib/supabase-browser';
-import { isActiveMember } from '../../../lib/store-discounts';
+import { applyMemberDiscount, isActiveMember, MEMBER_DISCOUNT_RATE } from '../../../lib/store-discounts';
 import { useCurrency } from '../../../components/providers/CurrencyProvider';
 import { UNIFIED_ONLINE_PAYMENT_OPTIONS } from '../../../lib/payment-options';
 import {
@@ -144,34 +144,37 @@ export default function CheckoutPage() {
       .map((item) => {
         const product = products.find((prod) => prod.id === item.id);
         if (!product) return null;
+        const basePrice = Number(product.price || 0);
+        const effectivePrice = applyMemberDiscount(basePrice, isMemberActive);
         return {
           ...product,
           qty: item.qty,
           variantName: item.variantName,
-          price: product.price,
-          total: product.price * item.qty,
+          basePrice,
+          price: effectivePrice,
+          baseTotal: basePrice * item.qty,
+          total: effectivePrice * item.qty,
         };
       })
-      .filter(Boolean) as Array<Product & { qty: number; total: number; price: number; variantName?: string }>;
-  }, [cart, products]);
+      .filter(Boolean) as Array<Product & { qty: number; total: number; baseTotal: number; basePrice: number; price: number; variantName?: string }>;
+  }, [cart, products, isMemberActive]);
 
   const hasPhysical = cartEntries.some((item) => item.isPhysical);
-  const total = useMemo(() => cartEntries.reduce((sum, item) => sum + item.total, 0), [cartEntries]);
-  const discountValue = useMemo(() => (isMemberActive ? total * 0.05 : 0), [isMemberActive, total]);
-  const discountedTotal = useMemo(() => total - discountValue, [total, discountValue]);
+  const baseSubtotal = useMemo(() => cartEntries.reduce((sum, item) => sum + item.baseTotal, 0), [cartEntries]);
+  const discountedTotal = useMemo(() => cartEntries.reduce((sum, item) => sum + item.total, 0), [cartEntries]);
+  const discountValue = useMemo(() => Math.max(0, baseSubtotal - discountedTotal), [baseSubtotal, discountedTotal]);
   const vatTotals = useMemo(() => {
     return cartEntries.reduce(
       (acc, item) => {
         const rate = getVatRate(item);
-        const effectiveTotal = item.total - item.total * (discountValue / (total || 1));
-        const breakdown = getVatBreakdown(effectiveTotal, rate);
+        const breakdown = getVatBreakdown(item.total, rate);
         acc.base += breakdown.base;
         acc.vat += breakdown.vat;
         return acc;
       },
       { base: 0, vat: 0 },
     );
-  }, [cartEntries, discountValue, total]);
+  }, [cartEntries]);
 
   const shippingCost = useMemo(
     () => getShippingCost(shipping.country, hasPhysical),
@@ -394,7 +397,7 @@ export default function CheckoutPage() {
         headers,
         body: JSON.stringify({
           items: cartEntries.map((item) => ({ id: item.id, name: item.name, price: item.price, qty: item.qty })),
-          total: totalWithShipping,
+          total: Number(totalWithShipping.toFixed(2)),
           provider: selectedPayment.provider,
           buyer,
           shipping: hasPhysical ? shipping : null,
@@ -627,7 +630,7 @@ export default function CheckoutPage() {
                             <input type="text" value={shipping.city} onChange={(e) => setShipping({ ...shipping, city: e.target.value })} className={inputClass} placeholder="Cidade" />
                           </div>
                           <div>
-                            <label className={labelClass}>Código Postal *</label>
+                            <label className={labelClass}>Código Postal / CEP *</label>
                             <input
                               type="text"
                               value={shipping.postalCode}
@@ -681,7 +684,7 @@ export default function CheckoutPage() {
                             <input type="text" value={billing.city} onChange={(e) => setBilling({ ...billing, city: e.target.value })} className={inputClass} />
                           </div>
                           <div>
-                            <label className={labelClass}>Código Postal *</label>
+                            <label className={labelClass}>Código Postal / CEP *</label>
                             <input
                               type="text"
                               value={billing.postalCode}
@@ -817,7 +820,7 @@ export default function CheckoutPage() {
                 </div>
 
                 {/* Member Upsell - Only if not member */}
-                {!isMemberActive && total > 0 && (
+                {!isMemberActive && baseSubtotal > 0 && (
                   <div className="px-6 py-4 bg-garabandal-gold/10 border-b border-garabandal-gold/20 flex flex-col gap-3">
                     <div className="flex items-start gap-3">
                       <div className="p-1.5 bg-garabandal-gold rounded-full text-white mt-0.5">
@@ -825,7 +828,7 @@ export default function CheckoutPage() {
                       </div>
                       <div>
                         <p className="text-sm font-bold text-garabandal-dark">Se fosses Membro...</p>
-                        <p className="text-xs text-gray-600">Poupavas <span className="font-bold text-green-600">{formatPrice(total * 0.05)}</span> nesta compra!</p>
+                        <p className="text-xs text-gray-600">Poupavas <span className="font-bold text-green-600">{formatPrice(baseSubtotal * MEMBER_DISCOUNT_RATE)}</span> nesta compra!</p>
                       </div>
                     </div>
                     <Link href="/tornar-membro" target="_blank" className="text-center text-xs font-bold uppercase tracking-wider text-garabandal-dark border border-garabandal-dark/20 rounded-lg py-2 hover:bg-white transition-colors">
@@ -839,7 +842,7 @@ export default function CheckoutPage() {
                   <div className="space-y-3 text-sm">
                     <div className="flex justify-between text-gray-600">
                       <span>Subtotal</span>
-                      <span className="font-medium text-gray-900">{formatPrice(vatTotals.base)}</span>
+                      <span className="font-medium text-gray-900">{formatPrice(baseSubtotal)}</span>
                     </div>
                     {isMemberActive && discountValue > 0 && (
                       <div className="flex justify-between text-green-600">

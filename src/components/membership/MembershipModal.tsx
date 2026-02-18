@@ -617,14 +617,14 @@ export default function MembershipModal({ isOpen, onClose, impact }: MembershipM
                                                 </div>
                                                 <div>
                                                     <InputField
-                                                        label="Código Postal"
+                                                        label="Código Postal / CEP"
                                                         value={formData.codigoPostal}
                                                         placeholder={countryMeta?.postalPlaceholder}
                                                         onChange={e => setFormData(p => ({ ...p, codigoPostal: formatPostalCode(e.target.value, formData.pais) }))}
                                                     />
                                                 </div>
                                                 <div>
-                                                    <InputField label="NIF (Opcional)" value={formData.nif} onChange={e => setFormData(p => ({ ...p, nif: e.target.value }))} />
+                                                    <InputField label="NIF / CPF (Opcional)" value={formData.nif} onChange={e => setFormData(p => ({ ...p, nif: e.target.value }))} />
                                                 </div>
                                             </div>
 

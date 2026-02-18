@@ -4,6 +4,7 @@ import { sendBookingConfirmationEmail } from '../../../../lib/email';
 import { getAppUrl } from '../../../../lib/config';
 import { parseRoomInfo } from '../../../../lib/utils';
 import { generateViewToken, generateIdempotencyKey } from '../../../../lib/auth-utils';
+import { isActiveMember } from '../../../../lib/store-discounts';
 
 export async function POST(req: Request) {
     console.log("🚀 [API] Booking Create Request Received");
@@ -89,14 +90,42 @@ export async function POST(req: Request) {
 
         if (pilgError) throw pilgError;
 
-        // 3. Calculate Total (Server Side Verification)
+        // 3. Resolve active members for 50€ discount
+        const candidateEmails = new Set<string>();
+        const normalizedBookingEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
+        if (normalizedBookingEmail.includes('@')) candidateEmails.add(normalizedBookingEmail);
+        (pilgrim_data || []).forEach((p: any) => {
+            const pilgrimEmail = typeof p?.email === 'string' ? p.email.trim().toLowerCase() : '';
+            if (pilgrimEmail.includes('@')) candidateEmails.add(pilgrimEmail);
+        });
+
+        const activeMemberEmails = new Set<string>();
+        if (candidateEmails.size > 0) {
+            const { data: members, error: membersError } = await supabaseServer
+                .from('membros')
+                .select('email, is_membro, estado_quota, tipo_subscricao, proxima_quota')
+                .in('email', Array.from(candidateEmails));
+
+            if (membersError) {
+                console.warn('⚠️ [API] Failed to load member status for discount:', membersError.message);
+            } else {
+                (members || []).forEach((m: any) => {
+                    const mEmail = String(m?.email || '').toLowerCase();
+                    if (mEmail && isActiveMember(m)) {
+                        activeMemberEmails.add(mEmail);
+                    }
+                });
+            }
+        }
+
+        // 4. Calculate Total (Server Side Verification)
         let totalAmount = 0;
         const basePrice = Number(pilgrimage.base_price) || 0;
         // Priority to deposit_value (new), fallback to min_deposit (old) for safety during migration
         const regFee = Number(pilgrimage.deposit_value || pilgrimage.min_deposit) || 0;
         const supplements = (pilgrimage.pricing_config as any)?.room_supplements || {};
 
-        const pilgrimsToInsert = pilgrim_data.map((p: any) => {
+        const pilgrimsToInsert = pilgrim_data.map((p: any, idx: number) => {
             // Determine room type for this pilgrim
             let roomType = p.room_type || 'double';
 
@@ -115,6 +144,7 @@ export async function POST(req: Request) {
             }
 
             // Age Logic (Discounts)
+            let age = 30;
             let discount = 0;
             if (p.birth_date) {
                 const birth = new Date(p.birth_date);
@@ -125,16 +155,23 @@ export async function POST(req: Request) {
                     console.warn(`⚠️ [API] Invalid birth_date for ${p.full_name}: ${p.birth_date}. Assuming adult (30y).`);
                     discount = 0;
                 } else {
-                    let age = today.getFullYear() - birth.getFullYear();
+                    age = today.getFullYear() - birth.getFullYear();
                     const m = today.getMonth() - birth.getMonth();
                     if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
 
                     if (age >= 2 && age < 6) discount = pilgrimSubtotal * 0.2; // 20%
                     if (age < 2) discount = pilgrimSubtotal; // 100%
-
-                    console.log(`👤 [API] Pilgrim ${p.full_name}: Age=${age}, Sub=${pilgrimSubtotal}€, Disc=${discount}€, Final=${Math.max(0, pilgrimSubtotal - discount)}€`);
                 }
             }
+
+            // Active member discount: flat 50€ (except infants)
+            const pilgrimEmail = typeof p?.email === 'string' ? p.email.trim().toLowerCase() : '';
+            const effectiveEmail = pilgrimEmail || (idx === 0 ? normalizedBookingEmail : '');
+            if (age >= 2 && effectiveEmail && activeMemberEmails.has(effectiveEmail)) {
+                discount += 50;
+            }
+
+            console.log(`👤 [API] Pilgrim ${p.full_name}: Age=${age}, Sub=${pilgrimSubtotal}€, Disc=${discount}€, Final=${Math.max(0, pilgrimSubtotal - discount)}€`);
 
             const finalPilgrimPrice = Math.max(0, pilgrimSubtotal - discount);
             totalAmount += finalPilgrimPrice;

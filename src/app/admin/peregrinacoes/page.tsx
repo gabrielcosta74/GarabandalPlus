@@ -30,6 +30,7 @@ type Pilgrimage = {
     cover_image: string | null;
     confirmed_pax?: number;
     pending_pax?: number;
+    effective_vacancies?: number;
 };
 
 import AdminLayout from '../../../components/admin/AdminLayout';
@@ -40,6 +41,25 @@ export default function AdminPilgrimagesPage() {
     const [searchTerm, setSearchTerm] = useState('');
     const [deletingId, setDeletingId] = useState<string | null>(null);
     const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
+
+    const getSafeTotalVacancies = (item: Pilgrimage) => Math.max(0, Number(item.total_vacancies || 0));
+    const getSafeAvailableVacancies = (item: Pilgrimage) => {
+        if (Number.isFinite(Number(item.effective_vacancies))) {
+            return Math.max(0, Number(item.effective_vacancies));
+        }
+        if (Number.isFinite(Number(item.current_vacancies))) {
+            return Math.max(0, Number(item.current_vacancies));
+        }
+        const total = getSafeTotalVacancies(item);
+        const confirmed = Math.max(0, Number(item.confirmed_pax || 0));
+        return Math.max(0, total - confirmed);
+    };
+
+    const getSafeOccupiedVacancies = (item: Pilgrimage) => {
+        const total = getSafeTotalVacancies(item);
+        const available = getSafeAvailableVacancies(item);
+        return Math.max(0, total - available);
+    };
 
     useEffect(() => {
         fetchPilgrimages();
@@ -214,8 +234,16 @@ export default function AdminPilgrimagesPage() {
                     </div>
                 ) : (
                     <div className="grid grid-cols-1 gap-4">
-                        {filtered.map((item) => (
-                            <div
+                        {filtered.map((item) => {
+                            const totalVacancies = getSafeTotalVacancies(item);
+                            const availableVacancies = getSafeAvailableVacancies(item);
+                            const occupiedVacancies = getSafeOccupiedVacancies(item);
+                            const confirmedPax = Math.max(0, Number(item.confirmed_pax || 0));
+                            const pendingPax = Math.max(0, Number(item.pending_pax || 0));
+                            const occupiedPercent = totalVacancies > 0 ? Math.min(100, (occupiedVacancies / totalVacancies) * 100) : 0;
+                            const pendingPercent = totalVacancies > 0 ? Math.min(100, (pendingPax / totalVacancies) * 100) : 0;
+
+                            return <div
                                 key={item.id}
                                 className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 hover:shadow-md hover:border-slate-300 transition-all"
                             >
@@ -250,27 +278,35 @@ export default function AdminPilgrimagesPage() {
                                         <div className="flex items-center gap-4 mt-2 text-sm text-slate-500">
                                             <div className="flex flex-col gap-1.5 min-w-[200px]">
                                                 <div className="flex justify-between items-center text-[10px] uppercase font-bold tracking-tight">
-                                                    <span className="text-emerald-600 flex items-center gap-1">
-                                                        <CheckCircle2 className="w-3 h-3" /> {item.confirmed_pax} Pagos
+                                                    <span className="text-amber-700">
+                                                        {occupiedVacancies} Ocupados
+                                                    </span>
+                                                    <span className="text-emerald-600">
+                                                        {availableVacancies} Livres
                                                     </span>
                                                     <span className="text-slate-400">
-                                                        {item.pending_pax} Reservados
-                                                    </span>
-                                                    <span className="text-slate-300">
-                                                        {item.total_vacancies} Total
+                                                        {totalVacancies} Total
                                                     </span>
                                                 </div>
                                                 <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden border border-slate-200 flex">
                                                     <div
-                                                        className="h-full bg-emerald-500 transition-all duration-500"
-                                                        style={{ width: `${Math.min(100, ((item.confirmed_pax || 0) / item.total_vacancies) * 100)}%` }}
-                                                        title={`${item.confirmed_pax} Confirmados`}
+                                                        className="h-full bg-amber-500 transition-all duration-500"
+                                                        style={{ width: `${occupiedPercent}%` }}
+                                                        title={`${occupiedVacancies} Ocupados`}
                                                     />
                                                     <div
                                                         className="h-full bg-slate-300 transition-all duration-500"
-                                                        style={{ width: `${Math.min(100, ((item.pending_pax || 0) / item.total_vacancies) * 100)}%` }}
-                                                        title={`${item.pending_pax} Pendentes`}
+                                                        style={{ width: `${pendingPercent}%` }}
+                                                        title={`${pendingPax} Reservados sem pagamento`}
                                                     />
+                                                </div>
+                                                <div className="flex justify-between items-center text-[10px] uppercase font-bold tracking-tight">
+                                                    <span className="text-emerald-600 flex items-center gap-1">
+                                                        <CheckCircle2 className="w-3 h-3" /> {confirmedPax} Pagos Web
+                                                    </span>
+                                                    <span className="text-slate-400">
+                                                        {pendingPax} Reservados
+                                                    </span>
                                                 </div>
                                             </div>
                                             <span className="flex items-center gap-1.5">
@@ -318,7 +354,7 @@ export default function AdminPilgrimagesPage() {
 
                                 </div>
                             </div>
-                        ))}
+                        })}
                     </div>
                 )}
             </div>

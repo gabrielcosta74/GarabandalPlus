@@ -52,6 +52,8 @@ type PaymentRow = {
   data_pagamento: string | null;
   created_at: string | null;
   external_reference: string | null;
+  notes?: string | null;
+  payment_type?: 'quota' | 'donation' | null;
 };
 
 const formatDate = (value?: string | null) => (value ? new Date(value).toLocaleDateString('pt-PT') : '—');
@@ -74,6 +76,16 @@ const getTenureLabel = (value?: string | null) => {
 
 const formatCurrency = (value?: number | null) =>
   new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR' }).format(value || 0);
+
+const getPaymentType = (row: PaymentRow): 'quota' | 'donation' => {
+  if (row.payment_type === 'donation') return 'donation';
+  if (row.payment_type === 'quota') return 'quota';
+  const notes = (row.notes || '').toUpperCase();
+  if (notes.includes('[TYPE:DONATION]') || notes.includes('[DOAÇÃO]') || notes.includes('[DOACAO]')) {
+    return 'donation';
+  }
+  return 'quota';
+};
 
 export default function AdminMemberDetailPage() {
   const params = useParams();
@@ -111,6 +123,9 @@ export default function AdminMemberDetailPage() {
     notes: '',
     update_quota: true,
   });
+  const displayMemberEmail = (email?: string | null) =>
+    !email || email.endsWith('@sem-email.local') ? 'Sem email' : email;
+  const hasRealEmail = !!member?.email && !member.email.endsWith('@sem-email.local');
 
   useEffect(() => {
     const load = async () => {
@@ -131,7 +146,7 @@ export default function AdminMemberDetailPage() {
         console.log('[admin/membros] fetch', { memberId, status: res.status });
         if (!res.ok) {
           const body = await res.json().catch(() => ({}));
-          throw new Error(body?.message || 'Falha ao carregar o membro.');
+          throw new Error(body?.error || body?.message || 'Falha ao carregar o membro.');
         }
         const payload = await res.json();
         setMember(payload.member);
@@ -160,10 +175,15 @@ export default function AdminMemberDetailPage() {
   }, [memberId]);
 
   const paymentSummary = useMemo(() => {
-    const totalPaid = payments
-      .filter((row) => (row.estado || '').toLowerCase() === 'pago')
+    const paidPayments = payments.filter((row) => (row.estado || '').toLowerCase() === 'pago');
+    const totalPaid = paidPayments.reduce((sum, row) => sum + Number(row.valor || 0), 0);
+    const totalQuotaPaid = paidPayments
+      .filter((row) => getPaymentType(row) === 'quota')
       .reduce((sum, row) => sum + Number(row.valor || 0), 0);
-    return { totalPaid };
+    const totalDonations = paidPayments
+      .filter((row) => getPaymentType(row) === 'donation')
+      .reduce((sum, row) => sum + Number(row.valor || 0), 0);
+    return { totalPaid, totalQuotaPaid, totalDonations };
   }, [payments]);
 
   const runAction = async (action: 'mark_paid' | 'resend_receipt' | 'resend_diploma') => {
@@ -193,7 +213,7 @@ export default function AdminMemberDetailPage() {
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        throw new Error(body?.message || 'Erro ao executar acao.');
+        throw new Error(body?.error || body?.message || 'Erro ao executar acao.');
       }
       setActionMessage('Acao executada com sucesso.');
     } catch (err: any) {
@@ -233,7 +253,7 @@ export default function AdminMemberDetailPage() {
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        throw new Error(body?.message || 'Erro ao guardar.');
+        throw new Error(body?.error || body?.message || 'Erro ao guardar.');
       }
       const payload = await res.json();
       setMember(payload.member);
@@ -264,6 +284,7 @@ export default function AdminMemberDetailPage() {
           amount: Number(paymentForm.amount),
           date: paymentForm.date,
           method: paymentForm.method,
+          payment_type: paymentForm.type,
           notes: `${paymentForm.type === 'donation' ? '[DOAÇÃO] ' : ''}${paymentForm.notes}`,
           update_quota: paymentForm.type === 'quota' && paymentForm.update_quota,
         }),
@@ -271,7 +292,7 @@ export default function AdminMemberDetailPage() {
 
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        throw new Error(body?.message || 'Erro ao registar pagamento.');
+        throw new Error(body?.error || body?.message || 'Erro ao registar pagamento.');
       }
 
       // Refresh data
@@ -307,7 +328,10 @@ export default function AdminMemberDetailPage() {
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ action: 'revoke_status' }),
       });
-      if (!res.ok) throw new Error('Erro ao revogar.');
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body?.error || body?.message || 'Erro ao revogar.');
+      }
 
       const payload = await res.json();
       setMember(payload.member);
@@ -332,7 +356,10 @@ export default function AdminMemberDetailPage() {
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ action: 'restore_status' }),
       });
-      if (!res.ok) throw new Error('Erro ao restaurar.');
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body?.error || body?.message || 'Erro ao restaurar.');
+      }
 
       const payload = await res.json();
       setMember(payload.member);
@@ -361,7 +388,10 @@ export default function AdminMemberDetailPage() {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (!res.ok) throw new Error('Erro ao eliminar.');
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body?.error || body?.message || 'Erro ao eliminar.');
+      }
 
       alert('Membro eliminado permanentemente.');
       router.push('/admin/membros');
@@ -398,7 +428,7 @@ export default function AdminMemberDetailPage() {
               <div>
                 <h1 className="text-2xl font-bold text-gray-900">{member.nome || 'Sem nome'}</h1>
                 <p className="text-gray-500 flex items-center gap-2">
-                  <Mail className="w-4 h-4" /> {member.email}
+                  <Mail className="w-4 h-4" /> {displayMemberEmail(member.email)}
                 </p>
               </div>
             </div>
@@ -425,7 +455,7 @@ export default function AdminMemberDetailPage() {
                   : 'border-transparent text-gray-500 hover:text-gray-900 hover:border-gray-300'
                   } capitalize`}
               >
-                {t === 'settings' ? 'Admin' : t}
+                {t === 'resumo' ? 'Visão Geral' : t === 'quota' ? 'Financeiro' : t === 'pagamentos' ? 'Histórico' : t === 'contactos' ? 'Dados Pessoais' : 'Conta & Admin'}
               </button>
             ))}
           </div>
@@ -434,10 +464,18 @@ export default function AdminMemberDetailPage() {
           <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 min-h-[400px]">
 
             {tab === 'resumo' && (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
                 <div className="p-4 bg-gray-50 rounded-xl border border-gray-100">
-                  <span className="text-xs font-bold uppercase tracking-wider text-gray-400 block mb-1">Total Pago (Quotas)</span>
+                  <span className="text-xs font-bold uppercase tracking-wider text-gray-400 block mb-1">Total Pago</span>
                   <strong className="text-2xl text-gray-900 font-serif">{formatCurrency(paymentSummary.totalPaid)}</strong>
+                </div>
+                <div className="p-4 bg-gray-50 rounded-xl border border-gray-100">
+                  <span className="text-xs font-bold uppercase tracking-wider text-gray-400 block mb-1">Total Quotas</span>
+                  <strong className="text-lg text-gray-900">{formatCurrency(paymentSummary.totalQuotaPaid)}</strong>
+                </div>
+                <div className="p-4 bg-gray-50 rounded-xl border border-gray-100">
+                  <span className="text-xs font-bold uppercase tracking-wider text-gray-400 block mb-1">Total Doações</span>
+                  <strong className="text-lg text-gray-900">{formatCurrency(paymentSummary.totalDonations)}</strong>
                 </div>
                 <div className="p-4 bg-gray-50 rounded-xl border border-gray-100">
                   <span className="text-xs font-bold uppercase tracking-wider text-gray-400 block mb-1">Tipo de Subscrição</span>
@@ -483,20 +521,25 @@ export default function AdminMemberDetailPage() {
                       <div className="grid grid-cols-2 gap-2">
                         <button
                           onClick={() => runAction('resend_receipt')}
-                          disabled={actionLoading}
+                          disabled={actionLoading || !hasRealEmail}
                           className="flex items-center justify-center gap-2 py-2 bg-gray-50 text-gray-700 font-medium rounded-lg hover:bg-gray-100 transition-colors"
                         >
                           <FileText className="w-4 h-4" /> Reenviar Recibo
                         </button>
                         <button
                           onClick={() => runAction('resend_diploma')}
-                          disabled={actionLoading}
+                          disabled={actionLoading || !hasRealEmail}
                           className="flex items-center justify-center gap-2 py-2 bg-gray-50 text-gray-700 font-medium rounded-lg hover:bg-gray-100 transition-colors"
                         >
                           <FileText className="w-4 h-4" /> Reenviar Diploma
                         </button>
                       </div>
                     </div>
+                    {!hasRealEmail && (
+                      <p className="mt-3 text-xs text-amber-700 bg-amber-50 p-2 rounded-lg border border-amber-100">
+                        Este membro está sem conta/email. Reenvio de recibo e diploma indisponível.
+                      </p>
+                    )}
                     {actionMessage && (
                       <p className="mt-3 text-sm text-center text-gray-600 bg-blue-50 p-2 rounded-lg border border-blue-100">{actionMessage}</p>
                     )}
@@ -511,12 +554,17 @@ export default function AdminMemberDetailPage() {
                   <div className="space-y-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Estado</label>
-                      <input
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-garabandal-gold/20"
+                      <select
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-garabandal-gold/20 bg-white"
                         value={formState.estado_quota}
                         onChange={(event) => setFormState((prev) => ({ ...prev, estado_quota: event.target.value }))}
-                        placeholder="pago, pendente..."
-                      />
+                      >
+                        <option value="">—</option>
+                        <option value="pago">Pago</option>
+                        <option value="pendente">Pendente</option>
+                        <option value="expirado">Expirado</option>
+                        <option value="revogado">Revogado</option>
+                      </select>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div>
@@ -599,6 +647,7 @@ export default function AdminMemberDetailPage() {
                     <thead className="border-b border-gray-100 text-gray-400 uppercase text-xs font-bold tracking-wider">
                       <tr>
                         <th className="pb-3 pl-2">Data</th>
+                        <th className="pb-3">Tipo</th>
                         <th className="pb-3">Método</th>
                         <th className="pb-3 text-right">Valor</th>
                         <th className="pb-3 text-right pr-2">Estado</th>
@@ -608,6 +657,11 @@ export default function AdminMemberDetailPage() {
                       {payments.map((row) => (
                         <tr key={row.id} className="hover:bg-gray-50 transition-colors">
                           <td className="py-3 pl-2 font-mono text-gray-600">{formatDate(row.data_pagamento || row.created_at)}</td>
+                          <td className="py-3">
+                            <span className={`inline-block px-2 py-0.5 rounded text-xs font-bold uppercase ${getPaymentType(row) === 'donation' ? 'bg-violet-50 text-violet-700' : 'bg-blue-50 text-blue-700'}`}>
+                              {getPaymentType(row) === 'donation' ? 'Doação' : 'Quota'}
+                            </span>
+                          </td>
                           <td className="py-3 font-medium text-gray-900">{row.metodo_pagamento || '—'}</td>
                           <td className="py-3 text-right text-gray-900 font-bold">{formatCurrency(row.valor)}</td>
                           <td className="py-3 text-right pr-2">
@@ -638,7 +692,7 @@ export default function AdminMemberDetailPage() {
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Email (Apenas leitura)</label>
                     <div className="w-full px-3 py-2 bg-gray-100 border border-gray-200 rounded-lg text-gray-500 cursor-not-allowed">
-                      {member.email}
+                      {displayMemberEmail(member.email)}
                     </div>
                   </div>
                   <div>
@@ -650,7 +704,7 @@ export default function AdminMemberDetailPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">NIF</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">NIF / CPF</label>
                     <input
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-garabandal-gold/20"
                       value={formState.nif}
@@ -666,7 +720,7 @@ export default function AdminMemberDetailPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Código Postal</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Código Postal / CEP</label>
                     <input
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-garabandal-gold/20"
                       value={formState.postal_code}
@@ -698,6 +752,22 @@ export default function AdminMemberDetailPage() {
 
             {tab === 'settings' && (
               <div className="space-y-8 animate-in fade-in duration-300">
+                <div className="bg-white border rounded-xl p-6">
+                  <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2 mb-4">
+                    <Mail className="w-5 h-5" /> Conta e Comunicação
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="p-4 bg-gray-50 rounded-lg border border-gray-100">
+                      <p className="text-xs uppercase tracking-wide font-bold text-gray-400">Tipo de conta</p>
+                      <p className="mt-1 font-bold text-gray-900">{hasRealEmail ? 'Com conta/email' : 'Sem conta/email'}</p>
+                    </div>
+                    <div className="p-4 bg-gray-50 rounded-lg border border-gray-100">
+                      <p className="text-xs uppercase tracking-wide font-bold text-gray-400">Email</p>
+                      <p className="mt-1 font-medium text-gray-900 break-all">{displayMemberEmail(member.email)}</p>
+                    </div>
+                  </div>
+                </div>
+
                 <div className="bg-white border rounded-xl p-6">
                   <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2 mb-4">
                     <Settings className="w-5 h-5" /> Gestão de Acesso

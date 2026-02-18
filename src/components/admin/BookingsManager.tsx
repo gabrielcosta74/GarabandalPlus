@@ -135,8 +135,15 @@ export default function BookingsManager({ pilgrimageId }: { pilgrimageId: string
         if (!confirm("⚠️ Tem a certeza ABSOLUTA que deseja eliminar esta reserva?\n\nIsto irá apagar:\n- Os dados dos peregrinos\n- O histórico de pagamentos\n\nEsta ação é irreversível.")) return;
 
         try {
+            const { data: { session } } = await supabaseBrowser.auth.getSession();
+            const token = session?.access_token;
+            if (!token) throw new Error("Sessão expirada. Volte a iniciar sessão.");
+
             const res = await fetch(`/api/admin/bookings/operate/${bookingId}`, {
-                method: 'DELETE'
+                method: 'DELETE',
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
             });
             const json = await res.json();
 

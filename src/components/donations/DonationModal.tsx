@@ -415,7 +415,7 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
                                             {receiptRequired && (
                                                 <>
                                                     <div className="space-y-2 animate-in fade-in slide-in-from-top-2">
-                                                        <label className="text-sm font-medium text-gray-700">Código Postal</label>
+                                                        <label className="text-sm font-medium text-gray-700">Código Postal / CEP</label>
                                                         <input value={formData.codigoPostal} onChange={e => setFormData({ ...formData, codigoPostal: formatPostalCode(e.target.value, formData.pais) })}
                                                             inputMode={getPostalInputMode(formData.pais)} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none" placeholder="0000-000" />
                                                     </div>

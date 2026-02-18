@@ -5,9 +5,10 @@ import { useRouter } from 'next/navigation';
 import DashboardShell from '../../../components/dashboard/DashboardShell';
 import MemberProfileModal from '../../../components/member-profile/MemberProfileModal';
 import ChangePasswordModal from '../../../components/auth/ChangePasswordModal';
+import ChangeEmailModal from '../../../components/auth/ChangeEmailModal';
 import { supabaseBrowser } from '../../../lib/supabase-browser';
 import { useAuth } from '../../../contexts/AuthContext';
-import { User, MapPin, Shield, Edit2, KeyRound, LogOut, CheckCircle2 } from 'lucide-react';
+import { User, MapPin, Shield, Edit2, KeyRound, LogOut, CheckCircle2, Mail } from 'lucide-react';
 
 export default function AccountProfilePage() {
   // Use centralized AuthContext for data to ensure synchronization
@@ -15,6 +16,7 @@ export default function AccountProfilePage() {
 
   const [showProfile, setShowProfile] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [showEmailModal, setShowEmailModal] = useState(false);
 
   // Security states
   const [securityMessage, setSecurityMessage] = useState('');
@@ -120,10 +122,18 @@ export default function AccountProfilePage() {
         onClose={() => setShowPasswordModal(false)}
       />
 
+      <ChangeEmailModal
+        visible={showEmailModal}
+        onClose={() => setShowEmailModal(false)}
+        currentEmail={currentEmail}
+        onRequested={refreshMemberData}
+      />
+
       <MemberProfileModal
         visible={showProfile}
         userId={user?.id || ''}
         initialData={profileDisplay}
+        currentEmail={currentEmail}
         onClose={() => setShowProfile(false)}
         onSaved={async () => {
           await refreshMemberData();
@@ -164,9 +174,9 @@ export default function AccountProfilePage() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6">
               <Field label="Nome" value={profileDisplay.nome} />
-              <Field label="Email" value={profileDisplay.email || currentEmail} />
+              <Field label="Email" value={currentEmail || profileDisplay.email} />
               <Field label="Telefone" value={profileDisplay.telefone} />
-              <Field label="NIF" value={profileDisplay.nif} />
+              <Field label="NIF / CPF" value={profileDisplay.nif} />
             </div>
           </div>
 
@@ -194,7 +204,7 @@ export default function AccountProfilePage() {
               <div className="sm:col-span-2">
                 <Field label="Endereço" value={profileDisplay.address} />
               </div>
-              <Field label="Código Postal" value={profileDisplay.postal_code} />
+              <Field label="Código Postal / CEP" value={profileDisplay.postal_code} />
               <Field label="País" value={profileDisplay.country} />
             </div>
           </div>
@@ -206,6 +216,14 @@ export default function AccountProfilePage() {
             <SectionHeader icon={Shield} title="Segurança" subtitle="Protege a tua conta." />
 
             <div className="space-y-3 mt-6">
+              <button
+                onClick={() => setShowEmailModal(true)}
+                disabled={securityLoading}
+                className="w-full flex items-center justify-between px-4 py-4 bg-gray-50 hover:bg-gray-100 rounded-xl transition-colors text-sm font-bold text-gray-800 group border border-gray-200"
+              >
+                <span className="flex items-center gap-3"><Mail className="w-5 h-5 text-gray-500 group-hover:text-garabandal-gold" /> Alterar Email</span>
+              </button>
+
               <button
                 onClick={() => setShowPasswordModal(true)}
                 disabled={securityLoading}
