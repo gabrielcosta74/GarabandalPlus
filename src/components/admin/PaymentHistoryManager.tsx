@@ -83,30 +83,31 @@ export default function PaymentHistoryManager({
 
         setIsSubmitting(true);
         try {
-            const { error: payError } = await supabaseBrowser
-                .from('pilgrimage_payments')
-                .insert({
-                    booking_id: bookingId,
+            const { data: { session } } = await supabaseBrowser.auth.getSession();
+            const token = session?.access_token;
+            if (!token) {
+                throw new Error('Sessão inválida. Faça login novamente.');
+            }
+
+            const response = await fetch('/api/admin/payments/register', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    bookingId,
                     amount: Number(newAmount),
-                    method: newMethod === 'cash' ? 'manual' : newMethod,
-                    status: 'verified',
-                    notes: newLabel ? `[${newLabel}] ${newNote || 'Pagamento manual'}` : (newNote || 'Pagamento registado manualmente pelo Admin'),
-                    verified_at: new Date().toISOString()
-                });
-
-            if (payError) throw payError;
-
-            // Update booking paid_amount
-            const { error: bookError } = await supabaseBrowser.rpc('increment_booking_paid_amount', {
-                row_id: bookingId,
-                extra_amount: Number(newAmount)
+                    method: newMethod,
+                    notes: newNote,
+                    label: newLabel,
+                    verifiedAt: new Date().toISOString()
+                })
             });
 
-            // Note: If RPC doesn't exist, we might need to do a select/update, but let's try a direct update first for simplicity
-            if (bookError) {
-                const { data: currentBooking } = await supabaseBrowser.from('bookings').select('paid_amount').eq('id', bookingId).single();
-                const updatedPaid = (currentBooking?.paid_amount || 0) + Number(newAmount);
-                await supabaseBrowser.from('bookings').update({ paid_amount: updatedPaid }).eq('id', bookingId);
+            const result = await response.json().catch(() => ({}));
+            if (!response.ok) {
+                throw new Error(result?.error || 'Falha ao registar pagamento');
             }
 
             setShowAddForm(false);

@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { formatCurrency, loadCart } from '../../app/loja-online/data';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useScroll } from 'framer-motion';
 import { useAuth } from '../../contexts/AuthContext';
 import { isActiveMember } from '../../lib/store-discounts';
 import {
@@ -55,9 +55,23 @@ export default function SiteHeader() {
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
 
+  // -- Smart Navbar State --
+  const [hidden, setHidden] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+  const { scrollY } = useScroll();
+
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  // -- Scroll Logic --
+  useEffect(() => {
+    return scrollY.on("change", (latest: number) => {
+      // Style logic: scrolled past top
+      setScrolled(latest > 20);
+    });
+  }, [scrollY]);
+
 
   // -- Refs --
   const productsCache = useRef<CartPreviewItem[]>([]);
@@ -65,7 +79,19 @@ export default function SiteHeader() {
 
   // -- Computed --
   const hasMembership = !!memberData?.is_membro;
+  const isAuthenticated = !!user;
   const membershipHref = hasMembership ? '/member' : '/tornar-membro';
+
+  // Text Color Logic
+  // Home Page has a Dark Hero -> White Text at top
+  // Other Pages have Light Backgrounds -> Dark Text at top
+  // Scrolled -> Dark Glass Background -> White Text always
+  const isHomePage = pathname === '/';
+  const isDarkText = !scrolled && !isHomePage && !isMobileOpen;
+
+  const textColorClass = isDarkText ? 'text-slate-900' : 'text-white';
+  const iconColorClass = isDarkText ? 'text-slate-600' : 'text-white';
+  const hoverBgClass = isDarkText ? 'hover:bg-slate-100' : 'hover:bg-white/10';
 
   /* ------------------------------- Data Logic ------------------------------- */
 
@@ -181,98 +207,89 @@ export default function SiteHeader() {
   return (
     <>
       {/* 
-        MAIN HEADER
-        - Always fixed
-        - Always white
-        - Shadow for depth
+        SMART HEADER 
+        - Always Visible (scrolling doesn't hide)
+        - Glassmorphism on scroll (always visible text)
+        - Transparent at top
       */}
-      <header className="fixed top-0 left-0 right-0 z-[100] h-20 bg-white shadow-sm border-b border-slate-100 flex items-center">
+      <header
+        className="fixed top-0 left-0 right-0 z-[100] h-20 flex items-center transition-all duration-500 bg-black/60 backdrop-blur-md shadow-lg shadow-black/10 border-b border-white/10"
+      >
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
 
           {/* 1. Logo Area */}
-          <Link href="/" className="flex items-center gap-2 group z-50 focus:outline-none">
-            <div className="w-8 h-8 md:w-10 md:h-10 bg-slate-900 text-yellow-500 flex items-center justify-center rounded-lg font-serif font-bold text-lg md:text-xl shadow-md group-hover:bg-slate-800 transition-colors">
+          <Link href="/" className="flex items-center gap-3 group z-50 focus:outline-none">
+            <div className="w-10 h-10 flex items-center justify-center rounded-xl font-serif font-bold text-xl shadow-lg transition-all duration-300 bg-white text-slate-900 shadow-white/10">
               G
             </div>
             <div className="flex flex-col">
-              <span className="font-serif text-lg md:text-xl font-bold tracking-tight text-slate-900 leading-tight group-hover:text-yellow-600 transition-colors">
+              <span className="font-serif text-xl font-bold tracking-tight leading-tight transition-colors duration-300 text-white drop-shadow-md">
                 Garabandal
               </span>
-              <span className="text-[10px] md:text-xs font-bold uppercase tracking-widest text-slate-400">
+              <span className="text-[10px] font-bold uppercase tracking-[0.2em] transition-colors duration-300 text-white/80 drop-shadow-md">
                 Apostolado
               </span>
             </div>
           </Link>
 
           {/* 2. Desktop Navigation */}
-          <div className="hidden lg:flex items-center gap-1 bg-slate-50 p-1.5 rounded-full border border-slate-100">
+          <div className={`hidden lg:flex items-center gap-1 p-1.5 rounded-full transition-all duration-300 ${scrolled ? 'bg-black/20 border border-white/10' : 'bg-white/10 backdrop-blur-sm border border-white/10'}`}>
             {[
               { href: '/', label: 'Início' },
               { href: '/peregrinacoes', label: 'Peregrinações' },
               { href: '/donations', label: 'Doações' },
               { href: '/loja-online', label: 'Loja' },
+              ...(user ? [{ href: '/peregrinacoes/minhas-inscricoes', label: 'Minhas Inscrições' }] : []),
             ].map(link => (
               <Link
                 key={link.href}
                 href={link.href}
                 className={`
-                  relative group px-4 py-2 text-[15px] font-bold tracking-wide transition-colors duration-200
+                  relative group px-5 py-2 text-[14px] font-bold tracking-wide transition-colors duration-300 rounded-full
                   ${(pathname === link.href)
-                    ? 'text-slate-900'
-                    : 'text-slate-600 hover:text-slate-900'
+                    ? 'text-slate-900 bg-white shadow-lg shadow-white/20'
+                    : '!text-white/90 hover:!text-white hover:!bg-white/10'
                   }
                 `}
               >
                 {link.label}
-                <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-yellow-500 transition-all duration-300 group-hover:w-full opacity-0 group-hover:opacity-100" />
               </Link>
             ))}
 
             <Link
               href={membershipHref}
               className={`
-                  ml-2 px-6 py-2.5 rounded-full text-[15px] font-bold tracking-wide transition-all duration-300 transform hover:-translate-y-0.5
+                  ml-2 px-6 py-2 rounded-full text-[14px] font-bold tracking-wide transition-all duration-300 transform hover:scale-105 active:scale-95
                   ${hasMembership
                   ? 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200 shadow-sm'
-                  : 'bg-yellow-600 text-white hover:bg-yellow-700 hover:shadow-lg shadow-md'
+                  : 'bg-gradient-to-r from-yellow-500 to-amber-600 text-white shadow-lg shadow-yellow-500/30'
                 }
                 `}
             >
               {hasMembership ? 'Área de Membro' : 'Ser Membro'}
             </Link>
-
-            {/* NEW: My Bookings Shortcurt (Desktop) */}
-            {user && (
-              <Link
-                href="/peregrinacoes/minhas-inscricoes"
-                className="px-5 py-2 rounded-full text-sm font-bold bg-yellow-50 text-yellow-800 hover:bg-yellow-100 transition-all duration-200 border border-yellow-200/50 flex items-center gap-2"
-              >
-                <Ticket className="w-4 h-4" />
-                Minhas Inscrições
-              </Link>
-            )}
           </div>
 
           {/* 3. Actions Area (Cart, User, Mobile Toggle) */}
-          <div className="flex items-center gap-2 sm:gap-4">
+          <div className="flex items-center gap-3">
 
-            {/* Cart Button (Always Visible) */}
+            {/* Cart Button */}
             <div className="relative group">
               <Link
                 href="/loja-online/checkout"
-                className="relative flex items-center justify-center w-10 h-10 rounded-full bg-slate-50 text-slate-700 hover:bg-slate-100 border border-slate-100 transition-all focus:outline-none focus:ring-2 focus:ring-yellow-500/20"
+                className="relative flex items-center justify-center w-10 h-10 rounded-full transition-all duration-300 bg-white/10 text-white hover:bg-white/20 border border-white/10 backdrop-blur-md"
                 aria-label="Ver Carrinho"
               >
-                <ShoppingBag className="w-5 h-5" />
+                <ShoppingBag className="w-5 h-5 text-white" />
                 {cartCount > 0 && (
-                  <span className="absolute -top-1 -right-1 w-5 h-5 flex items-center justify-center bg-yellow-600 text-white text-[10px] font-bold rounded-full shadow-sm ring-2 ring-white">
+                  <span className="absolute -top-1 -right-1 w-5 h-5 flex items-center justify-center bg-yellow-500 text-white text-[10px] font-bold rounded-full shadow-sm ring-2 ring-white">
                     {cartCount}
                   </span>
                 )}
               </Link>
-
               {/* Cart Preview (Desktop Hover) */}
               <div className="absolute top-full right-0 pt-4 opacity-0 group-hover:opacity-100 invisible group-hover:visible transition-all duration-200 z-50 lg:block hidden">
+                {/* ... Cart Preview implementation matches previous ... */}
                 {cartCount > 0 && (
                   <div className="w-80 bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden">
                     <div className="p-4 bg-slate-50 border-b border-slate-100 flex justify-between items-center">
@@ -302,16 +319,16 @@ export default function SiteHeader() {
             </div>
 
             {/* User Menu (Desktop) */}
-            <div className="hidden lg:block min-w-[140px]">
+            <div className="hidden lg:block">
               {mounted && (
                 <>
                   {user ? (
                     <div className="relative">
                       <button
                         onClick={() => setUserMenuOpen(!userMenuOpen)}
-                        className="flex items-center gap-3 pl-1 pr-4 py-1.5 bg-white border border-slate-200 rounded-full hover:border-slate-300 hover:shadow-md transition-all cursor-pointer group"
+                        className="flex items-center gap-3 pl-1 pr-4 py-1.5 rounded-full transition-all cursor-pointer group bg-white/10 border border-white/20 hover:bg-white/20 backdrop-blur-md !text-white"
                       >
-                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-slate-800 to-slate-900 text-yellow-500 flex items-center justify-center font-serif font-bold text-lg border-2 border-white shadow-sm ring-2 ring-slate-100 group-hover:ring-yellow-500/30 transition-all">
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-slate-800 to-slate-900 text-yellow-500 flex items-center justify-center font-serif font-bold text-lg border-2 border-white shadow-sm">
                           {memberData?.avatar_url ? (
                             <img src={memberData.avatar_url} alt="Profile" className="w-full h-full object-cover rounded-full" />
                           ) : (
@@ -320,21 +337,19 @@ export default function SiteHeader() {
 
                         </div>
                         <div className="flex flex-col items-start">
-                          <span className="text-xs font-bold text-slate-900 leading-none">
+                          <span className="text-xs font-bold leading-none text-white">
                             Minha Conta
-                          </span>
-                          <span className="text-[10px] font-medium text-slate-500 max-w-[100px] truncate leading-tight">
-                            {user.email?.split('@')[0]}
                           </span>
                         </div>
                         <motion.div
                           animate={{ rotate: userMenuOpen ? 180 : 0 }}
                           transition={{ duration: 0.2 }}
                         >
-                          <ChevronDown className="w-4 h-4 text-slate-400 group-hover:text-slate-600" />
+                          <ChevronDown className="w-4 h-4 text-white/60 group-hover:text-white" />
                         </motion.div>
                       </button>
 
+                      {/* User Dropdown (Same as before) */}
                       <AnimatePresence>
                         {userMenuOpen && (
                           <>
@@ -346,6 +361,7 @@ export default function SiteHeader() {
                               transition={{ type: "spring", stiffness: 300, damping: 20 }}
                               className="absolute top-full right-0 mt-3 w-80 bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/20 ring-1 ring-black/5 overflow-hidden z-50 origin-top-right"
                             >
+                              {/* ... Dropdown Content reused ... */}
                               {/* Header */}
                               <div className="p-6 bg-gradient-to-br from-slate-900 to-slate-800 text-white relative overflow-hidden">
                                 <div className="absolute top-0 right-0 p-4 opacity-10">
@@ -482,7 +498,7 @@ export default function SiteHeader() {
                     </div>
                   ) : !loading && (
                     <div className="flex items-center gap-3">
-                      <Link href="/login" className="text-sm font-bold text-slate-600 hover:text-slate-900">
+                      <Link href="/login" className="text-sm font-bold transition-colors !text-white hover:text-white/80">
                         Entrar
                       </Link>
                       <Link
@@ -501,7 +517,7 @@ export default function SiteHeader() {
             {/* Mobile Menu Toggle */}
             <button
               onClick={() => setIsMobileOpen(true)}
-              className="lg:hidden p-2 rounded-xl text-slate-700 hover:bg-slate-100 transition-colors focus:outline-none"
+              className="lg:hidden p-2 rounded-xl transition-colors focus:outline-none text-white hover:bg-white/10"
               aria-label="Abrir Menu"
             >
               <Menu className="w-7 h-7" />
@@ -550,7 +566,7 @@ export default function SiteHeader() {
               <div className="flex-1 overflow-y-auto px-6 py-6 scrollbar-hide">
 
                 {/* 1. User Context Section (Top Importance) */}
-                {user && (
+                {!loading && user && (
                   <div className="mb-8">
                     <div className="flex items-center gap-3 mb-6 bg-slate-50 p-4 rounded-2xl border border-slate-100">
                       <div className="w-12 h-12 rounded-full bg-slate-200 flex items-center justify-center text-slate-700 font-bold overflow-hidden border-2 border-white shadow-sm">
@@ -608,7 +624,7 @@ export default function SiteHeader() {
                 )}
 
                 {/* 4. Action / Logout */}
-                {!user ? (
+                {!loading && !user ? (
                   <div className="mt-4 pt-6 border-t border-slate-100 grid grid-cols-2 gap-3">
                     <Link
                       href="/login"
@@ -625,7 +641,7 @@ export default function SiteHeader() {
                       Criar Conta
                     </Link>
                   </div>
-                ) : (
+                ) : !loading && user ? (
                   <div className="mt-4 pt-6 border-t border-slate-100">
                     <button
                       onClick={(e) => {
@@ -637,7 +653,7 @@ export default function SiteHeader() {
                       <LogOut className="w-5 h-5" /> Terminar Sessão
                     </button>
                   </div>
-                )}
+                ) : null}
 
               </div>
             </motion.div>
@@ -649,6 +665,9 @@ export default function SiteHeader() {
       <MobileBottomNav
         onOpenMenu={() => setIsMobileOpen(true)}
         hasMembership={hasMembership}
+        isAuthenticated={isAuthenticated}
+        isAuthLoading={loading}
+        isMenuOpen={isMobileOpen}
       />
     </>
   );

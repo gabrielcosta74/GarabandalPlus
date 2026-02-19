@@ -5,6 +5,19 @@ import { supabaseBrowser } from '../../lib/supabase-browser';
 import { useRouter } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
 
+async function verifyAdminAccess(accessToken: string): Promise<boolean> {
+  try {
+    const response = await fetch('/api/admin/auth', {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${accessToken}` },
+      cache: 'no-store',
+    });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
 export default function AdminPage() {
   const [sessionChecking, setSessionChecking] = useState(true);
   const [loginLoading, setLoginLoading] = useState(false);
@@ -17,21 +30,26 @@ export default function AdminPage() {
     const checkSession = async () => {
       try {
         if (!supabaseBrowser) {
-          if (mounted) setSessionChecking(false);
           return;
         }
 
         const { data: { session } } = await supabaseBrowser.auth.getSession();
 
         if (session?.user) {
-          // Verify if it's actually an admin session by checking access content
-          // For now, just assume session means access and redirect
-          router.replace('/admin/dashboard');
-        } else {
-          if (mounted) setSessionChecking(false);
+          const hasAdminAccess = await verifyAdminAccess(session.access_token);
+          if (hasAdminAccess) {
+            router.replace('/admin/dashboard');
+            return;
+          }
+
+          await supabaseBrowser.auth.signOut();
+          if (mounted) {
+            setError('Esta conta não tem permissões de administrador.');
+          }
         }
       } catch (err) {
         console.error('Session check failed:', err);
+      } finally {
         if (mounted) setSessionChecking(false);
       }
     };
@@ -55,19 +73,25 @@ export default function AdminPage() {
 
       if (signInError) {
         setError(signInError.message);
-        setLoginLoading(false);
         return;
       }
 
       if (data.session) {
+        const hasAdminAccess = await verifyAdminAccess(data.session.access_token);
+        if (!hasAdminAccess) {
+          await supabaseBrowser.auth.signOut();
+          setError('Esta conta não tem permissões de administrador.');
+          return;
+        }
+
         router.replace('/admin/dashboard');
       } else {
         setError("Erro desconhecido ao iniciar sessão.");
-        setLoginLoading(false);
       }
     } catch (err: any) {
       console.error('Login error:', err);
       setError(err?.message || 'Ocorreu um erro ao tentar entrar.');
+    } finally {
       setLoginLoading(false);
     }
   };

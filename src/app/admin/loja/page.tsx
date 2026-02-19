@@ -75,6 +75,7 @@ const StatCard = ({ label, value, icon: Icon, color = "amber" }: any) => (
 // --- MAIN PAGE ---
 
 export default function AdminLojaPage() {
+  const VALID_PRODUCT_TYPE_IDS = new Set(['book_digital', 'book_physical', 'clothing', 'event_ticket', 'religious_article']);
   const [products, setProducts] = useState<ProductView[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -88,6 +89,18 @@ export default function AdminLojaPage() {
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const countryOptions = useMemo(() => listCountryOptions(), []);
+
+  const parseDecimalInput = (value: string, fallback: number) => {
+    const normalized = value.replace(',', '.').trim();
+    if (!normalized) return fallback;
+    const parsed = Number(normalized);
+    return Number.isFinite(parsed) ? parsed : fallback;
+  };
+
+  const parseIntegerInput = (value: string, fallback: number) => {
+    const parsed = Number.parseInt(value, 10);
+    return Number.isFinite(parsed) ? parsed : fallback;
+  };
 
   // Load Data
   useEffect(() => {
@@ -227,9 +240,15 @@ export default function AdminLojaPage() {
       const categoryIsDigital = categoryLooksDigital(draft.categoryId);
       const shouldBeDigital = draft.type === 'digital' || categoryIsDigital;
       const isPhysical = !shouldBeDigital;
-      const normalizedTypeId = shouldBeDigital
-        ? (draft.typeId && PRODUCT_DEFINITIONS[draft.typeId] && !PRODUCT_DEFINITIONS[draft.typeId].isPhysical ? draft.typeId : 'digital_generic')
-        : (draft.typeId && PRODUCT_DEFINITIONS[draft.typeId] && PRODUCT_DEFINITIONS[draft.typeId].isPhysical ? draft.typeId : 'religious_article');
+      const normalizedTypeId = (() => {
+        const draftTypeId = String(draft.typeId || '').trim();
+        const def = PRODUCT_DEFINITIONS[draftTypeId];
+        const candidate = shouldBeDigital
+          ? (def && !def.isPhysical ? draftTypeId : 'book_digital')
+          : (def && def.isPhysical ? draftTypeId : 'religious_article');
+        if (VALID_PRODUCT_TYPE_IDS.has(candidate)) return candidate;
+        return shouldBeDigital ? 'book_digital' : 'religious_article';
+      })();
       const selectedCategory = categories.find((c) => c.id === draft.categoryId);
 
       const def = PRODUCT_DEFINITIONS[normalizedTypeId];
@@ -245,7 +264,7 @@ export default function AdminLojaPage() {
         category_id: draft.categoryId,
         category_name: selectedCategory?.name || null,
         description: draft.description,
-        price: draft.price,
+        price: Number.isFinite(draft.price) ? draft.price : 0,
         stock: isPhysical ? finalStock : null,
         is_active: draft.status === 'ativo',
         image_url: draft.image,
@@ -254,7 +273,7 @@ export default function AdminLojaPage() {
         metadata: draft.metadata,
         is_physical: isPhysical,
         specifications: draft.specifications,
-        tax_rate: draft.taxRate,
+        tax_rate: Number.isFinite(draft.taxRate) ? draft.taxRate : 0.23,
         allowed_countries: isPhysical ? (draft.allowedCountries || []) : [],
         variants: isPhysical && shouldUseVariants ? draft.variants : []
       };
@@ -543,7 +562,7 @@ export default function AdminLojaPage() {
                                   ...draft,
                                   categoryId: val,
                                   type: 'digital',
-                                  typeId: PRODUCT_DEFINITIONS[draft.typeId]?.isPhysical ? 'digital_generic' : (draft.typeId || 'digital_generic'),
+                                  typeId: PRODUCT_DEFINITIONS[draft.typeId]?.isPhysical ? 'book_digital' : (draft.typeId || 'book_digital'),
                                   stock: null,
                                   variants: []
                                 });
@@ -688,8 +707,24 @@ export default function AdminLojaPage() {
                       <div className="space-y-6">
                         <div className="p-6 bg-white rounded-2xl border border-slate-200">
                           <div className="grid grid-cols-2 gap-4">
-                            <FormInput label="Preço (€)" type="number" value={draft.price} onChange={(v: string) => setDraft({ ...draft, price: parseFloat(v) })} className="text-lg font-bold" />
-                            <FormInput label="Taxa IVA (%)" type="number" value={draft.taxRate * 100} onChange={(v: string) => setDraft({ ...draft, taxRate: parseFloat(v) / 100 })} suffix="%" />
+                            <FormInput
+                              label="Preço (€)"
+                              type="number"
+                              value={draft.price}
+                              onChange={(v: string) => setDraft({ ...draft, price: parseDecimalInput(v, draft.price) })}
+                              className="text-lg font-bold"
+                            />
+                            <FormInput
+                              label="Taxa IVA (%)"
+                              type="number"
+                              value={draft.taxRate * 100}
+                              onChange={(v: string) => {
+                                const percent = parseDecimalInput(v, draft.taxRate * 100);
+                                const clampedPercent = Math.min(100, Math.max(0, percent));
+                                setDraft({ ...draft, taxRate: clampedPercent / 100 });
+                              }}
+                              suffix="%"
+                            />
                           </div>
                         </div>
 
@@ -707,10 +742,15 @@ export default function AdminLojaPage() {
                                 value={currentDef?.hasVariants && draft.variants.length > 0
                                   ? draft.variants.reduce((acc, v) => acc + (v.stock || 0), 0)
                                   : draft.stock}
-                                onChange={(v: string) => !currentDef?.hasVariants && setDraft({ ...draft, stock: parseInt(v) })}
+                                onChange={(v: string) => !currentDef?.hasVariants && setDraft({ ...draft, stock: parseIntegerInput(v, typeof draft.stock === 'number' ? draft.stock : 0) })}
                                 disabled={currentDef?.hasVariants && draft.variants.length > 0}
                               />
-                              <FormInput label="Alerta Stock Baixo" type="number" value={draft.lowStockThreshold} onChange={(v: string) => setDraft({ ...draft, lowStockThreshold: parseInt(v) })} />
+                              <FormInput
+                                label="Alerta Stock Baixo"
+                                type="number"
+                                value={draft.lowStockThreshold}
+                                onChange={(v: string) => setDraft({ ...draft, lowStockThreshold: parseIntegerInput(v, draft.lowStockThreshold) })}
+                              />
                             </div>
 
                             {currentDef?.hasVariants && (

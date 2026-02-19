@@ -17,6 +17,45 @@ const isExpired = (expiresAt?: string | null) => {
   return new Date(expiresAt).getTime() < Date.now();
 };
 
+const findAuthUserByEmail = async (email: string) => {
+  if (!supabaseServer) return null;
+  const target = email.toLowerCase();
+  const perPage = 200;
+  let page = 1;
+
+  while (true) {
+    const { data, error } = await supabaseServer.auth.admin.listUsers({ page, perPage });
+    if (error) return null;
+    const users = data?.users || [];
+    const match = users.find((user) => (user.email || '').toLowerCase() === target);
+    if (match) return match;
+    if (users.length < perPage) break;
+    page += 1;
+  }
+
+  return null;
+};
+
+const resolveClaimToken = async (accessToken: string) => {
+  const tokenHash = hashAccessToken(accessToken);
+  const { data: tokenRow, error: tokenError } = await supabaseServer!
+    .from('store_order_access_tokens')
+    .select('order_ref, buyer_email, expires_at, used_at')
+    .eq('token_hash', tokenHash)
+    .maybeSingle();
+
+  if (tokenError || !tokenRow) {
+    return { tokenHash, tokenRow: null as any, error: NextResponse.json({ message: 'Token inválido.' }, { status: 404 }) };
+  }
+  if (tokenRow.used_at) {
+    return { tokenHash, tokenRow: null as any, error: NextResponse.json({ message: 'Este link já foi utilizado.' }, { status: 400 }) };
+  }
+  if (isExpired(tokenRow.expires_at)) {
+    return { tokenHash, tokenRow: null as any, error: NextResponse.json({ message: 'Este link expirou.' }, { status: 400 }) };
+  }
+  return { tokenHash, tokenRow, error: null as Response | null };
+};
+
 export async function GET(request: Request) {
   if (!supabaseServer) {
     return NextResponse.json({ message: 'Supabase não configurado.' }, { status: 500 });
@@ -65,8 +104,7 @@ export async function GET(request: Request) {
   try {
     const lookupEmail = normalizeEmail(tokenRow.buyer_email);
     if (lookupEmail) {
-      const { data: users, error } = await supabaseServer.auth.admin.listUsers();
-      emailExists = !error && users.users.some(u => u.email?.toLowerCase() === lookupEmail.toLowerCase());
+      emailExists = !!(await findAuthUserByEmail(lookupEmail));
     }
   } catch (err) {
     emailExists = false;
@@ -101,6 +139,75 @@ export async function POST(request: Request) {
     return NextResponse.json({ message: 'Supabase não configurado.' }, { status: 500 });
   }
 
+  const body = await request.json().catch(() => ({}));
+  const accessToken = typeof body?.token === 'string' ? body.token : null;
+  const mode = typeof body?.mode === 'string' ? body.mode : 'claim';
+  const password = typeof body?.password === 'string' ? body.password.trim() : '';
+  const source = typeof body?.source === 'string' ? body.source : 'claim_link';
+
+  if (!accessToken) {
+    return NextResponse.json({ message: 'Token ausente.' }, { status: 400 });
+  }
+
+  const resolvedClaim = await resolveClaimToken(accessToken);
+  if (resolvedClaim.error) return resolvedClaim.error;
+  const { tokenHash, tokenRow } = resolvedClaim;
+
+  if (mode === 'register') {
+    if (password.length < 6) {
+      return NextResponse.json({ message: 'A password deve ter pelo menos 6 caracteres.' }, { status: 400 });
+    }
+
+    const tokenEmail = normalizeEmail(tokenRow.buyer_email);
+    if (!tokenEmail) {
+      return NextResponse.json({ message: 'Email do pedido inválido.' }, { status: 400 });
+    }
+
+    const existingUser = await findAuthUserByEmail(tokenEmail);
+    if (existingUser) {
+      return NextResponse.json({ ok: true, exists: true });
+    }
+
+    const { data: order } = await supabaseServer
+      .from('store_orders')
+      .select('buyer_name')
+      .eq('order_ref', tokenRow.order_ref)
+      .maybeSingle();
+
+    const { data: createdUser, error: createUserError } = await supabaseServer.auth.admin.createUser({
+      email: tokenEmail,
+      password,
+      email_confirm: true,
+      user_metadata: {
+        full_name: order?.buyer_name || null,
+        source: 'store_claim',
+      },
+    });
+
+    if (createUserError) {
+      return NextResponse.json({ message: createUserError.message || 'Não foi possível criar a conta.' }, { status: 400 });
+    }
+
+    if (createdUser?.user?.id) {
+      await supabaseServer
+        .from('membros')
+        .upsert(
+          {
+            id: createdUser.user.id,
+            email: tokenEmail,
+            nome: order?.buyer_name || tokenEmail.split('@')[0],
+            is_membro: false,
+            tipo_subscricao: 'regulares',
+            estado_quota: 'pendente',
+            data_adesao: new Date().toISOString(),
+          },
+          { onConflict: 'id' },
+        );
+    }
+
+    return NextResponse.json({ ok: true, exists: false });
+  }
+
   const token = getBearerToken(request);
   if (!token) {
     return NextResponse.json({ message: 'Sessão inválida.' }, { status: 401 });
@@ -109,33 +216,6 @@ export async function POST(request: Request) {
   const { data: userData, error: userError } = await supabaseServer.auth.getUser(token);
   if (userError || !userData?.user) {
     return NextResponse.json({ message: 'Sessão inválida.' }, { status: 401 });
-  }
-
-  const body = await request.json().catch(() => ({}));
-  const accessToken = typeof body?.token === 'string' ? body.token : null;
-  const source = typeof body?.source === 'string' ? body.source : 'claim_link';
-
-  if (!accessToken) {
-    return NextResponse.json({ message: 'Token ausente.' }, { status: 400 });
-  }
-
-  const tokenHash = hashAccessToken(accessToken);
-  const { data: tokenRow, error: tokenError } = await supabaseServer
-    .from('store_order_access_tokens')
-    .select('order_ref, buyer_email, expires_at, used_at')
-    .eq('token_hash', tokenHash)
-    .maybeSingle();
-
-  if (tokenError || !tokenRow) {
-    return NextResponse.json({ message: 'Token inválido.' }, { status: 404 });
-  }
-
-  if (tokenRow.used_at) {
-    return NextResponse.json({ message: 'Este link já foi utilizado.' }, { status: 400 });
-  }
-
-  if (isExpired(tokenRow.expires_at)) {
-    return NextResponse.json({ message: 'Este link expirou.' }, { status: 400 });
   }
 
   const email = normalizeEmail(userData.user.email);
@@ -158,7 +238,7 @@ export async function POST(request: Request) {
     .update({ user_id: userData.user.id })
     .is('user_id', null)
     .eq('order_ref', tokenRow.order_ref)
-    .eq('buyer_email', tokenRow.buyer_email);
+    .ilike('buyer_email', tokenRow.buyer_email);
 
   await supabaseServer
     .from('store_order_access_tokens')

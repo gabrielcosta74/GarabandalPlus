@@ -4,10 +4,10 @@ import React, { useState } from 'react';
 import Image from 'next/image';
 import Preloader from './Preloader';
 import Hero from './Hero';
-import Pillars from './Pillars';
-import Campaign from './Campaign';
-import Sustain from './Sustain';
-import NextPilgrimage from './NextPilgrimage';
+import SpiritualPillars from './SpiritualPillars';
+import CampaignShowcase from './CampaignShowcase';
+import SupportArea from './SupportArea';
+import PilgrimageShowcase from './PilgrimageShowcase';
 import FeaturedStore from './FeaturedStore';
 import { DonationMeta } from '../../lib/donations';
 import { useAuth } from '../../contexts/AuthContext';
@@ -60,11 +60,11 @@ const HomePageClient: React.FC<HomePageClientProps> = ({ meta, nextPilgrimage, f
                         />
 
                         <Hero />
-                        <Pillars />
-                        <Campaign meta={meta} />
+                        <SpiritualPillars />
+                        <CampaignShowcase meta={meta} />
                         <FeaturedStore products={featuredProducts || []} />
-                        {nextPilgrimage && <NextPilgrimage nextPilgrimage={nextPilgrimage} />}
-                        <Sustain />
+                        {nextPilgrimage && <PilgrimageShowcase nextPilgrimage={nextPilgrimage} />}
+                        <SupportArea />
                     </div>
                 </div>
             )}

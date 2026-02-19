@@ -3,6 +3,7 @@ import { stripe } from '../../../../lib/stripe';
 import { supabaseServer } from '../../../../lib/supabase';
 import { getAppUrl } from '../../../../lib/config';
 import { reduniqClient } from '../../../../lib/reduniq/client';
+import { checkRateLimit } from '../../../../lib/rate-limit';
 
 const normalizeRedirectUrl = (candidate: string, baseOrigin: string): string => {
     const raw = String(candidate || '').trim();
@@ -36,6 +37,21 @@ const toSafeCheckoutError = (error: unknown): string => {
 
 export async function POST(req: Request) {
     try {
+        const rateLimit = checkRateLimit(req, {
+            keyPrefix: 'payments-checkout',
+            windowMs: 60_000,
+            max: 20
+        });
+        if (!rateLimit.allowed) {
+            return NextResponse.json(
+                { error: 'Too many requests' },
+                {
+                    status: 429,
+                    headers: { 'Retry-After': String(rateLimit.retryAfterSeconds) }
+                }
+            );
+        }
+
         if (!supabaseServer) {
             console.error("Supabase Server Client missing");
             return NextResponse.json({ error: "Erro interno de configuração" }, { status: 500 });

@@ -1,9 +1,16 @@
 import { NextResponse } from 'next/server';
 import { supabaseServer } from '../../../../lib/supabase';
+import { verifyAdmin } from '../../../../lib/admin-auth';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(req: Request) {
+    const { authorized, error: authError } = await verifyAdmin(req);
+    if (!authorized) {
+        const status = authError === 'Forbidden: Not an Admin' ? 403 : 401;
+        return NextResponse.json({ error: authError || 'Unauthorized' }, { status });
+    }
+
     if (!supabaseServer) {
         return NextResponse.json({ error: 'Database Config Error' }, { status: 500 });
     }

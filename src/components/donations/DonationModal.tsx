@@ -255,6 +255,7 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
                     amount,
                     type: 'donation',
                     provider: chosenProvider,
+                    paymentOptionId: selectedPaymentId,
                     donorName: formData.nome,
                     donorEmail: formData.email,
                     donorAddress: receiptRequired ? formData.morada : null,

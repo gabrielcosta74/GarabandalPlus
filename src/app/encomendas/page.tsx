@@ -160,7 +160,9 @@ export default function EncomendasPage() {
     user ? '/api/store/orders' : null,
     fetchOrders,
     {
-      revalidateOnFocus: false,
+      revalidateOnFocus: true,
+      revalidateOnReconnect: true,
+      revalidateIfStale: true,
       shouldRetryOnError: false
     }
   );

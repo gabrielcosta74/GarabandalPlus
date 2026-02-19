@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabaseServer } from '../../../../../lib/supabase';
+import { toSignedReceiptUrl } from '../../../../../lib/receipt-utils';
 
 /**
  * GET /api/admin/bookings/[pilgrimageId]
@@ -99,7 +100,12 @@ export async function GET(
             return NextResponse.json({ bookings: safeBookings });
         }
 
-        const paymentsByBookingId = (payments || []).reduce<Record<string, any[]>>((acc, payment) => {
+        const signedPayments = await Promise.all((payments || []).map(async (payment: any) => ({
+            ...payment,
+            receipt_url: payment?.receipt_url ? await toSignedReceiptUrl(payment.receipt_url, 3600) : null,
+        })));
+
+        const paymentsByBookingId = signedPayments.reduce<Record<string, any[]>>((acc, payment) => {
             if (!acc[payment.booking_id]) acc[payment.booking_id] = [];
             acc[payment.booking_id].push(payment);
             return acc;

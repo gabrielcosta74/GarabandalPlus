@@ -2,12 +2,19 @@ import { NextResponse } from 'next/server';
 import { supabaseServer } from '../../../../../lib/supabase';
 import { sendStoreShippingEmail } from '../../../../../lib/email';
 import { ensureNotificationRecord, markNotificationSent } from '../../../../../lib/email-notifications';
+import { verifyAdmin } from '../../../../../lib/admin-auth';
 
 export async function PATCH(
     request: Request,
     { params }: { params: { ref: string } }
 ) {
     try {
+        const { authorized, error: authError } = await verifyAdmin(request);
+        if (!authorized) {
+            const status = authError === 'Forbidden: Not an Admin' ? 403 : 401;
+            return NextResponse.json({ error: authError || 'Unauthorized' }, { status });
+        }
+
         const { ref } = params;
         const body = await request.json();
         const { shippingStatus, tracking, invoiceSent } = body;

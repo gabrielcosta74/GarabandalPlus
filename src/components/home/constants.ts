@@ -31,7 +31,7 @@ export const PILLARS_CONTENT = [
         highlight: false
     },
     {
-        title: "Comunidade",
+        title: "Comunidade dos membros",
         description: "Faça parte da família. O seu apoio como membro sustenta esta obra de evangelização.",
         action: "Ser Membro",
         link: "/tornar-membro",
@@ -43,7 +43,7 @@ export const PILLARS_CONTENT = [
 export const CAMPAIGN_CONTENT = {
     title: "Casa de Acolhimento",
     subtitle: "O seu apoio constrói este refúgio.",
-    description: "A Associação adquiriu uma casa nas montanhas para servir de apoio ao peregrino que procura ir ao encontro de Deus através de Garabandal.",
+    description: "A Associação adquiriu uma casa nas montanhas perto de Garabandal para servir de apoio ao peregrino que procura ir ao encontro de Deus através de Garabandal.",
     cta: "Doar para a Obra"
 };
 

@@ -9,6 +9,7 @@ import { getAppUrl } from '../../../../lib/config';
 import { normalizeEmail } from '../../../../lib/normalize';
 import { reduniqClient } from '../../../../lib/reduniq/client';
 import { inferIsDigitalProduct } from '../../../../lib/product-kind';
+import { checkRateLimit } from '../../../../lib/rate-limit';
 
 const itemSchema = z.object({
   id: z.string().min(1),
@@ -57,6 +58,21 @@ const bodySchema = z.object({
 
 export async function POST(request: Request) {
   try {
+    const rateLimit = checkRateLimit(request, {
+      keyPrefix: 'store-checkout',
+      windowMs: 60_000,
+      max: 15,
+    });
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { message: 'Too many requests.', code: 'RATE_LIMITED' },
+        {
+          status: 429,
+          headers: { 'Retry-After': String(rateLimit.retryAfterSeconds) },
+        },
+      );
+    }
+
     const requestId = typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `req_${Date.now()}`;
     const authHeader = request.headers.get('authorization') || '';
     const bearerToken = authHeader.toLowerCase().startsWith('bearer ') ? authHeader.slice(7).trim() : null;
@@ -342,11 +358,8 @@ export async function POST(request: Request) {
       const cancelUrl = `${siteUrl}/thank-you?type=store&amount=${roundedTotal}&provider=reduniq&orderRef=${orderRef}&status=failed&canceled=true`;
       const countryCode = (shipping?.country || billing?.country || 'PT').slice(0, 2).toUpperCase();
       const languageCode = countryCode === 'PT' || countryCode === 'BR' ? 'por' : 'eng';
-      const itemSummary = itemsResolved
-        .slice(0, 3)
-        .map((item) => `${item.qty}x ${item.name}`)
-        .join(', ');
-      const description = `Loja Online: ${itemSummary || 'Pedido'}${itemsResolved.length > 3 ? '...' : ''}`;
+      // Keep Reduniq description short/stable to avoid gateway quirks with long or special-character-heavy cart summaries.
+      const description = `Loja Online - Pedido ${orderRef}`;
 
       const attemptInit = async (solution?: number) =>
         reduniqClient.initiatePayment({

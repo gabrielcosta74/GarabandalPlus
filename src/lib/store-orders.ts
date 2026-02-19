@@ -34,6 +34,28 @@ type StoreProductRow = {
   stock?: number | null;
 };
 
+const resolveAuthUserByEmail = async (
+  supabaseServer: any,
+  email: string,
+): Promise<{ exists: boolean; userId: string | null }> => {
+  try {
+    const perPage = 200;
+    let page = 1;
+    while (true) {
+      const { data, error } = await supabaseServer.auth.admin.listUsers({ page, perPage });
+      if (error) return { exists: false, userId: null };
+      const users = data?.users || [];
+      const match = users.find((u: any) => (u?.email || '').toLowerCase() === email.toLowerCase());
+      if (match) return { exists: true, userId: match?.id || null };
+      if (users.length < perPage) break;
+      page += 1;
+    }
+    return { exists: false, userId: null };
+  } catch {
+    return { exists: false, userId: null };
+  }
+};
+
 const formatCurrency = (value: number, currency = 'EUR') =>
   new Intl.NumberFormat('pt-PT', { style: 'currency', currency }).format(value);
 
@@ -74,6 +96,11 @@ export const processPaidStoreOrder = async ({
   const totalAmount = typeof amountCents === 'number' ? amountCents / 100 : existingOrder.total_amount;
   const shouldSetShippingStatus = existingOrder.has_physical ? 'por_enviar' : null;
   const normalizedBuyerEmail = normalizeEmail(existingOrder.buyer_email) || normalizeEmail(buyerEmail);
+  const buyerEmailResolved = normalizedBuyerEmail || '';
+  const authUserMatch = buyerEmailResolved
+    ? await resolveAuthUserByEmail(supabaseServer, buyerEmailResolved)
+    : { exists: false, userId: null };
+  const resolvedBuyerUserId = existingOrder.buyer_user_id || authUserMatch.userId || null;
 
   await supabaseServer
     .from('store_orders')
@@ -85,27 +112,68 @@ export const processPaidStoreOrder = async ({
       buyer_name: existingOrder.buyer_name || buyerName || null,
       buyer_email: normalizedBuyerEmail,
       buyer_phone: existingOrder.buyer_phone || buyerPhone || null,
+      buyer_user_id: resolvedBuyerUserId,
       total_amount: totalAmount,
       shipping_status: shouldSetShippingStatus,
     })
     .eq('order_ref', orderRef);
 
   if (existingOrder.status === 'paid') {
+    const siteUrl = getAppUrl();
     let hasDigitalExisting = false;
+    let digitalDownloadLinks: Array<{ name: string; url: string }> = [];
     try {
       const { data: digitalAccess } = await supabaseServer
         .from('store_digital_access')
-        .select('id')
+        .select('product_id')
         .eq('order_ref', orderRef)
-        .limit(1);
-      hasDigitalExisting = (digitalAccess || []).length > 0;
+        .order('created_at', { ascending: false });
+      const accessRows = digitalAccess || [];
+      hasDigitalExisting = accessRows.length > 0;
+
+      if (resolvedBuyerUserId) {
+        await supabaseServer
+          .from('store_digital_access')
+          .update({ user_id: resolvedBuyerUserId })
+          .eq('order_ref', orderRef)
+          .is('user_id', null);
+      }
+
+      if (hasDigitalExisting && buyerEmailResolved) {
+        const { data: orderItems } = await supabaseServer
+          .from('store_order_items')
+          .select('product_id, name')
+          .eq('order_ref', orderRef);
+        const nameMap = new Map<string, string>(
+          (orderItems || []).map((row: any) => [String(row.product_id), String(row.name || row.product_id)]),
+        );
+
+        for (const access of accessRows) {
+          const productId = String((access as any).product_id || '');
+          if (!productId) continue;
+          try {
+            const tokenInfo = await createDigitalAccessToken(supabaseServer, {
+              orderRef,
+              productId,
+              buyerEmail: buyerEmailResolved,
+              expiresInDays: 7,
+            });
+            digitalDownloadLinks.push({
+              name: nameMap.get(productId) || 'Produto digital',
+              url: `${siteUrl}/api/store/download?token=${tokenInfo.token}`,
+            });
+          } catch (err) {
+            console.warn('Nao foi possivel gerar link digital para pedido pago:', err);
+          }
+        }
+      }
     } catch (err) {
       hasDigitalExisting = false;
     }
     return {
-      digitalDownloadLinks: [],
+      digitalDownloadLinks,
       buyerEmail: existingOrder.buyer_email || buyerEmail || '',
-      accountExists: !!existingOrder.buyer_user_id,
+      accountExists: authUserMatch.exists || !!resolvedBuyerUserId,
       hasDigital: hasDigitalExisting,
       hasPhysical: !!existingOrder.has_physical,
     };
@@ -152,7 +220,7 @@ export const processPaidStoreOrder = async ({
         order_ref: orderRef,
         product_id: item.product_id,
         buyer_email: existingOrder.buyer_email || buyerEmail || '',
-        user_id: existingOrder.buyer_user_id || null,
+        user_id: resolvedBuyerUserId,
         status: 'available',
         qty: item.qty,
         file_url: product?.digital_url || null,
@@ -186,18 +254,10 @@ export const processPaidStoreOrder = async ({
   const shippingCostText =
     existingOrder.has_physical ? (shippingCostValue === 0 ? 'Grátis' : formatCurrency(shippingCostValue)) : null;
 
-  const buyerEmailResolved = normalizedBuyerEmail || '';
-  let accountExists: boolean | null = null;
-  if (buyerEmailResolved) {
-    try {
-      const { data: users, error } = await supabaseServer.auth.admin.listUsers();
-      accountExists = !error && users.users.some((u: any) => u.email?.toLowerCase() === buyerEmailResolved.toLowerCase());
-    } catch (err) {
-      accountExists = null;
-    }
-  }
+  const accountExists: boolean | null = authUserMatch.exists || !!resolvedBuyerUserId;
   let claimUrl: string | null = null;
-  if (buyerEmailResolved) {
+  const shouldShowClaimCta = !!buyerEmailResolved && !resolvedBuyerUserId;
+  if (shouldShowClaimCta) {
     try {
       const claimTokenInfo = await createOrderAccessToken(supabaseServer, {
         orderRef,
@@ -288,11 +348,17 @@ export const processPaidStoreOrder = async ({
         vat: vatText,
         shippingCost: shippingCostText,
         total: totalText,
+        items: itemRows.map((item) => ({
+          name: item.name || 'Produto',
+          qty: item.qty,
+          unit_price: item.unit_price,
+        })),
         hasDigital,
         claimUrl,
         downloadLinks: digitalDownloadLinks,
         buyerNif: existingOrder.buyer_nif || null,
         accountExists,
+        showClaimCta: shouldShowClaimCta,
         shipping: existingOrder.has_physical
           ? {
             address1: existingOrder.shipping_address1,

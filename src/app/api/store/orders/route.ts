@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { supabaseServer } from '../../../../lib/supabase';
 import { normalizeEmail } from '../../../../lib/normalize';
+import { inferIsDigitalProduct } from '../../../../lib/product-kind';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -46,20 +47,48 @@ export async function GET(request: Request) {
     console.warn('Nao foi possivel associar pedidos ao utilizador:', err);
   }
 
-  const { data: orders, error } = await supabaseServer
-    .from('store_orders')
-    .select('*')
-    .or(`buyer_email.eq.${email},buyer_email.ilike.${email},buyer_user_id.eq.${userId}`)
-    .order('created_at', { ascending: false });
+  const [byUserResult, byEmailResult] = await Promise.all([
+    supabaseServer
+      .from('store_orders')
+      .select('*')
+      .eq('buyer_user_id', userId)
+      .order('created_at', { ascending: false }),
+    supabaseServer
+      .from('store_orders')
+      .select('*')
+      .ilike('buyer_email', email)
+      .order('created_at', { ascending: false }),
+  ]);
 
-  if (error) {
-    console.error('Erro ao listar encomendas:', error);
+  if (byUserResult.error || byEmailResult.error) {
+    console.error('Erro ao listar encomendas:', byUserResult.error || byEmailResult.error);
     return NextResponse.json({ message: 'Erro ao listar encomendas.' }, { status: 500 });
   }
 
-  const refs = orders?.map((order) => order.order_ref) || [];
+  const orderMap = new Map<string, any>();
+  for (const order of [...(byUserResult.data || []), ...(byEmailResult.data || [])]) {
+    const ref = String(order.order_ref || '');
+    if (!ref) continue;
+    const existing = orderMap.get(ref);
+    if (!existing) {
+      orderMap.set(ref, order);
+      continue;
+    }
+    const existingTime = new Date(existing.created_at || 0).getTime();
+    const nextTime = new Date(order.created_at || 0).getTime();
+    if (nextTime >= existingTime) orderMap.set(ref, order);
+  }
+
+  const orders = Array.from(orderMap.values()).sort(
+    (a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime(),
+  );
+
+  const refs = orders.map((order) => order.order_ref) || [];
   let itemsByOrder: Record<string, any[]> = {};
-  let productMap = new Map<string, boolean | null>();
+  let productMap = new Map<
+    string,
+    { is_physical: boolean | null; type_id?: string | null; category?: string | null; digital_url?: string | null }
+  >();
 
   if (refs.length) {
     const { data: items, error: itemsError } = await supabaseServer
@@ -74,22 +103,45 @@ export async function GET(request: Request) {
       if (productIds.length) {
         const { data: products, error: productsError } = await supabaseServer
           .from('store_products')
-          .select('product_id, is_physical')
+          .select('product_id, is_physical, type_id, category, digital_url')
           .in('product_id', productIds);
         if (productsError) {
           console.error('Erro ao listar produtos da encomenda:', productsError);
         } else {
           productMap = new Map(
-            (products || []).map((product) => [product.product_id, product.is_physical]),
+            (products || []).map((product) => [
+              product.product_id,
+              {
+                is_physical: product.is_physical,
+                type_id: (product as any).type_id,
+                category: (product as any).category,
+                digital_url: (product as any).digital_url,
+              },
+            ]),
           );
         }
       }
 
       itemsByOrder = items.reduce<Record<string, any[]>>((acc, item) => {
+        const productMeta = productMap.get(item.product_id);
+        const inferredDigital = inferIsDigitalProduct({
+          isPhysical: productMeta?.is_physical ?? null,
+          typeId: productMeta?.type_id ?? null,
+          category: productMeta?.category ?? null,
+          name: item.name || null,
+          digitalUrl: productMeta?.digital_url ?? null,
+        });
+        const resolvedIsPhysical =
+          typeof productMeta?.is_physical === 'boolean'
+            ? productMeta.is_physical
+            : inferredDigital
+              ? false
+              : null;
+
         acc[item.order_ref] = acc[item.order_ref] || [];
         acc[item.order_ref].push({
           ...item,
-          is_physical: productMap.get(item.product_id) ?? null,
+          is_physical: resolvedIsPhysical,
         });
         return acc;
       }, {});

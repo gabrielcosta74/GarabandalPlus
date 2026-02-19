@@ -6,6 +6,7 @@
  */
 
 import { Session } from '@supabase/supabase-js';
+import { supabaseBrowser } from './supabase-browser';
 
 export interface BookingResponse {
     success: boolean;
@@ -36,10 +37,14 @@ export interface BookingFormData {
  * Create a booking and return the response with session
  */
 export async function createBooking(formData: BookingFormData): Promise<BookingResponse> {
+    const { data: sessionData } = await supabaseBrowser?.auth.getSession();
+    const accessToken = sessionData?.session?.access_token;
+
     const response = await fetch('/api/booking/create', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
+            ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
         },
         body: JSON.stringify(formData),
     });

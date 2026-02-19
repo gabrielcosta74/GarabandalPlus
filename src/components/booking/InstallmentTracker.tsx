@@ -94,7 +94,7 @@ export default function InstallmentTracker({
                                     <h4 className="font-bold text-lg">
                                         {installment.label}
                                     </h4>
-                                    {installment.dueDate && (
+                                    {installment.dueDate && installment.status !== 'paid' && (
                                         <p className="text-xs opacity-75">
                                             Vencimento: {format(new Date(installment.dueDate), 'dd MMM yyyy', { locale: pt })}
                                         </p>
@@ -171,7 +171,7 @@ export default function InstallmentTracker({
                 <div className="flex items-center justify-between text-sm mt-2">
                     <span className="font-bold text-slate-700">{useDonationCopy ? 'Saldo a Doar:' : 'Saldo Devedor:'}</span>
                     <span className="text-2xl font-bold text-slate-900">
-                        {formatPrice(totalAmount - paidAmount)}
+                        {formatPrice(Math.max(0, totalAmount - paidAmount))}
                     </span>
                 </div>
                 <div className="mt-3 pt-3 border-t border-slate-300">

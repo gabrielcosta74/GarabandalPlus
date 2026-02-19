@@ -1,19 +1,42 @@
 import { NextResponse } from 'next/server';
 import { supabaseServer } from '../../../../lib/supabase';
+import { verifyAdmin } from '../../../../lib/admin-auth';
 
-// Helper to validate Admin Session
-const isAdmin = async (req: Request) => {
-    if (!supabaseServer) return false;
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) return false;
-    const token = authHeader.replace('Bearer ', '');
-    const { data: { user }, error } = await supabaseServer.auth.getUser(token);
-    return !error && !!user;
+export const dynamic = 'force-dynamic';
+
+const parseFiniteNumber = (value: unknown, fallback: number) => {
+    if (typeof value === 'number') return Number.isFinite(value) ? value : fallback;
+    if (typeof value === 'string') {
+        const normalized = value
+            .trim()
+            .replace(/\s/g, '')
+            .replace(',', '.')
+            .replace(/[^\d.-]/g, '');
+        const parsed = Number(normalized);
+        return Number.isFinite(parsed) ? parsed : fallback;
+    }
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : fallback;
+};
+
+const parseStockValue = (value: unknown) => {
+    const parsed = Number.parseInt(String(value), 10);
+    return Number.isFinite(parsed) ? Math.max(0, parsed) : 0;
+};
+
+const VALID_PRODUCT_TYPE_IDS = new Set(['book_digital', 'book_physical', 'clothing', 'event_ticket', 'religious_article']);
+
+const normalizeProductTypeId = (typeId: unknown, isPhysical: boolean) => {
+    const candidate = String(typeId || '').trim();
+    if (VALID_PRODUCT_TYPE_IDS.has(candidate)) return candidate;
+    return isPhysical ? 'religious_article' : 'book_digital';
 };
 
 export async function GET(req: Request) {
-    if (!await isAdmin(req)) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const { authorized, error: authError } = await verifyAdmin(req);
+    if (!authorized) {
+        const status = authError === 'Forbidden: Not an Admin' ? 403 : 401;
+        return NextResponse.json({ error: authError || 'Unauthorized' }, { status });
     }
 
     if (!supabaseServer) {
@@ -56,8 +79,10 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-    if (!await isAdmin(req)) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const { authorized, error: authError } = await verifyAdmin(req);
+    if (!authorized) {
+        const status = authError === 'Forbidden: Not an Admin' ? 403 : 401;
+        return NextResponse.json({ error: authError || 'Unauthorized' }, { status });
     }
 
     if (!supabaseServer) {
@@ -66,6 +91,16 @@ export async function POST(req: Request) {
 
     try {
         const body = await req.json();
+        const price = parseFiniteNumber(body.price, NaN);
+        if (!Number.isFinite(price) || price < 0) {
+            return NextResponse.json({ error: 'Preço inválido' }, { status: 400 });
+        }
+
+        const isPhysical = body.is_physical !== false;
+        const typeId = normalizeProductTypeId(body.type_id, isPhysical);
+        const taxRate = parseFiniteNumber(body.tax_rate, 0.23);
+        const normalizedTaxRate = Math.min(1, Math.max(0, taxRate));
+        const stock = isPhysical ? parseStockValue(body.stock) : null;
 
         // 1. Create Product
         const { data: product, error: prodError } = await supabaseServer
@@ -76,19 +111,19 @@ export async function POST(req: Request) {
                 name: body.name,
                 description: body.description,
                 category_id: body.category_id,
-                price: body.price,
+                price,
                 is_active: body.is_active,
-                is_physical: body.is_physical,
-                type_id: body.type_id, // NEW
+                is_physical: isPhysical,
+                type_id: typeId,
                 metadata: body.metadata || {}, // NEW
                 image_url: body.image_url,
                 digital_url: body.digital_url,
                 allowed_countries: Array.isArray(body.allowed_countries) ? body.allowed_countries : [],
-                tax_rate: typeof body.tax_rate === 'number' ? body.tax_rate : 0.23,
+                tax_rate: normalizedTaxRate,
                 specifications: body.specifications || {},
                 //Legacy fields
                 category: body.category_name,
-                stock: body.is_physical ? (typeof body.stock === 'number' ? body.stock : 0) : null
+                stock
             })
             .select()
             .single();
@@ -96,11 +131,11 @@ export async function POST(req: Request) {
         if (prodError) throw prodError;
 
         // 2. Create Variants
-        if (body.is_physical && body.variants && body.variants.length > 0) {
+        if (isPhysical && body.variants && body.variants.length > 0) {
             const varsToInsert = body.variants.map((v: any) => ({
                 product_id: product.product_id,
                 name: v.name,
-                stock: v.stock || 0,
+                stock: parseStockValue(v.stock),
                 sku: v.sku || `${body.sku}-${v.name.toUpperCase().slice(0, 3)}`,
                 attributes: v.attributes || {}
             }));
@@ -113,14 +148,14 @@ export async function POST(req: Request) {
                 console.error("Error creating variants:", varError);
                 throw new Error(`Error creating variants: ${varError.message}`);
             }
-        } else if (body.is_physical) {
+        } else if (isPhysical) {
             // Default Variant (Legacy/Simple)
             const { error: varError } = await supabaseServer
                 .from('product_variants')
                 .insert({
                     product_id: product.product_id,
                     name: 'Padrão',
-                    stock: typeof body.stock === 'number' ? body.stock : 0, // Fallback to body.stock
+                    stock, // Fallback to body.stock
                     sku: body.sku || `SKU-${Date.now()}`,
                     attributes: { is_default: true }
                 });

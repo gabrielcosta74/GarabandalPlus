@@ -4,8 +4,8 @@ import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import DashboardShell from '../../components/dashboard/DashboardShell';
 import { supabaseBrowser } from '../../lib/supabase-browser';
-import { Search, Filter, BookOpen, Download, PackageOpen, FileText } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { Search, BookOpen, Download, PackageOpen, FileText } from 'lucide-react';
+import { motion } from 'framer-motion';
 
 type LibraryItem = {
   id: string;
@@ -13,8 +13,13 @@ type LibraryItem = {
   productId: string;
   status: string;
   qty: number;
+  purchaseCount: number;
+  orderCount: number;
   fileUrl: string | null;
+  downloadUrl?: string | null;
   createdAt: string;
+  firstPurchasedAt?: string;
+  lastPurchasedAt?: string;
   lastAccessAt?: string | null;
   downloadCount: number;
   product: {
@@ -25,8 +30,6 @@ type LibraryItem = {
 };
 
 import useSWR from 'swr';
-import { User } from '@supabase/supabase-js';
-
 import { useAuth } from '../../contexts/AuthContext';
 
 const fetchLibrary = async (url: string) => {
@@ -46,6 +49,12 @@ const fetchLibrary = async (url: string) => {
 
 export default function BibliotecaPage() {
   const { user, loading: authLoading } = useAuth();
+  const formatShortDate = (value?: string | null) => {
+    if (!value) return '-';
+    const dt = new Date(value);
+    if (Number.isNaN(dt.getTime())) return '-';
+    return new Intl.DateTimeFormat('pt-PT', { dateStyle: 'short' }).format(dt);
+  };
 
   const [searchQuery, setSearchQuery] = useState('');
   const [filterFormat, setFilterFormat] = useState<'all' | 'pdf' | 'epub'>('all');
@@ -55,7 +64,9 @@ export default function BibliotecaPage() {
     user ? '/api/store/library' : null,
     fetchLibrary,
     {
-      revalidateOnFocus: false,
+      revalidateOnFocus: true,
+      revalidateOnReconnect: true,
+      revalidateIfStale: true,
       shouldRetryOnError: false
     }
   );
@@ -176,12 +187,23 @@ export default function BibliotecaPage() {
                     </div>
                   </div>
                   <div className="flex-1 flex flex-col">
-                    <div className="text-xs text-gray-400 font-mono mb-1">Ref. {item.orderRef}</div>
+                    <div className="text-xs text-gray-400 font-mono mb-1">Ref. última compra: {item.orderRef}</div>
                     <h3 className="font-serif text-lg font-bold text-gray-900 mb-2 line-clamp-2 leading-tight">{item.product.name}</h3>
+                    <div className="flex flex-wrap items-center gap-2 text-[11px] mb-2">
+                      <span className="px-2 py-1 rounded-full bg-amber-50 text-amber-700 font-bold">
+                        Comprado {item.purchaseCount}x
+                      </span>
+                      <span className="px-2 py-1 rounded-full bg-slate-100 text-slate-600 font-semibold">
+                        {item.orderCount} encomenda{item.orderCount > 1 ? 's' : ''}
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-500 mb-2">
+                      Primeira compra: {formatShortDate(item.firstPurchasedAt || item.createdAt)} · Última compra: {formatShortDate(item.lastPurchasedAt || item.createdAt)}
+                    </p>
                     <div className="mt-auto pt-4">
-                      {item.fileUrl ? (
+                      {(item.downloadUrl || item.fileUrl) ? (
                         <a
-                          href={item.fileUrl}
+                          href={item.downloadUrl || item.fileUrl || '#'}
                           target="_blank"
                           rel="noreferrer"
                           className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-garabandal-mist text-garabandal-dark font-bold rounded-xl hover:bg-garabandal-gold hover:text-white transition-all group/btn"

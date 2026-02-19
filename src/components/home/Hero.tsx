@@ -79,28 +79,31 @@ const Hero: React.FC = () => {
                             <Link
                                 href="/member"
                                 style={{ color: '#000000' }}
-                                className="relative z-50 bg-white text-black px-10 py-4 rounded-md text-sm font-black uppercase tracking-widest hover:bg-white/90 transition-all duration-500 min-w-[240px] flex items-center justify-center gap-3 shadow-[0_0_20px_rgba(255,255,255,0.1)] hover:shadow-[0_0_30px_rgba(255,255,255,0.2)]"
+                                className="group relative z-50 bg-gradient-to-r from-amber-300 via-amber-400 to-amber-500 text-black px-10 py-5 rounded-full text-xs font-black uppercase tracking-[0.2em] hover:scale-105 transition-all duration-300 min-w-[240px] flex items-center justify-center gap-3 shadow-[0_0_40px_-5px_rgba(251,191,36,0.6)] hover:shadow-[0_0_60px_-10px_rgba(251,191,36,0.8)]"
                             >
-                                Ir para área de membro
-                                <ArrowRight size={14} className="stroke-[3px] transition-transform duration-300 group-hover:translate-x-1" />
+                                <span className="relative z-10 text-black">Ir para área de membro</span>
+                                <div className="absolute inset-0 bg-white/30 rounded-full blur-md opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                                <ArrowRight size={14} className="relative z-10 stroke-[3px] transition-transform duration-300 group-hover:translate-x-1 text-black" />
                             </Link>
 
                         ) : (
                             <Link
                                 href="/tornar-membro"
                                 style={{ color: '#000000' }}
-                                className="relative z-50 bg-white text-black px-10 py-4 rounded-md text-sm font-black uppercase tracking-widest hover:bg-white/90 transition-all duration-500 min-w-[240px] flex items-center justify-center gap-3 shadow-[0_0_20px_rgba(255,255,255,0.1)] hover:shadow-[0_0_30px_rgba(255,255,255,0.2)]"
+                                className="group relative z-50 bg-gradient-to-r from-amber-300 via-amber-400 to-amber-500 text-black px-10 py-5 rounded-full text-xs font-black uppercase tracking-[0.2em] hover:scale-105 transition-all duration-300 min-w-[240px] flex items-center justify-center gap-3 shadow-[0_0_40px_-5px_rgba(251,191,36,0.6)] hover:shadow-[0_0_60px_-10px_rgba(251,191,36,0.8)]"
                             >
-                                {HERO_CONTENT.cta}
-                                <ArrowRight size={14} className="stroke-[3px] transition-transform duration-300 group-hover:translate-x-1" />
+                                <span className="relative z-10 text-black">{HERO_CONTENT.cta}</span>
+                                <div className="absolute inset-0 bg-white/30 rounded-full blur-md opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                                <ArrowRight size={14} className="relative z-10 stroke-[3px] transition-transform duration-300 group-hover:translate-x-1 text-black" />
                             </Link>
                         )}
 
                         <Link
                             href="/donations"
-                            className="group px-10 py-4 rounded-md text-xs font-bold uppercase tracking-[0.2em] text-white border border-white/20 hover:bg-white/10 hover:border-white/40 transition-all duration-500 min-w-[200px] backdrop-blur-sm flex items-center justify-center"
+                            className="group relative px-10 py-5 rounded-full text-xs font-bold uppercase tracking-[0.15em] text-white border border-white/20 hover:bg-white/10 hover:border-white/40 transition-all duration-300 min-w-[200px] backdrop-blur-md flex items-center justify-center overflow-hidden"
                         >
-                            Fazer Doação
+                            <span className="relative z-10">Fazer Doação</span>
+                            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-in-out" />
                         </Link>
 
                         <a

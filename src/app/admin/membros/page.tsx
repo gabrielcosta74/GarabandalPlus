@@ -13,12 +13,13 @@ import {
   UserX,
   Crown,
   Search,
-  Filter,
   ArrowRight,
   PlusCircle,
   XCircle,
   CheckCircle,
   Copy,
+  ArrowUpDown,
+  RotateCcw,
 } from 'lucide-react';
 
 type MemberRow = {
@@ -78,6 +79,9 @@ export default function AdminMembrosPage() {
   // Filters state managed locally for now, could be server-side if needed
   const [statusFilter, setStatusFilter] = useState('all');
   const [typeFilter, setTypeFilter] = useState('all');
+  const [countryFilter, setCountryFilter] = useState('all');
+  const [accountFilter, setAccountFilter] = useState('all');
+  const [sortBy, setSortBy] = useState<'numero_asc' | 'numero_desc' | 'nome_asc' | 'nome_desc' | 'status' | 'proxima_quota' | 'adesao_desc'>('numero_asc');
   const [searchTerm, setSearchTerm] = useState('');
 
   const fetchMembers = async (isBackground = false) => {
@@ -187,8 +191,17 @@ export default function AdminMembrosPage() {
     }
   };
 
+  const countryOptions = useMemo(() => {
+    const unique = new Set<string>();
+    members.forEach((member) => {
+      const country = (member.country || '').trim();
+      if (country) unique.add(country);
+    });
+    return ['all', ...Array.from(unique).sort((a, b) => a.localeCompare(b, 'pt-PT'))];
+  }, [members]);
+
   const filteredMembers = useMemo(() => {
-    return members.filter(member => {
+    const filtered = members.filter(member => {
       const normalized = normalizeQuotaStatus(member.estado_quota);
       const statusMatch = statusFilter === 'all' ||
         (statusFilter === 'active' && isPaidStatus(member.estado_quota)) ||
@@ -197,6 +210,11 @@ export default function AdminMembrosPage() {
         (statusFilter === 'inactive' && !member.is_membro);
 
       const typeMatch = typeFilter === 'all' || member.tipo_subscricao?.toLowerCase().includes(typeFilter);
+      const countryMatch = countryFilter === 'all' || (member.country || '').trim() === countryFilter;
+      const hasAccount = !isInternalMemberEmail(member.email) && !!member.email;
+      const accountMatch = accountFilter === 'all' ||
+        (accountFilter === 'with_account' && hasAccount) ||
+        (accountFilter === 'without_account' && !hasAccount);
 
       const searchLower = searchTerm.toLowerCase();
       const searchMatch = !searchTerm ||
@@ -204,9 +222,39 @@ export default function AdminMembrosPage() {
         (member.email?.toLowerCase().includes(searchLower)) ||
         (member.numero_socio?.toString().includes(searchLower));
 
-      return statusMatch && typeMatch && searchMatch;
+      return statusMatch && typeMatch && countryMatch && accountMatch && searchMatch;
     });
-  }, [members, statusFilter, typeFilter, searchTerm]);
+
+    const sorted = [...filtered].sort((a, b) => {
+      const parseDate = (value?: string | null) => {
+        if (!value) return 0;
+        const t = new Date(value).getTime();
+        return Number.isFinite(t) ? t : 0;
+      };
+      const statusOrder = (member: MemberRow) => {
+        const label = getStatusLabel(member);
+        if (label === 'Ativo') return 1;
+        if (label === 'Pendente') return 2;
+        if (label === 'Em atraso') return 3;
+        if (label === 'Nao membro') return 4;
+        return 5;
+      };
+      const aNumber = Number(a.numero_socio ?? Number.MAX_SAFE_INTEGER);
+      const bNumber = Number(b.numero_socio ?? Number.MAX_SAFE_INTEGER);
+      const aName = (a.nome || '').toLowerCase();
+      const bName = (b.nome || '').toLowerCase();
+
+      if (sortBy === 'numero_asc') return aNumber - bNumber;
+      if (sortBy === 'numero_desc') return bNumber - aNumber;
+      if (sortBy === 'nome_asc') return aName.localeCompare(bName, 'pt-PT');
+      if (sortBy === 'nome_desc') return bName.localeCompare(aName, 'pt-PT');
+      if (sortBy === 'status') return statusOrder(a) - statusOrder(b);
+      if (sortBy === 'proxima_quota') return parseDate(a.proxima_quota) - parseDate(b.proxima_quota);
+      return parseDate(b.data_adesao) - parseDate(a.data_adesao);
+    });
+
+    return sorted;
+  }, [members, statusFilter, typeFilter, countryFilter, accountFilter, searchTerm, sortBy]);
 
   const columns = [
     {
@@ -272,9 +320,9 @@ export default function AdminMembrosPage() {
 
       <div className="space-y-6">
         {/* Toolbar */}
-        <div className="flex flex-col md:flex-row gap-4 justify-between items-center bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
+        <div className="flex flex-col gap-4 bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
 
-          <div className="flex items-center gap-4 w-full md:w-auto">
+          <div className="flex flex-col md:flex-row md:items-center gap-4 w-full">
             <button
               onClick={() => setIsCreateModalOpen(true)}
               className="flex items-center gap-2 px-4 py-2 bg-garabandal-dark text-white font-bold rounded-xl hover:bg-gray-900 transition-all shadow-md whitespace-nowrap"
@@ -309,9 +357,11 @@ export default function AdminMembrosPage() {
                 Cancelados
               </button>
             </div>
+          </div>
 
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-3 w-full">
             {/* Search Bar */}
-            <div className="relative w-full md:w-72">
+            <div className="relative w-full">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <Search className="h-4 w-4 text-gray-400" />
               </div>
@@ -322,6 +372,73 @@ export default function AdminMembrosPage() {
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
+            </div>
+
+            <select
+              value={typeFilter}
+              onChange={(e) => setTypeFilter(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-200 rounded-xl bg-gray-50 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-garabandal-gold/50 focus:border-garabandal-gold"
+            >
+              <option value="all">Todos os tipos</option>
+              <option value="regular">Regulares</option>
+              <option value="fundador">Fundadores</option>
+              <option value="honorifico">Honoríficos</option>
+            </select>
+
+            <select
+              value={countryFilter}
+              onChange={(e) => setCountryFilter(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-200 rounded-xl bg-gray-50 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-garabandal-gold/50 focus:border-garabandal-gold"
+            >
+              {countryOptions.map((option) => (
+                <option key={option} value={option}>
+                  {option === 'all' ? 'Todos os países' : option}
+                </option>
+              ))}
+            </select>
+
+            <select
+              value={accountFilter}
+              onChange={(e) => setAccountFilter(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-200 rounded-xl bg-gray-50 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-garabandal-gold/50 focus:border-garabandal-gold"
+            >
+              <option value="all">Com e sem conta</option>
+              <option value="with_account">Só com conta</option>
+              <option value="without_account">Só sem conta</option>
+            </select>
+
+            <div className="flex gap-2">
+              <div className="relative w-full">
+                <ArrowUpDown className="h-4 w-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
+                  className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-xl bg-gray-50 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-garabandal-gold/50 focus:border-garabandal-gold"
+                >
+                  <option value="numero_asc">Nº sócio (crescente)</option>
+                  <option value="numero_desc">Nº sócio (decrescente)</option>
+                  <option value="nome_asc">Nome (A-Z)</option>
+                  <option value="nome_desc">Nome (Z-A)</option>
+                  <option value="status">Estado</option>
+                  <option value="proxima_quota">Validade da quota</option>
+                  <option value="adesao_desc">Adesão (mais recente)</option>
+                </select>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setStatusFilter('all');
+                  setTypeFilter('all');
+                  setCountryFilter('all');
+                  setAccountFilter('all');
+                  setSortBy('numero_asc');
+                  setSearchTerm('');
+                }}
+                className="px-3 py-2 rounded-xl border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 transition-colors"
+                title="Limpar filtros"
+              >
+                <RotateCcw className="w-4 h-4" />
+              </button>
             </div>
           </div>
         </div>

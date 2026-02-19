@@ -6,6 +6,31 @@ import { parseRoomInfo } from '../../../../lib/utils';
 import { generateViewToken, generateIdempotencyKey } from '../../../../lib/auth-utils';
 import { isActiveMember } from '../../../../lib/store-discounts';
 
+async function findAuthUserByEmail(
+    adminAuth: NonNullable<typeof supabaseServer>['auth']['admin'],
+    email: string
+) {
+    const normalized = String(email || '').trim().toLowerCase();
+    if (!normalized) return null;
+
+    const perPage = 200;
+    let page = 1;
+
+    while (true) {
+        const { data, error } = await adminAuth.listUsers({ page, perPage });
+        if (error) throw error;
+
+        const users = data?.users || [];
+        const found = users.find((u) => (u.email || '').toLowerCase() === normalized);
+        if (found) return found;
+
+        if (users.length < perPage) break;
+        page += 1;
+    }
+
+    return null;
+}
+
 export async function POST(req: Request) {
     console.log("🚀 [API] Booking Create Request Received");
 
@@ -17,10 +42,11 @@ export async function POST(req: Request) {
     try {
         const body = await req.json();
         const { email, pilgrim_data, pilgrimage_id, payment_method, room_distribution, idempotency_key } = body;
+        let bookingEmail = String(email || '').trim().toLowerCase();
 
-        console.log(`📦 [API] Payload: Email=${email}, Pilgrims=${pilgrim_data?.length}`);
+        console.log(`📦 [API] Payload: Email=${bookingEmail}, Pilgrims=${pilgrim_data?.length}`);
 
-        if (!pilgrim_data || !pilgrimage_id || !email) {
+        if (!pilgrim_data || !pilgrimage_id || !bookingEmail) {
             return NextResponse.json({ error: "Missing required data" }, { status: 400 });
         }
 
@@ -33,33 +59,67 @@ export async function POST(req: Request) {
 
         console.log("🔍 [API] Searching user by email:", email);
 
-        // Check if user exists
-        const { data: { users }, error: listError } = await adminAuth.listUsers();
-        const existingUser = users?.find(u => u.email?.toLowerCase() === email.toLowerCase());
+        // Prefer authenticated session if frontend sent Authorization header
+        const authHeader = req.headers.get('authorization') || req.headers.get('Authorization');
+        const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
+
+        let existingUser: any = null;
+        if (bearerToken) {
+            const { data: authUserData, error: authUserError } = await supabaseServer.auth.getUser(bearerToken);
+            if (!authUserError && authUserData?.user?.id) {
+                existingUser = authUserData.user;
+                console.log("✅ [API] Authenticated session user resolved:", existingUser.id);
+
+                const sessionEmail = String(authUserData.user.email || '').trim().toLowerCase();
+                if (sessionEmail) {
+                    if (sessionEmail !== bookingEmail) {
+                        console.warn(`⚠️ [API] Booking email override due to authenticated session: payload=${bookingEmail} session=${sessionEmail}`);
+                    }
+                    bookingEmail = sessionEmail;
+                }
+            }
+        }
+
+        // Fallback: Check if user exists by email (paginated lookup)
+        if (!existingUser) {
+            existingUser = await findAuthUserByEmail(adminAuth, bookingEmail);
+        }
 
         if (existingUser) {
             console.log("✅ [API] User found:", existingUser.id);
             userId = existingUser.id;
         } else {
-            console.log("🆕 [API] Creating new user for:", email);
+            console.log("🆕 [API] Creating new user for:", bookingEmail);
             tempPassword = Math.random().toString(36).slice(-8) + "Aa1!";
             const { data: newUser, error: createError } = await adminAuth.createUser({
-                email: email,
+                email: bookingEmail,
                 password: tempPassword,
                 email_confirm: true // Auto-confirm
             });
 
             if (createError) {
-                console.error("❌ [API] Create User Error:", createError);
-                throw new Error("Falha ao criar conta de utilizador.");
+                // Race condition or stale lookup: user may already exist.
+                if ((createError as any)?.code === 'email_exists' || String((createError as any)?.message || '').toLowerCase().includes('already been registered')) {
+                    const lateFoundUser = await findAuthUserByEmail(adminAuth, bookingEmail);
+                    if (lateFoundUser?.id) {
+                        console.warn("⚠️ [API] User existed during createUser, reusing existing account:", lateFoundUser.id);
+                        userId = lateFoundUser.id;
+                    } else {
+                        console.error("❌ [API] Create User Error (email_exists, but lookup failed):", createError);
+                        throw new Error("Falha ao criar conta de utilizador.");
+                    }
+                } else {
+                    console.error("❌ [API] Create User Error:", createError);
+                    throw new Error("Falha ao criar conta de utilizador.");
+                }
+            } else {
+                userId = newUser.user.id;
+                isNewUser = true;
             }
-
-            userId = newUser.user.id;
-            isNewUser = true;
         }
 
         // 1.5. SECURITY: Idempotency Check
-        const bookingIdempotencyKey = idempotency_key || generateIdempotencyKey([email, pilgrimage_id]);
+        const bookingIdempotencyKey = idempotency_key || generateIdempotencyKey([bookingEmail, pilgrimage_id]);
 
         const { data: existingBooking } = await supabaseServer
             .from('bookings')
@@ -92,7 +152,7 @@ export async function POST(req: Request) {
 
         // 3. Resolve active members for 50€ discount
         const candidateEmails = new Set<string>();
-        const normalizedBookingEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
+        const normalizedBookingEmail = bookingEmail;
         if (normalizedBookingEmail.includes('@')) candidateEmails.add(normalizedBookingEmail);
         (pilgrim_data || []).forEach((p: any) => {
             const pilgrimEmail = typeof p?.email === 'string' ? p.email.trim().toLowerCase() : '';
@@ -326,7 +386,7 @@ export async function POST(req: Request) {
 
             const { data: linkData, error: linkError } = await adminAuth.generateLink({
                 type: 'magiclink',
-                email: email,
+                email: bookingEmail,
                 options: {
                     redirectTo: `${origin}/peregrinacoes/inscricao/${booking.id}`
                 }
@@ -343,7 +403,7 @@ export async function POST(req: Request) {
 
             await sendBookingConfirmationEmail({
                 bookingId: booking.id,
-                email: email,
+                email: bookingEmail,
                 pilgrimageName: pilgrimage.title,
                 amount: totalDepositAmount,
                 totalAmount: totalAmount,
@@ -363,7 +423,7 @@ export async function POST(req: Request) {
         if (isNewUser && tempPassword) {
             try {
                 const { data: signInData, error: signInError } = await supabaseServer.auth.signInWithPassword({
-                    email: email,
+                    email: bookingEmail,
                     password: tempPassword
                 });
 
@@ -388,7 +448,7 @@ export async function POST(req: Request) {
             session: sessionData, // Frontend will use this to set session
             user: {
                 id: userId,
-                email: email
+                email: bookingEmail
             }
         });
 

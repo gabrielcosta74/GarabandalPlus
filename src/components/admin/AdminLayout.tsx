@@ -13,9 +13,10 @@ type AdminLayoutProps = {
     description?: string;
     userEmail?: string | null;
     isLoading?: boolean;
+    hideHeader?: boolean;
 };
 
-export default function AdminLayout({ children, title = "Dashboard", userEmail, isLoading }: AdminLayoutProps) {
+export default function AdminLayout({ children, title = "Dashboard", userEmail, isLoading, hideHeader = false }: AdminLayoutProps) {
     const [isMobileOpen, setIsMobileOpen] = useState(false);
     const router = useRouter();
 
@@ -70,11 +71,13 @@ export default function AdminLayout({ children, title = "Dashboard", userEmail, 
 
             {/* Main Content */}
             <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
-                <AdminHeader
-                    title={title}
-                    onMobileMenuOpen={() => setIsMobileOpen(true)}
-                    userEmail={userEmail}
-                />
+                {!hideHeader && (
+                    <AdminHeader
+                        title={title}
+                        onMobileMenuOpen={() => setIsMobileOpen(true)}
+                        userEmail={userEmail}
+                    />
+                )}
 
                 <main className="flex-1 overflow-y-auto p-6 md:p-8 scroll-smooth">
                     <div className="max-w-7xl mx-auto pb-12">

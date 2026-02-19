@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { supabaseServer } from '../../../../lib/supabase';
 import { createSupabaseServerClient } from '../../../../lib/auth-utils';
+import { toSignedReceiptUrl } from '../../../../lib/receipt-utils';
 
 /**
  * GET /api/booking/[id]
@@ -22,28 +23,35 @@ export async function GET(
     }
 
     try {
-        const successfulStatuses = ['verified', 'succeeded', 'paid', 'manual'];
-        const normalizeBookingPaidAmount = async (booking: any) => {
-            if (!booking) return booking;
+            const successfulStatuses = ['verified', 'succeeded', 'paid', 'manual'];
+            const normalizeBookingPaidAmount = async (booking: any) => {
+                if (!booking) return booking;
 
             const payments = Array.isArray(booking.payments) ? booking.payments : [];
             const successfulPaidTotal = payments
                 .filter((p: any) => successfulStatuses.includes(String(p?.status || '').toLowerCase()))
                 .reduce((sum: number, p: any) => sum + (Number(p?.amount) || 0), 0);
 
-            const currentPaid = Number(booking.paid_amount) || 0;
-            const normalizedPaid = Math.max(currentPaid, successfulPaidTotal);
-            booking.paid_amount = normalizedPaid;
+                const currentPaid = Number(booking.paid_amount) || 0;
+                const normalizedPaid = Math.max(currentPaid, successfulPaidTotal);
+                booking.paid_amount = normalizedPaid;
 
-            if (Math.abs(currentPaid - normalizedPaid) > 0.009) {
-                await supabaseServer!
-                    .from('bookings')
-                    .update({ paid_amount: normalizedPaid, last_payment_date: new Date().toISOString() })
-                    .eq('id', booking.id);
-            }
+                if (Math.abs(currentPaid - normalizedPaid) > 0.009) {
+                    await supabaseServer!
+                        .from('bookings')
+                        .update({ paid_amount: normalizedPaid, updated_at: new Date().toISOString() })
+                        .eq('id', booking.id);
+                }
 
-            return booking;
-        };
+                if (payments.length > 0) {
+                    booking.payments = await Promise.all(payments.map(async (payment: any) => ({
+                        ...payment,
+                        receipt_url: payment?.receipt_url ? await toSignedReceiptUrl(payment.receipt_url, 3600) : null,
+                    })));
+                }
+
+                return booking;
+            };
 
         // MODE 1: Token-based public view (for success page after booking)
         if (token) {

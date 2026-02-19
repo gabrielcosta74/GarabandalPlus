@@ -72,7 +72,7 @@ export async function POST(req: Request) {
             .from('pilgrimage_payments')
             .select('amount')
             .eq('booking_id', bookingId)
-            .in('status', ['verified', 'succeeded', 'paid']); // Include all valid statuses
+            .in('status', ['verified', 'succeeded', 'paid', 'manual']); // Include all valid statuses
 
         if (allPaymentsError) {
             console.error('❌ [API] Error fetching all payments:', allPaymentsError);
@@ -84,7 +84,7 @@ export async function POST(req: Request) {
 
         const { data: bookingData, error: bookingDataError } = await supabaseServer
             .from('bookings')
-            .select('id, pilgrimage_id, status, pilgrimage:pilgrimages(deposit_value)')
+            .select('id, pilgrimage_id, status, total_amount, pilgrimage:pilgrimages(deposit_value)')
             .eq('id', bookingId)
             .single();
 
@@ -100,15 +100,23 @@ export async function POST(req: Request) {
 
         const depositValue = Number((bookingData.pilgrimage as any)?.deposit_value || 0);
         const requiredDeposit = depositValue * Math.max(1, Number(pilgrimsCount || 1));
-        const nextStatus = totalPaid >= requiredDeposit ? 'confirmed' : 'pending';
+        const totalAmount = Number((bookingData as any)?.total_amount || 0);
+        const isDepositPaid = totalPaid >= (requiredDeposit - 0.01);
+        const isFullyPaid = totalAmount > 0 && totalPaid >= (totalAmount - 0.01);
+        const nextStatus = (isDepositPaid || isFullyPaid) ? 'confirmed' : 'pending';
+
+        const bookingUpdates: Record<string, any> = {
+            paid_amount: totalPaid,
+            status: nextStatus,
+            updated_at: new Date().toISOString(),
+        };
+        if (isDepositPaid || isFullyPaid) {
+            bookingUpdates.deposit_confirmed_at = new Date().toISOString();
+        }
 
         const { error: updateBookingError } = await supabaseServer
             .from('bookings')
-            .update({
-                paid_amount: totalPaid,
-                status: nextStatus,
-                last_payment_date: new Date().toISOString(),
-            })
+            .update(bookingUpdates)
             .eq('id', bookingId);
 
         if (updateBookingError) {

@@ -4,6 +4,7 @@ import { sendWelcomeEmail } from '../../../../lib/email';
 import { calculateNextQuotaDate } from '../../../../lib/membership-logic';
 import { isPaidStatus, normalizeQuotaStatus } from '../../../../lib/membership-status';
 import { verifyAdmin } from '../../../../lib/admin-auth';
+import { getNextMemberNumber } from '../../../../lib/membership-db';
 
 export async function GET(req: Request) {
     const { authorized, error: authError } = await verifyAdmin(req);
@@ -132,11 +133,13 @@ export async function POST(req: Request) {
             let quotaStatus = 'pendente';
             let nextQuotaDate = null;
             let joinDate = new Date().toISOString().slice(0, 10);
+            let nextMemberNumber: number | null = null;
 
             if (initial_payment) {
                 quotaStatus = 'pago';
                 const nextQuotaObj = calculateNextQuotaDate(new Date());
                 nextQuotaDate = nextQuotaObj.toISOString().slice(0, 10);
+                nextMemberNumber = await getNextMemberNumber(supabaseServer);
             }
 
             // Upsert Profile
@@ -154,7 +157,8 @@ export async function POST(req: Request) {
                     data_adesao: joinDate,
                     is_membro: true,
                     estado_quota: quotaStatus,
-                    proxima_quota: nextQuotaDate
+                    proxima_quota: nextQuotaDate,
+                    numero_socio: nextMemberNumber
                 });
 
             if (profileError) throw profileError;

@@ -87,14 +87,22 @@ export async function GET(req: NextRequest) {
             const requiredDeposit = depositValue * Math.max(1, Number(pilgrimsCount || 1));
             const isDepositPaid = totalPaid >= (requiredDeposit - 0.01);
             const isFullyPaid = totalPaid >= (booking.total_amount - 0.05);
-            await supabaseServer
+            const bookingUpdates: any = {
+                paid_amount: totalPaid,
+                status: isFullyPaid || isDepositPaid ? 'confirmed' : 'pending',
+                updated_at: new Date().toISOString(),
+            };
+            if (isFullyPaid || isDepositPaid) {
+                bookingUpdates.deposit_confirmed_at = new Date().toISOString();
+            }
+            const { error: bookingUpdateError } = await supabaseServer
                 .from('bookings')
-                .update({
-                    paid_amount: totalPaid,
-                    status: isFullyPaid || isDepositPaid ? 'confirmed' : 'pending',
-                    last_payment_date: new Date().toISOString(),
-                })
+                .update(bookingUpdates)
                 .eq('id', bookingId);
+            if (bookingUpdateError) {
+                console.error('Verify Payment booking update error:', bookingUpdateError);
+                return NextResponse.json({ error: 'Booking update failed', details: bookingUpdateError }, { status: 500 });
+            }
 
             if (booking.pilgrimage_id) {
                 await supabaseServer.rpc('recalculate_pilgrimage_vacancies', { p_pilgrimage_id: booking.pilgrimage_id });

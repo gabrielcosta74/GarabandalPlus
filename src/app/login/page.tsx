@@ -36,9 +36,11 @@ function LoginScreen() {
   // Redirect if already logged in
   useEffect(() => {
     if (isAuthenticated && !authLoading) {
-      router.replace('/');
+      const next = search.get('next');
+      const target = next && next.startsWith('/') ? next : '/';
+      router.replace(target);
     }
-  }, [isAuthenticated, authLoading, router]);
+  }, [isAuthenticated, authLoading, router, search]);
 
   if (isAuthenticated && !authLoading) {
     return (

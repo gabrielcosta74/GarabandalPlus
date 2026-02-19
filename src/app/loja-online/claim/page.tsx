@@ -134,27 +134,33 @@ function ClaimContent() {
     }
     setSubmitting(true);
     try {
-      const redirectTo = `${window.location.origin}/auth-callback`;
-      const { data, error: signUpError } = await supabaseBrowser.auth.signUp({
+      const registerRes = await fetch('/api/store/claim', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mode: 'register',
+          token,
+          password: password.trim(),
+        }),
+      });
+      const registerPayload = await registerRes.json().catch(() => ({}));
+      if (!registerRes.ok) {
+        setError(registerPayload?.message || 'Nao foi possivel criar a conta.');
+        return;
+      }
+
+      const { data, error: loginError } = await supabaseBrowser.auth.signInWithPassword({
         email: info.buyerEmail,
         password: password.trim(),
-        options: { emailRedirectTo: redirectTo },
       });
-      if (signUpError) {
-        setError(signUpError.message || 'Nao foi possivel criar a conta.');
+      if (loginError || !data.session) {
+        setError(loginError?.message || 'Conta criada, mas não foi possível iniciar sessão automaticamente.');
         return;
       }
-      const identities = data?.user?.identities ?? [];
-      if (identities.length === 0) {
-        setError('Ja existe uma conta com este email.');
-        return;
-      }
-      if (data.session?.access_token) {
-        await handleClaim(data.session.access_token);
-        router.push(info.hasDigital ? '/biblioteca' : '/encomendas');
-        return;
-      }
-      setSuccess('Enviamos um email de confirmacao. Depois de confirmar, entre para associar a compra.');
+
+      await handleClaim(data.session.access_token);
+      setSuccess('Conta criada e compra associada com sucesso.');
+      router.push(info.hasDigital ? '/biblioteca' : '/encomendas');
     } catch (err: any) {
       setError(err?.message || 'Nao foi possivel criar a conta.');
     } finally {
@@ -165,8 +171,10 @@ function ClaimContent() {
   return (
     <main className="claim">
       <div className="claim__card">
-        <h1>Aceder a sua compra</h1>
-        <p className="muted">Use este link para associar a compra à sua conta.</p>
+        <h1>Associar compra à conta</h1>
+        <p className="muted">
+          Este link serve para ligar esta encomenda à sua conta e desbloquear a biblioteca digital e o histórico de encomendas.
+        </p>
 
         {loading && <p className="muted">A validar link...</p>}
         {error && <p className="error">{error}</p>}
@@ -204,7 +212,9 @@ function ClaimContent() {
 
         {info && mode === 'login' ? (
           <form onSubmit={handleLogin} className="form">
-            <p className="form__note">Já existe conta com este email. Entre com a sua password.</p>
+            <p className="form__note">
+              Já existe uma conta com este email. Inicie sessão para associar esta compra automaticamente.
+            </p>
             <label>
               Email
               <input type="email" value={info.buyerEmail} readOnly />
@@ -221,7 +231,9 @@ function ClaimContent() {
 
         {info && mode === 'register' ? (
           <form onSubmit={handleRegister} className="form">
-            <p className="form__note">Crie uma conta para guardar a sua compra.</p>
+            <p className="form__note">
+              Ainda não existe conta com este email. Crie uma password para criar a conta agora e associar a compra de imediato.
+            </p>
             <label>
               Email
               <input type="email" value={info.buyerEmail} readOnly />

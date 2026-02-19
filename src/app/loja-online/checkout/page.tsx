@@ -29,6 +29,11 @@ const getVatBreakdown = (value: number, rate: number) => {
   return { base, vat };
 };
 
+const formatVatDisplay = (vatValue: number, formatter: (value: number) => string) => {
+  if (vatValue > 0 && vatValue < 0.01) return '< 0,01 €';
+  return formatter(vatValue);
+};
+
 type AddressSuggestion = {
   label: string;
   address1: string;
@@ -110,6 +115,7 @@ export default function CheckoutPage() {
   const [addressLoading, setAddressLoading] = useState(false);
   const [isMemberActive, setIsMemberActive] = useState(false);
   const [selectedPaymentId, setSelectedPaymentId] = useState(UNIFIED_ONLINE_PAYMENT_OPTIONS[0].id);
+  const [ownedDigitalProductIds, setOwnedDigitalProductIds] = useState<Set<string>>(new Set());
 
 
   // Set default billing logic based on cart type
@@ -267,6 +273,33 @@ export default function CheckoutPage() {
   }, []);
 
   useEffect(() => {
+    const loadOwnedDigitalProducts = async () => {
+      if (!sessionToken) {
+        setOwnedDigitalProductIds(new Set());
+        return;
+      }
+      try {
+        const res = await fetch('/api/store/library', {
+          headers: { Authorization: `Bearer ${sessionToken}` },
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        const ids = new Set<string>(
+          Array.isArray(data?.items)
+            ? data.items
+              .map((item: any) => String(item?.productId || '').trim())
+              .filter((id: string) => id.length > 0)
+            : [],
+        );
+        setOwnedDigitalProductIds(ids);
+      } catch {
+        // Non-blocking check; checkout must remain usable.
+      }
+    };
+    loadOwnedDigitalProducts();
+  }, [sessionToken]);
+
+  useEffect(() => {
     if (saveCheckout) {
       saveCheckoutDraft({ buyer, shipping, saveCheckout: true });
     } else {
@@ -391,7 +424,12 @@ export default function CheckoutPage() {
         }).eq('id', sessionUserId);
       }
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (sessionToken) headers.Authorization = `Bearer ${sessionToken}`;
+      let tokenToUse = sessionToken;
+      if (supabaseBrowser) {
+        const { data } = await supabaseBrowser.auth.getSession();
+        tokenToUse = data.session?.access_token ?? tokenToUse;
+      }
+      if (tokenToUse) headers.Authorization = `Bearer ${tokenToUse}`;
       const res = await fetch('/api/store/checkout', {
         method: 'POST',
         headers,
@@ -515,6 +553,11 @@ export default function CheckoutPage() {
                                   <h3 className="font-bold text-gray-900 truncate">{item.name}</h3>
                                   {item.variantName && <p className="text-xs font-bold text-slate-600">{item.variantName}</p>}
                                   <p className="text-sm text-gray-500">{formatPrice(item.price)}</p>
+                                  {!item.isPhysical && ownedDigitalProductIds.has(item.id) && (
+                                    <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-2 py-1 mt-2 inline-block font-semibold">
+                                      Já tens este produto na tua biblioteca. Podes comprar novamente se quiseres.
+                                    </p>
+                                  )}
                                 </div>
                                 <button onClick={() => updateQty(item.id, 0)} className="text-gray-400 hover:text-red-500 transition-colors p-1">
                                   <span className="sr-only">Remover</span>
@@ -528,7 +571,7 @@ export default function CheckoutPage() {
                                   <button onClick={() => updateQty(item.id, item.qty + 1)} className="w-6 h-6 flex items-center justify-center text-gray-500 hover:bg-gray-100 rounded-md transition-colors">+</button>
                                 </div>
                                 <div className="text-xs text-gray-400 ml-auto hidden sm:block">
-                                  {formatPrice(getVatBreakdown(item.price, getVatRate(item)).vat)} IVA incluído
+                                  {formatVatDisplay(getVatBreakdown(item.price, getVatRate(item)).vat, formatPrice)} IVA incluído
                                 </div>
                               </div>
                             </div>
@@ -852,7 +895,7 @@ export default function CheckoutPage() {
                     )}
                     <div className="flex justify-between text-gray-600">
                       <span>IVA</span>
-                      <span className="font-medium text-gray-900">{formatPrice(vatTotals.vat)}</span>
+                      <span className="font-medium text-gray-900">{formatVatDisplay(vatTotals.vat, formatPrice)}</span>
                     </div>
                     {hasPhysical && (
                       <div className="flex justify-between text-gray-600">

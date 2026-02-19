@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from 'react';
-import { supabaseBrowser } from '../../lib/supabase-browser';
 import { Mail, ArrowRight, Loader2, CheckCircle2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
@@ -19,17 +18,20 @@ export default function MagicLinkRequest({ onCancel }: { onCancel?: () => void }
         try {
             if (!email.includes('@')) throw new Error('Email inválido');
 
-            // Construct redirect URL
-            const redirectTo = `${window.location.origin}/auth-callback`;
-
-            const { error: otpError } = await supabaseBrowser.auth.signInWithOtp({
-                email: email.trim(),
-                options: {
-                    emailRedirectTo: redirectTo,
-                }
+            const response = await fetch('/api/auth/send-magic-link', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    email: email.trim(),
+                    next: '/',
+                }),
             });
 
-            if (otpError) throw otpError;
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok || !data?.success) {
+                throw new Error(data?.message || 'Erro ao enviar link.');
+            }
+
             setSuccess(true);
         } catch (err: any) {
             setError(err.message || 'Erro ao enviar link.');

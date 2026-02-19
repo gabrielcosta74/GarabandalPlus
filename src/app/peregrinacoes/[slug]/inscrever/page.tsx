@@ -151,6 +151,7 @@ const getMaxInstallments = (startDate: string) => {
 
 // Utility function to round monetary values to 2 decimal places
 const roundToTwo = (num: number): number => Math.round(num * 100) / 100;
+const formatMoney = (value: number): string => `${roundToTwo(Number(value) || 0).toFixed(2)}€`;
 
 const calculateInstallments = (totalBalance: number, startDate: string, desiredCount?: number) => {
     const installments: { date: Date; amount: number }[] = [];
@@ -194,11 +195,7 @@ function StepIdentification({ onNext, initialEmail, pilgrimageId }: { onNext: (e
     const [loading, setLoading] = useState(false);
 
     // Duplicate State
-    const [duplicateFound, setDuplicateFound] = useState<{ exists: boolean, booking_id?: string, email?: string } | null>(null);
-
-    // Account Warning State
-    const [showAccountWarning, setShowAccountWarning] = useState(false);
-    const [sendingMagicLink, setSendingMagicLink] = useState(false);
+    const [duplicateFound, setDuplicateFound] = useState<{ exists: boolean, email?: string } | null>(null);
 
 
     useEffect(() => {
@@ -214,74 +211,8 @@ function StepIdentification({ onNext, initialEmail, pilgrimageId }: { onNext: (e
         }
     }, [user, initialEmail]);
 
-    // Check if email has an existing account (only if NOT logged in)
-    const handleEmailBlur = async () => {
-        if (!email.includes('@') || user) return; // Skip if logged in
-
-        try {
-            const res = await fetch(`/api/auth/check-email-exists?email=${encodeURIComponent(email)}`);
-            const { exists } = await res.json();
-
-            if (exists) {
-                setShowAccountWarning(true);
-            }
-        } catch (err) {
-            console.error('[Email Check] Error:', err);
-            // Fail silently - don't block user
-        }
-    };
-
-    // Send Magic Link for quick login
-    const handleSendQuickLogin = async () => {
-        if (!supabaseBrowser || !email) return;
-
-        setSendingMagicLink(true);
-        try {
-            const { error } = await supabaseBrowser.auth.signInWithOtp({
-                email,
-                options: {
-                    emailRedirectTo: window.location.href, // Return to this page
-                }
-            });
-
-            if (error) throw error;
-
-            Swal.fire({
-                title: 'Email Enviado!',
-                text: 'Verifica a tua caixa de entrada e clica no link para fazeres login.',
-                icon: 'success',
-                confirmButtonColor: '#eab308'
-            });
-
-            setShowAccountWarning(false);
-        } catch (err: any) {
-            console.error('[Quick Login] Error:', err);
-            Swal.fire('Erro', 'Não foi possível enviar o email.', 'error');
-        } finally {
-            setSendingMagicLink(false);
-        }
-    };
-
-    // Close warning and allow changing email
-    const handleCloseWarning = () => {
-        setShowAccountWarning(false);
-        setEmail('');
-    };
-
-
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-
-        // Block submission if email has existing account
-        if (showAccountWarning) {
-            Swal.fire({
-                title: 'Login Necessário',
-                text: 'Este email já tem conta. Por favor, faz login primeiro clicando no botão "Enviar Link de Acesso".',
-                icon: 'warning',
-                confirmButtonColor: '#eab308'
-            });
-            return;
-        }
 
         if (!email.includes('@') || !phone || phone.length < 9) return;
 
@@ -305,6 +236,46 @@ function StepIdentification({ onNext, initialEmail, pilgrimageId }: { onNext: (e
             } catch (err) {
                 console.error("Duplicate check failed:", err);
                 // Continue anyway to not block user on technical error
+            }
+        }
+
+        // If user is not authenticated and this email already has an account,
+        // force login before continuing booking flow.
+        if (!user) {
+            try {
+                const accountRes = await fetch('/api/auth/check-account-exists', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email })
+                });
+                const accountData = await accountRes.json().catch(() => ({ exists: false }));
+
+                if (accountData?.exists) {
+                    setLoading(false);
+
+                    const next = typeof window !== 'undefined' ? window.location.pathname : '/peregrinacoes';
+                    const decision = await Swal.fire({
+                        title: 'Conta já existente',
+                        text: 'Este email já está registado. Para continuar a inscrição, faz login na tua conta.',
+                        icon: 'info',
+                        showCancelButton: true,
+                        showDenyButton: true,
+                        confirmButtonText: 'Ir para login',
+                        denyButtonText: 'Receber link mágico',
+                        cancelButtonText: 'Cancelar',
+                        confirmButtonColor: '#eab308',
+                        denyButtonColor: '#475569',
+                    });
+
+                    if (decision.isConfirmed) {
+                        router.push(`/login?next=${encodeURIComponent(next)}`);
+                    } else if (decision.isDenied) {
+                        await handleSendMagicLink();
+                    }
+                    return;
+                }
+            } catch (err) {
+                console.warn('Account existence check failed:', err);
             }
         }
 
@@ -334,31 +305,52 @@ function StepIdentification({ onNext, initialEmail, pilgrimageId }: { onNext: (e
     };
 
     const handleSendMagicLink = async () => {
-        if (!duplicateFound?.booking_id || !supabaseBrowser) return;
+        const duplicateEmail = (duplicateFound?.email || email || '').trim().toLowerCase();
+        if (!duplicateEmail.includes('@')) {
+            Swal.fire('Erro', 'Email inválido para envio do link.', 'error');
+            return;
+        }
 
-        const { error } = await supabaseBrowser.auth.signInWithOtp({
-            email: email,
-            options: {
-                // Redirect directly to the booking page
-                emailRedirectTo: `${window.location.origin}/auth-callback?next=/peregrinacoes/inscricao/${duplicateFound.booking_id}`,
+        try {
+            const endpoint = duplicateFound?.exists && pilgrimageId
+                ? '/api/booking/send-access-link'
+                : '/api/auth/send-magic-link';
+
+            const payload = duplicateFound?.exists && pilgrimageId
+                ? {
+                    email: duplicateEmail,
+                    pilgrimageId
+                }
+                : {
+                    email: duplicateEmail,
+                    next: '/peregrinacoes/minhas-inscricoes'
+                };
+
+            const res = await fetch(endpoint, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok || !data?.success) {
+                throw new Error(data?.message || 'Não foi possível enviar o email.');
             }
-        });
 
-        if (error) {
-            Swal.fire('Erro', 'Não foi possível enviar o email.', 'error');
-        } else {
             Swal.fire({
                 title: 'Verifique o Email',
                 text: 'Enviámos um link de acesso direto para a sua reserva.',
                 icon: 'success',
                 confirmButtonColor: '#eab308'
             });
+        } catch (err: any) {
+            Swal.fire('Erro', err?.message || 'Não foi possível enviar o email.', 'error');
         }
     };
 
     // Helper to determine which UI to show based on auth state
     const getDuplicateModalConfig = () => {
-        const duplicateEmail = duplicateFound?.email || '';
+        const duplicateEmail = duplicateFound?.email || email;
         const maskEmail = (email: string) => email.replace(/(?<=.{2}).(?=.*@)/g, '*');
 
         if (!user) {
@@ -442,10 +434,10 @@ function StepIdentification({ onNext, initialEmail, pilgrimageId }: { onNext: (e
                     {/* Scenario 2: Direct link to booking */}
                     {config.showDirectLink && (
                         <button
-                            onClick={() => router.push(`/peregrinacoes/inscricao/${duplicateFound.booking_id}`)}
+                            onClick={() => router.push('/peregrinacoes/minhas-inscricoes')}
                             className="w-full bg-yellow-500 hover:bg-yellow-400 text-black font-bold py-4 rounded-xl shadow-lg transition-transform active:scale-95"
                         >
-                            Ver a Minha Reserva
+                            Ir Para Minhas Inscrições
                         </button>
                     )}
 
@@ -505,11 +497,7 @@ function StepIdentification({ onNext, initialEmail, pilgrimageId }: { onNext: (e
                             type="email"
                             required
                             value={email}
-                            onChange={e => {
-                                setEmail(e.target.value);
-                                setShowAccountWarning(false); // Hide warning when typing
-                            }}
-                            onBlur={handleEmailBlur}
+                            onChange={e => setEmail(e.target.value)}
                             disabled={loading || !!user}
                             className="w-full bg-slate-800 border-2 border-slate-700/50 focus:border-yellow-500 rounded-2xl pl-14 pr-6 py-5 text-white placeholder:text-slate-600 focus:outline-none transition-all text-xl shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
                             placeholder="tu@email.com"
@@ -533,49 +521,6 @@ function StepIdentification({ onNext, initialEmail, pilgrimageId }: { onNext: (e
                         </div>
                     )}
 
-                    {/* Warning: Email has existing account */}
-                    {showAccountWarning && !user && (
-                        <div className="mt-3 bg-blue-900/30 border-2 border-blue-500/50 rounded-xl p-4 animate-in slide-in-from-top duration-300">
-                            <div className="flex items-start gap-3">
-                                <div className="text-blue-400 text-2xl">ℹ️</div>
-                                <div className="flex-1 space-y-3">
-                                    <div>
-                                        <h4 className="font-bold text-white mb-1 text-base">Este email já tem conta</h4>
-                                        <p className="text-slate-300 text-sm leading-relaxed">
-                                            Este email já está registado no sistema. Para veres a tua reserva depois, precisas de fazer login.
-                                            Clica abaixo para receberes um link no email - é super rápido!
-                                        </p>
-                                    </div>
-
-                                    <button
-                                        type="button"
-                                        onClick={handleSendQuickLogin}
-                                        disabled={sendingMagicLink}
-                                        className="w-full bg-yellow-500 hover:bg-yellow-400 text-black font-bold py-3 px-4 rounded-lg transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                                    >
-                                        {sendingMagicLink ? (
-                                            <>
-                                                <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" />
-                                                A Enviar...
-                                            </>
-                                        ) : (
-                                            <>
-                                                📧 Enviar Link de Acesso
-                                            </>
-                                        )}
-                                    </button>
-
-                                    <button
-                                        type="button"
-                                        onClick={handleCloseWarning}
-                                        className="text-sm text-slate-400 hover:text-white underline w-full text-center"
-                                    >
-                                        × Fechar (quero usar outro email)
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    )}
                 </div>
                 <div>
                     <label className="text-lg uppercase font-bold text-slate-300 mb-2 block pl-2 tracking-wide">WhatsApp / Telemóvel</label>
@@ -613,7 +558,7 @@ function StepIdentification({ onNext, initialEmail, pilgrimageId }: { onNext: (e
 
                 <button
                     type="submit"
-                    disabled={loading || showAccountWarning}
+                    disabled={loading}
                     className="w-full bg-yellow-600 hover:bg-yellow-500 text-slate-950 font-bold py-5 rounded-2xl shadow-xl shadow-yellow-900/20 transition-all transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-3 text-lg disabled:opacity-50 disabled:cursor-not-allowed mt-4"
                 >
                     {loading ? <><Loader2 className="w-6 h-6 animate-spin" /> A verificar...</> : <>Continuar <ChevronRight className="w-6 h-6" /></>}
@@ -1111,7 +1056,8 @@ export default function PilgrimageBookingPage() {
 
             // Always go directly to the booking payment page.
             // Keep viewToken to guarantee immediate access even without active session.
-            const redirectUrl = `/peregrinacoes/inscricao/${result.booking_id}?viewToken=${encodeURIComponent(result.view_token || '')}${result.new_account ? '&first_time=true' : ''}`;
+            const encodedViewToken = encodeURIComponent(result.view_token || '');
+            const redirectUrl = `/peregrinacoes/inscricao/${result.booking_id}?viewToken=${encodedViewToken}&token=${encodedViewToken}${result.new_account ? '&first_time=true' : ''}`;
             console.log("🔄 [Frontend] Redirecting to:", redirectUrl);
             window.location.href = redirectUrl;
 
@@ -1282,10 +1228,10 @@ export default function PilgrimageBookingPage() {
                                                                         pPrice.roomType === 'double' ? 'Quarto Duplo (Partilhado)' :
                                                                             pPrice.roomType === 'triple' ? 'Quarto Triplo' : 'Quarto Familiar'}
                                                                 </p>
-                                                                {pPrice.isMember && <p className="text-xs text-emerald-400 font-bold uppercase tracking-wider mt-1 flex items-center gap-1"><Check className="w-3 h-3" /> Membro (-50€)</p>}
+                                                                {pPrice.isMember && <p className="text-xs text-emerald-400 font-bold uppercase tracking-wider mt-1 flex items-center gap-1"><Check className="w-3 h-3" /> Membro (-50,00€)</p>}
                                                             </div>
                                                             <div className="text-right">
-                                                                <p className="text-white font-mono font-bold">{pPrice.finalPrice}€</p>
+                                                                <p className="text-white font-mono font-bold">{formatMoney(pPrice.finalPrice)}</p>
                                                                 {pPrice.isChild && <p className="text-[10px] text-emerald-400 font-bold">Dsc. Criança (20%)</p>}
                                                                 {pPrice.isInfant && <p className="text-[10px] text-emerald-400 font-bold">Isenção Bebé</p>}
                                                             </div>
@@ -1296,33 +1242,33 @@ export default function PilgrimageBookingPage() {
                                                 <div className="pt-4 space-y-2 border-t border-white/10">
                                                     <div className="flex justify-between text-xs">
                                                         <span className="text-slate-500">Donativos Base</span>
-                                                        <span className="text-slate-300 font-mono">{baseTotal}€</span>
+                                                        <span className="text-slate-300 font-mono">{formatMoney(baseTotal)}</span>
                                                     </div>
                                                     <div className="flex justify-between text-xs">
                                                         <span className="text-slate-500">Taxas de Inscrição</span>
-                                                        <span className="text-slate-300 font-mono">{depositTotal}€</span>
+                                                        <span className="text-slate-300 font-mono">{formatMoney(depositTotal)}</span>
                                                     </div>
                                                     {supplementsTotal > 0 && (
                                                         <div className="flex justify-between text-xs">
                                                             <span className="text-slate-500">Suplementos de Alojamento</span>
-                                                            <span className="text-slate-300 font-mono">+{supplementsTotal}€</span>
+                                                            <span className="text-slate-300 font-mono">+{formatMoney(supplementsTotal)}</span>
                                                         </div>
                                                     )}
                                                     {ageDiscountTotal > 0 && (
                                                         <div className="flex justify-between text-xs">
                                                             <span className="text-slate-500">Desconto Criança/Bebé</span>
-                                                            <span className="text-emerald-400 font-mono">-{ageDiscountTotal}€</span>
+                                                            <span className="text-emerald-400 font-mono">-{formatMoney(ageDiscountTotal)}</span>
                                                         </div>
                                                     )}
                                                     {memberDiscountTotal > 0 && (
                                                         <div className="flex justify-between text-xs">
                                                             <span className="text-slate-500">Desconto de Membro</span>
-                                                            <span className="text-emerald-400 font-mono">-{memberDiscountTotal}€</span>
+                                                            <span className="text-emerald-400 font-mono">-{formatMoney(memberDiscountTotal)}</span>
                                                         </div>
                                                     )}
                                                     <div className="flex justify-between items-center pt-2">
                                                         <span className="text-slate-400 font-bold uppercase tracking-widest text-xs">Total da Reserva</span>
-                                                        <span className="text-3xl font-bold text-white font-mono">{totalBookingAmount}€</span>
+                                                        <span className="text-3xl font-bold text-white font-mono">{formatMoney(totalBookingAmount)}</span>
                                                     </div>
                                                 </div>
                                             </div>
@@ -1334,16 +1280,16 @@ export default function PilgrimageBookingPage() {
                                                     <label className={`flex items-center gap-4 p-5 rounded-2xl border-2 transition-all cursor-pointer ${watch('payment_method') === 'installments' ? 'bg-yellow-500/10 border-yellow-500 shadow-lg shadow-yellow-500/10' : 'bg-slate-800/50 border-slate-700 hover:border-slate-600'}`}>
                                                         <input type="radio" value="installments" {...methods.register('payment_method')} className="w-6 h-6 text-yellow-500 accent-yellow-500" />
                                                         <div className="flex-1">
-                                                            <div className="font-bold text-white text-lg">Doação Faseada</div>
-                                                            <div className="text-sm text-slate-400">Doa o sinal agora (<span className="text-white font-bold">{depositTotal}€</span>) e o resto depois.</div>
+                                                            <div className="font-bold text-white text-lg">Quero fazer doação em várias parcelas mensais</div>
+                                                            <div className="text-sm text-slate-400">Doa o sinal agora (<span className="text-white font-bold">{formatMoney(depositTotal)}</span>) e o resto depois.</div>
                                                         </div>
                                                     </label>
 
                                                     <label className={`flex items-center gap-4 p-5 rounded-2xl border-2 transition-all cursor-pointer ${watch('payment_method') === 'full' ? 'bg-yellow-500/10 border-yellow-500 shadow-lg shadow-yellow-500/10' : 'bg-slate-800/50 border-slate-700 hover:border-slate-600'}`}>
                                                         <input type="radio" value="full" {...methods.register('payment_method')} className="w-6 h-6 text-yellow-500 accent-yellow-500" />
                                                         <div className="flex-1">
-                                                            <div className="font-bold text-white text-lg">Doação Total</div>
-                                                            <div className="text-sm text-slate-400">Doa já o valor total (<span className="text-white font-bold">{totalBookingAmount}€</span>).</div>
+                                                            <div className="font-bold text-white text-lg">Quero fazer doação total</div>
+                                                            <div className="text-sm text-slate-400">Doa já o valor total (<span className="text-white font-bold">{formatMoney(totalBookingAmount)}</span>).</div>
                                                         </div>
                                                     </label>
                                                 </div>
@@ -1381,7 +1327,7 @@ export default function PilgrimageBookingPage() {
                                                         <div className="space-y-3">
                                                             <div className="flex justify-between text-sm py-2 border-b border-white/5">
                                                                 <span className="text-slate-400 italic">Hoje (Inscrição)</span>
-                                                                <span className="text-white font-bold">{depositTotal}€</span>
+                                                                <span className="text-white font-bold">{formatMoney(depositTotal)}</span>
                                                             </div>
                                                             {calculateInstallments(
                                                                 totalBookingAmount - depositTotal,
@@ -1392,12 +1338,12 @@ export default function PilgrimageBookingPage() {
                                                                     <span className="text-slate-300">
                                                                         Mensalidade {idx + 1} - {inst.date.toLocaleDateString('pt-PT', { month: 'long', year: 'numeric' })}
                                                                     </span>
-                                                                    <span className="text-white font-bold">{inst.amount}€</span>
+                                                                    <span className="text-white font-bold">{formatMoney(inst.amount)}</span>
                                                                 </div>
                                                             ))}
                                                         </div>
                                                         <p className="text-[10px] text-slate-500 mt-6 leading-relaxed italic text-center px-4">
-                                                            * O valor em falta de {totalBookingAmount - depositTotal}€ será dividido em {installmentCount || getMaxInstallments(pilgrimage.start_date)} mensalidades pagas via Transferência Bancária ou MBWAY.
+                                                            * O valor em falta de {formatMoney(totalBookingAmount - depositTotal)} será dividido em {installmentCount || getMaxInstallments(pilgrimage.start_date)} mensalidades pagas via Transferência Bancária ou MBWAY.
                                                             Enviaremos os lembretes por WhatsApp/Email todos os meses.
                                                         </p>
                                                     </div>

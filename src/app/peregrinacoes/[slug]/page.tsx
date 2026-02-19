@@ -135,6 +135,14 @@ type TeamMember = {
     display_order: number;
 };
 
+const toSlug = (value?: string | null) =>
+    String(value || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/(^-|-$)/g, '');
+
 const MOCK_FAQS = [
     { q: 'É preciso passaporte?', a: 'Para cidadãos da UE, apenas Cartão de Cidadão válido is suficiente.' },
     { q: 'O caminho é difícil?', a: 'A subida aos Pinheiros é íngreme, mas faz-se com calma. Existem acessos para quem tem mobilidade reduzida.' },
@@ -159,11 +167,32 @@ export default function PilgrimageDetailPage() {
         const fetchAllData = async () => {
             if (!slug || !supabaseBrowser) return;
 
-            const { data: pData, error: pError } = await supabaseBrowser
+            const { data: rpcData, error: pError } = await supabaseBrowser
                 .rpc('get_pilgrimage_list', { p_slug: slug })
                 .maybeSingle() as any;
 
             if (pError) console.error("❌ [RPC Error]", pError);
+            let pData = rpcData;
+
+            if (!pData) {
+                const { data: fallbackRows, error: fallbackError } = await supabaseBrowser
+                    .from('pilgrimages')
+                    .select('*')
+                    .order('start_date', { ascending: true });
+
+                if (fallbackError) {
+                    console.error("❌ [Fallback Query Error]", fallbackError);
+                } else if (fallbackRows?.length) {
+                    pData = fallbackRows.find((row: any) => {
+                        const dbSlug = String(row?.slug || '').trim();
+                        if (dbSlug && dbSlug === slug) return true;
+                        // Backward compatibility: old links generated from title slug
+                        // should continue to resolve even after DB slug normalization.
+                        if (toSlug(row?.title) === slug) return true;
+                        return false;
+                    }) || null;
+                }
+            }
 
             if (pData) {
                 setPilgrimage(pData);
@@ -505,9 +534,12 @@ export default function PilgrimageDetailPage() {
                                                                     </div>
                                                                 )}
                                                                 <div className="bg-white p-4 rounded-xl border border-indigo-100 flex justify-between items-center shadow-sm">
-                                                                    <span className="text-xs text-indigo-400 font-bold uppercase">Doação a partir de</span>
+                                                                    <span className="text-xs text-indigo-400 font-bold uppercase">Pagamento a partir de</span>
                                                                     <div className="text-2xl font-bold text-indigo-600">{formatPrice(pilgrimage.flight_price_from)}</div>
                                                                 </div>
+                                                                <p className="text-[10px] text-indigo-400 mt-2 text-center italic leading-tight">
+                                                                    Nota: Este pagamento é realizado diretamente à agência de viagens parceira.
+                                                                </p>
                                                             </div>
                                                         </div>
                                                     ) : (

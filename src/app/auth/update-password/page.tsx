@@ -19,8 +19,18 @@ export default function UpdatePasswordPage() {
 
     // Verify if user is authenticated (which happens after auth-callback redirect)
     useEffect(() => {
+        let cancelled = false;
+        const watchdog = window.setTimeout(() => {
+            if (cancelled) return;
+            console.warn("⏱️ [UpdatePassword] Session check timeout.");
+            setError('Link inválido ou expirado. Peça um novo email de recuperação.');
+            setCheckingSession(false);
+        }, 12000);
+
         if (!supabaseBrowser) {
             console.error("Supabase client missing");
+            setError('Configuração de autenticação em falta.');
+            setCheckingSession(false);
             return;
         }
 
@@ -34,6 +44,7 @@ export default function UpdatePasswordPage() {
                 setTimeout(() => router.push('/'), 3000); // Ensure redirect happens
             } else if (session) {
                 console.log("✅ [UpdatePassword] Session confirmed:", session.user.email);
+                window.clearTimeout(watchdog);
                 setCheckingSession(false);
             } else if (event === 'SIGNED_OUT') {
                 // Only redirect if explicitly signed out and no hash present to process
@@ -54,17 +65,50 @@ export default function UpdatePasswordPage() {
             if (hash) {
                 const params = new URLSearchParams(hash);
                 const access_token = params.get('access_token');
+                const refresh_token = params.get('refresh_token');
                 const type = params.get('type');
-                if (access_token && type === 'recovery') {
-                    console.log("🔗 [UpdatePassword] Found recovery hash, waiting for Supabase...");
-                    // Supabase usually handles this automatically.
-                    // If it sticks, we can try forceful setSession, but let's trust the listener first.
+
+                if (access_token && refresh_token && type === 'recovery') {
+                    console.log("🔗 [UpdatePassword] Recovery hash found, setting session...");
+                    const { error: sessionError } = await supabaseBrowser.auth.setSession({
+                        access_token,
+                        refresh_token,
+                    });
+
+                    if (sessionError) {
+                        console.error("🚨 [UpdatePassword] setSession error:", sessionError);
+                        setError('O link de recuperação é inválido ou expirou.');
+                        setCheckingSession(false);
+                        return;
+                    }
+
+                    window.clearTimeout(watchdog);
+                    setCheckingSession(false);
+                    return;
                 }
             }
-        };
-        checkHash();
 
-        return () => subscription.unsubscribe();
+            const { data: { session } } = await supabaseBrowser.auth.getSession();
+            if (session) {
+                window.clearTimeout(watchdog);
+                setCheckingSession(false);
+                return;
+            }
+
+            setError('Link inválido ou expirado. Peça um novo email de recuperação.');
+            setCheckingSession(false);
+        };
+        checkHash().catch((err) => {
+            console.error("🚨 [UpdatePassword] Hash/session check failed:", err);
+            setError('Não foi possível validar o link de recuperação.');
+            setCheckingSession(false);
+        });
+
+        return () => {
+            cancelled = true;
+            window.clearTimeout(watchdog);
+            subscription.unsubscribe();
+        };
     }, [router]);
 
     const canSubmit = useMemo(() =>

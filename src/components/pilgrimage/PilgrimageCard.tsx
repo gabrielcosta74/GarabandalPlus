@@ -13,6 +13,14 @@ type PilgrimageCardProps = {
     index: number;
 };
 
+const toSlug = (value?: string | null) =>
+    String(value || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/(^-|-$)/g, '');
+
 export function PilgrimageCard({ pilgrimage, index }: PilgrimageCardProps) {
     const { formatPrice, currency } = useCurrency();
     const startDate = new Date(pilgrimage.start_date);
@@ -25,8 +33,12 @@ export function PilgrimageCard({ pilgrimage, index }: PilgrimageCardProps) {
         : Number.isFinite(currentVacanciesRaw)
             ? Math.max(0, currentVacanciesRaw)
             : Math.max(0, Number(pilgrimage.total_vacancies || 0) - Number(confirmedPax || 0));
-    const isWaitlist = pilgrimage.status === 'waitlist' || (remainingSpots <= 0 && pilgrimage.status !== 'closed');
-    const isClosed = pilgrimage.status === 'closed';
+    const isSoldOut = remainingSpots <= 0;
+    const isClosed = pilgrimage.status === 'closed' || isSoldOut;
+    const isWaitlist = !isClosed && pilgrimage.status === 'waitlist';
+    const isLastSpots = !isClosed && !isWaitlist && remainingSpots > 0 && remainingSpots <= 5;
+    const safeSlug = (pilgrimage.slug || '').trim() || toSlug(pilgrimage.title);
+    const detailHref = safeSlug ? `/peregrinacoes/${safeSlug}` : '/peregrinacoes';
 
     // Status Logic & Styles
     let cardStyle = "bg-white border-slate-100 hover:border-yellow-500/30 hover:shadow-[0_20px_50px_-12px_rgba(37,99,235,0.1)]";
@@ -51,12 +63,12 @@ export function PilgrimageCard({ pilgrimage, index }: PilgrimageCardProps) {
             </span>
         );
     } else if (isWaitlist) {
-        // WAITLIST FOMO STYLE
+        // WAITLIST STYLE
         cardStyle = "bg-amber-50/30 border-amber-200 hover:border-amber-400 hover:shadow-[0_20px_50px_-12px_rgba(245,158,11,0.2)]";
         statusBadge = (
             <div className="absolute top-4 left-4 z-20 flex flex-col gap-2">
-                <span className="bg-amber-500 text-white text-xs font-bold px-4 py-2 rounded-full uppercase tracking-wider shadow-lg flex items-center gap-2 w-fit animate-pulse">
-                    <Clock className="w-3.5 h-3.5" /> Últimas Vagas
+                <span className="bg-amber-500 text-white text-xs font-bold px-4 py-2 rounded-full uppercase tracking-wider shadow-lg flex items-center gap-2 w-fit">
+                    <Clock className="w-3.5 h-3.5" /> Lista de Espera
                 </span>
             </div>
         );
@@ -64,6 +76,18 @@ export function PilgrimageCard({ pilgrimage, index }: PilgrimageCardProps) {
             <div className="flex items-center gap-2 px-6 py-3 rounded-xl bg-amber-500 text-white font-bold text-sm uppercase tracking-wide hover:bg-amber-600 transition-colors shadow-lg shadow-amber-500/20 group-hover:scale-105 duration-300">
                 Entrar em Lista de Espera
                 <ChevronRight className="w-4 h-4" />
+            </div>
+        );
+    } else if (isLastSpots) {
+        // LAST SPOTS STYLE
+        statusBadge = (
+            <span className="bg-amber-500 text-white text-xs font-bold px-4 py-2 rounded-full uppercase tracking-wider shadow-lg flex items-center gap-2 w-fit animate-pulse">
+                <Clock className="w-3.5 h-3.5" /> Últimas Vagas
+            </span>
+        );
+        actionButton = (
+            <div className="h-12 w-12 rounded-full bg-amber-50 border-2 border-amber-200 flex items-center justify-center text-amber-600 group-hover:bg-amber-500 group-hover:border-amber-500 group-hover:text-white transition-all shadow-sm group-hover:shadow-lg group-hover:shadow-amber-500/30">
+                <ChevronRight className="w-5 h-5" />
             </div>
         );
     } else {
@@ -90,7 +114,7 @@ export function PilgrimageCard({ pilgrimage, index }: PilgrimageCardProps) {
             className="h-full"
         >
             <Link
-                href={`/peregrinacoes/${pilgrimage.slug}`}
+                href={detailHref}
                 className={`group rounded-[2.5rem] border overflow-hidden flex flex-col md:flex-row h-full relative no-underline ${cardStyle}`}
             >
                 {/* Image Section */}
@@ -163,9 +187,9 @@ export function PilgrimageCard({ pilgrimage, index }: PilgrimageCardProps) {
                         <div className="flex items-center gap-4">
                             <div className="hidden md:block text-right">
                                 <span className="text-[10px] text-slate-400 uppercase tracking-widest font-bold block mb-1">Disponibilidade</span>
-                                <div className={`flex items-center justify-end gap-1.5 text-sm font-bold ${isWaitlist ? 'text-amber-600' : 'text-slate-700'}`}>
+                                <div className={`flex items-center justify-end gap-1.5 text-sm font-bold ${isWaitlist ? 'text-amber-600' : isClosed ? 'text-red-600' : 'text-slate-700'}`}>
                                     <Users className="w-4 h-4" />
-                                    {isClosed ? 'Esgotado' : `${remainingSpots} Lugares`}
+                                    {isClosed ? 'Esgotado' : isWaitlist ? 'Lista de Espera' : `${remainingSpots} Lugares`}
                                 </div>
                             </div>
 

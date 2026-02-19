@@ -80,6 +80,113 @@ function parsePaymentDate(data: any): Date | undefined {
   return dt;
 }
 
+function normalizeGatewayStatus(value: any): string {
+  if (value === null || value === undefined) return '';
+  const raw = String(value).trim();
+  if (!raw) return '';
+  if (['0', '1', '2', '3', '4'].includes(raw)) return raw;
+  const normalized = raw.toLowerCase();
+  if (normalized === 'success' || normalized === 'succeeded' || normalized === 'paid') return '4';
+  if (normalized === 'failed' || normalized === 'error' || normalized === 'canceled' || normalized === 'cancelled') return '3';
+  if (normalized === 'pending' || normalized === 'processing' || normalized === 'in_progress') return '2';
+  return '';
+}
+
+function parseGatewayDate(value: any): number {
+  if (!value) return 0;
+  if (value instanceof Date) return Number.isNaN(value.getTime()) ? 0 : value.getTime();
+  if (typeof value !== 'string') return 0;
+  const normalized = value.trim().replace(' ', 'T');
+  const dt = new Date(normalized);
+  if (Number.isNaN(dt.getTime())) return 0;
+  return dt.getTime();
+}
+
+type SearchTxCandidate = {
+  status: string;
+  transactionId: string | null;
+  orderRef: string | null;
+  at: number;
+};
+
+function collectSearchTxCandidates(node: any, bucket: SearchTxCandidate[] = [], depth = 0): SearchTxCandidate[] {
+  if (!node || depth > 6) return bucket;
+  if (Array.isArray(node)) {
+    for (const item of node) collectSearchTxCandidates(item, bucket, depth + 1);
+    return bucket;
+  }
+  if (typeof node !== 'object') return bucket;
+
+  const rawStatus =
+    node.status ??
+    node.transactionStatus ??
+    node.state ??
+    node.transaction?.status ??
+    null;
+  const status = normalizeGatewayStatus(rawStatus);
+  if (status) {
+    const privateData = Array.isArray(node.privateData) ? node.privateData : [];
+    const orderRef =
+      node.orderRef ||
+      node.order_ref ||
+      node.order?.ref ||
+      node.ref ||
+      privateData.find((item: any) => item?.name === 'orderRef')?.value ||
+      privateData.find((item: any) => item?.name === 'order.ref')?.value ||
+      null;
+    const transactionId = node.transactionId || node.transaction_id || node.transaction?.id || node.id || null;
+    const at = parseGatewayDate(
+      node.date ||
+      node.createdAt ||
+      node.created_at ||
+      node.transactionDate ||
+      node.updatedAt ||
+      node.updated_at ||
+      node.transaction?.date ||
+      null,
+    );
+    bucket.push({
+      status,
+      transactionId: transactionId ? String(transactionId) : null,
+      orderRef: orderRef ? String(orderRef) : null,
+      at,
+    });
+  }
+
+  for (const value of Object.values(node)) {
+    if (value && typeof value === 'object') {
+      collectSearchTxCandidates(value, bucket, depth + 1);
+    }
+  }
+  return bucket;
+}
+
+async function findBestStatusByOrderRef(orderRef: string): Promise<SearchTxCandidate | null> {
+  const lookup = await reduniqClient.searchTransactions({ orderRef, limit: 25 });
+  if (!lookup.ok) return null;
+
+  const all = collectSearchTxCandidates(lookup.data);
+  if (!all.length) return null;
+
+  const sameRef = all.filter((candidate) => !candidate.orderRef || candidate.orderRef === orderRef);
+  const pool = sameRef.length ? sameRef : all;
+
+  const score = (status: string) => {
+    if (status === '4') return 4;
+    if (status === '2') return 3;
+    if (status === '1') return 2;
+    if (status === '0') return 1;
+    return 0;
+  };
+
+  const [best] = [...pool].sort((a, b) => {
+    const scoreDiff = score(b.status) - score(a.status);
+    if (scoreDiff !== 0) return scoreDiff;
+    return b.at - a.at;
+  });
+  return best || null;
+}
+
 export async function POST(request: Request) {
   try {
     if (!supabaseServer) {
@@ -122,15 +229,53 @@ export async function POST(request: Request) {
     }
 
     const data = result.data || {};
-    const transactionStatus = String(data?.transaction?.status || '');
-    const transactionId = data?.transaction?.id ? String(data.transaction.id) : null;
+    let transactionStatus = normalizeGatewayStatus(data?.transaction?.status);
+    let transactionId = data?.transaction?.id ? String(data.transaction.id) : null;
     const paymentSolution = data?.payment?.solution ? String(data.payment.solution) : null;
     const paymentAmount = data?.payment?.amount ? String(data.payment.amount) : null;
+    let resultCode = data?.result?.code ? String(data.result.code) : null;
+    let resultMessage = data?.result?.message ? String(data.result.message) : null;
     const extraData = Array.isArray(data?.transaction?.extraData) ? data.transaction.extraData : [];
-    const orderRefFromResult = extractOrderRefFromResult(data);
-    const referenceToMatch = orderRefFromResult || orderRefParam;
+    let orderRefFromResult = extractOrderRefFromResult(data);
+    const shouldTrySearchFallback = Boolean(orderRefParam) && (
+      resultCode === '00100007' ||
+      resultCode === '10000000999' ||
+      transactionStatus === '3' ||
+      !transactionStatus
+    );
+    if (shouldTrySearchFallback && orderRefParam) {
+      const fallback = await findBestStatusByOrderRef(orderRefParam);
+      if (fallback) {
+        const fallbackImprovesStatus =
+          fallback.status === '4' ||
+          ((fallback.status === '2' || fallback.status === '1' || fallback.status === '0') && transactionStatus !== '4');
+        if (fallbackImprovesStatus) {
+          transactionStatus = fallback.status;
+          if (fallback.transactionId) transactionId = fallback.transactionId;
+          if (!orderRefFromResult && fallback.orderRef) orderRefFromResult = fallback.orderRef;
+          if (resultCode === '00100007' || resultCode === '10000000999') {
+            resultCode = '00000000';
+            if (fallback.status === '4') {
+              resultMessage = 'Pagamento confirmado após validação adicional.';
+            } else if (!resultMessage) {
+              resultMessage = 'Pagamento em processamento.';
+            }
+          }
+        }
+      }
+    }
 
-    if (!referenceToMatch) {
+    if (transactionStatus === '3') {
+      console.warn('[Reduniq][Confirm] Pagamento devolvido como falha.', {
+        orderRef: orderRefParam || orderRefFromResult || null,
+        token: tokenToUse,
+        resultCode,
+        resultMessage,
+      });
+    }
+
+    const resolvedReference = orderRefFromResult || orderRefParam;
+    if (!resolvedReference) {
       return NextResponse.json({ success: false, message: 'Não foi possível obter orderRef do pagamento.' }, { status: 400 });
     }
 
@@ -139,9 +284,16 @@ export async function POST(request: Request) {
     const paymentDate = parsePaymentDate(data);
 
     let updated = false;
+    let storePayload: {
+      digitalDownloadLinks?: Array<{ name: string; url: string }>;
+      buyerEmail?: string;
+      accountExists?: boolean;
+      hasDigital?: boolean;
+      hasPhysical?: boolean;
+    } | null = null;
 
     // 1) Store Orders
-    const { data: storeOrder } = await supabaseServer.from('store_orders').select('*').eq('order_ref', referenceToMatch).maybeSingle();
+    const { data: storeOrder } = await supabaseServer.from('store_orders').select('*').eq('order_ref', resolvedReference).maybeSingle();
     if (storeOrder) {
       const ctx: PaymentHandlerContext = {
         supabaseServer,
@@ -156,7 +308,16 @@ export async function POST(request: Request) {
       };
 
       if (isSuccess) {
-        await handleStoreSuccess(ctx);
+        const storeResult = await handleStoreSuccess(ctx);
+        if (storeResult) {
+          storePayload = {
+            digitalDownloadLinks: storeResult.digitalDownloadLinks || [],
+            buyerEmail: storeResult.buyerEmail,
+            accountExists: storeResult.accountExists,
+            hasDigital: storeResult.hasDigital,
+            hasPhysical: storeResult.hasPhysical,
+          };
+        }
         updated = true;
       } else if (isFailed) {
         await handlePaymentFailedOrCanceled(ctx, 'failed');
@@ -166,7 +327,7 @@ export async function POST(request: Request) {
 
     // 2) Donations
     if (!updated) {
-      const { data: donation } = await supabaseServer.from('donations').select('*').eq('external_reference', referenceToMatch).maybeSingle();
+      const { data: donation } = await supabaseServer.from('donations').select('*').eq('external_reference', resolvedReference).maybeSingle();
       if (donation) {
         const ctx: PaymentHandlerContext = {
           supabaseServer,
@@ -181,13 +342,20 @@ export async function POST(request: Request) {
             donorName: donation.donor_name,
             donorEmail: donation.donor_email,
             donorNif: donation.donor_nif,
+            donorAddress: donation.donor_address,
+            donorCity: donation.donor_city,
+            donorZip: donation.donor_zip,
+            donorCountry: donation.donor_country,
+            receiptRequired: donation.receipt_required,
+            reduniq_method: (donation.metadata as any)?.reduniq_method || null,
             reduniqTransactionId: transactionId,
           },
           paymentDate,
         };
 
         if (isSuccess) {
-          updated = await handleDonationSuccess(ctx);
+          await handleDonationSuccess(ctx);
+          updated = true;
         } else if (isFailed) {
           await handlePaymentFailedOrCanceled(ctx, 'failed');
           updated = true;
@@ -202,7 +370,7 @@ export async function POST(request: Request) {
 
     // 3) Membership
     if (!updated) {
-      const { data: quota } = await supabaseServer.from('pagamentos_quotas').select('*').eq('external_reference', referenceToMatch).maybeSingle();
+      const { data: quota } = await supabaseServer.from('pagamentos_quotas').select('*').eq('external_reference', resolvedReference).maybeSingle();
       if (quota) {
         const ctx: PaymentHandlerContext = {
           supabaseServer,
@@ -216,7 +384,8 @@ export async function POST(request: Request) {
         };
 
         if (isSuccess) {
-          updated = await handleMembershipSuccess(ctx);
+          await handleMembershipSuccess(ctx);
+          updated = true;
         } else if (isFailed) {
           await handlePaymentFailedOrCanceled(ctx, 'failed');
           updated = true;
@@ -229,7 +398,7 @@ export async function POST(request: Request) {
       const { data: pilgrimagePayment } = await supabaseServer
         .from('pilgrimage_payments')
         .select('*')
-        .eq('external_reference', referenceToMatch)
+        .eq('external_reference', resolvedReference)
         .maybeSingle();
 
       if (pilgrimagePayment) {
@@ -245,7 +414,8 @@ export async function POST(request: Request) {
         };
 
         if (isSuccess) {
-          updated = await handlePilgrimageSuccess(ctx);
+          await handlePilgrimageSuccess(ctx);
+          updated = true;
         } else if (isFailed) {
           await handlePaymentFailedOrCanceled(ctx, 'failed');
           updated = true;
@@ -257,15 +427,16 @@ export async function POST(request: Request) {
       success: true,
       updated,
       token: tokenToUse,
-      orderRef: referenceToMatch,
-      resultCode: data?.result?.code || null,
-      resultMessage: data?.result?.message || null,
+      orderRef: resolvedReference,
+      resultCode,
+      resultMessage,
       transactionStatus,
       statusLabel: statusLabels[transactionStatus] || 'Desconhecido',
       transactionId,
       paymentSolution,
       paymentAmount,
       extraData,
+      ...(storePayload || {}),
       ...(process.env.NODE_ENV !== 'production' ? { raw: data } : {}),
     });
   } catch (error: any) {

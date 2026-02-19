@@ -80,19 +80,19 @@ export function PilgrimageHero({ featuredPilgrimage }: { featuredPilgrimage?: Fe
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.8 }}
                     >
-                        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-yellow-500/20 border border-yellow-500/30 backdrop-blur-md text-xs font-bold uppercase tracking-widest text-yellow-400 mb-8 shadow-glow">
+                        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-indigo-500/20 border border-indigo-500/30 backdrop-blur-md text-xs font-bold uppercase tracking-widest text-indigo-300 mb-8 shadow-glow">
                             <span className="relative flex h-2 w-2">
-                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75"></span>
-                                <span className="relative inline-flex rounded-full h-2 w-2 bg-yellow-500"></span>
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
                             </span>
-                            Inscrições Abertas 2026
+                            Apoio à Construção
                         </div>
                         <h1 className="font-serif text-4xl sm:text-5xl md:text-7xl font-bold leading-[0.95] mb-6 md:mb-8 lg:tracking-tight">
                             Onde o Céu <br />
                             <span className="text-transparent bg-clip-text bg-gradient-to-r from-yellow-200 to-amber-500">Toca a Terra</span>
                         </h1>
-                        <p className="text-lg md:text-xl text-slate-300 leading-relaxed font-light border-l-0 lg:border-l-2 border-yellow-500/50 pl-0 lg:pl-6 text-center lg:text-left mx-auto lg:mx-0 max-w-lg">
-                            Junte-se ao Apostolado Oficial nesta jornada de transformação espiritual. Uma experiência completa, segura e profunda.
+                        <p className="text-lg md:text-xl text-slate-300 leading-relaxed font-light border-l-0 lg:border-l-2 border-indigo-500/50 pl-0 lg:pl-6 text-center lg:text-left mx-auto lg:mx-0 max-w-lg">
+                            Cada passo seu nesta jornada ajuda a erguer a <strong className="text-white font-serif">Casa do Apostolado</strong>. Peregrinar connosco é viver a fé e construir o futuro da missão.
                         </p>
                     </motion.div>
 
@@ -102,10 +102,16 @@ export function PilgrimageHero({ featuredPilgrimage }: { featuredPilgrimage?: Fe
                         transition={{ delay: 0.4, duration: 0.6 }}
                         className="flex flex-wrap justify-center lg:justify-start gap-4 md:gap-6 pt-4"
                     >
-                        {/* Trust Pills - Simplified */}
-                        <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 border border-white/10 backdrop-blur-sm">
+                        {/* Cause Button */}
+                        <Link href="/donations" className="flex items-center gap-2 px-6 py-3 rounded-xl bg-white/10 hover:bg-white/20 border border-white/10 backdrop-blur-sm transition-all group">
+                            <Heart className="w-5 h-5 text-red-500 fill-red-500 group-hover:scale-110 transition-transform" />
+                            <span className="text-sm font-bold text-white">Conhecer o Projeto</span>
+                        </Link>
+
+                        {/* Trust Pill */}
+                        <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-white/5 border border-white/5 backdrop-blur-sm">
                             <Star className="w-4 h-4 text-yellow-400" />
-                            <span className="text-sm font-medium text-slate-200">Guia Espiritual</span>
+                            <span className="text-sm font-medium text-slate-400">Guia Espiritual Oficial</span>
                         </div>
                     </motion.div>
                 </div>

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { supabaseServer } from '../../../../lib/supabase';
 import { requireAuth, verifyBookingOwnership } from '../../../../lib/auth-utils';
+import { getSignedUrl } from '../../../../lib/receipt-utils';
 
 /**
  * POST /api/payments/upload-receipt
@@ -80,8 +81,8 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: "Tipo de ficheiro inválido. Use JPG, PNG, WEBP, HEIC ou PDF." }, { status: 415 });
         }
 
-        // SECURITY: User-scoped path (receipts/{user_id}/{booking_id}/timestamp_file.jpg)
-        const filePath = `receipts/${userId}/${bookingId}/${Date.now()}_${fileName}`;
+        // SECURITY: User-scoped path inside receipts bucket
+        const filePath = `${userId}/${bookingId}/${Date.now()}_${fileName}`;
 
         // 2. Upload to Supabase Storage using service role (authenticated path upload)
         const { data: uploadData, error: uploadError } = await supabaseServer.storage
@@ -96,10 +97,9 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: "Falha ao carregar o ficheiro." }, { status: 500 });
         }
 
-        // 3. Get Public URL
-        const { data: { publicUrl } } = supabaseServer.storage
-            .from('receipts')
-            .getPublicUrl(filePath);
+        // 3. Create signed URL for immediate preview/download.
+        // We keep DB value as storage path because bucket is private.
+        const signedUrl = await getSignedUrl(filePath, 'receipts', 3600);
 
         // 4. Try to Update Existing Pending Payment First
         let updated = false;
@@ -116,7 +116,7 @@ export async function POST(req: Request) {
 
         if (existingPayment) {
             const updatePayload: Record<string, any> = {
-                receipt_url: publicUrl,
+                receipt_url: filePath,
                 status: 'verifying',
                 verified_at: new Date().toISOString(),
                 notes: `Comprovativo enviado: ${installmentLabel || 'Pagamento Inscrição'}`
@@ -144,7 +144,7 @@ export async function POST(req: Request) {
                     amount: hasAmount ? parsedAmount : 0,
                     method: 'bank_transfer',
                     status: 'verifying',
-                    receipt_url: publicUrl,
+                    receipt_url: filePath,
                     created_at: new Date().toISOString(),
                     notes: `Novo Comprovativo (Sem registo prévio): ${installmentLabel || 'Pagamento'}`
                 });
@@ -155,7 +155,7 @@ export async function POST(req: Request) {
             }
         }
 
-        return NextResponse.json({ success: true, url: publicUrl });
+        return NextResponse.json({ success: true, url: signedUrl || null, path: filePath });
 
     } catch (error: any) {
         console.error("🚨 Receipt Upload Error:", error);

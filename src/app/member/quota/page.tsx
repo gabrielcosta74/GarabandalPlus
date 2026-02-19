@@ -9,11 +9,12 @@ import { normalizeQuotaStatus } from '../../../lib/membership-status';
 import { ShieldCheck, CreditCard, AlertTriangle, CheckCircle2, Clock, QrCode } from 'lucide-react';
 import { UNIFIED_ONLINE_PAYMENT_OPTIONS } from '../../../lib/payment-options';
 import { motion } from 'framer-motion';
+import { getMembershipAmountClient } from '../../../lib/membership-pricing';
 
 const formatCurrency = (value: number) =>
   new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR' }).format(value);
 
-const QUOTA_AMOUNT = 25;
+const QUOTA_AMOUNT = getMembershipAmountClient();
 
 export default function MemberQuotaPage() {
   const [loading, setLoading] = useState(false);

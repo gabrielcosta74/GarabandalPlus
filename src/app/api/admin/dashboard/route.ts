@@ -1,24 +1,19 @@
 import { NextResponse } from 'next/server';
 import { supabaseServer } from '../../../../lib/supabase';
 import { startOfMonth, subDays, format, differenceInDays, sub } from 'date-fns';
+import { verifyAdmin } from '../../../../lib/admin-auth';
 
-// Helper to validate Admin Session
-const isAdmin = async (req: Request) => {
-    if (!supabaseServer) return false;
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) return false;
-    const token = authHeader.replace('Bearer ', '');
-    const { data: { user }, error } = await supabaseServer.auth.getUser(token);
-    return !error && !!user;
-};
+export const dynamic = 'force-dynamic';
 
 export async function GET(req: Request) {
     if (!supabaseServer) {
         return NextResponse.json({ error: 'Database Config Error' }, { status: 500 });
     }
 
-    if (!await isAdmin(req)) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const { authorized, error: authError } = await verifyAdmin(req);
+    if (!authorized) {
+        const status = authError === 'Forbidden: Not an Admin' ? 403 : 401;
+        return NextResponse.json({ error: authError || 'Unauthorized' }, { status });
     }
 
     try {

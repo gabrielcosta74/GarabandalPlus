@@ -32,10 +32,10 @@ export default function SiteFooter() {
               </li>
             </ul>
             <div className="flex space-x-4 mt-6">
-              <a href="#" className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center text-white hover:bg-garabandal-gold hover:text-white transition-all">
+              <a href="#" className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-garabandal-gold hover:text-white transition-all">
                 <Facebook size={18} />
               </a>
-              <a href="https://www.instagram.com/apostoladodegarabandaloficial/" target="_blank" rel="noreferrer" className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center text-white hover:bg-garabandal-gold hover:text-white transition-all">
+              <a href="https://www.instagram.com/apostoladodegarabandaloficial/" target="_blank" rel="noreferrer" className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-garabandal-gold hover:text-white transition-all">
                 <Instagram size={18} />
               </a>
             </div>

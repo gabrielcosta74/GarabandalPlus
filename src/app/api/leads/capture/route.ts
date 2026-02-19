@@ -3,8 +3,24 @@ import { NextResponse } from 'next/server';
 import { supabaseServer } from '../../../../lib/supabase';
 import { APP_URL } from '../../../../lib/config';
 import { sendBrochureEmail } from '../../../../lib/email';
+import { checkRateLimit } from '../../../../lib/rate-limit';
 
 export async function POST(req: Request) {
+    const rateLimit = checkRateLimit(req, {
+        keyPrefix: 'leads-capture',
+        windowMs: 60_000,
+        max: 20
+    });
+    if (!rateLimit.allowed) {
+        return NextResponse.json(
+            { error: 'Too many requests' },
+            {
+                status: 429,
+                headers: { 'Retry-After': String(rateLimit.retryAfterSeconds) }
+            }
+        );
+    }
+
     if (!supabaseServer) {
         return NextResponse.json({ error: "Configuration Error" }, { status: 500 });
     }

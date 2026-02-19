@@ -43,16 +43,14 @@ export async function GET(request: Request) {
     .eq('product_id', tokenRow.product_id)
     .maybeSingle();
 
-  let fileUrl = accessRow?.file_url || null;
+  const { data: productRow } = await supabaseServer
+    .from('store_products')
+    .select('digital_url')
+    .eq('product_id', tokenRow.product_id)
+    .maybeSingle();
 
-  if (!fileUrl) {
-    const { data: productRow } = await supabaseServer
-      .from('store_products')
-      .select('digital_url')
-      .eq('product_id', tokenRow.product_id)
-      .maybeSingle();
-    fileUrl = productRow?.digital_url || null;
-  }
+  // Product digital_url is source of truth. Keep accessRow.file_url only as legacy fallback.
+  let fileUrl = productRow?.digital_url || accessRow?.file_url || null;
 
   if (!fileUrl) {
     return NextResponse.json({ message: 'Ficheiro não disponível.' }, { status: 404 });

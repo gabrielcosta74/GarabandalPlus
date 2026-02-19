@@ -6,6 +6,7 @@ export const runtime = 'nodejs';
 import { createCheckoutSession } from '../../../lib/payments';
 import { validatePostalCode } from '../../../lib/country-utils';
 import { getAppUrl } from '../../../lib/config';
+import { getMembershipAmountServer } from '../../../lib/membership-pricing';
 
 const bodySchema = z.object({
   amount: z.number().positive(), // Validated but overridden for membership
@@ -14,6 +15,7 @@ const bodySchema = z.object({
   provider: z.enum(['stripe', 'reduniq']).default('stripe'),
   reduniqSolution: z.number().int().optional(),
   reduniqAction: z.union([z.literal(100), z.literal(101)]).optional(),
+  paymentOptionId: z.string().trim().optional(),
   // Donation fields
   donorName: z.string().trim().min(1).optional(),
   donorEmail: z.string().trim().min(3).optional(),
@@ -40,8 +42,7 @@ export async function POST(request: Request) {
       if (!userId) {
         return NextResponse.json({ message: 'userId é obrigatório para pagar quota.' }, { status: 400 });
       }
-      // FORCE AMOUNT = 25 EUR
-      data.amount = 25;
+      data.amount = getMembershipAmountServer();
     }
 
     if (type === 'donation') {
@@ -61,6 +62,7 @@ export async function POST(request: Request) {
       orderRef,
       reduniqSolution: data.reduniqSolution,
       reduniqAction: data.reduniqAction,
+      paymentOptionId: data.paymentOptionId,
       donorName: data.donorName,
       donorEmail: data.donorEmail,
       donorAddress: data.donorAddress || undefined,
@@ -68,7 +70,8 @@ export async function POST(request: Request) {
       donorZip: data.donorZip || undefined,
       donorCountry: data.donorCountry || undefined,
       donorNif: data.donorNif,
-      donorMessage: data.donorMessage
+      donorMessage: data.donorMessage,
+      receiptRequired: data.receiptRequired,
     });
 
     if (!checkoutUrl) {

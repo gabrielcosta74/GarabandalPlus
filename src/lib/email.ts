@@ -66,7 +66,22 @@ export {
 
 const resendApiKey = process.env.RESEND_API_KEY;
 const notifyTo = process.env.NOTIFY_EMAIL_TO || 'geral@apostoladodegarabandal.com';
-const notifyFrom = process.env.NOTIFY_EMAIL_FROM || 'Apostolado <no-reply@apostoladodegarabandal.com>';
+const formatFromWithBrand = (raw?: string | null) => {
+  const value = (raw || '').trim();
+  if (!value) return 'Apostolado de Garabandal <no-reply@apostoladodegarabandal.com>';
+
+  const hasDisplayName = value.includes('<') && value.includes('>');
+  if (hasDisplayName) {
+    // Ensure the visible sender name is always branded.
+    const match = value.match(/<([^>]+)>/);
+    const address = match?.[1]?.trim();
+    if (address) return `Apostolado de Garabandal <${address}>`;
+  }
+
+  // Raw email in env (without display name)
+  return `Apostolado de Garabandal <${value}>`;
+};
+const notifyFrom = formatFromWithBrand(process.env.NOTIFY_EMAIL_FROM);
 const storeOwnerEmail = process.env.STORE_OWNER_EMAIL || notifyTo;
 
 const resendClient = resendApiKey ? new Resend(resendApiKey) : null;
@@ -217,10 +232,12 @@ export const sendStoreBuyerEmail = async (payload: {
   vat: string;
   shippingCost?: string | null;
   total: string;
+  items?: StoreItem[];
   hasDigital?: boolean;
   claimUrl?: string | null;
   downloadLinks?: Array<{ name: string; url: string }>;
   accountExists?: boolean | null;
+  showClaimCta?: boolean;
   shipping?: {
     address1?: string | null;
     address2?: string | null;
@@ -424,5 +441,100 @@ export const sendMembershipRevokedEmail = async (payload: { name: string; email:
   if (!resendClient) return false;
   const content = renderMembershipRevokedEmail(payload);
   await resendClient.emails.send({ from: notifyFrom, to: [payload.email], subject: content.subject, html: content.html });
+  return true;
+};
+
+export const sendAuthMagicLinkEmail = async (payload: { email: string; magicLink: string }) => {
+  if (!resendClient) {
+    console.warn('Resend nao configurado. Ignorar envio de email.');
+    return false;
+  }
+
+  await resendClient.emails.send({
+    from: notifyFrom,
+    to: [payload.email],
+    subject: 'Link de acesso à sua conta',
+    html: `
+      <div style="font-family: Inter, Arial, sans-serif; color: #0f172a; line-height: 1.6;">
+        <h2 style="margin: 0 0 12px;">Acesso à sua conta</h2>
+        <p style="margin: 0 0 16px;">Clique no botão abaixo para entrar em segurança.</p>
+        <p style="margin: 0 0 24px;">
+          <a href="${payload.magicLink}" style="display:inline-block;padding:12px 20px;border-radius:10px;background:#ca8a04;color:#fff;text-decoration:none;font-weight:700;">
+            Entrar na conta
+          </a>
+        </p>
+        <p style="margin: 0; color: #475569; font-size: 13px;">
+          Se não solicitou este acesso, pode ignorar este email.
+        </p>
+      </div>
+    `,
+  });
+
+  return true;
+};
+
+export const sendAuthRecoveryEmail = async (payload: { email: string; recoveryLink: string }) => {
+  if (!resendClient) {
+    console.warn('Resend nao configurado. Ignorar envio de email.');
+    return false;
+  }
+
+  await resendClient.emails.send({
+    from: notifyFrom,
+    to: [payload.email],
+    subject: 'Recuperação de password da sua conta',
+    html: `
+      <div style="font-family: Inter, Arial, sans-serif; color: #0f172a; line-height: 1.6;">
+        <h2 style="margin: 0 0 12px;">Recuperar password</h2>
+        <p style="margin: 0 0 16px;">Clique no botão abaixo para definir uma nova password em segurança.</p>
+        <p style="margin: 0 0 24px;">
+          <a href="${payload.recoveryLink}" style="display:inline-block;padding:12px 20px;border-radius:10px;background:#ca8a04;color:#fff;text-decoration:none;font-weight:700;">
+            Definir nova password
+          </a>
+        </p>
+        <p style="margin: 0; color: #475569; font-size: 13px;">
+          Se não solicitou esta recuperação, pode ignorar este email.
+        </p>
+      </div>
+    `,
+  });
+
+  return true;
+};
+
+export const sendBookingAccessLinkEmail = async (payload: {
+  email: string;
+  accessLink: string;
+  pilgrimageName?: string | null;
+}) => {
+  if (!resendClient) {
+    console.warn('Resend nao configurado. Ignorar envio de email.');
+    return false;
+  }
+
+  const title = payload.pilgrimageName
+    ? `Acesso à sua inscrição - ${payload.pilgrimageName}`
+    : 'Acesso à sua inscrição';
+
+  await resendClient.emails.send({
+    from: notifyFrom,
+    to: [payload.email],
+    subject: title,
+    html: `
+      <div style="font-family: Inter, Arial, sans-serif; color: #0f172a; line-height: 1.6;">
+        <h2 style="margin: 0 0 12px;">${title}</h2>
+        <p style="margin: 0 0 16px;">Use o botão abaixo para abrir a sua inscrição com acesso seguro.</p>
+        <p style="margin: 0 0 24px;">
+          <a href="${payload.accessLink}" style="display:inline-block;padding:12px 20px;border-radius:10px;background:#ca8a04;color:#fff;text-decoration:none;font-weight:700;">
+            Ver minha inscrição
+          </a>
+        </p>
+        <p style="margin: 0; color: #475569; font-size: 13px;">
+          Se não solicitou este acesso, pode ignorar este email.
+        </p>
+      </div>
+    `,
+  });
+
   return true;
 };

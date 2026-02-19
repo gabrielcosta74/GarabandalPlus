@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { AlertTriangle, X } from 'lucide-react';
 import { isActiveMember } from '../../lib/store-discounts';
+import { normalizeQuotaStatus } from '../../lib/membership-status';
 
 type QuotaWarningProps = {
     memberData: any;
@@ -17,8 +18,10 @@ export function QuotaWarning({ memberData, className = '' }: QuotaWarningProps) 
     useEffect(() => {
         // Calculate status
         const active = isActiveMember(memberData);
-        // Only show if NOT active AND has been a member before (has number) OR is explicit overdue status
-        const overdue = !active && (!!memberData?.numero_socio || memberData?.estado_quota === 'expirado');
+        const status = normalizeQuotaStatus(memberData?.estado_quota);
+        const overdueByStatus = status === 'expirado' || status === 'revogado';
+        const overdueByDate = !!memberData?.is_membro && status === 'pago' && !!memberData?.proxima_quota && !active;
+        const overdue = overdueByStatus || overdueByDate;
 
         setIsOverdue(overdue);
 

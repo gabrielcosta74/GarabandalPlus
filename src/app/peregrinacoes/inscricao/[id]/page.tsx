@@ -112,6 +112,8 @@ export default function BookingDashboardPage() {
     const [selectedPaymentId, setSelectedPaymentId] = useState(paymentOptions[0].id);
     const [reduniqConfirming, setReduniqConfirming] = useState(false);
     const [reduniqHandledKey, setReduniqHandledKey] = useState<string | null>(null);
+    const REDUNIQ_CONFIRM_MAX_ATTEMPTS = 8;
+    const REDUNIQ_CONFIRM_RETRY_MS = 2500;
     const [reduniqFeedback, setReduniqFeedback] = useState<{
         kind: 'success' | 'info' | 'error';
         title: string;
@@ -160,49 +162,80 @@ export default function BookingDashboardPage() {
                 setReduniqFeedback({
                     kind: 'error',
                     title: 'Pagamento não concluído',
-                    message: 'A doação da peregrinação foi cancelada ou recusada.',
+                    message: 'O pagamento da peregrinação foi cancelado ou recusado.',
                 });
             }
             return;
         }
 
+        const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
         const confirmPayment = async () => {
             setReduniqConfirming(true);
             setProcessing(true);
             try {
-                const res = await fetch('/api/reduniq/confirm', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        ...(orderRefParam ? { orderRef: orderRefParam } : {}),
-                        ...(reduniqTokenParam ? { token: reduniqTokenParam } : {}),
-                    }),
-                });
-                const data = await res.json().catch(() => ({}));
-                if (!res.ok || !data?.success) {
-                    throw new Error(data?.message || 'Falha ao confirmar pagamento Reduniq.');
+                let finalStatus = '';
+                let finalMessage = '';
+                let gotTerminalStatus = false;
+
+                for (let attempt = 1; attempt <= REDUNIQ_CONFIRM_MAX_ATTEMPTS; attempt++) {
+                    const res = await fetch('/api/reduniq/confirm', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            ...(orderRefParam ? { orderRef: orderRefParam } : {}),
+                            ...(reduniqTokenParam ? { token: reduniqTokenParam } : {}),
+                        }),
+                    });
+                    const data = await res.json().catch(() => ({}));
+                    if (!res.ok || !data?.success) {
+                        throw new Error(data?.message || 'Falha ao confirmar pagamento Reduniq.');
+                    }
+
+                    const txStatus = String(data?.transactionStatus || '');
+                    finalStatus = txStatus;
+                    finalMessage = String(data?.resultMessage || '');
+
+                    if (txStatus === '4') {
+                        gotTerminalStatus = true;
+                        setReduniqFeedback({
+                            kind: 'success',
+                            title: 'Pagamento confirmado',
+                            message: 'Recebemos o teu pagamento. A reserva foi atualizada.',
+                        });
+                        await fetchBooking(true);
+                        break;
+                    }
+
+                    if (txStatus === '3') {
+                        gotTerminalStatus = true;
+                        setReduniqFeedback({
+                            kind: 'error',
+                            title: 'Pagamento não concluído',
+                            message: finalMessage || 'A transação terminou com erro ou foi cancelada.',
+                        });
+                        break;
+                    }
+
+                    if (attempt < REDUNIQ_CONFIRM_MAX_ATTEMPTS) {
+                        await delay(REDUNIQ_CONFIRM_RETRY_MS);
+                    }
                 }
 
-                const txStatus = String(data?.transactionStatus || '');
-                if (txStatus === '4') {
-                    setReduniqFeedback({
-                        kind: 'success',
-                        title: 'Pagamento confirmado',
-                        message: 'Recebemos a tua doação. A reserva será atualizada de imediato.',
-                    });
-                    await fetchBooking(true);
-                } else if (txStatus === '3' || hasFailureHint) {
-                    setReduniqFeedback({
-                        kind: 'error',
-                        title: 'Pagamento não concluído',
-                        message: data?.resultMessage || 'A transação terminou com erro ou foi cancelada.',
-                    });
-                } else {
-                    setReduniqFeedback({
-                        kind: 'info',
-                        title: 'Pagamento em processamento',
-                        message: data?.resultMessage || 'Aguardamos confirmação final da Reduniq. Atualiza a página em instantes.',
-                    });
+                if (!gotTerminalStatus) {
+                    if (hasFailureHint && finalStatus !== '4') {
+                        setReduniqFeedback({
+                            kind: 'error',
+                            title: 'Pagamento não concluído',
+                            message: finalMessage || 'A transação terminou com erro ou foi cancelada.',
+                        });
+                    } else {
+                        setReduniqFeedback({
+                            kind: 'info',
+                            title: 'Pagamento em processamento',
+                            message: 'O pagamento foi recebido e está a ser confirmado pela Reduniq. Vamos atualizar os valores automaticamente.',
+                        });
+                    }
                 }
             } catch (err: any) {
                 setReduniqFeedback({
@@ -279,6 +312,7 @@ export default function BookingDashboardPage() {
 
     // Helper to find state of an installment
     const getInstallmentState = (index: number, amount: number) => {
+        if (isFullyPaid) return 'paid';
         // Calculate the target amount to reach this installment
         const cumulativeTarget = depositValue + paymentPlan.slice(0, index + 1).reduce((acc: number, curr: any) => acc + Number(curr.amount), 0);
 
@@ -427,8 +461,8 @@ export default function BookingDashboardPage() {
                                 <div className="flex items-start gap-4">
                                     <div className="bg-amber-100 p-2 rounded-full text-amber-700 mt-1"><Clock className="w-6 h-6" /></div>
                                     <div>
-                                        <h3 className="font-bold text-amber-900 text-lg">Falta 1 Passo: Validação & Doação</h3>
-                                        <p className="text-amber-800 text-sm mt-1">Enviámos agora mesmo um email para ti. <strong>Tens de abrir esse email</strong> e clicar no link para acederes à tua conta e doares, senão a reserva não fica válida.</p>
+                                        <h3 className="font-bold text-amber-900 text-lg">Falta 1 Passo: Validação & Pagamento</h3>
+                                        <p className="text-amber-800 text-sm mt-1">Enviámos agora mesmo um email para ti. <strong>Tens de abrir esse email</strong> e clicar no link para acederes à tua conta e pagares, senão a reserva não fica válida.</p>
                                     </div>
                                 </div>
                             </div>
@@ -510,7 +544,7 @@ export default function BookingDashboardPage() {
             });
             const data = await res.json();
 
-            if (!res.ok) throw new Error(data.error || "Erro ao iniciar doação");
+            if (!res.ok) throw new Error(data.error || "Erro ao iniciar pagamento");
 
             if (data.url) {
                 const paymentUrl = String(data.url || '').trim();
@@ -540,7 +574,7 @@ export default function BookingDashboardPage() {
             }
             throw new Error("Gateway não devolveu URL de pagamento.");
         } catch (e: any) {
-            const msg = String(e?.message || 'Erro ao iniciar doação');
+            const msg = String(e?.message || 'Erro ao iniciar pagamento');
             const safeMsg = msg.toLowerCase().includes('expected pattern')
                 ? 'Falha a abrir o gateway de pagamento. Tenta novamente.'
                 : msg;
@@ -629,7 +663,7 @@ export default function BookingDashboardPage() {
                         <h2 className="text-3xl font-bold text-amber-900">Aguarde pela Validação</h2>
                         <p className="text-amber-800 text-lg max-w-xl mx-auto">
                             A sua inscrição foi registada, mas os valores totais ainda estão a ser calculados pelo nosso sistema.
-                            <strong> Receberá um email em breve com os dados de doação.</strong>
+                            <strong> Receberá um email em breve com os dados de pagamento.</strong>
                         </p>
                         <button onClick={() => window.location.reload()} className="bg-amber-600 text-white px-8 py-4 rounded-2xl font-bold text-xl hover:bg-amber-700 transition-all">Atualizar Página</button>
                     </div>
@@ -666,12 +700,12 @@ export default function BookingDashboardPage() {
                                     <div className="flex justify-between items-start gap-4">
                                         <div className="space-y-2">
                                             <h3 className="text-3xl font-bold text-slate-900">
-                                                {isFullyPaid ? 'VIAGEM CONFIRMADA!' : 'FALTA 1 PASSO: DOAÇÃO'}
+                                                {isFullyPaid ? 'VIAGEM CONFIRMADA!' : 'FALTA 1 PASSO: PAGAMENTO'}
                                             </h3>
                                             <p className="text-slate-500 text-xl leading-relaxed">
                                                 {isFullyPaid
-                                                    ? 'Já recebemos a sua doação total. Está pronto para partir!'
-                                                    : 'A sua inscrição aguarda a doação do sinal para garantir o lugar.'}
+                                                    ? 'Já recebemos o seu pagamento total. Está pronto para partir!'
+                                                    : 'A sua inscrição aguarda o pagamento do sinal para garantir o lugar.'}
                                             </p>
                                         </div>
                                         <div className="text-right shrink-0 bg-slate-50 px-4 py-3 rounded-2xl border border-slate-100 hidden sm:block">
@@ -691,9 +725,9 @@ export default function BookingDashboardPage() {
                                                     {isDepositPaid ? <Check className="w-8 h-8" /> : (isVerifying ? <Clock className="w-8 h-8" /> : <CreditCard className="w-8 h-8" />)}
                                                 </div>
                                                 <div>
-                                                    <p className={`font-bold text-xl ${isDepositPaid ? 'text-slate-900' : (isVerifying ? 'text-amber-600' : 'text-red-600')}`}>1. Doação do Sinal ({formatPrice(depositValue)})</p>
+                                                    <p className={`font-bold text-xl ${isDepositPaid ? 'text-slate-900' : (isVerifying ? 'text-amber-600' : 'text-red-600')}`}>1. Pagamento do Sinal ({formatPrice(depositValue)})</p>
                                                     <p className="text-slate-500">
-                                                        {isDepositPaid ? 'DOADO E CONFIRMADO' : (isVerifying ? 'A AGUARDAR VALIDAÇÃO...' : 'PENDENTE - Doar Agora')}
+                                                        {isDepositPaid ? 'PAGO E CONFIRMADO' : (isVerifying ? 'A AGUARDAR VALIDAÇÃO...' : 'PENDENTE - Pagar Agora')}
                                                     </p>
                                                 </div>
                                             </div>
@@ -717,7 +751,7 @@ export default function BookingDashboardPage() {
                                                                 <div>
                                                                     <p className="font-bold text-xl text-slate-900">Prestação {idx + 1} ({formatPrice(Number(step.amount))})</p>
                                                                     <p className="text-slate-400">
-                                                                        {state === 'paid' ? 'DOADO' :
+                                                                        {state === 'paid' ? 'PAGO' :
                                                                             state === 'verifying' ? 'A AGUARDAR VALIDAÇÃO...' :
                                                                                 `Vence a ${format(new Date(step.date), "dd 'de' MMMM", { locale: pt })}`}
                                                                     </p>
@@ -737,7 +771,7 @@ export default function BookingDashboardPage() {
                                                             <p className="font-bold text-xl text-slate-900">2. Mensalidades / Restante</p>
                                                             <p className="text-slate-400">
                                                                 {isFullyPaid
-                                                                    ? 'TUDO DOADO'
+                                                                    ? 'TUDO PAGO'
                                                                     : `Taxa de inscrição ${formatPrice(depositValue)} + restante ${formatPrice(Math.max(0, totalAmount - depositValue))}`}
                                                             </p>
                                                         </div>
@@ -755,7 +789,7 @@ export default function BookingDashboardPage() {
                                                 </div>
                                                 <div>
                                                     <p className="font-bold text-xl text-slate-900">{hasPlan ? (paymentPlan.length + 2) : 3}. Peregrinação</p>
-                                                    <p className="text-slate-400">{isFullyPaid ? 'Desejamos-lhe uma excelente viagem!' : 'Aguardamos pela conclusão das doações'}</p>
+                                                    <p className="text-slate-400">{isFullyPaid ? 'Desejamos-lhe uma excelente viagem!' : 'Aguardamos pela conclusão dos pagamentos'}</p>
                                                 </div>
                                             </div>
                                         </div>
@@ -780,7 +814,7 @@ export default function BookingDashboardPage() {
                                                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                                                         </svg>
-                                                        <span>Atualizar Doações</span>
+                                                        <span>Atualizar Pagamentos</span>
                                                     </>
                                                 )}
                                             </button>
@@ -793,7 +827,7 @@ export default function BookingDashboardPage() {
                                             paymentPlan={paymentPlan}
                                             payments={booking.payments || []}
                                             formatPrice={formatPrice}
-                                            useDonationCopy
+                                            useDonationCopy={false}
                                         />
                                     </div>
                                 </div>
@@ -812,7 +846,7 @@ export default function BookingDashboardPage() {
                                             )}
 
                                             <div className="space-y-1">
-                                                <p className="text-yellow-500 font-bold uppercase tracking-widest text-xs">Valor a Doar Agora: {nextLabel}</p>
+                                                <p className="text-yellow-500 font-bold uppercase tracking-widest text-xs">Valor a Pagar Agora: {nextLabel}</p>
                                                 <p className="text-3xl md:text-5xl font-bold text-white tracking-tight break-words" title={formatPrice(amountToPay)}>
                                                     {formatPrice(amountToPay)}
                                                 </p>
@@ -923,7 +957,7 @@ export default function BookingDashboardPage() {
                                                 <CheckCircle2 className="w-10 h-10" />
                                             </div>
                                             <h4 className="text-2xl font-bold text-green-900">Inscrição Confirmada!</h4>
-                                            <p className="text-green-700 mt-2 font-medium">A sua doação foi recebida com sucesso.</p>
+                                            <p className="text-green-700 mt-2 font-medium">O seu pagamento foi recebido com sucesso.</p>
                                             <div className="mt-6 p-4 bg-white/50 rounded-xl text-sm text-green-800">
                                                 <p>Desejamos-lhe uma excelente peregrinação.</p>
                                             </div>

@@ -1,13 +1,28 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
 import { isActiveMember } from '../../../../lib/store-discounts';
+import { checkRateLimit } from '../../../../lib/rate-limit';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request) {
     try {
+        const rateLimit = checkRateLimit(request, {
+            keyPrefix: 'members-check-status',
+            windowMs: 60_000,
+            max: 20
+        });
+        if (!rateLimit.allowed) {
+            return NextResponse.json(
+                { results: {} },
+                {
+                    status: 429,
+                    headers: { 'Retry-After': String(rateLimit.retryAfterSeconds) }
+                }
+            );
+        }
+
         const body = await request.json();
-        console.log("🔍 [API] Raw Body:", JSON.stringify(body));
         const { emails } = body;
 
         if (!emails || !Array.isArray(emails) || emails.length === 0) {
@@ -47,7 +62,6 @@ export async function POST(request: Request) {
             return NextResponse.json({ results: {} });
         }
 
-        console.log('[API] 🔑 Using Service Key (RLS Bypass Enabled)');
         const supabase = createClient(supabaseUrl, supabaseKey, {
             auth: {
                 persistSession: false,
@@ -65,9 +79,7 @@ export async function POST(request: Request) {
         }
 
         // Query Members Table
-        console.log(`[API] Checking membership for: ${cleanEmails.join(', ')}`);
-
-        // We assume 'membros' table has 'email' and 'is_membro' columns
+        // We assume 'membros' table has 'email' and membership columns.
         const { data: members, error } = await supabase
             .from('membros')
             .select('email, is_membro, estado_quota, tipo_subscricao, proxima_quota')
@@ -78,8 +90,6 @@ export async function POST(request: Request) {
             // Fail safe: return all false rather than crashing
             return NextResponse.json({ results: {} });
         }
-
-        console.log(`[API] Found ${members?.length || 0} active members`);
 
         // Build Result Map
         const results: Record<string, boolean> = {};

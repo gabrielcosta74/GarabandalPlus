@@ -3,7 +3,19 @@ import { ReduniqClient } from '../../../lib/reduniq/client';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+export async function GET(request: Request) {
+    if (process.env.NODE_ENV === 'production') {
+        return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
+    }
+
+    const expectedSecret = process.env.TEST_REDUNIQ_SECRET || '';
+    if (expectedSecret) {
+        const providedSecret = request.headers.get('x-test-secret') || '';
+        if (providedSecret !== expectedSecret) {
+            return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
+        }
+    }
+
     const envStatus = {
         hasUser: !!process.env.REDUNIQ_API_USER,
         hasPass: !!process.env.REDUNIQ_API_PASSWORD,
@@ -30,8 +42,7 @@ export async function GET() {
         return NextResponse.json({
             success: false,
             message: 'Unhandled error in route execution',
-            error: err.message,
-            stack: err.stack
+            error: err?.message || 'Unknown error'
         }, { status: 500 });
     }
 }

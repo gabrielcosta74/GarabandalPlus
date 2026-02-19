@@ -1,13 +1,45 @@
 import { NextResponse } from 'next/server';
 import { supabaseServer } from '../../../../lib/supabase';
+import { normalizeEmail } from '../../../../lib/normalize';
+import { checkRateLimit } from '../../../../lib/rate-limit';
+
+export const dynamic = 'force-dynamic';
 
 export async function POST(req: Request) {
     try {
+        const rateLimit = checkRateLimit(req, {
+            keyPrefix: 'booking-check-duplicate',
+            windowMs: 60_000,
+            max: 30
+        });
+        if (!rateLimit.allowed) {
+            return NextResponse.json(
+                { exists: false },
+                {
+                    status: 429,
+                    headers: { 'Retry-After': String(rateLimit.retryAfterSeconds) }
+                }
+            );
+        }
+
+        const host = req.headers.get('host') || '';
+        const origin = req.headers.get('origin') || '';
+        const referer = req.headers.get('referer') || '';
+        const isDev = process.env.NODE_ENV === 'development';
+        const isInternalRequest = !!host && (origin.includes(host) || referer.includes(host));
+
+        // Basic anti-scraping guard for public endpoint.
+        if (!isDev && !isInternalRequest) {
+            return NextResponse.json({ exists: false });
+        }
+
         if (!supabaseServer) {
             return NextResponse.json({ error: "Config Error" }, { status: 500 });
         }
 
-        const { email, pilgrimageId } = await req.json();
+        const payload = await req.json().catch(() => ({}));
+        const email = normalizeEmail(payload?.email);
+        const pilgrimageId = typeof payload?.pilgrimageId === 'string' ? payload.pilgrimageId : '';
 
         if (!email || !pilgrimageId) {
             return NextResponse.json({ exists: false });
@@ -20,7 +52,7 @@ export async function POST(req: Request) {
 
         const { data: pilgrims, error } = await supabaseServer
             .from('pilgrims')
-            .select('id, booking_id, booking:bookings!inner(pilgrimage_id, status)')
+            .select('id, booking:bookings!inner(pilgrimage_id, status)')
             .eq('email', email)
             .eq('booking.pilgrimage_id', pilgrimageId)
             .neq('booking.status', 'cancelled');
@@ -32,11 +64,10 @@ export async function POST(req: Request) {
         }
 
         if (pilgrims && pilgrims.length > 0) {
-            // Found a duplicate! Return true AND the booking_id so we can redirect.
+            // Do not expose booking identifiers to unauthenticated clients.
             return NextResponse.json({
                 exists: true,
-                booking_id: pilgrims[0].booking_id,
-                email: email // Include email for UI comparison
+                email
             });
         }
 

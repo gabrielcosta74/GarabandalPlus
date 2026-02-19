@@ -3,6 +3,8 @@ import { supabaseServer } from './supabase';
 import { getAppUrl } from './config';
 import { isPaidStatus } from './membership-status';
 import { reduniqClient } from './reduniq/client';
+import { resolveCountryMeta } from './country-utils';
+import { getMembershipAmountServer } from './membership-pricing';
 
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
 const siteUrl = getAppUrl();
@@ -25,6 +27,7 @@ export type CheckoutPayload = {
   orderRef?: string;
   reduniqSolution?: number;
   reduniqAction?: 100 | 101;
+  paymentOptionId?: string;
   donorName?: string;
   donorEmail?: string;
   donorAddress?: string;
@@ -33,6 +36,7 @@ export type CheckoutPayload = {
   donorCountry?: string;
   donorNif?: string | null;
   donorMessage?: string | null;
+  receiptRequired?: boolean;
 };
 
 type MemberSnapshot = {
@@ -97,6 +101,7 @@ export async function createCheckoutSession({
   orderRef: orderRefOverride,
   reduniqSolution,
   reduniqAction,
+  paymentOptionId,
   donorName,
   donorEmail,
   donorAddress,
@@ -105,9 +110,11 @@ export async function createCheckoutSession({
   donorCountry,
   donorNif,
   donorMessage,
+  receiptRequired = false,
 }: CheckoutPayload) {
   if (provider === 'stripe' && !stripe) throw new Error('Stripe não configurado.');
-  if (!Number.isFinite(amount) || amount < 1) throw new Error('Valor inválido.');
+  if (!Number.isFinite(amount) || amount <= 0) throw new Error('Valor inválido.');
+  if (type === 'donation' && amount < 1) throw new Error('Valor inválido.');
 
   if (type === 'membership') {
     if (!userId) {
@@ -116,7 +123,8 @@ export async function createCheckoutSession({
     await ensureCanPayMembership(userId);
   }
 
-  const normalizedAmount = type === 'membership' ? 25 : amount;
+  const membershipAmount = getMembershipAmountServer();
+  const normalizedAmount = type === 'membership' ? membershipAmount : amount;
 
   // Prep Common Data
   const donorNameValue = donorName?.trim().slice(0, 200) || '';
@@ -124,8 +132,17 @@ export async function createCheckoutSession({
   const donorAddressValue = donorAddress?.trim().slice(0, 200) || '';
   const donorCityValue = donorCity?.trim().slice(0, 100) || '';
   const donorZipValue = donorZip?.trim().slice(0, 40) || '';
-  const donorCountryValue = donorCountry?.trim().slice(0, 2).toUpperCase() || '';
+  const donorCountryMeta = resolveCountryMeta(donorCountry || null);
+  const donorCountryValue = donorCountryMeta?.code || donorCountry?.trim().slice(0, 2).toUpperCase() || '';
   const donorNifValue = donorNif ? donorNif.replace(/\D/g, '').slice(0, 20) : '';
+  const reduniqMethodHint =
+    paymentOptionId === 'reduniq_mbway'
+      ? 'mbway'
+      : paymentOptionId === 'reduniq_multibanco'
+        ? 'multibanco'
+        : paymentOptionId === 'reduniq_pix'
+          ? 'pix'
+          : 'card';
 
   // REDUNIQ LOGIC
   if (provider === 'reduniq') {
@@ -185,7 +202,7 @@ export async function createCheckoutSession({
             payment_intent_id: initResult.token || initResult.transactionId || orderRef,
             external_reference: orderRef,
             description: 'Doação (Reduniq)',
-            metadata: { provider: 'reduniq', forcedSolution: reduniqSolution || null, action: reduniqAction || 101 },
+            receipt_required: !!receiptRequired,
             donor_name: donorNameValue || null,
             donor_email: donorEmailValue || null,
             donor_address: donorAddressValue || null,
@@ -193,6 +210,21 @@ export async function createCheckoutSession({
             donor_zip: donorZipValue || null,
             donor_country: donorCountryValue || null,
             donor_nif: donorNifValue || null,
+            metadata: {
+              provider: 'reduniq',
+              reduniq_method: reduniqMethodHint,
+              payment_option_id: paymentOptionId || null,
+              forcedSolution: reduniqSolution || null,
+              action: reduniqAction || 101,
+              donorAddress: donorAddressValue || null,
+              donorCity: donorCityValue || null,
+              donorZip: donorZipValue || null,
+              donorCountry: donorCountryValue || null,
+              donorNif: donorNifValue || null,
+              donorName: donorNameValue || null,
+              donorEmail: donorEmailValue || null,
+              receiptRequired: !!receiptRequired,
+            },
           });
         } else {
           await supabaseServer.from('pagamentos_quotas').insert({
@@ -250,6 +282,8 @@ export async function createCheckoutSession({
       donorCountry: donorCountryValue,
       donorNif: donorNifValue,
       donorMessage: donorMessage?.trim().slice(0, 500) || '',
+      receiptRequired: receiptRequired ? 'true' : 'false',
+      paymentOptionId: paymentOptionId || '',
     },
   });
 
@@ -266,7 +300,19 @@ export async function createCheckoutSession({
           payment_intent_id: session.payment_intent,
           external_reference: session.id,
           description: 'Doação (checkout)',
-          metadata: { provider: 'stripe' },
+          metadata: {
+            provider: 'stripe',
+            payment_option_id: paymentOptionId || null,
+            donorAddress: donorAddressValue || null,
+            donorCity: donorCityValue || null,
+            donorZip: donorZipValue || null,
+            donorCountry: donorCountryValue || null,
+            donorNif: donorNifValue || null,
+            donorName: donorNameValue || null,
+            donorEmail: donorEmailValue || null,
+            receiptRequired: !!receiptRequired,
+          },
+          receipt_required: !!receiptRequired,
           donor_name: donorNameValue || null,
           donor_email: donorEmailValue || null,
           donor_address: donorAddressValue || null,

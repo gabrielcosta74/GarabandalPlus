@@ -9,7 +9,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "preprod:check": "bash scripts/preprod-check.sh",
+    "preprod:security": "bash scripts/preprod-security.sh",
+    "preprod:full": "npm run preprod:check && npm run preprod:security"
   },
   "dependencies": {
     "@headlessui/react": "^2.2.9",

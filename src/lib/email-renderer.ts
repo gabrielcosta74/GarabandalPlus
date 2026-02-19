@@ -515,11 +515,60 @@ export const renderStoreBuyerEmail = (payload: any) => ({
                         children: `
                             ${InfoRow({ label: 'Referência', value: payload.orderRef || '-' })}
                             ${InfoRow({ label: 'Subtotal', value: payload.subtotal || '-' })}
+                            ${payload.shippingCost ? InfoRow({ label: 'Envio', value: payload.shippingCost }) : ''}
                             ${InfoRow({ label: 'IVA', value: payload.vat || '-' })}
                             ${InfoRow({ label: 'Total', value: payload.total || '-', isLast: true })}
                         `
                     })}
-                    ${payload.claimUrl ? Button({ label: 'Associar Encomenda à Conta', url: payload.claimUrl }) : ''}
+                    ${Array.isArray(payload.items) && payload.items.length > 0 ? Card({
+                        children: `
+                          ${HeadingSmall('Produtos comprados')}
+                          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;margin-top:8px;">
+                            ${payload.items.map((item: any) => `
+                              <tr>
+                                <td style="padding:10px 0;border-bottom:1px solid ${COLORS.border};font-size:14px;color:${COLORS.heading};">
+                                  ${item.name || 'Produto'}<br>
+                                  <span style="font-size:12px;color:${COLORS.textLight};">Qtd: ${item.qty || 1}</span>
+                                </td>
+                                <td style="padding:10px 0;border-bottom:1px solid ${COLORS.border};font-size:14px;color:${COLORS.heading};text-align:right;font-weight:600;">
+                                  ${formatCurrency(Number(item.unit_price || 0) * Number(item.qty || 1))}
+                                </td>
+                              </tr>
+                            `).join('')}
+                          </table>
+                        `,
+                    }) : ''}
+                    ${Card({
+                        children: `
+                          ${HeadingSmall('Próximos passos')}
+                          <p style="margin:0 0 8px;font-size:14px;color:${COLORS.text};">1. Guarde a referência da encomenda: <strong>${payload.orderRef || '-'}</strong>.</p>
+                          ${Array.isArray(payload.downloadLinks) && payload.downloadLinks.length > 0
+                            ? `<p style="margin:0 0 8px;font-size:14px;color:${COLORS.text};">2. Clique nos botões abaixo para descarregar os seus ficheiros digitais.</p>
+                               <p style="margin:0;font-size:14px;color:${COLORS.text};">3. Se o link expirar, aceda a <strong>Biblioteca Digital</strong> na sua área pessoal.</p>`
+                            : payload.hasDigital
+                              ? `<p style="margin:0 0 8px;font-size:14px;color:${COLORS.text};">2. Aceda à <strong>Biblioteca Digital</strong> na sua área pessoal para descarregar os seus produtos.</p>`
+                              : ''}
+                          ${payload.shipping
+                            ? `<p style="margin:8px 0 0;font-size:14px;color:${COLORS.text};">${payload.hasDigital ? '4' : '2'}. Produtos físicos: receberá outro email quando a encomenda for expedida.</p>`
+                            : ''}
+                        `,
+                    })}
+                    ${Array.isArray(payload.downloadLinks) && payload.downloadLinks.length > 0 ? `
+                      ${Text('Os seus produtos digitais estão disponíveis abaixo:')}
+                      ${payload.downloadLinks
+                        .map((link: any) => Button({ label: `Descarregar: ${link.name || 'Produto digital'}`, url: link.url }))
+                        .join('')}
+                      ${Text(`Também pode aceder mais tarde em <a href="${APP_URL}/biblioteca" style="color:#1f2937;font-weight:700;">Biblioteca Digital</a>.`)}
+                    ` : (payload.hasDigital ? `
+                      ${Text(`Tem produtos digitais nesta encomenda. Pode aceder em <a href="${APP_URL}/biblioteca" style="color:#1f2937;font-weight:700;">Biblioteca Digital</a>.`)}
+                    ` : '')}
+                    ${payload.shipping ? Text('Esta encomenda inclui produtos físicos. Enviaremos novo email quando a expedição for iniciada.') : ''}
+                    ${(payload.showClaimCta ?? true) && payload.claimUrl
+                      ? `
+                        ${Text('Se ainda não tem conta, clique no botão abaixo para criar acesso com este mesmo email e ligar esta encomenda ao seu perfil. Se já tem conta, basta iniciar sessão para concluir a associação.')}
+                        ${Button({ label: 'Associar Encomenda à Conta', url: payload.claimUrl })}
+                      `
+                      : ''}
                 `
             })}
         `

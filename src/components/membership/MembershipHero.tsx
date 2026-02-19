@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { ArrowRight, Star, Heart } from "lucide-react";
 import Link from 'next/link';
 import { useCurrency } from "../providers/CurrencyProvider";
+import { getMembershipAmountClient } from "../../lib/membership-pricing";
 
 type Props = {
     onJoinClick?: () => void;
@@ -11,6 +12,7 @@ type Props = {
 
 export default function MembershipHero({ onJoinClick }: Props) {
     const { formatPrice } = useCurrency();
+    const membershipAmount = getMembershipAmountClient();
 
     return (
         <section className="relative min-h-[90vh] flex items-center justify-center overflow-hidden bg-slate-900 py-20">
@@ -68,7 +70,7 @@ export default function MembershipHero({ onJoinClick }: Props) {
                             </button>
 
                             <div className="text-left">
-                                <div className="text-2xl font-serif text-white">{formatPrice(25)}<span className="text-sm text-slate-400">/ano</span></div>
+                                <div className="text-2xl font-serif text-white">{formatPrice(membershipAmount)}<span className="text-sm text-slate-400">/ano</span></div>
                                 <div className="text-xs text-[#d97706] font-bold uppercase tracking-wider">Acesso Digital Imediato</div>
                             </div>
                         </div>

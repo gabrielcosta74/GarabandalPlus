@@ -23,18 +23,16 @@ export default function ForgotPasswordPage() {
         setLoading(true);
 
         try {
-            if (!supabaseBrowser) throw new Error('Cliente Supabase não inicializado.');
-
-            // Direct link to update-password page (no auth-callback redirect)
-            const redirectTo = `${window.location.origin}/auth/update-password`;
-
-            console.log("🔗 [Recovery] Redirect URL:", redirectTo);
-
-            const { error: resetError } = await supabaseBrowser.auth.resetPasswordForEmail(email.trim(), {
-                redirectTo: redirectTo,
+            const res = await fetch('/api/auth/send-recovery-link', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: email.trim() }),
             });
 
-            if (resetError) throw resetError;
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok || !data?.success) {
+                throw new Error(data?.message || 'Não foi possível enviar o email de recuperação.');
+            }
 
             setSuccess(true);
         } catch (err: any) {

@@ -9,9 +9,18 @@ import { useEffect, useState } from 'react';
 interface MobileBottomNavProps {
     onOpenMenu: () => void;
     hasMembership: boolean;
+    isAuthenticated: boolean;
+    isAuthLoading?: boolean;
+    isMenuOpen?: boolean;
 }
 
-export default function MobileBottomNav({ onOpenMenu, hasMembership }: MobileBottomNavProps) {
+export default function MobileBottomNav({
+    onOpenMenu,
+    hasMembership,
+    isAuthenticated,
+    isAuthLoading = false,
+    isMenuOpen = false,
+}: MobileBottomNavProps) {
     const pathname = usePathname();
     const [isVisible, setIsVisible] = useState(true);
 
@@ -27,6 +36,17 @@ export default function MobileBottomNav({ onOpenMenu, hasMembership }: MobileBot
     }, [pathname]);
 
     if (!isVisible) return null;
+
+    const profileHref = hasMembership ? '/member' : (isAuthenticated ? '/account/profile' : '/login');
+    const profileLabel = isAuthLoading ? 'Conta' : (hasMembership ? 'Membro' : (isAuthenticated ? 'Conta' : 'Entrar'));
+    const isUserAreaRoute =
+        pathname?.startsWith('/member') ||
+        pathname?.startsWith('/account') ||
+        pathname?.startsWith('/login') ||
+        pathname?.startsWith('/register') ||
+        pathname?.startsWith('/encomendas') ||
+        pathname?.startsWith('/biblioteca') ||
+        pathname?.startsWith('/peregrinacoes/minhas-inscricoes');
 
     const NavItem = ({ href, icon: Icon, label, onClick, isActiveOverride }: { href?: string; icon: any; label: string; onClick?: () => void; isActiveOverride?: boolean }) => {
         const isActive = isActiveOverride ?? (href ? (pathname === href || (href !== '/' && pathname?.startsWith(href))) : false);
@@ -60,15 +80,15 @@ export default function MobileBottomNav({ onOpenMenu, hasMembership }: MobileBot
         <div className="fixed bottom-0 left-0 right-0 z-[90] bg-white/95 backdrop-blur-xl border-t border-slate-200 shadow-[0_-5px_20px_rgba(0,0,0,0.05)] lg:hidden safe-area-bottom pb-1">
             <div className="flex items-center justify-between px-2 h-16">
                 <NavItem href="/" icon={Home} label="Início" />
-                <NavItem href="/peregrinacoes" icon={MapPin} label="Viagens" />
+                <NavItem href="/peregrinacoes" icon={MapPin} label="Peregrinações" />
                 <NavItem href="/loja-online" icon={Store} label="Loja" />
 
                 {/* Member/Profile Tab */}
                 <NavItem
-                    href={hasMembership ? "/member" : "/login"}
+                    href={profileHref}
                     icon={User}
-                    label={hasMembership ? "Membro" : "Entrar"}
-                    isActiveOverride={pathname?.startsWith('/member') || pathname?.startsWith('/login') || pathname?.startsWith('/account')}
+                    label={profileLabel}
+                    isActiveOverride={isUserAreaRoute}
                 />
 
                 {/* Menu Tab */}
@@ -76,7 +96,7 @@ export default function MobileBottomNav({ onOpenMenu, hasMembership }: MobileBot
                     icon={Menu}
                     label="Menu"
                     onClick={onOpenMenu}
-                    isActiveOverride={false}
+                    isActiveOverride={isMenuOpen}
                 />
             </div>
         </div>

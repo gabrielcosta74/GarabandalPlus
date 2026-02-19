@@ -9,6 +9,7 @@ import MembershipFAQ from "../../components/membership/MembershipFAQ";
 import MembershipModal from "../../components/membership/MembershipModal";
 import { QuotaWarning } from "../../components/membership/QuotaWarning";
 import { useAuth } from "../../contexts/AuthContext";
+import { getMembershipAmountClient } from "../../lib/membership-pricing";
 
 function TornarMembroContent() {
     const search = useSearchParams();
@@ -16,6 +17,7 @@ function TornarMembroContent() {
     const router = useRouter();
     const { isMember, memberData, loading, isAuthenticated } = useAuth();
     const [modalOpen, setModalOpen] = useState(false);
+    const membershipAmount = getMembershipAmountClient();
     const [impact, setImpact] = useState({ members: 0, raised: 0, goal: 2500 });
     const hasMembership = !!memberData?.is_membro;
 
@@ -83,7 +85,7 @@ function TornarMembroContent() {
                     onClick={() => setModalOpen(true)}
                     className="w-full py-4 bg-garabandal-dark text-white rounded-xl font-bold uppercase tracking-widest shadow-lg"
                 >
-                    Tornar-me Membro · 25€
+                    Tornar-me Membro · {new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR' }).format(membershipAmount)}
                 </button>
             </div>
         </main>

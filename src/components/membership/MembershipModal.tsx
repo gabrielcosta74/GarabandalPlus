@@ -21,6 +21,7 @@ import {
 import { useCurrency } from "../providers/CurrencyProvider";
 import { GoogleButton } from "../auth/AuthLayout";
 import { UNIFIED_ONLINE_PAYMENT_OPTIONS } from "../../lib/payment-options";
+import { getMembershipAmountClient } from "../../lib/membership-pricing";
 
 interface MembershipModalProps {
     isOpen: boolean;
@@ -113,6 +114,7 @@ const SelectField = ({ label, children, ...props }: React.SelectHTMLAttributes<H
 
 export default function MembershipModal({ isOpen, onClose, impact }: MembershipModalProps) {
     const { formatPrice } = useCurrency();
+    const membershipAmount = getMembershipAmountClient();
     const [step, setStep] = useState(1);
     const [slideIndex, setSlideIndex] = useState(0);
 
@@ -142,24 +144,41 @@ export default function MembershipModal({ isOpen, onClose, impact }: MembershipM
     const [selectedPaymentId, setSelectedPaymentId] = useState(UNIFIED_ONLINE_PAYMENT_OPTIONS[0].id);
     const [paymentUrl, setPaymentUrl] = useState<string | null>(null);
     const [paymentError, setPaymentError] = useState<string | null>(null);
+    const [modalMemberData, setModalMemberData] = useState<any | null | undefined>(undefined);
 
     const countryMeta = useMemo(() => resolveCountryMeta(formData.pais), [formData.pais]);
 
     const selectedPayment = UNIFIED_ONLINE_PAYMENT_OPTIONS.find((o) => o.id === selectedPaymentId) || UNIFIED_ONLINE_PAYMENT_OPTIONS[0];
-    const { user: authUser, memberData: authMemberData } = useAuth();
+    const { user: authUser, memberData: authMemberData, refreshMemberData } = useAuth();
+
+    const loadLiveMemberData = async (userId: string) => {
+        if (!supabaseBrowser) return null;
+        const { data } = await supabaseBrowser
+            .from('membros')
+            .select('id, nome, email, telefone, nif, address, postal_code, country, numero_socio, is_membro, estado_quota, proxima_quota')
+            .eq('id', userId)
+            .maybeSingle();
+        setModalMemberData(data || null);
+        return data || null;
+    };
 
     // Logic: Session
     useEffect(() => {
         if (!isOpen) return;
         const loadSession = async () => {
+            setModalMemberData(undefined);
             if (authUser?.id) {
                 setSessionUserId(authUser.id);
                 setSessionEmail(authUser.email ?? null);
                 setIsNewAccount(false);
                 setFormData((prev) => (prev.email ? prev : { ...prev, email: authUser.email || "" }));
 
+                // Force fresh read from DB to avoid stale context after admin changes.
+                await refreshMemberData();
+                const liveData = await loadLiveMemberData(authUser.id);
+
                 // Check if profile is complete
-                const isComplete = authMemberData?.nome && authMemberData?.email && authMemberData?.telefone && authMemberData?.address && authMemberData?.postal_code && authMemberData?.country;
+                const isComplete = liveData?.nome && liveData?.email && liveData?.telefone && liveData?.address && liveData?.postal_code && liveData?.country;
                 if (isComplete) {
                     setStep(3);
                 } else {
@@ -174,19 +193,15 @@ export default function MembershipModal({ isOpen, onClose, impact }: MembershipM
                 setSessionEmail(data.session.user.email ?? null);
                 setIsNewAccount(false);
                 setFormData((prev) => (prev.email ? prev : { ...prev, email: data.session?.user?.email || "" }));
+                const liveData = await loadLiveMemberData(data.session.user.id);
 
-                // For direct supabase session we wait for Context sync, but set step 2 for now. 
-                // Context Effect below will handle pre-fill. 
-                // Actually, let's keep it simple here. The context sync effect checks isOpen.
-                // We should rely on the context sync to update checking completeness, but setStep is stateful.
-                // Let's stick to step 2 here as we might not have memberData immediately if just loaded session from raw supabase.
-                // BUT, if we have authMemberData from context, we can jump.
-                if (authMemberData?.nome && authMemberData?.email) {
+                if (liveData?.nome && liveData?.email && liveData?.telefone && liveData?.address && liveData?.postal_code && liveData?.country) {
                     setStep(3);
                 } else {
                     setStep(2);
                 }
             } else {
+                setModalMemberData(null);
                 setStep(1);
             }
         };
@@ -201,30 +216,32 @@ export default function MembershipModal({ isOpen, onClose, impact }: MembershipM
 
     // Logic: Load Member Profile from Context and Skip Step if Complete
     useEffect(() => {
-        if (!isOpen || !authMemberData) return;
+        if (!isOpen) return;
+        const profile = modalMemberData !== undefined ? modalMemberData : authMemberData;
+        if (!profile) return;
 
         setFormData((prev) => ({
-            nome: prev.nome || authMemberData.nome || "",
-            email: prev.email || authMemberData.email || authUser?.email || "",
-            telefone: prev.telefone || authMemberData.telefone || "",
-            morada: prev.morada || authMemberData.address || "",
-            codigoPostal: prev.codigoPostal || authMemberData.postal_code || "",
-            pais: prev.pais || (authMemberData.country ? (resolveCountryMeta(authMemberData.country)?.name || authMemberData.country) : ""),
-            nif: prev.nif || authMemberData.nif || "",
+            nome: prev.nome || profile.nome || "",
+            email: prev.email || profile.email || authUser?.email || "",
+            telefone: prev.telefone || profile.telefone || "",
+            morada: prev.morada || profile.address || "",
+            codigoPostal: prev.codigoPostal || profile.postal_code || "",
+            pais: prev.pais || (profile.country ? (resolveCountryMeta(profile.country)?.name || profile.country) : ""),
+            nif: prev.nif || profile.nif || "",
         }));
 
         // Skip to payment if data is already robust (check mandatory fields)
         if (step === 2 &&
-            authMemberData.nome &&
-            authMemberData.email &&
-            authMemberData.telefone &&
-            authMemberData.address &&
-            authMemberData.postal_code &&
-            authMemberData.country) {
+            profile.nome &&
+            profile.email &&
+            profile.telefone &&
+            profile.address &&
+            profile.postal_code &&
+            profile.country) {
             setStep(3);
         }
 
-    }, [isOpen, authMemberData, authUser]);
+    }, [isOpen, modalMemberData, authMemberData, authUser, step]);
 
     // Logic: Auto-redirect for payment
     useEffect(() => {
@@ -339,7 +356,7 @@ export default function MembershipModal({ isOpen, onClose, impact }: MembershipM
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    amount: 25, // Validated on server as forced 25
+                    amount: membershipAmount,
                     type: "membership",
                     userId: sessionUserId,
                     provider: selectedPayment.provider,
@@ -367,7 +384,13 @@ export default function MembershipModal({ isOpen, onClose, impact }: MembershipM
     const canGoBack = step > 1 && step < 4 && !(step === 2 && sessionUserId);
 
     // Check renewal status
-    const isRenewal = !!authMemberData?.numero_socio;
+    const renewalSource = modalMemberData !== undefined ? modalMemberData : authMemberData;
+    const renewalStatus = String(renewalSource?.estado_quota || '').toLowerCase();
+    const isRenewal = !!(
+        renewalSource?.is_membro ||
+        renewalSource?.proxima_quota ||
+        (renewalStatus && renewalStatus !== 'pendente' && renewalStatus !== 'indefinido')
+    );
 
     return (
         <AnimatePresence>
@@ -393,7 +416,7 @@ export default function MembershipModal({ isOpen, onClose, impact }: MembershipM
                                 <div className="text-xs uppercase tracking-widest text-garabandal-gold font-bold mb-8">De Garabandal</div>
 
                                 <div className="bg-white/80 backdrop-blur-sm p-6 rounded-2xl border border-white/50 shadow-sm mb-6">
-                                    <div className="text-4xl font-serif text-garabandal-dark mb-1">{formatPrice(25)}</div>
+                                    <div className="text-4xl font-serif text-garabandal-dark mb-1">{formatPrice(membershipAmount)}</div>
                                     <div className="text-xs text-gray-500 uppercase tracking-wider mb-4">{isRenewal ? 'Renovação Anual' : 'Quota Anual'}</div>
                                     <div className="space-y-3">
                                         {["Vídeos Exclusivos", "Altar de Intenções", "Voucher Peregrinação", "Missas Anuais"].map((item, i) => (
@@ -656,7 +679,7 @@ export default function MembershipModal({ isOpen, onClose, impact }: MembershipM
                                         >
                                             <div className="mb-8">
                                                 <h4 className="text-2xl font-serif text-garabandal-dark mb-2">{isRenewal ? 'Renovar Quota' : 'Tornar-se Membro'}</h4>
-                                                <p className="text-gray-500 text-sm">Escolha como pretende pagar a quota de {formatPrice(25)}.</p>
+                                                <p className="text-gray-500 text-sm">Escolha como pretende pagar a quota de {formatPrice(membershipAmount)}.</p>
                                             </div>
 
                                             <div className="space-y-4">
@@ -712,7 +735,7 @@ export default function MembershipModal({ isOpen, onClose, impact }: MembershipM
                                                 disabled={authLoading}
                                                 className="w-full mt-8 bg-garabandal-dark text-white font-bold uppercase tracking-widest py-4 rounded-xl hover:bg-black transition-all flex justify-center items-center gap-2 shadow-lg shadow-garabandal-dark/20 hover:scale-[1.02] active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
                                             >
-                                                {authLoading ? "A processar..." : `Pagar ${formatPrice(25)} com Segurança`}
+                                                {authLoading ? "A processar..." : `Pagar ${formatPrice(membershipAmount)} com Segurança`}
                                             </button>
                                         </motion.div>
                                     )}

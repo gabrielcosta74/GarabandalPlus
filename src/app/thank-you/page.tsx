@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { Check, Download, Home, ArrowRight, Loader2, CreditCard, ShoppingBag, ShieldCheck, Heart } from 'lucide-react';
+import { Check, Download, Home, ArrowRight, Loader2, CreditCard, ShoppingBag, ShieldCheck, Heart, Mail, ScrollText } from 'lucide-react';
+import { supabaseBrowser } from '../../lib/supabase-browser';
 
 export default function ThankYouPage() {
   const [ready, setReady] = useState(false);
@@ -23,6 +24,8 @@ export default function ThankYouPage() {
   const [hasPhysical, setHasPhysical] = useState<boolean | null>(null);
   const [reduniqConfirmStatus, setReduniqConfirmStatus] = useState<'idle' | 'confirming' | 'done' | 'failed'>('idle');
   const [reduniqConfirm, setReduniqConfirm] = useState<any | null>(null);
+  const [memberNumber, setMemberNumber] = useState<number | null>(null);
+  const [memberEmail, setMemberEmail] = useState<string | null>(null);
 
   // --- Logic Preserved from Original ---
   useEffect(() => {
@@ -98,6 +101,11 @@ export default function ThankYouPage() {
         if (!res.ok || !data?.success) {
           throw new Error(data?.message || 'Falha ao confirmar pagamento Reduniq.');
         }
+        if (Array.isArray(data?.digitalDownloadLinks)) setDigitalLinks(data.digitalDownloadLinks);
+        if (typeof data?.buyerEmail === 'string' && data.buyerEmail) setConfirmedEmail(data.buyerEmail);
+        if (typeof data?.accountExists === 'boolean') setAccountExists(data.accountExists);
+        if (typeof data?.hasDigital === 'boolean') setHasDigital(data.hasDigital);
+        if (typeof data?.hasPhysical === 'boolean') setHasPhysical(data.hasPhysical);
         setReduniqConfirm(data);
         setReduniqConfirmStatus('done');
       } catch (err) {
@@ -108,6 +116,32 @@ export default function ThankYouPage() {
 
     confirmReduniq();
   }, [orderRefParam, provider, ready, reduniqConfirmStatus, tokenParam]);
+
+  useEffect(() => {
+    if (!ready || type !== 'membership') return;
+    const loadMemberContext = async () => {
+      try {
+        if (!supabaseBrowser) return;
+        const { data: userData } = await supabaseBrowser.auth.getUser();
+        const user = userData?.user;
+        if (!user?.id) return;
+
+        if (user.email) setMemberEmail(user.email);
+
+        const { data: member } = await supabaseBrowser
+          .from('membros')
+          .select('numero_socio, nome, email')
+          .eq('id', user.id)
+          .maybeSingle();
+
+        if (member?.numero_socio) setMemberNumber(Number(member.numero_socio));
+        if (member?.email) setMemberEmail(String(member.email));
+      } catch (err) {
+        // Non-blocking for confirmation screen.
+      }
+    };
+    loadMemberContext();
+  }, [ready, type]);
 
   // --- UI Helpers ---
 
@@ -151,9 +185,12 @@ export default function ThankYouPage() {
       return 'A doação não foi concluída. Podes voltar a tentar quando quiseres.';
     }
     if (type === 'membership') return 'A tua quota está ativa. Podes consultar o estado e benefícios na tua área de membro.';
-    if (type === 'store') return 'Enviámos um email com os detalhes da tua encomenda. Podes acompanhar o estado na tua área pessoal.';
+    if (type === 'store') {
+      if (accountExists) return 'Enviámos um email com os detalhes da tua encomenda. Podes acompanhar o estado na tua área pessoal.';
+      return 'Compra confirmada. Enviámos um email com um link para criar conta ou entrar e associar esta encomenda.';
+    }
     return 'O teu donativo ajuda a manter viva a mensagem de Garabandal. Nossa Senhora de Garabandal rogai por nós.';
-  }, [type, headerFailed]);
+  }, [type, headerFailed, accountExists]);
 
   if (!ready) {
     return (
@@ -230,6 +267,20 @@ export default function ThankYouPage() {
 
         {/* Details / Next Steps */}
         <div className="p-8 md:p-10 bg-[#111]">
+          {type === 'store' && !headerFailed && !accountExists && (
+            <div className="mb-8 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-6">
+              <div className="font-bold text-amber-200 mb-2">Próximo passo para associar a encomenda</div>
+              <div className="text-sm text-amber-100/90 leading-relaxed space-y-1">
+                <p>1. Abra o email de confirmação enviado para <strong>{confirmedEmail || 'o email da compra'}</strong>.</p>
+                <p>2. Clique em <strong>Associar Encomenda à Conta</strong>.</p>
+                <p>3. Na página do link, crie a conta (ou entre, se já existir) para guardar esta compra.</p>
+              </div>
+              <p className="text-xs text-amber-100/70 mt-3">
+                Se não encontrar o email, verifique Spam/Promoções.
+              </p>
+            </div>
+          )}
+
           {isReduniq && (
             <div className={`mb-8 rounded-2xl border p-6 ${
               isReduniqFailed
@@ -310,9 +361,17 @@ export default function ThankYouPage() {
                     </p>
                   )}
                   <p className="text-sm text-white/40 leading-relaxed mb-4">
-                    Pode descarregar os seus ficheiros agora ou aceder mais tarde através do link enviado por email.
+                    Pode descarregar os seus ficheiros agora ou aceder mais tarde na <strong className="text-white/70">Biblioteca Digital</strong> da sua área pessoal.
                     <strong className="block mt-1 text-white/60">Estes links expiram em 7 dias.</strong>
                   </p>
+                  <div className="mb-4 flex flex-wrap gap-2">
+                    <Link href="/biblioteca" className="px-3 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs font-bold transition-colors">
+                      Ir para Biblioteca Digital
+                    </Link>
+                    <Link href="/encomendas" className="px-3 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs font-bold transition-colors">
+                      Ver Minhas Encomendas
+                    </Link>
+                  </div>
 
                   {digitalLinks.length > 0 && (
                     <div className="space-y-3 mt-4">
@@ -345,13 +404,36 @@ export default function ThankYouPage() {
           )}
 
           {type === 'membership' && !headerFailed && (
-            <div className="bg-white/5 p-6 rounded-2xl border border-white/5 mb-8 flex items-start gap-4">
-              <div className="p-3 bg-yellow-500/20 rounded-xl text-yellow-500">
-                <ShieldCheck className="w-6 h-6" />
+            <div className="mb-8 space-y-4">
+              <div className="bg-yellow-500/10 p-6 rounded-2xl border border-yellow-500/30">
+                <div className="flex items-start gap-4">
+                  <div className="p-3 bg-yellow-500/20 rounded-xl text-yellow-400">
+                    <ShieldCheck className="w-6 h-6" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-bold text-white text-lg mb-1">Membro Oficial Ativado</h3>
+                    <p className="text-sm text-white/70 leading-relaxed">
+                      A sua quota foi confirmada. Entre agora na sua área de membro para ver conteúdos, agenda e gestão da sua conta.
+                    </p>
+                    {memberNumber ? (
+                      <div className="mt-3 inline-flex items-center gap-2 rounded-xl bg-black/30 border border-white/10 px-3 py-2 text-sm font-bold text-yellow-300">
+                        Nº de Membro: #{memberNumber}
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
               </div>
-              <div>
-                <h3 className="font-bold text-white mb-1">Membro Oficial</h3>
-                <p className="text-sm text-white/40 leading-relaxed max-w-md">O seu estado de sócio foi atualizado. Agora tem acesso a todos os conteúdos exclusivos e benefícios.</p>
+
+              <div className="bg-white/5 p-5 rounded-2xl border border-white/10">
+                <div className="flex items-start gap-3">
+                  <Mail className="w-5 h-5 text-blue-300 mt-0.5" />
+                  <div>
+                    <p className="font-semibold text-white">Email enviado</p>
+                    <p className="text-sm text-white/70 mt-1">
+                      Verifique o email <strong>{memberEmail || 'da sua conta'}</strong>. Enviámos a confirmação da quota e o diploma digital de membro.
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
           )}
@@ -368,6 +450,15 @@ export default function ThankYouPage() {
 
             {type === 'store' ? (
               <>
+                {!accountExists ? (
+                  <Link
+                    href="/login"
+                    className="w-full md:w-auto px-8 py-3 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold transition-all shadow-lg shadow-amber-900/20 flex items-center justify-center gap-2"
+                  >
+                    Entrar / Criar Conta
+                    <ArrowRight className="w-4 h-4" />
+                  </Link>
+                ) : null}
                 {showDigital && accountExists ? (
                   <Link
                     href="/biblioteca"
@@ -397,13 +488,22 @@ export default function ThankYouPage() {
                   <ArrowRight className="w-4 h-4" />
                 </Link>
               ) : (
-                <Link
-                  href="/member"
-                  className="w-full md:w-auto px-8 py-3 rounded-xl bg-yellow-600 hover:bg-yellow-500 text-white font-bold transition-all shadow-lg shadow-yellow-900/20 flex items-center justify-center gap-2"
-                >
-                  Área de Membro
-                  <ArrowRight className="w-4 h-4" />
-                </Link>
+                <>
+                  <Link
+                    href="/member/quota"
+                    className="w-full md:w-auto px-8 py-4 rounded-xl bg-yellow-500 hover:bg-yellow-400 text-black font-extrabold transition-all shadow-[0_0_35px_rgba(234,179,8,0.35)] flex items-center justify-center gap-2 text-base"
+                  >
+                    Ir para Minha Área de Membro
+                    <ArrowRight className="w-5 h-5" />
+                  </Link>
+                  <Link
+                    href="/member/direitos-deveres"
+                    className="w-full md:w-auto px-8 py-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/15 text-white font-bold transition-all flex items-center justify-center gap-2"
+                  >
+                    Direitos e Deveres
+                    <ScrollText className="w-4 h-4" />
+                  </Link>
+                </>
               )
             ) : (
               <Link

@@ -1,6 +1,6 @@
 import { loadMeta } from '../lib/donations';
 import HomePageClient from '../components/home/HomePageClient';
-import { Metadata } from 'next';
+import type { Metadata } from 'next';
 import { getPilgrimagesAction } from './peregrinacoes/actions';
 import { getFeaturedProducts } from './loja-online/actions';
 import { APP_URL } from '../lib/config';
@@ -23,7 +23,11 @@ export default async function Page() {
   const featuredProducts = await getFeaturedProducts();
 
   // Find the next upcoming pilgrimage (already sorted by date in action)
-  const nextPilgrimage = pilgrimages && pilgrimages.length > 0 ? pilgrimages[0] : null;
+  // Find the next upcoming pilgrimage with vacancies
+  const nextPilgrimage = pilgrimages?.find(p => {
+    const effectiveVacancies = p.effective_vacancies ?? (p.total_vacancies - p.confirmed_pax);
+    return effectiveVacancies > 0 && p.status === 'open';
+  }) || (pilgrimages && pilgrimages.length > 0 ? pilgrimages[0] : null);
 
   return <HomePageClient meta={meta} nextPilgrimage={nextPilgrimage} featuredProducts={featuredProducts} />;
 }

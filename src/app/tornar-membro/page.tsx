@@ -1,6 +1,7 @@
 import { Metadata } from 'next';
 import MembershipClient from './MembershipClient';
 import { APP_URL } from '../../lib/config';
+import { MEMBERSHIP_FAQS } from '../../components/membership/faq-content';
 
 export const metadata: Metadata = {
   title: 'Torne-se membro',
@@ -14,32 +15,14 @@ export default function TornarMembroPage() {
   const faqSchema = {
     '@context': 'https://schema.org',
     '@type': 'FAQPage',
-    mainEntity: [
-      {
-        '@type': 'Question',
-        name: 'Como me tornar membro do Apostolado?',
-        acceptedAnswer: {
-          '@type': 'Answer',
-          text: 'Você pode se tornar membro online, preenchendo o formulário e efetuando a contribuição anual.'
-        }
+    mainEntity: MEMBERSHIP_FAQS.map((item) => ({
+      '@type': 'Question',
+      name: item.question,
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: item.answer,
       },
-      {
-        '@type': 'Question',
-        name: 'Quais benefícios eu recebo?',
-        acceptedAnswer: {
-          '@type': 'Answer',
-          text: 'Membros recebem conteúdos exclusivos e participam da comunidade do Apostolado.'
-        }
-      },
-      {
-        '@type': 'Question',
-        name: 'O recibo é automático?',
-        acceptedAnswer: {
-          '@type': 'Answer',
-          text: 'Os recibos são emitidos manualmente pela administração após a confirmação do pagamento.'
-        }
-      }
-    ]
+    })),
   };
 
   return (

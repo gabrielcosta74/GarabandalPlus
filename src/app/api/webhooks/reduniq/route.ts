@@ -120,6 +120,12 @@ export async function POST(request: Request) {
                         donorName: donation.donor_name,
                         donorEmail: donation.donor_email,
                         donorNif: donation.donor_nif,
+                        donorAddress: donation.donor_address,
+                        donorCity: donation.donor_city,
+                        donorZip: donation.donor_zip,
+                        donorCountry: donation.donor_country,
+                        receiptRequired: donation.receipt_required,
+                        reduniq_method: (donation.metadata as any)?.reduniq_method || null,
                         reduniqTransactionId: manualCheck.transactionId
                         // ... other meta if needed
                     }

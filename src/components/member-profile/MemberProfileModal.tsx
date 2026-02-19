@@ -37,6 +37,20 @@ export default function MemberProfileModal({
   onSaved,
   onAvatarUpdated,
 }: Props) {
+  const hydrateFromInitialData = (data: Record<string, any>) => {
+    setNome(data.nome || '');
+    setTelefone(data.telefone || '');
+    setAddress(data.address || data.morada || '');
+    setPostalCode(data.postal_code || data.postalCode || '');
+
+    const countryRaw = data.country || data.pais || 'PT';
+    const countryInfo = resolveCountryMeta(countryRaw);
+    setCountry(countryInfo?.code || countryInfo?.name || countryRaw);
+
+    setNif(data.nif || data.nif_number || '');
+    setAvatarUrl(data.avatar_url || '');
+  };
+
   // Form State
   const [nome, setNome] = useState(initialData.nome || '');
   const [telefone, setTelefone] = useState(initialData.telefone || '');
@@ -56,23 +70,23 @@ export default function MemberProfileModal({
 
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [dirty, setDirty] = useState(false);
 
-  // Sync state with props when modal opens or data changes
+  // Sync incoming data while form is pristine. Prevents "typing gets erased".
   useEffect(() => {
-    if (visible && initialData) {
-      setNome(initialData.nome || '');
-      setTelefone(initialData.telefone || '');
-      setAddress(initialData.address || initialData.morada || '');
-      setPostalCode(initialData.postal_code || initialData.postalCode || '');
-
-      const newCountryRaw = initialData.country || initialData.pais || 'PT';
-      const newCountryMeta = resolveCountryMeta(newCountryRaw);
-      setCountry(newCountryMeta?.code || newCountryMeta?.name || newCountryRaw);
-
-      setNif(initialData.nif || initialData.nif_number || '');
-      setAvatarUrl(initialData.avatar_url || '');
+    if (!visible) return;
+    if (!dirty && initialData) {
+      hydrateFromInitialData(initialData);
     }
-  }, [visible, initialData]);
+  }, [visible, initialData, dirty]);
+
+  useEffect(() => {
+    if (!visible) {
+      setDirty(false);
+      setError(null);
+      setPreviewUrl(null);
+    }
+  }, [visible]);
 
   // Normalize country naming to codes if possible, or keep as is
   const countryMeta = useMemo(() => resolveCountryMeta(country), [country]);
@@ -116,14 +130,16 @@ export default function MemberProfileModal({
     setUploadingAvatar(true);
 
     try {
+      if (!userId) {
+        throw new Error('Sessão inválida. Faz login novamente e volta a tentar.');
+      }
       const fileExt = file.name.split('.').pop() || 'jpg';
-      const fileName = `${userId}.${fileExt}`;
-      const filePath = fileName; // We are already in 'avatars' bucket
+      const filePath = `${userId}/avatar.${fileExt}`;
 
       // 2. Upload to Storage (Upsert handles the replacement)
       const { error: uploadError } = await supabaseBrowser.storage
         .from('avatars')
-        .upload(filePath, file, { upsert: true });
+        .upload(filePath, file, { upsert: true, contentType: file.type || 'image/jpeg' });
 
       if (uploadError) throw uploadError;
 
@@ -157,7 +173,9 @@ export default function MemberProfileModal({
       // Cleanup: Delete old avatar if exists (Prevent Storage Bloat)
       if (avatarUrl && avatarUrl !== publicUrl && avatarUrl.includes('avatars')) {
         try {
-          const oldPath = avatarUrl.split('avatars/')[1];
+          const oldPath = avatarUrl
+            .split('/avatars/')[1]
+            ?.split('?')[0];
           if (oldPath) {
             await supabaseBrowser.storage.from('avatars').remove([oldPath]);
           }
@@ -213,11 +231,14 @@ export default function MemberProfileModal({
 
     } catch (err: any) {
       console.error(err);
-      setError("Erro ao carregar a imagem. Tenta novamente.");
+      setError(err?.message || "Erro ao carregar a imagem. Tenta novamente.");
       // Revert preview if failed
       setPreviewUrl(null);
     } finally {
       setUploadingAvatar(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
     }
   };
 
@@ -365,7 +386,7 @@ export default function MemberProfileModal({
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="md:col-span-2">
                     <label className={labelClass}>Nome Completo *</label>
-                    <input value={nome} onChange={(e) => setNome(e.target.value)} className={inputClass} placeholder="Nome completo" />
+                    <input value={nome} onChange={(e) => { setDirty(true); setNome(e.target.value); }} className={inputClass} placeholder="Nome completo" />
                   </div>
                   <div>
                     <label className={labelClass}>Email da Conta</label>
@@ -379,11 +400,11 @@ export default function MemberProfileModal({
                   </div>
                   <div>
                     <label className={labelClass}>Telefone *</label>
-                    <input value={telefone} onChange={(e) => setTelefone(withCountryPrefix(e.target.value, country))} onBlur={() => setTelefone(normalizePhone(withCountryPrefix(telefone, country)))} className={inputClass} placeholder={countryMeta?.phoneExample} />
+                    <input value={telefone} onChange={(e) => { setDirty(true); setTelefone(withCountryPrefix(e.target.value, country)); }} onBlur={() => setTelefone(normalizePhone(withCountryPrefix(telefone, country)))} className={inputClass} placeholder={countryMeta?.phoneExample} />
                   </div>
                   <div>
                     <label className={labelClass}>NIF / CPF (opcional)</label>
-                    <input value={nif} onChange={(e) => setNif(e.target.value)} className={inputClass} placeholder="Número de contribuinte (NIF/CPF)" />
+                    <input value={nif} onChange={(e) => { setDirty(true); setNif(e.target.value); }} className={inputClass} placeholder="Número de contribuinte (NIF/CPF)" />
                   </div>
                 </div>
               </div>
@@ -398,7 +419,7 @@ export default function MemberProfileModal({
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="md:col-span-2">
                     <label className={labelClass}>País *</label>
-                    <select value={country} onChange={(e) => setCountry(e.target.value)} className={inputClass}>
+                    <select value={country} onChange={(e) => { setDirty(true); setCountry(e.target.value); }} className={inputClass}>
                       <option value="">Seleciona o país</option>
                       {countryOptions.map((opt) => (
                         <option key={opt.code} value={opt.code}>
@@ -409,13 +430,13 @@ export default function MemberProfileModal({
                   </div>
                   <div className="md:col-span-2">
                     <label className={labelClass}>Morada (opcional)</label>
-                    <input value={address} onChange={(e) => setAddress(e.target.value)} className={inputClass} placeholder="Rua, número, andar" />
+                    <input value={address} onChange={(e) => { setDirty(true); setAddress(e.target.value); }} className={inputClass} placeholder="Rua, número, andar" />
                   </div>
                   <div>
                     <label className={labelClass}>Código Postal / CEP (opcional)</label>
                     <input
                       value={postalCode}
-                      onChange={(e) => setPostalCode(formatPostalCode(e.target.value, country))}
+                      onChange={(e) => { setDirty(true); setPostalCode(formatPostalCode(e.target.value, country)); }}
                       inputMode={getPostalInputMode(country)}
                       className={inputClass}
                       placeholder={countryMeta?.postalPlaceholder}

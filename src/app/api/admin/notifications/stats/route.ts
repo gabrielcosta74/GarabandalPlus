@@ -2,6 +2,7 @@
 import { NextResponse } from 'next/server';
 import { supabaseServer } from '../../../../../lib/supabase';
 import { getAdminCounts } from '../../../../../lib/admin-notifications';
+import { verifyAdmin } from '../../../../../lib/admin-auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,16 +15,10 @@ export async function GET(req: Request) {
     }
 
     try {
-        const authHeader = req.headers.get('Authorization');
-        if (!authHeader) {
-            return NextResponse.json({ error: 'No authorization header' }, { status: 401 });
-        }
-
-        const token = authHeader.replace('Bearer ', '');
-        const { data: { user }, error } = await supabaseServer.auth.getUser(token);
-
-        if (error || !user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        const { authorized, error: authError } = await verifyAdmin(req);
+        if (!authorized) {
+            const status = authError === 'Forbidden: Not an Admin' ? 403 : 401;
+            return NextResponse.json({ error: authError || 'Unauthorized' }, { status });
         }
 
         // Use a helper function (logic centralization)
