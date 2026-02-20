@@ -200,19 +200,51 @@ export default function CalendarPage() {
                                                     <h4 className="text-lg font-bold text-white mb-2">{event.title}</h4>
                                                     <p className="text-sm text-slate-400 mb-6 leading-relaxed">{event.description}</p>
 
-                                                    {event.meeting_url ? (
-                                                        <a
-                                                            href={event.meeting_url}
-                                                            target="_blank"
-                                                            className="flex items-center justify-center gap-2 w-full py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-bold uppercase tracking-wide transition-all shadow-lg shadow-blue-900/20"
-                                                        >
-                                                            Participar na Reunião <Video className="w-4 h-4" />
-                                                        </a>
-                                                    ) : (
-                                                        <div className="w-full py-3 rounded-lg bg-orange-500/10 border border-orange-500/20 text-orange-400 text-sm font-bold uppercase tracking-wide text-center">
-                                                            Link disponível no dia do evento
-                                                        </div>
-                                                    )}
+                                                    {(() => {
+                                                        const now = new Date();
+                                                        const eventStart = new Date(event.start_time);
+                                                        const thirtyMinsBefore = new Date(eventStart.getTime() - 30 * 60000);
+                                                        const tenMinsBefore = new Date(eventStart.getTime() - 10 * 60000);
+                                                        const endDate = new Date(event.end_time);
+
+                                                        const isLive = now >= tenMinsBefore && now <= endDate;
+                                                        const canJoin = now >= thirtyMinsBefore && now <= endDate;
+                                                        const isPast = now > endDate;
+
+                                                        if (isPast) {
+                                                            return (
+                                                                <button disabled className="w-full py-3 rounded-lg bg-slate-800/50 text-slate-500 text-sm font-bold uppercase tracking-wide cursor-not-allowed">
+                                                                    Evento Terminado
+                                                                </button>
+                                                            );
+                                                        }
+
+                                                        if (event.meeting_url && canJoin) {
+                                                            return (
+                                                                <a
+                                                                    href={event.meeting_url}
+                                                                    target="_blank"
+                                                                    className={`flex items-center justify-center gap-2 w-full py-3 rounded-lg text-sm font-bold uppercase tracking-wide transition-all ${isLive ? 'bg-red-600 hover:bg-red-500 text-white shadow-lg shadow-red-900/20' : 'bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-900/20'}`}
+                                                                >
+                                                                    Participar na Reunião <Video className={isLive ? "w-4 h-4 animate-pulse" : "w-4 h-4"} />
+                                                                </a>
+                                                            );
+                                                        }
+
+                                                        if (event.meeting_url) {
+                                                            return (
+                                                                <button disabled className="w-full py-3 rounded-lg bg-slate-800 text-slate-400 text-sm font-bold uppercase tracking-wide cursor-not-allowed flex items-center justify-center gap-2">
+                                                                    <Clock className="w-4 h-4 text-blue-400" /> Acesso abre 30 min antes
+                                                                </button>
+                                                            );
+                                                        }
+
+                                                        return (
+                                                            <div className="w-full py-3 rounded-lg bg-orange-500/10 border border-orange-500/20 text-orange-400 text-sm font-bold uppercase tracking-wide text-center">
+                                                                Link disponível no dia do evento
+                                                            </div>
+                                                        );
+                                                    })()}
                                                 </div>
                                             ))
                                         )}

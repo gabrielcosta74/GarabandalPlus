@@ -22,9 +22,11 @@ export default function EventCard({ event }: EventCardProps) {
     // Check if event is "live" (start time - 10 mins <= now <= end time)
     const now = new Date();
     const tenMinsBefore = new Date(startDate.getTime() - 10 * 60000);
+    const thirtyMinsBefore = new Date(startDate.getTime() - 30 * 60000);
     const endDate = new Date(event.end_time);
 
     const isLive = now >= tenMinsBefore && now <= endDate;
+    const canJoin = now >= thirtyMinsBefore && now <= endDate;
     const isPast = now > endDate;
 
     return (
@@ -92,7 +94,7 @@ export default function EventCard({ event }: EventCardProps) {
                         <button disabled className="w-full py-4 rounded-xl bg-slate-800 text-slate-500 text-sm font-bold uppercase tracking-wider cursor-not-allowed">
                             Evento Terminado
                         </button>
-                    ) : event.meeting_url ? (
+                    ) : event.meeting_url && canJoin ? (
                         <a
                             href={event.meeting_url}
                             target="_blank"
@@ -108,9 +110,13 @@ export default function EventCard({ event }: EventCardProps) {
                             {isLive ? (
                                 <>Entrar na Sala <Video className="w-5 h-5 animate-pulse" /></>
                             ) : (
-                                <>Garantir Lugar <ArrowRight className="w-5 h-5" /></>
+                                <>Entrar na Sala <ArrowRight className="w-5 h-5" /></>
                             )}
                         </a>
+                    ) : event.meeting_url ? (
+                        <button disabled className="w-full py-4 rounded-xl bg-slate-800 text-slate-400 text-xs font-bold uppercase tracking-wider cursor-not-allowed flex items-center justify-center gap-2">
+                            <Clock className="w-4 h-4 text-indigo-400" /> Acesso abre 30 min antes
+                        </button>
                     ) : (
                         <div className="w-full py-4 rounded-xl bg-white/5 border border-white/5 text-slate-400 text-xs font-bold uppercase tracking-wider text-center flex items-center justify-center gap-2">
                             <Clock className="w-4 h-4" />

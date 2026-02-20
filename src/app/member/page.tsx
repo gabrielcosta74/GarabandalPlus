@@ -119,8 +119,11 @@ export default function MemberDashboardPage() {
                   <Star className="w-3 h-3 fill-yellow-500" />
                   Membro Oficial
                 </div>
-                <h1 className="font-serif text-3xl md:text-5xl font-bold text-white mb-2">
+                <h1 className="font-serif text-3xl md:text-5xl font-bold text-white mb-2 flex items-baseline gap-3">
                   Olá, {firstName}
+                  {member?.numero_socio && (
+                    <span className="text-2xl md:text-4xl text-slate-400 font-light tracking-wide">#{member.numero_socio}</span>
+                  )}
                 </h1>
                 <p className="text-slate-400 text-sm md:text-base max-w-xl">
                   Bem-vindo ao teu espaço exclusivo.
@@ -154,7 +157,7 @@ export default function MemberDashboardPage() {
                 <Calendar className="w-5 h-5 text-indigo-400" />
                 Agenda
               </h2>
-              <Link href="/member/calendar" className="text-sm font-bold text-yellow-500 hover:text-yellow-400 transition-colors flex items-center gap-1 bg-yellow-500/10 px-4 py-2 rounded-full border border-yellow-500/20">
+              <Link href="/member/calendar" className="text-sm font-bold text-slate-900 hover:text-indigo-950 transition-colors flex items-center gap-2 bg-white hover:bg-slate-200 px-5 py-2.5 rounded-full shadow-lg shadow-white/10">
                 Ver Calendário Completo <ArrowRight className="w-4 h-4" />
               </Link>
             </div>
@@ -175,7 +178,7 @@ export default function MemberDashboardPage() {
                 <p className="text-slate-400 text-sm leading-relaxed mb-6">
                   Os encontros realizam-se através da plataforma Zoom ou Google Meet.
                   <br /><br />
-                  Basta clicares no botão <strong>"Entrar na Sala"</strong> quando o evento começar. O link ficará ativo 10 minutos antes.
+                  Basta clicares no botão <strong>"Entrar na Sala"</strong> quando faltarem 30 minutos para o evento começar. O botão ficará desbloqueado automaticamente.
                 </p>
                 <div className="mt-auto pt-6 border-t border-white/5">
                   <p className="text-xs text-slate-500 font-medium">
