@@ -178,6 +178,14 @@ export default function TransactionsUnifiedManager() {
         });
     }, [transactions, filters]);
 
+    const orderedTransactions = useMemo(() => {
+        return [...filteredTransactions].sort((a, b) => {
+            const aTs = new Date(a.created_at).getTime();
+            const bTs = new Date(b.created_at).getTime();
+            return (Number.isFinite(bTs) ? bTs : 0) - (Number.isFinite(aTs) ? aTs : 0);
+        });
+    }, [filteredTransactions]);
+
     const categories = [
         { id: 'shop', label: 'Loja Online', icon: ShoppingBag, color: 'text-indigo-600 bg-indigo-50 border-indigo-200' },
         { id: 'donation', label: 'Doação', icon: Heart, color: 'text-rose-600 bg-rose-50 border-rose-200' },
@@ -187,7 +195,7 @@ export default function TransactionsUnifiedManager() {
 
     const exportToCSV = () => {
         const headers = ['Data', 'Categoria', 'Ref', 'Nome', 'Email', 'NIF', 'Valor', 'Status', 'Recibo Enviado'];
-        const rows = filteredTransactions.map(t => [
+        const rows = orderedTransactions.map(t => [
             format(new Date(t.created_at), 'yyyy-MM-dd HH:mm'),
             t.category,
             t.reference,
@@ -215,7 +223,8 @@ export default function TransactionsUnifiedManager() {
             header: 'Data / Ref',
             render: (t: ConsolidatedTransaction) => (
                 <div className="flex flex-col">
-                    <span className="font-bold text-gray-900 text-sm">{format(new Date(t.created_at), 'dd MMM', { locale: pt })}</span>
+                    <span className="font-bold text-gray-900 text-sm">{format(new Date(t.created_at), 'dd/MM/yyyy')}</span>
+                    <span className="text-[10px] text-gray-500 mt-0.5">{format(new Date(t.created_at), 'HH:mm', { locale: pt })}</span>
                     <span className="text-[10px] text-gray-500 font-mono mt-0.5" title={t.reference}>#{t.reference.substring(0, 8)}...</span>
                 </div>
             )
@@ -308,6 +317,28 @@ export default function TransactionsUnifiedManager() {
             }
         },
         {
+            key: 'receipt',
+            header: 'Recibo',
+            render: (t: ConsolidatedTransaction) => (
+                <div className="flex flex-col items-start gap-1">
+                    {t.invoice_sent_at ? (
+                        <>
+                            <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-700">
+                                Enviado
+                            </span>
+                            <span className="text-[10px] text-emerald-700">
+                                {format(new Date(t.invoice_sent_at), 'dd/MM/yyyy HH:mm')}
+                            </span>
+                        </>
+                    ) : (
+                        <span className="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-rose-700">
+                            Não enviado
+                        </span>
+                    )}
+                </div>
+            )
+        },
+        {
             key: 'actions',
             header: 'Ações',
             align: 'right' as const,
@@ -382,6 +413,9 @@ export default function TransactionsUnifiedManager() {
 
                 {/* Export & Refresh Toolbar */}
                 <div className="flex justify-end gap-2">
+                    <div className="mr-auto text-xs font-semibold text-slate-500">
+                        Ordenado por data: mais recente para mais antigo
+                    </div>
                     <button
                         onClick={exportToCSV}
                         className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-xl text-sm font-semibold hover:bg-gray-50 hover:border-gray-300 transition-all shadow-sm"
@@ -402,7 +436,7 @@ export default function TransactionsUnifiedManager() {
             {/* Modern Table */}
             <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
                 <AdminTable
-                    data={filteredTransactions}
+                    data={orderedTransactions}
                     columns={columns}
                     isLoading={loading}
                     itemsPerPage={15}
