@@ -69,8 +69,8 @@ const TUTORIAL_STEPS: Step[] = [
     },
     {
         targetId: "tut-card",
-        title: "Cartão Digital",
-        description: "Em breve, terás aqui o teu cartão de sócio digital para apresentar em eventos e obter descontos.",
+        title: "Direitos e Deveres",
+        description: "Consulta os direitos e deveres dos membros para conheceres claramente as regras, responsabilidades e benefícios da tua participação.",
         position: "top",
     },
 ];
