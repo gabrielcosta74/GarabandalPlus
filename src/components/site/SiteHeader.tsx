@@ -609,6 +609,7 @@ export default function SiteHeader() {
                   <NavLink href="/" icon={Home} label="Início" onClick={() => setIsMobileOpen(false)} />
                   <NavLink href="/peregrinacoes" icon={MapPin} label="Peregrinações" onClick={() => setIsMobileOpen(false)} />
                   <NavLink href="/donations" icon={Heart} label="Doações" onClick={() => setIsMobileOpen(false)} />
+                  <NavLink href="/tornar-membro" icon={CreditCard} label="Ser Membro" onClick={() => setIsMobileOpen(false)} />
                   <NavLink href="/loja-online" icon={Store} label="Loja Online" onClick={() => setIsMobileOpen(false)} />
                 </div>
 
