@@ -257,9 +257,6 @@ export default function BookingDashboardPage() {
     const [refreshing, setRefreshing] = useState(false);
     const [uploading, setUploading] = useState(false);
     const [showPilgrims, setShowPilgrims] = useState(false);
-    // Determine what to pay next - Moved to top to prevent Hook Error
-    const [paymentMode, setPaymentMode] = useState<'deposit' | 'full'>('deposit');
-
     const [authError, setAuthError] = useState(false);
 
     const [uploadSuccess, setUploadSuccess] = useState(false);
@@ -309,6 +306,15 @@ export default function BookingDashboardPage() {
 
     const paymentPlan = parsedPaymentPlan;
     const hasPlan = paymentPlan.length > 0;
+    const bookingNotes = String(booking?.notes || '').toLowerCase();
+    const paymentMode: 'deposit' | 'full' =
+        bookingNotes.includes('payment plan: full')
+            ? 'full'
+            : bookingNotes.includes('payment plan: installments')
+                ? 'deposit'
+                : hasPlan
+                    ? 'deposit'
+                    : 'full';
 
     // Helper to find state of an installment
     const getInstallmentState = (index: number, amount: number) => {
@@ -330,24 +336,29 @@ export default function BookingDashboardPage() {
     let nextAmountToPay = totalAmount - paidAmount;
     let nextLabel = "Total Restante";
 
-    if (!isDepositPaid) {
-        nextAmountToPay = depositValue - paidAmount;
-        nextLabel = "Sinal de Inscrição";
-    } else if (hasPlan && !isFullyPaid) {
-        // Find first installment not paid
-        const nextIdx = paymentPlan.findIndex((_: any, idx: number) => getInstallmentState(idx, 0) === 'pending');
-        if (nextIdx !== -1) {
-            // Calculate the cumulative target for this installment
-            const cumulativeTarget = depositValue + paymentPlan.slice(0, nextIdx + 1).reduce((acc: number, curr: any) => acc + Number(curr.amount), 0);
+    if (paymentMode === 'full') {
+        nextAmountToPay = Math.max(0, parseFloat((totalAmount - paidAmount).toFixed(2)));
+        nextLabel = paidAmount > 0 ? "Valor Restante" : "Pagamento Total";
+    } else {
+        if (!isDepositPaid) {
+            nextAmountToPay = depositValue - paidAmount;
+            nextLabel = "Sinal de Inscrição";
+        } else if (hasPlan && !isFullyPaid) {
+            // Find first installment not paid
+            const nextIdx = paymentPlan.findIndex((_: any, idx: number) => getInstallmentState(idx, 0) === 'pending');
+            if (nextIdx !== -1) {
+                // Calculate the cumulative target for this installment
+                const cumulativeTarget = depositValue + paymentPlan.slice(0, nextIdx + 1).reduce((acc: number, curr: any) => acc + Number(curr.amount), 0);
 
-            // The amount to pay is the difference between the target and what has been paid so far
-            // This handles partial payments correctly
-            nextAmountToPay = cumulativeTarget - paidAmount;
+                // The amount to pay is the difference between the target and what has been paid so far
+                // This handles partial payments correctly
+                nextAmountToPay = cumulativeTarget - paidAmount;
 
-            // Ensure we don't show negative values (floating point safety)
-            nextAmountToPay = Math.max(0, parseFloat(nextAmountToPay.toFixed(2)));
+                // Ensure we don't show negative values (floating point safety)
+                nextAmountToPay = Math.max(0, parseFloat(nextAmountToPay.toFixed(2)));
 
-            nextLabel = `Prestação ${nextIdx + 1} (${format(new Date(paymentPlan[nextIdx].date), 'MMMM', { locale: pt })})`;
+                nextLabel = `Prestação ${nextIdx + 1} (${format(new Date(paymentPlan[nextIdx].date), 'MMMM', { locale: pt })})`;
+            }
         }
     }
 
@@ -705,7 +716,9 @@ export default function BookingDashboardPage() {
                                             <p className="text-slate-500 text-xl leading-relaxed">
                                                 {isFullyPaid
                                                     ? 'Já recebemos o seu pagamento total. Está pronto para partir!'
-                                                    : 'A sua inscrição aguarda o pagamento do sinal para garantir o lugar.'}
+                                                    : paymentMode === 'full'
+                                                        ? 'A sua inscrição aguarda o pagamento total para garantir o lugar.'
+                                                        : 'A sua inscrição aguarda o pagamento do sinal para garantir o lugar.'}
                                             </p>
                                         </div>
                                         <div className="text-right shrink-0 bg-slate-50 px-4 py-3 rounded-2xl border border-slate-100 hidden sm:block">

@@ -122,7 +122,10 @@ export async function POST(req: Request) {
         }
 
         const safeAmountToPay = Math.round(amountToPay * 100) / 100;
-        const origin = req.headers.get('origin') || getAppUrl();
+        const host = req.headers.get('x-forwarded-host') || req.headers.get('host');
+        const proto = req.headers.get('x-forwarded-proto') || 'https';
+        const fallbackOrigin = host ? `${proto}://${host}` : getAppUrl();
+        const origin = req.headers.get('origin') || fallbackOrigin;
         const nowIso = new Date().toISOString();
         const bookingPrefix = String(booking.id || '').slice(0, 8);
 
@@ -134,19 +137,20 @@ export async function POST(req: Request) {
             const successUrl = `${origin}/peregrinacoes/inscricao/${booking.id}?provider=reduniq&orderRef=${orderRef}&status=success${viewTokenQuery}`;
             const cancelUrl = `${origin}/peregrinacoes/inscricao/${booking.id}?provider=reduniq&orderRef=${orderRef}&status=failed&canceled=true${viewTokenQuery}`;
 
-            const attemptInit = async (solution?: number) => reduniqClient.initiatePayment({
+            const safeDescription = `Peregrinacao - Reserva ${bookingPrefix}`;
+            const attemptInit = async (solution?: number, action: 100 | 101 = 101) => reduniqClient.initiatePayment({
                 amount: safeAmountToPay,
                 orderRef,
                 returnUrlOk: successUrl,
                 returnUrlError: cancelUrl,
                 notificationUrl: `${origin}/api/webhooks/reduniq`,
-                description: `${lineItemTitle} - Reserva #${bookingPrefix}`,
+                description: safeDescription,
                 solution,
                 languageCode: 'por',
-                action: 101,
+                action,
             });
 
-            let initResult = await attemptInit(reduniqSolution);
+            let initResult = await attemptInit(reduniqSolution, 101);
             if (!initResult.success && reduniqSolution) {
                 const msg = (initResult.error || '').toLowerCase();
                 const code = (initResult.resultCode || '').toLowerCase();
@@ -157,11 +161,25 @@ export async function POST(req: Request) {
 
                 if (looksLikeInvalidSolution) {
                     console.warn(`[Reduniq][Pilgrimage] Solution ${reduniqSolution} rejeitada; fallback para terminal geral.`);
-                    initResult = await attemptInit(undefined);
+                    initResult = await attemptInit(undefined, 101);
                 }
             }
 
+            if (!initResult.success) {
+                console.warn('[Reduniq][Pilgrimage] Tentativa fallback action=100');
+                initResult = await attemptInit(undefined, 100);
+            }
+
             if (!initResult.success || !initResult.url) {
+                console.error('[Reduniq][Pilgrimage] Init failed', {
+                    error: initResult.error,
+                    resultCode: initResult.resultCode,
+                    raw: initResult.raw,
+                    bookingId: booking.id,
+                    orderRef,
+                    amount: safeAmountToPay,
+                    origin,
+                });
                 return NextResponse.json({ error: toSafeCheckoutError(initResult.error || 'Falha ao iniciar pagamento Reduniq.') }, { status: 502 });
             }
 
