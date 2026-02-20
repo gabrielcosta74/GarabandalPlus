@@ -14,10 +14,11 @@ interface EventCardProps {
 
 export default function EventCard({ event }: EventCardProps) {
     const startDate = new Date(event.start_time);
-    const day = startDate.getDate();
-    const month = startDate.toLocaleDateString('pt-PT', { month: 'long' }).toUpperCase();
-    const weekday = startDate.toLocaleDateString('pt-PT', { weekday: 'long' });
-    const time = startDate.toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' });
+    const day = startDate.toLocaleDateString('pt-PT', { day: 'numeric', timeZone: 'Europe/Lisbon' });
+    const month = startDate.toLocaleDateString('pt-PT', { month: 'long', timeZone: 'Europe/Lisbon' }).toUpperCase();
+    const weekday = startDate.toLocaleDateString('pt-PT', { weekday: 'long', timeZone: 'Europe/Lisbon' });
+    const timePT = startDate.toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Lisbon' });
+    const timeBR = startDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' });
 
     // Check if event is "live" (start time - 10 mins <= now <= end time)
     const now = new Date();
@@ -66,13 +67,13 @@ export default function EventCard({ event }: EventCardProps) {
                             <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1 block">Portugal</span>
                             <div className="flex items-center justify-end gap-2 text-xl font-bold text-white tracking-tight">
                                 <Clock className="w-4 h-4 text-indigo-400" />
-                                {time}
+                                {timePT}
                             </div>
                         </div>
                         <div>
                             <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1 block">Brasil (SP)</span>
                             <div className="flex items-center justify-end gap-2 text-lg font-bold text-slate-300 tracking-tight">
-                                {startDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' })}
+                                {timeBR}
                             </div>
                         </div>
                     </div>
