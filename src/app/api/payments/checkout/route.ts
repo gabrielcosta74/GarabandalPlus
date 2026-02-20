@@ -124,63 +124,80 @@ export async function POST(req: Request) {
         const safeAmountToPay = Math.round(amountToPay * 100) / 100;
         const host = req.headers.get('x-forwarded-host') || req.headers.get('host');
         const proto = req.headers.get('x-forwarded-proto') || 'https';
-        const fallbackOrigin = host ? `${proto}://${host}` : getAppUrl();
-        const origin = req.headers.get('origin') || fallbackOrigin;
+        const requestOrigin = req.headers.get('origin') || (host ? `${proto}://${host}` : '');
+        const appOrigin = getAppUrl();
+        const originCandidates = Array.from(
+            new Set(
+                [requestOrigin, appOrigin]
+                    .map((value) => String(value || '').trim().replace(/\/$/, ''))
+                    .filter(Boolean),
+            ),
+        );
+        const fallbackOrigin = originCandidates[0] || 'http://localhost:3000';
         const nowIso = new Date().toISOString();
         const bookingPrefix = String(booking.id || '').slice(0, 8);
 
         // 3A. Reduniq Checkout
         if (provider === 'reduniq') {
-            const orderRef = `pilgrimage_${bookingPrefix}_${Date.now()}`;
-            const viewToken = typeof booking.view_token === 'string' ? booking.view_token : null;
-            const viewTokenQuery = viewToken ? `&viewToken=${encodeURIComponent(viewToken)}` : '';
-            const successUrl = `${origin}/peregrinacoes/inscricao/${booking.id}?provider=reduniq&orderRef=${orderRef}&status=success${viewTokenQuery}`;
-            const cancelUrl = `${origin}/peregrinacoes/inscricao/${booking.id}?provider=reduniq&orderRef=${orderRef}&status=failed&canceled=true${viewTokenQuery}`;
+            const orderRef = `pil${bookingPrefix}${Date.now().toString().slice(-8)}`;
+            const safeDescription = `Peregrinacao ${bookingPrefix}`;
 
-            const safeDescription = `Peregrinacao - Reserva ${bookingPrefix}`;
-            const attemptInit = async (solution?: number, action: 100 | 101 = 101) => reduniqClient.initiatePayment({
-                amount: safeAmountToPay,
-                orderRef,
-                returnUrlOk: successUrl,
-                returnUrlError: cancelUrl,
-                notificationUrl: `${origin}/api/webhooks/reduniq`,
-                description: safeDescription,
-                solution,
-                languageCode: 'por',
-                action,
-            });
+            let initResult: any = null;
+            let selectedOrigin = fallbackOrigin;
 
-            let initResult = await attemptInit(reduniqSolution, 101);
-            if (!initResult.success && reduniqSolution) {
-                const msg = (initResult.error || '').toLowerCase();
-                const code = (initResult.resultCode || '').toLowerCase();
-                const looksLikeInvalidSolution =
-                    msg.includes('invalid payment solution') ||
-                    (msg.includes('invalid parameter') && msg.includes('payment.solution')) ||
-                    code.startsWith('003');
+            for (const candidateOrigin of originCandidates.length ? originCandidates : [fallbackOrigin]) {
+                const successUrl = `${candidateOrigin}/peregrinacoes/inscricao/${booking.id}?provider=reduniq&orderRef=${orderRef}&status=success`;
+                const cancelUrl = `${candidateOrigin}/peregrinacoes/inscricao/${booking.id}?provider=reduniq&orderRef=${orderRef}&status=failed&canceled=true`;
+                const notificationUrl = `${candidateOrigin}/api/webhooks/reduniq`;
 
-                if (looksLikeInvalidSolution) {
-                    console.warn(`[Reduniq][Pilgrimage] Solution ${reduniqSolution} rejeitada; fallback para terminal geral.`);
-                    initResult = await attemptInit(undefined, 101);
+                const attemptInit = async (solution?: number, action: 100 | 101 = 101) => reduniqClient.initiatePayment({
+                    amount: safeAmountToPay,
+                    orderRef,
+                    returnUrlOk: successUrl,
+                    returnUrlError: cancelUrl,
+                    notificationUrl,
+                    description: safeDescription,
+                    solution,
+                    languageCode: 'por',
+                    action,
+                });
+
+                // 1) Requested solution/action
+                initResult = await attemptInit(reduniqSolution, 101);
+                if (initResult?.success && initResult?.url) {
+                    selectedOrigin = candidateOrigin;
+                    break;
+                }
+
+                // 2) No solution, action 101
+                initResult = await attemptInit(undefined, 101);
+                if (initResult?.success && initResult?.url) {
+                    selectedOrigin = candidateOrigin;
+                    break;
+                }
+
+                // 3) No solution, action 100
+                initResult = await attemptInit(undefined, 100);
+                if (initResult?.success && initResult?.url) {
+                    selectedOrigin = candidateOrigin;
+                    break;
                 }
             }
 
-            if (!initResult.success) {
-                console.warn('[Reduniq][Pilgrimage] Tentativa fallback action=100');
-                initResult = await attemptInit(undefined, 100);
-            }
-
-            if (!initResult.success || !initResult.url) {
+            if (!initResult?.success || !initResult?.url) {
                 console.error('[Reduniq][Pilgrimage] Init failed', {
-                    error: initResult.error,
-                    resultCode: initResult.resultCode,
-                    raw: initResult.raw,
+                    error: initResult?.error,
+                    resultCode: initResult?.resultCode,
+                    raw: initResult?.raw,
                     bookingId: booking.id,
                     orderRef,
                     amount: safeAmountToPay,
-                    origin,
+                    originCandidates,
                 });
-                return NextResponse.json({ error: toSafeCheckoutError(initResult.error || 'Falha ao iniciar pagamento Reduniq.') }, { status: 502 });
+                return NextResponse.json(
+                    { error: toSafeCheckoutError(initResult?.error || 'Falha ao iniciar pagamento Reduniq.') },
+                    { status: 502 },
+                );
             }
 
             try {
@@ -199,7 +216,7 @@ export async function POST(req: Request) {
                 console.warn('Não foi possível criar registo preliminar de peregrinação (Reduniq):', dbErr);
             }
 
-            const normalizedGatewayUrl = normalizeRedirectUrl(initResult.url, origin);
+            const normalizedGatewayUrl = normalizeRedirectUrl(initResult.url, selectedOrigin);
             return NextResponse.json({ url: normalizedGatewayUrl, orderRef });
         }
 
@@ -221,8 +238,8 @@ export async function POST(req: Request) {
                 },
             ],
             mode: 'payment',
-            success_url: `${origin}/peregrinacoes/inscricao/${booking.id}?success=true&provider=stripe&session_id={CHECKOUT_SESSION_ID}`,
-            cancel_url: `${origin}/peregrinacoes/inscricao/${booking.id}?canceled=true&provider=stripe`,
+            success_url: `${fallbackOrigin}/peregrinacoes/inscricao/${booking.id}?success=true&provider=stripe&session_id={CHECKOUT_SESSION_ID}`,
+            cancel_url: `${fallbackOrigin}/peregrinacoes/inscricao/${booking.id}?canceled=true&provider=stripe`,
             metadata: {
                 booking_id: booking.id,
                 userId: booking.user_id,
@@ -253,7 +270,7 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: 'URL de pagamento Stripe inválida.' }, { status: 502 });
         }
 
-        const normalizedStripeUrl = normalizeRedirectUrl(session.url, origin);
+        const normalizedStripeUrl = normalizeRedirectUrl(session.url, fallbackOrigin);
         return NextResponse.json({ url: normalizedStripeUrl });
 
     } catch (error: any) {

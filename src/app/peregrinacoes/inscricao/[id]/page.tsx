@@ -315,6 +315,7 @@ export default function BookingDashboardPage() {
                 : hasPlan
                     ? 'deposit'
                     : 'full';
+    const isFullPaymentFlow = paymentMode === 'full';
 
     // Helper to find state of an installment
     const getInstallmentState = (index: number, amount: number) => {
@@ -732,79 +733,115 @@ export default function BookingDashboardPage() {
                                         <p className="font-bold text-slate-400 uppercase tracking-widest text-xs">O Seu Plano de Viagem</p>
 
                                         <div className="space-y-4">
-                                            {/* Passo 1 */}
-                                            <div className="flex items-center gap-6 group">
-                                                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 shadow-lg border-2 transition-all ${isDepositPaid ? 'bg-green-500 border-green-400 text-white' : (isVerifying ? 'bg-amber-500 border-amber-400 text-white' : 'bg-red-50 border-red-200 text-red-600 animate-pulse')}`}>
-                                                    {isDepositPaid ? <Check className="w-8 h-8" /> : (isVerifying ? <Clock className="w-8 h-8" /> : <CreditCard className="w-8 h-8" />)}
-                                                </div>
-                                                <div>
-                                                    <p className={`font-bold text-xl ${isDepositPaid ? 'text-slate-900' : (isVerifying ? 'text-amber-600' : 'text-red-600')}`}>1. Pagamento do Sinal ({formatPrice(depositValue)})</p>
-                                                    <p className="text-slate-500">
-                                                        {isDepositPaid ? 'PAGO E CONFIRMADO' : (isVerifying ? 'A AGUARDAR VALIDAÇÃO...' : 'PENDENTE - Pagar Agora')}
-                                                    </p>
-                                                </div>
-                                            </div>
+                                            {isFullPaymentFlow ? (
+                                                <>
+                                                    <div className="flex items-center gap-6 group">
+                                                        <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 shadow-lg border-2 transition-all ${isFullyPaid ? 'bg-green-500 border-green-400 text-white' : (isVerifying ? 'bg-amber-500 border-amber-400 text-white' : 'bg-red-50 border-red-200 text-red-600 animate-pulse')}`}>
+                                                            {isFullyPaid ? <Check className="w-8 h-8" /> : (isVerifying ? <Clock className="w-8 h-8" /> : <CreditCard className="w-8 h-8" />)}
+                                                        </div>
+                                                        <div>
+                                                            <p className={`font-bold text-xl ${isFullyPaid ? 'text-slate-900' : (isVerifying ? 'text-amber-600' : 'text-red-600')}`}>
+                                                                1. Pagamento Total ({formatPrice(totalAmount)})
+                                                            </p>
+                                                            <p className="text-slate-500">
+                                                                {isFullyPaid
+                                                                    ? 'PAGO E CONFIRMADO'
+                                                                    : isVerifying
+                                                                        ? 'A AGUARDAR VALIDAÇÃO...'
+                                                                        : paidAmount > 0
+                                                                            ? `PAGO ${formatPrice(paidAmount)} de ${formatPrice(totalAmount)}`
+                                                                            : 'PENDENTE - Pagar Agora'}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                    <div className="ml-7 w-0.5 h-8 bg-slate-100" />
+                                                    <div className="flex items-center gap-6">
+                                                        <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 shadow-lg border-2 transition-all ${isFullyPaid ? 'bg-indigo-600 border-indigo-400 text-white' : 'bg-slate-50 border-slate-100 text-slate-200'}`}>
+                                                            <MapPin className="w-8 h-8" />
+                                                        </div>
+                                                        <div>
+                                                            <p className="font-bold text-xl text-slate-900">2. Peregrinação</p>
+                                                            <p className="text-slate-400">{isFullyPaid ? 'Desejamos-lhe uma excelente viagem!' : 'Aguardamos pela conclusão do pagamento'}</p>
+                                                        </div>
+                                                    </div>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    {/* Passo 1 */}
+                                                    <div className="flex items-center gap-6 group">
+                                                        <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 shadow-lg border-2 transition-all ${isDepositPaid ? 'bg-green-500 border-green-400 text-white' : (isVerifying ? 'bg-amber-500 border-amber-400 text-white' : 'bg-red-50 border-red-200 text-red-600 animate-pulse')}`}>
+                                                            {isDepositPaid ? <Check className="w-8 h-8" /> : (isVerifying ? <Clock className="w-8 h-8" /> : <CreditCard className="w-8 h-8" />)}
+                                                        </div>
+                                                        <div>
+                                                            <p className={`font-bold text-xl ${isDepositPaid ? 'text-slate-900' : (isVerifying ? 'text-amber-600' : 'text-red-600')}`}>1. Pagamento do Sinal ({formatPrice(depositValue)})</p>
+                                                            <p className="text-slate-500">
+                                                                {isDepositPaid ? 'PAGO E CONFIRMADO' : (isVerifying ? 'A AGUARDAR VALIDAÇÃO...' : 'PENDENTE - Pagar Agora')}
+                                                            </p>
+                                                        </div>
+                                                    </div>
 
-                                            {/* Passos das Prestações Dinâmicas */}
-                                            {hasPlan ? (
-                                                paymentPlan.map((step: any, idx: number) => {
-                                                    const state = getInstallmentState(idx, Number(step.amount));
-                                                    return (
-                                                        <div key={idx} className="space-y-4">
+                                                    {/* Passos das Prestações Dinâmicas */}
+                                                    {hasPlan ? (
+                                                        paymentPlan.map((step: any, idx: number) => {
+                                                            const state = getInstallmentState(idx, Number(step.amount));
+                                                            return (
+                                                                <div key={idx} className="space-y-4">
+                                                                    <div className="ml-7 w-0.5 h-8 bg-slate-100" />
+                                                                    <div className="flex items-center gap-6">
+                                                                        <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 shadow-lg border-2 transition-all 
+                                                                            ${state === 'paid' ? 'bg-green-500 border-green-400 text-white' :
+                                                                                state === 'verifying' ? 'bg-amber-500 border-amber-400 text-white' :
+                                                                                    'bg-slate-50 border-slate-200 text-slate-400 opacity-50'}`}>
+                                                                            {state === 'paid' ? <Check className="w-8 h-8" /> :
+                                                                                state === 'verifying' ? <Clock className="w-8 h-8" /> :
+                                                                                    <CreditCard className="w-8 h-8" />}
+                                                                        </div>
+                                                                        <div>
+                                                                            <p className="font-bold text-xl text-slate-900">Prestação {idx + 1} ({formatPrice(Number(step.amount))})</p>
+                                                                            <p className="text-slate-400">
+                                                                                {state === 'paid' ? 'PAGO' :
+                                                                                    state === 'verifying' ? 'A AGUARDAR VALIDAÇÃO...' :
+                                                                                        `Vence a ${format(new Date(step.date), "dd 'de' MMMM", { locale: pt })}`}
+                                                                            </p>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            );
+                                                        })
+                                                    ) : (
+                                                        <>
                                                             <div className="ml-7 w-0.5 h-8 bg-slate-100" />
                                                             <div className="flex items-center gap-6">
-                                                                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 shadow-lg border-2 transition-all 
-                                                                    ${state === 'paid' ? 'bg-green-500 border-green-400 text-white' :
-                                                                        state === 'verifying' ? 'bg-amber-500 border-amber-400 text-white' :
-                                                                            'bg-slate-50 border-slate-200 text-slate-400 opacity-50'}`}>
-                                                                    {state === 'paid' ? <Check className="w-8 h-8" /> :
-                                                                        state === 'verifying' ? <Clock className="w-8 h-8" /> :
-                                                                            <CreditCard className="w-8 h-8" />}
+                                                                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 shadow-lg border-2 transition-all ${isFullyPaid ? 'bg-green-500 border-green-400 text-white' : 'bg-slate-50 border-slate-200 text-slate-400 opacity-50'}`}>
+                                                                    {isFullyPaid ? <Check className="w-8 h-8" /> : <Clock className="w-8 h-8" />}
                                                                 </div>
                                                                 <div>
-                                                                    <p className="font-bold text-xl text-slate-900">Prestação {idx + 1} ({formatPrice(Number(step.amount))})</p>
+                                                                    <p className="font-bold text-xl text-slate-900">2. Mensalidades / Restante</p>
                                                                     <p className="text-slate-400">
-                                                                        {state === 'paid' ? 'PAGO' :
-                                                                            state === 'verifying' ? 'A AGUARDAR VALIDAÇÃO...' :
-                                                                                `Vence a ${format(new Date(step.date), "dd 'de' MMMM", { locale: pt })}`}
+                                                                        {isFullyPaid
+                                                                            ? 'TUDO PAGO'
+                                                                            : `Taxa de inscrição ${formatPrice(depositValue)} + restante ${formatPrice(Math.max(0, totalAmount - depositValue))}`}
                                                                     </p>
                                                                 </div>
                                                             </div>
-                                                        </div>
-                                                    );
-                                                })
-                                            ) : (
-                                                <>
+                                                        </>
+                                                    )}
+
+                                                    {/* Linha Conectora Final */}
                                                     <div className="ml-7 w-0.5 h-8 bg-slate-100" />
+
+                                                    {/* Passo Final */}
                                                     <div className="flex items-center gap-6">
-                                                        <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 shadow-lg border-2 transition-all ${isFullyPaid ? 'bg-green-500 border-green-400 text-white' : 'bg-slate-50 border-slate-200 text-slate-400 opacity-50'}`}>
-                                                            {isFullyPaid ? <Check className="w-8 h-8" /> : <Clock className="w-8 h-8" />}
+                                                        <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 shadow-lg border-2 transition-all ${isFullyPaid ? 'bg-indigo-600 border-indigo-400 text-white' : 'bg-slate-50 border-slate-100 text-slate-200'}`}>
+                                                            <MapPin className="w-8 h-8" />
                                                         </div>
                                                         <div>
-                                                            <p className="font-bold text-xl text-slate-900">2. Mensalidades / Restante</p>
-                                                            <p className="text-slate-400">
-                                                                {isFullyPaid
-                                                                    ? 'TUDO PAGO'
-                                                                    : `Taxa de inscrição ${formatPrice(depositValue)} + restante ${formatPrice(Math.max(0, totalAmount - depositValue))}`}
-                                                            </p>
+                                                            <p className="font-bold text-xl text-slate-900">{hasPlan ? (paymentPlan.length + 2) : 3}. Peregrinação</p>
+                                                            <p className="text-slate-400">{isFullyPaid ? 'Desejamos-lhe uma excelente viagem!' : 'Aguardamos pela conclusão dos pagamentos'}</p>
                                                         </div>
                                                     </div>
                                                 </>
                                             )}
-
-                                            {/* Linha Conectora Final */}
-                                            <div className="ml-7 w-0.5 h-8 bg-slate-100" />
-
-                                            {/* Passo Final */}
-                                            <div className="flex items-center gap-6">
-                                                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 shadow-lg border-2 transition-all ${isFullyPaid ? 'bg-indigo-600 border-indigo-400 text-white' : 'bg-slate-50 border-slate-100 text-slate-200'}`}>
-                                                    <MapPin className="w-8 h-8" />
-                                                </div>
-                                                <div>
-                                                    <p className="font-bold text-xl text-slate-900">{hasPlan ? (paymentPlan.length + 2) : 3}. Peregrinação</p>
-                                                    <p className="text-slate-400">{isFullyPaid ? 'Desejamos-lhe uma excelente viagem!' : 'Aguardamos pela conclusão dos pagamentos'}</p>
-                                                </div>
-                                            </div>
                                         </div>
                                     </div>
 
@@ -833,15 +870,35 @@ export default function BookingDashboardPage() {
                                             </button>
                                         </div>
 
-                                        <InstallmentTracker
-                                            totalAmount={totalAmount}
-                                            paidAmount={paidAmount}
-                                            depositValue={depositValue}
-                                            paymentPlan={paymentPlan}
-                                            payments={booking.payments || []}
-                                            formatPrice={formatPrice}
-                                            useDonationCopy={false}
-                                        />
+                                        {isFullPaymentFlow ? (
+                                            <div className="rounded-3xl border border-slate-200 bg-slate-50 p-6">
+                                                <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-3">Resumo do Pagamento Total</p>
+                                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
+                                                    <div className="rounded-xl bg-white border border-slate-200 p-4">
+                                                        <p className="text-slate-500 text-xs uppercase tracking-widest mb-1">Total</p>
+                                                        <p className="text-lg font-bold text-slate-900">{formatPrice(totalAmount)}</p>
+                                                    </div>
+                                                    <div className="rounded-xl bg-white border border-slate-200 p-4">
+                                                        <p className="text-slate-500 text-xs uppercase tracking-widest mb-1">Pago</p>
+                                                        <p className="text-lg font-bold text-green-700">{formatPrice(paidAmount)}</p>
+                                                    </div>
+                                                    <div className="rounded-xl bg-white border border-slate-200 p-4">
+                                                        <p className="text-slate-500 text-xs uppercase tracking-widest mb-1">Em Falta</p>
+                                                        <p className="text-lg font-bold text-amber-700">{formatPrice(Math.max(0, totalAmount - paidAmount))}</p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <InstallmentTracker
+                                                totalAmount={totalAmount}
+                                                paidAmount={paidAmount}
+                                                depositValue={depositValue}
+                                                paymentPlan={paymentPlan}
+                                                payments={booking.payments || []}
+                                                formatPrice={formatPrice}
+                                                useDonationCopy={false}
+                                            />
+                                        )}
                                     </div>
                                 </div>
 
