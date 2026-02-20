@@ -9,7 +9,7 @@ export const revalidate = 300;
 
 export const metadata: Metadata = {
   title: {
-    absolute: 'Garabandal +',
+    absolute: 'Garabandal+ | A App do Apostolado de Garabandal',
   },
   description: 'Santuário virtual do Apostolado de Garabandal. Peregrinações católicas, doações para a missão e vida de oração.',
   alternates: {

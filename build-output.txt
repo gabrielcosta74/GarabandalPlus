@@ -1,0 +1,32 @@
+
+> garabandal-payments-web@0.1.0 build
+> next build
+
+  ▲ Next.js 14.2.5
+  - Environments: .env.local, .env
+
+   Creating an optimized production build ...
+Found 1 warning while optimizing generated CSS:
+
+[2m│   }[22m
+[2m│ }[22m
+[2m│[22m @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap');
+[2m┆[22m        [33m[2m^--[22m @import rules must precede all rules aside from @charset and @layer statements[39m
+[2m┆[22m
+[2m│ * {[22m
+[2m│   box-sizing: border-box;[22m
+
+ ✓ Compiled successfully
+   Linting and checking validity of types ...
+Failed to compile.
+
+./src/app/admin/academy/new/page.tsx:30:39
+Type error: 'supabaseBrowser' is possibly 'null'.
+
+[0m [90m 28 |[39m         setLoading([36mtrue[39m)[33m;[39m[0m
+[0m [90m 29 |[39m[0m
+[0m[31m[1m>[22m[39m[90m 30 |[39m         [36mconst[39m { data[33m,[39m error } [33m=[39m [36mawait[39m supabaseBrowser[0m
+[0m [90m    |[39m                                       [31m[1m^[22m[39m[0m
+[0m [90m 31 |[39m             [33m.[39m[36mfrom[39m([32m'academy_courses'[39m)[0m
+[0m [90m 32 |[39m             [33m.[39minsert({[0m
+[0m [90m 33 |[39m                 title[33m,[39m[0m

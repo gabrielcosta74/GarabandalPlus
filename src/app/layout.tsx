@@ -10,8 +10,8 @@ const playfair = Playfair_Display({ subsets: ['latin'], variable: '--font-playfa
 export const metadata: Metadata = {
   metadataBase: new URL(APP_URL),
   title: {
-    template: '%s | Apostolado de Garabandal',
-    default: 'Apostolado de Garabandal',
+    template: '%s | Garabandal +',
+    default: 'Garabandal +',
   },
   description: 'Santuário virtual do Apostolado de Garabandal. Peregrinações, doações e missão de evangelização com foco na fé e na mensagem de Nossa Senhora.',
   keywords: [
@@ -29,8 +29,8 @@ export const metadata: Metadata = {
     type: 'website',
     locale: 'pt_BR',
     url: APP_URL,
-    siteName: 'Apostolado de Garabandal',
-    title: 'Apostolado de Garabandal',
+    siteName: 'Garabandal +',
+    title: 'Garabandal +',
     description: 'Santuário virtual com peregrinações, doações e missão de evangelização.',
     images: [
       {
@@ -43,7 +43,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Apostolado de Garabandal',
+    title: 'Garabandal +',
     description: 'Santuário virtual com peregrinações, doações e missão de evangelização.',
     images: ['/images/og-image.jpg'],
   },
@@ -79,7 +79,7 @@ export default function RootLayout({
               '@graph': [
                 {
                   '@type': 'Organization',
-                  name: 'Apostolado de Garabandal',
+                  name: 'Garabandal +',
                   url: APP_URL,
                   logo: `${APP_URL}/images/og-image.jpg`,
                   sameAs: [
@@ -88,7 +88,7 @@ export default function RootLayout({
                 },
                 {
                   '@type': 'WebSite',
-                  name: 'Apostolado de Garabandal',
+                  name: 'Garabandal +',
                   url: APP_URL,
                   inLanguage: 'pt-BR'
                 }

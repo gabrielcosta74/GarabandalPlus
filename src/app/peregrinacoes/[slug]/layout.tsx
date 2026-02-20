@@ -25,7 +25,7 @@ const fetchPilgrimage = async (slug: string) => {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const url = `${APP_URL}/peregrinacoes/${slug}`;
-  const fallbackTitle = `Peregrinação ${slugToTitle(slug)} | Apostolado de Garabandal`;
+  const fallbackTitle = `Peregrinação ${slugToTitle(slug)} | Garabandal +`;
   const fallbackDescription = 'Detalhes da peregrinação organizada pelo Apostolado de Garabandal.';
 
   if (!supabaseServer) {
@@ -39,7 +39,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   try {
     const data = await fetchPilgrimage(slug);
 
-    const title = data?.title ? `${data.title} | Apostolado de Garabandal` : fallbackTitle;
+    const title = data?.title ? `${data.title} | Garabandal +` : fallbackTitle;
     const description = data?.description || fallbackDescription;
 
     return {
@@ -82,7 +82,7 @@ export default async function PeregrinacaoLayout({ children, params }: Props) {
     image: pilgrimage.cover_image ? [pilgrimage.cover_image] : undefined,
     organizer: {
       '@type': 'Organization',
-      name: 'Apostolado de Garabandal',
+      name: 'Garabandal +',
       url: APP_URL,
     },
     offers: pilgrimage.base_price

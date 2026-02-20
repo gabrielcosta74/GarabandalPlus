@@ -37,7 +37,7 @@ const fetchProduct = async (param: string) => {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
   const url = `${APP_URL}${buildProductPath(id, null)}`;
-  const fallbackTitle = 'Produto | Apostolado de Garabandal';
+  const fallbackTitle = 'Produto | Garabandal +';
   const fallbackDescription = 'Produto oficial da loja do Apostolado de Garabandal.';
 
   if (!supabaseServer) {
@@ -51,7 +51,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   try {
     const data = await fetchProduct(id);
 
-    const title = data?.name ? `${data.name} | Apostolado de Garabandal` : fallbackTitle;
+    const title = data?.name ? `${data.name} | Garabandal +` : fallbackTitle;
     const description = data?.description || fallbackDescription;
     const canonicalPath = data?.product_id
       ? buildProductPath(data.product_id, data?.name)
