@@ -7,6 +7,7 @@ import DonationStory from '../../components/donations/DonationStory';
 import DonationAllocation from '../../components/donations/DonationAllocation';
 import DonationFAQ from '../../components/donations/DonationFAQ';
 import DonationModal from '../../components/donations/DonationModal';
+import DonationVideo from '../../components/donations/DonationVideo';
 
 import MobileDonationCTA from '../../components/donations/MobileDonationCTA';
 
@@ -152,13 +153,12 @@ export default function DonationsClient() {
             {bannerState && (
                 <section className="pt-6">
                     <div className="container mx-auto px-6">
-                        <div className={`rounded-2xl border p-4 flex flex-col gap-2 shadow-sm ${
-                            bannerState.type === 'success'
-                                ? 'border-green-200 bg-green-50 text-green-900'
-                                : bannerState.type === 'info'
-                                    ? 'border-blue-200 bg-blue-50 text-blue-900'
-                                    : 'border-red-200 bg-red-50 text-red-900'
-                        }`}>
+                        <div className={`rounded-2xl border p-4 flex flex-col gap-2 shadow-sm ${bannerState.type === 'success'
+                            ? 'border-green-200 bg-green-50 text-green-900'
+                            : bannerState.type === 'info'
+                                ? 'border-blue-200 bg-blue-50 text-blue-900'
+                                : 'border-red-200 bg-red-50 text-red-900'
+                            }`}>
                             <div className="flex items-start justify-between gap-4">
                                 <div>
                                     <div className="font-bold">{bannerState.title}</div>
@@ -183,6 +183,7 @@ export default function DonationsClient() {
                 </section>
             )}
             <DonationHero progress={progress} onDonateClick={() => setModalOpen(true)} />
+            <DonationVideo />
             <DonationStory />
             <DonationAllocation />
             <DonationFAQ />

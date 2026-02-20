@@ -13,7 +13,7 @@ const ALLOWED_STATUSES = new Set([
 
 const ALLOWED_RECEIPT_STATUSES = new Set(['pending', 'sent', 'not_required']);
 
-export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { authorized, user, error } = await verifyAdmin(req);
   if (!authorized) {
     const status = error === 'Forbidden: Not an Admin' ? 403 : 401;
@@ -25,7 +25,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   }
 
   try {
-    const donationId = params?.id;
+    const { id: donationId } = await params;
     if (!donationId) {
       return NextResponse.json({ error: 'Missing donation id' }, { status: 400 });
     }

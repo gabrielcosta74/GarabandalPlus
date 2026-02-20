@@ -7,9 +7,10 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(
     request: Request,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
-    const rawId = decodeURIComponent(params.id);
+    const { id } = await params;
+    const rawId = decodeURIComponent(id);
 
     if (!supabaseServer) {
         return NextResponse.json({ error: 'Database not available' }, { status: 500 });

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { supabaseBrowser } from '../../../../lib/supabase-browser';
 import AdminLayout from '../../../../components/admin/AdminLayout';
 import CategoryManager from '../../../../components/admin/CategoryManager';
@@ -14,8 +14,10 @@ type CategoryType = {
     name: string;
 };
 
-export default function EditPrayerPage({ params }: { params: { id: string } }) {
+export default function EditPrayerPage() {
     const router = useRouter();
+    const params = useParams<{ id: string }>();
+    const prayerId = params?.id;
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
 
@@ -50,12 +52,12 @@ export default function EditPrayerPage({ params }: { params: { id: string } }) {
     };
 
     const loadPrayer = async () => {
-        if (!supabaseBrowser) return;
+        if (!supabaseBrowser || !prayerId) return;
 
         const { data } = await supabaseBrowser
             .from('prayers')
             .select('*')
-            .eq('id', params.id)
+            .eq('id', prayerId)
             .single();
 
         if (!data) {
@@ -87,13 +89,13 @@ export default function EditPrayerPage({ params }: { params: { id: string } }) {
 
     // 2. Save Cropped Image -> Upload to Supabase
     const handleCropSave = async (croppedFile: File) => {
-        if (!supabaseBrowser) return;
+        if (!supabaseBrowser || !prayerId) return;
         setSaving(true);
         setImageToCrop(null); // Close modal
 
         try {
             const fileExt = croppedFile.name.split('.').pop() || 'jpeg';
-            const fileName = `prayers/${params.id}-${Date.now()}.${fileExt}`;
+            const fileName = `prayers/${prayerId}-${Date.now()}.${fileExt}`;
 
             const { error: uploadError } = await supabaseBrowser.storage
                 .from('prayer-assets')
@@ -133,7 +135,7 @@ export default function EditPrayerPage({ params }: { params: { id: string } }) {
                     published,
                     updated_at: new Date().toISOString()
                 })
-                .eq('id', params.id);
+                .eq('id', prayerId);
 
             if (error) throw error;
             router.push('/admin/prayers');

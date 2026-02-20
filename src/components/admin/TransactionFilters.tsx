@@ -6,6 +6,8 @@ import { Search, X } from 'lucide-react';
 export type TransactionFiltersState = {
     category: string;
     status: string;
+    receipt: 'all' | 'sent' | 'pending';
+    nif: 'all' | 'with_nif' | 'without_nif';
     search: string;
 };
 
@@ -52,12 +54,16 @@ export default function TransactionFilters({ filters, setFilters }: TransactionF
     const hasActiveFilters =
         filters.category !== 'all' ||
         filters.status !== 'all' ||
+        filters.receipt !== 'all' ||
+        filters.nif !== 'all' ||
         filters.search !== '';
 
     const clearFilters = () => {
         setFilters({
             category: 'all',
             status: 'all',
+            receipt: 'all',
+            nif: 'all',
             search: '',
         });
     };
@@ -91,7 +97,7 @@ export default function TransactionFilters({ filters, setFilters }: TransactionF
             <div className="h-px bg-gray-50 w-full" />
 
             {/* Filter Groups */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
 
                 <FilterSection title="Origem (Workflow)">
                     <FilterPill label="Todas" active={filters.category === 'all'} onClick={() => updateFilter('category', 'all')} />
@@ -106,6 +112,18 @@ export default function TransactionFilters({ filters, setFilters }: TransactionF
                     <FilterPill label="Confirmados / Pagos" active={filters.status === 'paid'} onClick={() => updateFilter('status', 'paid')} />
                     <FilterPill label="Pendentes" active={filters.status === 'pending'} onClick={() => updateFilter('status', 'pending')} />
                     <FilterPill label="Falhados" active={filters.status === 'failed'} onClick={() => updateFilter('status', 'failed')} />
+                </FilterSection>
+
+                <FilterSection title="Estado Recibo">
+                    <FilterPill label="Todos" active={filters.receipt === 'all'} onClick={() => updateFilter('receipt', 'all')} />
+                    <FilterPill label="Enviado" active={filters.receipt === 'sent'} onClick={() => updateFilter('receipt', 'sent')} />
+                    <FilterPill label="Por Enviar" active={filters.receipt === 'pending'} onClick={() => updateFilter('receipt', 'pending')} />
+                </FilterSection>
+
+                <FilterSection title="NIF">
+                    <FilterPill label="Todos" active={filters.nif === 'all'} onClick={() => updateFilter('nif', 'all')} />
+                    <FilterPill label="Com NIF" active={filters.nif === 'with_nif'} onClick={() => updateFilter('nif', 'with_nif')} />
+                    <FilterPill label="Sem NIF" active={filters.nif === 'without_nif'} onClick={() => updateFilter('nif', 'without_nif')} />
                 </FilterSection>
 
             </div>

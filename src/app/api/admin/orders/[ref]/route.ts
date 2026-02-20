@@ -6,7 +6,7 @@ import { verifyAdmin } from '../../../../../lib/admin-auth';
 
 export async function PATCH(
     request: Request,
-    { params }: { params: { ref: string } }
+    { params }: { params: Promise<{ ref: string }> }
 ) {
     try {
         const { authorized, error: authError } = await verifyAdmin(request);
@@ -15,7 +15,7 @@ export async function PATCH(
             return NextResponse.json({ error: authError || 'Unauthorized' }, { status });
         }
 
-        const { ref } = params;
+        const { ref } = await params;
         const body = await request.json();
         const { shippingStatus, tracking, invoiceSent } = body;
 

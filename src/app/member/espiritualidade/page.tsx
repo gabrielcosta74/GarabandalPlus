@@ -14,7 +14,7 @@ import {
     Users
 } from 'lucide-react';
 
-type Tab = 'historia' | 'mensagens' | 'artigos';
+type Tab = 'historia' | 'mensagens';
 
 export default function AboutGarabandalPage() {
     const [activeTab, setActiveTab] = useState<Tab>('historia');
@@ -22,7 +22,6 @@ export default function AboutGarabandalPage() {
     const tabs = [
         { id: 'historia', label: 'História', icon: Clock },
         { id: 'mensagens', label: 'Mensagens', icon: Quote },
-        { id: 'artigos', label: 'Artigos', icon: FileText },
     ];
 
     return (
@@ -76,7 +75,6 @@ export default function AboutGarabandalPage() {
                     >
                         {activeTab === 'historia' && <HistoryContent />}
                         {activeTab === 'mensagens' && <MessagesContent />}
-                        {activeTab === 'artigos' && <ArticlesContent />}
                     </motion.div>
                 </AnimatePresence>
 
@@ -167,63 +165,6 @@ function MessagesContent() {
             </div>
 
             <p className="text-center text-slate-500 text-sm mt-8">As mensagens foram dadas para a conversão do mundo.</p>
-        </div>
-    );
-}
-
-function ArticlesContent() {
-    const articles = [
-        {
-            title: 'O Aviso',
-            category: 'Profecias',
-            desc: 'Um evento cósmico de iluminação da consciência que será sentido por todos os seres humanos na Terra.'
-        },
-        {
-            title: 'O Milagre',
-            category: 'Profecias',
-            desc: 'O maior milagre que Jesus fará pelo mundo. Ocorrerá nos Pinheiros de Garabandal numa quinta-feira.'
-        },
-        {
-            title: 'O Castigo',
-            category: 'Profecias',
-            desc: 'Condicionado à resposta da humanidade às mensagens. Se o mundo não mudar, virá uma grande purificação.'
-        },
-        {
-            title: 'Os Videntes',
-            category: 'História',
-            desc: 'A vida de Conchita, Mari Loli, Jacinta e Mari Cruz durante e depois das aparições.'
-        },
-        {
-            title: 'Padre Luis Andreu',
-            category: 'Testemunho',
-            desc: 'O único sacerdote que viu a Virgem e o Milagre futuro, falecendo de alegria pouco depois.'
-        },
-        {
-            title: 'A Posição da Igreja',
-            category: 'Igreja',
-            desc: 'Entenda o atual status eclesiástico das aparições: "Non Constat" e a abertura dos últimos Papas.'
-        }
-    ];
-
-    return (
-        <div className="max-w-5xl mx-auto">
-            <h2 className="font-serif text-3xl text-white text-center mb-12">Artigos de Aprofundamento</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {articles.map((art, i) => (
-                    <div key={i} className="group cursor-pointer bg-slate-900/50 p-6 rounded-2xl border border-white/5 hover:border-yellow-500/30 transition-all hover:bg-slate-800/80">
-                        <div className="text-xs font-bold text-yellow-500 uppercase tracking-wider mb-3">{art.category}</div>
-                        <h3 className="font-serif text-xl font-bold text-white mb-3 group-hover:text-yellow-400 transition-colors">{art.title}</h3>
-                        <p className="text-slate-400 text-sm leading-relaxed mb-6">{art.desc}</p>
-                        <div className="flex items-center text-sm font-bold text-slate-500 group-hover:text-white transition-colors">
-                            Ler Artigo <ChevronRight className="w-4 h-4 ml-1" />
-                        </div>
-                    </div>
-                ))}
-            </div>
-            <div className="mt-12 text-center p-8 bg-slate-950 rounded-2xl border border-white/5 border-dashed">
-                <FileText className="w-8 h-8 text-slate-600 mx-auto mb-3" />
-                <p className="text-slate-500">Mais artigos serão adicionados brevemente.</p>
-            </div>
         </div>
     );
 }

@@ -4,7 +4,7 @@ import React from 'react';
 import Image from 'next/image';
 import { motion } from 'framer-motion';
 import { Product } from '../../app/loja-online/data';
-import { ShoppingCart, Globe } from 'lucide-react';
+import { ShoppingCart, Globe, Eye } from 'lucide-react';
 import { useCurrency } from '../providers/CurrencyProvider';
 import { inferIsDigitalProduct } from '../../lib/product-kind';
 
@@ -32,8 +32,8 @@ const ProductCard = React.forwardRef<HTMLDivElement, ProductCardProps>(({
     const hasStock = isDigital
         ? true
         : (product.variants && product.variants.length > 0)
-        ? totalVariantStock > 0
-        : (product.stock === null ? true : (product.stock ?? 0) > 0);
+            ? totalVariantStock > 0
+            : (product.stock === null ? true : (product.stock ?? 0) > 0);
 
     const isSoldOut = !isDigital && !hasStock;
 
@@ -114,21 +114,27 @@ const ProductCard = React.forwardRef<HTMLDivElement, ProductCardProps>(({
 
                     <motion.button
                         whileTap={{ scale: 0.95 }}
-                        onClick={onAddToCart}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onAddToCart(e);
+                        }}
                         disabled={isSoldOut}
-                        className={`w-full py-3.5 rounded-xl text-xs font-bold uppercase tracking-widest flex items-center justify-center gap-2 transition-all shadow-sm
+                        className={`group/btn relative overflow-hidden w-full py-3.5 rounded-xl text-xs font-bold uppercase tracking-widest flex items-center justify-center gap-2 transition-all shadow-sm cursor-pointer
                         ${isSoldOut
                                 ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
                                 : 'bg-garabandal-dark text-white hover:bg-black hover:shadow-lg'
                             }
                     `}
                     >
+                        {!isSoldOut && (
+                            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent translate-x-[-150%] group-hover/btn:translate-x-[150%] transition-transform duration-1000 ease-in-out pointer-events-none" />
+                        )}
                         {isSoldOut ? (
                             'Esgotado'
                         ) : (
                             <>
-                                <ShoppingCart size={16} />
-                                Adicionar
+                                <Eye size={20} className="transition-transform duration-300 group-hover/btn:-translate-y-0.5 group-hover/btn:scale-110" strokeWidth={2} />
+                                Ver Produto
                             </>
                         )}
                     </motion.button>

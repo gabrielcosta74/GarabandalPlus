@@ -5,9 +5,9 @@ import { logAdminAction } from '../../../../../lib/admin-logger';
 
 export async function DELETE(
   req: Request,
-  { params }: { params: { pilgrimageId: string } }
+  { params }: { params: Promise<{ pilgrimageId: string }> }
 ) {
-  const pilgrimageId = params.pilgrimageId;
+  const { pilgrimageId } = await params;
 
   if (!supabaseServer) {
     return NextResponse.json({ error: 'Server not configured' }, { status: 500 });

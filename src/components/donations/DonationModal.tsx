@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, CheckCircle, CreditCard, ChevronRight, Landmark, FileText, Upload, Loader2, AlertCircle, QrCode } from 'lucide-react';
+import { X, CheckCircle, CreditCard, ChevronRight, Landmark, FileText, Upload, Loader2, AlertCircle, QrCode, BrickWall, Square, Home, Hammer, Wind, ThermometerSun } from 'lucide-react';
 import { formatPostalCode, getPostalInputMode, getPostalInvalidMessage, validatePostalCode } from '../../lib/country-utils';
 import { supabaseBrowser } from '../../lib/supabase-browser';
 import { useCurrency } from '../providers/CurrencyProvider';
@@ -11,7 +11,14 @@ import {
     normalizeBankTransferDetails,
 } from '../../lib/bank-transfer-details';
 
-const quickAmounts = [10, 25, 50, 100, 250];
+const impactOptions = [
+    { value: 25, label: "Argamassas", impact: "Sacos de cimento para sanear paredes", icon: BrickWall },
+    { value: 50, label: "Pavimento", impact: "1m² de cerâmica nova e durável", icon: Square },
+    { value: 100, label: "Telhado", impact: "1m² de telhas e isolamento", icon: Home, popular: true },
+    { value: 250, label: "Vigas", impact: "Tratamento das madeiras originais", icon: Hammer },
+    { value: 500, label: "Janela", impact: "Vidro duplo eficiente", icon: Wind },
+    { value: 1000, label: "Aquecimento", impact: "Radiadores para o inverno", icon: ThermometerSun },
+];
 
 interface DonationModalProps {
     isOpen: boolean;
@@ -21,8 +28,8 @@ interface DonationModalProps {
 export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
     const { formatPrice, currency } = useCurrency();
     const [step, setStep] = useState(1);
-    const [selectedPreset, setSelectedPreset] = useState(50);
-    const [customAmount, setCustomAmount] = useState('50');
+    const [selectedPreset, setSelectedPreset] = useState(25);
+    const [customAmount, setCustomAmount] = useState('');
     const [selectedPaymentId, setSelectedPaymentId] = useState(UNIFIED_DONATION_PAYMENT_OPTIONS[0].id);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -48,8 +55,11 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
     });
 
     const amount = useMemo(() => {
-        const parsed = Number(customAmount.replace(',', '.'));
-        return Number.isFinite(parsed) && parsed > 0 ? parsed : selectedPreset;
+        if (customAmount) {
+            const parsed = Number(customAmount.replace(',', '.'));
+            return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+        }
+        return selectedPreset;
     }, [customAmount, selectedPreset]);
 
     const selectedPayment = UNIFIED_DONATION_PAYMENT_OPTIONS.find(p => p.id === selectedPaymentId) || UNIFIED_DONATION_PAYMENT_OPTIONS[0];
@@ -338,16 +348,48 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
                                             <h2 className="text-2xl font-bold text-garabandal-dark mb-2">Escolhe o valor</h2>
                                             <p className="text-gray-500">Cada contribuição faz a diferença.</p>
                                         </div>
-                                        <div className="grid grid-cols-3 gap-3">
-                                            {quickAmounts.map((val) => (
-                                                <button key={val} onClick={() => { setSelectedPreset(val); setCustomAmount(String(val)); }}
-                                                    className={`py-3 rounded-xl border-2 font-bold transition-all ${selectedPreset === val ? 'border-garabandal-gold bg-garabandal-gold/10 text-garabandal-dark' : 'border-gray-100 hover:border-garabandal-gold/50 text-gray-600'}`}>
-                                                    {formatPrice(val)}
+                                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                                            {impactOptions.map((option) => (
+                                                <button
+                                                    key={option.value}
+                                                    onClick={() => { setSelectedPreset(option.value); setCustomAmount(''); }}
+                                                    className={`relative p-4 rounded-xl border-2 text-left transition-all group overflow-hidden ${selectedPreset === option.value && !customAmount
+                                                        ? 'border-garabandal-gold bg-garabandal-gold/10 ring-1 ring-garabandal-gold'
+                                                        : 'border-gray-100 hover:border-garabandal-gold/50 hover:bg-gray-50'
+                                                        }`}
+                                                >
+                                                    {option.popular && (
+                                                        <div className="absolute top-0 right-0 bg-garabandal-gold text-garabandal-dark text-[9px] font-bold px-2 py-0.5 rounded-bl-lg uppercase tracking-wider">
+                                                            Popular
+                                                        </div>
+                                                    )}
+
+                                                    <div className={`mb-3 p-2 rounded-lg w-fit transition-colors ${selectedPreset === option.value && !customAmount
+                                                        ? 'bg-garabandal-gold text-white'
+                                                        : 'bg-gray-100 text-gray-500 group-hover:text-garabandal-dark'
+                                                        }`}>
+                                                        <option.icon className="w-5 h-5" />
+                                                    </div>
+
+                                                    <div>
+                                                        <div className="text-xl font-serif font-bold text-garabandal-dark mb-0.5">
+                                                            {formatPrice(option.value)}
+                                                        </div>
+                                                        <div className="font-bold text-xs text-gray-900 mb-1">{option.label}</div>
+                                                        <div className="text-[10px] leading-tight text-gray-500 line-clamp-2">
+                                                            {option.impact}
+                                                        </div>
+                                                    </div>
                                                 </button>
                                             ))}
-                                            <div className="relative">
-                                                <input type="number" value={customAmount} onChange={e => { setCustomAmount(e.target.value); setSelectedPreset(0); }}
-                                                    className="w-full h-full px-4 text-center rounded-xl border-2 border-gray-100 focus:border-garabandal-gold outline-none font-bold text-garabandal-dark" placeholder="Outro" />
+
+                                            {/* Custom Amount Field - Full Width or grid item */}
+                                            <div className="col-span-2 md:col-span-3 mt-2">
+                                                <div className="relative">
+                                                    <input type="number" value={customAmount} onChange={e => { setCustomAmount(e.target.value); setSelectedPreset(0); }}
+                                                        className={`w-full p-4 text-center rounded-xl border-2 transition-all outline-none font-bold placeholder:font-normal ${customAmount ? 'border-garabandal-gold text-garabandal-dark ring-1 ring-garabandal-gold' : 'border-gray-100 text-gray-600 focus:border-garabandal-gold/50'}`}
+                                                        placeholder="Outro valor (€) - Define o teu próprio impacto" />
+                                                </div>
                                             </div>
                                         </div>
                                         <div>

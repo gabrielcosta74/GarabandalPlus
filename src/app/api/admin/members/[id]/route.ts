@@ -30,14 +30,14 @@ const isMissingNotesColumnError = (error: any) =>
     String(error?.message || '').toLowerCase().includes('does not exist');
 
 // GET: Fetch Member Details + Payments
-export async function GET(req: Request, { params }: { params: { id: string } }) {
+export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
     const { authorized, error } = await verifyAdmin(req);
     if (!authorized) {
         return NextResponse.json({ error: error || 'Unauthorized' }, { status: 401 });
     }
 
     try {
-        const id = params.id;
+        const { id } = await params;
         if (!supabaseServer) return NextResponse.json({ error: 'Server Config Error' }, { status: 500 });
 
         // Fetch Member
@@ -75,14 +75,14 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
 }
 
 // PATCH: Update Member Details
-export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
     const { authorized, user, error: authError } = await verifyAdmin(req);
     if (!authorized || !user) {
         return NextResponse.json({ error: authError || 'Unauthorized' }, { status: 401 });
     }
 
     try {
-        const id = params.id;
+        const { id } = await params;
         if (!supabaseServer) return NextResponse.json({ error: 'Server Config Error' }, { status: 500 });
         const body = await req.json();
 
@@ -139,14 +139,14 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 }
 
 // POST: Execute Actions (Revoke, Register Payment, etc)
-export async function POST(req: Request, { params }: { params: { id: string } }) {
+export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
     const { authorized, user, error: authError } = await verifyAdmin(req);
     if (!authorized || !user) {
         return NextResponse.json({ error: authError || 'Unauthorized' }, { status: 401 });
     }
 
     try {
-        const id = params.id;
+        const { id } = await params;
         if (!supabaseServer) return NextResponse.json({ error: 'Server Config Error' }, { status: 500 });
         const { action, ...data } = await req.json();
 
@@ -396,14 +396,14 @@ export async function POST(req: Request, { params }: { params: { id: string } })
 }
 
 // DELETE: Hard Delete (Danger)
-export async function DELETE(req: Request, { params }: { params: { id: string } }) {
+export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
     const { authorized, user, error: authError } = await verifyAdmin(req);
     if (!authorized || !user) {
         return NextResponse.json({ error: authError || 'Unauthorized' }, { status: 401 });
     }
 
     try {
-        const id = params.id;
+        const { id } = await params;
         if (!supabaseServer) return NextResponse.json({ error: 'Server Config Error' }, { status: 500 });
 
         const { error } = await supabaseServer

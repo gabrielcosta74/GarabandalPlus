@@ -24,6 +24,8 @@ node -e '
 '
 
 echo "==> [2/5] TypeScript check"
+echo "Generating Next.js route/page types..."
+npx next typegen
 npx tsc --noEmit
 
 echo "==> [3/5] Lint check"

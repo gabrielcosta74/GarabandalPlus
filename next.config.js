@@ -1,20 +1,33 @@
+const path = require('path');
 const withBundleAnalyzer = require('@next/bundle-analyzer')({
   enabled: process.env.ANALYZE === 'true',
 });
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  outputFileTracingRoot: path.join(__dirname),
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
   experimental: {
     serverActions: {
       bodySizeLimit: '2mb',
     },
-    serverComponentsExternalPackages: ['@supabase/supabase-js', '@supabase/realtime-js', 'ws'],
   },
+  serverExternalPackages: ['@supabase/supabase-js', '@supabase/realtime-js', 'ws'],
   webpack: (config, { isServer }) => {
     if (isServer) {
       config.externals = config.externals || [];
       config.externals.push('ws');
     }
+    config.watchOptions = config.watchOptions || {};
+    config.watchOptions.ignored = [
+      '**/.next/**',
+      '**/.next.bak.*/**',
+      '**/node_modules.bak.*/**',
+      '**/migration-output/**',
+      '**/tmp/**',
+    ];
     return config;
   },
   async headers() {

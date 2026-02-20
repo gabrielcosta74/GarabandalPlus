@@ -66,23 +66,7 @@ export default function DonationAllocation() {
                     ))}
 
                     {/* Final CTA Card */}
-                    <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        whileInView={{ opacity: 1, y: 0 }}
-                        viewport={{ once: true }}
-                        transition={{ delay: items.length * 0.1 }}
-                        className="bg-garabandal-dark p-8 rounded-3xl flex flex-col justify-center text-center text-white relative overflow-hidden"
-                    >
-                        <div className="absolute inset-0 bg-garabandal-gold/10 blur-xl" />
-                        <div className="relative z-10">
-                            <h3 className="text-xl font-bold mb-3 text-garabandal-gold">Fase Atual: 2</h3>
-                            <p className="text-gray-300 mb-6">Estamos focados nas obras principais e revestimentos.</p>
-                            <div className="w-full bg-white/10 rounded-full h-2 mb-2">
-                                <div className="bg-garabandal-gold h-2 rounded-full w-[60%]"></div>
-                            </div>
-                            <span className="text-xs text-gray-400">60% da Fase 2 concluída</span>
-                        </div>
-                    </motion.div>
+
                 </div>
             </div>
         </section>

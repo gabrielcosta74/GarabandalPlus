@@ -22,6 +22,7 @@ import { useCurrency } from "../providers/CurrencyProvider";
 import { GoogleButton } from "../auth/AuthLayout";
 import { UNIFIED_ONLINE_PAYMENT_OPTIONS } from "../../lib/payment-options";
 import { getMembershipAmountClient } from "../../lib/membership-pricing";
+import { normalizeQuotaStatus } from "../../lib/membership-status";
 
 interface MembershipModalProps {
     isOpen: boolean;
@@ -339,7 +340,8 @@ export default function MembershipModal({ isOpen, onClose, impact }: MembershipM
             if (error.code === '23505') { // Unique Violation
                 if (error.message?.includes('email')) throw new Error("Este email já está registado noutra conta.");
                 if (error.message?.includes('nif')) throw new Error("Este NIF já está registado noutra conta.");
-                throw new Error("Dados duplicados (Email ou NIF).");
+                if (error.message?.includes('numero_socio')) throw new Error("Conflito ao gerar número de membro. Tenta novamente.");
+                throw new Error("Dados duplicados (Email, NIF ou número de membro).");
             }
             throw new Error("Erro ao guardar perfil.");
         }
@@ -385,11 +387,12 @@ export default function MembershipModal({ isOpen, onClose, impact }: MembershipM
 
     // Check renewal status
     const renewalSource = modalMemberData !== undefined ? modalMemberData : authMemberData;
-    const renewalStatus = String(renewalSource?.estado_quota || '').toLowerCase();
+    const rawRenewalStatus = String(renewalSource?.estado_quota || '').replace(/['"]/g, '').trim();
+    const renewalStatus = normalizeQuotaStatus(rawRenewalStatus);
     const isRenewal = !!(
         renewalSource?.is_membro ||
         renewalSource?.proxima_quota ||
-        (renewalStatus && renewalStatus !== 'pendente' && renewalStatus !== 'indefinido')
+        (renewalStatus && renewalStatus !== 'pendente')
     );
 
     return (
@@ -613,7 +616,12 @@ export default function MembershipModal({ isOpen, onClose, impact }: MembershipM
                                                     <InputField label="Nome Completo" value={formData.nome} onChange={e => setFormData(p => ({ ...p, nome: e.target.value }))} />
                                                 </div>
                                                 <div className="md:col-span-2">
-                                                    <InputField label="Email" value={formData.email} onChange={e => setFormData(p => ({ ...p, email: e.target.value }))} />
+                                                    <InputField
+                                                        label="Email"
+                                                        value={formData.email}
+                                                        readOnly
+                                                    />
+                                                    <p className="text-[11px] text-gray-500 mt-1 ml-1">Email bloqueado para evitar inconsistências na inscrição de membro.</p>
                                                 </div>
                                                 <div>
                                                     <SelectField label="País" value={formData.pais} onChange={e => setFormData(p => ({ ...p, pais: e.target.value }))}>

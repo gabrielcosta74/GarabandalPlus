@@ -3,7 +3,7 @@ import { APP_URL } from '../../../lib/config';
 import { supabaseServer } from '../../../lib/supabase';
 
 type Props = {
-  params: { slug: string };
+  params: Promise<{ slug: string }>;
   children: React.ReactNode;
 };
 
@@ -23,8 +23,9 @@ const fetchPilgrimage = async (slug: string) => {
 };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const url = `${APP_URL}/peregrinacoes/${params.slug}`;
-  const fallbackTitle = `Peregrinação ${slugToTitle(params.slug)} | Apostolado de Garabandal`;
+  const { slug } = await params;
+  const url = `${APP_URL}/peregrinacoes/${slug}`;
+  const fallbackTitle = `Peregrinação ${slugToTitle(slug)} | Apostolado de Garabandal`;
   const fallbackDescription = 'Detalhes da peregrinação organizada pelo Apostolado de Garabandal.';
 
   if (!supabaseServer) {
@@ -36,7 +37,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   }
 
   try {
-    const data = await fetchPilgrimage(params.slug);
+    const data = await fetchPilgrimage(slug);
 
     const title = data?.title ? `${data.title} | Apostolado de Garabandal` : fallbackTitle;
     const description = data?.description || fallbackDescription;
@@ -62,7 +63,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export default async function PeregrinacaoLayout({ children, params }: Props) {
-  const pilgrimage = await fetchPilgrimage(params.slug);
+  const { slug } = await params;
+  const pilgrimage = await fetchPilgrimage(slug);
 
   if (!pilgrimage) {
     return children;
@@ -88,7 +90,7 @@ export default async function PeregrinacaoLayout({ children, params }: Props) {
         '@type': 'Offer',
         price: pilgrimage.base_price,
         priceCurrency: 'EUR',
-        url: `${APP_URL}/peregrinacoes/${params.slug}`,
+        url: `${APP_URL}/peregrinacoes/${slug}`,
         availability: 'https://schema.org/InStock',
       }
       : undefined,
@@ -114,7 +116,7 @@ export default async function PeregrinacaoLayout({ children, params }: Props) {
         '@type': 'ListItem',
         position: 3,
         name: pilgrimage.title || 'Peregrinação',
-        item: `${APP_URL}/peregrinacoes/${params.slug}`,
+        item: `${APP_URL}/peregrinacoes/${slug}`,
       },
     ],
   };

@@ -170,7 +170,7 @@ export default function TransactionDetailsModal({ transaction, onClose, onToggle
                                             <div className="h-8 w-px bg-gray-300 mx-2 hidden sm:block"></div>
 
                                             <div className="flex flex-col">
-                                                <span className="text-xs uppercase font-bold text-gray-400">Estado Fatura</span>
+                                                <span className="text-xs uppercase font-bold text-gray-400">Estado Recibo</span>
                                                 <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold uppercase transition-all cursor-pointer hover:ring-2 hover:ring-offset-1 ${transaction.invoice_sent_at
                                                     ? 'bg-blue-100 text-blue-700 hover:ring-blue-200'
                                                     : 'bg-gray-100 text-gray-500 hover:ring-gray-200'
@@ -189,7 +189,7 @@ export default function TransactionDetailsModal({ transaction, onClose, onToggle
                                                 }`}
                                         >
                                             <FileText className="w-4 h-4" />
-                                            {transaction.invoice_sent_at ? 'Marcar Não Enviada' : 'Marcar Fatura Enviada'}
+                                            {transaction.invoice_sent_at ? 'Marcar Não Enviada' : 'Marcar Recibo Enviado'}
                                         </button>
                                     </div>
 

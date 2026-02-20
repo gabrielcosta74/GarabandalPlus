@@ -47,6 +47,7 @@ type ConsolidatedTransaction = {
     details_link: string;
     items?: Array<{ name: string; qty: number; price: number; total: number }>;
     invoice_sent_at?: string | null;
+    has_nif?: boolean;
 };
 
 export default function TransactionsUnifiedManager() {
@@ -60,6 +61,8 @@ export default function TransactionsUnifiedManager() {
     const [filters, setFilters] = useState<TransactionFiltersState>({
         category: 'all',
         status: 'all',
+        receipt: 'all',
+        nif: 'all',
         search: ''
     });
 
@@ -86,11 +89,11 @@ export default function TransactionsUnifiedManager() {
                 body: JSON.stringify({
                     id: t.id,
                     category: t.category,
-                    invoiceSent: newStatus
+                    receiptSent: newStatus
                 })
             });
 
-            if (!res.ok) throw new Error('Failed to update invoice status');
+            if (!res.ok) throw new Error('Falha ao atualizar estado do recibo');
 
             const timestamp = newStatus ? new Date().toISOString() : null;
 
@@ -155,6 +158,15 @@ export default function TransactionsUnifiedManager() {
             if (filters.status === 'pending') matchesStatus = ['pending', 'pendente', 'verifying', 'pending_verification'].includes(s);
             if (filters.status === 'failed') matchesStatus = ['failed', 'canceled'].includes(s);
 
+            let matchesReceipt = true;
+            if (filters.receipt === 'sent') matchesReceipt = !!t.invoice_sent_at;
+            if (filters.receipt === 'pending') matchesReceipt = !t.invoice_sent_at;
+
+            let matchesNif = true;
+            const hasNif = typeof t.customer_nif === 'string' && t.customer_nif.trim().length > 0;
+            if (filters.nif === 'with_nif') matchesNif = hasNif;
+            if (filters.nif === 'without_nif') matchesNif = !hasNif;
+
             const searchLower = filters.search.toLowerCase();
             const matchesSearch = !filters.search ||
                 t.customer_name?.toLowerCase().includes(searchLower) ||
@@ -162,7 +174,7 @@ export default function TransactionsUnifiedManager() {
                 t.customer_nif?.includes(searchLower) ||
                 t.reference.toLowerCase().includes(searchLower);
 
-            return matchesCategory && matchesStatus && matchesSearch;
+            return matchesCategory && matchesStatus && matchesReceipt && matchesNif && matchesSearch;
         });
     }, [transactions, filters]);
 
@@ -174,7 +186,7 @@ export default function TransactionsUnifiedManager() {
     ];
 
     const exportToCSV = () => {
-        const headers = ['Data', 'Categoria', 'Ref', 'Nome', 'Email', 'NIF', 'Valor', 'Status', 'Fatura Enviada'];
+        const headers = ['Data', 'Categoria', 'Ref', 'Nome', 'Email', 'NIF', 'Valor', 'Status', 'Recibo Enviado'];
         const rows = filteredTransactions.map(t => [
             format(new Date(t.created_at), 'yyyy-MM-dd HH:mm'),
             t.category,
@@ -238,7 +250,7 @@ export default function TransactionsUnifiedManager() {
                                 {copied === `nif-${t.id}` ? <CheckCircle className="w-3 h-3 text-green-500" /> : <Copy className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />}
                             </button>
                         ) : (
-                            <span className="text-[10px] text-gray-400 italic">Sem NIF</span>
+                            <span className="text-[10px] text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded font-semibold">Sem NIF</span>
                         )}
                     </div>
                 </div>
@@ -269,7 +281,7 @@ export default function TransactionsUnifiedManager() {
                     <span className="font-black text-gray-900 text-sm block">{new Intl.NumberFormat('pt-PT', { style: 'currency', currency: t.currency }).format(t.amount)}</span>
                     <div className="flex items-center justify-end gap-1">
                         <span className="text-[10px] text-gray-400 uppercase font-medium">{t.method?.replace('_', ' ') || 'Card'}</span>
-                        {t.invoice_sent_at && <span title="Fatura Enviada"><FileText className="w-3 h-3 text-blue-500" /></span>}
+                        {t.invoice_sent_at && <span title="Recibo marcado como enviado"><FileText className="w-3 h-3 text-blue-500" /></span>}
                     </div>
                 </div>
             )
@@ -355,9 +367,9 @@ export default function TransactionsUnifiedManager() {
                     color="amber"
                 />
                 <StatCard
-                    title="Volume Doações"
-                    value={new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR' }).format(transactions.filter(t => t.category === 'donation').reduce((acc, t) => acc + t.amount, 0))}
-                    icon={Heart}
+                    title="Recibos Por Enviar"
+                    value={transactions.filter(t => !t.invoice_sent_at).length.toString()}
+                    icon={FileText}
                     color="rose"
                 />
             </div>

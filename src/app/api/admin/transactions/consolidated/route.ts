@@ -29,7 +29,9 @@ export async function GET(req: Request) {
             .select('*')
             .order('created_at', { ascending: false });
 
-        const orderRefs = (orders || []).map(o => o.order_ref);
+        const orderRefs = (orders || [])
+            .map(o => (typeof o.order_ref === 'string' ? o.order_ref : null))
+            .filter((ref): ref is string => !!ref);
         const { data: allItems } = orderRefs.length > 0
             ? await supabaseServer
                 .from('store_order_items')
@@ -47,7 +49,7 @@ export async function GET(req: Request) {
         // 3. Fetch Pilgrimage Payments
         const { data: pilgrimagePayments } = await supabaseServer
             .from('pilgrimage_payments')
-            .select('*, bookings(user_id, pilgrimages(title))')
+            .select('id, booking_id, amount, method, status, proof_url, transaction_id, created_at, external_reference, notes, invoice_sent_at, bookings(id, user_id, pilgrimages(title))')
             .order('created_at', { ascending: false });
 
         // 4. Fetch Quota Payments
@@ -59,9 +61,11 @@ export async function GET(req: Request) {
         // 5. Batch Fetch Profiles (Membros)
         // Collect user_ids from Pilgrimages (booking.user_id) and Quotas (user_id)
         const userIds = new Set<string>();
+        const bookingIds = new Set<string>();
 
         // From Pilgrimages
         (pilgrimagePayments || []).forEach(p => {
+            if ((p as any)?.booking_id) bookingIds.add((p as any).booking_id);
             const uid = (p.bookings as any)?.user_id;
             if (uid) userIds.add(uid);
         });
@@ -82,6 +86,31 @@ export async function GET(req: Request) {
         const profilesMap = new Map<string, any>();
         (profiles || []).forEach(p => profilesMap.set(p.id, p));
 
+        // Fetch pilgrims tax ids to support pilgrimage payments where profile nif is missing
+        const { data: pilgrimsByBooking } = bookingIds.size > 0
+            ? await supabaseServer
+                .from('pilgrims')
+                .select('booking_id, cpf_nif')
+                .in('booking_id', Array.from(bookingIds))
+            : { data: [] };
+
+        const bookingNifMap = new Map<string, string | null>();
+        (pilgrimsByBooking || []).forEach((row: any) => {
+            const bookingId = row?.booking_id as string | undefined;
+            if (!bookingId || bookingNifMap.has(bookingId)) return;
+            const nif = typeof row?.cpf_nif === 'string' ? row.cpf_nif.trim() : '';
+            if (nif) bookingNifMap.set(bookingId, nif);
+        });
+
+        const hasNif = (value: unknown) => typeof value === 'string' && value.trim().length > 0;
+        const normalizeProvider = (category: string, method?: string | null) => {
+            const m = String(method || '').toLowerCase();
+            if (category === 'shop') return m.includes('reduniq') ? 'Reduniq' : m.includes('stripe') ? 'Stripe' : 'Loja';
+            if (category === 'donation') return m.includes('reduniq') ? 'Reduniq' : m.includes('stripe') ? 'Stripe' : m.includes('bank') ? 'Transferência' : 'Doação';
+            if (category === 'quota') return m.includes('stripe') ? 'Stripe' : m.includes('manual') ? 'Manual' : 'Quota';
+            if (category === 'pilgrimage') return m.includes('reduniq') ? 'Reduniq' : m.includes('stripe') ? 'Stripe' : m.includes('manual') ? 'Manual' : 'Peregrinação';
+            return '—';
+        };
 
         // Consolidate Data
         const transactions: any[] = [];
@@ -98,7 +127,9 @@ export async function GET(req: Request) {
                 id: d.id,
                 category: 'donation',
                 reference: `DON-${d.id.slice(0, 8)}`,
-                amount: (d.amount_cents || 0) / 100,
+                amount: typeof d.amount_cents === 'number'
+                    ? d.amount_cents / 100
+                    : Number(d.amount || 0),
                 currency: d.currency || 'EUR',
                 customer_name: d.donor_name || (d.donor_email ? 'Doador' : 'Anónimo'),
                 customer_email: d.donor_email || '—',
@@ -109,28 +140,30 @@ export async function GET(req: Request) {
                 customer_country: d.donor_country,
                 status: d.status,
                 method: d.method,
-                provider: 'Stripe',
+                provider: normalizeProvider('donation', d.method),
                 created_at: d.created_at,
                 invoice_sent_at: d.invoice_sent_at,
+                has_nif: hasNif(d.donor_nif),
                 details_link: `/admin/doacoes?id=${d.id}`
             });
         });
 
         // Map Store Orders (Same as before)
         (orders || []).forEach(o => {
+            const storeNif = typeof o.buyer_nif === 'string' ? o.buyer_nif.trim() : '';
             transactions.push({
                 id: o.id,
                 category: 'shop',
-                reference: o.order_reference || `SHOP-${o.id.slice(0, 8)}`,
-                amount: o.total_amount,
+                reference: o.order_ref || `SHOP-${o.id.slice(0, 8)}`,
+                amount: Number(o.total_amount || 0),
                 currency: o.currency || 'EUR',
-                customer_name: o.shipping_name,
-                customer_email: o.customer_email,
+                customer_name: o.buyer_name || 'Cliente Loja',
+                customer_email: o.buyer_email || '—',
                 status: o.status,
                 method: o.payment_method,
-                provider: 'Stripe',
+                provider: normalizeProvider('shop', o.payment_method),
                 created_at: o.created_at,
-                customer_nif: o.buyer_nif,
+                customer_nif: storeNif || null,
                 customer_address: o.billing_address || o.shipping_address1,
                 customer_city: o.billing_city || o.shipping_city,
                 customer_zip: o.billing_postal_code || o.shipping_postal_code,
@@ -138,10 +171,11 @@ export async function GET(req: Request) {
                 items: (itemsMap.get(o.order_ref) || []).map((i: any) => ({
                     name: i.name,
                     qty: i.qty,
-                    price: i.unit_price,
-                    total: i.unit_price * i.qty
+                    price: Number(i.unit_price || 0),
+                    total: Number(i.total_price || (Number(i.unit_price || 0) * Number(i.qty || 1)))
                 })),
                 invoice_sent_at: o.invoice_sent_at,
+                has_nif: hasNif(storeNif),
                 details_link: `/admin/loja?order=${o.id}`
             });
         });
@@ -151,25 +185,28 @@ export async function GET(req: Request) {
             const tripTitle = (p.bookings as any)?.pilgrimages?.title || 'Peregrinação';
             const userId = (p.bookings as any)?.user_id;
             const profile = profilesMap.get(userId);
+            const bookingNif = bookingNifMap.get((p as any).booking_id) || null;
+            const resolvedNif = (typeof profile?.nif === 'string' && profile.nif.trim()) || bookingNif || null;
 
             transactions.push({
                 id: p.id,
                 category: 'pilgrimage',
                 reference: p.external_reference || `PILG-${p.id.slice(0, 8)}`,
-                amount: p.amount,
+                amount: Number(p.amount || 0),
                 currency: 'EUR',
                 customer_name: profile?.nome || tripTitle,
                 customer_email: profile?.email || p.transaction_id || '—', // Use profile email first
-                customer_nif: profile?.nif,
+                customer_nif: resolvedNif,
                 customer_address: profile?.address,
                 customer_zip: profile?.postal_code,
                 status: p.status,
                 method: p.method,
-                provider: p.method === 'manual' ? 'Manual' : 'Online',
+                provider: normalizeProvider('pilgrimage', p.method),
                 created_at: p.created_at,
                 proof_url: p.proof_url,
                 notes: p.notes,
                 invoice_sent_at: p.invoice_sent_at,
+                has_nif: hasNif(resolvedNif),
                 details_link: `/admin/peregrinacoes`
             });
         });
@@ -178,23 +215,29 @@ export async function GET(req: Request) {
         (quotaPayments || []).forEach(q => {
             const userId = q.user_id;
             const profile = profilesMap.get(userId);
+            const quotaNif = typeof profile?.nif === 'string' ? profile.nif.trim() : '';
+
+            const quotaCreatedAt = q.data_pagamento
+                ? `${q.data_pagamento}T12:00:00Z`
+                : q.created_at || new Date(0).toISOString();
 
             transactions.push({
                 id: q.id,
                 category: 'quota',
                 reference: q.external_reference || `QUOTA-${q.id.slice(0, 8)}`,
-                amount: q.valor,
+                amount: Number(q.valor || 0),
                 currency: 'EUR',
                 customer_name: profile?.nome || 'Membro',
                 customer_email: profile?.email || '—',
-                customer_nif: profile?.nif,
+                customer_nif: quotaNif || null,
                 customer_address: profile?.address,
                 customer_zip: profile?.postal_code,
                 status: q.estado,
                 method: q.metodo_pagamento,
-                provider: q.metodo_pagamento === 'stripe' ? 'Stripe' : 'Manual',
-                created_at: q.data_pagamento + 'T12:00:00Z',
+                provider: normalizeProvider('quota', q.metodo_pagamento),
+                created_at: quotaCreatedAt,
                 invoice_sent_at: q.invoice_sent_at,
+                has_nif: hasNif(quotaNif),
                 details_link: `/admin/membros`
             });
         });

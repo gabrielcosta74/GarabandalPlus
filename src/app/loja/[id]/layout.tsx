@@ -4,7 +4,7 @@ import { supabaseServer } from '../../../lib/supabase';
 import { buildProductPath } from '../../../lib/slug';
 
 type Props = {
-  params: { id: string };
+  params: Promise<{ id: string }>;
   children: React.ReactNode;
 };
 
@@ -35,7 +35,8 @@ const fetchProduct = async (param: string) => {
 };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const url = `${APP_URL}${buildProductPath(params.id, null)}`;
+  const { id } = await params;
+  const url = `${APP_URL}${buildProductPath(id, null)}`;
   const fallbackTitle = 'Produto | Apostolado de Garabandal';
   const fallbackDescription = 'Produto oficial da loja do Apostolado de Garabandal.';
 
@@ -48,13 +49,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   }
 
   try {
-    const data = await fetchProduct(params.id);
+    const data = await fetchProduct(id);
 
     const title = data?.name ? `${data.name} | Apostolado de Garabandal` : fallbackTitle;
     const description = data?.description || fallbackDescription;
     const canonicalPath = data?.product_id
       ? buildProductPath(data.product_id, data?.name)
-      : buildProductPath(params.id, data?.name);
+      : buildProductPath(id, data?.name);
 
     return {
       title,
@@ -77,7 +78,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export default async function LojaProdutoLayout({ children, params }: Props) {
-  const product = await fetchProduct(params.id);
+  const { id } = await params;
+  const product = await fetchProduct(id);
 
   if (!product) {
     return children;
@@ -101,7 +103,7 @@ export default async function LojaProdutoLayout({ children, params }: Props) {
       availability,
       url: product?.product_id
         ? `${APP_URL}${buildProductPath(product.product_id, product?.name || null)}`
-        : `${APP_URL}${buildProductPath(params.id, product?.name || null)}`,
+        : `${APP_URL}${buildProductPath(id, product?.name || null)}`,
     },
   };
 
@@ -127,7 +129,7 @@ export default async function LojaProdutoLayout({ children, params }: Props) {
         name: product.name || 'Produto',
         item: product?.product_id
           ? `${APP_URL}${buildProductPath(product.product_id, product?.name || null)}`
-          : `${APP_URL}${buildProductPath(params.id, product?.name || null)}`,
+          : `${APP_URL}${buildProductPath(id, product?.name || null)}`,
       },
     ],
   };

@@ -4,7 +4,7 @@ import { verifyAdmin } from '../../../../../../lib/admin-auth';
 
 export async function POST(
   req: Request,
-  { params }: { params: { pilgrimageId: string } }
+  { params }: { params: Promise<{ pilgrimageId: string }> }
 ) {
   if (!supabaseServer) {
     return NextResponse.json({ error: 'Server not configured' }, { status: 500 });
@@ -16,7 +16,7 @@ export async function POST(
       return NextResponse.json({ error: authError || 'Unauthorized' }, { status: 401 });
     }
 
-    const pilgrimageId = params.pilgrimageId;
+    const { pilgrimageId } = await params;
     const { data, error } = await supabaseServer
       .rpc('recalculate_pilgrimage_vacancies', { p_pilgrimage_id: pilgrimageId });
 

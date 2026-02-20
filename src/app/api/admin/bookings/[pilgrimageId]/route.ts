@@ -14,14 +14,14 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(
     req: Request,
-    { params }: { params: { pilgrimageId: string } }
+    { params }: { params: Promise<{ pilgrimageId: string }> }
 ) {
     const { authorized, error: authError } = await verifyAdmin(req);
     if (!authorized) {
         return NextResponse.json({ error: authError || 'Unauthorized' }, { status: 401 });
     }
 
-    const pilgrimageId = params.pilgrimageId;
+    const { pilgrimageId } = await params;
 
     if (!supabaseServer) {
         return NextResponse.json({ error: "Server not configured" }, { status: 500 });

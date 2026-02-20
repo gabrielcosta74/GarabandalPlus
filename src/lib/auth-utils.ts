@@ -1,16 +1,17 @@
 import { createServerClient } from '@supabase/ssr';
 import { cookies, headers } from 'next/headers';
+import type { CookieOptions } from '@supabase/ssr';
 
 /**
  * Create a Supabase client for server-side operations with user context
  * Uses anon key with user's JWT from cookies OR Auth Header
  */
-export function createSupabaseServerClient() {
+export async function createSupabaseServerClient() {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
     const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
-    const cookieStore = cookies();
-    const headersList = headers();
+    const cookieStore = await cookies();
+    const headersList = await headers();
 
     const authHeader = headersList.get('authorization');
     const authToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
@@ -23,7 +24,7 @@ export function createSupabaseServerClient() {
             getAll() {
                 return cookieStore.getAll().map(({ name, value }) => ({ name, value }));
             },
-            setAll(cookiesToSet) {
+            setAll(cookiesToSet: { name: string; value: string; options?: CookieOptions }[]) {
                 cookiesToSet.forEach(({ name, value, options }) => {
                     cookieStore.set(name, value, options);
                 });
@@ -36,7 +37,7 @@ export function createSupabaseServerClient() {
  * Verify user is authenticated and return user or throw
  */
 export async function requireAuth() {
-    const supabase = createSupabaseServerClient();
+    const supabase = await createSupabaseServerClient();
 
     const { data: { user }, error } = await supabase.auth.getUser();
 

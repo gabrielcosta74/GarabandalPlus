@@ -59,11 +59,19 @@ export default function EventCard({ event }: EventCardProps) {
                         <span className="text-sm font-bold text-indigo-400 uppercase leading-none tracking-wider">{month}</span>
                         <span className="text-xl font-light text-slate-300 leading-none capitalize">{weekday}</span>
                     </div>
-                    <div className="ml-auto pl-6 border-l border-white/10 flex flex-col justify-end pb-1">
-                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Horário (PT)</span>
-                        <div className="flex items-center gap-2 text-2xl font-bold text-white tracking-tight">
-                            <Clock className="w-5 h-5 text-indigo-400" />
-                            {time}
+                    <div className="ml-auto pl-6 border-l border-white/10 flex flex-col justify-end pb-1 text-right">
+                        <div className="mb-2">
+                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1 block">Portugal</span>
+                            <div className="flex items-center justify-end gap-2 text-xl font-bold text-white tracking-tight">
+                                <Clock className="w-4 h-4 text-indigo-400" />
+                                {time}
+                            </div>
+                        </div>
+                        <div>
+                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1 block">Brasil (SP)</span>
+                            <div className="flex items-center justify-end gap-2 text-lg font-bold text-slate-300 tracking-tight">
+                                {startDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' })}
+                            </div>
                         </div>
                     </div>
                 </div>

@@ -13,13 +13,16 @@ export async function POST(req: Request) {
     }
 
     try {
-        const { id, category, invoiceSent } = await req.json();
+        const { id, category, invoiceSent, receiptSent } = await req.json();
 
         if (!id || !category) {
             return NextResponse.json({ error: 'Missing parameters' }, { status: 400 });
         }
 
-        const timestamp = invoiceSent ? new Date().toISOString() : null;
+        const markAsSent = typeof receiptSent === 'boolean'
+            ? receiptSent
+            : !!invoiceSent;
+        const timestamp = markAsSent ? new Date().toISOString() : null;
         let table = '';
         let idColumn = 'id';
 
@@ -49,10 +52,10 @@ export async function POST(req: Request) {
 
         if (updateError) throw updateError;
 
-        return NextResponse.json({ success: true, timestamp });
+        return NextResponse.json({ success: true, receipt_sent_at: timestamp });
 
     } catch (error: any) {
-        console.error("Invoice Update Error:", error);
+        console.error("Receipt status update error:", error);
         return NextResponse.json({ error: error.message || 'Unknown error' }, { status: 500 });
     }
 }

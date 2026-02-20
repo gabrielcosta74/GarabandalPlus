@@ -32,7 +32,7 @@ const normalizeProductTypeId = (typeId: unknown, isPhysical: boolean) => {
     return isPhysical ? 'religious_article' : 'book_digital';
 };
 
-export async function GET(req: Request, { params }: { params: { id: string } }) {
+export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
     const { authorized, error: authError } = await verifyAdmin(req);
     if (!authorized) {
         const status = authError === 'Forbidden: Not an Admin' ? 403 : 401;
@@ -40,6 +40,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
     }
     if (!supabaseServer) return NextResponse.json({ error: 'DB Config Error' }, { status: 500 });
 
+    const { id } = await params;
     try {
         const { data, error } = await supabaseServer
             .from('store_products')
@@ -48,7 +49,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
                 category:categories(name, slug),
                 variants:product_variants(*)
             `)
-            .eq('product_id', params.id)
+            .eq('product_id', id)
             .single();
 
         if (error) throw error;
@@ -60,7 +61,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
     }
 }
 
-export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
     const { authorized, error: authError } = await verifyAdmin(req);
     if (!authorized) {
         const status = authError === 'Forbidden: Not an Admin' ? 403 : 401;
@@ -68,6 +69,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     }
     if (!supabaseServer) return NextResponse.json({ error: 'DB Config Error' }, { status: 500 });
 
+    const { id } = await params;
     try {
         const body = await req.json();
         const isPhysical = body.is_physical !== false;
@@ -101,7 +103,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
                 category: body.category_name, // Legacy
                 stock // Digital products keep infinite stock (null)
             })
-            .eq('product_id', params.id);
+            .eq('product_id', id);
 
         if (prodError) throw prodError;
 
@@ -111,7 +113,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
             const { data: existingVars } = await supabaseServer
                 .from('product_variants')
                 .select('id')
-                .eq('product_id', params.id);
+                .eq('product_id', id);
 
             const existingIds = existingVars?.map(v => v.id) || [];
             const payloadIds = body.variants.filter((v: any) => v.id).map((v: any) => v.id);
@@ -125,7 +127,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
             // C. Prepare data
             const cleanVariants = body.variants.map((v: any) => ({
                 ...(v.id ? { id: v.id } : {}), // Only include ID if exists
-                product_id: params.id,
+                product_id: id,
                 name: v.name || "Opção Standard",
                 stock: parseStockValue(v.stock),
                 sku: v.sku || `SKU-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
@@ -148,7 +150,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
             const { data: defaultVariant, error: fetchDefaultError } = await supabaseServer
                 .from('product_variants')
                 .select('id')
-                .eq('product_id', params.id)
+                .eq('product_id', id)
                 .contains('attributes', { is_default: true })
                 .maybeSingle();
 
@@ -165,7 +167,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
                 const { error: insertDefaultError } = await supabaseServer
                     .from('product_variants')
                     .insert({
-                        product_id: params.id,
+                        product_id: id,
                         name: 'Padrão',
                         stock,
                         sku: body.sku || `SKU-${Date.now()}`,
@@ -179,7 +181,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
             await supabaseServer
                 .from('product_variants')
                 .delete()
-                .eq('product_id', params.id);
+                .eq('product_id', id);
         }
 
         return NextResponse.json({ success: true });
@@ -189,7 +191,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     }
 }
 
-export async function DELETE(req: Request, { params }: { params: { id: string } }) {
+export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
     const { authorized, error: authError } = await verifyAdmin(req);
     if (!authorized) {
         const status = authError === 'Forbidden: Not an Admin' ? 403 : 401;
@@ -197,15 +199,16 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
     }
     if (!supabaseServer) return NextResponse.json({ error: 'DB Config Error' }, { status: 500 });
 
+    const { id } = await params;
     try {
         // Deleting the product will automatically delete variants due to CASCADE if set up, 
         // but let's be explicit if not.
-        await supabaseServer.from('product_variants').delete().eq('product_id', params.id);
+        await supabaseServer.from('product_variants').delete().eq('product_id', id);
 
         const { error } = await supabaseServer
             .from('store_products')
             .delete()
-            .eq('product_id', params.id);
+            .eq('product_id', id);
 
         if (error) throw error;
 

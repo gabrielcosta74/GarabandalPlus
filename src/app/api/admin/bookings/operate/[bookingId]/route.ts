@@ -11,9 +11,9 @@ import { logAdminAction } from '../../../../../../lib/admin-logger';
  */
 export async function DELETE(
     req: Request,
-    { params }: { params: { bookingId: string } }
+    { params }: { params: Promise<{ bookingId: string }> }
 ) {
-    const bookingId = params.bookingId;
+    const { bookingId } = await params;
 
     if (!supabaseServer) {
         return NextResponse.json({ error: "Server not configured" }, { status: 500 });

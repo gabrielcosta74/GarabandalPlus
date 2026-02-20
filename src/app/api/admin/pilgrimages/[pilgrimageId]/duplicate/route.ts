@@ -166,7 +166,7 @@ async function duplicateChildTable(
 
 export async function POST(
   req: Request,
-  { params }: { params: { pilgrimageId: string } }
+  { params }: { params: Promise<{ pilgrimageId: string }> }
 ) {
   if (!supabaseServer) {
     return NextResponse.json({ error: 'Server not configured' }, { status: 500 });
@@ -178,7 +178,7 @@ export async function POST(
       return NextResponse.json({ error: authError || 'Unauthorized' }, { status: 401 });
     }
 
-    const sourceId = params.pilgrimageId;
+    const { pilgrimageId: sourceId } = await params;
     const { data: original, error: originalError } = await supabaseServer
       .from('pilgrimages')
       .select('*')

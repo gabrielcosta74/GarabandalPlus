@@ -12,9 +12,9 @@ import { toSignedReceiptUrl } from '../../../../lib/receipt-utils';
  */
 export async function GET(
     req: Request,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
-    const id = params.id;
+    const { id } = await params;
     const { searchParams } = new URL(req.url);
     const token = searchParams.get('token');
 
@@ -110,7 +110,7 @@ export async function GET(
         }
 
         // MODE 2: Authenticated user view (full data)
-        const supabase = createSupabaseServerClient();
+        const supabase = await createSupabaseServerClient();
         const { data: { user }, error: authError } = await supabase.auth.getUser();
 
         if (authError || !user) {
