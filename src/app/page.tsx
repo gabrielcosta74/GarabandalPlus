@@ -22,12 +22,9 @@ export default async function Page() {
   const { data: pilgrimages } = await getPilgrimagesAction();
   const featuredProducts = await getFeaturedProducts();
 
-  // Find the next upcoming pilgrimage (already sorted by date in action)
-  // Find the next upcoming pilgrimage with vacancies
-  const nextPilgrimage = pilgrimages?.find(p => {
-    const effectiveVacancies = p.effective_vacancies ?? (p.total_vacancies - p.confirmed_pax);
-    return effectiveVacancies > 0 && p.status === 'open';
-  }) || (pilgrimages && pilgrimages.length > 0 ? pilgrimages[0] : null);
+  // Pass all upcoming pilgrimages to display different statuses (open, full, waitlist)
+  // getPilgrimagesAction already returns them sorted by start_date ascending
+  const upcomingPilgrimages = pilgrimages || [];
 
-  return <HomePageClient meta={meta} nextPilgrimage={nextPilgrimage} featuredProducts={featuredProducts} />;
+  return <HomePageClient meta={meta} pilgrimages={upcomingPilgrimages} featuredProducts={featuredProducts} />;
 }

@@ -16,11 +16,11 @@ import { QuotaWarning } from '../membership/QuotaWarning';
 
 interface HomePageClientProps {
     meta: DonationMeta;
-    nextPilgrimage?: any;
+    pilgrimages?: any[];
     featuredProducts?: any[];
 }
 
-const HomePageClient: React.FC<HomePageClientProps> = ({ meta, nextPilgrimage, featuredProducts = [] }) => {
+const HomePageClient: React.FC<HomePageClientProps> = ({ meta, pilgrimages = [], featuredProducts = [] }) => {
     const [loading, setLoading] = useState(true);
     const { memberData } = useAuth();
 
@@ -63,7 +63,7 @@ const HomePageClient: React.FC<HomePageClientProps> = ({ meta, nextPilgrimage, f
                         <SpiritualPillars />
                         <CampaignShowcase meta={meta} />
                         <FeaturedStore products={featuredProducts || []} />
-                        {nextPilgrimage && <PilgrimageShowcase nextPilgrimage={nextPilgrimage} />}
+                        {pilgrimages && pilgrimages.length > 0 && <PilgrimageShowcase pilgrimages={pilgrimages} />}
                         <SupportArea />
                     </div>
                 </div>

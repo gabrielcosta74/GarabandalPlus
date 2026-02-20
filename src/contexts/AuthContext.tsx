@@ -66,6 +66,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     useEffect(() => {
         let mounted = true;
+        let refreshInterval: ReturnType<typeof setInterval> | null = null;
 
         if (!supabaseBrowser) {
             setLoading(false);
@@ -92,6 +93,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             }
         };
 
+        // Initialize state by explicitly fetching the session
         supabaseBrowser.auth.getSession()
             .then(({ data: { session: currentSession } }) => syncSessionState(currentSession))
             .catch((err) => {
@@ -99,12 +101,47 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 if (mounted) setLoading(false);
             });
 
-        const { data: listener } = supabaseBrowser.auth.onAuthStateChange((_event, currentSession) => {
-            syncSessionState(currentSession);
+        const { data: listener } = supabaseBrowser.auth.onAuthStateChange((event, currentSession) => {
+            // Only update if it's not the INITIAL_SESSION to avoid race conditions with getSession() above
+            if (event !== 'INITIAL_SESSION') {
+                syncSessionState(currentSession);
+            }
         });
+
+        const refreshSession = async () => {
+            try {
+                // Because we have middleware now, the cookies refresh auto. We just sync client state.
+                const { data: { session: currentSession } } = await supabaseBrowser.auth.getSession();
+                await syncSessionState(currentSession);
+            } catch (err) {
+                console.error('Error refreshing session:', err);
+            }
+        };
+
+        const onVisibilityChange = () => {
+            if (document.visibilityState === 'visible') {
+                refreshSession();
+            }
+        };
+
+        const onWindowFocus = () => {
+            refreshSession();
+        };
+
+        refreshInterval = setInterval(() => {
+            if (document.visibilityState === 'visible') {
+                refreshSession();
+            }
+        }, 5 * 60 * 1000);
+
+        document.addEventListener('visibilitychange', onVisibilityChange);
+        window.addEventListener('focus', onWindowFocus);
 
         return () => {
             mounted = false;
+            if (refreshInterval) clearInterval(refreshInterval);
+            document.removeEventListener('visibilitychange', onVisibilityChange);
+            window.removeEventListener('focus', onWindowFocus);
             listener.subscription.unsubscribe();
         };
     }, []);

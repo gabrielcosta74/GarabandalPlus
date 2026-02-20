@@ -96,6 +96,8 @@ export default function SupportArea() {
                             <motion.div
                                 key={panel.id}
                                 layout
+                                layoutId={`panel-${panel.id}`}
+                                transition={{ layout: { type: "spring", stiffness: 300, damping: 30 } }}
                                 onHoverStart={() => setActivePanel(panel.id)}
                                 onClick={() => setActivePanel(panel.id)} // For mobile tap
                                 className={`
@@ -134,7 +136,7 @@ export default function SupportArea() {
 
                                     {/* Text Content */}
                                     <div className="space-y-4">
-                                        <motion.div layout>
+                                        <motion.div layout transition={{ layout: { type: "spring", stiffness: 300, damping: 30 } }}>
                                             <span className={`text-xs font-bold uppercase tracking-widest ${panel.textColor} mb-2 block`}>
                                                 {panel.subtitle}
                                             </span>
@@ -146,17 +148,17 @@ export default function SupportArea() {
                                         <AnimatePresence>
                                             {isActive && (
                                                 <motion.div
-                                                    initial={{ opacity: 0, height: 0 }}
-                                                    animate={{ opacity: 1, height: 'auto' }}
-                                                    exit={{ opacity: 0, height: 0 }}
-                                                    transition={{ duration: 0.3 }}
-                                                    className="origin-bottom"
+                                                    initial={{ opacity: 0, height: 0, marginTop: 0 }}
+                                                    animate={{ opacity: 1, height: 'auto', marginTop: 16 }}
+                                                    exit={{ opacity: 0, height: 0, marginTop: 0 }}
+                                                    transition={{ duration: 0.4, ease: [0.23, 1, 0.32, 1] }}
+                                                    className="origin-bottom overflow-hidden"
                                                 >
                                                     <p className="text-slate-300 font-light leading-relaxed mb-8 max-w-lg">
                                                         {panel.description}
                                                     </p>
 
-                                                    <Link href={panel.href} className="inline-block">
+                                                    <Link href={panel.href} className="inline-block mt-auto">
                                                         <button className="cursor-pointer bg-white text-slate-900 px-8 py-4 rounded-xl font-bold uppercase tracking-widest text-xs hover:bg-slate-200 transition-colors flex items-center gap-2 shadow-xl shadow-black/20">
                                                             {panel.cta}
                                                             <ArrowUpRight className="w-4 h-4" />

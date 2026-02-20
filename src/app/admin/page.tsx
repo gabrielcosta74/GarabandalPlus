@@ -42,7 +42,6 @@ export default function AdminPage() {
             return;
           }
 
-          await supabaseBrowser.auth.signOut();
           if (mounted) {
             setError('Esta conta não tem permissões de administrador.');
           }
@@ -79,7 +78,6 @@ export default function AdminPage() {
       if (data.session) {
         const hasAdminAccess = await verifyAdminAccess(data.session.access_token);
         if (!hasAdminAccess) {
-          await supabaseBrowser.auth.signOut();
           setError('Esta conta não tem permissões de administrador.');
           return;
         }

@@ -7,4 +7,18 @@ if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Supabase URL ou ANON KEY nao definidos. Verifique o .env.');
 }
 
-export const supabaseBrowser = createBrowserClient(supabaseUrl, supabaseAnonKey);
+export const supabaseBrowser = createBrowserClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: true,
+    flowType: 'pkce',
+  },
+  cookieOptions: {
+    name: 'sb-garabandal-auth',
+    path: '/',
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
+    maxAge: 400 * 24 * 60 * 60,
+  },
+});
