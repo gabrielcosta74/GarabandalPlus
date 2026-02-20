@@ -31,7 +31,7 @@ export default function DonationAllocation() {
     ];
 
     return (
-        <section className="py-24 bg-white">
+        <section className="py-16 md:py-24 bg-white">
             <div className="container mx-auto px-6">
                 <motion.div
                     initial={{ opacity: 0, y: 20 }}
@@ -39,7 +39,7 @@ export default function DonationAllocation() {
                     viewport={{ once: true }}
                     className="text-center mb-16"
                 >
-                    <h2 className="text-3xl md:text-5xl font-serif text-garabandal-dark mb-6">
+                    <h2 className="text-3xl sm:text-4xl md:text-5xl font-serif text-garabandal-dark mb-6">
                         Transparência Total
                     </h2>
                     <p className="text-lg text-gray-600 max-w-2xl mx-auto">

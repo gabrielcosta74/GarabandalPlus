@@ -3,7 +3,7 @@ import { Heart } from 'lucide-react';
 
 export default function DonationStory() {
     return (
-        <section id="historia" className="py-24 bg-garabandal-mist relative overflow-hidden">
+        <section id="historia" className="py-16 md:py-24 bg-garabandal-mist relative overflow-hidden">
             <div className="container mx-auto px-6">
                 <motion.div
                     initial={{ opacity: 0, y: 20 }}
@@ -11,7 +11,7 @@ export default function DonationStory() {
                     viewport={{ once: true }}
                     className="text-center max-w-3xl mx-auto mb-16"
                 >
-                    <h2 className="text-3xl md:text-5xl font-serif text-garabandal-dark mb-6">
+                    <h2 className="text-3xl sm:text-4xl md:text-5xl font-serif text-garabandal-dark mb-6">
                         Presente e Futuro
                     </h2>
                     <p className="text-lg text-gray-600">

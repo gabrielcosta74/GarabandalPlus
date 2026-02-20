@@ -29,7 +29,7 @@ export default function DonationFAQ() {
     ];
 
     return (
-        <section className="py-24 bg-garabandal-mist/50">
+        <section className="py-16 md:py-24 bg-garabandal-mist/50">
             <div className="container mx-auto px-6 max-w-4xl">
                 <motion.div
                     initial={{ opacity: 0, y: 20 }}
@@ -37,7 +37,7 @@ export default function DonationFAQ() {
                     viewport={{ once: true }}
                     className="text-center mb-16"
                 >
-                    <h2 className="text-3xl font-serif text-garabandal-dark mb-4">Dúvidas Frequentes</h2>
+                    <h2 className="text-3xl sm:text-4xl font-serif text-garabandal-dark mb-4">Dúvidas Frequentes</h2>
                     <p className="text-gray-600">Esclareça as suas questões antes de contribuir.</p>
                 </motion.div>
 

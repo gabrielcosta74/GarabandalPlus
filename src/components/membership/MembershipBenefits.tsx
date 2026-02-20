@@ -99,9 +99,9 @@ export default function MembershipBenefits() {
                             <div className="w-12 h-12 rounded-xl bg-white/10 backdrop-blur-md flex items-center justify-center mb-4 text-white border border-white/20">
                                 <Ticket size={24} />
                             </div>
-                            <h3 className="text-xl font-serif font-bold text-white mb-3">Voucher Peregrinação</h3>
+                            <h3 className="text-xl font-serif font-bold text-white mb-3">Desconto 50€ nas Peregrinações</h3>
                             <p className="text-gray-300 text-sm font-light leading-relaxed">
-                                Voucher de desconto exclusivo para utilizar numa das peregrinações anuais.
+                                Desconto direto de 50€ para utilizar numa das peregrinações anuais.
                             </p>
                         </div>
                     </div>

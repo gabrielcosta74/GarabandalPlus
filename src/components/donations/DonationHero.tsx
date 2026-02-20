@@ -15,7 +15,7 @@ export default function DonationHero({ progress, onDonateClick }: DonationHeroPr
     const percent = Math.min((progress.raised / progress.goal) * 100, 100);
 
     return (
-        <section className="relative min-h-[90vh] flex items-center justify-center overflow-hidden bg-garabandal-dark text-white">
+        <section className="relative pt-32 pb-16 lg:py-0 lg:min-h-[90vh] flex items-center justify-center overflow-hidden bg-garabandal-dark text-white">
             {/* Background Effects */}
             {/* Background Effects */}
             <div className="absolute inset-0 z-0">
@@ -48,7 +48,7 @@ export default function DonationHero({ progress, onDonateClick }: DonationHeroPr
                         <span className="text-sm font-medium text-garabandal-gold tracking-wide uppercase">Casa de Acolhimento</span>
                     </div>
 
-                    <h1 className="text-5xl lg:text-7xl font-serif leading-tight">
+                    <h1 className="text-4xl sm:text-5xl lg:text-7xl font-serif leading-tight">
                         A Casa de <br />
                         <span className="text-transparent bg-clip-text bg-gradient-to-r from-garabandal-gold to-yellow-200">
                             Acolher
@@ -88,7 +88,7 @@ export default function DonationHero({ progress, onDonateClick }: DonationHeroPr
                         <div className="flex justify-between items-end mb-6">
                             <div>
                                 <p className="text-sm text-gray-400 uppercase tracking-widest mb-1">Angariado</p>
-                                <p className="text-4xl font-serif text-white">{formatPrice(progress.raised)}</p>
+                                <p className="text-3xl sm:text-4xl font-serif text-white">{formatPrice(progress.raised)}</p>
                             </div>
                             <div className="text-right">
                                 <p className="text-sm text-gray-400 mb-1">Meta</p>

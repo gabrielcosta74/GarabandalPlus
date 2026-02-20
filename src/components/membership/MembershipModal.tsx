@@ -38,7 +38,7 @@ const slides = [
     },
     {
         title: "Graças da Comunidade",
-        text: "Acesso a Vídeos Exclusivos, Altar de Intenções e Voucher de Peregrinação.",
+        text: "Acesso a Vídeos Exclusivos, Altar de Intenções e Desconto de 50€ em Peregrinações.",
         imageUrl: "/images/descontoslivros.webp",
     },
     {
@@ -422,7 +422,7 @@ export default function MembershipModal({ isOpen, onClose, impact }: MembershipM
                                     <div className="text-4xl font-serif text-garabandal-dark mb-1">{formatPrice(membershipAmount)}</div>
                                     <div className="text-xs text-gray-500 uppercase tracking-wider mb-4">{isRenewal ? 'Renovação Anual' : 'Quota Anual'}</div>
                                     <div className="space-y-3">
-                                        {["Vídeos Exclusivos", "Altar de Intenções", "Voucher Peregrinação", "Missas Anuais"].map((item, i) => (
+                                        {["Vídeos Exclusivos", "Altar de Intenções", "Desconto 50€ Peregrinações", "Missas Anuais"].map((item, i) => (
                                             <div key={i} className="flex items-center gap-2 text-sm text-gray-600">
                                                 <div className="w-5 h-5 rounded-full bg-green-100 text-green-600 flex items-center justify-center">
                                                     <Check size={12} strokeWidth={3} />

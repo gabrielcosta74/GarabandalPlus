@@ -189,9 +189,9 @@ export default function DonationsClient() {
             <DonationFAQ />
 
             {/* Footer CTA */}
-            <section className="py-24 bg-garabandal-dark text-white text-center">
+            <section className="py-16 md:py-24 bg-garabandal-dark text-white text-center">
                 <div className="container mx-auto px-6">
-                    <h2 className="text-3xl md:text-5xl font-serif mb-6">Juntos construímos o futuro</h2>
+                    <h2 className="text-3xl sm:text-4xl md:text-5xl font-serif mb-6">Juntos construímos o futuro</h2>
                     <p className="text-gray-400 max-w-2xl mx-auto mb-10">
                         A tua generosidade permite-nos continuar a acolher com amor e dignidade. Obrigado por fazeres parte desta missão.
                     </p>
