@@ -118,9 +118,9 @@ function LoginScreen() {
 
           <div className="relative flex items-center justify-center">
             <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-200 lg:border-white/10"></div>
+              <div className="w-full border-t border-gray-200"></div>
             </div>
-            <span className="relative z-10 bg-white lg:bg-transparent px-2 text-xs text-gray-400 font-bold uppercase tracking-widest">
+            <span className="relative z-10 bg-white px-2 text-xs text-gray-400 font-bold uppercase tracking-widest">
               Ou entrar com email
             </span>
           </div>
@@ -177,10 +177,10 @@ function LoginScreen() {
           )}
         </button>
 
-        <div className="text-center pt-4 border-t border-gray-100 lg:border-none border-white/10">
-          <p className="text-sm text-white/60 lg:text-gray-500">
+        <div className="text-center pt-4 border-t border-gray-100">
+          <p className="text-sm text-gray-500">
             Ainda não tem conta?{' '}
-            <Link href="/register" className="font-bold text-white lg:text-garabandal-dark hover:underline">
+            <Link href="/register" className="font-bold text-garabandal-dark hover:underline">
               Criar conta
             </Link>
           </p>

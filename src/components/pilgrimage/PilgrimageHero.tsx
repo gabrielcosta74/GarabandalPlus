@@ -45,7 +45,7 @@ export function PilgrimageHero({ featuredPilgrimage }: { featuredPilgrimage?: Fe
         : "";
 
     return (
-        <div className="relative overflow-hidden rounded-[2.5rem] bg-slate-900 text-white min-h-[auto] md:min-h-[650px] flex items-center mb-12 md:mb-16 shadow-2xl group transition-all duration-1000 py-12 md:py-0">
+        <div className="relative overflow-hidden md:rounded-[2.5rem] rounded-b-3xl bg-slate-900 text-white min-h-[auto] md:min-h-[650px] flex items-center mb-12 md:mb-16 shadow-2xl group transition-all duration-1000 py-12 md:py-0">
             {/* Dynamic Background */}
             <AnimatePresence mode='wait'>
                 <motion.div

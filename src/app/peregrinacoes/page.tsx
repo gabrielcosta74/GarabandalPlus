@@ -110,11 +110,11 @@ export default function PilgrimagesPage() {
 
     return (
         <VIPLayout allowPublic={true}>
-            <div className="bg-[#f8fafc] min-h-screen rounded-[2.5rem] p-6 md:p-10 shadow-sm overflow-hidden relative">
+            <div className="bg-[#f8fafc] min-h-screen md:rounded-[2.5rem] p-0 md:p-10 shadow-sm overflow-hidden relative">
 
                 <PilgrimageHero featuredPilgrimage={nextPilgrimageWithVacancies} />
 
-                <div className="relative z-10 max-w-6xl mx-auto">
+                <div className="relative z-10 max-w-6xl mx-auto px-4 md:px-0">
                     {/* Trust Indicators / Value Prop */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-16">
                         <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] flex items-start gap-4 hover:transform hover:-translate-y-1 transition-all duration-300">
@@ -148,10 +148,12 @@ export default function PilgrimagesPage() {
 
 
                     {/* Testimonials Section - Strategic Position: Social Proof before Product */}
-                    <PilgrimageTestimonials />
+                    <div className="-mx-4 md:mx-0">
+                        <PilgrimageTestimonials />
+                    </div>
 
                     {/* Gallery Section */}
-                    <div className="mb-16 -mx-6 md:mx-0">
+                    <div className="mb-16 -mx-4 md:mx-0">
                         <PastPilgrimagesGallery />
                     </div>
 

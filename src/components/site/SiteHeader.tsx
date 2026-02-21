@@ -69,6 +69,14 @@ export default function SiteHeader() {
     return scrollY.on("change", (latest: number) => {
       // Style logic: scrolled past top
       setScrolled(latest > 20);
+
+      // Auto-hide logic (primarily for mobile)
+      const previous = scrollY.getPrevious() ?? 0;
+      if (latest > previous && latest > 100) {
+        setHidden(true);
+      } else {
+        setHidden(false);
+      }
     });
   }, [scrollY]);
 
@@ -208,12 +216,12 @@ export default function SiteHeader() {
     <>
       {/* 
         SMART HEADER 
-        - Always Visible (scrolling doesn't hide)
-        - Glassmorphism on scroll (always visible text)
-        - Transparent at top
+        - Auto-hides on mobile when scrolling down for better UX
+        - Always Visible on Desktop
+        - Glassmorphism on scroll
       */}
       <header
-        className="fixed top-0 left-0 right-0 z-[100] h-20 flex items-center transition-all duration-500 bg-black/60 backdrop-blur-md shadow-lg shadow-black/10 border-b border-white/10"
+        className={`fixed top-0 left-0 right-0 z-[100] h-20 flex items-center transition-transform duration-500 bg-black/60 backdrop-blur-md shadow-lg shadow-black/10 border-b border-white/10 ${hidden ? '-translate-y-full lg:translate-y-0' : 'translate-y-0'}`}
       >
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
 
@@ -611,6 +619,29 @@ export default function SiteHeader() {
                   <NavLink href="/donations" icon={Heart} label="Doações" onClick={() => setIsMobileOpen(false)} />
                   <NavLink href="/tornar-membro" icon={CreditCard} label="Ser Membro" onClick={() => setIsMobileOpen(false)} />
                   <NavLink href="/loja-online" icon={Store} label="Loja Online" onClick={() => setIsMobileOpen(false)} />
+
+                  {/* Dynamic Cart Link */}
+                  <Link
+                    href="/loja-online/checkout"
+                    onClick={() => setIsMobileOpen(false)}
+                    className={`
+                      group flex items-center justify-between px-4 py-3 rounded-xl transition-all duration-200
+                      ${pathname === '/loja-online/checkout'
+                        ? 'bg-yellow-50 text-yellow-700 font-semibold'
+                        : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900 font-medium'
+                      }
+                    `}
+                  >
+                    <div className="flex items-center gap-3">
+                      <ShoppingBag className={`w-5 h-5 ${pathname === '/loja-online/checkout' ? 'text-yellow-600' : 'text-slate-400 group-hover:text-slate-600'}`} />
+                      <span>O meu Carrinho</span>
+                    </div>
+                    {cartCount > 0 && (
+                      <span className="bg-yellow-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm">
+                        {cartCount}
+                      </span>
+                    )}
+                  </Link>
                 </div>
 
                 {/* 3. Member Specifics (If Active) */}

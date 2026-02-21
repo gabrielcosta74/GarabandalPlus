@@ -58,7 +58,7 @@ export function PilgrimageCard({ pilgrimage, index }: PilgrimageCardProps) {
             </div>
         );
         actionButton = (
-            <span className="text-sm font-bold text-slate-400 uppercase tracking-widest px-6 py-3 rounded-xl border-2 border-slate-200 bg-slate-100 cursor-not-allowed">
+            <span className="text-sm font-bold text-slate-400 uppercase tracking-widest px-6 py-3 rounded-xl border-2 border-slate-200 bg-slate-100 cursor-not-allowed w-full md:w-auto text-center block">
                 Indisponível
             </span>
         );
@@ -73,7 +73,7 @@ export function PilgrimageCard({ pilgrimage, index }: PilgrimageCardProps) {
             </div>
         );
         actionButton = (
-            <div className="flex items-center gap-2 px-6 py-3 rounded-xl bg-amber-500 text-white font-bold text-sm uppercase tracking-wide hover:bg-amber-600 transition-colors shadow-lg shadow-amber-500/20 group-hover:scale-105 duration-300">
+            <div className="flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-amber-500 text-white font-bold text-sm uppercase tracking-wide hover:bg-amber-600 transition-colors shadow-lg shadow-amber-500/20 group-hover:scale-105 duration-300 w-full md:w-auto">
                 Entrar em Lista de Espera
                 <ChevronRight className="w-4 h-4" />
             </div>
@@ -115,7 +115,7 @@ export function PilgrimageCard({ pilgrimage, index }: PilgrimageCardProps) {
         >
             <Link
                 href={detailHref}
-                className={`group rounded-[2.5rem] border overflow-hidden flex flex-col md:flex-row h-full relative no-underline ${cardStyle}`}
+                className={`group rounded-3xl md:rounded-[2.5rem] border overflow-hidden flex flex-col md:flex-row h-full relative no-underline ${cardStyle}`}
             >
                 {/* Image Section */}
                 <div className="md:w-5/12 relative h-72 md:h-auto overflow-hidden">
@@ -142,7 +142,7 @@ export function PilgrimageCard({ pilgrimage, index }: PilgrimageCardProps) {
                 </div>
 
                 {/* Content Section */}
-                <div className="p-6 md:p-10 flex-1 flex flex-col justify-center relative">
+                <div className="p-5 md:p-10 flex-1 flex flex-col justify-center relative">
                     <div className="flex items-center gap-3 text-yellow-600 text-xs font-bold uppercase tracking-wider mb-3">
                         <Calendar className="w-4 h-4" />
                         <span>
@@ -164,27 +164,37 @@ export function PilgrimageCard({ pilgrimage, index }: PilgrimageCardProps) {
                         {pilgrimage.description}
                     </p>
 
-                    <div className="flex items-end justify-between border-t border-slate-100/50 pt-6 mt-auto">
-                        <div className="flex flex-col">
-                            <span className="text-[10px] text-slate-400 uppercase tracking-widest font-bold mb-1">Valor por pessoa</span>
+                    <div className="flex flex-col md:flex-row md:items-end md:justify-between border-t border-slate-100/50 pt-6 mt-auto gap-4">
+                        <div className="flex items-center justify-between md:block gap-4">
                             <div className="flex flex-col">
-                                <div className="flex items-baseline gap-2">
-                                    <span className="text-lg text-slate-400 line-through font-medium decoration-red-400 decoration-2 opacity-60">
-                                        {formatPrice(pilgrimage.base_price * 1.15)}
-                                    </span>
-                                    <span className={`text-3xl font-bold tracking-tight ${isClosed ? 'text-slate-400' : 'text-slate-900'}`}>
-                                        {formatPrice(pilgrimage.base_price)}
-                                    </span>
+                                <span className="text-[10px] text-slate-400 uppercase tracking-widest font-bold mb-1">Valor por pessoa</span>
+                                <div className="flex flex-col">
+                                    <div className="flex items-baseline gap-2">
+                                        <span className="text-lg text-slate-400 line-through font-medium decoration-red-400 decoration-2 opacity-60">
+                                            {formatPrice(pilgrimage.base_price * 1.15)}
+                                        </span>
+                                        <span className={`text-3xl font-bold tracking-tight ${isClosed ? 'text-slate-400' : 'text-slate-900'}`}>
+                                            {formatPrice(pilgrimage.base_price)}
+                                        </span>
+                                    </div>
+                                    {currency === 'BRL' && (
+                                        <span className="text-[9px] text-yellow-600 font-bold uppercase tracking-tighter mt-1 italic">
+                                            * Câmbio Automático
+                                        </span>
+                                    )}
                                 </div>
-                                {currency === 'BRL' && (
-                                    <span className="text-[9px] text-yellow-600 font-bold uppercase tracking-tighter mt-1 italic">
-                                        * Câmbio Automático
-                                    </span>
-                                )}
+                            </div>
+
+                            {/* Mobile-only availability info */}
+                            <div className="md:hidden text-right shrink-0">
+                                <div className={`flex items-center gap-1.5 text-sm font-bold ${isWaitlist ? 'text-amber-600' : isClosed ? 'text-red-600' : 'text-slate-700'}`}>
+                                    <Users className="w-4 h-4" />
+                                    {isClosed ? 'Esgotado' : isWaitlist ? 'Lista de Espera' : `${remainingSpots} Lugares`}
+                                </div>
                             </div>
                         </div>
 
-                        <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-4 w-full md:w-auto">
                             <div className="hidden md:block text-right">
                                 <span className="text-[10px] text-slate-400 uppercase tracking-widest font-bold block mb-1">Disponibilidade</span>
                                 <div className={`flex items-center justify-end gap-1.5 text-sm font-bold ${isWaitlist ? 'text-amber-600' : isClosed ? 'text-red-600' : 'text-slate-700'}`}>

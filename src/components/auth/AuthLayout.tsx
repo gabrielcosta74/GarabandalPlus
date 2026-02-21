@@ -85,14 +85,11 @@ export default function AuthLayout({
 
             {/* Right Side - Form Area */}
             <div className="w-full lg:w-1/2 flex flex-col relative bg-white">
-                {/* Mobile Background (Absolute) */}
-                <div className="absolute inset-0 lg:hidden bg-cover bg-center z-0" style={{ backgroundImage: `url(${backgroundImage})` }}>
-                    <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
-                </div>
+                {/* Mobile Background: Removed for clean white aesthetics on mobile */}
 
                 {/* Return Button */}
                 <div className="relative z-20 p-6 lg:p-8">
-                    <Link href="/" className="inline-flex items-center gap-2 text-sm font-bold text-gray-500 hover:text-garabandal-dark lg:text-gray-400 lg:hover:text-black transition-colors group">
+                    <Link href="/" className="inline-flex items-center gap-2 text-sm font-bold text-gray-500 hover:text-gray-900 transition-colors group">
                         <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
                         Voltar ao início
                     </Link>
@@ -106,32 +103,27 @@ export default function AuthLayout({
                         transition={{ delay: 0.2, duration: 0.6 }}
                         className="w-full max-w-md space-y-8"
                     >
-                        {/* Mobile Logo */}
-                        <div className="lg:hidden flex items-center gap-2 justify-center mb-8 text-white">
-                            <div className="w-10 h-10 rounded-full bg-garabandal-gold flex items-center justify-center shadow-lg shadow-garabandal-gold/20">
-                                <Star className="w-5 h-5 text-white" fill="currentColor" />
-                            </div>
-                        </div>
+                        {/* Mobile Logo: Star Removed */}
 
                         <div className="text-center lg:text-left">
-                            <h2 className="font-serif text-3xl lg:text-4xl font-bold text-white lg:text-garabandal-dark mb-3">
+                            <h2 className="font-serif text-3xl lg:text-4xl font-bold text-gray-900 mb-3">
                                 {title}
                             </h2>
                             {subtitle && (
-                                <p className="text-white/60 lg:text-gray-500 font-light text-lg">
+                                <p className="text-gray-500 font-light text-lg">
                                     {subtitle}
                                 </p>
                             )}
                         </div>
 
-                        <div className="bg-white/10 lg:bg-transparent backdrop-blur-xl lg:backdrop-blur-none rounded-3xl p-6 lg:p-0 border border-white/10 lg:border-none shadow-2xl lg:shadow-none">
+                        <div className="bg-transparent rounded-3xl p-0 shadow-none">
                             {children}
                         </div>
                     </motion.div>
                 </div>
 
                 {/* Footer */}
-                <div className="relative z-20 p-6 lg:p-8 text-center text-xs text-white/40 lg:text-gray-400">
+                <div className="relative z-20 p-6 lg:p-8 text-center text-xs text-gray-400">
                     &copy; {new Date().getFullYear()} Apostolado de Garabandal
                 </div>
             </div>
@@ -147,7 +139,7 @@ export const PremiumInput = ({ label, error, type, ...props }: React.InputHTMLAt
 
     return (
         <div className="group">
-            <label className="block text-xs font-bold uppercase tracking-widest text-white/80 lg:text-gray-500 mb-2 ml-1 group-focus-within:text-garabandal-gold transition-colors">
+            <label className="block text-xs font-bold uppercase tracking-widest text-gray-500 mb-2 ml-1 group-focus-within:text-garabandal-gold transition-colors">
                 {label}
             </label>
             <div className="relative">
@@ -155,11 +147,11 @@ export const PremiumInput = ({ label, error, type, ...props }: React.InputHTMLAt
                     type={inputType}
                     className={`
                         w-full px-5 py-4 rounded-xl outline-none transition-all duration-300
-                        bg-white/5 lg:bg-gray-50 
-                        border ${error ? 'border-red-400 lg:border-red-300' : 'border-white/10 lg:border-gray-100'}
-                        text-white lg:text-gray-900 placeholder:text-white/20 lg:placeholder:text-gray-400
-                        focus:bg-white/10 lg:focus:bg-white focus:border-garabandal-gold/50 lg:focus:border-garabandal-gold
-                        focus:ring-4 focus:ring-garabandal-gold/10 lg:focus:ring-garabandal-gold/5
+                        bg-gray-50 
+                        border ${error ? 'border-red-300' : 'border-gray-200'}
+                        text-gray-900 placeholder:text-gray-400
+                        focus:bg-white focus:border-garabandal-gold
+                        focus:ring-4 focus:ring-garabandal-gold/10
                         ${isPassword ? 'pr-12' : ''}
                     `}
                     {...props}
@@ -168,7 +160,7 @@ export const PremiumInput = ({ label, error, type, ...props }: React.InputHTMLAt
                     <button
                         type="button"
                         onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-4 top-1/2 -translate-y-1/2 text-white/40 lg:text-gray-400 hover:text-white lg:hover:text-garabandal-dark transition-colors p-1"
+                        className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-900 transition-colors p-1"
                     >
                         {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                     </button>
@@ -178,7 +170,7 @@ export const PremiumInput = ({ label, error, type, ...props }: React.InputHTMLAt
                 <motion.p
                     initial={{ opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: 'auto' }}
-                    className="text-red-400 lg:text-red-500 text-xs mt-1.5 ml-1 font-medium"
+                    className="text-red-500 text-xs mt-1.5 ml-1 font-medium"
                 >
                     {error}
                 </motion.p>

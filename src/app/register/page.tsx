@@ -96,17 +96,17 @@ export default function RegisterPage() {
           <motion.div
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
-            className="w-20 h-20 bg-green-100 lg:bg-green-100/50 rounded-full flex items-center justify-center mx-auto mb-6 text-green-600 lg:text-green-600"
+            className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6 text-green-600"
           >
             <CheckCircle2 className="w-10 h-10" />
           </motion.div>
-          <h3 className="text-xl font-bold text-white lg:text-gray-900 mb-2">Registo com sucesso!</h3>
-          <p className="text-white/70 lg:text-gray-500 mb-8 max-w-xs mx-auto text-sm">
+          <h3 className="text-xl font-bold text-gray-900 mb-2">Registo com sucesso!</h3>
+          <p className="text-gray-500 mb-8 max-w-xs mx-auto text-sm">
             Por favor verifique a sua caixa de entrada ({email}) e clique no link para ativar a conta.
           </p>
           <Link
             href="/login"
-            className="inline-block px-8 py-3 bg-white text-gray-900 lg:bg-slate-900 lg:text-white font-bold rounded-xl hover:bg-gray-100 lg:hover:bg-black transition-colors shadow-lg"
+            className="inline-block px-8 py-3 bg-slate-900 text-white font-bold rounded-xl hover:bg-black transition-colors shadow-lg"
           >
             Voltar ao Login
           </Link>
@@ -139,9 +139,9 @@ export default function RegisterPage() {
 
           <div className="relative flex items-center justify-center">
             <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-200 lg:border-white/10"></div>
+              <div className="w-full border-t border-gray-200"></div>
             </div>
-            <span className="relative z-10 bg-white lg:bg-transparent px-2 text-xs text-gray-400 font-bold uppercase tracking-widest">
+            <span className="relative z-10 bg-white px-2 text-xs text-gray-400 font-bold uppercase tracking-widest">
               Ou registar com email
             </span>
           </div>
@@ -185,7 +185,7 @@ export default function RegisterPage() {
                 className="w-8 h-8 rounded border-gray-300 text-garabandal-gold focus:ring-garabandal-gold cursor-pointer transition-transform hover:scale-105"
               />
             </div>
-            <label htmlFor="terms" className="text-xs text-white/60 lg:text-gray-500 leading-relaxed font-medium">
+            <label htmlFor="terms" className="text-xs text-gray-500 leading-relaxed font-medium">
               Li e aceito os{' '}
               <Link href="/termos" className="underline hover:text-garabandal-gold" target="_blank">
                 Termos e Condições
@@ -221,10 +221,10 @@ export default function RegisterPage() {
           )}
         </button>
 
-        <div className="text-center pt-4 border-t border-gray-100 lg:border-none border-white/10">
-          <p className="text-sm text-white/60 lg:text-gray-500">
+        <div className="text-center pt-4 border-t border-gray-100">
+          <p className="text-sm text-gray-500">
             Já tem conta?{' '}
-            <Link href="/login" className="font-bold text-white lg:text-garabandal-dark hover:underline">
+            <Link href="/login" className="font-bold text-garabandal-dark hover:underline">
               Entrar
             </Link>
           </p>
