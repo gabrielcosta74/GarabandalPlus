@@ -228,13 +228,13 @@ export default function MembershipModal({ isOpen, onClose, impact, referralCode 
         if (!profile) return;
 
         setFormData((prev) => ({
-            nome: prev.nome || profile.nome || "",
-            email: prev.email || profile.email || authUser?.email || "",
-            telefone: prev.telefone || profile.telefone || "",
-            morada: prev.morada || profile.address || "",
-            codigoPostal: prev.codigoPostal || profile.postal_code || "",
-            pais: prev.pais || (profile.country ? (resolveCountryMeta(profile.country)?.name || profile.country) : ""),
-            nif: prev.nif || profile.nif || "",
+            nome: String(prev.nome || profile.nome || ""),
+            email: String(prev.email || profile.email || authUser?.email || ""),
+            telefone: String(prev.telefone || profile.telefone || ""),
+            morada: String(prev.morada || profile.address || ""),
+            codigoPostal: String(prev.codigoPostal || profile.postal_code || ""),
+            pais: String(prev.pais || (profile.country ? (resolveCountryMeta(String(profile.country))?.name || profile.country) : "")),
+            nif: String(prev.nif || profile.nif || ""),
         }));
 
         // Skip to payment if data is already robust (check mandatory fields)
