@@ -5,8 +5,10 @@ import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { Check, Download, Home, ArrowRight, Loader2, CreditCard, ShoppingBag, ShieldCheck, Heart, Mail, ScrollText } from 'lucide-react';
 import { supabaseBrowser } from '../../lib/supabase-browser';
+import { useAuth } from '../../contexts/AuthContext';
 
 export default function ThankYouPage() {
+  const { refreshMemberData } = useAuth();
   const [ready, setReady] = useState(false);
   const [type, setType] = useState('donation');
   const [amount, setAmount] = useState<string | null>(null);
@@ -136,12 +138,15 @@ export default function ThankYouPage() {
 
         if (member?.numero_socio) setMemberNumber(Number(member.numero_socio));
         if (member?.email) setMemberEmail(String(member.email));
+
+        // Refresh AuthContext so navbar updates immediately
+        await refreshMemberData();
       } catch (err) {
         // Non-blocking for confirmation screen.
       }
     };
     loadMemberContext();
-  }, [ready, type]);
+  }, [ready, type, refreshMemberData]);
 
   // --- UI Helpers ---
 
@@ -282,19 +287,17 @@ export default function ThankYouPage() {
           )}
 
           {isReduniq && (
-            <div className={`mb-8 rounded-2xl border p-6 ${
-              isReduniqFailed
+            <div className={`mb-8 rounded-2xl border p-6 ${isReduniqFailed
                 ? 'border-red-500/30 bg-red-500/10'
                 : isReduniqPending || reduniqConfirmStatus === 'confirming'
                   ? 'border-blue-500/30 bg-blue-500/10'
                   : isReduniqSuccess
                     ? 'border-green-500/30 bg-green-500/10'
                     : 'border-white/10 bg-white/5'
-            }`}>
+              }`}>
               <div className="flex items-start gap-3">
-                <div className={`mt-0.5 ${
-                  isReduniqFailed ? 'text-red-400' : isReduniqPending || reduniqConfirmStatus === 'confirming' ? 'text-blue-300' : 'text-green-400'
-                }`}>
+                <div className={`mt-0.5 ${isReduniqFailed ? 'text-red-400' : isReduniqPending || reduniqConfirmStatus === 'confirming' ? 'text-blue-300' : 'text-green-400'
+                  }`}>
                   {reduniqConfirmStatus === 'confirming' ? <Loader2 className="w-5 h-5 animate-spin" /> : <CreditCard className="w-5 h-5" />}
                 </div>
                 <div className="flex-1">
@@ -490,7 +493,7 @@ export default function ThankYouPage() {
               ) : (
                 <>
                   <Link
-                    href="/member/quota"
+                    href="/member"
                     className="w-full md:w-auto px-8 py-4 rounded-xl bg-yellow-500 hover:bg-yellow-400 text-black font-extrabold transition-all shadow-[0_0_35px_rgba(234,179,8,0.35)] flex items-center justify-center gap-2 text-base"
                   >
                     Ir para Minha Área de Membro

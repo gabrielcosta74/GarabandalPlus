@@ -1,4 +1,4 @@
-import { Calendar, Video, ArrowRight, Clock } from 'lucide-react';
+import { Calendar, Video, Clock } from 'lucide-react';
 
 interface EventCardProps {
     event: {
@@ -31,101 +31,72 @@ export default function EventCard({ event }: EventCardProps) {
     const isPast = now > endDate;
 
     return (
-        <div className="relative overflow-hidden rounded-[2rem] bg-gradient-to-br from-indigo-600 via-indigo-900 to-slate-900 p-1 shadow-2xl group min-h-[400px]">
-            {/* Animated Glow Effect */}
-            <div className="absolute top-0 right-0 -m-20 w-60 h-60 bg-indigo-400/20 blur-[80px] rounded-full group-hover:bg-indigo-300/30 transition-colors duration-500" />
-            <div className="absolute bottom-0 left-0 -m-20 w-60 h-60 bg-purple-500/20 blur-[80px] rounded-full" />
+        <div className="relative overflow-hidden rounded-[1.5rem] sm:rounded-3xl bg-slate-900/90 border border-white/10 p-5 sm:p-6 shadow-xl group">
+            {/* Ambient Glow */}
+            <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 blur-[50px] rounded-full group-hover:bg-indigo-400/20 transition-colors duration-500 pointer-events-none" />
 
-            <div className="relative bg-slate-950/80 backdrop-blur-md rounded-[1.8rem] p-6 sm:p-8 h-full flex flex-col border border-white/5">
+            <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center gap-5 sm:gap-6">
 
-                {/* HeaderWrapper */}
-                <div className="flex justify-between items-start mb-8">
-                    <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-xs font-bold uppercase tracking-wider shadow-inner">
-                        <Calendar className="w-3 h-3" />
-                        Próximo Evento
+                {/* Date Badge */}
+                <div className="flex-shrink-0 flex flex-row sm:flex-col items-center justify-between sm:justify-center w-full sm:w-24 sm:h-24 bg-slate-800/80 rounded-xl sm:rounded-2xl border border-white/5 shadow-inner p-3 sm:p-0">
+                    <div className="flex sm:flex-col items-center gap-2 sm:gap-0">
+                        <span className="text-[10px] sm:text-xs font-bold text-indigo-400 uppercase tracking-widest">{month.substring(0, 3)}</span>
+                        <span className="text-2xl sm:text-3xl font-black text-white leading-none sm:mt-1">{day}</span>
                     </div>
+                    <span className="text-[10px] text-slate-400 font-medium uppercase sm:mt-2">{weekday.substring(0, 3)}</span>
+                </div>
 
-                    {isLive && (
-                        <span className="flex items-center gap-2 bg-red-600/90 backdrop-blur text-white text-[10px] uppercase font-bold px-3 py-1.5 rounded-full animate-pulse shadow-lg shadow-red-900/40 border border-red-500/50">
-                            <span className="w-2 h-2 bg-white rounded-full" />
-                            Em Direto
+                {/* Event Details */}
+                <div className="flex-1 min-w-0 w-full">
+                    <div className="flex items-center gap-3 mb-2">
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-indigo-500/10 text-indigo-300 text-[10px] font-bold uppercase tracking-wider">
+                            <Calendar className="w-3 h-3" /> Próximo Evento
                         </span>
-                    )}
-                </div>
+                        {isLive && (
+                            <span className="flex items-center gap-1.5 bg-red-500/10 text-red-500 text-[10px] font-bold uppercase tracking-wider animate-pulse px-2 py-1 rounded-full border border-red-500/20">
+                                <span className="w-1.5 h-1.5 bg-red-500 rounded-full" /> Em Direto
+                            </span>
+                        )}
+                    </div>
 
-                {/* Date & Time Big Display */}
-                <div className="flex items-end gap-4 mb-8">
-                    <div className="text-7xl font-black text-white leading-[0.8] tracking-tighter">
-                        {day}
-                    </div>
-                    <div className="flex flex-col pb-1 gap-0.5">
-                        <span className="text-sm font-bold text-indigo-400 uppercase leading-none tracking-wider">{month}</span>
-                        <span className="text-xl font-light text-slate-300 leading-none capitalize">{weekday}</span>
-                    </div>
-                    <div className="ml-auto pl-6 border-l border-white/10 flex flex-col justify-end pb-1 text-right">
-                        <div className="mb-2">
-                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1 block">Portugal</span>
-                            <div className="flex items-center justify-end gap-2 text-xl font-bold text-white tracking-tight">
-                                <Clock className="w-4 h-4 text-indigo-400" />
-                                {timePT}
-                            </div>
-                        </div>
-                        <div>
-                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1 block">Brasil (SP)</span>
-                            <div className="flex items-center justify-end gap-2 text-lg font-bold text-slate-300 tracking-tight">
-                                {timeBR}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Content */}
-                <div className="mb-8 relative z-10">
-                    <h3 className="text-2xl sm:text-3xl font-serif font-bold text-white mb-3 leading-tight group-hover:text-indigo-200 transition-colors">
+                    <h3 className="text-lg sm:text-xl font-serif font-bold text-white mb-2 line-clamp-1 group-hover:text-indigo-200 transition-colors">
                         {event.title}
                     </h3>
-                    <p className="text-slate-300 text-base leading-relaxed line-clamp-3 opacity-90">
-                        {event.description}
-                    </p>
+
+                    <div className="flex flex-wrap items-center gap-4 text-xs sm:text-sm font-medium text-slate-400">
+                        <div className="flex items-center gap-1.5">
+                            <Clock className="w-4 h-4 text-indigo-400/70" />
+                            <span className="text-white">{timePT} PT</span> <span className="text-slate-500">/</span> {timeBR} BR
+                        </div>
+                    </div>
                 </div>
 
-                {/* Footer / Action */}
-                <div className="mt-auto pt-8 border-t border-white/10">
+                {/* Action Button */}
+                <div className="w-full sm:w-auto mt-2 sm:mt-0 pt-4 sm:pt-0 border-t sm:border-t-0 border-white/5 sm:border-none flex justify-end">
                     {isPast ? (
-                        <button disabled className="w-full py-4 rounded-xl bg-slate-800 text-slate-500 text-sm font-bold uppercase tracking-wider cursor-not-allowed">
-                            Evento Terminado
+                        <button disabled className="w-full sm:w-auto px-6 py-3.5 rounded-xl bg-slate-800 text-slate-500 text-[10px] font-bold uppercase tracking-widest cursor-not-allowed">
+                            Terminado
                         </button>
                     ) : event.meeting_url && canJoin ? (
                         <a
                             href={event.meeting_url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className={`
-                                flex items-center justify-center gap-3 w-full py-4 rounded-xl text-sm font-bold uppercase tracking-wider transition-all transform hover:-translate-y-1 active:translate-y-0
-                                ${isLive
-                                    ? 'bg-gradient-to-r from-red-600 to-red-500 hover:from-red-500 hover:to-red-400 text-white shadow-xl shadow-red-900/30'
-                                    : 'bg-white text-indigo-950 hover:bg-indigo-50 shadow-xl shadow-white/5'
-                                }
-                            `}
+                            className={`flex items-center justify-center gap-2 w-full sm:w-auto px-6 py-3.5 rounded-xl text-[11px] font-bold uppercase tracking-widest transition-transform hover:scale-105 active:scale-95 ${isLive ? 'bg-red-600 hover:bg-red-500 text-white shadow-lg shadow-red-900/20' : 'bg-white text-slate-900 hover:bg-slate-100 shadow-lg shadow-white/10'
+                                }`}
                         >
-                            {isLive ? (
-                                <>Entrar na Sala <Video className="w-5 h-5 animate-pulse" /></>
-                            ) : (
-                                <>Entrar na Sala <ArrowRight className="w-5 h-5" /></>
-                            )}
+                            Entrar na Sala <Video className="w-4 h-4" />
                         </a>
                     ) : event.meeting_url ? (
-                        <button disabled className="w-full py-4 rounded-xl bg-slate-800 text-slate-400 text-xs font-bold uppercase tracking-wider cursor-not-allowed flex items-center justify-center gap-2">
-                            <Clock className="w-4 h-4 text-indigo-400" /> Acesso abre 30 min antes
+                        <button disabled className="w-full sm:w-auto px-5 py-3.5 rounded-xl bg-slate-800/80 text-slate-400 text-[10px] font-bold uppercase tracking-widest cursor-not-allowed flex items-center justify-center gap-2 border border-white/5">
+                            <Clock className="w-3 h-3 text-indigo-400" /> Abre 30m Antes
                         </button>
                     ) : (
-                        <div className="w-full py-4 rounded-xl bg-white/5 border border-white/5 text-slate-400 text-xs font-bold uppercase tracking-wider text-center flex items-center justify-center gap-2">
-                            <Clock className="w-4 h-4" />
-                            Link disponível brevemente
+                        <div className="w-full sm:w-auto px-5 py-3.5 rounded-xl bg-slate-800/50 text-slate-500 text-[10px] font-bold uppercase tracking-widest text-center border border-white/5 flex items-center justify-center gap-2">
+                            Disponível Brevemente
                         </div>
                     )}
                 </div>
-
             </div>
         </div>
     );

@@ -76,23 +76,26 @@ export default function AccountProfilePage() {
       </div>
 
       <div className="relative z-10 h-full flex flex-col items-center justify-center text-center p-6 space-y-4">
-        <div className="relative group">
-          <div className="w-32 h-32 rounded-full p-1 bg-gradient-to-br from-garabandal-gold to-yellow-600 shadow-2xl">
-            <div className="w-full h-full rounded-full bg-slate-900 flex items-center justify-center overflow-hidden border-4 border-slate-900">
-              {profileDisplay.avatar_url ? (
-                <img src={profileDisplay.avatar_url} alt="Profile" className="w-full h-full object-cover" />
-              ) : (
-                <span className="font-serif text-4xl text-garabandal-gold">{profileDisplay.nome?.charAt(0) || currentEmail.charAt(0)}</span>
-              )}
-            </div>
+        {/* Static Profile Picture */}
+        <div className="w-32 h-32 rounded-full p-1 bg-gradient-to-br from-garabandal-gold to-yellow-600 shadow-2xl relative">
+          <div className="w-full h-full rounded-full bg-slate-900 flex items-center justify-center overflow-hidden border-4 border-slate-900 z-10">
+            {profileDisplay.avatar_url ? (
+              <img src={profileDisplay.avatar_url} alt="Profile" className="w-full h-full object-cover" />
+            ) : (
+              <span className="font-serif text-4xl text-garabandal-gold">{profileDisplay.nome?.charAt(0) || currentEmail.charAt(0)}</span>
+            )}
           </div>
-          <button
-            onClick={() => setShowProfile(true)}
-            className="absolute bottom-0 right-0 p-2.5 bg-white text-garabandal-dark rounded-full shadow-lg hover:bg-gray-100 transition-transform hover:scale-110 active:scale-95"
-          >
-            <Edit2 className="w-5 h-5" />
-          </button>
         </div>
+
+        {/* Edit Button */}
+        <button
+          onClick={() => setShowProfile(true)}
+          className="flex items-center gap-2 px-4 py-1.5 bg-white/10 hover:bg-white/30 text-white rounded-full text-[10px] font-bold uppercase tracking-widest backdrop-blur-sm border border-white/20 hover:border-white/50 shadow-xl transition-colors duration-200"
+          aria-label="Editar Perfil"
+        >
+          <Edit2 className="w-3 h-3" />
+          Mudar Foto
+        </button>
 
         <div>
           <h2 className="font-serif text-3xl font-bold text-white mb-1">{profileDisplay.nome || 'Utilizador'}</h2>

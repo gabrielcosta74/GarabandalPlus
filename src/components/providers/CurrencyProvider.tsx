@@ -25,7 +25,7 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
                 // 0. Check for URL Override for Testing
                 if (typeof window !== 'undefined') {
                     const searchParams = new URLSearchParams(window.location.search);
-                    const forcedCurrency = searchParams.get('currency');
+                    const forcedCurrency = searchParams.get('currency') || searchParams.get('currecy');
 
                     if (forcedCurrency === 'BRL') {
                         setCurrency('BRL');

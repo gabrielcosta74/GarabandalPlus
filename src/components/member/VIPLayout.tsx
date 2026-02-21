@@ -70,8 +70,8 @@ export default function VIPLayout({ children, allowPublic, requireMember = true 
     const isQuotaPage = pathname === '/member/quota';
 
     return (
-        <div className="min-h-screen bg-slate-950 pt-24">
-            <QuotaWarning memberData={memberData} className="mx-4 md:mx-8 mb-6" />
+        <div className="min-h-screen bg-slate-950 pt-24 pb-12 px-4 md:px-8">
+            <QuotaWarning memberData={memberData} className="mb-6" />
             {children}
         </div>
     );

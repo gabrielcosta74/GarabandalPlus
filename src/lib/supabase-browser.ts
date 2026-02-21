@@ -15,10 +15,8 @@ export const supabaseBrowser = createBrowserClient(supabaseUrl, supabaseAnonKey,
     flowType: 'pkce',
   },
   cookieOptions: {
-    name: 'sb-garabandal-auth',
+    maxAge: 31536000,
     path: '/',
     sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
-    maxAge: 400 * 24 * 60 * 60,
-  },
+  }
 });

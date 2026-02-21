@@ -119,7 +119,6 @@ export default function IntentionsClient() {
 
     const [intention, setIntention] = useState("");
     const [guestName, setGuestName] = useState("");
-    const [hasDonation, setHasDonation] = useState(false);
     const [submissionState, setSubmissionState] = useState<'idle' | 'loading' | 'success'>('idle');
     const [user, setUser] = useState<{ id?: string, name?: string, email?: string } | null>(null);
     const [publicHistory, setPublicHistory] = useState<any[]>([]);
@@ -192,8 +191,8 @@ export default function IntentionsClient() {
                 // Construct payload
                 const payload: any = {
                     intention_text: intention,
-                    candle_type: hasDonation ? 'donation' : 'free',
-                    amount: hasDonation ? 5.00 : 0.00,
+                    candle_type: 'free',
+                    amount: 0.00,
                     status: 'pending',
                     // Add guest info if available
                     guest_name: !user ? (guestName || 'Anónimo') : undefined
@@ -244,7 +243,6 @@ export default function IntentionsClient() {
         setSubmissionState('idle');
         setIntention("");
         setGuestName("");
-        setHasDonation(false);
     };
 
     return (
@@ -461,21 +459,6 @@ export default function IntentionsClient() {
                                         />
                                     </div>
 
-                                    <div
-                                        onClick={() => setHasDonation(!hasDonation)}
-                                        className={`cursor-pointer p-4 rounded-xl border mb-8 transition-all flex items-center gap-4 ${hasDonation ? 'bg-orange-500/10 border-orange-500/40' : 'bg-transparent border-white/10 hover:border-white/20'}`}
-                                    >
-                                        <div className={`w-5 h-5 rounded flex items-center justify-center border transition-colors ${hasDonation ? 'bg-orange-500 border-orange-500' : 'border-white/30'}`}>
-                                            {hasDonation && <Check className="w-3 h-3 text-white" />}
-                                        </div>
-                                        <div className="flex-1">
-                                            <div className="text-white text-sm font-medium flex items-center gap-2">
-                                                Fazer um Donativo (5.00€)
-                                                {hasDonation && <Heart className="w-3 h-3 text-orange-400 fill-orange-400" />}
-                                            </div>
-                                            <div className="text-xs text-white/40 mt-1">Opcional. Ajuda a manter esta obra de evangelização.</div>
-                                        </div>
-                                    </div>
 
                                     <button
                                         onClick={handleSubmit}

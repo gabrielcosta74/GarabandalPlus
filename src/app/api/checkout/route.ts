@@ -26,6 +26,7 @@ const bodySchema = z.object({
   donorNif: z.string().trim().optional().nullable(),
   donorMessage: z.string().trim().optional().nullable(),
   receiptRequired: z.boolean().optional().default(false),
+  referralCode: z.string().trim().optional(),
 });
 
 export async function POST(request: Request) {

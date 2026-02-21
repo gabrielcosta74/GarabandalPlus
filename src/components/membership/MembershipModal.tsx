@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Check, Lock, ChevronLeft, CreditCard, Eye, EyeOff, QrCode } from "lucide-react";
+import { X, Check, Lock, ChevronLeft, CreditCard, Eye, EyeOff, QrCode, Gift } from "lucide-react";
 import { supabaseBrowser } from "../../lib/supabase-browser";
 import { useAuth } from "../../contexts/AuthContext";
 import {
@@ -28,6 +28,7 @@ interface MembershipModalProps {
     isOpen: boolean;
     onClose: () => void;
     impact: { members: number; raised: number; goal: number };
+    referralCode?: string;
 }
 
 const slides = [
@@ -113,7 +114,7 @@ const SelectField = ({ label, children, ...props }: React.SelectHTMLAttributes<H
     </div>
 );
 
-export default function MembershipModal({ isOpen, onClose, impact }: MembershipModalProps) {
+export default function MembershipModal({ isOpen, onClose, impact, referralCode }: MembershipModalProps) {
     const { formatPrice } = useCurrency();
     const membershipAmount = getMembershipAmountClient();
     const [step, setStep] = useState(1);
@@ -129,6 +130,11 @@ export default function MembershipModal({ isOpen, onClose, impact }: MembershipM
     const [authLoading, setAuthLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [acceptedTerms, setAcceptedTerms] = useState(false);
+    const [manualReferralCode, setManualReferralCode] = useState(referralCode || "");
+
+    useEffect(() => {
+        if (referralCode) setManualReferralCode(referralCode);
+    }, [referralCode]);
 
     // Form Data
     const [formData, setFormData] = useState({
@@ -145,7 +151,7 @@ export default function MembershipModal({ isOpen, onClose, impact }: MembershipM
     const [selectedPaymentId, setSelectedPaymentId] = useState(UNIFIED_ONLINE_PAYMENT_OPTIONS[0].id);
     const [paymentUrl, setPaymentUrl] = useState<string | null>(null);
     const [paymentError, setPaymentError] = useState<string | null>(null);
-    const [modalMemberData, setModalMemberData] = useState<any | null | undefined>(undefined);
+    const [modalMemberData, setModalMemberData] = useState<Record<string, unknown> | null | undefined>(undefined);
 
     const countryMeta = useMemo(() => resolveCountryMeta(formData.pais), [formData.pais]);
 
@@ -289,13 +295,20 @@ export default function MembershipModal({ isOpen, onClose, impact }: MembershipM
                 if (password !== confirmPassword) throw new Error("As passwords não coincidem.");
                 if (!acceptedTerms) throw new Error("Tens de aceitar os termos e condições.");
 
-                const redirectTo = `${window.location.origin}/auth-callback`;
+                const finalRefCode = manualReferralCode.trim();
+                const redirectTo = `${window.location.origin}/auth-callback${finalRefCode ? `?ref=${encodeURIComponent(finalRefCode)}` : ''}`;
                 const { data, error: upErr } = await supabaseBrowser.auth.signUp({
                     email, password, options: { emailRedirectTo: redirectTo }
                 });
                 if (upErr) throw upErr;
                 if (!data.user?.id) throw new Error("Erro ao criar conta.");
 
+                // If Supabase expects email confirmation, session will be null
+                if (!data.session) {
+                    setError("Conta criada com sucesso! Por favor verifica o teu email para a confirmar antes de continuares.");
+                    setAuthLoading(false);
+                    return;
+                }
                 setSessionUserId(data.user.id);
                 setIsNewAccount(true);
                 setStep(2);
@@ -305,19 +318,31 @@ export default function MembershipModal({ isOpen, onClose, impact }: MembershipM
                 if (inErr) throw inErr;
                 if (!data.user?.id) throw new Error("Erro ao entrar.");
 
+                // Check if profile exists
+                const { data: memberProfile } = await supabaseBrowser
+                    .from('membros')
+                    .select('id')
+                    .eq('id', data.user.id)
+                    .maybeSingle();
+
+                if (!memberProfile) {
+                    setIsNewAccount(true);
+                } else {
+                    setIsNewAccount(false);
+                }
+
                 setSessionUserId(data.user.id);
-                setIsNewAccount(false);
                 setStep(2);
             }
-        } catch (err: any) {
-            setError(err.message || "Ocorreu um erro.");
+        } catch (err) {
+            setError(err instanceof Error ? err.message : "Ocorreu um erro.");
         } finally {
             setAuthLoading(false);
         }
     };
 
     const saveProfile = async (userId: string) => {
-        const payload: any = {
+        const payload: Record<string, unknown> = {
             id: userId,
             nome: formData.nome.trim(),
             email: formData.email.trim().toLowerCase(),
@@ -334,7 +359,23 @@ export default function MembershipModal({ isOpen, onClose, impact }: MembershipM
             payload.data_adesao = new Date().toISOString();
             payload.estado_quota = "pendente";
         }
+
         if (!supabaseBrowser) throw new Error("Sistema indisponível.");
+
+        // Enforce referral code assignment for existing non-member profiles
+        const finalRefCode = manualReferralCode.trim();
+        if (finalRefCode) {
+            const { data: existingProfile } = await supabaseBrowser
+                .from("membros")
+                .select("is_membro, referred_by_code")
+                .eq("id", userId)
+                .maybeSingle();
+
+            if (!existingProfile?.is_membro && !existingProfile?.referred_by_code) {
+                payload.referred_by_code = finalRefCode;
+            }
+        }
+
         const { error } = await supabaseBrowser.from("membros").upsert(payload, { onConflict: "id" });
         if (error) {
             if (error.code === '23505') { // Unique Violation
@@ -343,7 +384,7 @@ export default function MembershipModal({ isOpen, onClose, impact }: MembershipM
                 if (error.message?.includes('numero_socio')) throw new Error("Conflito ao gerar número de membro. Tenta novamente.");
                 throw new Error("Dados duplicados (Email, NIF ou número de membro).");
             }
-            throw new Error("Erro ao guardar perfil.");
+            throw new Error(`Erro ao guardar perfil: ${error.message || 'Desconhecido'} `);
         }
     };
 
@@ -366,6 +407,7 @@ export default function MembershipModal({ isOpen, onClose, impact }: MembershipM
                     donorEmail: formData.email?.trim().toLowerCase() || undefined,
                     donorCountry: countryMeta?.code || undefined,
                     donorNif: formData.nif?.trim() || undefined,
+                    referralCode: manualReferralCode.trim() || undefined,
                 })
             });
 
@@ -375,8 +417,8 @@ export default function MembershipModal({ isOpen, onClose, impact }: MembershipM
             // Stripe Redirect
             setPaymentUrl(data.url);
             setStep(4);
-        } catch (err: any) {
-            setPaymentError(err.message);
+        } catch (err) {
+            setPaymentError(err instanceof Error ? err.message : "Erro no pagamento.");
         } finally {
             setAuthLoading(false);
         }
@@ -520,6 +562,7 @@ export default function MembershipModal({ isOpen, onClose, impact }: MembershipM
                                                     isLoading={authLoading}
                                                     text={authMode === 'login' ? "Entrar com Google" : "Registar com Google"}
                                                     className="bg-white border-gray-200 shadow-sm hover:shadow-md py-3"
+                                                    referralCode={manualReferralCode.trim()}
                                                 />
                                                 <div className="relative flex items-center justify-center mt-6">
                                                     <div className="absolute inset-0 flex items-center">
@@ -690,6 +733,25 @@ export default function MembershipModal({ isOpen, onClose, impact }: MembershipM
                                                 <p className="text-gray-500 text-sm">Escolha como pretende pagar a quota de {formatPrice(membershipAmount)}.</p>
                                             </div>
 
+                                            {!isRenewal && (
+                                                <div className="mb-8 p-5 bg-yellow-50 border border-yellow-100/60 rounded-2xl relative overflow-hidden group">
+                                                    <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none group-hover:scale-110 transition-transform duration-500">
+                                                        <Gift size={64} />
+                                                    </div>
+                                                    <div className="relative z-10">
+                                                        <InputField
+                                                            label="Código de Convite (Opcional)"
+                                                            placeholder="Ex: RUI-R033"
+                                                            value={manualReferralCode}
+                                                            onChange={(e) => setManualReferralCode(e.target.value.toUpperCase())}
+                                                        />
+                                                        <p className="text-[11px] text-yellow-800/80 mt-2 font-medium">
+                                                            Se foste convidado por um amigo, insere o código dele (se ainda não estiver preenchido) para ambos ganharem bónus!
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            )}
+
                                             <div className="space-y-4">
                                                 {UNIFIED_ONLINE_PAYMENT_OPTIONS.map(opt => (
                                                     <button
@@ -698,7 +760,8 @@ export default function MembershipModal({ isOpen, onClose, impact }: MembershipM
                                                         className={`w-full flex items-center gap-4 p-5 rounded-2xl border-2 transition-all duration-300 text-left group
                                                         ${selectedPaymentId === opt.id
                                                                 ? 'border-garabandal-gold bg-garabandal-gold/5 shadow-md shadow-garabandal-gold/10'
-                                                                : 'border-gray-100 hover:border-gray-200 bg-white hover:bg-gray-50'}`}
+                                                                : 'border-gray-100 hover:border-gray-200 bg-white hover:bg-gray-50'
+                                                            }`}
                                                     >
                                                         <div className="w-14 h-14 flex items-center justify-center bg-white rounded-xl shadow-sm border border-gray-100 p-2 shrink-0">
                                                             {opt.iconSrc ? (

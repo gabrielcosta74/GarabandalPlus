@@ -23,6 +23,7 @@ export default function AuthCallbackPage() {
         const url = new URL(window.location.href);
         const searchParams = url.searchParams;
         const nextQuery = searchParams.get('next');
+        const refCode = searchParams.get('ref');
 
         // Handle Hash Params (Legacy/Implicit flow)
         const hash = window.location.hash.replace(/^#/, '');
@@ -45,13 +46,25 @@ export default function AuthCallbackPage() {
         // This handles cases where auto-refresh or race conditions already established the session
         const { data: { session } } = await supabaseBrowser.auth.getSession();
         if (session) {
-          handleRedirect(type, nextQuery);
+          handleRedirect(type, nextQuery, refCode);
           return;
         }
 
+        const handleError = (msg: string) => {
+          setMessage(msg);
+          setTimeout(() => {
+            if (refCode) {
+              window.location.replace(`/tornar-membro?ref=${encodeURIComponent(refCode)}&join=1`);
+            } else {
+              window.location.replace('/login');
+            }
+          }, 3000);
+        };
+
         if (errorParam) {
-          setMessage(errorDescription || 'Erro ao validar a conta. Tente novamente.');
-          setTimeout(() => router.replace('/login'), 3000);
+          // If the OTP expired (e.g. email scanner consumed the token), the user's email might actually be confirmed.
+          // They should just log in. We must preserve the ref code so they don't lose the referral!
+          handleError(errorDescription || 'Link inválido ou expirado. Redirecionando...');
           return;
         }
 
@@ -61,11 +74,10 @@ export default function AuthCallbackPage() {
           const { error } = await supabaseBrowser.auth.exchangeCodeForSession(code);
           if (error) {
             console.error('Error exchanging code:', error);
-            setMessage('Erro ao validar código. Tente fazer login manual.');
-            setTimeout(() => router.replace('/login'), 3000);
+            handleError('Erro ao validar código. Tente fazer login manual.');
             return;
           }
-          handleRedirect(type, nextQuery);
+          handleRedirect(type, nextQuery, refCode);
           return;
         }
 
@@ -78,11 +90,10 @@ export default function AuthCallbackPage() {
           });
           if (error) {
             console.error('Error verifying token:', error);
-            setMessage('Erro ao validar o link. Tente fazer login manual.');
-            setTimeout(() => router.replace('/login'), 3000);
+            handleError('Erro ao validar o link. Tente fazer login manual.');
             return;
           }
-          handleRedirect(type, nextQuery);
+          handleRedirect(type, nextQuery, refCode);
           return;
         }
 
@@ -93,12 +104,11 @@ export default function AuthCallbackPage() {
           const { data } = await supabaseBrowser.auth.getSession();
           if (data.session) {
             // ALREADY LOGGED IN -> REDIRECT
-            handleRedirect(type, nextQuery);
+            handleRedirect(type, nextQuery, refCode);
             return;
           }
 
-          setMessage('Link inválido ou expirado. Por favor tente novamente.');
-          setTimeout(() => router.replace('/login'), 3000);
+          handleError('Link inválido ou expirado. Por favor tente novamente.');
           return;
         }
 
@@ -110,8 +120,7 @@ export default function AuthCallbackPage() {
 
         if (error) {
           console.error('Error setting session:', error);
-          setMessage('Erro ao validar sessão. Tente fazer login manual.');
-          setTimeout(() => router.replace('/login'), 3000);
+          handleError('Erro ao validar sessão. Tente fazer login manual.');
           return;
         }
 
@@ -127,7 +136,7 @@ export default function AuthCallbackPage() {
           const user = (await supabaseBrowser.auth.getUser()).data.user;
           if (user?.id) {
             console.log('Creating default member record for new social login user...');
-            await supabaseBrowser.from('membros').insert({
+            const newMemberPayload: Record<string, any> = {
               id: user.id,
               email: user.email,
               nome: user.user_metadata?.full_name || user.email?.split('@')[0],
@@ -136,15 +145,35 @@ export default function AuthCallbackPage() {
               tipo_subscricao: 'regulares',
               data_adesao: new Date().toISOString(),
               estado_quota: 'pendente',
-            });
+            };
+            // If there's a referral code in the URL, save it now.
+            if (refCode) {
+              newMemberPayload.referred_by_code = refCode;
+            }
+            await supabaseBrowser.from('membros').insert(newMemberPayload);
           }
+        } else if (memberCheck && refCode) {
+          // Existing member record (e.g. returning Google user who hasn't set referred_by_code yet).
+          // Only set if they don't already have one to avoid overwriting.
+          await supabaseBrowser
+            .from('membros')
+            .update({ referred_by_code: refCode })
+            .eq('id', memberCheck.id)
+            .is('referred_by_code', null);
         }
 
-        handleRedirect(type, nextQuery);
+        handleRedirect(type, nextQuery, refCode);
       } catch (err) {
         console.error('Auth callback error:', err);
         setMessage('Erro inesperado ao validar a conta.');
-        setTimeout(() => router.replace('/login'), 3000);
+        setTimeout(() => {
+          const fallbackRef = new URL(window.location.href).searchParams.get('ref');
+          if (fallbackRef) {
+            window.location.replace(`/tornar-membro?ref=${encodeURIComponent(fallbackRef)}&join=1`);
+          } else {
+            window.location.replace('/login');
+          }
+        }, 3000);
       }
     };
 
@@ -156,7 +185,7 @@ export default function AuthCallbackPage() {
     };
   }, [router]);
 
-  const handleRedirect = (type: string | null, next: string | null) => {
+  const handleRedirect = (type: string | null, next: string | null, refCode?: string | null) => {
     setMessage('Sessão confirmada. A redirecionar...');
 
     // Priority 1: Recovery Flow -> ALWAYS go to update password
@@ -171,7 +200,13 @@ export default function AuthCallbackPage() {
       return;
     }
 
-    // Priority 3: Default Home
+    // Priority 3: Referral flow -> go back to membership page so the modal reopens with the code.
+    if (refCode) {
+      window.location.href = `/tornar-membro?ref=${encodeURIComponent(refCode)}&join=1`;
+      return;
+    }
+
+    // Priority 4: Default Home
     window.location.href = '/';
   };
 

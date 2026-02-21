@@ -28,7 +28,10 @@ const isValidNif = (value: string | null | undefined, country: string | null | u
 const bodySchema = z.object({
   items: z.array(itemSchema).min(1),
   total: z.number().positive(),
-  provider: z.enum(['stripe', 'reduniq']).default('stripe'),
+  finalTotalToPay: z.number().nonnegative().optional(),
+  applyStoreCredits: z.boolean().optional().default(false),
+  appliedCreditsValue: z.number().nonnegative().optional().default(0),
+  provider: z.enum(['stripe', 'reduniq', 'wallet']).default('stripe'),
   reduniqSolution: z.number().int().optional(),
   buyer: z.object({
     fullName: z.string().min(1),
@@ -77,7 +80,7 @@ export async function POST(request: Request) {
     const authHeader = request.headers.get('authorization') || '';
     const bearerToken = authHeader.toLowerCase().startsWith('bearer ') ? authHeader.slice(7).trim() : null;
     const json = await request.json();
-    const { items, total, provider, reduniqSolution, buyer, shipping, billing } = bodySchema.parse(json);
+    const { items, total, applyStoreCredits, appliedCreditsValue: clientCreditsValue, provider, reduniqSolution, buyer, shipping, billing } = bodySchema.parse(json);
     const buyerEmail = normalizeEmail(buyer.email);
 
     const normalizedItems = items.map((item) => ({ id: item.id, qty: item.qty }));
@@ -92,6 +95,7 @@ export async function POST(request: Request) {
     let buyerUserId: string | null = null;
     let sessionEmail: string | null = null;
     let memberDiscountRate = 0;
+    let walletBalance = 0;
 
     if (bearerToken) {
       const { data: userData } = await supabaseServer.auth.getUser(bearerToken);
@@ -104,12 +108,13 @@ export async function POST(request: Request) {
     if (buyerUserId) {
       const { data: member } = await supabaseServer
         .from('membros')
-        .select('is_membro, estado_quota, tipo_subscricao, proxima_quota')
+        .select('is_membro, estado_quota, tipo_subscricao, proxima_quota, store_credits')
         .eq('id', buyerUserId)
         .maybeSingle();
       if (isActiveMember(member)) {
         memberDiscountRate = MEMBER_DISCOUNT_RATE;
       }
+      walletBalance = Number(member?.store_credits ?? 0);
     }
 
     const normalizedSessionEmail = normalizeEmail(sessionEmail);
@@ -239,6 +244,42 @@ export async function POST(request: Request) {
       );
     }
 
+    // --- SERVER-SIDE WALLET CREDIT VALIDATION ---
+    // Never trust the client's claimed credits value. Recompute it here.
+    let verifiedCreditsToApply = 0;
+
+    // Check for credits locked in pending orders to prevent double spending across tabs
+    let lockedCredits = 0;
+    if (applyStoreCredits && buyerUserId && walletBalance > 0) {
+      const twelveHoursAgo = new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString();
+      const { data: pendingOrders } = await supabaseServer
+        .from('store_orders')
+        .select('store_credits_used')
+        .eq('buyer_user_id', buyerUserId)
+        .eq('status', 'pending')
+        .gte('created_at', twelveHoursAgo);
+
+      if (pendingOrders) {
+        lockedCredits = pendingOrders.reduce((sum, order) => sum + (Number(order.store_credits_used) || 0), 0);
+      }
+    }
+
+    const availableBalance = Math.max(0, walletBalance - lockedCredits);
+
+    if (applyStoreCredits && buyerUserId && availableBalance > 0) {
+      // Reject if client sent a value higher than the FREE balance (tamper protection).
+      if (clientCreditsValue > availableBalance + 0.01) {
+        return NextResponse.json(
+          { message: 'Saldo de créditos indisponível. Já tem reservas em outros pedidos pendentes.', code: 'CREDITS_LOCKED', requestId },
+          { status: 400 },
+        );
+      }
+      verifiedCreditsToApply = Math.min(availableBalance, roundedTotal);
+    }
+    const netAmountToPay = Math.max(0, Math.round((roundedTotal - verifiedCreditsToApply) * 100) / 100);
+    const isFullyPaidByWallet = netAmountToPay === 0 && verifiedCreditsToApply > 0;
+    // -------------------------------------------
+
     if (hasPhysical && !shipping) {
       return NextResponse.json(
         { message: 'Morada obrigatória para envio físico.', code: 'SHIPPING_REQUIRED', requestId },
@@ -304,9 +345,9 @@ export async function POST(request: Request) {
           buyer_user_id: buyerUserId,
           total_amount: roundedTotal,
           currency: 'EUR',
-          status: 'pending',
-          payment_provider: paymentProvider,
-          payment_method: paymentMethod,
+          status: isFullyPaidByWallet ? 'paid' : 'pending',
+          payment_provider: isFullyPaidByWallet ? 'wallet' : paymentProvider,
+          payment_method: isFullyPaidByWallet ? 'store_credits' : paymentMethod,
           shipping_address1: shipping?.address1 ?? null,
           shipping_address2: shipping?.address2 || shipping?.doorNumber
             ? `${shipping?.address2 ?? ''}${shipping?.address2 ? ' ' : ''}Porta ${shipping?.doorNumber ?? ''}`.trim()
@@ -322,6 +363,7 @@ export async function POST(request: Request) {
           billing_city: billing.city,
           billing_postal_code: billing.postalCode,
           billing_country: billing.country,
+          store_credits_used: verifiedCreditsToApply,
         });
 
         if (orderError) {
@@ -342,6 +384,27 @@ export async function POST(request: Request) {
         if (itemsError) {
           throw new Error('Falha ao criar linhas do pedido.');
         }
+
+        // Only deduct credits atomically NOW if the order is 100% paid by credits AND requires no external gateway
+        if (isFullyPaidByWallet && verifiedCreditsToApply > 0 && buyerUserId) {
+          const { data: deductSuccess, error: creditDeductError } = await supabaseServer.rpc('deduct_store_credits', {
+            p_user_id: buyerUserId,
+            p_amount: verifiedCreditsToApply
+          });
+
+          if (creditDeductError || !deductSuccess) {
+            console.error('Failed to deduct store credits for user during full wallet checkout', buyerUserId, creditDeductError);
+            throw new Error('Saldo insuficiente ou erro ao aplicar os créditos do Apóstolo.');
+          }
+        }
+        // If not fully paid, credits will be deducted asynchronously by the webhook after successful Stripe/Reduniq payment.
+
+        // If fully paid by wallet, we skip the payment gateway and return the success URL directly.
+        if (isFullyPaidByWallet) {
+          const siteUrl = getAppUrl();
+          const successUrl = `${siteUrl}/thank-you?type=store&amount=${roundedTotal}&provider=wallet&orderRef=${orderRef}&status=success`;
+          return NextResponse.json({ url: successUrl, orderRef, requestId });
+        }
       } catch (err) {
         console.error('Erro ao guardar pedido no Supabase:', { err, requestId });
         return NextResponse.json(
@@ -354,8 +417,8 @@ export async function POST(request: Request) {
     const siteUrl = getAppUrl();
 
     if (provider === 'reduniq') {
-      const successUrl = `${siteUrl}/thank-you?type=store&amount=${roundedTotal}&provider=reduniq&orderRef=${orderRef}&status=success`;
-      const cancelUrl = `${siteUrl}/thank-you?type=store&amount=${roundedTotal}&provider=reduniq&orderRef=${orderRef}&status=failed&canceled=true`;
+      const successUrl = `${siteUrl}/thank-you?type=store&amount=${netAmountToPay}&provider=reduniq&orderRef=${orderRef}&status=success`;
+      const cancelUrl = `${siteUrl}/thank-you?type=store&amount=${netAmountToPay}&provider=reduniq&orderRef=${orderRef}&status=failed&canceled=true`;
       const countryCode = (shipping?.country || billing?.country || 'PT').slice(0, 2).toUpperCase();
       const languageCode = countryCode === 'PT' || countryCode === 'BR' ? 'por' : 'eng';
       // Keep Reduniq description short/stable to avoid gateway quirks with long or special-character-heavy cart summaries.
@@ -363,7 +426,7 @@ export async function POST(request: Request) {
 
       const attemptInit = async (solution?: number) =>
         reduniqClient.initiatePayment({
-          amount: roundedTotal,
+          amount: netAmountToPay,
           orderRef,
           customerName: buyer.fullName,
           customerEmail: buyer.email,
@@ -418,8 +481,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ message: 'Stripe não configurado.', code: 'STRIPE_MISSING', requestId }, { status: 500 });
     }
 
-    const successUrl = `${siteUrl}/thank-you?type=store&amount=${roundedTotal}&provider=stripe&session_id={CHECKOUT_SESSION_ID}`;
-    const cancelUrl = `${siteUrl}/thank-you?type=store&amount=${roundedTotal}&provider=stripe&status=failed&canceled=true`;
+    const successUrl = `${siteUrl}/thank-you?type=store&amount=${netAmountToPay}&provider=stripe&session_id={CHECKOUT_SESSION_ID}`;
+    const cancelUrl = `${siteUrl}/thank-you?type=store&amount=${netAmountToPay}&provider=stripe&status=failed&canceled=true`;
 
     const lineItems = itemsResolved.map((item) => ({
       quantity: item.qty,
@@ -444,6 +507,23 @@ export async function POST(request: Request) {
       });
     }
 
+    let discounts = undefined;
+    if (verifiedCreditsToApply > 0 && !isFullyPaidByWallet) {
+      // Stripe does not allow negative unit_amount in line items. We must create a dynamic once-off coupon.
+      try {
+        const coupon = await stripe.coupons.create({
+          amount_off: Math.round(verifiedCreditsToApply * 100),
+          currency: 'eur',
+          duration: 'once',
+          name: 'Saldo de Apóstolo'
+        });
+        discounts = [{ coupon: coupon.id }];
+      } catch (stripeCouponErr) {
+        console.error('Failed to create stripe discount coupon', stripeCouponErr);
+        return NextResponse.json({ message: 'Falha ao aplicar o desconto no Stripe.', code: 'STRIPE_COUPON_FAILED', requestId }, { status: 500 });
+      }
+    }
+
     const session = await stripe.checkout.sessions.create({
       mode: 'payment',
       payment_method_types: ['card'],
@@ -452,6 +532,7 @@ export async function POST(request: Request) {
       line_items: lineItems,
       customer_email: buyer.email,
       metadata,
+      discounts,
     });
 
     if (supabaseServer) {

@@ -13,6 +13,7 @@ import { getMembershipAmountClient } from "../../lib/membership-pricing";
 
 function TornarMembroContent() {
     const search = useSearchParams();
+    const refParam = search.get("ref");
     const joinParam = search.get("join");
     const router = useRouter();
     const { isMember, memberData, loading, isAuthenticated } = useAuth();
@@ -47,12 +48,12 @@ function TornarMembroContent() {
         }
     }, [hasMembership, isAuthenticated, loading, router]);
 
-    // Auto-open modal if ?join=1
+    // Auto-open modal if ?join=1 or ?ref is present
     useEffect(() => {
-        if (joinParam === "1" && !hasMembership) {
+        if ((joinParam === "1" || refParam) && !hasMembership) {
             setModalOpen(true);
         }
-    }, [hasMembership, joinParam]);
+    }, [hasMembership, joinParam, refParam]);
 
     if (loading) {
         return (
@@ -77,6 +78,7 @@ function TornarMembroContent() {
                 isOpen={modalOpen}
                 onClose={() => setModalOpen(false)}
                 impact={impact}
+                referralCode={refParam || undefined}
             />
 
             {/* Mobile Sticky Bar */}

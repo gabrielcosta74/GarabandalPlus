@@ -118,6 +118,23 @@ export const processPaidStoreOrder = async ({
     })
     .eq('order_ref', orderRef);
 
+  // If the order was just paid for the first time, deduct the reserved store credits permanently.
+  if (existingOrder.status !== 'paid' && Number(existingOrder.store_credits_used) > 0 && resolvedBuyerUserId) {
+    try {
+      const { data: deductSuccess, error: deductError } = await supabaseServer.rpc('deduct_store_credits', {
+        p_user_id: resolvedBuyerUserId,
+        p_amount: Number(existingOrder.store_credits_used)
+      });
+      if (deductError || !deductSuccess) {
+        console.error(`Failed to deduct ${existingOrder.store_credits_used} store credits from user ${resolvedBuyerUserId} for order ${orderRef}`, deductError);
+      } else {
+        console.log(`Successfully deducted ${existingOrder.store_credits_used} credits for order ${orderRef}`);
+      }
+    } catch (err) {
+      console.error('Exception while deducting store credits in webhook:', err);
+    }
+  }
+
   if (existingOrder.status === 'paid') {
     const siteUrl = getAppUrl();
     let hasDigitalExisting = false;

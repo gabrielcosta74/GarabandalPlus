@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import EventCard from '../../components/member/EventCard';
 import MemberTutorial from '../../components/onboarding/MemberTutorial';
+import ReferralWidget from '../../components/member/ReferralWidget';
 
 type MemberSummary = {
   nome?: string | null;
@@ -34,6 +35,10 @@ type MemberSummary = {
   is_membro?: boolean | null;
   data_adesao?: string | null;
   avatar_url?: string | null;
+  id?: string | null;
+  referral_code?: string | null;
+  store_credits?: number | null;
+  referrals_count?: number | null;
 };
 
 type Event = {
@@ -105,24 +110,25 @@ export default function MemberDashboardPage() {
         <section className="relative" id="tut-hero">
           <div className="absolute -top-20 -left-20 w-64 h-64 bg-blue-500/20 rounded-full blur-[100px] pointer-events-none" />
 
-          <div className="flex flex-col md:flex-row items-end md:items-center justify-between gap-6">
-            <div className="flex items-center gap-6">
-              <div className="w-20 h-20 md:w-24 md:h-24 rounded-full bg-slate-800 border-4 border-slate-700/50 overflow-hidden shadow-2xl shrink-0 flex items-center justify-center">
+          <div className="flex flex-col md:flex-row items-center md:items-center justify-between gap-6 md:gap-8 relative z-10">
+            {/* Avatar & Info */}
+            <div className="flex flex-col md:flex-row items-center gap-4 md:gap-6 text-center md:text-left">
+              <div className="w-24 h-24 md:w-28 md:h-28 rounded-full bg-slate-800 border-4 border-slate-700/50 overflow-hidden shadow-2xl shrink-0 flex items-center justify-center">
                 {member?.avatar_url ? (
                   <img src={member.avatar_url} alt={firstName} className="w-full h-full object-cover" />
                 ) : (
-                  <span className="text-4xl font-serif text-yellow-500 font-bold">{firstName.charAt(0)}</span>
+                  <span className="text-4xl md:text-5xl font-serif text-yellow-500 font-bold">{firstName.charAt(0)}</span>
                 )}
               </div>
-              <div>
-                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-yellow-500/10 border border-yellow-500/20 text-xs font-bold uppercase tracking-wider text-yellow-500 mb-2">
+              <div className="flex flex-col items-center md:items-start">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-yellow-500/10 border border-yellow-500/20 text-[10px] md:text-xs font-bold uppercase tracking-wider text-yellow-500 mb-3">
                   <Star className="w-3 h-3 fill-yellow-500" />
                   Membro Oficial
                 </div>
-                <h1 className="font-serif text-3xl md:text-5xl font-bold text-white mb-2 flex items-baseline gap-3">
-                  Olá, {firstName}
+                <h1 className="font-serif text-3xl md:text-5xl font-bold text-white mb-2 flex flex-col md:flex-row items-center md:items-baseline gap-1 md:gap-3">
+                  <span>Olá, {firstName}</span>
                   {member?.numero_socio && (
-                    <span className="text-2xl md:text-4xl text-slate-400 font-light tracking-wide">#{member.numero_socio}</span>
+                    <span className="text-xl md:text-4xl text-slate-400 font-light tracking-wide mt-1 md:mt-0">#{member.numero_socio}</span>
                   )}
                 </h1>
                 <p className="text-slate-400 text-sm md:text-base max-w-xl">
@@ -132,22 +138,37 @@ export default function MemberDashboardPage() {
             </div>
 
             {/* Status Card */}
-            <div className="bg-slate-900/50 backdrop-blur-sm p-4 rounded-2xl border border-white/10 flex items-center gap-4 min-w-[280px]">
-              <div className="w-12 h-12 bg-gradient-to-br from-yellow-600 to-yellow-800 rounded-full flex items-center justify-center text-white shadow-lg">
-                <ShieldCheck className="w-6 h-6" />
-              </div>
-              <div>
-                <p className="text-xs text-slate-400 uppercase tracking-wider font-medium">Estado Atual</p>
-                <p className={`text-lg font-bold ${loading ? 'text-slate-500 animate-pulse' : isValidMember ? 'text-white' : 'text-red-400'}`}>
-                  {loading ? 'A carregar...' : (isValidMember ? 'Quota em Dia' : 'Pagamento Pendente')}
-                </p>
-                <Link href="/member/quota" className="text-xs text-yellow-500 hover:text-yellow-400 hover:underline">
-                  Gerir quota &rarr;
-                </Link>
+            <div className="w-full md:w-auto bg-slate-900/50 backdrop-blur-sm p-4 rounded-2xl border border-white/10 flex items-center justify-between md:justify-start gap-4 min-w-[280px]">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-gradient-to-br from-yellow-600 to-yellow-800 rounded-full flex items-center justify-center text-white shadow-lg shrink-0">
+                  <ShieldCheck className="w-6 h-6" />
+                </div>
+                <div>
+                  <p className="text-xs text-slate-400 uppercase tracking-wider font-medium">Estado Atual</p>
+                  <p className={`text-lg font-bold ${loading ? 'text-slate-500 animate-pulse' : isValidMember ? 'text-white' : 'text-red-400'}`}>
+                    {loading ? 'A carregar...' : (isValidMember ? 'Quota em Dia' : 'Pagamento Pendente')}
+                  </p>
+                  <Link href="/member/quota" className="inline-block mt-1 text-xs font-bold text-yellow-400 hover:text-yellow-300 hover:underline transition-colors">
+                    Gerir quota &rarr;
+                  </Link>
+                </div>
               </div>
             </div>
           </div>
         </section>
+
+        {/* Gamification / Referral Widget */}
+        {member?.id && (
+          <section>
+            <ReferralWidget
+              userId={member.id}
+              nome={member.nome || null}
+              initialCode={member.referral_code || null}
+              initialCredits={member.store_credits || 0}
+              initialCount={member.referrals_count || 0}
+            />
+          </section>
+        )}
 
         {/* AGENDA / EVENTS (Single Next Event) - Only shows if there are events */}
         {nextEvent && (
@@ -157,32 +178,22 @@ export default function MemberDashboardPage() {
                 <Calendar className="w-5 h-5 text-indigo-400" />
                 Agenda
               </h2>
-              <Link href="/member/calendar" className="text-sm font-bold text-slate-900 hover:text-indigo-950 transition-colors flex items-center gap-2 bg-white hover:bg-slate-200 px-5 py-2.5 rounded-full shadow-lg shadow-white/10">
-                Ver Calendário Completo <ArrowRight className="w-4 h-4" />
+              <Link href="/member/calendar" className="text-sm font-bold !text-white flex items-center gap-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 px-5 py-2.5 rounded-full transition-colors shadow-sm">
+                Ver Calendário Completo <ArrowRight className="w-4 h-4 text-white" />
               </Link>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch" id="tut-event-section">
-              <div className="lg:col-span-2">
-                <EventCard event={nextEvent} />
-              </div>
+            <div className="flex flex-col gap-4" id="tut-event-section">
+              <EventCard event={nextEvent} />
 
-              {/* Context / Helper Text */}
-              <div className="hidden lg:flex flex-col justify-center bg-slate-900/50 border border-white/5 rounded-[2rem] p-8 h-full" id="tut-event-help">
-                <div className="w-12 h-12 bg-indigo-500/10 rounded-2xl flex items-center justify-center mb-6">
-                  <Video className="w-6 h-6 text-indigo-400" />
+              <div className="bg-indigo-500/10 border border-indigo-500/20 rounded-2xl p-4 flex items-start sm:items-center gap-4 mt-2">
+                <div className="w-10 h-10 bg-indigo-500/20 rounded-full flex items-center justify-center shrink-0 hidden sm:flex">
+                  <Video className="w-5 h-5 text-indigo-400" />
                 </div>
-                <h3 className="text-xl font-bold text-white mb-3">
-                  Como participar?
-                </h3>
-                <p className="text-slate-400 text-sm leading-relaxed mb-6">
-                  Os encontros realizam-se através da plataforma Zoom ou Google Meet.
-                  <br /><br />
-                  Basta clicares no botão <strong>"Entrar na Sala"</strong> quando faltarem 30 minutos para o evento começar. O botão ficará desbloqueado automaticamente.
-                </p>
-                <div className="mt-auto pt-6 border-t border-white/5">
-                  <p className="text-xs text-slate-500 font-medium">
-                    Tens dúvidas? <a href="#" className="text-indigo-400 hover:underline">Contacta o suporte.</a>
+                <div>
+                  <h4 className="text-white text-sm font-bold mb-1">Como participar?</h4>
+                  <p className="text-indigo-200/80 text-xs leading-relaxed max-w-3xl">
+                    Clica em &quot;Entrar na Sala&quot; quando faltarem 30 minutos para o evento começar para acederes através do Zoom ou Google Meet. O botão ficará desbloqueado automaticamente. <a href="#" className="font-bold text-indigo-400 hover:text-indigo-300 underline ml-1">Precisas de suporte?</a>
                   </p>
                 </div>
               </div>

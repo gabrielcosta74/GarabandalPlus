@@ -97,6 +97,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         supabaseBrowser.auth.getSession()
             .then(({ data: { session: currentSession } }) => syncSessionState(currentSession))
             .catch((err) => {
+                if (err?.name === 'AbortError' || err?.message?.includes('aborted')) {
+                    console.warn('Supabase getSession aborted (likely Strict Mode overlap).');
+                    // Do not force setLoading(false) here, let the other overlap request finish it.
+                    return;
+                }
                 console.error('Error retrieving initial session:', err);
                 if (mounted) setLoading(false);
             });
@@ -113,7 +118,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 // Because we have middleware now, the cookies refresh auto. We just sync client state.
                 const { data: { session: currentSession } } = await supabaseBrowser.auth.getSession();
                 await syncSessionState(currentSession);
-            } catch (err) {
+            } catch (err: any) {
+                if (err?.name === 'AbortError' || err?.message?.includes('aborted')) {
+                    // Ignore aborts
+                    return;
+                }
                 console.error('Error refreshing session:', err);
             }
         };

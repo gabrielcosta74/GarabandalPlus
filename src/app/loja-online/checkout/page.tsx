@@ -19,7 +19,7 @@ import {
 } from '../../../lib/country-utils';
 import { getShippingCost, getShippingLabel, getShippingOrigin, isPhysicalShippingAllowed } from '../../../lib/shipping-rules';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Check, ChevronRight, CreditCard, User, ShoppingBag, MapPin, ArrowLeft, ShieldCheck, Loader2, QrCode } from 'lucide-react';
+import { Check, ChevronRight, CreditCard, User, ShoppingBag, MapPin, ArrowLeft, ShieldCheck, Loader2, QrCode, Wallet } from 'lucide-react';
 
 const getVatRate = (product: Product) => (product.isPhysical ? 0.06 : 0.23);
 
@@ -43,6 +43,7 @@ type AddressSuggestion = {
 };
 
 type SavedProfile = {
+  numero_socio?: number | null;
   nome?: string | null;
   email?: string | null;
   telefone?: string | null;
@@ -54,6 +55,7 @@ type SavedProfile = {
   estado_quota?: string | null;
   tipo_subscricao?: string | null;
   proxima_quota?: string | null;
+  store_credits?: number | null;
 };
 
 const countryOptions = listCountryOptions();
@@ -117,7 +119,9 @@ export default function CheckoutPage() {
   const [selectedPaymentId, setSelectedPaymentId] = useState(UNIFIED_ONLINE_PAYMENT_OPTIONS[0].id);
   const [ownedDigitalProductIds, setOwnedDigitalProductIds] = useState<Set<string>>(new Set());
 
-
+  // Store Credits Gamification
+  const [applyCredits, setApplyCredits] = useState(false);
+  const storeCreditsBalance = savedProfile?.store_credits || 0;
   // Set default billing logic based on cart type
   useEffect(() => {
     // If no physical items, billing cannot be same as shipping because shipping is hidden/optional
@@ -191,10 +195,17 @@ export default function CheckoutPage() {
     [shipping.country, hasPhysical],
   );
   const shippingOriginLabel = shippingOrigin === 'BR' ? 'Brasil' : shippingOrigin === 'PT' ? 'Portugal' : null;
-  const totalWithShipping = useMemo(
+  const rawTotalWithShipping = useMemo(
     () => discountedTotal + (typeof shippingCost === 'number' ? shippingCost : 0),
     [discountedTotal, shippingCost],
   );
+
+  const appliedCreditsValue = useMemo(() => {
+    if (!applyCredits || storeCreditsBalance <= 0) return 0;
+    return Math.min(storeCreditsBalance, rawTotalWithShipping);
+  }, [applyCredits, storeCreditsBalance, rawTotalWithShipping]);
+
+  const totalToPay = useMemo(() => Math.max(0, rawTotalWithShipping - appliedCreditsValue), [rawTotalWithShipping, appliedCreditsValue]);
 
   // Load Data Effects
   useEffect(() => {
@@ -223,7 +234,7 @@ export default function CheckoutPage() {
       if (session?.user?.id) {
         const { data: profile } = await supabaseBrowser
           .from('membros')
-          .select('nome, email, telefone, address, postal_code, country, nif, is_membro, estado_quota, tipo_subscricao, proxima_quota')
+          .select('nome, email, telefone, address, postal_code, country, nif, is_membro, estado_quota, tipo_subscricao, proxima_quota, store_credits')
           .eq('id', session.user.id)
           .maybeSingle();
         if (profile) {
@@ -435,8 +446,11 @@ export default function CheckoutPage() {
         headers,
         body: JSON.stringify({
           items: cartEntries.map((item) => ({ id: item.id, name: item.name, price: item.price, qty: item.qty })),
-          total: Number(totalWithShipping.toFixed(2)),
-          provider: selectedPayment.provider,
+          total: Number(rawTotalWithShipping.toFixed(2)),
+          finalTotalToPay: Number(totalToPay.toFixed(2)),
+          applyStoreCredits: applyCredits && storeCreditsBalance > 0,
+          appliedCreditsValue: Number(appliedCreditsValue.toFixed(2)),
+          provider: totalToPay === 0 ? 'wallet' : selectedPayment.provider, // Instant bypass if 0
           buyer,
           shipping: hasPhysical ? shipping : null,
           billing: billingSameAsShipping ? { ...shipping, address1: `${shipping.address1} ${shipping.doorNumber}`.trim() } : billing,
@@ -844,7 +858,7 @@ export default function CheckoutPage() {
                   >
                     {loading ? <Loader2 className="animate-spin w-5 h-5" /> : (
                       <>
-                        {step === 3 ? `Pagar ${formatPrice(totalWithShipping)}` : 'Continuar'}
+                        {step === 3 ? `Pagar ${formatPrice(totalToPay)}` : 'Continuar'}
                         {step !== 3 && <ChevronRight className="w-5 h-5" />}
                       </>
                     )}
@@ -905,12 +919,53 @@ export default function CheckoutPage() {
                         </span>
                       </div>
                     )}
+                    {(!!savedProfile?.numero_socio || !!savedProfile?.is_membro) && (
+                      <div className="mt-6 bg-gradient-to-br from-garabandal-gold/10 to-garabandal-gold/5 border border-garabandal-gold/20 rounded-xl p-4 shadow-sm">
+                        <div className="flex items-center gap-3 mb-4">
+                          <div className="w-8 h-8 rounded-full bg-garabandal-gold/20 flex items-center justify-center text-garabandal-gold shrink-0">
+                            <Wallet className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <p className="text-sm font-bold text-gray-900 leading-tight">A Tua Carteira</p>
+                            <p className="text-xs text-gray-600">Saldo atual: <span className="font-bold text-garabandal-dark">{formatPrice(storeCreditsBalance)}</span></p>
+                          </div>
+                        </div>
+
+                        {storeCreditsBalance > 0 ? (
+                          <div className="bg-white rounded-lg p-3 border border-gray-200">
+                            <label className="flex items-center justify-between cursor-pointer select-none group">
+                              <div className="flex items-center gap-3">
+                                <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${applyCredits ? 'bg-garabandal-gold border-garabandal-gold' : 'border-gray-300 group-hover:border-garabandal-gold'}`}>
+                                  {applyCredits && <Check className="w-3 h-3 text-white" />}
+                                </div>
+                                <span className="text-sm font-medium text-gray-700 group-hover:text-gray-900 transition-colors">Usar saldo na encomenda</span>
+                              </div>
+                              {applyCredits && appliedCreditsValue > 0 && (
+                                <span className="font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded-md">-{formatPrice(appliedCreditsValue)}</span>
+                              )}
+                              <input type="checkbox" className="hidden" checked={applyCredits} onChange={(e) => setApplyCredits(e.target.checked)} />
+                            </label>
+                          </div>
+                        ) : (
+                          <div className="bg-white/50 rounded-lg p-3 border border-garabandal-gold/10 text-center">
+                            <p className="text-xs text-gray-500">Sem saldo disponível para desconto nesta compra.</p>
+                          </div>
+                        )}
+
+                        <div className="mt-4 pt-3 border-t border-garabandal-gold/10 flex items-start gap-3">
+                          <div className="bg-garabandal-gold text-white text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider shrink-0 mt-0.5">Bónus</div>
+                          <p className="text-xs text-gray-600 leading-relaxed">
+                            Convida amigos a tornarem-se membros e ganhem ambos <strong className="text-gray-900">{formatPrice(2.50)}</strong> para usarem aqui! <a href="/member" className="text-garabandal-gold hover:underline font-bold whitespace-nowrap">Convidar amigos &rarr;</a>
+                          </p>
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   <div className="pt-4 border-t border-gray-100">
                     <div className="flex justify-between items-end">
                       <span className="text-lg font-bold text-gray-900">Total</span>
-                      <span className="text-3xl font-serif font-bold text-garabandal-dark">{formatPrice(totalWithShipping)}</span>
+                      <span className="text-3xl font-serif font-bold text-garabandal-dark">{formatPrice(totalToPay)}</span>
                     </div>
                     <p className="text-right text-xs text-gray-400 mt-1">IVA incluído à taxa legal</p>
                   </div>

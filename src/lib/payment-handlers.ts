@@ -86,7 +86,7 @@ export async function handleDonationSuccess(ctx: PaymentHandlerContext) {
             ? 'pix'
             : method === 'stripe_apple_pay'
                 ? 'stripe_apple_pay'
-            : 'stripe_card';
+                : 'stripe_card';
 
     const donorName = customerDetails?.name || normalizeMeta(metadata.donorName) || null;
     const donorEmail = customerDetails?.email || normalizeMeta(metadata.donorEmail) || null;
@@ -265,6 +265,26 @@ export async function handleMembershipSuccess(ctx: PaymentHandlerContext) {
         if (!updatedMember && lastUpdateError) {
             throw lastUpdateError;
         }
+
+        // --- REFERRAL REWARD GAMIFICATION ---
+        // If this is their FIRST successful payment and they used a referral code, trigger the reward RPC.
+        if (!wasMember && membro?.referred_by_code) {
+            try {
+                const { error: rewardError } = await supabaseServer.rpc('reward_inviter', {
+                    p_referral_code: membro.referred_by_code,
+                    p_new_member_id: userId,
+                    p_amount: 2.50
+                });
+                if (rewardError) {
+                    console.error(`Failed to execute reward_inviter for user ${userId} with code ${membro.referred_by_code}:`, rewardError);
+                } else {
+                    console.log(`Successfully rewarded inviter for code ${membro.referred_by_code} and new member ${userId}`);
+                }
+            } catch (err) {
+                console.error(`Exception executing reward_inviter for user ${userId}:`, err);
+            }
+        }
+        // ------------------------------------
 
         // Notifications
         const shouldNotify = !paymentRow?.email_notificado_at;
