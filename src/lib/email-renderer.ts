@@ -105,6 +105,16 @@ export type AbandonmentRecoveryInput = {
     recoveryLink: string;
 };
 
+export type BookingAdminNotificationInput = {
+    bookingId: string;
+    pilgrimageName: string;
+    customerName: string;
+    customerEmail: string;
+    totalAmount: number;
+    numberOfPilgrims: number;
+    paymentMethod: string;
+};
+
 /* -------------------------------------------------------------------------- */
 /*                                   THEME                                    */
 /* -------------------------------------------------------------------------- */
@@ -880,3 +890,32 @@ export const renderAuctionPaymentConfirmedEmail = (payload: AuctionPaymentConfir
     })
 });
 
+export const renderBookingAdminNotification = (payload: BookingAdminNotificationInput) => ({
+    subject: `Nova inscrição recebida: ${payload.pilgrimageName} (${payload.numberOfPilgrims} peregrinos)`,
+    html: Layout({
+        title: 'Nova Inscrição Recebida',
+        children: `
+            ${Header({
+            title: 'Nova Inscrição Registada',
+            subtitle: payload.pilgrimageName
+        })}
+            ${Section({
+            children: `
+                    ${Text('Foi registada uma nova inscrição numa peregrinação.')}
+                    ${Card({
+                children: `
+                            ${InfoRow({ label: 'Referência da Inscrição', value: payload.bookingId })}
+                            ${InfoRow({ label: 'Peregrinação', value: payload.pilgrimageName })}
+                            ${InfoRow({ label: 'Cliente', value: payload.customerName })}
+                            ${InfoRow({ label: 'Email', value: payload.customerEmail })}
+                            ${InfoRow({ label: 'Nº de Peregrinos', value: payload.numberOfPilgrims })}
+                            ${InfoRow({ label: 'Valor Total', value: formatCurrency(payload.totalAmount) })}
+                            ${InfoRow({ label: 'Método de Pagamento', value: payload.paymentMethod, isLast: true })}
+                        `
+            })}
+                    ${Button({ label: 'Ver Detalhes da Inscrição', url: APP_URL + '/admin/inscricoes' })}
+                `
+        })}
+        `
+    })
+});

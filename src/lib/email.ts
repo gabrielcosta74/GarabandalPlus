@@ -22,6 +22,7 @@ import {
   renderAuctionWinnerEmail,
   renderAuctionAdminNotificationEmail,
   renderAuctionPaymentConfirmedEmail,
+  renderBookingAdminNotification,
   // Types
   MembershipNotificationInput,
   MemberReceiptInput,
@@ -37,6 +38,7 @@ import {
   AuctionWinnerInput,
   AuctionAdminNotificationInput,
   AuctionPaymentConfirmedInput,
+  BookingAdminNotificationInput,
 } from './email-renderer';
 
 // Re-export specific types if needed by other files (though best to import from renderer)
@@ -55,6 +57,7 @@ export type {
   AuctionWinnerInput,
   AuctionAdminNotificationInput,
   AuctionPaymentConfirmedInput,
+  BookingAdminNotificationInput,
 } from './email-renderer';
 
 // Re-export renderers for use in server-side contexts if needed (legacy support)
@@ -72,7 +75,8 @@ export {
   renderAbandonmentRecoveryEmail,
   renderBookingConfirmationEmail,
   renderDonationNotification,
-  renderBrochureEmail
+  renderBrochureEmail,
+  renderBookingAdminNotification,
 } from './email-renderer';
 
 
@@ -629,6 +633,22 @@ export const sendAuctionPaymentConfirmedEmail = async (payload: AuctionPaymentCo
   await resendClient.emails.send({
     from: notifyFrom,
     to: [payload.toEmail],
+    subject: content.subject,
+    html: content.html,
+  });
+  return true;
+};
+
+export const sendBookingAdminNotification = async (payload: BookingAdminNotificationInput) => {
+  if (!resendClient) {
+    console.warn('Resend nao configurado. Ignorar envio de email.');
+    return false;
+  }
+
+  const content = renderBookingAdminNotification(payload);
+  await resendClient.emails.send({
+    from: notifyFrom,
+    to: [notifyTo],
     subject: content.subject,
     html: content.html,
   });

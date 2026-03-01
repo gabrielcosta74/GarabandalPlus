@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabaseServer } from '../../../../lib/supabase';
-import { sendBookingConfirmationEmail } from '../../../../lib/email';
+import { sendBookingConfirmationEmail, sendBookingAdminNotification } from '../../../../lib/email';
 import { getAppUrl } from '../../../../lib/config';
 import { parseRoomInfo } from '../../../../lib/utils';
 import { generateViewToken, generateIdempotencyKey } from '../../../../lib/auth-utils';
@@ -409,6 +409,17 @@ export async function POST(req: Request) {
                 totalAmount: totalAmount,
                 paymentMethod: payment_method,
                 magicLink: magicLink
+            });
+
+            const customerName = pilgrimsToInsert[0]?.full_name || 'Desconhecido';
+            await sendBookingAdminNotification({
+                bookingId: booking.id,
+                pilgrimageName: pilgrimage.title,
+                customerName: customerName,
+                customerEmail: bookingEmail,
+                totalAmount: totalAmount,
+                numberOfPilgrims: pilgrimsToInsert.length,
+                paymentMethod: payment_method
             });
 
         } catch (emailErr) {
