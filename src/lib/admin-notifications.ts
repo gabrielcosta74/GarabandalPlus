@@ -29,18 +29,24 @@ export async function getAdminCounts() {
             .eq('status', 'paid')
             .is('invoice_sent_at', null);
 
-        // Distinct count logic (fetch minimal fields)
-        const { data: needActionOrders } = await supabaseServer
+        // Calculate Action Needed Orders (Matching Admin Encomendas Page precisely)
+        const { data: ordersData } = await supabaseServer
             .from('store_orders')
-            .select('order_ref, has_physical, shipping_status, invoice_sent_at')
-            .eq('status', 'paid');
+            .select('status, has_physical, shipping_status, invoice_sent_at'); // Match admin page logic
 
         let ordersCount = 0;
-        if (needActionOrders) {
-            ordersCount = needActionOrders.filter(o => {
-                const needsShip = o.has_physical && (o.shipping_status || '').toLowerCase() !== 'enviado';
-                const needsInv = !o.invoice_sent_at;
-                return needsShip || needsInv;
+        if (ordersData) {
+            ordersCount = ordersData.filter(order => {
+                const statusFn = (order.status || '').toLowerCase();
+                // Exclude canceled or failed permanently
+                if (statusFn === 'canceled' || statusFn === 'cancelado' || statusFn === 'failed' || statusFn === 'falhado') return false;
+
+                const needsInvoice = !order.invoice_sent_at;
+                const isPaid = statusFn === 'paid' || statusFn === 'pago';
+                const shippingLabel = (order.shipping_status || '').toLowerCase() === 'enviado' ? 'Enviado' : 'Por enviar';
+
+                const needsShipping = isPaid && order.has_physical && shippingLabel !== 'Enviado';
+                return needsShipping || needsInvoice;
             }).length;
         }
 
@@ -92,7 +98,7 @@ export async function getAdminCounts() {
 }
 
 export async function createAdminNotification(
-    type: 'order' | 'member' | 'booking' | 'donation',
+    type: 'order' | 'member' | 'booking' | 'donation' | 'auction',
     title: string,
     message: string,
     link?: string

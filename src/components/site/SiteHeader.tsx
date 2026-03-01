@@ -473,7 +473,7 @@ export default function SiteHeader() {
 
                                   {/* ADMIN LINK */}
                                   {(user.email?.toLowerCase() === 'geral@apostoladodegarabandal.com' || user.email === 'Gabrielcosta2908@gmail.com') && (
-                                    <Link href="/admin" className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-red-600 bg-red-50 hover:bg-red-100 transition-all group mt-1">
+                                    <Link href="/admin" onClick={() => setUserMenuOpen(false)} className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-red-600 bg-red-50 hover:bg-red-100 transition-all group mt-1">
                                       <div className="w-8 h-8 rounded-lg bg-white/50 text-red-600 flex items-center justify-center">
                                         <LayoutDashboard className="w-4 h-4" />
                                       </div>

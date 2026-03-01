@@ -10,6 +10,7 @@ import MembershipModal from "../../components/membership/MembershipModal";
 import { QuotaWarning } from "../../components/membership/QuotaWarning";
 import { useAuth } from "../../contexts/AuthContext";
 import { getMembershipAmountClient } from "../../lib/membership-pricing";
+import AboutTeaser from "../../components/membership/AboutTeaser";
 
 function TornarMembroContent() {
     const search = useSearchParams();
@@ -70,6 +71,7 @@ function TornarMembroContent() {
                 <QuotaWarning memberData={memberData} />
             </div>
             <MembershipHero onJoinClick={() => setModalOpen(true)} />
+            <AboutTeaser />
             <MembershipBenefits />
             <MembershipImpact stats={impact} />
             <MembershipFAQ />

@@ -117,7 +117,7 @@ export default function AdminEncomendasPage() {
 
       const res = await withTimeout(
         fetch('/api/admin/orders', { headers, cache: 'no-store' }),
-        8000,
+        20000,
         'Timeout ao carregar encomendas.',
       );
       if (!res.ok) throw new Error('Erro ao carregar encomendas.');
@@ -241,9 +241,13 @@ export default function AdminEncomendasPage() {
   // "Action Needed" Logic
   const actionNeededSet = useMemo(() => {
     return filteredOrders.filter(order => {
-      if (!isPaid(order)) return false;
-      const needsShipping = order.has_physical && shippingLabel(order.shipping_status) !== 'Enviado';
+      const statusFn = (order.status || '').toLowerCase();
+      if (statusFn === 'canceled' || statusFn === 'failed') return false;
+
       const needsInvoice = !order.invoice_sent_at;
+      // An invoice is always needed, even if pending. Shipping is only needed if paid.
+      const needsShipping = isPaid(order) && order.has_physical && shippingLabel(order.shipping_status) !== 'Enviado';
+
       return needsShipping || needsInvoice;
     });
   }, [filteredOrders]);
@@ -254,7 +258,8 @@ export default function AdminEncomendasPage() {
   // Stats for Cards (Always calculated from clean list to be useful)
   const stats = useMemo(() => {
     const pendingShip = orders.filter(o => isPaid(o) && o.has_physical && shippingLabel(o.shipping_status) !== 'Enviado').length;
-    const pendingInv = orders.filter(o => isPaid(o) && !o.invoice_sent_at).length;
+    // Faturas em falta now counts all orders without an invoice, regardless of paid status
+    const pendingInv = orders.filter(o => !o.invoice_sent_at).length;
     return { pendingShip, pendingInv, total: orders.length };
   }, [orders]);
 

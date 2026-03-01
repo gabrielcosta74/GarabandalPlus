@@ -152,13 +152,38 @@ export default function PaymentManagementTab({
 
     // Handle delete payment
     const handleDelete = async (paymentId: string) => {
-        if (!confirm('Tem a certeza que deseja eliminar este pagamento?')) return;
+        if (!confirm('Tem a certeza que deseja eliminar este pagamento? O valor em dívida será recalculado e a reserva pode voltar ao estado pendente.')) return;
 
+        const loadingId = toast.loading('A eliminar pagamento...');
         try {
-            // TODO: Implement delete API
-            alert('Funcionalidade de eliminar ainda não implementada');
+            if (!supabaseBrowser) throw new Error('Cliente Supabase não inicializado.');
+
+            const { data: { session } } = await supabaseBrowser.auth.getSession();
+            const token = session?.access_token;
+
+            if (!token) {
+                throw new Error('Sessão expirada. Por favor faça login novamente.');
+            }
+
+            const res = await fetch(`/api/admin/payments/${paymentId}`, {
+                method: 'DELETE',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (!res.ok) {
+                const data = await res.json().catch(() => ({}));
+                throw new Error(data.error || 'Erro ao remover pagamento');
+            }
+
+            toast.dismiss(loadingId);
+            toast.success('Pagamento eliminado com sucesso!');
+
+            await onUpdate();
         } catch (err: any) {
-            alert('Erro ao eliminar: ' + err.message);
+            toast.dismiss(loadingId);
+            toast.error('Erro ao eliminar: ' + err.message);
         }
     };
 

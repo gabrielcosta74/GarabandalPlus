@@ -142,6 +142,38 @@ export default function PaymentHistoryManager({
         }
     };
 
+    const handleDeletePayment = async (paymentId: string, amount: number) => {
+        if (!confirm(`Tem a certeza que deseja APAGAR este pagamento no valor de ${amount}€?\nO valor em dívida será recalculado e a reserva pode voltar ao estado 'Pendente'.`)) return;
+
+        try {
+            if (!supabaseBrowser) throw new Error('Cliente Supabase não inicializado.');
+
+            const { data: { session } } = await supabaseBrowser.auth.getSession();
+            const token = session?.access_token;
+
+            if (!token) {
+                throw new Error('Sessão expirada. Faça login novamente.');
+            }
+
+            const res = await fetch(`/api/admin/payments/${paymentId}`, {
+                method: 'DELETE',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (!res.ok) {
+                const data = await res.json().catch(() => ({}));
+                throw new Error(data.error || "Erro ao remover pagamento");
+            }
+
+            fetchPayments();
+            onUpdate();
+        } catch (e: any) {
+            alert(e.message);
+        }
+    };
+
     const remaining = Math.max(0, totalAmount - paidAmount);
 
     return (
@@ -212,11 +244,7 @@ export default function PaymentHistoryManager({
                                 onChange={(e) => setNewLabel(e.target.value)}
                                 className="w-full bg-white border border-indigo-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
                             >
-                                <option value="">Pagamento Geral (Saldo)</option>
-                                <option value="Sinal">Sinal de Reserva</option>
-                                {paymentPlan.map((step, i) => (
-                                    <option key={i} value={`Prestação ${i + 1}`}>Prestação {i + 1} ({format(new Date(step.date), "MMM", { locale: pt })})</option>
-                                ))}
+                                <option value="Saldo Final">Saldo Final</option>
                             </select>
                         </div>
                         <div className="space-y-1">
@@ -298,6 +326,13 @@ export default function PaymentHistoryManager({
                                         <Check className="w-3 h-3" /> Validar
                                     </button>
                                 )}
+                                <button
+                                    onClick={() => handleDeletePayment(p.id, p.amount)}
+                                    title={"Apagar Pagamento"}
+                                    className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors ml-2"
+                                >
+                                    <Trash2 className="w-4 h-4" />
+                                </button>
                             </div>
                         </div>
                     ))

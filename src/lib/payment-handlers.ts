@@ -4,6 +4,7 @@ import {
     sendMemberReceiptEmail,
     sendMemberDiplomaEmail,
     sendDonationReceiptEmail,
+    sendAuctionPaymentConfirmedEmail,
 } from './email'; // Assume these exist and are exported
 import { ensureNotificationRecord, markNotificationSent } from './email-notifications';
 import { processPaidStoreOrder } from './store-orders';
@@ -459,4 +460,56 @@ export async function handlePaymentFailedOrCanceled(ctx: PaymentHandlerContext, 
         const orderRef = metadata.orderRef;
         if (orderRef) await supabaseServer.from('store_orders').update({ status }).eq('order_ref', orderRef);
     }
+}
+
+/* -------------------------------------------------------------------------- */
+/*                                  AUCTIONS                                  */
+/* -------------------------------------------------------------------------- */
+export async function handleAuctionSuccess(ctx: PaymentHandlerContext) {
+    const { supabaseServer, amountCents, paymentReference, method, metadata } = ctx;
+    const auctionItemId = metadata.auctionItemId;
+
+    if (!auctionItemId) return null;
+
+    // Get the auction item info
+    const { data: item } = await supabaseServer
+        .from('auction_items')
+        .select('id, title, winner_id')
+        .eq('id', auctionItemId)
+        .single();
+
+    if (!item) return null;
+
+    // Update the auction item status to paid
+    await supabaseServer
+        .from('auction_items')
+        .update({ status: 'paid', updated_at: new Date().toISOString() })
+        .eq('id', auctionItemId);
+
+    console.log(`[Auction] Marked as paid in handler: ${auctionItemId}`);
+
+    // Try to get winner details to send email
+    if (item.winner_id) {
+        const { data: membro } = await supabaseServer
+            .from('membros')
+            .select('nome, email')
+            .eq('id', item.winner_id)
+            .maybeSingle();
+
+        if (membro?.email) {
+            await sendAuctionPaymentConfirmedEmail({
+                toEmail: membro.email,
+                itemTitle: item.title || 'Artigo de Leilão',
+                winnerName: membro.nome,
+                winningBid: amountCents,
+                paymentMethod: method,
+                paymentReference,
+                paidAt: new Date().toISOString()
+            });
+            console.log(`[Auction] Sent payment confirmed email to ${membro.email}`);
+        }
+    }
+
+    // Create an admin notification
+    await createAdminNotification('auction', 'Pagamento Leilão', `Leilão #${auctionItemId} - ${(amountCents / 100).toFixed(2)}€`, `/admin/leiloes/${auctionItemId}`);
 }

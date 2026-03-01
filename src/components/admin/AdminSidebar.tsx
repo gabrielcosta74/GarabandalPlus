@@ -24,6 +24,8 @@ import {
     Video,
     Mail,
     Heart,
+    Gavel,
+    UserPlus,
     ChevronDown,
     ChevronRight,
 } from 'lucide-react';
@@ -65,6 +67,8 @@ export default function AdminSidebar({ onLogout, className }: { onLogout: () => 
             items: [
                 { label: 'Leads & Inscrições', icon: Target, href: '/admin/leads' },
                 { label: 'Doações', icon: Heart, href: '/admin/doacoes' },
+                { label: 'Convites de Membros', icon: UserPlus, href: '/admin/convites' },
+                { label: 'Leilão', icon: Gavel, href: '/admin/leilao' },
                 { label: 'Emails do Sistema', icon: Mail, href: '/admin/emails' },
             ]
         },

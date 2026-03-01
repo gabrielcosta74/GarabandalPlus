@@ -484,19 +484,19 @@ export const renderStoreOwnerEmail = (payload: any) => ({
         children: `
             ${Header({ title: 'Nova encomenda na loja', subtitle: `Ref. ${payload.orderRef}` })}
             ${Section({
-                children: `
+            children: `
                     ${Text('Foi registada uma nova encomenda no site.')}
                     ${Card({
-                        children: `
+                children: `
                             ${InfoRow({ label: 'Referência', value: payload.orderRef || '-' })}
                             ${InfoRow({ label: 'Cliente', value: payload.buyerName || '-' })}
                             ${InfoRow({ label: 'Email', value: payload.buyerEmail || '-' })}
                             ${InfoRow({ label: 'Total', value: payload.total || '-', isLast: true })}
                         `
-                    })}
+            })}
                     ${Button({ label: 'Abrir Admin', url: `${APP_URL}/admin/encomendas` })}
                 `
-            })}
+        })}
         `
     })
 });
@@ -508,20 +508,20 @@ export const renderStoreBuyerEmail = (payload: any) => ({
         children: `
             ${Header({ title: 'Recebemos a sua encomenda', subtitle: `Ref. ${payload.orderRef}` })}
             ${Section({
-                children: `
+            children: `
                     ${Text(`Olá <strong>${payload.buyerName || 'cliente'}</strong>,`)}
                     ${Text('Obrigado pela sua compra. A encomenda foi registada com sucesso.')}
                     ${Card({
-                        children: `
+                children: `
                             ${InfoRow({ label: 'Referência', value: payload.orderRef || '-' })}
                             ${InfoRow({ label: 'Subtotal', value: payload.subtotal || '-' })}
                             ${payload.shippingCost ? InfoRow({ label: 'Envio', value: payload.shippingCost }) : ''}
                             ${InfoRow({ label: 'IVA', value: payload.vat || '-' })}
                             ${InfoRow({ label: 'Total', value: payload.total || '-', isLast: true })}
                         `
-                    })}
+            })}
                     ${Array.isArray(payload.items) && payload.items.length > 0 ? Card({
-                        children: `
+                children: `
                           ${HeadingSmall('Produtos comprados')}
                           <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;margin-top:8px;">
                             ${payload.items.map((item: any) => `
@@ -537,22 +537,22 @@ export const renderStoreBuyerEmail = (payload: any) => ({
                             `).join('')}
                           </table>
                         `,
-                    }) : ''}
+            }) : ''}
                     ${Card({
-                        children: `
+                children: `
                           ${HeadingSmall('Próximos passos')}
                           <p style="margin:0 0 8px;font-size:14px;color:${COLORS.text};">1. Guarde a referência da encomenda: <strong>${payload.orderRef || '-'}</strong>.</p>
                           ${Array.isArray(payload.downloadLinks) && payload.downloadLinks.length > 0
-                            ? `<p style="margin:0 0 8px;font-size:14px;color:${COLORS.text};">2. Clique nos botões abaixo para descarregar os seus ficheiros digitais.</p>
+                        ? `<p style="margin:0 0 8px;font-size:14px;color:${COLORS.text};">2. Clique nos botões abaixo para descarregar os seus ficheiros digitais.</p>
                                <p style="margin:0;font-size:14px;color:${COLORS.text};">3. Se o link expirar, aceda a <strong>Biblioteca Digital</strong> na sua área pessoal.</p>`
-                            : payload.hasDigital
-                              ? `<p style="margin:0 0 8px;font-size:14px;color:${COLORS.text};">2. Aceda à <strong>Biblioteca Digital</strong> na sua área pessoal para descarregar os seus produtos.</p>`
-                              : ''}
-                          ${payload.shipping
-                            ? `<p style="margin:8px 0 0;font-size:14px;color:${COLORS.text};">${payload.hasDigital ? '4' : '2'}. Produtos físicos: receberá outro email quando a encomenda for expedida.</p>`
+                        : payload.hasDigital
+                            ? `<p style="margin:0 0 8px;font-size:14px;color:${COLORS.text};">2. Aceda à <strong>Biblioteca Digital</strong> na sua área pessoal para descarregar os seus produtos.</p>`
                             : ''}
+                          ${payload.shipping
+                        ? `<p style="margin:8px 0 0;font-size:14px;color:${COLORS.text};">${payload.hasDigital ? '4' : '2'}. Produtos físicos: receberá outro email quando a encomenda for expedida.</p>`
+                        : ''}
                         `,
-                    })}
+            })}
                     ${Array.isArray(payload.downloadLinks) && payload.downloadLinks.length > 0 ? `
                       ${Text('Os seus produtos digitais estão disponíveis abaixo:')}
                       ${payload.downloadLinks
@@ -564,13 +564,13 @@ export const renderStoreBuyerEmail = (payload: any) => ({
                     ` : '')}
                     ${payload.shipping ? Text('Esta encomenda inclui produtos físicos. Enviaremos novo email quando a expedição for iniciada.') : ''}
                     ${(payload.showClaimCta ?? true) && payload.claimUrl
-                      ? `
+                    ? `
                         ${Text('Se ainda não tem conta, clique no botão abaixo para criar acesso com este mesmo email e ligar esta encomenda ao seu perfil. Se já tem conta, basta iniciar sessão para concluir a associação.')}
                         ${Button({ label: 'Associar Encomenda à Conta', url: payload.claimUrl })}
                       `
-                      : ''}
+                    : ''}
                 `
-            })}
+        })}
         `
     })
 });
@@ -582,18 +582,18 @@ export const renderStoreShippingEmail = (payload: any) => ({
         children: `
             ${Header({ title: 'A sua encomenda foi enviada', subtitle: `Ref. ${payload.orderRef}` })}
             ${Section({
-                children: `
+            children: `
                     ${Text(`Olá <strong>${payload.buyerName || 'cliente'}</strong>,`)}
                     ${Text('A sua encomenda já saiu para entrega.')}
                     ${Card({
-                        children: `
+                children: `
                             ${InfoRow({ label: 'Referência', value: payload.orderRef || '-' })}
                             ${InfoRow({ label: 'Tracking', value: payload.tracking || 'Será atualizado em breve' })}
                             ${InfoRow({ label: 'Data de envio', value: formatDate(payload.shippedAt), isLast: true })}
                         `
-                    })}
-                `
             })}
+                `
+        })}
         `
     })
 });
@@ -605,11 +605,11 @@ export const renderStorePreparingEmail = (payload: any) => ({
         children: `
             ${Header({ title: 'Estamos a preparar a sua encomenda', subtitle: `Ref. ${payload.orderRef}` })}
             ${Section({
-                children: `
+            children: `
                     ${Text(`Olá <strong>${payload.buyerName || 'cliente'}</strong>,`)}
                     ${Text('A sua encomenda está em preparação. Assim que for enviada, receberá nova atualização por email.')}
                 `
-            })}
+        })}
         `
     })
 });
@@ -621,12 +621,12 @@ export const renderAbandonmentRecoveryEmail = (payload: AbandonmentRecoveryInput
         children: `
             ${Header({ title: 'Ainda vai a tempo de concluir', subtitle: payload.pilgrimageName })}
             ${Section({
-                children: `
+            children: `
                     ${Text(`Olá <strong>${payload.name || 'peregrino'}</strong>,`)}
                     ${Text('A sua inscrição ficou pendente. Pode retomar exatamente no ponto onde ficou através do botão abaixo.')}
                     ${Button({ label: 'Retomar Inscrição', url: payload.recoveryLink })}
                 `
-            })}
+        })}
         `
     })
 });
@@ -639,13 +639,13 @@ export const renderDonationNotification = (payload: any) => ({
             children: `
                 ${Text('Foi registada uma nova doação no sistema.')}
                 ${Card({
-                    children: `
+                children: `
                         ${InfoRow({ label: 'Doador', value: payload.donorName || '-' })}
                         ${InfoRow({ label: 'Email', value: payload.donorEmail || '-' })}
                         ${InfoRow({ label: 'Valor', value: formatCurrency(payload.amount) })}
                         ${InfoRow({ label: 'Método', value: payload.paymentMethod || '-', isLast: true })}
                     `
-                })}
+            })}
             `
         })
     })
@@ -719,3 +719,164 @@ export const renderMemberDiplomaEmail = (payload: MemberDiplomaInput) => ({
         })
     })
 });
+
+/* -------------------------------------------------------------------------- */
+/*                             AUCTION EMAILS                                 */
+/* -------------------------------------------------------------------------- */
+
+export type AuctionOutbidInput = {
+    email: string;
+    itemTitle: string;
+    yourBid: number;
+    newBid: number;
+    itemUrl: string;
+};
+
+export type AuctionWinnerInput = {
+    email: string;
+    winnerName?: string | null;
+    itemTitle: string;
+    winningBid: number;
+    paymentDeadlineHours: number;
+    itemUrl: string;
+};
+
+export type AuctionAdminNotificationInput = {
+    itemTitle: string;
+    winnerEmail: string;
+    winningBid: number;
+    totalBids: number;
+};
+
+export type AuctionPaymentConfirmedInput = {
+    itemTitle: string;
+    winnerName?: string | null;
+    winningBid: number;
+    paymentMethod: string;
+    paymentReference?: string | null;
+    paidAt?: string | null;
+};
+
+export const renderAuctionOutbidEmail = (payload: AuctionOutbidInput) => ({
+    subject: `Leilão Solidário: o seu lance foi ultrapassado — "${payload.itemTitle}"`,
+    html: Layout({
+        title: 'Lance Ultrapassado',
+        preview: `O seu lance de ${formatCurrency(payload.yourBid)} foi superado.`,
+        children: `
+            ${Header({
+            title: '⚡ O seu lance foi ultrapassado',
+            subtitle: payload.itemTitle
+        })}
+            ${Section({
+            children: `
+                    ${Text('Alguém fez um lance mais alto no leilão solidário.')}
+                    ${Card({
+                icon: '🏷️',
+                children: `
+                            ${InfoRow({ label: 'Peça', value: payload.itemTitle })}
+                            ${InfoRow({ label: 'O seu lance', value: formatCurrency(payload.yourBid) })}
+                            ${InfoRow({ label: 'Novo lance mais alto', value: `<span style="color:${COLORS.error};font-weight:bold;">${formatCurrency(payload.newBid)}</span>` })}
+                            ${InfoRow({ label: 'Lance mínimo agora', value: formatCurrency(payload.newBid + 1), isLast: true })}
+                        `
+            })}
+                    ${Text('Ainda vai a tempo de voltar a licitar e garantir esta peça!')}
+                    ${Button({ label: 'Licitar Novamente', url: payload.itemUrl })}
+                    ${Text('O leilão solidário reverte integralmente para a missão do Apostolado.', `text-align:center;font-size:13px;color:${COLORS.textLight};font-style:italic;`)}
+                `
+        })}
+        `
+    })
+});
+
+export const renderAuctionWinnerEmail = (payload: AuctionWinnerInput) => ({
+    subject: `🏆 Parabéns! Ganhou o leilão — "${payload.itemTitle}"`,
+    html: Layout({
+        title: 'Leilão Vencido',
+        preview: `Ganhou "${payload.itemTitle}" por ${formatCurrency(payload.winningBid / 100)}.`,
+        children: `
+            ${Header({
+            title: '🏆 Parabéns, ganhou o leilão!',
+            subtitle: payload.itemTitle
+        })}
+            ${Section({
+            children: `
+                    ${Text(`Olá <strong>${payload.winnerName || 'vencedor'}</strong>,`)}
+                    ${Text(`O seu lance foi o vencedor no <strong>Leilão Solidário</strong>! A peça <strong>"${payload.itemTitle}"</strong> é sua.`)}
+                    ${Card({
+                icon: '🎉',
+                children: `
+                            ${InfoRow({ label: 'Peça', value: payload.itemTitle })}
+                            ${InfoRow({ label: 'Lance vencedor', value: `<span style="color:${COLORS.success};font-weight:bold;">${formatCurrency(payload.winningBid / 100)}</span>` })}
+                            ${InfoRow({ label: 'Prazo para pagamento', value: `${payload.paymentDeadlineHours}h a partir de agora`, isLast: true })}
+                        `
+            })}
+                    <div style="background:${COLORS.primaryLight};border:1px solid ${COLORS.primary};border-radius:12px;padding:16px;margin-bottom:24px;">
+                        <strong style="color:${COLORS.primary};display:block;margin-bottom:4px;">⏰ Importante</strong>
+                        <span style="font-size:14px;color:${COLORS.text};">Tem <strong>${payload.paymentDeadlineHours} horas</strong> para completar o pagamento. Aceda à página do leilão para escolher o método de pagamento e fornecer a morada de envio.</span>
+                    </div>
+                    ${Button({ label: 'Pagar Agora', url: payload.itemUrl })}
+                    ${Text('Obrigado por participar no leilão solidário. A sua contribuição faz a diferença!', `text-align:center;font-size:13px;color:${COLORS.textLight};font-style:italic;`)}
+                `
+        })}
+        `
+    })
+});
+
+export const renderAuctionAdminNotificationEmail = (payload: AuctionAdminNotificationInput) => ({
+    subject: `Leilão terminado: "${payload.itemTitle}" — ${formatCurrency(payload.winningBid)}`,
+    html: Layout({
+        title: 'Leilão Terminado',
+        children: `
+            ${Header({
+            title: 'Leilão Solidário Terminado',
+            subtitle: payload.itemTitle
+        })}
+            ${Section({
+            children: `
+                    ${Text('Um leilão solidário terminou com sucesso.')}
+                    ${Card({
+                children: `
+                            ${InfoRow({ label: 'Peça', value: payload.itemTitle })}
+                            ${InfoRow({ label: 'Vencedor', value: payload.winnerEmail })}
+                            ${InfoRow({ label: 'Lance vencedor', value: formatCurrency(payload.winningBid) })}
+                            ${InfoRow({ label: 'Total de lances', value: payload.totalBids, isLast: true })}
+                        `
+            })}
+                    ${Button({ label: 'Ver no Admin', url: `${APP_URL}/admin/leilao` })}
+                `
+        })}
+        `
+    })
+});
+
+export const renderAuctionPaymentConfirmedEmail = (payload: AuctionPaymentConfirmedInput) => ({
+    subject: `Pagamento Confirmado: "${payload.itemTitle}"`,
+    html: Layout({
+        title: 'Pagamento de Leilão Confirmado',
+        preview: `Recebemos o pagamento de ${formatCurrency(payload.winningBid / 100)} referente à peça "${payload.itemTitle}".`,
+        children: `
+            ${Header({
+            title: '✅ Pagamento Confirmado',
+            subtitle: payload.itemTitle
+        })}
+            ${Section({
+            children: `
+                    ${Text(`Olá <strong>${payload.winnerName || 'vencedor'}</strong>,`)}
+                    ${Text(`Confirmamos a receção do seu pagamento para o <strong>Leilão Solidário</strong> da peça <strong>"${payload.itemTitle}"</strong>. O seu envio será preparado em breve.`)}
+                    ${Card({
+                icon: '🧾',
+                children: `
+                            ${InfoRow({ label: 'Referência', value: payload.itemTitle })}
+                            ${InfoRow({ label: 'Valor Pago', value: `<span style="color:${COLORS.success};font-weight:bold;">${formatCurrency(payload.winningBid / 100)}</span>` })}
+                            ${InfoRow({ label: 'Data', value: formatDate(payload.paidAt) })}
+                            ${payload.paymentReference ? InfoRow({ label: 'Ref. Pagamento', value: payload.paymentReference }) : ''}
+                            ${InfoRow({ label: 'Método / Agente', value: payload.paymentMethod, isLast: true })}
+                        `
+            })}
+                    ${Text('Em nome do Apostolado de Garabandal, agradecemos a sua generosa contribuição! Entraremos em contacto brevemente, ou receberá o tracking assim que for expedido.', `text-align:center;font-size:13px;color:${COLORS.textLight};font-style:italic;`)}
+                `
+        })}
+        `
+    })
+});
+

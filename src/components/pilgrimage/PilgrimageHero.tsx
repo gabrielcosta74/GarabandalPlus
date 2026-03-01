@@ -148,30 +148,17 @@ export function PilgrimageHero({ featuredPilgrimage }: { featuredPilgrimage?: Fe
                                     <div className="w-4 h-4 rounded-full bg-slate-900 absolute -right-8" />
                                 </div>
 
-                                <div className="grid grid-cols-2 gap-4 relative">
-                                    <div>
-                                        <span className="text-[10px] uppercase tracking-widest text-slate-500 font-bold block mb-1">Valor Base</span>
-                                        <div className="flex flex-col">
-                                            <div className="flex items-baseline gap-2">
-                                                <span className="text-2xl font-bold text-white tracking-tight">{formatPrice(featuredPilgrimage.base_price)}</span>
-                                                {/* Fake strikethrough for marketing */}
-                                                <span className="text-xs line-through text-slate-500 decoration-red-500">{formatPrice(featuredPilgrimage.base_price * 1.15)}</span>
-                                            </div>
-                                            {currency === 'BRL' && (
-                                                <span className="text-[9px] text-yellow-500/80 font-bold uppercase tracking-tighter">* Câmbio automático para Reais</span>
-                                            )}
-                                        </div>
-                                    </div>
-                                    <div className="text-right">
-                                        <span className="text-[10px] uppercase tracking-widest text-slate-500 font-bold block mb-1">Vagas</span>
-                                        <span className="text-sm font-bold text-green-400 flex items-center justify-end gap-1">
+                                <div className="flex flex-col gap-2 relative">
+                                    <div className="text-left">
+                                        <span className="text-[10px] uppercase tracking-widest text-slate-500 font-bold block mb-1">Disponibilidade</span>
+                                        <span className="text-sm font-bold text-green-400 flex items-center justify-start gap-1">
                                             <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
                                             {Number.isFinite(Number(featuredPilgrimage.effective_vacancies))
                                                 ? Number(featuredPilgrimage.effective_vacancies)
                                                 : Number.isFinite(Number((featuredPilgrimage as any).current_vacancies))
                                                     ? Math.max(0, Number((featuredPilgrimage as any).current_vacancies))
                                                     : Math.max(0, Number(featuredPilgrimage.total_vacancies || 0) - Number(featuredPilgrimage.confirmed_pax || 0))
-                                            } Restantes
+                                            } Lugares Restantes
                                         </span>
                                     </div>
                                 </div>

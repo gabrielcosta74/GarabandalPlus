@@ -6,6 +6,7 @@ import {
     handleMembershipSuccess,
     handlePilgrimageSuccess,
     handleStoreSuccess,
+    handleAuctionSuccess,
     handlePaymentFailedOrCanceled,
     PaymentHandlerContext
 } from '../../../../lib/payment-handlers';
@@ -203,6 +204,43 @@ export async function POST(request: Request) {
                 await handlePilgrimageSuccess(context);
             } else if (isFailed) {
                 await handlePaymentFailedOrCanceled(context, 'failed');
+            }
+            return NextResponse.json({ received: true });
+        }
+
+        // 5. Try Auctions
+        let auctionItemQuery = supabaseServer.from('auction_items').select('*');
+        if (referenceToMatch) {
+            auctionItemQuery = auctionItemQuery.or(`payment_intent_id.eq.${referenceToMatch},id.eq.${referenceToMatch.replace('auc', '').substring(0, referenceToMatch.length - 6)}`);
+        } else {
+            auctionItemQuery = auctionItemQuery.eq('payment_intent_id', token);
+        }
+        const { data: auctionItem } = await auctionItemQuery.maybeSingle();
+
+        if (auctionItem) {
+            const context: PaymentHandlerContext = {
+                supabaseServer,
+                amountCents: Math.round((auctionItem.current_bid || auctionItem.starting_price) * 100),
+                currency: 'EUR',
+                paymentReference: token,
+                externalReference: auctionItem.id,
+                method: 'reduniq',
+                metadata: {
+                    type: 'auction',
+                    auctionItemId: auctionItem.id,
+                    reduniqTransactionId: manualCheck.transactionId
+                }
+            };
+
+            if (isSuccess) {
+                await handleAuctionSuccess(context);
+                console.log(`[Reduniq Webhook] Leilão marcado como pago: ${auctionItem.id}`);
+            } else if (isFailed) {
+                await supabaseServer
+                    .from('auction_items')
+                    .update({ status: 'defaulted', updated_at: new Date().toISOString() })
+                    .eq('id', auctionItem.id);
+                console.log(`[Reduniq Webhook] Falha no pagamento do leilão: ${auctionItem.id}`);
             }
             return NextResponse.json({ received: true });
         }

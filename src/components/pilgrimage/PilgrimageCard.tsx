@@ -164,40 +164,11 @@ export function PilgrimageCard({ pilgrimage, index }: PilgrimageCardProps) {
                         {pilgrimage.description}
                     </p>
 
-                    <div className="flex flex-col md:flex-row md:items-end md:justify-between border-t border-slate-100/50 pt-6 mt-auto gap-4">
-                        <div className="flex items-center justify-between md:block gap-4">
-                            <div className="flex flex-col">
-                                <span className="text-[10px] text-slate-400 uppercase tracking-widest font-bold mb-1">Valor por pessoa</span>
-                                <div className="flex flex-col">
-                                    <div className="flex items-baseline gap-2">
-                                        <span className="text-lg text-slate-400 line-through font-medium decoration-red-400 decoration-2 opacity-60">
-                                            {formatPrice(pilgrimage.base_price * 1.15)}
-                                        </span>
-                                        <span className={`text-3xl font-bold tracking-tight ${isClosed ? 'text-slate-400' : 'text-slate-900'}`}>
-                                            {formatPrice(pilgrimage.base_price)}
-                                        </span>
-                                    </div>
-                                    {currency === 'BRL' && (
-                                        <span className="text-[9px] text-yellow-600 font-bold uppercase tracking-tighter mt-1 italic">
-                                            * Câmbio Automático
-                                        </span>
-                                    )}
-                                </div>
-                            </div>
-
-                            {/* Mobile-only availability info */}
-                            <div className="md:hidden text-right shrink-0">
-                                <div className={`flex items-center gap-1.5 text-sm font-bold ${isWaitlist ? 'text-amber-600' : isClosed ? 'text-red-600' : 'text-slate-700'}`}>
-                                    <Users className="w-4 h-4" />
-                                    {isClosed ? 'Esgotado' : isWaitlist ? 'Lista de Espera' : `${remainingSpots} Lugares`}
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="flex items-center gap-4 w-full md:w-auto">
-                            <div className="hidden md:block text-right">
+                    <div className="flex flex-col md:flex-row md:items-end justify-end border-t border-slate-100/50 pt-6 mt-auto gap-4">
+                        <div className="flex items-center gap-4 w-full md:w-auto justify-between md:justify-end">
+                            <div className="text-left md:text-right">
                                 <span className="text-[10px] text-slate-400 uppercase tracking-widest font-bold block mb-1">Disponibilidade</span>
-                                <div className={`flex items-center justify-end gap-1.5 text-sm font-bold ${isWaitlist ? 'text-amber-600' : isClosed ? 'text-red-600' : 'text-slate-700'}`}>
+                                <div className={`flex items-center justify-start md:justify-end gap-1.5 text-sm font-bold ${isWaitlist ? 'text-amber-600' : isClosed ? 'text-red-600' : 'text-slate-700'}`}>
                                     <Users className="w-4 h-4" />
                                     {isClosed ? 'Esgotado' : isWaitlist ? 'Lista de Espera' : `${remainingSpots} Lugares`}
                                 </div>

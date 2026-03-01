@@ -166,21 +166,25 @@ export const processPaidStoreOrder = async ({
         );
 
         for (const access of accessRows) {
-          const productId = String((access as any).product_id || '');
-          if (!productId) continue;
           try {
-            const tokenInfo = await createDigitalAccessToken(supabaseServer, {
-              orderRef,
-              productId,
-              buyerEmail: buyerEmailResolved,
-              expiresInDays: 7,
-            });
-            digitalDownloadLinks.push({
-              name: nameMap.get(productId) || 'Produto digital',
-              url: `${siteUrl}/api/store/download?token=${tokenInfo.token}`,
-            });
-          } catch (err) {
-            console.warn('Nao foi possivel gerar link digital para pedido pago:', err);
+            const productId = String((access as any).product_id || '');
+            if (!productId) continue;
+            try {
+              const tokenInfo = await createDigitalAccessToken(supabaseServer, {
+                orderRef,
+                productId,
+                buyerEmail: buyerEmailResolved,
+                expiresInDays: 7,
+              });
+              digitalDownloadLinks.push({
+                name: nameMap.get(productId) || 'Produto digital',
+                url: `${siteUrl}/api/store/download?token=${tokenInfo.token}`,
+              });
+            } catch (err) {
+              console.warn(`Nao foi possivel gerar link digital para pedido pago ${orderRef}, produto ${productId}:`, err);
+            }
+          } catch (loopErr) {
+            console.error(`Erro inesperado no loop de geração de tokens para ${orderRef}:`, loopErr);
           }
         }
       }

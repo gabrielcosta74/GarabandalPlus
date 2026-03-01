@@ -8,7 +8,7 @@ import DonationAllocation from '../../components/donations/DonationAllocation';
 import DonationFAQ from '../../components/donations/DonationFAQ';
 import DonationModal from '../../components/donations/DonationModal';
 import DonationVideo from '../../components/donations/DonationVideo';
-
+import AuctionSection from '../../components/donations/AuctionSection';
 import MobileDonationCTA from '../../components/donations/MobileDonationCTA';
 
 type ProgressMeta = {
@@ -186,6 +186,7 @@ export default function DonationsClient() {
             <DonationVideo />
             <DonationStory />
             <DonationAllocation />
+            <AuctionSection />
             <DonationFAQ />
 
             {/* Footer CTA */}

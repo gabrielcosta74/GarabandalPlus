@@ -16,6 +16,7 @@ type UniversalStickyBarProps = {
     pilgrimageId: string;
     slug: string;
     buttonText?: string;
+    depositValue?: number;
 };
 
 export default function UniversalStickyBar({
@@ -23,9 +24,9 @@ export default function UniversalStickyBar({
     deposit,
     link,
     isClosed,
-    pilgrimageId,
     slug,
-    buttonText = "Inscrever"
+    buttonText = "Iniciar Inscrição",
+    depositValue = 0
 }: UniversalStickyBarProps) {
     const [mounted, setMounted] = useState(false);
     const { formatPrice } = useCurrency();
@@ -55,7 +56,7 @@ export default function UniversalStickyBar({
                     {/* Top Row: Price and Small Info */}
                     <div className="flex items-center justify-between border-b border-slate-50 pb-2">
                         <div className="flex flex-col">
-                            <span className="text-[11px] uppercase font-bold text-slate-400 tracking-widest">Preço Total</span>
+                            <span className="text-[11px] uppercase font-bold text-slate-400 tracking-widest">Preço do Terrestre</span>
                             <div className="flex items-baseline gap-1">
                                 <span className="text-2xl font-black text-slate-900 leading-none">{formatPrice(price + deposit)}</span>
                                 <span className="text-xs text-slate-500 font-bold">/ pessoa</span>
@@ -81,14 +82,25 @@ export default function UniversalStickyBar({
                             <span>WhatsApp</span>
                         </a>
 
-                        {/* Booking Button - High Visibility (Gold/Yellow) */}
-                        <Link
-                            href={link}
-                            className="flex items-center justify-center gap-2 h-14 bg-yellow-400 text-slate-950 rounded-2xl font-black text-sm uppercase tracking-tight shadow-xl shadow-yellow-500/20 active:scale-95 transition-all w-full border-b-4 border-yellow-600"
-                        >
-                            <span>{buttonText}</span>
-                            <ArrowRight className="w-4 h-4" />
-                        </Link>
+                        {/* Booking area wrapper */}
+                        <div className="flex flex-col gap-1 w-full relative">
+                            <Link
+                                href={link}
+                                className="flex items-center justify-center gap-2 h-14 bg-yellow-400 text-slate-950 rounded-2xl font-black text-sm uppercase tracking-tight shadow-xl shadow-yellow-500/20 active:scale-95 transition-all w-full border-b-4 border-yellow-600"
+                            >
+                                <span>{buttonText}</span>
+                                <ArrowRight className="w-4 h-4" />
+                            </Link>
+
+                            {/* Reassurance text popover for sticky bar */}
+                            {!isClosed && buttonText !== 'Gerir Inscrição' && buttonText !== 'Lista de Espera' && (
+                                <div className="absolute bottom-[calc(100%+8px)] right-0 w-[240px] bg-slate-900 text-white p-3 rounded-xl shadow-2xl before:content-[''] before:absolute before:-bottom-2 before:right-8 before:w-4 before:h-4 before:bg-slate-900 before:rotate-45 animate-fade-in-up">
+                                    <p className="text-[10px] leading-tight font-medium text-slate-200">
+                                        <strong className="text-white">Inscrição sem compromisso.</strong> Lugar garantido só após pagamento do sinal de {formatPrice(depositValue)}.
+                                    </p>
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
             </div>

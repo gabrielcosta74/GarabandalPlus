@@ -7,6 +7,7 @@ import {
   handleMembershipSuccess,
   handlePilgrimageSuccess,
   handleStoreSuccess,
+  handleAuctionSuccess,
   handlePaymentFailedOrCanceled,
   PaymentHandlerContext,
 } from '../../../../lib/payment-handlers';
@@ -57,6 +58,13 @@ async function findTokenByOrderRef(orderRef: string) {
     .eq('external_reference', orderRef)
     .maybeSingle();
   if (pilgrimagePayment?.payment_intent_id) return String(pilgrimagePayment.payment_intent_id);
+
+  const { data: auctionItem } = await supabaseServer
+    .from('auction_items')
+    .select('payment_intent_id')
+    .or(`payment_intent_id.eq.${orderRef},id.eq.${orderRef.replace('auc', '').substring(0, orderRef.length - 6)}`)
+    .maybeSingle();
+  if (auctionItem?.payment_intent_id) return String(auctionItem.payment_intent_id);
 
   return null;
 }
@@ -423,6 +431,41 @@ export async function POST(request: Request) {
       }
     }
 
+    // 5) Auctions
+    if (!updated) {
+      const { data: auctionItem } = await supabaseServer
+        .from('auction_items')
+        .select('*')
+        .eq('payment_intent_id', tokenToUse)
+        .maybeSingle();
+
+      if (auctionItem) {
+        const ctx: PaymentHandlerContext = {
+          supabaseServer,
+          amountCents: Math.round((auctionItem.current_bid || auctionItem.starting_price) * 100),
+          currency: 'EUR',
+          paymentReference: tokenToUse,
+          externalReference: auctionItem.id,
+          method: 'reduniq',
+          metadata: { type: 'auction', auctionItemId: auctionItem.id, reduniqTransactionId: transactionId },
+          paymentDate,
+        };
+
+        if (isSuccess) {
+          await handleAuctionSuccess(ctx);
+          updated = true;
+          console.log(`[Reduniq Confirm] Leilão marcado como pago: ${auctionItem.id}`);
+        } else if (isFailed) {
+          await supabaseServer
+            .from('auction_items')
+            .update({ status: 'defaulted', updated_at: new Date().toISOString() })
+            .eq('id', auctionItem.id);
+          updated = true;
+          console.log(`[Reduniq Confirm] Falha no pagamento do leilão: ${auctionItem.id}`);
+        }
+      }
+    }
+
     return NextResponse.json({
       success: true,
       updated,
@@ -439,6 +482,7 @@ export async function POST(request: Request) {
       ...(storePayload || {}),
       ...(process.env.NODE_ENV !== 'production' ? { raw: data } : {}),
     });
+
   } catch (error: any) {
     return NextResponse.json({
       success: false,

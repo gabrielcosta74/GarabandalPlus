@@ -18,6 +18,10 @@ import {
   renderQuotaOverdueEmail,
   renderMembershipRevokedEmail,
   renderWelcomeEmail,
+  renderAuctionOutbidEmail,
+  renderAuctionWinnerEmail,
+  renderAuctionAdminNotificationEmail,
+  renderAuctionPaymentConfirmedEmail,
   // Types
   MembershipNotificationInput,
   MemberReceiptInput,
@@ -28,7 +32,11 @@ import {
   GeneralLeadInput,
   AbandonmentRecoveryInput,
   DonationNotificationInput,
-  BrochureEmailInput
+  BrochureEmailInput,
+  AuctionOutbidInput,
+  AuctionWinnerInput,
+  AuctionAdminNotificationInput,
+  AuctionPaymentConfirmedInput,
 } from './email-renderer';
 
 // Re-export specific types if needed by other files (though best to import from renderer)
@@ -42,7 +50,11 @@ export type {
   StoreItem,
   GeneralLeadInput,
   AbandonmentRecoveryInput,
-  DonationNotificationInput
+  DonationNotificationInput,
+  AuctionOutbidInput,
+  AuctionWinnerInput,
+  AuctionAdminNotificationInput,
+  AuctionPaymentConfirmedInput,
 } from './email-renderer';
 
 // Re-export renderers for use in server-side contexts if needed (legacy support)
@@ -536,5 +548,89 @@ export const sendBookingAccessLinkEmail = async (payload: {
     `,
   });
 
+  return true;
+};
+
+// ── Auction Emails ──
+
+export const sendAuctionOutbidEmail = async (payload: AuctionOutbidInput) => {
+  if (!resendClient) {
+    console.warn('Resend nao configurado. Ignorar envio de email.');
+    return false;
+  }
+
+  const content = renderAuctionOutbidEmail(payload);
+  try {
+    await resendClient.emails.send({
+      from: notifyFrom,
+      to: [payload.email],
+      subject: content.subject,
+      html: content.html,
+    });
+    console.log(`[Auction Email] Outbid notification sent to ${payload.email}`);
+    return true;
+  } catch (error) {
+    console.error('[Auction Email] Failed to send outbid email:', error);
+    return false;
+  }
+};
+
+export const sendAuctionWinnerEmail = async (payload: AuctionWinnerInput) => {
+  if (!resendClient) {
+    console.warn('Resend nao configurado. Ignorar envio de email.');
+    return false;
+  }
+
+  const content = renderAuctionWinnerEmail(payload);
+  try {
+    await resendClient.emails.send({
+      from: notifyFrom,
+      to: [payload.email],
+      subject: content.subject,
+      html: content.html,
+    });
+    console.log(`[Auction Email] Winner notification sent to ${payload.email}`);
+    return true;
+  } catch (error) {
+    console.error('[Auction Email] Failed to send winner email:', error);
+    return false;
+  }
+};
+
+export const sendAuctionAdminNotification = async (payload: AuctionAdminNotificationInput) => {
+  if (!resendClient) {
+    console.warn('Resend nao configurado. Ignorar envio de email.');
+    return false;
+  }
+
+  const content = renderAuctionAdminNotificationEmail(payload);
+  try {
+    await resendClient.emails.send({
+      from: notifyFrom,
+      to: [notifyTo],
+      subject: content.subject,
+      html: content.html,
+    });
+    console.log(`[Auction Email] Admin notification sent for "${payload.itemTitle}"`);
+    return true;
+  } catch (error) {
+    console.error('[Auction Email] Failed to send admin notification:', error);
+    return false;
+  }
+};
+
+export const sendAuctionPaymentConfirmedEmail = async (payload: AuctionPaymentConfirmedInput & { toEmail: string }) => {
+  if (!resendClient) {
+    console.warn('Resend nao configurado. Ignorar envio de email.');
+    return false;
+  }
+
+  const content = renderAuctionPaymentConfirmedEmail(payload);
+  await resendClient.emails.send({
+    from: notifyFrom,
+    to: [payload.toEmail],
+    subject: content.subject,
+    html: content.html,
+  });
   return true;
 };

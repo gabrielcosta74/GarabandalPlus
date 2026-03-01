@@ -31,6 +31,13 @@ async function findTokenByOrderRef(orderRef: string) {
     .maybeSingle();
   if (quota?.payment_intent_id) return String(quota.payment_intent_id);
 
+  const { data: auctionItem } = await supabaseServer
+    .from('auction_items')
+    .select('payment_intent_id')
+    .or(`payment_intent_id.eq.${orderRef},id.eq.${orderRef.replace('auc', '').substring(0, orderRef.length - 6)}`)
+    .maybeSingle();
+  if (auctionItem?.payment_intent_id) return String(auctionItem.payment_intent_id);
+
   return null;
 }
 

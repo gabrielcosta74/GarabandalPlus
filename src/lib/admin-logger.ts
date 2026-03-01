@@ -17,7 +17,7 @@ export async function logAdminAction(
             admin_email: adminEmail,
             action,
             details,
-            target_id: targetId,
+            // target_id: targetId, // NOTE: Removed because column doesn't exist in DB schema yet
             // created_at is usually default now()
         });
 

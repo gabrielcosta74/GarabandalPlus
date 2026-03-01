@@ -21,7 +21,8 @@ import {
     Hotel,
     FileText,
     X,
-    Info
+    Info,
+    ArrowRight
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { pt } from 'date-fns/locale';
@@ -581,7 +582,7 @@ export default function PilgrimageDetailPage() {
                                                 </div>
                                             </div>
                                             <div className="px-4">
-                                                <p className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-1">Total a partir de</p>
+                                                <p className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-1">Valor do terrestre da viagem</p>
                                                 <div className="flex items-end gap-1"><span className="text-4xl font-bold text-slate-900">{formatPrice((pilgrimage.base_price || 0) + (pilgrimage.deposit_value || 0))}</span><span className="text-slate-500 font-medium mb-1">/ pessoa</span></div>
                                                 {currency === 'BRL' && (
                                                     <p className="text-[10px] text-yellow-600 font-bold mt-2 italic">* Câmbio automático para Reais</p>
@@ -607,9 +608,17 @@ export default function PilgrimageDetailPage() {
                                         ) : existingBooking ? (
                                             <Link href={`/peregrinacoes/inscricao/${existingBooking}`} className="w-full bg-green-600 text-white font-bold py-4 rounded-xl flex items-center justify-center gap-2 shadow-lg"><CheckCircle2 className="w-5 h-5" /> Gerir Inscrição</Link>
                                         ) : (
-                                            <Link href={`/peregrinacoes/${pilgrimage.slug}/inscrever`} className="w-full bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-4 rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-yellow-200 transition-all active:scale-[0.98]">
-                                                Inscrever Agora <ArrowLeft className="w-5 h-5 rotate-180" />
-                                            </Link>
+                                            <div className="space-y-3">
+                                                <Link href={`/peregrinacoes/${pilgrimage.slug}/inscrever`} className="w-full bg-yellow-500 hover:bg-yellow-600 text-slate-900 font-bold py-4 rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-yellow-200 transition-all active:scale-[0.98]">
+                                                    Iniciar Inscrição <ArrowRight className="w-5 h-5" />
+                                                </Link>
+                                                <div className="flex items-start gap-2 bg-slate-50 p-3 rounded-lg border border-slate-100">
+                                                    <ShieldCheck className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                                                    <p className="text-[11px] text-slate-500 leading-tight">
+                                                        <strong className="text-slate-700">Inscrição sem compromisso.</strong> O seu lugar apenas fica garantido após o pagamento do sinal de {formatPrice(pilgrimage.deposit_value || 0)}.
+                                                    </p>
+                                                </div>
+                                            </div>
                                         )}
                                     </div>
                                 )}
@@ -637,7 +646,8 @@ export default function PilgrimageDetailPage() {
                             isClosed={isClosed || isWaitlist}
                             pilgrimageId={pilgrimage.id}
                             slug={pilgrimage.slug}
-                            buttonText={existingBooking ? 'Gerir Inscrição' : (isWaitlist ? 'Lista de Espera (Esgotado)' : 'Inscrever')}
+                            buttonText={existingBooking ? 'Gerir Inscrição' : (isWaitlist ? 'Lista de Espera' : 'Iniciar Inscrição')}
+                            depositValue={pilgrimage.deposit_value || 0}
                         />
                     </div>
                 </div>

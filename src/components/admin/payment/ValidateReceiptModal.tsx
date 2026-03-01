@@ -121,13 +121,7 @@ export default function ValidateReceiptModal({
                                 className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white"
                                 disabled={isSubmitting}
                             >
-                                <option value="">Selecione...</option>
-                                <option value="Sinal de Inscrição">Sinal de Inscrição</option>
-                                <option value="Prestação 1">Prestação 1</option>
-                                <option value="Prestação 2">Prestação 2</option>
-                                <option value="Prestação 3">Prestação 3</option>
                                 <option value="Saldo Final">Saldo Final</option>
-                                <option value="Pagamento Parcial">Pagamento Parcial</option>
                             </select>
                             <p className="text-xs text-slate-500 mt-1">
                                 A que fase do pagamento se refere este valor
