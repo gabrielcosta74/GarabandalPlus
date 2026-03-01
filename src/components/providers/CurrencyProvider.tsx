@@ -22,26 +22,43 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
     useEffect(() => {
         const initCurrency = async () => {
             try {
-                // 0. Check for URL Override for Testing
+                let targetCurrency: Currency = 'EUR';
+
                 if (typeof window !== 'undefined') {
+                    // 0. Check URL Override
                     const searchParams = new URLSearchParams(window.location.search);
                     const forcedCurrency = searchParams.get('currency') || searchParams.get('currecy');
 
-                    if (forcedCurrency === 'BRL') {
-                        setCurrency('BRL');
-                        const fetchedRate = await getExchangeRate('BRL');
-                        setRate(fetchedRate);
-                        setIsLoading(false);
-                        return;
+                    if (forcedCurrency === 'BRL' || forcedCurrency === 'EUR') {
+                        targetCurrency = forcedCurrency as Currency;
+                        localStorage.setItem('gplus_preferred_currency', targetCurrency);
+                    } else {
+                        // 1. Check LocalStorage Persistent Preference
+                        const savedCurrency = localStorage.getItem('gplus_preferred_currency');
+                        if (savedCurrency === 'BRL' || savedCurrency === 'EUR') {
+                            targetCurrency = savedCurrency as Currency;
+                        } else {
+                            // 2. Automatic Brazilian Detection via Locale and Timezone Range
+                            const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+                            const locale = navigator.language || '';
+
+                            const isBrazilTz = timeZone.startsWith('America/') && [
+                                'Sao_Paulo', 'Bahia', 'Belem', 'Boa_Vista', 'Campo_Grande', 'Cuiaba',
+                                'Eirunepe', 'Fortaleza', 'Maceio', 'Manaus', 'Noronha', 'Porto_Velho',
+                                'Recife', 'Rio_Branco', 'Santarem', 'Araguaina'
+                            ].some(city => timeZone.includes(city));
+
+                            const isBrazilLocale = locale.toLowerCase().includes('pt-br');
+
+                            if (isBrazilTz || isBrazilLocale) {
+                                targetCurrency = 'BRL';
+                            }
+                        }
                     }
                 }
 
-                // 1. Detect if user is in Brazil
-                const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-                const isBrazil = timeZone.includes('Sao_Paulo') || timeZone.includes('Brazil') || timeZone.includes('Belem') || timeZone.includes('Fortaleza') || timeZone.includes('Manaus') || timeZone.includes('Recife') || timeZone.includes('Salvador');
-
-                if (isBrazil) {
-                    setCurrency('BRL');
+                setCurrency(targetCurrency);
+                if (targetCurrency === 'BRL') {
                     const fetchedRate = await getExchangeRate('BRL');
                     setRate(fetchedRate);
                 }
