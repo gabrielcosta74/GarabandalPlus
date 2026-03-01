@@ -35,6 +35,9 @@
     "node_modules",
     "node_modules.bak.*",
     ".next.bak.*",
-    "scripts/**/*.ts"
+    "scripts/**/*.ts",
+    "test*.ts",
+    "migrate*.ts",
+    "*.ts"
   ]
 }

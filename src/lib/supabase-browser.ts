@@ -9,9 +9,9 @@ if (!supabaseUrl || !supabaseAnonKey) {
 
 export const supabaseBrowser = createBrowserClient(supabaseUrl, supabaseAnonKey, {
   auth: {
-    persistSession: true,
-    autoRefreshToken: true,
-    detectSessionInUrl: true,
+    persistSession: typeof window !== 'undefined',
+    autoRefreshToken: typeof window !== 'undefined',
+    detectSessionInUrl: typeof window !== 'undefined',
     flowType: 'pkce',
   },
   cookieOptions: {
