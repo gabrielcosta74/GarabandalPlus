@@ -94,12 +94,12 @@ export function SpecificWaitlistForm({ pilgrimageId, pilgrimageTitle }: Specific
                         />
                     </div>
                     <div className="space-y-1">
-                        <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Telemóvel</label>
+                        <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Telemóvel (com indicativo)</label>
                         <input
-                            type="tel"
+                            type="text"
                             required
                             className="w-full px-4 py-3 rounded-xl bg-slate-50 border-2 border-slate-100 focus:border-amber-400 focus:ring-0 outline-none transition-all font-medium text-slate-900"
-                            placeholder="+351 912 345 678"
+                            placeholder="Ex: +351 912 345 678 ou +55 11 91234-5678"
                             value={formData.phone}
                             onChange={e => setFormData({ ...formData, phone: e.target.value })}
                         />
