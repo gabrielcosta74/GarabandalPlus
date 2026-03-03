@@ -17,7 +17,6 @@ export async function GET(req: Request) {
 
     try {
         // 1. Fetch Donations
-        // Prioritize direct columns, fall back to joined donors
         const { data: donations } = await supabaseServer
             .from('donations')
             .select('*')
@@ -46,10 +45,10 @@ export async function GET(req: Request) {
             itemsMap.set(item.order_ref, list);
         });
 
-        // 3. Fetch Pilgrimage Payments
+        // 3. Fetch Pilgrimage Payments (receipt_url is the correct column name)
         const { data: pilgrimagePayments } = await supabaseServer
             .from('pilgrimage_payments')
-            .select('id, booking_id, amount, method, status, proof_url, transaction_id, created_at, external_reference, notes, invoice_sent_at, bookings(id, user_id, pilgrimages(title))')
+            .select('id, booking_id, amount, method, status, receipt_url, transaction_id, created_at, external_reference, notes, invoice_sent_at, bookings(id, user_id, pilgrimages(title))')
             .order('created_at', { ascending: false });
 
         // 4. Fetch Quota Payments
@@ -59,48 +58,72 @@ export async function GET(req: Request) {
             .order('data_pagamento', { ascending: false });
 
         // 5. Batch Fetch Profiles (Membros)
-        // Collect user_ids from Pilgrimages (booking.user_id) and Quotas (user_id)
         const userIds = new Set<string>();
         const bookingIds = new Set<string>();
 
-        // From Pilgrimages
         (pilgrimagePayments || []).forEach(p => {
             if ((p as any)?.booking_id) bookingIds.add((p as any).booking_id);
             const uid = (p.bookings as any)?.user_id;
             if (uid) userIds.add(uid);
         });
 
-        // From Quotas
         (quotaPayments || []).forEach(q => {
             if (q.user_id) userIds.add(q.user_id);
         });
 
-        // Fetch Membros
         const { data: profiles } = userIds.size > 0
             ? await supabaseServer
                 .from('membros')
-                .select('id, nome, email, nif, address, postal_code') // Ensure these columns exist
+                .select('id, nome, email, nif, address, postal_code')
                 .in('id', Array.from(userIds))
             : { data: [] };
 
         const profilesMap = new Map<string, any>();
         (profiles || []).forEach(p => profilesMap.set(p.id, p));
 
-        // Fetch pilgrims tax ids to support pilgrimage payments where profile nif is missing
+        // Fetch pilgrims to get NIF where member profile is missing
         const { data: pilgrimsByBooking } = bookingIds.size > 0
             ? await supabaseServer
                 .from('pilgrims')
-                .select('booking_id, cpf_nif')
+                .select('booking_id, full_name, email, cpf_nif')
                 .in('booking_id', Array.from(bookingIds))
             : { data: [] };
 
         const bookingNifMap = new Map<string, string | null>();
+        const bookingNameMap = new Map<string, string>();
+        const bookingEmailMap = new Map<string, string>();
+
         (pilgrimsByBooking || []).forEach((row: any) => {
             const bookingId = row?.booking_id as string | undefined;
-            if (!bookingId || bookingNifMap.has(bookingId)) return;
-            const nif = typeof row?.cpf_nif === 'string' ? row.cpf_nif.trim() : '';
-            if (nif) bookingNifMap.set(bookingId, nif);
+            if (!bookingId) return;
+            // Only store the first pilgrim per booking (the lead pilgrim)
+            if (!bookingNifMap.has(bookingId)) {
+                const nif = typeof row?.cpf_nif === 'string' ? row.cpf_nif.trim() : '';
+                if (nif) bookingNifMap.set(bookingId, nif);
+            }
+            if (!bookingNameMap.has(bookingId) && row?.full_name) {
+                bookingNameMap.set(bookingId, row.full_name);
+            }
+            if (!bookingEmailMap.has(bookingId) && row?.email) {
+                bookingEmailMap.set(bookingId, row.email);
+            }
         });
+
+        // Fallback: For any user_id that still doesn't have an email in profilesMap, fetch directly from auth
+        const missingAuthUsers = Array.from(userIds).filter(uid => !profilesMap.get(uid)?.email);
+        if (missingAuthUsers.length > 0) {
+            await Promise.all(missingAuthUsers.map(async (uid) => {
+                try {
+                    const { data: authData } = await supabaseServer!.auth.admin.getUserById(uid);
+                    if (authData?.user?.email) {
+                        const existing = profilesMap.get(uid) || {};
+                        profilesMap.set(uid, { ...existing, email: authData.user.email });
+                    }
+                } catch (e) {
+                    console.warn(`Could not fetch auth user ${uid}`, e);
+                }
+            }));
+        }
 
         const hasNif = (value: unknown) => typeof value === 'string' && value.trim().length > 0;
         const normalizeProvider = (category: string, method?: string | null) => {
@@ -117,12 +140,6 @@ export async function GET(req: Request) {
 
         // Map Donations
         (donations || []).forEach(d => {
-            // Logic: Prefer donor_* columns. If null, try to use joined donor (not joined here to save perf, usually donor_* is reliable for recent ones)
-            // Actually, for older data, donor_* might be null? 
-            // 'donors' table join was removed above. If we need it, we should add it back or rely on 'donor_id' fetch.
-            // Assumption: 'donor_name', 'donor_email' are populated for guest donations. 
-            // If they are missing, we might need a separate fetch for 'donors' table if 'donor_id' exists.
-
             transactions.push({
                 id: d.id,
                 category: 'donation',
@@ -148,7 +165,7 @@ export async function GET(req: Request) {
             });
         });
 
-        // Map Store Orders (Same as before)
+        // Map Store Orders
         (orders || []).forEach(o => {
             const storeNif = typeof o.buyer_nif === 'string' ? o.buyer_nif.trim() : '';
             transactions.push({
@@ -184,9 +201,21 @@ export async function GET(req: Request) {
         (pilgrimagePayments || []).forEach(p => {
             const tripTitle = (p.bookings as any)?.pilgrimages?.title || 'Peregrinação';
             const userId = (p.bookings as any)?.user_id;
+            const bookingId = (p as any).booking_id as string | undefined;
             const profile = profilesMap.get(userId);
-            const bookingNif = bookingNifMap.get((p as any).booking_id) || null;
+            const bookingNif = (bookingId ? bookingNifMap.get(bookingId) : null) || null;
             const resolvedNif = (typeof profile?.nif === 'string' && profile.nif.trim()) || bookingNif || null;
+
+            // Resolve customer name: member profile > pilgrim name > pilgrimage title
+            const resolvedName = profile?.nome
+                || (bookingId ? bookingNameMap.get(bookingId) : null)
+                || tripTitle;
+
+            // Resolve customer email: member profile > pilgrim email > transaction_id fallback > dash
+            const resolvedEmail = profile?.email
+                || (bookingId ? bookingEmailMap.get(bookingId) : null)
+                || p.transaction_id
+                || '—';
 
             transactions.push({
                 id: p.id,
@@ -194,8 +223,8 @@ export async function GET(req: Request) {
                 reference: p.external_reference || `PILG-${p.id.slice(0, 8)}`,
                 amount: Number(p.amount || 0),
                 currency: 'EUR',
-                customer_name: profile?.nome || tripTitle,
-                customer_email: profile?.email || p.transaction_id || '—', // Use profile email first
+                customer_name: resolvedName,
+                customer_email: resolvedEmail,
                 customer_nif: resolvedNif,
                 customer_address: profile?.address,
                 customer_zip: profile?.postal_code,
@@ -203,11 +232,11 @@ export async function GET(req: Request) {
                 method: p.method,
                 provider: normalizeProvider('pilgrimage', p.method),
                 created_at: p.created_at,
-                proof_url: p.proof_url,
+                receipt_url: p.receipt_url,
                 notes: p.notes,
                 invoice_sent_at: p.invoice_sent_at,
                 has_nif: hasNif(resolvedNif),
-                details_link: `/admin/peregrinacoes`
+                details_link: '/admin/peregrinacoes'
             });
         });
 
@@ -238,17 +267,17 @@ export async function GET(req: Request) {
                 created_at: quotaCreatedAt,
                 invoice_sent_at: q.invoice_sent_at,
                 has_nif: hasNif(quotaNif),
-                details_link: `/admin/membros`
+                details_link: '/admin/membros'
             });
         });
 
-        // Sort globally by date
+        // Sort globally by date descending
         transactions.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
         return NextResponse.json({ transactions });
 
     } catch (error) {
-        console.error("Consolidated API Error:", error);
+        console.error('Consolidated API Error:', error);
         return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
     }
 }

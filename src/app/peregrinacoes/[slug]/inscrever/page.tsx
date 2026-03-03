@@ -95,8 +95,8 @@ const calculatePilgrimPrice = (pilgrim: any, pilgrimage: any, rooms: Room[], pil
     }
 
     if (isNaN(age)) age = 30;
-    const isChild = age < 6 && age >= 2;
-    const isInfant = age < 2;
+    const isChild = age <= 6 && age >= 3;
+    const isInfant = age <= 2;
 
     // --- V2 PRICING ENGINE ---
     let subtotal = 0;

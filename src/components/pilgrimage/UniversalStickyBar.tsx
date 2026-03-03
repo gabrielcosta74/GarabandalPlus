@@ -96,7 +96,7 @@ export default function UniversalStickyBar({
                             {!isClosed && buttonText !== 'Gerir Inscrição' && buttonText !== 'Lista de Espera' && (
                                 <div className="absolute bottom-[calc(100%+8px)] right-0 w-[240px] bg-slate-900 text-white p-3 rounded-xl shadow-2xl before:content-[''] before:absolute before:-bottom-2 before:right-8 before:w-4 before:h-4 before:bg-slate-900 before:rotate-45 animate-fade-in-up">
                                     <p className="text-[10px] leading-tight font-medium text-slate-200">
-                                        <strong className="text-white">Inscrição sem compromisso.</strong> Lugar garantido só após pagamento do sinal de {formatPrice(depositValue)}.
+                                        Após realizar a sua inscrição terá que realizar num prazo máximo de 5 dias úteis, o pagamento/doação do valor da inscrição para confirmar e garantir a sua inscrição.
                                     </p>
                                 </div>
                             )}

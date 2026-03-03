@@ -196,7 +196,6 @@ export default function PaymentManagementTab({
                 status={getStatus()}
             />
 
-            {/* Installment Tracker - Same as client view */}
             <div className="bg-white rounded-2xl border border-slate-200 p-6">
                 <h3 className="text-lg font-bold text-slate-900 mb-4">
                     📈 Plano de Pagamentos
@@ -204,7 +203,15 @@ export default function PaymentManagementTab({
                 <InstallmentTracker
                     totalAmount={booking.total_amount}
                     paidAmount={booking.paid_amount}
-                    depositValue={booking.pilgrimage.deposit_value * (booking.pilgrims?.length || 1)}
+                    depositValue={
+                        (booking.pilgrims || []).length > 0
+                            ? booking.pilgrims!.reduce((acc: number, p: any) => {
+                                const age = p.birth_date ? (new Date().getFullYear() - new Date(p.birth_date).getFullYear()) : 30;
+                                const isInfant = age <= 2 && p.birth_date;
+                                return acc + (isInfant ? 0 : (booking.pilgrimage.deposit_value || 0));
+                            }, 0)
+                            : (booking.pilgrimage.deposit_value || 0) * (booking.pilgrims?.length || 1)
+                    }
                     paymentPlan={booking.payment_plan}
                     payments={booking.payments}
                 />

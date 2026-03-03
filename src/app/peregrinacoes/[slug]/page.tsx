@@ -615,7 +615,7 @@ export default function PilgrimageDetailPage() {
                                                 <div className="flex items-start gap-2 bg-slate-50 p-3 rounded-lg border border-slate-100">
                                                     <ShieldCheck className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
                                                     <p className="text-[11px] text-slate-500 leading-tight">
-                                                        <strong className="text-slate-700">Inscrição sem compromisso.</strong> O seu lugar apenas fica garantido após o pagamento do sinal de {formatPrice(pilgrimage.deposit_value || 0)}.
+                                                        Após realizar a sua inscrição terá que realizar num prazo máximo de 5 dias úteis, o pagamento/doação do valor da inscrição para confirmar e garantir a sua inscrição.
                                                     </p>
                                                 </div>
                                             </div>

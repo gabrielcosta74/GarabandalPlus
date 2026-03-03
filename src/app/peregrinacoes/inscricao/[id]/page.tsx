@@ -278,7 +278,15 @@ export default function BookingDashboardPage() {
     }, []);
 
     // -- Derived State (Moved to Top) --
-    const depositValue = (Number(booking?.pilgrimage?.deposit_value) || 0) * (booking?.pilgrims?.length || 1);
+    // Calculate the total deposit ignoring 100% discounted pilgrims (like infants)
+    const depositPerPerson = Number(booking?.pilgrimage?.deposit_value) || 0;
+    const depositValue = (booking?.pilgrims || []).length > 0
+        ? booking!.pilgrims.reduce((acc: number, p: any) => {
+            const age = p.birth_date ? (new Date().getFullYear() - new Date(p.birth_date).getFullYear()) : 30;
+            const isInfant = age <= 2 && p.birth_date;
+            return acc + (isInfant ? 0 : depositPerPerson);
+        }, 0)
+        : depositPerPerson;
     const totalAmount = booking?.total_amount || 0;
     const successfulStatuses = ['verified', 'succeeded', 'paid', 'manual'];
     const successfulPaidFromPayments = (booking?.payments || [])
@@ -719,7 +727,7 @@ export default function BookingDashboardPage() {
                                                     ? 'Já recebemos o seu pagamento total. Está pronto para partir!'
                                                     : paymentMode === 'full'
                                                         ? 'A sua inscrição aguarda o pagamento total para garantir o lugar.'
-                                                        : 'A sua inscrição aguarda o pagamento do sinal para garantir o lugar.'}
+                                                        : 'Terá que efetuar num prazo máximo de 5 dias úteis o pagamento/doação do valor do sinal para confirmar e garantir a sua inscrição.'}
                                             </p>
                                         </div>
                                         <div className="text-right shrink-0 bg-slate-50 px-4 py-3 rounded-2xl border border-slate-100 hidden sm:block">

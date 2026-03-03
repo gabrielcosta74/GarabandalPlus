@@ -19,14 +19,38 @@ export async function POST(request: Request) {
         const body = await request.json();
         console.log('Reduniq Webhook Received:', body);
 
+        // Helper function to find token from DB if webhook omitted it
+        async function findTokenByOrderRef(orderRef: string) {
+            if (!supabaseServer) return null;
+            const { data: d } = await supabaseServer.from('donations').select('payment_intent_id').eq('external_reference', orderRef).maybeSingle();
+            if (d?.payment_intent_id) return String(d.payment_intent_id);
+            const { data: q } = await supabaseServer.from('pagamentos_quotas').select('payment_intent_id').eq('external_reference', orderRef).maybeSingle();
+            if (q?.payment_intent_id) return String(q.payment_intent_id);
+            const { data: s } = await supabaseServer.from('store_orders').select('payment_reference').eq('order_ref', orderRef).maybeSingle();
+            if (s?.payment_reference) return String(s.payment_reference);
+            const { data: p } = await supabaseServer.from('pilgrimage_payments').select('payment_intent_id').eq('external_reference', orderRef).maybeSingle();
+            if (p?.payment_intent_id) return String(p.payment_intent_id);
+            const { data: a } = await supabaseServer.from('auction_items').select('payment_intent_id').or(`payment_intent_id.eq.${orderRef},id.eq.${orderRef.replace('auc', '').substring(0, Math.max(0, orderRef.length - 6))}`).maybeSingle();
+            if (a?.payment_intent_id) return String(a.payment_intent_id);
+            return null;
+        }
+
         // Payload usually contains: token (preferred), id, status, etc.
         // We MUST verify with Reduniq API to be secure.
-        const token =
+        let token =
             body.token ||
             body?.payment?.token ||
-            body?.transaction?.token ||
-            body?.id ||
-            body?.order_id;
+            body?.transaction?.token;
+
+        const fallbackRef = body?.order_id || body?.id || body?.reference;
+
+        if (!token && fallbackRef) {
+            token = await findTokenByOrderRef(fallbackRef);
+        }
+
+        if (!token) {
+            token = fallbackRef;
+        }
 
         if (!token) {
             return NextResponse.json({ message: 'Missing token' }, { status: 400 });

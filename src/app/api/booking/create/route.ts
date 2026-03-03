@@ -219,15 +219,15 @@ export async function POST(req: Request) {
                     const m = today.getMonth() - birth.getMonth();
                     if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
 
-                    if (age >= 2 && age < 6) discount = pilgrimSubtotal * 0.2; // 20%
-                    if (age < 2) discount = pilgrimSubtotal; // 100%
+                    if (age >= 3 && age <= 6) discount = pilgrimSubtotal * 0.2; // 20%
+                    if (age <= 2) discount = pilgrimSubtotal; // 100%
                 }
             }
 
             // Active member discount: flat 50€ (except infants)
             const pilgrimEmail = typeof p?.email === 'string' ? p.email.trim().toLowerCase() : '';
             const effectiveEmail = pilgrimEmail || (idx === 0 ? normalizedBookingEmail : '');
-            if (age >= 2 && effectiveEmail && activeMemberEmails.has(effectiveEmail)) {
+            if (age >= 3 && effectiveEmail && activeMemberEmails.has(effectiveEmail)) {
                 discount += 50;
             }
 
@@ -337,7 +337,18 @@ export async function POST(req: Request) {
 
         // 6. Record Initial Deposit Payment as Pending
         const registrationFeePerPerson = Number(pilgrimage?.deposit_value || 0);
-        const totalDepositAmount = pilgrimsToInsert.length * registrationFeePerPerson;
+        let totalDepositAmount = 0;
+
+        // Sum deposit ONLY for pilgrims that are not 100% discounted (e.g. babies should be exempt from deposits)
+        totalDepositAmount = pilgrimsToInsert.reduce((acc: number, p: any) => {
+            // Recalculate or extract the final price checking for 100% discount approximation
+            // Since we calculated totalAmount before, we know babies cost 0.
+            const age = p.birth_date ? (new Date().getFullYear() - new Date(p.birth_date).getFullYear()) : 30;
+            const isInfant = age <= 2 && p.birth_date;
+
+            // If it's not an infant, they pay the registration deposit fee.
+            return acc + (isInfant ? 0 : registrationFeePerPerson);
+        }, 0);
 
         const { error: paymentError } = await supabaseServer
             .from('pilgrimage_payments')
