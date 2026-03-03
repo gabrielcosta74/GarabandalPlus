@@ -57,6 +57,23 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: "Erro interno de configuração" }, { status: 500 });
         }
 
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+        const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+        if (!supabaseUrl || !serviceRoleKey) {
+            console.error("Supabase credentials missing");
+            return NextResponse.json({ error: "Erro interno de configuração" }, { status: 500 });
+        }
+
+        const { createClient } = require('@supabase/supabase-js');
+        const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
+            auth: {
+                persistSession: false,
+                autoRefreshToken: false,
+                detectSessionInUrl: false,
+            }
+        });
+
         const body = await req.json();
         const bookingId = typeof body?.bookingId === 'string' ? body.bookingId : null;
         const priceType = body?.priceType === 'deposit' ? 'deposit' : 'full';
@@ -72,7 +89,7 @@ export async function POST(req: Request) {
         }
 
         // 1. Fetch Booking Details
-        const { data: booking, error: bookingError } = await supabaseServer
+        const { data: booking, error: bookingError } = await supabaseAdmin
             .from('bookings')
             .select(`
                 *,
@@ -81,6 +98,11 @@ export async function POST(req: Request) {
             `)
             .eq('id', bookingId)
             .single();
+
+        console.log("DEBUG bookingError:", bookingError);
+        if (bookingError) {
+            require('fs').writeFileSync('/tmp/booking-error.txt', JSON.stringify(bookingError));
+        }
 
         if (bookingError || !booking) {
             return NextResponse.json({ error: "Reserva não encontrada" }, { status: 404 });
@@ -201,7 +223,7 @@ export async function POST(req: Request) {
             }
 
             try {
-                await supabaseServer.from('pilgrimage_payments').insert({
+                await supabaseAdmin.from('pilgrimage_payments').insert({
                     booking_id: booking.id,
                     user_id: booking.user_id,
                     amount: safeAmountToPay,
@@ -251,7 +273,7 @@ export async function POST(req: Request) {
         });
 
         try {
-            await supabaseServer.from('pilgrimage_payments').insert({
+            await supabaseAdmin.from('pilgrimage_payments').insert({
                 booking_id: booking.id,
                 user_id: booking.user_id,
                 amount: safeAmountToPay,
