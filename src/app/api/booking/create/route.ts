@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabaseServer } from '../../../../lib/supabase';
-import { sendBookingConfirmationEmail, sendBookingAdminNotification } from '../../../../lib/email';
+import { sendBookingConfirmationEmail, sendBookingAdminNotification, sendAdminBankTransferAlert } from '../../../../lib/email';
 import { getAppUrl } from '../../../../lib/config';
 import { parseRoomInfo } from '../../../../lib/utils';
 import { generateViewToken, generateIdempotencyKey } from '../../../../lib/auth-utils';
@@ -432,6 +432,19 @@ export async function POST(req: Request) {
                 numberOfPilgrims: pilgrimsToInsert.length,
                 paymentMethod: payment_method
             });
+
+            // If bank transfer: send a dedicated alert so admin knows to check their bank account
+            if (payment_method === 'bank_transfer') {
+                await sendAdminBankTransferAlert({
+                    bookingId: booking.id,
+                    customerName: customerName,
+                    customerEmail: bookingEmail,
+                    pilgrimageName: pilgrimage.title,
+                    totalAmount: totalAmount,
+                    numberOfPilgrims: pilgrimsToInsert.length,
+                    bookingDate: new Date().toISOString()
+                });
+            }
 
         } catch (emailErr) {
             console.error("⚠️ [API] Email sending failed:", emailErr);

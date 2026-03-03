@@ -20,20 +20,25 @@ export async function PATCH(
             return NextResponse.json({ message: 'Supabase não configurado' }, { status: 500 });
         }
         const { ref } = await params;
-        const { shippingStatus, tracking } = await request.json();
+        const { shippingStatus, tracking, carrier, carrierName } = await request.json();
 
         if (!ref || shippingStatus !== 'enviado') {
             return NextResponse.json({ message: 'Dados inválidos' }, { status: 400 });
         }
 
         // 1. Update the order in Supabase
+        const updatePayload: Record<string, any> = {
+            shipping_status: 'enviado',
+            shipping_tracking: tracking || null,
+            shipped_at: new Date().toISOString(),
+        };
+        if (carrierName) {
+            updatePayload.shipping_carrier = carrierName;
+        }
+
         const { data: order, error } = await supabase
             .from('store_orders')
-            .update({
-                shipping_status: 'enviado',
-                shipping_tracking: tracking,
-                shipped_at: new Date().toISOString()
-            })
+            .update(updatePayload)
             .eq('order_ref', ref)
             .select('*, store_order_items(*)')
             .single();
@@ -43,9 +48,7 @@ export async function PATCH(
             return NextResponse.json({ message: 'Erro ao atualizar encomenda' }, { status: 500 });
         }
 
-        // 2. Send Shipping Confirmation Email
-        // Using simple deduplication to prevent double sends if admin clicks multiple times quickly
-        // (Though the UI should handle this too, good to have backend safety)
+        // 2. Send Shipping Confirmation Email with full details
         const { shouldSend, recordId } = await ensureNotificationRecord(supabase, {
             type: 'store_order_shipped',
             reference: order.order_ref,
@@ -57,8 +60,23 @@ export async function PATCH(
                 orderRef: order.order_ref,
                 buyerName: order.buyer_name,
                 buyerEmail: order.buyer_email,
-                tracking: tracking,
-                shippedAt: new Date().toISOString()
+                tracking: tracking || null,
+                carrierName: carrierName || carrier || null,
+                carrierId: carrier || null,
+                shippedAt: new Date().toISOString(),
+                shippingAddress: [
+                    order.shipping_address1,
+                    order.shipping_address2,
+                    `${order.shipping_postal_code || ''} ${order.shipping_city || ''}`.trim(),
+                    (order.shipping_country || '').toUpperCase()
+                ].filter(Boolean).join('\n'),
+                items: (order.store_order_items || []).map((i: any) => ({
+                    name: i.name,
+                    qty: i.qty,
+                    unit_price: i.unit_price,
+                })),
+                totalAmount: order.total_amount,
+                currency: order.currency || 'EUR',
             });
 
             if (emailSent && recordId) {

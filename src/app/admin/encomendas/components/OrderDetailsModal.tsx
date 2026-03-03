@@ -1,9 +1,9 @@
 "use client";
 
 import React, { useState } from 'react';
-import { OrderRow } from '../page'; // We'll refer to the type, or move types to a shared file later. 
-// Ideally types should be in types.ts but for speed we'll assume import or re-declare.
-// Let's re-declare locally to avoid circular deps if types are in page.tsx still.
+import { OrderRow } from '../page';
+import ShipOrderModal from './ShipOrderModal';
+import { supabaseBrowser } from '../../../../lib/supabase-browser';
 
 // --- Types (Matched from page.tsx) ---
 type OrderItem = {
@@ -29,6 +29,9 @@ export type OrderDetailRow = {
     shipping_postal_code?: string | null;
     shipping_cost?: number | null;
     shipping_status?: string | null;
+    shipping_tracking?: string | null;
+    shipping_carrier?: string | null;
+    shipped_at?: string | null;
     invoice_sent_at?: string | null;
     has_physical: boolean;
     payment_method?: string | null;
@@ -66,6 +69,8 @@ type OrderDetailsModalProps = {
 
 export default function OrderDetailsModal({ order, onClose, onToggleInvoice, onMarkShipped }: OrderDetailsModalProps) {
     const [copied, setCopied] = useState<string | null>(null);
+    const [showShipModal, setShowShipModal] = useState(false);
+    const [localOrder, setLocalOrder] = useState(order);
 
     const handleCopy = (text: string, label: string) => {
         navigator.clipboard.writeText(text);
@@ -86,13 +91,39 @@ export default function OrderDetailsModal({ order, onClose, onToggleInvoice, onM
 
     const getShippingText = () => {
         const lines = [
-            order.buyer_name,
-            order.shipping_address1,
-            order.shipping_address2,
-            `${order.shipping_postal_code} ${order.shipping_city}`,
-            (order.shipping_country || '').toUpperCase()
+            localOrder.buyer_name,
+            localOrder.shipping_address1,
+            localOrder.shipping_address2,
+            `${localOrder.shipping_postal_code} ${localOrder.shipping_city}`,
+            (localOrder.shipping_country || '').toUpperCase()
         ];
         return lines.filter(Boolean).join('\n');
+    };
+
+    const handleShipConfirm = async (carrierName: string, carrierId: string, trackingCode: string) => {
+        if (!supabaseBrowser) throw new Error('Supabase error');
+        const { data: { session } } = await supabaseBrowser.auth.getSession();
+        const token = session?.access_token;
+
+        const res = await fetch(`/api/admin/orders/${localOrder.order_ref}/ship`, {
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/json',
+                ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+            },
+            body: JSON.stringify({
+                shippingStatus: 'enviado',
+                tracking: trackingCode,
+                carrier: carrierId,
+                carrierName: carrierName,
+            }),
+        });
+
+        if (!res.ok) throw new Error('Falha ao registar envio.');
+
+        setLocalOrder(prev => ({ ...prev, shipping_status: 'enviado', shipping_tracking: trackingCode, shipping_carrier: carrierName }));
+        setShowShipModal(false);
+        onMarkShipped({ ...localOrder, shipping_status: 'enviado' });
     };
 
     return (
@@ -219,20 +250,29 @@ export default function OrderDetailsModal({ order, onClose, onToggleInvoice, onM
 
                                 <div className="space-y-3">
                                     <div className="text-sm space-y-1 text-gray-800 bg-white p-3 rounded-lg border border-blue-50 shadow-sm">
-                                        <p>{order.shipping_address1}</p>
-                                        {order.shipping_address2 && <p>{order.shipping_address2}</p>}
-                                        <p>{order.shipping_postal_code} {order.shipping_city}</p>
-                                        <p className="font-bold">{(order.shipping_country || '').toUpperCase()}</p>
+                                        <p>{localOrder.shipping_address1}</p>
+                                        {localOrder.shipping_address2 && <p>{localOrder.shipping_address2}</p>}
+                                        <p>{localOrder.shipping_postal_code} {localOrder.shipping_city}</p>
+                                        <p className="font-bold">{(localOrder.shipping_country || '').toUpperCase()}</p>
                                     </div>
 
+                                    {/* Tracking Info */}
+                                    {localOrder.shipping_tracking && (
+                                        <div className="bg-white rounded-lg border border-blue-100 p-3 text-sm">
+                                            <p className="text-xs text-gray-400 uppercase font-semibold mb-1">Rastreio</p>
+                                            {localOrder.shipping_carrier && <p className="text-gray-600 text-xs mb-0.5">{localOrder.shipping_carrier}</p>}
+                                            <p className="font-mono font-bold text-blue-700">{localOrder.shipping_tracking}</p>
+                                        </div>
+                                    )}
+
                                     <div className="pt-3 flex justify-end">
-                                        {order.shipping_status?.toLowerCase() === 'enviado' ? (
+                                        {localOrder.shipping_status?.toLowerCase() === 'enviado' ? (
                                             <span className="flex items-center gap-2 text-green-600 font-bold text-sm bg-green-50 px-3 py-1.5 rounded-lg border border-green-100">
                                                 <CheckCircle className="w-4 h-4" /> Enviado
                                             </span>
                                         ) : (
                                             <button
-                                                onClick={() => onMarkShipped(order)}
+                                                onClick={() => setShowShipModal(true)}
                                                 className="bg-blue-600 text-white px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-blue-700 shadow-md hover:shadow-lg transition-all flex items-center gap-2 active:scale-95"
                                             >
                                                 <Package className="w-4 h-4" />
@@ -283,6 +323,16 @@ export default function OrderDetailsModal({ order, onClose, onToggleInvoice, onM
                     </button>
                 </div>
             </div>
+
+            {/* Ship Order Modal */}
+            {showShipModal && (
+                <ShipOrderModal
+                    orderRef={localOrder.order_ref}
+                    buyerName={localOrder.buyer_name}
+                    onClose={() => setShowShipModal(false)}
+                    onConfirm={handleShipConfirm}
+                />
+            )}
         </div>
     );
 }

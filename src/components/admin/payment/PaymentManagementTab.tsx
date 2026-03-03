@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from 'react';
-import { Plus, Download } from 'lucide-react';
+import { Plus, Download, Landmark } from 'lucide-react';
 import { toast } from 'sonner';
 import FinancialSummary from './FinancialSummary';
 import PendingReceiptsAlert from './PendingReceiptsAlert';
@@ -217,7 +217,7 @@ export default function PaymentManagementTab({
                 />
             </div>
 
-            {/* Pending Receipts Alert */}
+            {/* Pending Receipts Alert (receipt uploaded, awaiting validation) */}
             {pendingReceipts.length > 0 && (
                 <PendingReceiptsAlert
                     receipts={pendingReceipts}
@@ -225,6 +225,47 @@ export default function PaymentManagementTab({
                     onReject={handleReject}
                 />
             )}
+
+            {/* Bank Transfer No-Receipt Warning */}
+            {(() => {
+                const pendingBankTransfers = booking.payments.filter(
+                    p => p.method === 'bank_transfer' && p.status === 'pending' && !p.receipt_url
+                );
+                if (pendingBankTransfers.length === 0) return null;
+                return (
+                    <div className="bg-orange-50 border-2 border-orange-200 rounded-2xl p-5">
+                        <div className="flex items-start gap-3 mb-4">
+                            <div className="w-9 h-9 bg-orange-200 rounded-full flex items-center justify-center shrink-0">
+                                <Landmark className="w-4 h-4 text-orange-700" />
+                            </div>
+                            <div>
+                                <h4 className="font-bold text-orange-900 text-sm">
+                                    {pendingBankTransfers.length} Transferência{pendingBankTransfers.length > 1 ? 's' : ''} Bancária{pendingBankTransfers.length > 1 ? 's' : ''} Pendente{pendingBankTransfers.length > 1 ? 's' : ''} sem Comprovativo
+                                </h4>
+                                <p className="text-sm text-orange-700 mt-0.5">
+                                    O peregrino declarou transferência bancária mas não enviou comprovativo. Se o dinheiro já entrou na conta, clique em <strong>Validar</strong>.
+                                </p>
+                            </div>
+                        </div>
+                        <div className="space-y-2">
+                            {pendingBankTransfers.map(p => (
+                                <div key={p.id} className="bg-white rounded-xl border border-orange-100 px-4 py-3 flex items-center justify-between gap-3">
+                                    <div>
+                                        <p className="font-bold text-slate-900 text-sm">{(p.amount || 0).toFixed(2)}€</p>
+                                        <p className="text-xs text-slate-400">Registada em {p.created_at ? new Date(p.created_at).toLocaleDateString('pt-PT') : '—'}</p>
+                                    </div>
+                                    <button
+                                        onClick={() => handleValidate(p.id, p.amount || 0, p.receipt_url)}
+                                        className="flex items-center gap-1.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 px-3 py-2 rounded-lg transition-colors"
+                                    >
+                                        ✓ Validar
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                );
+            })()}
 
             {/* Payment Actions */}
             <div className="flex items-center gap-3">

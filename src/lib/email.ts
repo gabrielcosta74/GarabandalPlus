@@ -288,7 +288,13 @@ export const sendStoreShippingEmail = async (payload: {
   buyerEmail: string;
   buyerName?: string | null;
   tracking?: string | null;
+  carrierName?: string | null;
+  carrierId?: string | null;
   shippedAt?: string | null;
+  shippingAddress?: string | null;
+  items?: Array<{ name: string; qty: number; unit_price: number }>;
+  totalAmount?: number;
+  currency?: string;
 }) => {
   if (!resendClient) {
     console.warn('Resend nao configurado. Ignorar envio de email.');
@@ -304,6 +310,7 @@ export const sendStoreShippingEmail = async (payload: {
   });
   return true;
 };
+
 
 export const sendStorePreparingEmail = async (payload: {
   orderRef: string;
@@ -651,6 +658,71 @@ export const sendBookingAdminNotification = async (payload: BookingAdminNotifica
     to: [notifyTo],
     subject: content.subject,
     html: content.html,
+  });
+  return true;
+};
+
+// ─── Admin Bank Transfer Alert ────────────────────────────────────────────────
+
+export interface AdminBankTransferAlertInput {
+  bookingId: string;
+  customerName: string;
+  customerEmail: string;
+  pilgrimageName: string;
+  totalAmount: number;
+  numberOfPilgrims: number;
+  bookingDate: string;
+}
+
+export const sendAdminBankTransferAlert = async (payload: AdminBankTransferAlertInput) => {
+  if (!resendClient) {
+    console.warn('Resend nao configurado. Ignorar envio de email.');
+    return false;
+  }
+
+  const formattedAmount = new Intl.NumberFormat('pt-PT', {
+    style: 'currency',
+    currency: 'EUR',
+  }).format(payload.totalAmount);
+
+  const adminUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://app.apostoladodegarabandal.com'}/admin/peregrinacoes`;
+
+  const html = `
+    <!DOCTYPE html>
+    <html lang="pt">
+    <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+    <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background:#f1f5f9; margin:0; padding:20px;">
+      <div style="max-width:560px; margin:0 auto; background:#fff; border-radius:16px; overflow:hidden; box-shadow:0 4px 6px rgba(0,0,0,0.07);">
+        <div style="background:#b45309; padding:28px 32px;">
+          <p style="color:#fef3c7; font-size:13px; font-weight:700; letter-spacing:2px; text-transform:uppercase; margin:0 0 6px;">Apostolado de Garabandal</p>
+          <h1 style="color:#fff; font-size:22px; font-weight:800; margin:0;">🏦 Nova Transferência Bancária</h1>
+        </div>
+        <div style="padding:28px 32px;">
+          <p style="color:#475569; font-size:15px; margin:0 0 20px;">Um peregrino efetuou uma inscrição via <strong>Transferência Bancária</strong>. <strong>Por favor, verifique se o dinheiro entrou na conta bancária</strong> e confirme o pagamento manualmente no painel.</p>
+          <div style="background:#fffbeb; border:1px solid #fcd34d; border-radius:12px; padding:20px; margin-bottom:20px;">
+            <table style="width:100%; border-collapse:collapse;">
+              <tr><td style="padding:6px 0; color:#92400e; font-size:13px; font-weight:600;">Peregrino</td><td style="padding:6px 0; color:#1e293b; font-size:14px; font-weight:700; text-align:right;">${payload.customerName}</td></tr>
+              <tr><td style="padding:6px 0; color:#92400e; font-size:13px; font-weight:600;">Email</td><td style="padding:6px 0; color:#1e293b; font-size:14px; text-align:right;">${payload.customerEmail}</td></tr>
+              <tr><td style="padding:6px 0; color:#92400e; font-size:13px; font-weight:600;">Peregrinação</td><td style="padding:6px 0; color:#1e293b; font-size:14px; text-align:right;">${payload.pilgrimageName}</td></tr>
+              <tr><td style="padding:6px 0; color:#92400e; font-size:13px; font-weight:600;">N.º Peregrinos</td><td style="padding:6px 0; color:#1e293b; font-size:14px; text-align:right;">${payload.numberOfPilgrims}</td></tr>
+              <tr><td style="padding:6px 0; color:#92400e; font-size:13px; font-weight:600;">Valor Total</td><td style="padding:6px 0; color:#b45309; font-size:18px; font-weight:800; text-align:right;">${formattedAmount}</td></tr>
+            </table>
+          </div>
+          <a href="${adminUrl}" style="display:block; background:#b45309; color:#fff; text-align:center; padding:14px 24px; border-radius:10px; font-weight:700; font-size:15px; text-decoration:none;">Ir para o Painel de Admin</a>
+        </div>
+        <div style="padding:16px 32px; background:#f8fafc; border-top:1px solid #e2e8f0; text-align:center;">
+          <p style="color:#94a3b8; font-size:12px; margin:0;">Apostolado de Garabandal · app.apostoladodegarabandal.com</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  await resendClient.emails.send({
+    from: notifyFrom,
+    to: [notifyTo],
+    subject: `🏦 Nova Transferência Bancária — ${payload.customerName} (${payload.pilgrimageName})`,
+    html,
   });
   return true;
 };
