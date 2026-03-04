@@ -454,10 +454,22 @@ export async function POST(req: Request) {
 
         // 8. Auto-Login Logic (for new users)
         // If we created a new user, we have the password. Let's create a session immediately.
+        // IMPORTANT: We use a THROWAWAY client for signInWithPassword to avoid
+        // contaminating the shared supabaseServer singleton's auth state.
+        // Calling signInWithPassword on the singleton would set its internal session
+        // to the new user, causing ALL subsequent queries (including admin endpoints)
+        // to be filtered by RLS for that user.
         let sessionData = null;
         if (isNewUser && tempPassword) {
             try {
-                const { data: signInData, error: signInError } = await supabaseServer.auth.signInWithPassword({
+                const { createClient } = await import('@supabase/supabase-js');
+                const throwawayClient = createClient(
+                    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+                    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+                    { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } }
+                );
+
+                const { data: signInData, error: signInError } = await throwawayClient.auth.signInWithPassword({
                     email: bookingEmail,
                     password: tempPassword
                 });
