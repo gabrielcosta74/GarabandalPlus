@@ -329,6 +329,12 @@ export default function AdminMembrosPage() {
             >
               <PlusCircle className="w-5 h-5" /> Novo Membro
             </button>
+            <Link
+              href="/admin/membros/documentacao"
+              className="flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-700 font-bold rounded-xl hover:bg-slate-200 transition-all border border-slate-200 shadow-sm whitespace-nowrap"
+            >
+              Doc. Privada
+            </Link>
 
             {/* Status Filters */}
             <div className="flex items-center gap-2 overflow-x-auto pb-2 md:pb-0 scrollbar-hide">

@@ -20,7 +20,8 @@ import {
   ArrowRight,
   Sparkles,
   Video,
-  ScrollText
+  ScrollText,
+  FolderLock
 } from 'lucide-react';
 import EventCard from '../../components/member/EventCard';
 import MemberTutorial from '../../components/onboarding/MemberTutorial';
@@ -333,6 +334,24 @@ export default function MemberDashboardPage() {
                 </p>
                 <span className="text-sm font-bold text-white group-hover:text-yellow-500 flex items-center gap-2 transition-colors">
                   Ver Orações <ChevronRight className="w-4 h-4" />
+                </span>
+              </div>
+            </Link>
+
+            {/* Card 7: Documentação Privada */}
+            <Link href="/member/documentos" id="tut-docs" className="group relative bg-slate-900 rounded-2xl border border-white/5 hover:border-emerald-500/30 overflow-hidden transition-all hover:shadow-2xl hover:shadow-emerald-900/20">
+              <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent opacity-80" />
+              <div className="h-64 bg-[url('https://images.unsplash.com/photo-1456324504439-367cee3b3c32?q=80&w=2670&auto=format&fit=crop')] bg-cover bg-center opacity-40 group-hover:opacity-60 transition-opacity duration-500" />
+              <div className="absolute bottom-0 left-0 right-0 p-8">
+                <div className="w-12 h-12 bg-emerald-600/20 rounded-xl flex items-center justify-center backdrop-blur-sm mb-4 text-emerald-400">
+                  <FolderLock className="w-6 h-6" />
+                </div>
+                <h3 className="text-2xl font-serif font-bold text-white mb-2">Documentação Privada</h3>
+                <p className="text-base text-slate-400 mb-6 max-w-lg">
+                  Acesso exclusivo a atas, relatórios, galerias de fotos e áudios reservados aos membros.
+                </p>
+                <span className="text-sm font-bold text-white group-hover:text-emerald-500 flex items-center gap-2 transition-colors">
+                  Aceder a Ficheiros <ChevronRight className="w-4 h-4" />
                 </span>
               </div>
             </Link>

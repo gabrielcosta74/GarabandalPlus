@@ -28,6 +28,7 @@ import {
     UserPlus,
     ChevronDown,
     ChevronRight,
+    FolderLock,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAdminNotifications } from '../../context/AdminNotificationContext';
@@ -75,6 +76,7 @@ export default function AdminSidebar({ onLogout, className }: { onLogout: () => 
         {
             label: 'Conteúdo & Espiritualidade',
             items: [
+                { label: 'Doc. Privada', icon: FolderLock, href: '/admin/membros/documentacao' },
                 { label: 'Novenas', icon: Sparkles, href: '/admin/novenas' },
                 { label: 'Intenções', icon: Flame, href: '/admin/intentions' },
                 { label: 'Orações', icon: BookOpen, href: '/admin/prayers' },
