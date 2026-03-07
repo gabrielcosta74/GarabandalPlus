@@ -119,7 +119,15 @@ export default function OrderDetailsModal({ order, onClose, onToggleInvoice, onM
             }),
         });
 
-        if (!res.ok) throw new Error('Falha ao registar envio.');
+        if (!res.ok) {
+            let errorMsg = 'Falha ao registar envio.';
+            try {
+                const errData = await res.json();
+                if (errData.message) errorMsg = errData.message;
+                if (errData.error) errorMsg += ` (Detalhe: ${JSON.stringify(errData.error)})`;
+            } catch (e) {}
+            throw new Error(errorMsg);
+        }
 
         setLocalOrder(prev => ({ ...prev, shipping_status: 'enviado', shipping_tracking: trackingCode, shipping_carrier: carrierName }));
         setShowShipModal(false);

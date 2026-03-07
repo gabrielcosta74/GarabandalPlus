@@ -242,10 +242,10 @@ export default function AdminEncomendasPage() {
   const actionNeededSet = useMemo(() => {
     return filteredOrders.filter(order => {
       const statusFn = (order.status || '').toLowerCase();
-      if (statusFn === 'canceled' || statusFn === 'failed') return false;
+      if (statusFn === 'canceled' || statusFn === 'failed' || statusFn === 'pending' || statusFn === 'pendente') return false;
 
       const needsInvoice = !order.invoice_sent_at;
-      // An invoice is always needed, even if pending. Shipping is only needed if paid.
+      // An invoice and shipping is only needed if paid.
       const needsShipping = isPaid(order) && order.has_physical && shippingLabel(order.shipping_status) !== 'Enviado';
 
       return needsShipping || needsInvoice;
@@ -258,8 +258,8 @@ export default function AdminEncomendasPage() {
   // Stats for Cards (Always calculated from clean list to be useful)
   const stats = useMemo(() => {
     const pendingShip = orders.filter(o => isPaid(o) && o.has_physical && shippingLabel(o.shipping_status) !== 'Enviado').length;
-    // Faturas em falta now counts all orders without an invoice, regardless of paid status
-    const pendingInv = orders.filter(o => !o.invoice_sent_at).length;
+    // Faturas em falta now counts only paid orders without an invoice
+    const pendingInv = orders.filter(o => isPaid(o) && !o.invoice_sent_at).length;
     return { pendingShip, pendingInv, total: orders.length };
   }, [orders]);
 

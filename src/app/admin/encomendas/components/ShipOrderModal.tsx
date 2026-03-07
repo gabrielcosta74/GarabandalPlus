@@ -62,7 +62,6 @@ export default function ShipOrderModal({ orderRef, buyerName, onClose, onConfirm
         e.preventDefault();
         setError(null);
         if (!carrierId) { setError('Selecione um transportador.'); return; }
-        if (!trackingCode.trim()) { setError('Introduza o código de rastreio.'); return; }
 
         setLoading(true);
         try {

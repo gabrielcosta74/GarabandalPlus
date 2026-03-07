@@ -32,9 +32,6 @@ export async function PATCH(
             shipping_tracking: tracking || null,
             shipped_at: new Date().toISOString(),
         };
-        if (carrierName) {
-            updatePayload.shipping_carrier = carrierName;
-        }
 
         const { data: order, error } = await supabase
             .from('store_orders')
@@ -45,42 +42,48 @@ export async function PATCH(
 
         if (error || !order) {
             console.error('Erro ao atualizar encomenda:', error);
-            return NextResponse.json({ message: 'Erro ao atualizar encomenda' }, { status: 500 });
+            return NextResponse.json({ message: 'Erro ao atualizar encomenda', error }, { status: 500 });
         }
 
         // 2. Send Shipping Confirmation Email with full details
-        const { shouldSend, recordId } = await ensureNotificationRecord(supabase, {
-            type: 'store_order_shipped',
-            reference: order.order_ref,
-            email: order.buyer_email
-        });
+        if (order.buyer_email) {
+            try {
+                const { shouldSend, recordId } = await ensureNotificationRecord(supabase, {
+                    type: 'store_order_shipped',
+                    reference: order.order_ref,
+                    email: order.buyer_email
+                });
 
-        if (shouldSend) {
-            const emailSent = await sendStoreShippingEmail({
-                orderRef: order.order_ref,
-                buyerName: order.buyer_name,
-                buyerEmail: order.buyer_email,
-                tracking: tracking || null,
-                carrierName: carrierName || carrier || null,
-                carrierId: carrier || null,
-                shippedAt: new Date().toISOString(),
-                shippingAddress: [
-                    order.shipping_address1,
-                    order.shipping_address2,
-                    `${order.shipping_postal_code || ''} ${order.shipping_city || ''}`.trim(),
-                    (order.shipping_country || '').toUpperCase()
-                ].filter(Boolean).join('\n'),
-                items: (order.store_order_items || []).map((i: any) => ({
-                    name: i.name,
-                    qty: i.qty,
-                    unit_price: i.unit_price,
-                })),
-                totalAmount: order.total_amount,
-                currency: order.currency || 'EUR',
-            });
+                if (shouldSend) {
+                    const emailSent = await sendStoreShippingEmail({
+                        orderRef: order.order_ref,
+                        buyerName: order.buyer_name,
+                        buyerEmail: order.buyer_email,
+                        tracking: tracking || null,
+                        carrierName: carrierName || carrier || null,
+                        carrierId: carrier || null,
+                        shippedAt: new Date().toISOString(),
+                        shippingAddress: [
+                            order.shipping_address1,
+                            order.shipping_address2,
+                            `${order.shipping_postal_code || ''} ${order.shipping_city || ''}`.trim(),
+                            (order.shipping_country || '').toUpperCase()
+                        ].filter(Boolean).join('\n'),
+                        items: (order.store_order_items || []).map((i: any) => ({
+                            name: i.name,
+                            qty: i.qty,
+                            unit_price: i.unit_price,
+                        })),
+                        totalAmount: order.total_amount,
+                        currency: order.currency || 'EUR',
+                    });
 
-            if (emailSent && recordId) {
-                await markNotificationSent(supabase, recordId);
+                    if (emailSent && recordId) {
+                        await markNotificationSent(supabase, recordId);
+                    }
+                }
+            } catch (emailErr) {
+                console.error('Erro ao enviar email de envio:', emailErr);
             }
         }
 
