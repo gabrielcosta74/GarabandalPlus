@@ -6,6 +6,52 @@ export function cn(...inputs: ClassValue[]) {
     return twMerge(clsx(inputs))
 }
 
+const CIVIL_DATE_PATTERN = /^(\d{4})-(\d{2})-(\d{2})/;
+
+const getCivilDateParts = (value?: string | null) => {
+    if (!value) return null;
+    const match = value.match(CIVIL_DATE_PATTERN);
+    if (!match) return null;
+
+    const [, year, month, day] = match;
+    return {
+        year: Number(year),
+        month: Number(month),
+        day: Number(day),
+    };
+};
+
+export const getCivilDateInputValue = (value?: string | null) => {
+    const parts = getCivilDateParts(value);
+    if (!parts) return '';
+
+    const month = String(parts.month).padStart(2, '0');
+    const day = String(parts.day).padStart(2, '0');
+    return `${parts.year}-${month}-${day}`;
+};
+
+export const parseCivilDate = (value?: string | null) => {
+    const parts = getCivilDateParts(value);
+    if (!parts) return new Date(Number.NaN);
+
+    // Use local noon so formatting never slips to the previous/next day across timezones.
+    return new Date(parts.year, parts.month - 1, parts.day, 12, 0, 0, 0);
+};
+
+export const getCivilDateTimestamp = (value?: string | null) => {
+    const date = parseCivilDate(value);
+    return date.getTime();
+};
+
+export const serializeCivilDateForStorage = (value?: string | null) => {
+    const input = getCivilDateInputValue(value);
+    if (!input) return null;
+    return `${input}T00:00:00+00:00`;
+};
+
+export const todayCivilTimestamp = (now: Date = new Date()) =>
+    new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12, 0, 0, 0).getTime();
+
 export const parseRoomInfo = (notes?: string) => {
     if (!notes) return { bedType: null, sharingMode: null, roommates: null, cleanNotes: '' };
 

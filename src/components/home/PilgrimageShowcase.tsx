@@ -7,6 +7,7 @@ import { motion, useScroll, useTransform } from 'framer-motion';
 import { ArrowRight, MapPin, CalendarDays, ChevronRight } from 'lucide-react';
 import { format } from 'date-fns';
 import { pt } from 'date-fns/locale';
+import { parseCivilDate } from '../../lib/utils';
 
 interface Pilgrimage {
     id: string;
@@ -143,7 +144,7 @@ const PilgrimageShowcase: React.FC<PilgrimageShowcaseProps> = ({ pilgrimages }) 
                     style={{ WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' }}
                 >
                     {pilgrimages.map((pilgrimage, index) => {
-                        const startDate = new Date(pilgrimage.start_date);
+                        const startDate = parseCivilDate(pilgrimage.start_date);
 
                         // Status & Urgency Logic
                         const effectiveVacancies = pilgrimage.effective_vacancies ?? (pilgrimage.total_vacancies - pilgrimage.confirmed_pax);
@@ -273,4 +274,3 @@ const PilgrimageShowcase: React.FC<PilgrimageShowcaseProps> = ({ pilgrimages }) 
 };
 
 export default PilgrimageShowcase;
-

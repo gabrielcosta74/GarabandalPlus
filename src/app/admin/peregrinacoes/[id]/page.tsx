@@ -28,6 +28,7 @@ import DetailedItineraryTab from './components/DetailedItineraryTab';
 import TeamTab from './components/TeamTab';
 import { Toaster, toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
+import { serializeCivilDateForStorage } from '../../../../lib/utils';
 
 // --- Types ---
 type Pilgrimage = {
@@ -225,6 +226,9 @@ export default function PilgrimageEditorPage() {
             // 1. Upsert Pilgrimage
             const payload = { ...form };
             if (isNew) delete (payload as any).id;
+            (payload as any).start_date = serializeCivilDateForStorage(payload.start_date);
+            (payload as any).end_date = serializeCivilDateForStorage(payload.end_date);
+            (payload as any).registration_deadline = serializeCivilDateForStorage(payload.registration_deadline);
 
             const { data, error } = await supabaseBrowser
                 .from('pilgrimages')

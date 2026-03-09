@@ -7,6 +7,7 @@ import { Calendar, Users, ChevronRight, Clock } from 'lucide-react';
 import { format } from 'date-fns';
 import { pt } from 'date-fns/locale';
 import { useCurrency } from "../providers/CurrencyProvider";
+import { parseCivilDate } from '../../lib/utils';
 
 type PilgrimageCardProps = {
     pilgrimage: any;
@@ -23,8 +24,8 @@ const toSlug = (value?: string | null) =>
 
 export function PilgrimageCard({ pilgrimage, index }: PilgrimageCardProps) {
     const { formatPrice, currency } = useCurrency();
-    const startDate = new Date(pilgrimage.start_date);
-    const endDate = new Date(pilgrimage.end_date);
+    const startDate = parseCivilDate(pilgrimage.start_date);
+    const endDate = parseCivilDate(pilgrimage.end_date);
     const confirmedPax = pilgrimage.confirmed_pax || 0;
     const effectiveVacanciesRaw = Number(pilgrimage.effective_vacancies);
     const currentVacanciesRaw = Number(pilgrimage.current_vacancies);

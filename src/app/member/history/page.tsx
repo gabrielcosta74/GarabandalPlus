@@ -5,11 +5,12 @@ import DashboardShell from '../../../components/dashboard/DashboardShell';
 import { supabaseBrowser } from '../../../lib/supabase-browser';
 import { Clock, Download, CheckCircle2, AlertCircle, Calendar, MapPin, ChevronRight, User } from 'lucide-react';
 import Link from 'next/link';
+import { parseCivilDate } from '../../../lib/utils';
 
 const formatCurrency = (value: number) =>
   new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR' }).format(value);
 
-const formatDate = (dateStr?: string) => {
+const formatDateTime = (dateStr?: string) => {
   if (!dateStr) return '-';
   return new Date(dateStr).toLocaleDateString('pt-PT', {
     day: '2-digit',
@@ -17,6 +18,15 @@ const formatDate = (dateStr?: string) => {
     year: 'numeric',
     hour: '2-digit',
     minute: '2-digit'
+  });
+};
+
+const formatCivilDate = (dateStr?: string) => {
+  if (!dateStr) return '-';
+  return parseCivilDate(dateStr).toLocaleDateString('pt-PT', {
+    day: '2-digit',
+    month: 'long',
+    year: 'numeric',
   });
 };
 
@@ -124,8 +134,8 @@ export default function MemberHistoryPage() {
                   <div className="p-5">
                     <h4 className="font-bold text-slate-900 text-lg leading-tight mb-2 group-hover:text-indigo-700 transition-colors">{booking.pilgrimage?.title || 'Peregrinação'}</h4>
                     <div className="text-xs text-slate-500 flex flex-col gap-1 mb-4">
-                      <span className="flex items-center gap-1"><Calendar className="w-3 h-3" /> {formatDate(booking.pilgrimage?.start_date)}</span>
-                      <span className="flex items-center gap-1"><User className="w-3 h-3" /> Inscrito a {formatDate(booking.created_at)}</span>
+                      <span className="flex items-center gap-1"><Calendar className="w-3 h-3" /> {formatCivilDate(booking.pilgrimage?.start_date)}</span>
+                      <span className="flex items-center gap-1"><User className="w-3 h-3" /> Inscrito a {formatDateTime(booking.created_at)}</span>
                     </div>
                     <div className="flex justify-between items-center pt-3 border-t border-slate-100">
                       <span className="text-xs font-bold text-slate-400">REF: {booking.id.slice(0, 6)}</span>
@@ -173,7 +183,7 @@ export default function MemberHistoryPage() {
                     {payments.map((item) => (
                       <tr key={item.id || item.external_reference} className="group hover:bg-gray-50/50 transition-colors">
                         <td className="py-4 px-6 md:pl-8">
-                          <div className="font-bold text-gray-900">{formatDate(item.data_pagamento)}</div>
+                          <div className="font-bold text-gray-900">{formatDateTime(item.data_pagamento)}</div>
                           <div className="text-xs font-mono text-gray-400 mt-0.5">#{item.external_reference ? item.external_reference.slice(0, 8) : '---'}</div>
                         </td>
                         <td className="py-4 px-6 text-sm text-gray-700 font-medium">Quota Anual</td>

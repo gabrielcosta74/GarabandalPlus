@@ -8,6 +8,7 @@ import Image from 'next/image';
 import { format } from 'date-fns';
 import { pt } from 'date-fns/locale';
 import { useCurrency } from "../providers/CurrencyProvider";
+import { parseCivilDate } from '../../lib/utils';
 
 interface FeaturedPilgrimage {
     id: string;
@@ -41,7 +42,7 @@ export function PilgrimageHero({ featuredPilgrimage }: { featuredPilgrimage?: Fe
 
     // Date Formatting
     const dateFormatted = featuredPilgrimage ?
-        `${format(new Date(featuredPilgrimage.start_date), "d MMM", { locale: pt })} - ${format(new Date(featuredPilgrimage.end_date), "d MMM, yyyy", { locale: pt })}`
+        `${format(parseCivilDate(featuredPilgrimage.start_date), "d MMM", { locale: pt })} - ${format(parseCivilDate(featuredPilgrimage.end_date), "d MMM, yyyy", { locale: pt })}`
         : "";
 
     return (

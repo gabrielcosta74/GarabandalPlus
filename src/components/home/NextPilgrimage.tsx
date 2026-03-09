@@ -7,6 +7,7 @@ import { motion } from 'framer-motion';
 import { ArrowRight, Calendar, MapPin, Users } from 'lucide-react';
 import { format } from 'date-fns';
 import { pt } from 'date-fns/locale';
+import { parseCivilDate } from '../../lib/utils';
 
 interface Pilgrimage {
     id: string;
@@ -26,7 +27,7 @@ interface NextPilgrimageProps {
 const NextPilgrimage: React.FC<NextPilgrimageProps> = ({ nextPilgrimage }) => {
     if (!nextPilgrimage) return null;
 
-    const formattedDate = format(new Date(nextPilgrimage.start_date), "d 'de' MMMM, yyyy", { locale: pt });
+    const formattedDate = format(parseCivilDate(nextPilgrimage.start_date), "d 'de' MMMM, yyyy", { locale: pt });
 
     return (
         <section className="relative py-24 bg-slate-50 overflow-hidden">

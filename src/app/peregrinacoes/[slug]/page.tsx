@@ -27,6 +27,7 @@ import {
 import { format } from 'date-fns';
 import { pt } from 'date-fns/locale';
 import dynamic from 'next/dynamic';
+import { parseCivilDate } from '../../../lib/utils';
 
 // Lazy load heavy map component
 const SpiritMap = dynamic(() => import('../../../components/pilgrimage/SpiritMap'), {
@@ -269,8 +270,8 @@ export default function PilgrimageDetailPage() {
         );
     }
 
-    const startDate = new Date(pilgrimage.start_date);
-    const endDate = new Date(pilgrimage.end_date);
+    const startDate = parseCivilDate(pilgrimage.start_date);
+    const endDate = parseCivilDate(pilgrimage.end_date);
     const isClosed = pilgrimage.status === 'closed';
     const confirmedPax = (pilgrimage as any).confirmed_pax || 0;
     const remainingSpots = Number.isFinite(Number((pilgrimage as any).effective_vacancies))
@@ -594,7 +595,7 @@ export default function PilgrimageDetailPage() {
                                             {pilgrimage.registration_deadline && (
                                                 <div className="flex justify-between py-3 border-b text-slate-600 font-medium">
                                                     <span className="flex items-center gap-2 text-red-500 font-bold"><Clock className="w-4 h-4" /> Inscrições até</span>
-                                                    <span className="text-red-600 font-bold">{format(new Date(pilgrimage.registration_deadline), "d MMM", { locale: pt })}</span>
+                                                    <span className="text-red-600 font-bold">{format(parseCivilDate(pilgrimage.registration_deadline), "d MMM", { locale: pt })}</span>
                                                 </div>
                                             )}
                                             {/* Vacancy Logic for UI */}

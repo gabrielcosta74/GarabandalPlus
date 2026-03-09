@@ -18,6 +18,7 @@ import { pt } from 'date-fns/locale';
 import { motion } from 'framer-motion';
 import useSWR from 'swr';
 import { useAuth } from '../../../contexts/AuthContext';
+import { getCivilDateTimestamp, parseCivilDate, todayCivilTimestamp } from '../../../lib/utils';
 
 // --- Types ---
 type Booking = {
@@ -64,8 +65,9 @@ export default function MyBookingsPage() {
     const loading = authLoading || (!!user && swrLoading);
 
     // --- Derived State ---
-    const upcomingBookings = bookings?.filter(b => new Date(b.pilgrimage.start_date) > new Date()) || [];
-    const pastBookings = bookings?.filter(b => new Date(b.pilgrimage.start_date) <= new Date()) || [];
+    const todayTs = todayCivilTimestamp();
+    const upcomingBookings = bookings?.filter(b => getCivilDateTimestamp(b.pilgrimage.start_date) >= todayTs) || [];
+    const pastBookings = bookings?.filter(b => getCivilDateTimestamp(b.pilgrimage.start_date) < todayTs) || [];
 
     // The "Hero" is the most relevant upcoming trip
     const nextTrip = upcomingBookings[0];
@@ -131,9 +133,9 @@ export default function MyBookingsPage() {
                                     </h2>
                                     <p className="text-lg text-white/80 flex items-center gap-3">
                                         <Calendar className="w-5 h-5 text-garabandal-gold" />
-                                        {format(new Date(nextTrip.pilgrimage.start_date), "dd 'de' MMMM", { locale: pt })}
+                                        {format(parseCivilDate(nextTrip.pilgrimage.start_date), "dd 'de' MMMM", { locale: pt })}
                                         <span className="opacity-50">•</span>
-                                        {format(new Date(nextTrip.pilgrimage.end_date), "yyyy", { locale: pt })}
+                                        {format(parseCivilDate(nextTrip.pilgrimage.end_date), "yyyy", { locale: pt })}
                                     </p>
                                 </div>
 
@@ -169,7 +171,7 @@ export default function MyBookingsPage() {
 
 // --- Sub-Component for Clean Cards ---
 function BookingCard({ booking }: { booking: Booking }) {
-    const isPast = new Date(booking.pilgrimage.start_date) < new Date();
+    const isPast = getCivilDateTimestamp(booking.pilgrimage.start_date) < todayCivilTimestamp();
     const percentPaid = Math.min(100, Math.round((booking.paid_amount / booking.total_amount) * 100));
     const isPaid = percentPaid >= 99;
 
@@ -208,7 +210,7 @@ function BookingCard({ booking }: { booking: Booking }) {
                 <div className="space-y-3 mb-6">
                     <div className="flex items-center gap-2 text-sm text-gray-500">
                         <Calendar className="w-4 h-4 text-gray-400" />
-                        {format(new Date(booking.pilgrimage.start_date), "d MMM yyyy", { locale: pt })}
+                        {format(parseCivilDate(booking.pilgrimage.start_date), "d MMM yyyy", { locale: pt })}
                     </div>
                     {/* Progress Bar */}
                     <div className="space-y-1">

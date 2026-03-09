@@ -3,6 +3,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 import { unstable_cache } from 'next/cache';
+import { getCivilDateTimestamp } from '../../lib/utils';
 
 const getPilgrimagesCached = unstable_cache(async () => {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -37,8 +38,8 @@ const getPilgrimagesCached = unstable_cache(async () => {
         const chosen = Array.from(
             new Map(chosenRaw.map((row: any) => [row.id, row])).values()
         ).sort((a: any, b: any) => {
-            const aDate = new Date(a?.start_date || 0).getTime();
-            const bDate = new Date(b?.start_date || 0).getTime();
+            const aDate = getCivilDateTimestamp(a?.start_date);
+            const bDate = getCivilDateTimestamp(b?.start_date);
             return aDate - bDate;
         });
 

@@ -1,5 +1,6 @@
 import { FileText, Image as ImageIcon, Link as LinkIcon, Calendar, Euro, Users, CheckCircle } from 'lucide-react';
 import ImageUpload from '../../../../../components/admin/ImageUpload';
+import { getCivilDateInputValue } from '../../../../../lib/utils';
 
 interface GeneralInfoTabProps {
     form: any;
@@ -130,7 +131,7 @@ export default function GeneralInfoTab({ form, setForm }: GeneralInfoTabProps) {
                                     <input
                                         type="date"
                                         className="w-full p-2 bg-white border border-slate-200 rounded-lg text-sm font-medium focus:border-indigo-500 outline-none"
-                                        value={form.start_date ? new Date(form.start_date).toISOString().split('T')[0] : ''}
+                                        value={getCivilDateInputValue(form.start_date)}
                                         onChange={e => setForm({ ...form, start_date: e.target.value })}
                                     />
                                 </div>
@@ -138,7 +139,7 @@ export default function GeneralInfoTab({ form, setForm }: GeneralInfoTabProps) {
                                     <input
                                         type="date"
                                         className="w-full p-2 bg-white border border-slate-200 rounded-lg text-sm font-medium focus:border-indigo-500 outline-none"
-                                        value={form.end_date ? new Date(form.end_date).toISOString().split('T')[0] : ''}
+                                        value={getCivilDateInputValue(form.end_date)}
                                         onChange={e => setForm({ ...form, end_date: e.target.value })}
                                     />
                                 </div>
@@ -147,7 +148,7 @@ export default function GeneralInfoTab({ form, setForm }: GeneralInfoTabProps) {
                                     <input
                                         type="date"
                                         className="w-full p-2 bg-red-50/50 border border-red-100 text-red-800 rounded-lg text-sm font-medium focus:border-red-500 outline-none"
-                                        value={form.registration_deadline ? new Date(form.registration_deadline).toISOString().split('T')[0] : ''}
+                                        value={getCivilDateInputValue(form.registration_deadline)}
                                         onChange={e => setForm({ ...form, registration_deadline: e.target.value })}
                                     />
                                 </div>

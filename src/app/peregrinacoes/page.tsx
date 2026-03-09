@@ -12,6 +12,7 @@ import { PilgrimageCard } from '../../components/pilgrimage/PilgrimageCard';
 import { PastPilgrimagesGallery } from '../../components/pilgrimage/PastPilgrimagesGallery';
 import { PilgrimageTestimonials } from '../../components/pilgrimage/PilgrimageTestimonials';
 import { getPilgrimagesAction } from './actions';
+import { getCivilDateTimestamp, todayCivilTimestamp } from '../../lib/utils';
 
 type Pilgrimage = {
     id: string;
@@ -97,11 +98,11 @@ export default function PilgrimagesPage() {
         return Math.max(0, totalRaw - confirmedRaw);
     };
 
-    const now = new Date();
+    const todayTs = todayCivilTimestamp();
     const nextPilgrimageWithVacancies = pilgrimages.find((pilgrimage) => {
         const remaining = getRemainingSpots(pilgrimage);
-        const startsAt = new Date(pilgrimage.start_date);
-        const isFuture = !Number.isNaN(startsAt.getTime()) && startsAt >= now;
+        const startsAt = getCivilDateTimestamp(pilgrimage.start_date);
+        const isFuture = Number.isFinite(startsAt) && startsAt >= todayTs;
         const isAvailableStatus = pilgrimage.status !== 'closed' && pilgrimage.status !== 'waitlist';
         return isFuture && isAvailableStatus && remaining > 0;
     })

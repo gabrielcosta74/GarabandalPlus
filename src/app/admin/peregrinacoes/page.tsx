@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { pt } from 'date-fns/locale';
+import { parseCivilDate } from '../../../lib/utils';
 
 type Pilgrimage = {
     id: string;
@@ -255,8 +256,8 @@ export default function AdminPilgrimagesPage() {
                                             <img src={item.cover_image} className="w-full h-full object-cover" />
                                         ) : (
                                             <>
-                                                <span className="text-xs font-bold text-slate-400 uppercase">{format(new Date(item.start_date), 'MMM', { locale: pt })}</span>
-                                                <span className="text-2xl font-bold text-slate-700">{format(new Date(item.start_date), 'dd')}</span>
+                                                <span className="text-xs font-bold text-slate-400 uppercase">{format(parseCivilDate(item.start_date), 'MMM', { locale: pt })}</span>
+                                                <span className="text-2xl font-bold text-slate-700">{format(parseCivilDate(item.start_date), 'dd')}</span>
                                             </>
                                         )}
                                     </Link>
@@ -269,7 +270,7 @@ export default function AdminPilgrimagesPage() {
                                             </span>
                                             <span className="text-xs text-slate-400 flex items-center gap-1">
                                                 <Calendar className="w-3 h-3" />
-                                                {format(new Date(item.start_date), 'd MMM yyyy', { locale: pt })}
+                                                {format(parseCivilDate(item.start_date), 'd MMM yyyy', { locale: pt })}
                                             </span>
                                         </div>
                                         <h3 className="text-lg font-bold text-slate-900 group-hover:text-garabandal-gold transition-colors">
