@@ -13,8 +13,9 @@ export async function POST(req: Request) {
 
         const body = await req.json();
         const { bookingId, amount, method, notes, label, verifiedAt } = body;
+        const registerAmount = Number(amount);
 
-        if (!bookingId || !amount) {
+        if (!bookingId || !Number.isFinite(registerAmount) || registerAmount <= 0) {
             return NextResponse.json({ error: 'Faltam dados obrigatórios.' }, { status: 400 });
         }
 
@@ -35,29 +36,44 @@ export async function POST(req: Request) {
         }
 
         const userId = booking.user_id;
-        const currentPaid = Number(booking.paid_amount) || 0;
-        const registerAmount = Number(amount);
+        const paymentMethod = method === 'cash' ? 'manual' : (method || 'manual');
+        const paymentTimestamp = verifiedAt || new Date().toISOString();
 
         // 3. Insert the payment record (Service Role bypasses RLS)
-        const { error: insertError } = await supabaseServer
+        const { data: insertedPayment, error: insertError } = await supabaseServer
             .from('pilgrimage_payments')
             .insert({
                 booking_id: bookingId,
                 user_id: userId,
                 amount: registerAmount,
-                method: method === 'cash' ? 'manual' : method,
+                method: paymentMethod,
                 status: 'verified',
                 notes: label ? `[${label}] ${notes || 'Pagamento manual'}` : (notes || 'Pagamento registado manualmente pelo Admin'),
-                verified_at: verifiedAt || new Date().toISOString()
-            });
+                verified_at: paymentTimestamp,
+                verified_by: user.id,
+            })
+            .select('id, amount, method, status, verified_at')
+            .single();
 
         if (insertError) {
             console.error('Error inserting payment:', insertError);
             return NextResponse.json({ error: `Erro ao inserir: ${insertError.message}` }, { status: 500 });
         }
 
-        // 4. Update the booking paid_amount
-        const newTotalPaid = currentPaid + registerAmount;
+        // 4. Recalculate the booking paid_amount from valid payments
+        const { data: allPayments, error: allPaymentsError } = await supabaseServer
+            .from('pilgrimage_payments')
+            .select('amount')
+            .eq('booking_id', bookingId)
+            .eq('deleted', false)
+            .in('status', ['verified', 'succeeded', 'paid', 'manual']);
+
+        if (allPaymentsError) {
+            console.error('Error fetching payments for recalculation:', allPaymentsError);
+            return NextResponse.json({ error: `Erro ao recalcular pagamentos: ${allPaymentsError.message}` }, { status: 500 });
+        }
+
+        const newTotalPaid = (allPayments || []).reduce((sum, payment) => sum + (Number(payment.amount) || 0), 0);
 
         const { count: pilgrimsCount } = await supabaseServer
             .from('pilgrims')
@@ -67,14 +83,18 @@ export async function POST(req: Request) {
         const depositValue = Number((booking.pilgrimage as any)?.deposit_value || 0);
         const requiredDeposit = depositValue * Math.max(1, Number(pilgrimsCount || 1));
         const nextStatus = newTotalPaid >= requiredDeposit ? 'confirmed' : 'pending';
+        const bookingUpdates: Record<string, string | number | null> = {
+            paid_amount: newTotalPaid,
+            status: nextStatus,
+            updated_at: new Date().toISOString(),
+        };
+        if (newTotalPaid >= requiredDeposit) {
+            bookingUpdates.deposit_confirmed_at = paymentTimestamp;
+        }
 
         const { error: updateError } = await supabaseServer
             .from('bookings')
-            .update({
-                paid_amount: newTotalPaid,
-                status: nextStatus,
-                last_payment_date: new Date().toISOString(),
-            })
+            .update(bookingUpdates)
             .eq('id', bookingId);
 
         if (updateError) {
@@ -90,10 +110,15 @@ export async function POST(req: Request) {
             }
         }
 
-        return NextResponse.json({ success: true, newTotal: newTotalPaid });
+        await logAdminAction(user.email, 'REGISTER_PAYMENT', {
+            bookingId,
+            amount: registerAmount,
+            method: paymentMethod,
+            notes,
+            label,
+        }, insertedPayment?.id || bookingId);
 
-        // Log asynchronously
-        await logAdminAction(user.email, 'REGISTER_PAYMENT', { bookingId, amount, method, notes }, userId);
+        return NextResponse.json({ success: true, newTotal: newTotalPaid, payment: insertedPayment });
     } catch (error: any) {
         console.error('Critical internal error in admin/payments/register:', error);
         return NextResponse.json({ error: 'Erro interno no servidor.' }, { status: 500 });
