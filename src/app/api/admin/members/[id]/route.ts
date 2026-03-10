@@ -85,6 +85,11 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
         const { id } = await params;
         if (!supabaseServer) return NextResponse.json({ error: 'Server Config Error' }, { status: 500 });
         const body = await req.json();
+        const { data: currentMember } = await supabaseServer
+            .from('membros')
+            .select('is_membro, estado_quota, numero_socio')
+            .eq('id', id)
+            .single();
 
         // Whitelist allowed fields to prevent arbitrary column updates
         const updates: any = {};
@@ -118,6 +123,14 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
         if (body.address !== undefined) updates.address = body.address;
         if (body.postal_code !== undefined) updates.postal_code = body.postal_code;
         if (body.country !== undefined) updates.country = body.country;
+
+        const nextIsMember = updates.is_membro ?? currentMember?.is_membro ?? false;
+        const nextQuotaStatus = normalizeQuotaStatus(updates.estado_quota ?? currentMember?.estado_quota);
+        if (!nextIsMember && nextQuotaStatus === 'pendente' && updates.numero_socio !== undefined && updates.numero_socio !== null) {
+            return NextResponse.json({
+                error: 'Não é permitido atribuir número de sócio a um registo pendente/não membro.'
+            }, { status: 400 });
+        }
 
         const { data, error } = await supabaseServer
             .from('membros')

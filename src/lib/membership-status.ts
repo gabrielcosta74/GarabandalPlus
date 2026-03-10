@@ -1,6 +1,11 @@
 export type QuotaStatus = 'pendente' | 'pago' | 'expirado' | 'revogado';
 
-const normalizeRaw = (value?: string | null) => (value ?? '').toString().trim().toLowerCase();
+const normalizeRaw = (value?: string | null) =>
+  (value ?? '')
+    .toString()
+    .trim()
+    .toLowerCase()
+    .replace(/^['"`]+|['"`]+$/g, '');
 
 export const normalizeQuotaStatus = (value?: string | null): QuotaStatus | null => {
   const raw = normalizeRaw(value);

@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
-import { ArrowRight, FileText, Download } from 'lucide-react';
+import { ArrowRight, Download, Info, Plane } from 'lucide-react';
 // import { BrochureDownloadModal } from './BrochureDownloadModal';
 import { cn } from '../../lib/utils';
 import { useCurrency } from '../providers/CurrencyProvider';
@@ -17,6 +17,11 @@ type UniversalStickyBarProps = {
     slug: string;
     buttonText?: string;
     depositValue?: number;
+    showIncludedButton?: boolean;
+    showFlightsButton?: boolean;
+    onOpenIncluded?: () => void;
+    onOpenFlights?: () => void;
+    onPrimaryClick?: () => void;
 };
 
 export default function UniversalStickyBar({
@@ -24,9 +29,12 @@ export default function UniversalStickyBar({
     deposit,
     link,
     isClosed,
-    slug,
     buttonText = "Iniciar Inscrição",
-    depositValue = 0
+    showIncludedButton = false,
+    showFlightsButton = false,
+    onOpenIncluded,
+    onOpenFlights,
+    onPrimaryClick
 }: UniversalStickyBarProps) {
     const [mounted, setMounted] = useState(false);
     const { formatPrice } = useCurrency();
@@ -56,7 +64,7 @@ export default function UniversalStickyBar({
                     {/* Top Row: Price and Small Info */}
                     <div className="flex items-center justify-between border-b border-slate-50 pb-2">
                         <div className="flex flex-col">
-                            <span className="text-[11px] uppercase font-bold text-slate-400 tracking-widest">Preço do Terrestre</span>
+                            <span className="text-[11px] uppercase font-bold text-slate-400 tracking-widest">Terrestre (sem voo)</span>
                             <div className="flex items-baseline gap-1">
                                 <span className="text-2xl font-black text-slate-900 leading-none">{formatPrice(price + deposit)}</span>
                                 <span className="text-xs text-slate-500 font-bold">/ pessoa</span>
@@ -68,6 +76,31 @@ export default function UniversalStickyBar({
                             </span>
                         </div>
                     </div>
+
+                    {(showIncludedButton || showFlightsButton) && (
+                        <div className={cn("grid gap-2", showIncludedButton && showFlightsButton ? "grid-cols-2" : "grid-cols-1")}>
+                            {showIncludedButton && (
+                                <button
+                                    type="button"
+                                    onClick={onOpenIncluded}
+                                    className="flex h-11 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 text-xs font-bold text-slate-700 transition-colors"
+                                >
+                                    <Info className="h-4 w-4" />
+                                    Incluído
+                                </button>
+                            )}
+                            {showFlightsButton && (
+                                <button
+                                    type="button"
+                                    onClick={onOpenFlights}
+                                    className="flex h-11 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 text-xs font-bold text-slate-700 transition-colors"
+                                >
+                                    <Plane className="h-4 w-4" />
+                                    Voos
+                                </button>
+                            )}
+                        </div>
+                    )}
 
                     {/* 2. Actions (Grid for 2 buttons) */}
                     <div className="flex-1 grid grid-cols-2 gap-2">
@@ -83,22 +116,24 @@ export default function UniversalStickyBar({
                         </a>
 
                         {/* Booking area wrapper */}
-                        <div className="flex flex-col gap-1 w-full relative">
-                            <Link
-                                href={link}
-                                className="flex items-center justify-center gap-2 h-14 bg-yellow-400 text-slate-950 rounded-2xl font-black text-sm uppercase tracking-tight shadow-xl shadow-yellow-500/20 active:scale-95 transition-all w-full border-b-4 border-yellow-600"
-                            >
-                                <span>{buttonText}</span>
-                                <ArrowRight className="w-4 h-4" />
-                            </Link>
-
-                            {/* Reassurance text popover for sticky bar */}
-                            {!isClosed && buttonText !== 'Gerir Inscrição' && buttonText !== 'Lista de Espera' && (
-                                <div className="absolute bottom-[calc(100%+8px)] right-0 w-[240px] bg-slate-900 text-white p-3 rounded-xl shadow-2xl before:content-[''] before:absolute before:-bottom-2 before:right-8 before:w-4 before:h-4 before:bg-slate-900 before:rotate-45 animate-fade-in-up">
-                                    <p className="text-[10px] leading-tight font-medium text-slate-200">
-                                        Após realizar a sua inscrição terá que realizar num prazo máximo de 5 dias úteis, o pagamento/doação do valor da inscrição para confirmar e garantir a sua inscrição.
-                                    </p>
-                                </div>
+                        <div className="flex w-full">
+                            {onPrimaryClick ? (
+                                <button
+                                    type="button"
+                                    onClick={onPrimaryClick}
+                                    className="flex items-center justify-center gap-2 h-14 bg-yellow-400 text-slate-950 rounded-2xl font-black text-sm uppercase tracking-tight shadow-xl shadow-yellow-500/20 active:scale-95 transition-all w-full border-b-4 border-yellow-600"
+                                >
+                                    <span>{buttonText}</span>
+                                    <ArrowRight className="w-4 h-4" />
+                                </button>
+                            ) : (
+                                <Link
+                                    href={link}
+                                    className="flex items-center justify-center gap-2 h-14 bg-yellow-400 text-slate-950 rounded-2xl font-black text-sm uppercase tracking-tight shadow-xl shadow-yellow-500/20 active:scale-95 transition-all w-full border-b-4 border-yellow-600"
+                                >
+                                    <span>{buttonText}</span>
+                                    <ArrowRight className="w-4 h-4" />
+                                </Link>
                             )}
                         </div>
                     </div>

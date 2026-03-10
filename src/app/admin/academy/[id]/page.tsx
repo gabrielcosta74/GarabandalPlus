@@ -18,8 +18,9 @@ type Episode = {
 export default function CourseEditor() {
     const router = useRouter();
     const params = useParams();
-    const id = params?.id as string;
-    const isNew = id === 'new';
+    const routeId = Array.isArray(params?.id) ? params.id[0] : params?.id;
+    const id = typeof routeId === 'string' ? routeId : '';
+    const isNew = !id || id === 'new';
 
     const [activeTab, setActiveTab] = useState<'general' | 'media' | 'episodes' | 'settings'>('general');
     const [loading, setLoading] = useState(!isNew);
@@ -106,15 +107,21 @@ export default function CourseEditor() {
             slug: formData.slug || formData.title.toLowerCase().replace(/ /g, '-').replace(/[^\w-]+/g, '')
         };
 
-        let courseId = id;
+        let courseId: string | null = isNew ? null : id;
 
         if (isNew) {
             const { data, error } = await supabase.from('academy_courses').insert([courseData]).select().single();
             if (error) { alert('Erro ao criar: ' + error.message); setSaving(false); return; }
-            courseId = data.id;
+            courseId = data?.id || null;
         } else {
             const { error } = await supabase.from('academy_courses').update(courseData).eq('id', id);
             if (error) { alert('Erro ao atualizar: ' + error.message); setSaving(false); return; }
+        }
+
+        if (!courseId) {
+            alert('Erro ao guardar: ID do conteúdo inválido.');
+            setSaving(false);
+            return;
         }
 
         if (formData.format === 'single') {
@@ -129,7 +136,7 @@ export default function CourseEditor() {
 
             await supabase.from('academy_episodes').delete().eq('course_id', courseId);
             if (videoId) {
-                await supabase.from('academy_episodes').insert([{
+                const { error } = await supabase.from('academy_episodes').insert([{
                     course_id: courseId,
                     title: formData.title,
                     video_id: videoId,
@@ -138,6 +145,7 @@ export default function CourseEditor() {
                     position: 1,
                     video_provider: 'youtube'
                 }]);
+                if (error) { alert('Erro ao guardar vídeo: ' + error.message); setSaving(false); return; }
             }
         } else {
             for (const [index, ep] of episodes.entries()) {
@@ -149,10 +157,13 @@ export default function CourseEditor() {
                     duration: ep.duration,
                     position: index + 1
                 };
-                if (ep.id) {
-                    await supabase.from('academy_episodes').update(epData).eq('id', ep.id);
+                const persistedEpisodeId = typeof ep.id === 'string' && ep.id !== 'undefined' ? ep.id : undefined;
+                if (persistedEpisodeId) {
+                    const { error } = await supabase.from('academy_episodes').update(epData).eq('id', persistedEpisodeId);
+                    if (error) { alert('Erro ao atualizar aula: ' + error.message); setSaving(false); return; }
                 } else {
-                    await supabase.from('academy_episodes').insert([epData]);
+                    const { error } = await supabase.from('academy_episodes').insert([epData]);
+                    if (error) { alert('Erro ao criar aula: ' + error.message); setSaving(false); return; }
                 }
             }
         }
@@ -173,8 +184,9 @@ export default function CourseEditor() {
         const newEps = [...episodes];
         const toDelete = newEps[index];
         const supabase = supabaseBrowser;
-        if (toDelete.id && supabase) {
-            supabase.from('academy_episodes').delete().eq('id', toDelete.id).then();
+        const persistedEpisodeId = typeof toDelete.id === 'string' && toDelete.id !== 'undefined' ? toDelete.id : undefined;
+        if (persistedEpisodeId && supabase) {
+            supabase.from('academy_episodes').delete().eq('id', persistedEpisodeId).then();
         }
         newEps.splice(index, 1);
         setEpisodes(newEps);

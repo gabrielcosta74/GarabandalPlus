@@ -155,7 +155,7 @@ export async function POST(req: Request) {
                     postal_code,
                     country,
                     data_adesao: joinDate,
-                    is_membro: true,
+                    is_membro: initial_payment,
                     estado_quota: quotaStatus,
                     proxima_quota: nextQuotaDate,
                     numero_socio: nextMemberNumber
@@ -178,7 +178,7 @@ export async function POST(req: Request) {
                     paymentWarning = 'Membro criado, mas o registo da quota inicial falhou.';
                     await supabaseServer
                         .from('membros')
-                        .update({ estado_quota: 'pendente', proxima_quota: null })
+                        .update({ is_membro: false, estado_quota: 'pendente', proxima_quota: null, numero_socio: null })
                         .eq('id', userId);
                 }
             }
