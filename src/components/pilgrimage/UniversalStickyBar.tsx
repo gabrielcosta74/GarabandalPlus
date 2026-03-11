@@ -66,8 +66,8 @@ export default function UniversalStickyBar({
                         <div className="flex flex-col">
                             <span className="text-[11px] uppercase font-bold text-slate-400 tracking-widest">Terrestre (sem voo)</span>
                             <div className="flex items-baseline gap-1">
-                                <span className="text-2xl font-black text-slate-900 leading-none">{formatPrice(price + deposit)}</span>
-                                <span className="text-xs text-slate-500 font-bold">/ pessoa</span>
+                                <span className="text-2xl font-black text-slate-900 leading-none">{formatPrice((price || 0) + (deposit || 0))}</span>
+                                <span className="text-[10px] text-slate-500 font-bold leading-tight">/ pess. <br/><span className="text-emerald-600 uppercase">Ate 8x Parcelamento</span></span>
                             </div>
                         </div>
                         <div className="text-right">
@@ -86,7 +86,7 @@ export default function UniversalStickyBar({
                                     className="flex h-11 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 text-xs font-bold text-slate-700 transition-colors"
                                 >
                                     <Info className="h-4 w-4" />
-                                    Incluído
+                                    Incluído no terrestre
                                 </button>
                             )}
                             {showFlightsButton && (

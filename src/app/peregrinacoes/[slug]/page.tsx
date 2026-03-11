@@ -339,9 +339,45 @@ export default function PilgrimageDetailPage() {
                         {/* Column Left */}
                         <div className="lg:col-span-2 space-y-12">
                             <div className="bg-white rounded-3xl p-8 shadow-xl border border-slate-100">
-                                <h2 className="text-2xl font-serif font-bold text-slate-900 mb-4">Sobre esta viagem</h2>
+                                <h2 className="text-2xl font-serif font-bold text-slate-900 mb-4">Sobre esta peregrinação</h2>
                                 <p className="text-slate-600 text-lg leading-relaxed whitespace-pre-line">{pilgrimage.description}</p>
                             </div>
+
+                            {/* Equipa da Peregrinação */}
+                            {teamMembers.length > 0 && (
+                                <div>
+                                    <h2 className="text-2xl font-serif font-bold text-slate-900 mb-6 flex items-center gap-2">
+                                        <Users className="w-6 h-6 text-yellow-600" /> Equipa da Peregrinação
+                                    </h2>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                                        {teamMembers.map((member) => (
+                                            <div key={member.id} className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 flex gap-4 items-start hover:shadow-md transition-shadow">
+                                                <div className="w-16 h-16 rounded-full overflow-hidden shrink-0 bg-slate-100 border-2 border-yellow-100">
+                                                    {member.image_url ? (
+                                                        <img src={member.image_url} alt={member.name} className="w-full h-full object-cover" />
+                                                    ) : (
+                                                        <div className="w-full h-full flex items-center justify-center text-slate-400">
+                                                            <Users className="w-8 h-8 opacity-50" />
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                <div className="flex-1">
+                                                    <div className="flex items-start justify-between gap-2 mb-1">
+                                                        <h3 className="font-bold text-slate-900 text-base leading-tight">{member.name}</h3>
+                                                        {member.is_special_guest && (
+                                                            <span className="px-2 py-0.5 bg-yellow-100 text-yellow-800 text-[10px] font-bold uppercase tracking-wider rounded-full shrink-0">Convidado</span>
+                                                        )}
+                                                    </div>
+                                                    <p className="text-sm font-medium text-yellow-600 mb-2">{member.role} • {member.country}</p>
+                                                    {member.description && (
+                                                        <p className="text-sm text-slate-600 leading-relaxed text-balance">{member.description}</p>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
 
                             {/* Itinerary */}
                             <div>
@@ -364,75 +400,7 @@ export default function PilgrimageDetailPage() {
                                 </div>
                             </div>
 
-                            {/* Detalhes Operacionais */}
-                            {(pilgrimage.meeting_point_text || pilgrimage.meeting_end_text) && (
-                                <div className="space-y-6">
-                                    <h2 className="text-2xl font-serif font-bold text-slate-900 flex items-center gap-2">
-                                        <MapPin className="w-6 h-6 text-yellow-600" /> Encontro e Regresso
-                                    </h2>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                        {pilgrimage.meeting_point_text && (
-                                            <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-                                                <div className="flex items-center gap-2 mb-3 text-emerald-600 font-bold uppercase text-xs tracking-wider">
-                                                    <MapPin className="w-4 h-4" /> Ponto de Encontro
-                                                </div>
-                                                <p className="text-slate-700 whitespace-pre-line leading-relaxed">{pilgrimage.meeting_point_text}</p>
-                                            </div>
-                                        )}
-                                        {pilgrimage.meeting_end_text && (
-                                            <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-                                                <div className="flex items-center gap-2 mb-3 text-red-500 font-bold uppercase text-xs tracking-wider">
-                                                    <MapPin className="w-4 h-4" /> Fim da Viagem
-                                                </div>
-                                                <p className="text-slate-700 whitespace-pre-line leading-relaxed">{pilgrimage.meeting_end_text}</p>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            )}
 
-                            {/* Financials & Policy (Moved to Bottom) */}
-                            {(pilgrimage.payment_plan_text || pilgrimage.cancellation_policy_text) && (
-                                <div className="space-y-6">
-                                    <h2 className="text-2xl font-serif font-bold text-slate-900 flex items-center gap-2">
-                                        <FileText className="w-6 h-6 text-yellow-600" /> Doações e Condições
-                                    </h2>
-                                    <div className="grid grid-cols-1 gap-6">
-                                        {pilgrimage.payment_plan_text && (
-                                            <div className="bg-gradient-to-br from-indigo-50 to-white p-6 rounded-2xl border border-indigo-100 shadow-sm relative overflow-hidden">
-                                                <div className="flex items-start gap-4 relative z-10">
-                                                    <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 shrink-0">
-                                                        <Clock className="w-5 h-5" />
-                                                    </div>
-                                                    <div>
-                                                        <h3 className="font-bold text-indigo-900 mb-2">Facilidades de Doação</h3>
-                                                        <p className="text-indigo-800/80 leading-relaxed whitespace-pre-line">{pilgrimage.payment_plan_text}</p>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        )}
-
-                                        {pilgrimage.cancellation_policy_text && (
-                                            <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
-                                                <details className="group">
-                                                    <summary className="flex items-center justify-between p-6 cursor-pointer hover:bg-slate-50 transition-colors">
-                                                        <div className="flex items-center gap-3 font-bold text-slate-700">
-                                                            <ShieldCheck className="w-5 h-5 text-slate-400" />
-                                                            Política de Cancelamento
-                                                        </div>
-                                                        <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 group-open:rotate-180 transition-transform">
-                                                            <ArrowLeft className="w-4 h-4 -rotate-90" />
-                                                        </div>
-                                                    </summary>
-                                                    <div className="px-6 pb-8 text-slate-600 leading-relaxed whitespace-pre-line border-t border-slate-100 pt-4 bg-slate-50/30">
-                                                        {pilgrimage.cancellation_policy_text}
-                                                    </div>
-                                                </details>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            )}
                         </div>
 
                         {/* Column Right (Sidebar) */}
@@ -448,21 +416,15 @@ export default function PilgrimageDetailPage() {
                                     <div className="bg-white rounded-3xl p-5 shadow-2xl border border-yellow-500/10 relative overflow-hidden">
                                         <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-yellow-400 to-yellow-600" />
                                         <div className="mb-5 space-y-3">
-                                            <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100">
-                                                <div className="space-y-2 text-sm">
-                                                    <div className="flex justify-between items-center">
-                                                        <span className="text-slate-900 font-bold">Donativo Base</span>
-                                                        <span className="font-extrabold text-slate-900 px-2 py-1 bg-white rounded-lg shadow-sm border border-slate-100">{formatPrice(pilgrimage.base_price)}</span>
-                                                    </div>
-                                                    <div className="flex justify-between items-center">
-                                                        <span className="text-slate-900 font-bold">Taxa de Inscrição (Sinal)</span>
-                                                        <span className="font-extrabold text-slate-900 px-2 py-1 bg-white rounded-lg shadow-sm border border-slate-100">{formatPrice(pilgrimage.deposit_value || 0)}</span>
-                                                    </div>
-                                                </div>
-                                            </div>
                                             <div className="px-3">
                                                 <p className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-1">Valor do terrestre (sem voo)</p>
-                                                <div className="flex items-end gap-1"><span className="text-4xl font-bold text-slate-900">{formatPrice((pilgrimage.base_price || 0) + (pilgrimage.deposit_value || 0))}</span><span className="text-slate-500 font-medium mb-1">/ pessoa</span></div>
+                                                <div className="flex items-end gap-1">
+                                                    <span className="text-4xl font-bold text-slate-900">{formatPrice((pilgrimage.base_price || 0) + (pilgrimage.deposit_value || 0))}</span>
+                                                    <span className="text-slate-500 font-medium mb-1">/ pessoa</span>
+                                                </div>
+                                                <p className="text-xs font-bold text-emerald-600 mt-1 uppercase tracking-wider">
+                                                    Parcelamento até 8x
+                                                </p>
                                                 {currency === 'BRL' && (
                                                     <p className="text-[10px] text-yellow-600 font-bold mt-2 italic">* Câmbio automático para Reais</p>
                                                 )}
@@ -480,7 +442,7 @@ export default function PilgrimageDetailPage() {
                                                         className="flex w-full items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-left transition-colors hover:border-yellow-300 hover:bg-yellow-50"
                                                     >
                                                         <div>
-                                                            <p className="text-sm font-bold text-slate-900">Ver o que está incluído</p>
+                                                            <p className="text-sm font-bold text-slate-900">Ver o que está incluído no terrestre</p>
                                                             <p className="text-xs text-slate-500">Incluído e não incluído no valor acima.</p>
                                                         </div>
                                                         <ArrowRight className="h-4 w-4 text-slate-400" />
@@ -581,6 +543,8 @@ export default function PilgrimageDetailPage() {
                 groupFlightDetails={pilgrimage.group_flight_details}
                 meetingPointText={pilgrimage.meeting_point_text}
                 meetingEndText={pilgrimage.meeting_end_text}
+                paymentPlanText={pilgrimage.payment_plan_text}
+                cancellationPolicyText={pilgrimage.cancellation_policy_text}
             />
             <PilgrimagePaymentWarningModal
                 isOpen={isPaymentWarningOpen}

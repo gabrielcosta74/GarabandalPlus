@@ -17,6 +17,8 @@ type PilgrimageInfoModalProps = {
     groupFlightDetails?: string;
     meetingPointText?: string;
     meetingEndText?: string;
+    paymentPlanText?: string;
+    cancellationPolicyText?: string;
 };
 
 export default function PilgrimageInfoModal({
@@ -30,7 +32,9 @@ export default function PilgrimageInfoModal({
     flightPriceFrom,
     groupFlightDetails,
     meetingPointText,
-    meetingEndText
+    meetingEndText,
+    paymentPlanText,
+    cancellationPolicyText
 }: PilgrimageInfoModalProps) {
     const { formatPrice } = useCurrency();
 
@@ -71,16 +75,17 @@ export default function PilgrimageInfoModal({
                 className="absolute inset-0 bg-slate-950/70 backdrop-blur-sm"
             />
 
-            <div className="absolute inset-x-0 bottom-0 md:inset-0 md:flex md:items-center md:justify-center md:p-6">
-                <div className="relative ml-auto flex h-[94vh] w-full flex-col overflow-hidden rounded-t-[28px] bg-white shadow-2xl md:h-auto md:max-h-[90vh] md:max-w-3xl md:rounded-[32px]">
-                    <div className="border-b border-slate-100 px-5 py-3 md:px-8 md:py-6">
+            <div className="absolute inset-0 overflow-y-auto z-10">
+                <div className="flex min-h-full items-end justify-center md:items-center p-0 md:p-6 pt-16">
+                    <div className="relative flex w-full flex-col overflow-hidden rounded-t-[28px] bg-white shadow-2xl md:max-w-2xl md:rounded-[32px]">
+                        <div className="border-b border-slate-100 px-5 py-6 md:px-8 md:py-8">
                         <div className="mb-3 flex items-start justify-between gap-4 md:mb-4">
                             <div>
                                 <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.24em] text-yellow-700">
                                     Informação Importante
                                 </p>
                                 <h2 className="text-2xl font-bold text-slate-900 md:text-3xl">
-                                    {isIncludedMode ? 'O que está incluído' : 'Opções de voo'}
+                                    {isIncludedMode ? 'Incluído no valor de terrestre' : 'Opções de voo'}
                                 </h2>
                                 <p className="mt-2 text-sm leading-relaxed text-slate-500">
                                     {isIncludedMode
@@ -117,7 +122,7 @@ export default function PilgrimageInfoModal({
                         </div>
                     </div>
 
-                    <div className="flex-1 space-y-5 overflow-y-auto px-5 py-4 md:space-y-6 md:px-8 md:py-8">
+                    <div className="space-y-5 px-5 py-5 md:space-y-6 md:px-8 md:py-8">
                         {isIncludedMode ? (
                             <>
                                 <div className="grid gap-6 md:grid-cols-2">
@@ -155,6 +160,82 @@ export default function PilgrimageInfoModal({
                                         </ul>
                                     </div>
                                 </div>
+
+                                {/* Financials & Policy */}
+                                {(paymentPlanText || cancellationPolicyText) && (
+                                    <div className="space-y-6 mt-8 border-t border-slate-100 pt-8">
+                                        <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+                                            <ShieldCheck className="w-5 h-5 text-yellow-600" /> Condições e formas de pagamento / doação
+                                        </h3>
+                                        
+                                        <div className="bg-slate-50 border border-slate-200 p-6 rounded-2xl flex flex-col items-center gap-4 w-full">
+                                            <p className="text-xs md:text-sm font-bold uppercase tracking-[0.2em] text-slate-500">
+                                                Pagamentos 100% Seguros
+                                            </p>
+                                            <div className="flex flex-wrap items-center justify-center gap-4 md:gap-6">
+                                                {/* MULTIBANCO */}
+                                                <div className="bg-white border border-slate-200 h-10 w-16 md:h-12 md:w-20 rounded-lg flex items-center justify-center shadow-sm" title="Multibanco">
+                                                    <img src="/payment-icons/multibanco.svg" alt="Multibanco" className="h-5 md:h-6 w-auto" />
+                                                </div>
+                                                {/* MB WAY */}
+                                                <div className="bg-white border border-slate-200 h-10 w-16 md:h-12 md:w-20 rounded-lg flex items-center justify-center shadow-sm" title="MB WAY">
+                                                    <img src="/payment-icons/mbway.svg" alt="MB Way" className="h-5 md:h-6 w-auto" />
+                                                </div>
+                                                {/* VISA */}
+                                                <div className="bg-white border border-slate-200 h-10 w-16 md:h-12 md:w-20 rounded-lg flex items-center justify-center shadow-sm" title="Visa">
+                                                    <img src="/payment-icons/visa.svg" alt="Visa" className="h-3 md:h-4 w-auto" />
+                                                </div>
+                                                {/* MASTERCARD */}
+                                                <div className="bg-white border border-slate-200 h-10 w-16 md:h-12 md:w-20 rounded-lg flex items-center justify-center shadow-sm" title="Mastercard">
+                                                    <img src="/payment-icons/mastercard.svg" alt="Mastercard" className="h-6 md:h-8 w-auto" />
+                                                </div>
+                                                {/* PIX - HIGHLIGHT */}
+                                                <div className="relative group">
+                                                    <div className="absolute -inset-1 bg-gradient-to-r from-pink-500 to-purple-600 rounded-xl blur opacity-40 group-hover:opacity-60 transition-opacity"></div>
+                                                    <div className="relative bg-slate-900 border border-white/10 h-10 md:h-12 px-4 md:px-6 rounded-lg flex items-center gap-3">
+                                                        <img src="/payment-icons/pix-original.png" alt="PIX" className="h-5 md:h-6 w-auto" />
+                                                        <span className="text-xs md:text-sm font-bold text-white whitespace-nowrap">Brasil 🇧🇷</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div className="grid grid-cols-1 gap-6">
+                                            {paymentPlanText && (
+                                                <div className="bg-gradient-to-br from-indigo-50 to-indigo-50/30 p-6 rounded-2xl border border-indigo-100 shadow-sm relative overflow-hidden">
+                                                    <div className="flex items-start gap-4 relative z-10">
+                                                        <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 shrink-0">
+                                                            <CheckCircle2 className="w-5 h-5" />
+                                                        </div>
+                                                        <div>
+                                                            <h4 className="font-bold text-indigo-900 mb-2">Facilidades de Doação</h4>
+                                                            <p className="text-indigo-800/80 leading-relaxed whitespace-pre-line text-sm">{paymentPlanText}</p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {cancellationPolicyText && (
+                                                <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+                                                    <details className="group">
+                                                        <summary className="flex items-center justify-between p-6 cursor-pointer hover:bg-slate-50 transition-colors">
+                                                            <div className="flex items-center gap-3 font-bold text-slate-700">
+                                                                <ShieldCheck className="w-5 h-5 text-slate-400" />
+                                                                Política de Cancelamento
+                                                            </div>
+                                                            <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 group-open:rotate-180 transition-transform">
+                                                                <ArrowRight className="w-4 h-4 rotate-90" />
+                                                            </div>
+                                                        </summary>
+                                                        <div className="px-6 pb-8 text-sm text-slate-600 leading-relaxed whitespace-pre-line border-t border-slate-100 pt-4 bg-slate-50/30">
+                                                            {cancellationPolicyText}
+                                                        </div>
+                                                    </details>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
                             </>
                         ) : (
                             <>
@@ -259,6 +340,7 @@ export default function PilgrimageInfoModal({
                             </div>
                         </div>
                     </div>
+                </div>
                 </div>
             </div>
         </div>
