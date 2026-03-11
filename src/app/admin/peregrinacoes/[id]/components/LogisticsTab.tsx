@@ -9,7 +9,66 @@ export default function LogisticsTab({ form, setForm }: LogisticsTabProps) {
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
 
-            {/* Accommodation and Transport Removed as per user feedback */}
+            {/* Accommodation and Transport */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Accommodation Config */}
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col h-full">
+                    <div className="bg-amber-50 px-6 py-4 border-b border-amber-100 flex items-center gap-2">
+                        <Hotel className="w-4 h-4 text-amber-600" />
+                        <h3 className="font-bold text-slate-800 text-sm uppercase tracking-wide">Alojamento</h3>
+                    </div>
+                    <div className="p-6 space-y-4">
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Classificação / Estrelas</label>
+                            <input
+                                type="text"
+                                className="w-full p-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-500/20 focus:border-slate-500 outline-none transition-all"
+                                value={form.accommodation_rating || ''}
+                                onChange={e => setForm({ ...form, accommodation_rating: e.target.value })}
+                                placeholder="Ex: Hotéis 4* ou 3* Superior"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Descrição / Notas</label>
+                            <textarea
+                                className="w-full p-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-500/20 focus:border-slate-500 outline-none transition-all h-24 resize-none"
+                                value={form.accommodation_description || ''}
+                                onChange={e => setForm({ ...form, accommodation_description: e.target.value })}
+                                placeholder="Detalhes sobre o alojamento..."
+                            />
+                        </div>
+                    </div>
+                </div>
+
+                {/* Transport Config */}
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col h-full">
+                    <div className="bg-blue-50 px-6 py-4 border-b border-blue-100 flex items-center gap-2">
+                        <Bus className="w-4 h-4 text-blue-600" />
+                        <h3 className="font-bold text-slate-800 text-sm uppercase tracking-wide">Transporte Terrestre</h3>
+                    </div>
+                    <div className="p-6 space-y-4">
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Tipo de Transporte</label>
+                            <input
+                                type="text"
+                                className="w-full p-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-500/20 focus:border-slate-500 outline-none transition-all"
+                                value={form.transport_type || ''}
+                                onChange={e => setForm({ ...form, transport_type: e.target.value })}
+                                placeholder="Ex: Autocarro Grande Turismo"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Descrição / Notas</label>
+                            <textarea
+                                className="w-full p-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-500/20 focus:border-slate-500 outline-none transition-all h-24 resize-none"
+                                value={form.transport_description || ''}
+                                onChange={e => setForm({ ...form, transport_description: e.target.value })}
+                                placeholder="Detalhes sobre transfers, autocarros no local..."
+                            />
+                        </div>
+                    </div>
+                </div>
+            </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 

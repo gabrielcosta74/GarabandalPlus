@@ -298,6 +298,11 @@ export default function PilgrimageDetailPage() {
         : `/peregrinacoes/${pilgrimage.slug}/inscrever`;
     const shouldWarnBeforeRegistration = !isClosed && !existingBooking && !isWaitlist;
 
+    const accommodationRatingToShow = pilgrimage.accommodation_rating || globalLogistics?.accommodation_rating || '';
+    const accommodationDescriptionToShow = pilgrimage.accommodation_description || globalLogistics?.accommodation_description || '';
+    const transportTypeToShow = pilgrimage.transport_type || globalLogistics?.transport_title || '';
+    const transportDescriptionToShow = pilgrimage.transport_description || globalLogistics?.transport_description || '';
+
     return (
         <VIPLayout allowPublic={true}>
             <div className="bg-slate-50 min-h-screen relative pb-20">
@@ -545,6 +550,14 @@ export default function PilgrimageDetailPage() {
                 meetingEndText={pilgrimage.meeting_end_text}
                 paymentPlanText={pilgrimage.payment_plan_text}
                 cancellationPolicyText={pilgrimage.cancellation_policy_text}
+                basePrice={pilgrimage.base_price}
+                depositValue={pilgrimage.deposit_value}
+                accommodationRating={accommodationRatingToShow}
+                accommodationDescription={accommodationDescriptionToShow}
+                accommodationImage={globalLogistics?.accommodation_image}
+                transportType={transportTypeToShow}
+                transportDescription={transportDescriptionToShow}
+                transportImage={globalLogistics?.transport_image}
             />
             <PilgrimagePaymentWarningModal
                 isOpen={isPaymentWarningOpen}
