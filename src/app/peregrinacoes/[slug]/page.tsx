@@ -20,7 +20,7 @@ import {
 import { format } from 'date-fns';
 import { pt } from 'date-fns/locale';
 import dynamic from 'next/dynamic';
-import { parseCivilDate } from '../../../lib/utils';
+import { getPublicAvailabilityLabel, parseCivilDate } from '../../../lib/utils';
 import PilgrimageInfoModal from '../../../components/pilgrimage/PilgrimageInfoModal';
 import PilgrimagePaymentWarningModal from '../../../components/pilgrimage/PilgrimagePaymentWarningModal';
 
@@ -479,7 +479,9 @@ export default function PilgrimageDetailPage() {
                                             {/* Vacancy Logic for UI */}
                                             <div className="flex justify-between py-2.5 border-b text-slate-600 font-medium">
                                                 <span className="flex items-center gap-2"><Users className="w-4 h-4" /> Vagas Disponíveis</span>
-                                                <span className="text-slate-900 font-bold">{remainingSpots} lugares</span>
+                                                <span className="text-slate-900 font-bold">
+                                                    {isClosed ? 'Encerradas' : isWaitlist ? 'Lista de Espera' : getPublicAvailabilityLabel(remainingSpots)}
+                                                </span>
                                             </div>
                                         </div>
                                         {isClosed ? (

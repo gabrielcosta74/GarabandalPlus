@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo } from 'react';
 import VIPLayout from '../../../../components/member/VIPLayout';
-import { supabaseBrowser } from '../../../../lib/supabase-browser';
+import { getBrowserAccessToken } from '../../../../lib/supabase-browser';
 import { 
     Music, 
     ArrowLeft,
@@ -27,14 +27,14 @@ export default function TestemunhosPage() {
     useEffect(() => {
         const fetchContents = async () => {
             try {
-                const { data: { session } } = await supabaseBrowser!.auth.getSession();
+                const token = await getBrowserAccessToken();
                 const res = await fetch('/api/member/contents', {
-                     headers: { Authorization: `Bearer ${session?.access_token}` },
-                     next: { revalidate: 60 }
+                    headers: { Authorization: `Bearer ${token}` },
+                    cache: 'no-store'
                 });
-                if (!res.ok) throw new Error("Falha ao carregar o arquivo confidencial");
-                const data = await res.json();
-                setContents(data.contents || []);
+                const data = await res.json().catch(() => null);
+                if (!res.ok) throw new Error(data?.error || "Falha ao carregar o arquivo confidencial");
+                setContents(data?.contents || []);
             } catch (error: any) {
                 toast.error(error.message);
             } finally {

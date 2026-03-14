@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import AdminLayout from '../../../../components/admin/AdminLayout';
-import { supabaseBrowser } from '../../../../lib/supabase-browser';
+import { getBrowserAccessToken } from '../../../../lib/supabase-browser';
 import { Toaster, toast } from 'sonner';
 import { 
     FolderLock, FileText, Music, Image as ImageIcon, 
@@ -42,13 +42,14 @@ export default function MemberDocumentationPage() {
     const fetchContents = async () => {
         setLoading(true);
         try {
-            const { data: { session } } = await supabaseBrowser!.auth.getSession();
+            const token = await getBrowserAccessToken();
             const res = await fetch('/api/admin/member-contents', {
-                 headers: { Authorization: `Bearer ${session?.access_token}` }
+                headers: { Authorization: `Bearer ${token}` },
+                cache: 'no-store'
             });
-            if (!res.ok) throw new Error("Failed to fetch contents");
-            const data = await res.json();
-            setContents(data.contents || []);
+            const data = await res.json().catch(() => null);
+            if (!res.ok) throw new Error(data?.error || "Failed to fetch contents");
+            setContents(data?.contents || []);
         } catch (error: any) {
             toast.error(error.message);
         } finally {
@@ -60,12 +61,12 @@ export default function MemberDocumentationPage() {
         e.preventDefault();
         setCreating(true);
         try {
-            const { data: { session } } = await supabaseBrowser!.auth.getSession();
+            const token = await getBrowserAccessToken();
             const res = await fetch('/api/admin/member-contents', {
                 method: 'POST',
                 headers: { 
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${session?.access_token}`
+                    'Authorization': `Bearer ${token}`
                 },
                 body: JSON.stringify(formData)
             });
@@ -90,12 +91,12 @@ export default function MemberDocumentationPage() {
 
     const togglePublishStatus = async (content: MemberContent) => {
         try {
-            const { data: { session } } = await supabaseBrowser!.auth.getSession();
+            const token = await getBrowserAccessToken();
             const res = await fetch(`/api/admin/member-contents/${content.id}`, {
                 method: 'PUT',
                 headers: { 
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${session?.access_token}`
+                    'Authorization': `Bearer ${token}`
                 },
                 body: JSON.stringify({ is_published: !content.is_published })
             });

@@ -20,3 +20,25 @@ export const supabaseBrowser = createBrowserClient(supabaseUrl, supabaseAnonKey,
     sameSite: 'lax',
   }
 });
+
+export async function getBrowserAccessToken(retries = 1): Promise<string> {
+  let lastError: Error | null = null;
+
+  for (let attempt = 0; attempt <= retries; attempt += 1) {
+    const { data: { session }, error } = await supabaseBrowser.auth.getSession();
+
+    if (error) {
+      lastError = error;
+    }
+
+    if (session?.access_token) {
+      return session.access_token;
+    }
+
+    if (attempt < retries) {
+      await new Promise((resolve) => setTimeout(resolve, 150));
+    }
+  }
+
+  throw lastError ?? new Error('Sessao expirada. Inicia sessao novamente.');
+}

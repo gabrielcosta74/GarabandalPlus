@@ -7,7 +7,7 @@ import { Calendar, Users, ChevronRight, Clock } from 'lucide-react';
 import { format } from 'date-fns';
 import { pt } from 'date-fns/locale';
 import { useCurrency } from "../providers/CurrencyProvider";
-import { parseCivilDate } from '../../lib/utils';
+import { getPublicAvailabilityLabel, parseCivilDate } from '../../lib/utils';
 
 type PilgrimageCardProps = {
     pilgrimage: any;
@@ -171,7 +171,7 @@ export function PilgrimageCard({ pilgrimage, index }: PilgrimageCardProps) {
                                 <span className="text-[10px] text-slate-400 uppercase tracking-widest font-bold block mb-1">Disponibilidade</span>
                                 <div className={`flex items-center justify-start md:justify-end gap-1.5 text-sm font-bold ${isWaitlist ? 'text-amber-600' : isClosed ? 'text-red-600' : 'text-slate-700'}`}>
                                     <Users className="w-4 h-4" />
-                                    {isClosed ? 'Esgotado' : isWaitlist ? 'Lista de Espera' : `${remainingSpots} Lugares`}
+                                    {isClosed ? 'Esgotado' : isWaitlist ? 'Lista de Espera' : getPublicAvailabilityLabel(remainingSpots)}
                                 </div>
                             </div>
 

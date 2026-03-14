@@ -52,6 +52,14 @@ export const serializeCivilDateForStorage = (value?: string | null) => {
 export const todayCivilTimestamp = (now: Date = new Date()) =>
     new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12, 0, 0, 0).getTime();
 
+export const getPublicAvailabilityLabel = (remainingSpots: number) => {
+    if (remainingSpots <= 10) {
+        return `${remainingSpots} ${remainingSpots === 1 ? 'Vaga' : 'Vagas'}`;
+    }
+
+    return 'Vagas Limitadas';
+};
+
 export const parseRoomInfo = (notes?: string) => {
     if (!notes) return { bedType: null, sharingMode: null, roommates: null, cleanNotes: '' };
 

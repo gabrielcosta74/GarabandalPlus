@@ -8,7 +8,7 @@ import Image from 'next/image';
 import { format } from 'date-fns';
 import { pt } from 'date-fns/locale';
 import { useCurrency } from "../providers/CurrencyProvider";
-import { parseCivilDate } from '../../lib/utils';
+import { getPublicAvailabilityLabel, parseCivilDate } from '../../lib/utils';
 
 interface FeaturedPilgrimage {
     id: string;
@@ -44,6 +44,13 @@ export function PilgrimageHero({ featuredPilgrimage }: { featuredPilgrimage?: Fe
     const dateFormatted = featuredPilgrimage ?
         `${format(parseCivilDate(featuredPilgrimage.start_date), "d MMM", { locale: pt })} - ${format(parseCivilDate(featuredPilgrimage.end_date), "d MMM, yyyy", { locale: pt })}`
         : "";
+    const remainingSpots = featuredPilgrimage
+        ? Number.isFinite(Number(featuredPilgrimage.effective_vacancies))
+            ? Math.max(0, Number(featuredPilgrimage.effective_vacancies))
+            : Number.isFinite(Number((featuredPilgrimage as any).current_vacancies))
+                ? Math.max(0, Number((featuredPilgrimage as any).current_vacancies))
+                : Math.max(0, Number(featuredPilgrimage.total_vacancies || 0) - Number(featuredPilgrimage.confirmed_pax || 0))
+        : 0;
 
     return (
         <div className="relative overflow-hidden md:rounded-[2.5rem] rounded-b-3xl bg-slate-900 text-white min-h-[auto] md:min-h-[650px] flex items-center mb-12 md:mb-16 shadow-2xl group transition-all duration-1000 py-12 md:py-0">
@@ -154,12 +161,7 @@ export function PilgrimageHero({ featuredPilgrimage }: { featuredPilgrimage?: Fe
                                         <span className="text-[10px] uppercase tracking-widest text-slate-500 font-bold block mb-1">Disponibilidade</span>
                                         <span className="text-sm font-bold text-green-400 flex items-center justify-start gap-1">
                                             <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-                                            {Number.isFinite(Number(featuredPilgrimage.effective_vacancies))
-                                                ? Number(featuredPilgrimage.effective_vacancies)
-                                                : Number.isFinite(Number((featuredPilgrimage as any).current_vacancies))
-                                                    ? Math.max(0, Number((featuredPilgrimage as any).current_vacancies))
-                                                    : Math.max(0, Number(featuredPilgrimage.total_vacancies || 0) - Number(featuredPilgrimage.confirmed_pax || 0))
-                                            } Lugares Restantes
+                                            {getPublicAvailabilityLabel(remainingSpots)}
                                         </span>
                                     </div>
                                 </div>

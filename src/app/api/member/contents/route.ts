@@ -1,28 +1,15 @@
 import { NextResponse } from 'next/server';
-import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
+import { createSupabaseServerClient } from '../../../../lib/auth-utils';
 
-export async function GET(req: Request) {
-    // Member APIs should use standard auth via SSR client to enforce RLS
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-
-    const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
-        cookies: {
-            get(name: string) {
-                return (cookies() as any).get(name)?.value;
-            },
-        },
-    });
-
+export async function GET() {
     try {
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-        if (sessionError || !session) {
+        const supabase = await createSupabaseServerClient();
+        const { data: { user }, error: userError } = await supabase.auth.getUser();
+
+        if (userError || !user) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        // We can just rely on RLS, but let's be explicit just in case.
-        // Also it would only return the ones where is_published = true per our policy!
         const { data, error } = await supabase
             .from('member_contents')
             .select(`

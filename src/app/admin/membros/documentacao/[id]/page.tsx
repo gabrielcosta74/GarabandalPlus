@@ -3,7 +3,7 @@
 import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
 import AdminLayout from '../../../../../components/admin/AdminLayout';
-import { supabaseBrowser } from '../../../../../lib/supabase-browser';
+import { getBrowserAccessToken, supabaseBrowser } from '../../../../../lib/supabase-browser';
 import { Toaster, toast } from 'sonner';
 import { 
     ArrowLeft, FileText, Music, Image as ImageIcon, Save, Trash2, Loader2, UploadCloud, Play, File, Plus
@@ -48,12 +48,13 @@ export default function MemberContentDetailPage({ params }: { params: Promise<{ 
     const fetchContent = async () => {
         setLoading(true);
         try {
-            const { data: { session } } = await supabaseBrowser!.auth.getSession();
+            const token = await getBrowserAccessToken();
             const res = await fetch(`/api/admin/member-contents/${resolvedParams.id}`, {
-                 headers: { Authorization: `Bearer ${session?.access_token}` }
+                headers: { Authorization: `Bearer ${token}` },
+                cache: 'no-store'
             });
-            if (!res.ok) throw new Error("Failed to fetch content details");
-            const data = await res.json();
+            const data = await res.json().catch(() => null);
+            if (!res.ok) throw new Error(data?.error || "Failed to fetch content details");
             setContent(data.content);
             setFormData({
                 title: data.content.title,
@@ -71,12 +72,12 @@ export default function MemberContentDetailPage({ params }: { params: Promise<{ 
         if (e) e.preventDefault();
         setSaving(true);
         try {
-            const { data: { session } } = await supabaseBrowser!.auth.getSession();
+            const token = await getBrowserAccessToken();
             const res = await fetch(`/api/admin/member-contents/${resolvedParams.id}`, {
                 method: 'PUT',
                 headers: { 
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${session?.access_token}`
+                    'Authorization': `Bearer ${token}`
                 },
                 body: JSON.stringify({
                     title: formData.title,
@@ -99,10 +100,10 @@ export default function MemberContentDetailPage({ params }: { params: Promise<{ 
         if (!confirm("Tem a certeza que quer apagar este material? Esta acção é irreversível e irá apagar os ficheiros associados.")) return;
         
         try {
-            const { data: { session } } = await supabaseBrowser!.auth.getSession();
+            const token = await getBrowserAccessToken();
             const res = await fetch(`/api/admin/member-contents/${resolvedParams.id}`, {
                 method: 'DELETE',
-                headers: { Authorization: `Bearer ${session?.access_token}` }
+                headers: { Authorization: `Bearer ${token}` }
             });
             if (!res.ok) throw new Error("Failed to delete content");
             toast.success("Material apagado com sucesso!");
@@ -132,12 +133,12 @@ export default function MemberContentDetailPage({ params }: { params: Promise<{ 
 
             if (data?.publicUrl) {
                  // Save the URL to the DB
-                 const { data: { session } } = await supabaseBrowser.auth.getSession();
+                 const token = await getBrowserAccessToken();
                  const res = await fetch(`/api/admin/member-contents/${resolvedParams.id}`, {
                      method: 'PUT',
                      headers: { 
                          'Content-Type': 'application/json',
-                         'Authorization': `Bearer ${session?.access_token}`
+                         'Authorization': `Bearer ${token}`
                      },
                      body: JSON.stringify({
                          ...formData,
@@ -159,12 +160,12 @@ export default function MemberContentDetailPage({ params }: { params: Promise<{ 
     // Gallery handers
     const handleGalleryImageAdded = async (url: string) => {
         try {
-            const { data: { session } } = await supabaseBrowser!.auth.getSession();
+            const token = await getBrowserAccessToken();
             const res = await fetch(`/api/admin/member-contents/${resolvedParams.id}/images`, {
                 method: 'POST',
                 headers: { 
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${session?.access_token}`
+                    'Authorization': `Bearer ${token}`
                 },
                 body: JSON.stringify({
                     image_url: url,
@@ -182,10 +183,10 @@ export default function MemberContentDetailPage({ params }: { params: Promise<{ 
     const handleDeleteGalleryImage = async (imageId: string) => {
         if (!confirm('Tem certeza?')) return;
         try {
-            const { data: { session } } = await supabaseBrowser!.auth.getSession();
+            const token = await getBrowserAccessToken();
             const res = await fetch(`/api/admin/member-contents/${resolvedParams.id}/images/${imageId}`, {
                 method: 'DELETE',
-                headers: { Authorization: `Bearer ${session?.access_token}` }
+                headers: { Authorization: `Bearer ${token}` }
             });
             if (!res.ok) throw new Error("Failed to delete image");
             toast.success("Imagem removida!");
