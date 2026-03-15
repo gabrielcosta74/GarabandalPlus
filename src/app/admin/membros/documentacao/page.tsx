@@ -6,9 +6,15 @@ import { getBrowserAccessToken } from '../../../../lib/supabase-browser';
 import { Toaster, toast } from 'sonner';
 import { 
     FolderLock, FileText, Music, Image as ImageIcon, 
-    Plus, Trash2, Edit2, ChevronRight, Save, X, Loader2, Eye, EyeOff
+    Plus, Edit2, X, Loader2
 } from 'lucide-react';
-import ImageUpload from '../../../../components/admin/ImageUpload';
+import PdfCategoryPicker from '../../../../components/admin/PdfCategoryPicker';
+
+type MemberContentCategory = {
+    id: string;
+    name: string;
+    slug: string;
+};
 
 type MemberContent = {
     id: string;
@@ -16,6 +22,9 @@ type MemberContent = {
     description: string | null;
     type: 'pdf' | 'audio' | 'gallery';
     file_url: string | null;
+    cover_image_url: string | null;
+    category_id: string | null;
+    category: MemberContentCategory | null;
     is_published: boolean;
     created_at: string;
     member_gallery_images?: { count: number }[];
@@ -32,7 +41,8 @@ export default function MemberDocumentationPage() {
         title: '',
         description: '',
         type: 'pdf' as 'pdf' | 'audio' | 'gallery',
-        is_published: false
+        is_published: false,
+        category_id: null as string | null
     });
 
     useEffect(() => {
@@ -76,7 +86,7 @@ export default function MemberDocumentationPage() {
             
             toast.success("Conteúdo criado com sucesso!");
             setIsCreateModalOpen(false);
-            setFormData({ title: '', description: '', type: 'pdf', is_published: false });
+            setFormData({ title: '', description: '', type: 'pdf', is_published: false, category_id: null });
             fetchContents(); // Refresh list
             
             // NOTE: The user should now be navigated to the edit page or open a detail modal to upload files!
@@ -220,7 +230,7 @@ export default function MemberDocumentationPage() {
                                     </button>
                                     <button
                                         type="button"
-                                        onClick={() => setFormData({...formData, type: 'audio'})}
+                                        onClick={() => setFormData({...formData, type: 'audio', category_id: null})}
                                         className={`flex flex-col items-center justify-center gap-2 p-4 rounded-xl border-2 transition-all ${formData.type === 'audio' ? 'border-purple-500 bg-purple-50 text-purple-700' : 'border-slate-100 bg-white hover:border-slate-200 text-slate-500'}`}
                                     >
                                         <Music className="w-6 h-6" />
@@ -228,7 +238,7 @@ export default function MemberDocumentationPage() {
                                     </button>
                                     <button
                                         type="button"
-                                        onClick={() => setFormData({...formData, type: 'gallery'})}
+                                        onClick={() => setFormData({...formData, type: 'gallery', category_id: null})}
                                         className={`flex flex-col items-center justify-center gap-2 p-4 rounded-xl border-2 transition-all ${formData.type === 'gallery' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-100 bg-white hover:border-slate-200 text-slate-500'}`}
                                     >
                                         <ImageIcon className="w-6 h-6" />
@@ -257,6 +267,13 @@ export default function MemberDocumentationPage() {
                                     placeholder="Um breve resumo sobre este conteúdo..."
                                 />
                             </div>
+
+                            {formData.type === 'pdf' && (
+                                <PdfCategoryPicker
+                                    value={formData.category_id}
+                                    onChange={(categoryId) => setFormData((current) => ({ ...current, category_id: categoryId }))}
+                                />
+                            )}
                             
                             <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-xl border border-slate-100">
                                 <label className="relative inline-flex items-center cursor-pointer">
@@ -268,6 +285,12 @@ export default function MemberDocumentationPage() {
                                     <p className="text-xs text-slate-500">Se ativo, os membros com quotas pagas poderão ver.</p>
                                 </div>
                             </div>
+
+                            {formData.type === 'pdf' && (
+                                <p className="text-xs text-slate-500 -mt-2">
+                                    A imagem de capa do PDF pode ser carregada no passo seguinte, dentro da ficha do documento.
+                                </p>
+                            )}
                             
                             <div className="pt-4 border-t border-slate-100">
                                 <button

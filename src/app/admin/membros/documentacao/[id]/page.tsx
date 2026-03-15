@@ -9,6 +9,13 @@ import {
     ArrowLeft, FileText, Music, Image as ImageIcon, Save, Trash2, Loader2, UploadCloud, Play, File, Plus
 } from 'lucide-react';
 import ImageUpload from '../../../../../components/admin/ImageUpload';
+import PdfCategoryPicker from '../../../../../components/admin/PdfCategoryPicker';
+
+type MemberContentCategory = {
+    id: string;
+    name: string;
+    slug: string;
+};
 
 type MemberGalleryImage = {
     id: string;
@@ -22,6 +29,9 @@ type MemberContent = {
     description: string | null;
     type: 'pdf' | 'audio' | 'gallery';
     file_url: string | null;
+    cover_image_url: string | null;
+    category_id: string | null;
+    category: MemberContentCategory | null;
     is_published: boolean;
     member_gallery_images?: MemberGalleryImage[];
 };
@@ -38,7 +48,9 @@ export default function MemberContentDetailPage({ params }: { params: Promise<{ 
     const [formData, setFormData] = useState({
         title: '',
         description: '',
-        is_published: false
+        is_published: false,
+        category_id: null as string | null,
+        cover_image_url: ''
     });
 
     useEffect(() => {
@@ -59,7 +71,9 @@ export default function MemberContentDetailPage({ params }: { params: Promise<{ 
             setFormData({
                 title: data.content.title,
                 description: data.content.description || '',
-                is_published: data.content.is_published
+                is_published: data.content.is_published,
+                category_id: data.content.category_id || null,
+                cover_image_url: data.content.cover_image_url || ''
             });
         } catch (error: any) {
             toast.error(error.message);
@@ -83,10 +97,13 @@ export default function MemberContentDetailPage({ params }: { params: Promise<{ 
                     title: formData.title,
                     description: formData.description,
                     is_published: formData.is_published,
-                    file_url: content?.file_url
+                    file_url: content?.file_url,
+                    category_id: content?.type === 'pdf' ? formData.category_id : null,
+                    cover_image_url: content?.type === 'pdf' ? formData.cover_image_url || null : null
                 })
             });
-            if (!res.ok) throw new Error("Failed to update content");
+            const data = await res.json().catch(() => null);
+            if (!res.ok) throw new Error(data?.error || "Failed to update content");
             toast.success("Informações salvas com sucesso!");
             fetchContent();
         } catch (error: any) {
@@ -154,6 +171,38 @@ export default function MemberContentDetailPage({ params }: { params: Promise<{ 
             toast.error(err.message || "Falha no upload");
         } finally {
             setUploadingFile(false);
+        }
+    };
+
+    const handleCoverImageChange = async (url: string) => {
+        if (!content) return;
+
+        setFormData((current) => ({ ...current, cover_image_url: url }));
+
+        try {
+            const token = await getBrowserAccessToken();
+            const res = await fetch(`/api/admin/member-contents/${resolvedParams.id}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    title: formData.title,
+                    description: formData.description,
+                    is_published: formData.is_published,
+                    file_url: content.file_url,
+                    category_id: formData.category_id,
+                    cover_image_url: url || null
+                })
+            });
+            const data = await res.json().catch(() => null);
+            if (!res.ok) throw new Error(data?.error || 'Falha ao guardar imagem de capa');
+            setContent((current) => current ? { ...current, cover_image_url: url || null } : current);
+            toast.success(url ? 'Imagem de capa atualizada.' : 'Imagem de capa removida.');
+        } catch (error: any) {
+            toast.error(error.message || 'Falha ao guardar imagem de capa');
+            fetchContent();
         }
     };
 
@@ -245,6 +294,13 @@ export default function MemberContentDetailPage({ params }: { params: Promise<{ 
                                onChange={e => setFormData({ ...formData, description: e.target.value })}
                            />
                        </div>
+
+                       {content.type === 'pdf' && (
+                           <PdfCategoryPicker
+                               value={formData.category_id}
+                               onChange={(categoryId) => setFormData((current) => ({ ...current, category_id: categoryId }))}
+                           />
+                       )}
                        
                        <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-xl border border-slate-100">
                            <label className="relative inline-flex items-center cursor-pointer">
@@ -337,6 +393,31 @@ export default function MemberContentDetailPage({ params }: { params: Promise<{ 
                             
                             <p className="text-xs text-center text-slate-400 mt-4">
                                 {content.type === 'pdf' ? 'Formatos suportados: .pdf (Máx: 20MB)' : 'Formatos suportados: .mp3, .wav, .m4a (Máx: 50MB)'}
+                            </p>
+                        </div>
+                    )}
+
+                    {content.type === 'pdf' && (
+                        <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200">
+                            <h3 className="font-bold text-lg text-slate-900 mb-6 flex items-center gap-2">
+                                <ImageIcon className="w-5 h-5 text-slate-400" />
+                                Imagem Associada ao PDF
+                            </h3>
+
+                            <ImageUpload
+                                value={formData.cover_image_url}
+                                onChange={(url) => {
+                                    void handleCoverImageChange(url);
+                                }}
+                                bucket="member-private-files"
+                                path={`pdf-covers/${content.id}`}
+                                fixedFilename="cover"
+                                label="Capa do documento"
+                                className="w-full"
+                            />
+
+                            <p className="text-xs text-slate-500 mt-4">
+                                Esta imagem será usada como destaque na área dos membros, na secção de manuscritos.
                             </p>
                         </div>
                     )}

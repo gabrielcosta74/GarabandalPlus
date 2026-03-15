@@ -15,6 +15,7 @@ export async function GET(req: Request) {
             .from('member_contents')
             .select(`
                 *,
+                category:member_content_categories(id, name, slug),
                 member_gallery_images(count)
             `)
             .order('created_at', { ascending: false });
@@ -38,7 +39,7 @@ export async function POST(req: Request) {
 
     try {
         const body = await req.json();
-        const { title, description, type, file_url, is_published } = body;
+        const { title, description, type, file_url, is_published, category_id, cover_image_url } = body;
 
         if (!title || !type) {
              return NextResponse.json({ error: 'Title and type are required' }, { status: 400 });
@@ -51,7 +52,9 @@ export async function POST(req: Request) {
                 title,
                 description,
                 type,
-                file_url,
+                file_url: file_url || null,
+                category_id: type === 'pdf' ? category_id || null : null,
+                cover_image_url: type === 'pdf' ? cover_image_url || null : null,
                 is_published: is_published || false,
                 created_at: new Date().toISOString(),
                 updated_at: new Date().toISOString()

@@ -15,6 +15,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
             .from('member_contents')
             .select(`
                 *,
+                category:member_content_categories(id, name, slug),
                 member_gallery_images(*)
             `)
             .eq('id', resolvedParams.id)
@@ -41,17 +42,20 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 
     try {
         const body = await req.json();
-        const { title, description, is_published, file_url } = body;
+        const updatePayload: Record<string, any> = {
+            updated_at: new Date().toISOString()
+        };
+
+        if ('title' in body) updatePayload.title = body.title;
+        if ('description' in body) updatePayload.description = body.description;
+        if ('is_published' in body) updatePayload.is_published = body.is_published;
+        if ('file_url' in body) updatePayload.file_url = body.file_url || null;
+        if ('category_id' in body) updatePayload.category_id = body.category_id || null;
+        if ('cover_image_url' in body) updatePayload.cover_image_url = body.cover_image_url || null;
 
         const { data, error } = await supabaseServer!
             .from('member_contents')
-            .update({
-                title,
-                description,
-                is_published,
-                file_url,
-                updated_at: new Date().toISOString()
-            })
+            .update(updatePayload)
             .eq('id', resolvedParams.id)
             .select()
             .single();
@@ -90,10 +94,10 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
         
         if (content.type === 'pdf' || content.type === 'audio') {
             if (content.file_url) {
-                // Extract path from URL assuming standard format: /storage/v1/object/public/bucket/path
-                // Or just delete the path if we stored only the path. 
-                // Let's assume file_url is the full path stored in db after upload.
                 pathsToDelete.push(content.file_url);
+            }
+            if (content.cover_image_url) {
+                pathsToDelete.push(content.cover_image_url);
             }
         } else if (content.type === 'gallery' && content.member_gallery_images) {
             content.member_gallery_images.forEach((img: any) => {

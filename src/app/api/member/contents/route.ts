@@ -14,6 +14,7 @@ export async function GET() {
             .from('member_contents')
             .select(`
                 *,
+                category:member_content_categories(id, name, slug),
                 member_gallery_images(*)
             `)
             .eq('is_published', true)
