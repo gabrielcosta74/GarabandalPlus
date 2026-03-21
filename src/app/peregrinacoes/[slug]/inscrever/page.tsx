@@ -1040,7 +1040,8 @@ export default function PilgrimageBookingPage() {
                         <div class="bg-yellow-500/10 p-4 rounded-xl border border-yellow-500/20">
                             <p class="font-bold text-yellow-600 mb-1">O que acontece agora?</p>
                             <ul class="list-disc list-inside text-sm text-slate-600 space-y-1">
-                                <li>Enviámos um email com o comprovativo.</li>
+                                <li>Vai poder escolher o meio de pagamento na página seguinte.</li>
+                                <li>Se optar por transferência bancária, o comprovativo é obrigatório para entrar em validação.</li>
                                 <li>Vai ser redirecionado para a página de pagamentos.</li>
                             </ul>
                         </div>

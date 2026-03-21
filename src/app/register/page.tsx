@@ -9,10 +9,13 @@ import { ArrowRight, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
 
 import { useAuth } from '../../contexts/AuthContext';
 import { useRouter } from 'next/navigation';
+import { useLocale } from '../../contexts/LocaleContext';
 
 export default function RegisterPage() {
   const { isAuthenticated, loading: authLoading } = useAuth();
   const router = useRouter();
+  const { locale, t } = useLocale();
+  const isEn = locale === 'en';
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -88,8 +91,8 @@ export default function RegisterPage() {
   if (confirmSent) {
     return (
       <AuthLayout
-        title="Verifique o seu email"
-        subtitle="Enviámos um link de confirmação."
+        title={isEn ? 'Check your email' : 'Verifique o seu email'}
+        subtitle={isEn ? 'We sent you a confirmation link.' : 'Enviámos um link de confirmação.'}
         backgroundImage="/images/nossasenhoragarabandal.jpg"
       >
         <div className="text-center py-10">
@@ -100,15 +103,17 @@ export default function RegisterPage() {
           >
             <CheckCircle2 className="w-10 h-10" />
           </motion.div>
-          <h3 className="text-xl font-bold text-gray-900 mb-2">Registo com sucesso!</h3>
+          <h3 className="text-xl font-bold text-gray-900 mb-2">{isEn ? 'Registration successful!' : 'Registo com sucesso!'}</h3>
           <p className="text-gray-500 mb-8 max-w-xs mx-auto text-sm">
-            Por favor verifique a sua caixa de entrada ({email}) e clique no link para ativar a conta.
+            {isEn
+              ? `Please check your inbox (${email}) and click the link to activate your account.`
+              : `Por favor verifique a sua caixa de entrada (${email}) e clique no link para ativar a conta.`}
           </p>
           <Link
-            href="/login"
+            href={t.urls.login}
             className="inline-block px-8 py-3 bg-slate-900 text-white font-bold rounded-xl hover:bg-black transition-colors shadow-lg"
           >
-            Voltar ao Login
+            {isEn ? 'Back to Sign In' : 'Voltar ao Login'}
           </Link>
         </div>
       </AuthLayout>
@@ -117,10 +122,10 @@ export default function RegisterPage() {
 
   return (
     <AuthLayout
-      title="Criar Conta"
-      subtitle="Junte-se à nossa comunidade digital."
+      title={isEn ? 'Create Account' : 'Criar Conta'}
+      subtitle={isEn ? 'Join our digital community.' : 'Junte-se à nossa comunidade digital.'}
       backgroundImage="/images/nossasenhoragarabandal.jpg"
-      quote="A Penitência salva as almas e o mundo."
+      quote={isEn ? 'Penance saves souls and the world.' : 'A Penitência salva as almas e o mundo.'}
     >
       <form onSubmit={handleRegister} className="space-y-6">
         {error && (
@@ -135,14 +140,14 @@ export default function RegisterPage() {
         )}
 
         <div className="space-y-6">
-          <GoogleButton isLoading={loading} text="Registar com Google" />
+          <GoogleButton isLoading={loading} text={isEn ? 'Register with Google' : 'Registar com Google'} />
 
           <div className="relative flex items-center justify-center">
             <div className="absolute inset-0 flex items-center">
               <div className="w-full border-t border-gray-200"></div>
             </div>
             <span className="relative z-10 bg-white px-2 text-xs text-gray-400 font-bold uppercase tracking-widest">
-              Ou registar com email
+              {isEn ? 'Or register with email' : 'Ou registar com email'}
             </span>
           </div>
 
@@ -150,7 +155,7 @@ export default function RegisterPage() {
             <PremiumInput
               label="Email"
               type="email"
-              placeholder="exemplo@email.com"
+              placeholder="example@email.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               disabled={loading}
@@ -159,16 +164,16 @@ export default function RegisterPage() {
             <PremiumInput
               label="Password"
               type="password"
-              placeholder="Min. 6 caracteres"
+              placeholder={isEn ? 'Min. 6 characters' : 'Min. 6 caracteres'}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               disabled={loading}
             />
 
             <PremiumInput
-              label="Confirmar Password"
+              label={isEn ? 'Confirm Password' : 'Confirmar Password'}
               type="password"
-              placeholder="Repita a password"
+              placeholder={isEn ? 'Repeat your password' : 'Repita a password'}
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               disabled={loading}
@@ -186,15 +191,15 @@ export default function RegisterPage() {
               />
             </div>
             <label htmlFor="terms" className="text-xs text-gray-500 leading-relaxed font-medium">
-              Li e aceito os{' '}
-              <Link href="/termos" className="underline hover:text-garabandal-gold" target="_blank">
-                Termos e Condições
+              {isEn ? 'I have read and accept the' : 'Li e aceito os'}{' '}
+              <Link href={t.urls.terms} className="underline hover:text-garabandal-gold" target="_blank">
+                {isEn ? 'Terms and Conditions' : 'Termos e Condições'}
               </Link>{' '}
-              e a{' '}
-              <Link href="/privacidade" className="underline hover:text-garabandal-gold" target="_blank">
-                Política de Privacidade
+              {isEn ? 'and the' : 'e a'}{' '}
+              <Link href={t.urls.privacy} className="underline hover:text-garabandal-gold" target="_blank">
+                {isEn ? 'Privacy Policy' : 'Política de Privacidade'}
               </Link>{' '}
-              do Apostolado de Garabandal.
+              {isEn ? 'of the Garabandal Apostolate.' : 'do Apostolado de Garabandal.'}
             </label>
           </div>
 
@@ -215,7 +220,7 @@ export default function RegisterPage() {
             <Loader2 className="w-5 h-5 animate-spin" />
           ) : (
             <>
-              Criar Conta
+              {isEn ? 'Create Account' : 'Criar Conta'}
               <ArrowRight className="w-4 h-4" />
             </>
           )}
@@ -223,9 +228,9 @@ export default function RegisterPage() {
 
         <div className="text-center pt-4 border-t border-gray-100">
           <p className="text-sm text-gray-500">
-            Já tem conta?{' '}
-            <Link href="/login" className="font-bold text-garabandal-dark hover:underline">
-              Entrar
+            {isEn ? 'Already have an account?' : 'Já tem conta?'}{' '}
+            <Link href={t.urls.login} className="font-bold text-garabandal-dark hover:underline">
+              {isEn ? 'Sign in' : 'Entrar'}
             </Link>
           </p>
         </div>

@@ -158,8 +158,11 @@ export default function BankTransferModal({
                                             <ul className="text-sm text-amber-800 space-y-1 list-disc list-inside">
                                                 <li>Realize a transferência do valor exato.</li>
                                                 <li>Guarde o comprovativo (PDF ou Foto).</li>
-                                                <li>Envie o comprovativo no botão abaixo.</li>
+                                                <li>Envie o comprovativo no botão abaixo para o pagamento entrar em validação.</li>
                                             </ul>
+                                            <p className="text-xs text-amber-900 font-semibold pt-1">
+                                                Sem comprovativo enviado, a equipa administrativa não recebe nenhum pedido de validação.
+                                            </p>
                                         </div>
                                     </div>
                                 </div>

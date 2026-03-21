@@ -3,11 +3,12 @@
 import { useEffect, useState } from 'react';
 import { supabaseBrowser } from '../../lib/supabase-browser';
 import AdminTable from './AdminTable';
-import { Download, Mail, Phone, AlertCircle, FileText, Settings, X, CreditCard, User, Users, Bed, Plane, Heart, MoreVertical, Search, Filter, Calendar, MapPin, Shield, Info, ClipboardList, CheckCircle2, Trash2, Landmark } from 'lucide-react';
+import { Download, Mail, Phone, AlertCircle, FileText, Settings, X, CreditCard, User, Users, Bed, Plane, Heart, MoreVertical, Search, Filter, Calendar, MapPin, Shield, Info, ClipboardList, CheckCircle2, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { pt } from 'date-fns/locale';
 import BookingInfoModal from './BookingInfoModal';
 import PaymentManagementTab from './payment/PaymentManagementTab';
+import { isPaymentAwaitingReceiptValidation } from '../../lib/pilgrimage-payments';
 
 import { Payment } from './payment/PaymentHistory'; // Import shared type
 
@@ -271,17 +272,6 @@ export default function BookingsManager({ pilgrimageId }: { pilgrimageId: string
                         </span>
                     );
                 }
-                // Bank transfer with no receipt uploaded — admin needs to check bank account
-                const hasPendingBankTransfer = row.payments?.some(
-                    p => p.method === 'bank_transfer' && p.status === 'pending' && !p.receipt_url
-                );
-                if (hasPendingBankTransfer) {
-                    return (
-                        <span className="bg-orange-100 text-orange-700 text-[10px] font-bold px-2 py-1 rounded-full flex items-center gap-1 w-fit">
-                            <Landmark className="w-3 h-3" /> Transf. Pendente
-                        </span>
-                    );
-                }
                 const paid = row.paid_amount || 0;
                 const total = row.total_amount || 0;
                 if (total > 0 && paid >= total) {
@@ -372,13 +362,7 @@ export default function BookingsManager({ pilgrimageId }: { pilgrimageId: string
 
     const totalRevenue = bookings.reduce((acc, b) => acc + (b.paid_amount || 0), 0);
     const totalPendingAmount = bookings.reduce((acc, b) => acc + Math.max(0, (b.total_amount || 0) - (b.paid_amount || 0)), 0);
-    const validationsCount = bookings.filter(b => b.payments?.some(p => p.status === 'verifying')).length;
-
-    // Bank transfers with no receipt uploaded — admin must check manually
-    const bankTransferAlerts = bookings.filter(b =>
-        b.status !== 'cancelled' &&
-        b.payments?.some(p => p.method === 'bank_transfer' && p.status === 'pending' && !p.receipt_url)
-    );
+    const validationsCount = bookings.filter(b => b.payments?.some(p => isPaymentAwaitingReceiptValidation(p))).length;
 
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -453,44 +437,6 @@ export default function BookingsManager({ pilgrimageId }: { pilgrimageId: string
                     </div>
                 </div>
             </div>
-
-            {/* Bank Transfer Alert Banner */}
-            {bankTransferAlerts.length > 0 && (
-                <div className="bg-orange-50 border-2 border-orange-200 rounded-2xl p-5">
-                    <div className="flex items-start gap-3 mb-4">
-                        <div className="w-10 h-10 bg-orange-200 rounded-full flex items-center justify-center shrink-0">
-                            <Landmark className="w-5 h-5 text-orange-700" />
-                        </div>
-                        <div>
-                            <h4 className="text-base font-bold text-orange-900">🏦 {bankTransferAlerts.length} Transferência{bankTransferAlerts.length > 1 ? 's' : ''} Bancária{bankTransferAlerts.length > 1 ? 's' : ''} Pendente{bankTransferAlerts.length > 1 ? 's' : ''} sem Comprovativo</h4>
-                            <p className="text-sm text-orange-700 mt-0.5">Verifique a sua conta bancária e confirme manualmente se o dinheiro entrou.</p>
-                        </div>
-                    </div>
-                    <div className="space-y-2">
-                        {bankTransferAlerts.map(b => {
-                            const leader = b.pilgrims?.[0];
-                            const pendingAmount = b.payments
-                                ?.filter(p => p.method === 'bank_transfer' && p.status === 'pending' && !p.receipt_url)
-                                .reduce((sum, p) => sum + (p.amount || 0), 0) || 0;
-                            return (
-                                <div key={b.id} className="bg-white rounded-xl border border-orange-100 px-4 py-3 flex items-center justify-between gap-3">
-                                    <div>
-                                        <p className="font-bold text-slate-900 text-sm">{leader?.full_name || '—'}</p>
-                                        <p className="text-xs text-slate-500 font-mono">#{b.id.slice(0, 8)} · {pendingAmount.toFixed(2)}€ pendente</p>
-                                    </div>
-                                    <button
-                                        onClick={() => setPaymentModalBooking(b)}
-                                        className="flex items-center gap-1.5 text-xs font-bold text-orange-700 bg-orange-100 border border-orange-200 px-3 py-2 rounded-lg hover:bg-orange-200 transition-all"
-                                    >
-                                        <CreditCard className="w-3.5 h-3.5" /> Ver Pagamentos
-                                    </button>
-                                </div>
-                            );
-                        })}
-                    </div>
-                </div>
-            )}
-
             <AdminTable
                 data={bookings}
                 columns={columns}

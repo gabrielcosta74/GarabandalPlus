@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { supabaseBrowser } from '../../lib/supabase-browser';
 import { Loader2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { resolveAuthCallbackRedirect } from '../../lib/auth-redirects';
 
 export default function AuthCallbackPage() {
   const [message, setMessage] = useState<string>('A validar ligação segura...');
@@ -187,27 +188,7 @@ export default function AuthCallbackPage() {
 
   const handleRedirect = (type: string | null, next: string | null, refCode?: string | null) => {
     setMessage('Sessão confirmada. A redirecionar...');
-
-    // Priority 1: Recovery Flow -> ALWAYS go to update password
-    if (type === 'recovery') {
-      window.location.href = '/auth/update-password';
-      return;
-    }
-
-    // Priority 2: Explicit Next param
-    if (next) {
-      window.location.href = next;
-      return;
-    }
-
-    // Priority 3: Referral flow -> go back to membership page so the modal reopens with the code.
-    if (refCode) {
-      window.location.href = `/tornar-membro?ref=${encodeURIComponent(refCode)}&join=1`;
-      return;
-    }
-
-    // Priority 4: Default Home
-    window.location.href = '/';
+    window.location.href = resolveAuthCallbackRedirect({ type, next, refCode });
   };
 
   return (

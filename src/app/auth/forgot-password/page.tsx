@@ -6,12 +6,15 @@ import AuthLayout, { PremiumInput } from '../../../components/auth/AuthLayout';
 import { supabaseBrowser } from '../../../lib/supabase-browser';
 import { motion } from 'framer-motion';
 import { ArrowRight, Loader2, AlertCircle, CheckCircle2, Mail } from 'lucide-react';
+import { useLocale } from '../../../contexts/LocaleContext';
 
 export default function ForgotPasswordPage() {
     const [email, setEmail] = useState('');
     const [success, setSuccess] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
+    const { locale, t } = useLocale();
+    const isEn = locale === 'en';
 
     const canSubmit = useMemo(() => email.trim().length > 3 && email.includes('@'), [email]);
 
@@ -46,8 +49,8 @@ export default function ForgotPasswordPage() {
     if (success) {
         return (
             <AuthLayout
-                title="Verifique o seu email"
-                subtitle="Enviámos um link de recuperação."
+                title={isEn ? 'Check your email' : 'Verifique o seu email'}
+                subtitle={isEn ? 'We sent you a recovery link.' : 'Enviámos um link de recuperação.'}
                 backgroundImage="https://images.unsplash.com/photo-1493612276216-99392bbc8476?q=80&w=3570&auto=format&fit=crop"
             >
                 <div className="text-center py-10">
@@ -58,17 +61,17 @@ export default function ForgotPasswordPage() {
                     >
                         <CheckCircle2 className="w-10 h-10" />
                     </motion.div>
-                    <h3 className="text-xl font-bold text-gray-900 mb-2">Email enviado!</h3>
+                    <h3 className="text-xl font-bold text-gray-900 mb-2">{isEn ? 'Email sent!' : 'Email enviado!'}</h3>
                     <p className="text-gray-500 mb-8 max-w-sm mx-auto leading-relaxed">
-                        Se existir uma conta associada a <strong>{email}</strong>, receberá um email com um link para definir uma nova password.
-                        <br /><br />
-                        <span className="text-xs text-gray-400">Verifique também a caixa de Spam/Lixo.</span>
+                        {isEn
+                            ? <>If an account exists for <strong>{email}</strong>, you will receive an email with a link to set a new password.<br /><br /><span className="text-xs text-gray-400">Also check your Spam/Junk folder.</span></>
+                            : <>Se existir uma conta associada a <strong>{email}</strong>, receberá um email com um link para definir uma nova password.<br /><br /><span className="text-xs text-gray-400">Verifique também a caixa de Spam/Lixo.</span></>}
                     </p>
                     <Link
-                        href="/login"
+                        href={t.urls.login}
                         className="inline-block px-8 py-3 bg-garabandal-dark text-white font-bold rounded-xl hover:bg-black transition-colors"
                     >
-                        Voltar ao Login
+                        {isEn ? 'Back to Sign In' : 'Voltar ao Login'}
                     </Link>
                 </div>
             </AuthLayout>
@@ -77,10 +80,10 @@ export default function ForgotPasswordPage() {
 
     return (
         <AuthLayout
-            title="Recuperar Conta"
-            subtitle="Introduza o seu email para recuperar o acesso."
+            title={isEn ? 'Recover Account' : 'Recuperar Conta'}
+            subtitle={isEn ? 'Enter your email to recover access.' : 'Introduza o seu email para recuperar o acesso.'}
             backgroundImage="https://images.unsplash.com/photo-1493612276216-99392bbc8476?q=80&w=3570&auto=format&fit=crop"
-            quote="Quem pede, recebe; e quem procura, encontra."
+            quote={isEn ? 'Ask and it will be given to you; seek and you will find.' : 'Quem pede, recebe; e quem procura, encontra.'}
         >
             <form onSubmit={handleResetRequest} className="space-y-6">
                 {error && (
@@ -98,16 +101,18 @@ export default function ForgotPasswordPage() {
                     <div className="flex gap-3">
                         <Mail className="w-5 h-5 text-blue-500 shrink-0 mt-0.5" />
                         <p className="text-sm text-blue-700 leading-relaxed">
-                            Vamos enviar-lhe um link seguro para o seu email. Ao clicar nesse link, poderá criar uma nova password imediatamente.
+                            {isEn
+                                ? 'We will send you a secure link to your email. By clicking that link, you can create a new password immediately.'
+                                : 'Vamos enviar-lhe um link seguro para o seu email. Ao clicar nesse link, poderá criar uma nova password imediatamente.'}
                         </p>
                     </div>
                 </div>
 
                 <div className="space-y-4">
                     <PremiumInput
-                        label="Email da Conta"
+                        label={isEn ? 'Account Email' : 'Email da Conta'}
                         type="email"
-                        placeholder="exemplo@email.com"
+                        placeholder="example@email.com"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
                         disabled={loading}
@@ -129,7 +134,7 @@ export default function ForgotPasswordPage() {
                         <Loader2 className="w-5 h-5 animate-spin" />
                     ) : (
                         <>
-                            Enviar Link de Recuperação
+                            {isEn ? 'Send Recovery Link' : 'Enviar Link de Recuperação'}
                             <ArrowRight className="w-4 h-4" />
                         </>
                     )}
@@ -137,9 +142,9 @@ export default function ForgotPasswordPage() {
 
                 <div className="text-center pt-4 border-t border-gray-100 lg:border-none border-white/10">
                     <p className="text-sm text-white/60 lg:text-gray-500">
-                        Lembrou-se da password?{' '}
-                        <Link href="/login" className="font-bold text-white lg:text-garabandal-dark hover:underline">
-                            Voltar ao Login
+                        {isEn ? 'Remembered your password?' : 'Lembrou-se da password?'}{' '}
+                        <Link href={t.urls.login} className="font-bold text-white lg:text-garabandal-dark hover:underline">
+                            {isEn ? 'Back to Sign In' : 'Voltar ao Login'}
                         </Link>
                     </p>
                 </div>

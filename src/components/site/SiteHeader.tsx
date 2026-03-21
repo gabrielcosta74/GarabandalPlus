@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
+import { useLocale } from '../../contexts/LocaleContext';
 import { formatCurrency, loadCart } from '../../app/loja-online/data';
 import { motion, AnimatePresence, useScroll } from 'framer-motion';
 import { useAuth } from '../../contexts/AuthContext';
@@ -45,6 +46,7 @@ type CartPreviewItem = {
 export default function SiteHeader() {
   const pathname = usePathname();
   const router = useRouter();
+  const { t, locale } = useLocale();
 
   // -- State --
   const { user, isMember, memberData, loading, signOut } = useAuth();
@@ -88,13 +90,13 @@ export default function SiteHeader() {
   // -- Computed --
   const hasMembership = !!memberData?.is_membro;
   const isAuthenticated = !!user;
-  const membershipHref = hasMembership ? '/member' : '/tornar-membro';
+  const membershipHref = hasMembership ? t.urls.member : t.urls.becomeMember;
 
   // Text Color Logic
   // Home Page has a Dark Hero -> White Text at top
   // Other Pages have Light Backgrounds -> Dark Text at top
   // Scrolled -> Dark Glass Background -> White Text always
-  const isHomePage = pathname === '/';
+  const isHomePage = pathname === '/' || pathname === '/en';
   const isDarkText = !scrolled && !isHomePage && !isMobileOpen;
 
   const textColorClass = isDarkText ? 'text-slate-900' : 'text-white';
@@ -243,11 +245,11 @@ export default function SiteHeader() {
           {/* 2. Desktop Navigation */}
           <div className={`hidden lg:flex items-center gap-1 p-1.5 rounded-full transition-all duration-300 ${scrolled ? 'bg-black/20 border border-white/10' : 'bg-white/10 backdrop-blur-sm border border-white/10'}`}>
             {[
-              { href: '/', label: 'Início' },
-              { href: '/peregrinacoes', label: 'Peregrinações' },
-              { href: '/donations', label: 'Doações' },
-              { href: '/loja-online', label: 'Loja' },
-              ...(user ? [{ href: '/peregrinacoes/minhas-inscricoes', label: 'Minhas Inscrições' }] : []),
+              { href: t.urls.home, label: t.nav.home },
+              { href: t.urls.pilgrimages, label: t.nav.pilgrimages },
+              { href: t.urls.donations, label: t.nav.donations },
+              { href: t.urls.store, label: t.nav.store },
+              ...(user ? [{ href: t.urls.myRegistrations, label: t.nav.myRegistrations }] : []),
             ].map(link => (
               <Link
                 key={link.href}
@@ -274,7 +276,7 @@ export default function SiteHeader() {
                 }
                 `}
             >
-              {hasMembership ? 'Área de Membro' : 'Ser Membro'}
+              {hasMembership ? t.nav.memberArea : t.nav.becomeMember}
             </Link>
           </div>
 
@@ -286,7 +288,7 @@ export default function SiteHeader() {
               <Link
                 href="/loja-online/checkout"
                 className="relative flex items-center justify-center w-10 h-10 rounded-full transition-all duration-300 bg-white/10 text-white hover:bg-white/20 border border-white/10 backdrop-blur-md"
-                aria-label="Ver Carrinho"
+                aria-label={t.nav.cart.label}
               >
                 <ShoppingBag className="w-5 h-5 text-white" />
                 {cartCount > 0 && (
@@ -301,8 +303,8 @@ export default function SiteHeader() {
                 {cartCount > 0 && (
                   <div className="w-80 bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden">
                     <div className="p-4 bg-slate-50 border-b border-slate-100 flex justify-between items-center">
-                      <span className="text-xs font-bold uppercase text-slate-500 tracking-wider">Seu Carrinho</span>
-                      <span className="text-xs font-bold text-slate-900">{cartCount} items</span>
+                      <span className="text-xs font-bold uppercase text-slate-500 tracking-wider">{t.nav.cart.title}</span>
+                      <span className="text-xs font-bold text-slate-900">{cartCount} {t.nav.cart.items}</span>
                     </div>
                     <div className="max-h-64 overflow-y-auto p-2">
                       {cartPreview.map(item => (
@@ -317,8 +319,8 @@ export default function SiteHeader() {
                       ))}
                     </div>
                     <div className="p-3 border-t border-slate-100">
-                      <Link href="/loja-online/checkout" className="flex w-full items-center justify-center py-2.5 px-4 bg-yellow-600 text-white text-sm font-bold rounded-xl hover:bg-yellow-700 transition-colors shadow-lg shadow-yellow-900/10">
-                        Finalizar Compra
+                      <Link href={t.urls.checkout} className="flex w-full items-center justify-center py-2.5 px-4 bg-yellow-600 text-white text-sm font-bold rounded-xl hover:bg-yellow-700 transition-colors shadow-lg shadow-yellow-900/10">
+                        {t.nav.cart.checkout}
                       </Link>
                     </div>
                   </div>
@@ -346,7 +348,7 @@ export default function SiteHeader() {
                         </div>
                         <div className="flex flex-col items-start">
                           <span className="text-xs font-bold leading-none text-white">
-                            Minha Conta
+                            {t.nav.userMenu.myAccount}
                           </span>
                         </div>
                         <motion.div
@@ -388,9 +390,9 @@ export default function SiteHeader() {
                                     <p className="text-xs text-slate-400 truncate mb-2">{user.email}</p>
                                     <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${isMember ? 'bg-yellow-500 text-slate-900' : 'bg-slate-700 text-slate-300'}`}>
                                       {isMember ? (
-                                        <><span className="w-1.5 h-1.5 rounded-full bg-slate-900 animate-pulse" /> Membro Ativo</>
+                                        <><span className="w-1.5 h-1.5 rounded-full bg-slate-900 animate-pulse" /> {t.nav.userMenu.activeMember}</>
                                       ) : (
-                                        'Visitante'
+                                        t.nav.userMenu.visitor
                                       )}
                                     </span>
                                   </div>
@@ -400,31 +402,31 @@ export default function SiteHeader() {
                               {/* Menu Items */}
                               <div className="p-2">
                                 <div className="px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                                  A Minha Atividade
+                                  {t.nav.userMenu.myActivity}
                                 </div>
                                 <div className="space-y-1">
-                                  <Link href="/peregrinacoes/minhas-inscricoes" onClick={() => setUserMenuOpen(false)} className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition-all group">
+                                  <Link href={t.urls.myRegistrations} onClick={() => setUserMenuOpen(false)} className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition-all group">
                                     <div className="w-8 h-8 rounded-lg bg-yellow-50 text-yellow-600 flex items-center justify-center group-hover:bg-yellow-100 transition-colors">
                                       <Ticket className="w-4 h-4" />
                                     </div>
                                     <div>
-                                      <p className="leading-none">Minhas Inscrições</p>
-                                      <p className="text-[10px] text-slate-400 mt-0.5">Gerir peregrinações</p>
+                                      <p className="leading-none">{t.nav.userMenu.myRegistrations}</p>
+                                      <p className="text-[10px] text-slate-400 mt-0.5">{t.nav.userMenu.managePilgrimages}</p>
                                     </div>
                                   </Link>
-                                  <Link href="/encomendas" onClick={() => setUserMenuOpen(false)} className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition-all group">
+                                  <Link href={t.urls.orders} onClick={() => setUserMenuOpen(false)} className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition-all group">
                                     <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:bg-indigo-100 transition-colors">
                                       <ShoppingBag className="w-4 h-4" />
                                     </div>
                                     <div>
-                                      <p className="leading-none">Minhas Compras</p>
-                                      <p className="text-[10px] text-slate-400 mt-0.5">Histórico da loja</p>
+                                      <p className="leading-none">{t.nav.userMenu.myPurchases}</p>
+                                      <p className="text-[10px] text-slate-400 mt-0.5">{t.nav.userMenu.storeHistory}</p>
                                     </div>
                                   </Link>
                                 </div>
 
                                 <div className="mt-2 px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-400 border-t border-slate-100">
-                                  Gestão de Conta
+                                  {t.nav.userMenu.accountManagement}
                                 </div>
                                 <div className="space-y-1">
                                   {/* QUOTA MANAGEMENT */}
@@ -433,17 +435,17 @@ export default function SiteHeader() {
                                     const isOverdue = !active && !!memberData?.numero_socio;
 
                                     return (
-                                      <Link href="/member/quota" onClick={() => setUserMenuOpen(false)} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all group ${isOverdue ? 'bg-red-50 text-red-700 hover:bg-red-100' : 'text-slate-700 hover:bg-slate-50 hover:text-slate-900'}`}>
+                                      <Link href={t.urls.memberQuota} onClick={() => setUserMenuOpen(false)} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all group ${isOverdue ? 'bg-red-50 text-red-700 hover:bg-red-100' : 'text-slate-700 hover:bg-slate-50 hover:text-slate-900'}`}>
                                         <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${isOverdue ? 'bg-white text-red-600' : 'bg-green-50 text-green-600 group-hover:bg-green-100'}`}>
                                           <ShieldCheck className="w-4 h-4" />
                                         </div>
                                         <div className="flex-1">
                                           <div className="flex items-center justify-between">
-                                            <p className="leading-none font-bold">Gerir Quota</p>
-                                            {isOverdue && <span className="text-[10px] bg-red-200 text-red-800 px-1.5 py-0.5 rounded-full font-bold uppercase tracking-wide animate-pulse">Atraso</span>}
+                                            <p className="leading-none font-bold">{t.nav.userMenu.manageQuota}</p>
+                                            {isOverdue && <span className="text-[10px] bg-red-200 text-red-800 px-1.5 py-0.5 rounded-full font-bold uppercase tracking-wide animate-pulse">{t.nav.userMenu.overdue}</span>}
                                           </div>
                                           <p className={`text-[10px] mt-0.5 ${isOverdue ? 'text-red-500 font-semibold' : 'text-slate-400'}`}>
-                                            {isOverdue ? 'Regularizar situação' : 'Verificar estado'}
+                                            {isOverdue ? t.nav.userMenu.regularize : t.nav.userMenu.checkStatus}
                                           </p>
                                         </div>
                                       </Link>
@@ -451,23 +453,23 @@ export default function SiteHeader() {
                                   })()}
 
                                   {isMember && (
-                                    <Link href="/member" onClick={() => setUserMenuOpen(false)} className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition-all group">
+                                    <Link href={t.urls.member} onClick={() => setUserMenuOpen(false)} className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition-all group">
                                       <div className="w-8 h-8 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center group-hover:bg-purple-100 transition-colors">
                                         <LayoutDashboard className="w-4 h-4" />
                                       </div>
                                       <div>
-                                        <p className="leading-none">Área de Membro</p>
-                                        <p className="text-[10px] text-slate-400 mt-0.5">Conteúdos exclusivos</p>
+                                        <p className="leading-none">{t.nav.userMenu.memberArea}</p>
+                                        <p className="text-[10px] text-slate-400 mt-0.5">{t.nav.userMenu.exclusiveContent}</p>
                                       </div>
                                     </Link>
                                   )}
-                                  <Link href="/account/profile" onClick={() => setUserMenuOpen(false)} className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition-all group">
+                                  <Link href={t.urls.profile} onClick={() => setUserMenuOpen(false)} className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition-all group">
                                     <div className="w-8 h-8 rounded-lg bg-slate-100 text-slate-500 flex items-center justify-center group-hover:bg-slate-200 transition-colors">
                                       <User className="w-4 h-4" />
                                     </div>
                                     <div>
-                                      <p className="leading-none">Meu Perfil</p>
-                                      <p className="text-[10px] text-slate-400 mt-0.5">Dados pessoais</p>
+                                      <p className="leading-none">{t.nav.userMenu.myProfile}</p>
+                                      <p className="text-[10px] text-slate-400 mt-0.5">{t.nav.userMenu.personalData}</p>
                                     </div>
                                   </Link>
 
@@ -478,8 +480,8 @@ export default function SiteHeader() {
                                         <LayoutDashboard className="w-4 h-4" />
                                       </div>
                                       <div>
-                                        <p className="leading-none font-bold">Painel de Administrador</p>
-                                        <p className="text-[10px] text-red-400 mt-0.5">Acesso restrito</p>
+                                        <p className="leading-none font-bold">{t.nav.userMenu.adminPanel}</p>
+                                        <p className="text-[10px] text-red-400 mt-0.5">{t.nav.userMenu.restrictedAccess}</p>
                                       </div>
                                     </Link>
                                   )}
@@ -495,7 +497,7 @@ export default function SiteHeader() {
                                     className="w-full flex items-center justify-center gap-2 px-3 py-2.5 text-sm font-bold text-red-600 bg-red-50 hover:bg-red-100 rounded-xl transition-colors"
                                   >
                                     <LogOut className="w-4 h-4" />
-                                    Terminar Sessão
+                                    {t.nav.userMenu.signOut}
                                   </button>
                                 </div>
                               </div>
@@ -506,15 +508,15 @@ export default function SiteHeader() {
                     </div>
                   ) : !loading && (
                     <div className="flex items-center gap-3">
-                      <Link href="/login" className="text-sm font-bold transition-colors !text-white hover:text-white/80">
-                        Entrar
+                      <Link href={t.urls.login} className="text-sm font-bold transition-colors !text-white hover:text-white/80">
+                        {t.nav.signIn}
                       </Link>
                       <Link
-                        href="/register"
+                        href={t.urls.register}
                         className="px-5 py-2.5 text-white text-sm font-bold rounded-full shadow-lg shadow-yellow-900/20 transition-all hover:scale-105"
                         style={{ backgroundColor: '#ca8a04' }}
                       >
-                        Criar Conta
+                        {t.nav.createAccount}
                       </Link>
                     </div>
                   )}
@@ -526,7 +528,7 @@ export default function SiteHeader() {
             <button
               onClick={() => setIsMobileOpen(true)}
               className="lg:hidden p-2 rounded-xl transition-colors focus:outline-none text-white hover:bg-white/10"
-              aria-label="Abrir Menu"
+              aria-label={t.nav.openMenu}
             >
               <Menu className="w-7 h-7" />
             </button>
@@ -592,18 +594,18 @@ export default function SiteHeader() {
 
                     <div className="space-y-1">
                       <p className="text-xs font-bold text-yellow-800 uppercase tracking-widest px-2 mb-2 flex items-center gap-2">
-                        <User className="w-3 h-3" /> A Minha Conta
+                        <User className="w-3 h-3" /> {t.mobileNav.myAccount}
                       </p>
-                      <NavLink href="/account/profile" icon={User} label="Meu Perfil" onClick={() => setIsMobileOpen(false)} />
-                      <NavLink href="/peregrinacoes/minhas-inscricoes" icon={Ticket} label="Minhas Inscrições" onClick={() => setIsMobileOpen(false)} />
-                      <NavLink href="/encomendas" icon={ShoppingBag} label="Minhas Compras" onClick={() => setIsMobileOpen(false)} />
+                      <NavLink href={t.urls.profile} icon={User} label={t.nav.userMenu.myProfile} onClick={() => setIsMobileOpen(false)} />
+                      <NavLink href={t.urls.myRegistrations} icon={Ticket} label={t.nav.userMenu.myRegistrations} onClick={() => setIsMobileOpen(false)} />
+                      <NavLink href={t.urls.orders} icon={ShoppingBag} label={t.nav.userMenu.myPurchases} onClick={() => setIsMobileOpen(false)} />
                       {(hasMembership || !!memberData?.numero_socio) && (
-                        <NavLink href="/member/quota" icon={ShieldCheck} label="Gerir Quota" onClick={() => setIsMobileOpen(false)} />
+                        <NavLink href={t.urls.memberQuota} icon={ShieldCheck} label={t.nav.userMenu.manageQuota} onClick={() => setIsMobileOpen(false)} />
                       )}
                       {hasMembership ? (
-                        <NavLink href="/member" icon={LayoutDashboard} label="Área de Membro" onClick={() => setIsMobileOpen(false)} />
+                        <NavLink href={t.urls.member} icon={LayoutDashboard} label={t.nav.memberArea} onClick={() => setIsMobileOpen(false)} />
                       ) : (
-                        <NavLink href="/tornar-membro" icon={CreditCard} label="Tornar-se Membro" onClick={() => setIsMobileOpen(false)} />
+                        <NavLink href={t.urls.becomeMember} icon={CreditCard} label={t.mobileNav.becomeMember} onClick={() => setIsMobileOpen(false)} />
                       )}
                     </div>
                   </div>
@@ -612,29 +614,29 @@ export default function SiteHeader() {
                 {/* 2. Main Navigation (Public) */}
                 <div className="space-y-1 mb-8">
                   <p className="text-xs font-bold text-slate-400 uppercase tracking-widest px-2 mb-2 flex items-center gap-2">
-                    <Store className="w-3 h-3" /> Navegação
+                    <Store className="w-3 h-3" /> {t.mobileNav.navigation}
                   </p>
-                  <NavLink href="/" icon={Home} label="Início" onClick={() => setIsMobileOpen(false)} />
-                  <NavLink href="/peregrinacoes" icon={MapPin} label="Peregrinações" onClick={() => setIsMobileOpen(false)} />
-                  <NavLink href="/donations" icon={Heart} label="Doações" onClick={() => setIsMobileOpen(false)} />
-                  <NavLink href="/tornar-membro" icon={CreditCard} label="Ser Membro" onClick={() => setIsMobileOpen(false)} />
-                  <NavLink href="/loja-online" icon={Store} label="Loja Online" onClick={() => setIsMobileOpen(false)} />
+                  <NavLink href={t.urls.home} icon={Home} label={t.nav.home} onClick={() => setIsMobileOpen(false)} />
+                  <NavLink href={t.urls.pilgrimages} icon={MapPin} label={t.nav.pilgrimages} onClick={() => setIsMobileOpen(false)} />
+                  <NavLink href={t.urls.donations} icon={Heart} label={t.nav.donations} onClick={() => setIsMobileOpen(false)} />
+                  <NavLink href={t.urls.becomeMember} icon={CreditCard} label={t.nav.becomeMember} onClick={() => setIsMobileOpen(false)} />
+                  <NavLink href={t.urls.store} icon={Store} label={t.nav.store} onClick={() => setIsMobileOpen(false)} />
 
                   {/* Dynamic Cart Link */}
                   <Link
-                    href="/loja-online/checkout"
+                    href={t.urls.checkout}
                     onClick={() => setIsMobileOpen(false)}
                     className={`
                       group flex items-center justify-between px-4 py-3 rounded-xl transition-all duration-200
-                      ${pathname === '/loja-online/checkout'
+                      ${pathname === t.urls.checkout
                         ? 'bg-yellow-50 text-yellow-700 font-semibold'
                         : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900 font-medium'
                       }
                     `}
                   >
                     <div className="flex items-center gap-3">
-                      <ShoppingBag className={`w-5 h-5 ${pathname === '/loja-online/checkout' ? 'text-yellow-600' : 'text-slate-400 group-hover:text-slate-600'}`} />
-                      <span>O meu Carrinho</span>
+                      <ShoppingBag className={`w-5 h-5 ${pathname === t.urls.checkout ? 'text-yellow-600' : 'text-slate-400 group-hover:text-slate-600'}`} />
+                      <span>{t.nav.cart.title}</span>
                     </div>
                     {cartCount > 0 && (
                       <span className="bg-yellow-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm">
@@ -648,10 +650,10 @@ export default function SiteHeader() {
                 {hasMembership && (
                   <div className="space-y-1 mb-8">
                     <p className="text-xs font-bold text-slate-400 uppercase tracking-widest px-2 mb-2 flex items-center gap-2">
-                      <ShieldCheck className="w-3 h-3" /> Conteúdos
+                      <ShieldCheck className="w-3 h-3" /> {t.mobileNav.support}
                     </p>
-                    <NavLink href="/member/prayers" icon={Heart} label="Orações e Novenas" onClick={() => setIsMobileOpen(false)} />
-                    <NavLink href="/biblioteca" icon={BookOpen} label="Biblioteca" onClick={() => setIsMobileOpen(false)} />
+                    <NavLink href={t.urls.memberPrayers} icon={Heart} label={locale === 'en' ? 'Prayers & Novenas' : 'Orações e Novenas'} onClick={() => setIsMobileOpen(false)} />
+                    <NavLink href="/biblioteca" icon={BookOpen} label={locale === 'en' ? 'Library' : 'Biblioteca'} onClick={() => setIsMobileOpen(false)} />
                   </div>
                 )}
 
@@ -659,18 +661,18 @@ export default function SiteHeader() {
                 {!loading && !user ? (
                   <div className="mt-4 pt-6 border-t border-slate-100 grid grid-cols-2 gap-3">
                     <Link
-                      href="/login"
+                      href={t.urls.login}
                       onClick={() => setIsMobileOpen(false)}
                       className="flex justify-center py-3 rounded-xl border border-slate-200 font-bold text-slate-700 hover:bg-slate-50"
                     >
-                      Entrar
+                      {t.nav.signIn}
                     </Link>
                     <Link
-                      href="/register"
+                      href={t.urls.register}
                       onClick={() => setIsMobileOpen(false)}
                       className="flex justify-center py-3 rounded-xl font-bold text-white shadow-sm bg-yellow-600"
                     >
-                      Criar Conta
+                      {t.nav.createAccount}
                     </Link>
                   </div>
                 ) : !loading && user ? (
@@ -682,7 +684,7 @@ export default function SiteHeader() {
                       }}
                       className="w-full flex items-center gap-3 px-4 py-3 text-sm font-bold text-red-600 bg-red-50 border border-red-100 rounded-xl hover:bg-red-100 transition-colors"
                     >
-                      <LogOut className="w-5 h-5" /> Terminar Sessão
+                      <LogOut className="w-5 h-5" /> {t.nav.userMenu.signOut}
                     </button>
                   </div>
                 ) : null}

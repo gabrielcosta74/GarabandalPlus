@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabaseServer } from '../../../../lib/supabase';
-import { sendBookingConfirmationEmail, sendBookingAdminNotification, sendAdminBankTransferAlert } from '../../../../lib/email';
+import { sendBookingConfirmationEmail, sendBookingAdminNotification } from '../../../../lib/email';
 import { getAppUrl } from '../../../../lib/config';
 import { parseRoomInfo } from '../../../../lib/utils';
 import { generateViewToken, generateIdempotencyKey } from '../../../../lib/auth-utils';
@@ -335,7 +335,9 @@ export async function POST(req: Request) {
             view_token: atomicResult.view_token
         };
 
-        // 6. Record Initial Deposit Payment as Pending
+        // 6. Calculate the deposit amount for confirmation emails and next-step guidance.
+        // We no longer create placeholder payment rows here because they were polluting the
+        // admin panel before any real payment attempt or receipt upload happened.
         const registrationFeePerPerson = Number(pilgrimage?.deposit_value || 0);
         let totalDepositAmount = 0;
 
@@ -349,24 +351,6 @@ export async function POST(req: Request) {
             // If it's not an infant, they pay the registration deposit fee.
             return acc + (isInfant ? 0 : registrationFeePerPerson);
         }, 0);
-
-        const { error: paymentError } = await supabaseServer
-            .from('pilgrimage_payments')
-            .insert({
-                booking_id: booking.id,
-                user_id: userId,
-                amount: totalDepositAmount,
-                method: body.payment_method === 'installments' ? 'bank_transfer' : 'stripe',
-                status: 'pending',
-                created_at: new Date().toISOString(),
-                notes: 'Sinal de Inscrição (Automático)'
-            });
-
-        if (paymentError) {
-            console.error("❌ [API] Payment Insert Error:", paymentError);
-            // Don't throw - payment can be added manually later
-            console.warn("⚠️ [API] Continuing without initial payment record. Admin can add manually.");
-        }
 
         // 6.1 Re-sync vacancies.
         // Booking creation no longer means occupied seat; only paid deposit does.
@@ -432,19 +416,6 @@ export async function POST(req: Request) {
                 numberOfPilgrims: pilgrimsToInsert.length,
                 paymentMethod: payment_method
             });
-
-            // If bank transfer: send a dedicated alert so admin knows to check their bank account
-            if (payment_method === 'bank_transfer') {
-                await sendAdminBankTransferAlert({
-                    bookingId: booking.id,
-                    customerName: customerName,
-                    customerEmail: bookingEmail,
-                    pilgrimageName: pilgrimage.title,
-                    totalAmount: totalAmount,
-                    numberOfPilgrims: pilgrimsToInsert.length,
-                    bookingDate: new Date().toISOString()
-                });
-            }
 
         } catch (emailErr) {
             console.error("⚠️ [API] Email sending failed:", emailErr);

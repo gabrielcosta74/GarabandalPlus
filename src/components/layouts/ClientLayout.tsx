@@ -7,8 +7,16 @@ import SiteFooter from '../site/SiteFooter';
 import { CurrencyProvider } from '../providers/CurrencyProvider';
 import { AuthProvider } from '../../contexts/AuthContext';
 import { AuctionWinnerBanner } from '../auction/AuctionWinnerBanner';
+import { LocaleProvider } from '../../contexts/LocaleContext';
+import type { LocaleCode } from '../../i18n';
 
-export default function ClientLayout({ children }: { children: ReactNode }) {
+export default function ClientLayout({
+    children,
+    locale = 'pt',
+}: {
+    children: ReactNode;
+    locale?: LocaleCode;
+}) {
     const pathname = usePathname();
     const isAdmin = pathname?.startsWith('/admin');
     const isEmbed = pathname?.startsWith('/embed');
@@ -16,13 +24,15 @@ export default function ClientLayout({ children }: { children: ReactNode }) {
     const hideFooter = isAdmin || isEmbed;
 
     return (
-        <AuthProvider>
-            <CurrencyProvider>
-                {!hideHeader && <SiteHeader />}
-                {!hideHeader && <AuctionWinnerBanner />}
-                {children}
-                {!hideFooter && <SiteFooter />}
-            </CurrencyProvider>
-        </AuthProvider>
+        <LocaleProvider locale={locale}>
+            <AuthProvider>
+                <CurrencyProvider>
+                    {!hideHeader && <SiteHeader />}
+                    {!hideHeader && <AuctionWinnerBanner />}
+                    {children}
+                    {!hideFooter && <SiteFooter />}
+                </CurrencyProvider>
+            </AuthProvider>
+        </LocaleProvider>
     );
 }

@@ -1010,7 +1010,7 @@ export default function BookingDashboardPage() {
                                                             <p className="font-bold text-lg text-white group-hover:text-amber-300 transition-colors">
                                                                 Transferência Bancária
                                                             </p>
-                                                            <p className="text-xs text-white/50">Envie o comprovativo manualmente</p>
+                                                            <p className="text-xs text-white/50">Obrigatório enviar comprovativo para validação</p>
                                                         </div>
                                                         <ChevronRight className="w-5 h-5 text-white/30 group-hover:text-white transition-colors" />
                                                     </button>

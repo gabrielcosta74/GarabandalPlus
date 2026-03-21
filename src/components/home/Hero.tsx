@@ -6,9 +6,11 @@ import { HERO_IMAGE_URL, HERO_CONTENT, OFFICIAL_SITE_URL } from './constants';
 import { ChevronDown, ArrowRight, Globe } from 'lucide-react';
 import Link from 'next/link';
 import { useAuth } from '../../contexts/AuthContext';
+import { useLocale } from '../../contexts/LocaleContext';
 
 const Hero: React.FC = () => {
     const { isAuthenticated, isMember, loading } = useAuth();
+    const { t, locale } = useLocale();
     const ref = useRef<HTMLDivElement>(null);
     const { scrollYProgress } = useScroll({
         target: ref,
@@ -65,7 +67,9 @@ const Hero: React.FC = () => {
                         className="mt-6 mb-12"
                     >
                         <p className="text-lg md:text-xl text-white/90 font-sans font-light tracking-wide max-w-2xl mx-auto leading-relaxed drop-shadow-lg">
-                            {HERO_CONTENT.subtitle}
+                            {locale === 'en'
+                                ? 'The official space of the Garabandal Apostolate Association. A place of faith, prayer and sharing the Message.'
+                                : HERO_CONTENT.subtitle}
                         </p>
                     </motion.div>
 
@@ -77,32 +81,32 @@ const Hero: React.FC = () => {
                     >
                         {(!loading && isAuthenticated && isMember) ? (
                             <Link
-                                href="/member"
+                                href={t.urls.member}
                                 style={{ color: '#000000' }}
                                 className="group relative z-50 bg-gradient-to-r from-amber-300 via-amber-400 to-amber-500 text-black px-10 py-5 rounded-full text-xs font-black uppercase tracking-[0.2em] hover:scale-105 transition-all duration-300 min-w-[240px] flex items-center justify-center gap-3 shadow-[0_0_40px_-5px_rgba(251,191,36,0.6)] hover:shadow-[0_0_60px_-10px_rgba(251,191,36,0.8)]"
                             >
-                                <span className="relative z-10 text-black">Ir para área de membro</span>
+                                <span className="relative z-10 text-black">{locale === 'en' ? 'Go to Member Area' : 'Ir para área de membro'}</span>
                                 <div className="absolute inset-0 bg-white/30 rounded-full blur-md opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                                 <ArrowRight size={14} className="relative z-10 stroke-[3px] transition-transform duration-300 group-hover:translate-x-1 text-black" />
                             </Link>
 
                         ) : (
                             <Link
-                                href="/tornar-membro"
+                                href={t.urls.becomeMember}
                                 style={{ color: '#000000' }}
                                 className="group relative z-50 bg-gradient-to-r from-amber-300 via-amber-400 to-amber-500 text-black px-10 py-5 rounded-full text-xs font-black uppercase tracking-[0.2em] hover:scale-105 transition-all duration-300 min-w-[240px] flex items-center justify-center gap-3 shadow-[0_0_40px_-5px_rgba(251,191,36,0.6)] hover:shadow-[0_0_60px_-10px_rgba(251,191,36,0.8)]"
                             >
-                                <span className="relative z-10 text-black">{HERO_CONTENT.cta}</span>
+                                <span className="relative z-10 text-black">{locale === 'en' ? 'Become an Official Member' : HERO_CONTENT.cta}</span>
                                 <div className="absolute inset-0 bg-white/30 rounded-full blur-md opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                                 <ArrowRight size={14} className="relative z-10 stroke-[3px] transition-transform duration-300 group-hover:translate-x-1 text-black" />
                             </Link>
                         )}
 
                         <Link
-                            href="/donations"
+                            href={t.urls.donations}
                             className="group relative px-10 py-5 rounded-full text-xs font-bold uppercase tracking-[0.15em] text-white border border-white/20 hover:bg-white/10 hover:border-white/40 transition-all duration-300 min-w-[200px] backdrop-blur-md flex items-center justify-center overflow-hidden"
                         >
-                            <span className="relative z-10">Fazer Doação</span>
+                            <span className="relative z-10">{locale === 'en' ? 'Make a Donation' : 'Fazer Doação'}</span>
                             <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-in-out" />
                         </Link>
 
@@ -113,7 +117,7 @@ const Hero: React.FC = () => {
                             className="group px-10 py-4 rounded-md text-xs font-bold uppercase tracking-[0.2em] text-white/60 hover:text-white transition-all duration-500 min-w-[200px] flex items-center justify-center gap-2"
                         >
                             <Globe size={14} />
-                            Site Oficial
+                            {locale === 'en' ? 'Official Website' : 'Site Oficial'}
                         </a>
                     </motion.div>
                 </motion.div>

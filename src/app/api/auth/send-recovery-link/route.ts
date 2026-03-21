@@ -4,6 +4,7 @@ import { normalizeEmail } from '../../../../lib/normalize';
 import { checkRateLimit } from '../../../../lib/rate-limit';
 import { sendAuthRecoveryEmail } from '../../../../lib/email';
 import { getAppUrl } from '../../../../lib/config';
+import { buildRecoveryRedirectUrl } from '../../../../lib/auth-redirects';
 
 export const dynamic = 'force-dynamic';
 
@@ -69,7 +70,7 @@ export async function POST(req: Request) {
     }
 
     const appUrl = getAppUrl();
-    const redirectTo = `${appUrl}/auth/update-password`;
+    const redirectTo = buildRecoveryRedirectUrl(appUrl);
 
     const { data, error } = await supabaseServer.auth.admin.generateLink({
       type: 'recovery',

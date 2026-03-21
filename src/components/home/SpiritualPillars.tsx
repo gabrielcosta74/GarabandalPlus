@@ -3,9 +3,13 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
-import { Flame, Users, ArrowUpRight, Heart, Sparkles, MessageCircle } from 'lucide-react';
+import { Flame, Users, ArrowUpRight, Sparkles, MessageCircle } from 'lucide-react';
+import { useLocale } from '../../contexts/LocaleContext';
 
 const SpiritualPillars = () => {
+    const { t, locale } = useLocale();
+    const isEn = locale === 'en';
+
     return (
         <section className="py-24 md:py-32 bg-[#050b14] relative overflow-hidden">
             {/* Background Ambient Glow */}
@@ -23,7 +27,6 @@ const SpiritualPillars = () => {
                         transition={{ duration: 0.8 }}
                         className="group relative rounded-[2.5rem] overflow-hidden border border-white/5 bg-gradient-to-br from-slate-900/80 to-slate-900/40 backdrop-blur-sm"
                     >
-                        {/* Background Image with Parallax Effect */}
                         <div className="absolute inset-0 z-0">
                             <motion.div
                                 className="absolute inset-0 bg-[url('/images/igrejagarabandal.webp')] bg-cover bg-center opacity-40 group-hover:opacity-50 transition-opacity duration-700"
@@ -33,10 +36,7 @@ const SpiritualPillars = () => {
                             <div className="absolute inset-0 bg-gradient-to-t from-[#050b14] via-[#050b14]/60 to-transparent" />
                         </div>
 
-                        {/* Content */}
                         <div className="relative z-10 p-10 h-full flex flex-col items-center justify-between text-center">
-
-                            {/* Floating Icon */}
                             <motion.div
                                 animate={{ y: [0, -10, 0] }}
                                 transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
@@ -47,17 +47,21 @@ const SpiritualPillars = () => {
 
                             <div className="space-y-6 max-w-md mx-auto">
                                 <h3 className="font-serif text-4xl md:text-5xl text-white">
-                                    Rede de <span className="text-amber-400 italic">Oração</span>
+                                    {isEn
+                                        ? <>Prayer <span className="text-amber-400 italic">Network</span></>
+                                        : <>Rede de <span className="text-amber-400 italic">Oração</span></>}
                                 </h3>
                                 <p className="text-slate-300 font-light leading-relaxed">
-                                    A força do Apostolado reside na união dos corações. Envie as suas intenções e junte-se a esta corrente mundial de intercessão pelo Imaculado Coração.
+                                    {isEn
+                                        ? "The strength of the Apostolate lies in the union of hearts. Send your intentions and join this worldwide chain of intercession for the Immaculate Heart."
+                                        : "A força do Apostolado reside na união dos corações. Envie as suas intenções e junte-se a esta corrente mundial de intercessão pelo Imaculado Coração."}
                                 </p>
                             </div>
 
-                            <Link href="/intencoes" className="mt-12 group/btn">
+                            <Link href={t.urls.intentions} className="mt-12 group/btn">
                                 <button className="cursor-pointer relative px-8 py-4 bg-transparent border border-amber-500/30 text-amber-100 rounded-xl font-bold uppercase tracking-widest text-xs flex items-center gap-3 hover:bg-amber-500 hover:text-white hover:border-transparent transition-all duration-300 group-hover/btn:shadow-[0_0_20px_rgba(245,158,11,0.3)]">
                                     <MessageCircle className="w-4 h-4" />
-                                    Enviar Intenção
+                                    {isEn ? 'Send Intention' : 'Enviar Intenção'}
                                     <ArrowUpRight className="w-4 h-4" />
                                 </button>
                             </Link>
@@ -72,7 +76,6 @@ const SpiritualPillars = () => {
                         transition={{ duration: 0.8, delay: 0.2 }}
                         className="group relative rounded-[2.5rem] overflow-hidden border border-white/5 bg-gradient-to-bl from-slate-900/80 to-slate-900/40 backdrop-blur-sm"
                     >
-                        {/* Background Image with Parallax Effect */}
                         <div className="absolute inset-0 z-0">
                             <motion.div
                                 className="absolute inset-0 bg-[url('/images/associacao.webp')] bg-cover bg-center opacity-40 group-hover:opacity-50 transition-opacity duration-700"
@@ -82,10 +85,7 @@ const SpiritualPillars = () => {
                             <div className="absolute inset-0 bg-gradient-to-t from-[#050b14] via-[#050b14]/60 to-transparent" />
                         </div>
 
-                        {/* Content */}
                         <div className="relative z-10 p-10 h-full flex flex-col items-center justify-between text-center">
-
-                            {/* Floating Icon */}
                             <motion.div
                                 animate={{ y: [0, -10, 0] }}
                                 transition={{ duration: 4, repeat: Infinity, ease: "easeInOut", delay: 1 }}
@@ -96,17 +96,21 @@ const SpiritualPillars = () => {
 
                             <div className="space-y-6 max-w-md mx-auto">
                                 <h3 className="font-serif text-4xl md:text-5xl text-white">
-                                    Membros do <span className="text-blue-400 italic">Apostolado</span>
+                                    {isEn
+                                        ? <>Apostolate <span className="text-blue-400 italic">Members</span></>
+                                        : <>Membros do <span className="text-blue-400 italic">Apostolado</span></>}
                                 </h3>
                                 <p className="text-slate-300 font-light leading-relaxed">
-                                    Não caminhe sozinho. Torne-se membro desta família espiritual, tenha acesso a conteúdos exclusivos e ajude a sustentar a missão de levar a Mensagem ao mundo.
+                                    {isEn
+                                        ? "Don't walk alone. Become a member of this spiritual family, access exclusive content and help sustain the mission of bringing the Message to the world."
+                                        : "Não caminhe sozinho. Torne-se membro desta família espiritual, tenha acesso a conteúdos exclusivos e ajude a sustentar a missão de levar a Mensagem ao mundo."}
                                 </p>
                             </div>
 
-                            <Link href="/tornar-membro" className="mt-12 group/btn">
+                            <Link href={t.urls.becomeMember} className="mt-12 group/btn">
                                 <button className="cursor-pointer relative px-8 py-4 bg-white text-slate-900 rounded-xl font-bold uppercase tracking-widest text-xs flex items-center gap-3 hover:bg-blue-50 transition-all duration-300 shadow-xl shadow-blue-900/20 hover:scale-105 active:scale-95">
                                     <Sparkles className="w-4 h-4 text-blue-600" />
-                                    Ser Membro Oficial
+                                    {isEn ? 'Become an Official Member' : 'Ser Membro Oficial'}
                                     <ArrowUpRight className="w-4 h-4" />
                                 </button>
                             </Link>

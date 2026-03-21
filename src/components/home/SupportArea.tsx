@@ -5,49 +5,57 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Heart, ShoppingBag, ArrowUpRight, ShieldCheck, Sparkles, CreditCard, Star } from 'lucide-react';
 import Link from 'next/link';
 import { SHOP_IMAGE_URL, MEMBER_IMAGE_URL } from './constants';
-
-const PANELS = [
-    {
-        id: 'member',
-        title: 'Ser Membro',
-        subtitle: 'Família Garabandal',
-        description: 'Junte-se a nós nesta missão de amor. O seu apoio mensal sustenta toda a obra de evangelização.',
-        icon: Star,
-        image: MEMBER_IMAGE_URL,
-        cta: 'Tornar-me Membro',
-        href: '/tornar-membro',
-        color: 'from-amber-500 to-yellow-600',
-        textColor: 'text-amber-400'
-    },
-    {
-        id: 'shop',
-        title: 'Loja Oficial',
-        subtitle: 'Artigos de Devoção',
-        description: 'Adquira terços, livros e imagens que elevam a alma. Cada compra reverte para o Apostolado.',
-        icon: ShoppingBag,
-        image: SHOP_IMAGE_URL,
-        cta: 'Visitar Loja',
-        href: '/loja-online',
-        color: 'from-blue-500 to-indigo-600',
-        textColor: 'text-blue-400'
-    },
-    {
-        id: 'donate',
-        title: 'Fazer Doação',
-        subtitle: 'Ajuda Pontual',
-        description: 'Contribua livremente para a construção da Casa do Apostolado e manutenção do Santuário.',
-        icon: Heart,
-        image: '/images/igrejagarabandal.webp',
-        cta: 'Fazer Donativo',
-        href: '/donations',
-        color: 'from-rose-500 to-red-600',
-        textColor: 'text-rose-400'
-    }
-];
+import { useLocale } from '../../contexts/LocaleContext';
 
 export default function SupportArea() {
-    // Default to middle panel expanded on desktop, or none? Let's default to 'member' (first)
     const [activePanel, setActivePanel] = useState<string | null>('member');
+    const { t, locale } = useLocale();
+    const isEn = locale === 'en';
+
+    const PANELS = [
+        {
+            id: 'member',
+            title: isEn ? 'Become a Member' : 'Ser Membro',
+            subtitle: isEn ? 'Garabandal Family' : 'Família Garabandal',
+            description: isEn
+                ? 'Join us in this mission of love. Your monthly support sustains the entire evangelisation work.'
+                : 'Junte-se a nós nesta missão de amor. O seu apoio mensal sustenta toda a obra de evangelização.',
+            icon: Star,
+            image: MEMBER_IMAGE_URL,
+            cta: isEn ? 'Join as Member' : 'Tornar-me Membro',
+            href: t.urls.becomeMember,
+            color: 'from-amber-500 to-yellow-600',
+            textColor: 'text-amber-400'
+        },
+        {
+            id: 'shop',
+            title: isEn ? 'Official Store' : 'Loja Oficial',
+            subtitle: isEn ? 'Devotional Items' : 'Artigos de Devoção',
+            description: isEn
+                ? 'Acquire rosaries, books and images that uplift the soul. Each purchase supports the Apostolate.'
+                : 'Adquira terços, livros e imagens que elevam a alma. Cada compra reverte para o Apostolado.',
+            icon: ShoppingBag,
+            image: SHOP_IMAGE_URL,
+            cta: isEn ? 'Visit Store' : 'Visitar Loja',
+            href: t.urls.store,
+            color: 'from-blue-500 to-indigo-600',
+            textColor: 'text-blue-400'
+        },
+        {
+            id: 'donate',
+            title: isEn ? 'Make a Donation' : 'Fazer Doação',
+            subtitle: isEn ? 'One-time Gift' : 'Ajuda Pontual',
+            description: isEn
+                ? 'Contribute freely to the construction of the Apostolate House and the maintenance of the Sanctuary.'
+                : 'Contribua livremente para a construção da Casa do Apostolado e manutenção do Santuário.',
+            icon: Heart,
+            image: '/images/igrejagarabandal.webp',
+            cta: isEn ? 'Donate' : 'Fazer Donativo',
+            href: t.urls.donations,
+            color: 'from-rose-500 to-red-600',
+            textColor: 'text-rose-400'
+        }
+    ];
 
     return (
         <section className="py-24 md:py-32 bg-[#050b14] relative overflow-hidden">
@@ -64,7 +72,7 @@ export default function SupportArea() {
                         className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-xs font-bold uppercase tracking-widest text-slate-400 mb-6"
                     >
                         <ShieldCheck className="w-3 h-3" />
-                        Área de Apoio
+                        {isEn ? 'Support Area' : 'Área de Apoio'}
                     </motion.div>
                     <motion.h2
                         initial={{ opacity: 0, y: 20 }}
@@ -73,7 +81,9 @@ export default function SupportArea() {
                         transition={{ delay: 0.1 }}
                         className="font-serif text-4xl md:text-5xl lg:text-6xl text-white mb-6 leading-tight"
                     >
-                        Sustente a <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-200 to-yellow-500">Missão</span>
+                        {isEn
+                            ? <>Sustain the <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-200 to-yellow-500">Mission</span></>
+                            : <>Sustente a <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-200 to-yellow-500">Missão</span></>}
                     </motion.h2>
                     <motion.p
                         initial={{ opacity: 0, y: 20 }}
@@ -82,8 +92,9 @@ export default function SupportArea() {
                         transition={{ delay: 0.2 }}
                         className="text-slate-400 text-lg font-light leading-relaxed"
                     >
-                        Escolha como quer apoiar o Apostolado de Garabandal.
-                        Cada gesto seu é uma pedra viva na construção desta obra.
+                        {isEn
+                            ? 'Choose how you want to support the Garabandal Apostolate. Every gesture of yours is a living stone in the building of this work.'
+                            : 'Escolha como quer apoiar o Apostolado de Garabandal. Cada gesto seu é uma pedra viva na construção desta obra.'}
                     </motion.p>
                 </div>
 

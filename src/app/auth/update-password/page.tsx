@@ -7,6 +7,7 @@ import AuthLayout, { PremiumInput } from '../../../components/auth/AuthLayout';
 import { supabaseBrowser } from '../../../lib/supabase-browser';
 import { motion } from 'framer-motion';
 import { ArrowRight, Loader2, AlertCircle, CheckCircle2, Lock } from 'lucide-react';
+import { detectUpdatePasswordAuthPayload } from '../../../lib/auth-redirects';
 
 export default function UpdatePasswordPage() {
     const router = useRouter();
@@ -59,33 +60,52 @@ export default function UpdatePasswordPage() {
             }
         });
 
-        // Fallback: Check hash manually if onAuthStateChange doesn't fire immediately
-        const checkHash = async () => {
-            const hash = window.location.hash.replace(/^#/, '');
-            if (hash) {
-                const params = new URLSearchParams(hash);
-                const access_token = params.get('access_token');
-                const refresh_token = params.get('refresh_token');
-                const type = params.get('type');
+        // Support direct recovery links from both PKCE and legacy hash flows.
+        const checkRecoverySession = async () => {
+            const authPayload = detectUpdatePasswordAuthPayload(window.location.href);
 
-                if (access_token && refresh_token && type === 'recovery') {
-                    console.log("🔗 [UpdatePassword] Recovery hash found, setting session...");
-                    const { error: sessionError } = await supabaseBrowser.auth.setSession({
-                        access_token,
-                        refresh_token,
-                    });
+            if (authPayload.kind === 'code') {
+                console.log("🔗 [UpdatePassword] PKCE code found, exchanging session...");
+                const { error: exchangeError } = await supabaseBrowser.auth.exchangeCodeForSession(authPayload.code);
 
-                    if (sessionError) {
-                        console.error("🚨 [UpdatePassword] setSession error:", sessionError);
-                        setError('O link de recuperação é inválido ou expirou.');
-                        setCheckingSession(false);
-                        return;
-                    }
-
-                    window.clearTimeout(watchdog);
+                if (exchangeError) {
+                    console.error("🚨 [UpdatePassword] exchangeCodeForSession error:", exchangeError);
+                    setError('O link de recuperação é inválido ou expirou.');
                     setCheckingSession(false);
                     return;
                 }
+
+                window.history.replaceState({}, '', '/auth/update-password');
+            } else if (authPayload.kind === 'otp') {
+                console.log("🔗 [UpdatePassword] OTP token found, verifying recovery...");
+                const { error: verifyError } = await supabaseBrowser.auth.verifyOtp({
+                    type: authPayload.type as any,
+                    token_hash: authPayload.tokenHash,
+                });
+
+                if (verifyError) {
+                    console.error("🚨 [UpdatePassword] verifyOtp error:", verifyError);
+                    setError('O link de recuperação é inválido ou expirou.');
+                    setCheckingSession(false);
+                    return;
+                }
+
+                window.history.replaceState({}, '', '/auth/update-password');
+            } else if (authPayload.kind === 'session') {
+                console.log("🔗 [UpdatePassword] Recovery hash found, setting session...");
+                const { error: sessionError } = await supabaseBrowser.auth.setSession({
+                    access_token: authPayload.accessToken,
+                    refresh_token: authPayload.refreshToken,
+                });
+
+                if (sessionError) {
+                    console.error("🚨 [UpdatePassword] setSession error:", sessionError);
+                    setError('O link de recuperação é inválido ou expirou.');
+                    setCheckingSession(false);
+                    return;
+                }
+
+                window.history.replaceState({}, '', '/auth/update-password');
             }
 
             const { data: { session } } = await supabaseBrowser.auth.getSession();
@@ -98,8 +118,8 @@ export default function UpdatePasswordPage() {
             setError('Link inválido ou expirado. Peça um novo email de recuperação.');
             setCheckingSession(false);
         };
-        checkHash().catch((err) => {
-            console.error("🚨 [UpdatePassword] Hash/session check failed:", err);
+        checkRecoverySession().catch((err) => {
+            console.error("🚨 [UpdatePassword] Session check failed:", err);
             setError('Não foi possível validar o link de recuperação.');
             setCheckingSession(false);
         });

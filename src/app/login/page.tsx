@@ -8,6 +8,7 @@ import { supabaseBrowser } from '../../lib/supabase-browser';
 import { motion } from 'framer-motion';
 import { ArrowRight, Loader2, AlertCircle } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
+import { useLocale } from '../../contexts/LocaleContext';
 
 export default function LoginPage() {
   return (
@@ -25,6 +26,8 @@ function LoginScreen() {
   const router = useRouter();
   const search = useSearchParams();
   const { setSession, isAuthenticated, loading: authLoading } = useAuth();
+  const { locale, t } = useLocale();
+  const isEn = locale === 'en';
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -96,10 +99,10 @@ function LoginScreen() {
 
   return (
     <AuthLayout
-      title="Bem-vindo"
-      subtitle="Inicie sessão para gerir a sua conta e doações."
+      title={isEn ? 'Welcome' : 'Bem-vindo'}
+      subtitle={isEn ? 'Sign in to manage your account and donations.' : 'Inicie sessão para gerir a sua conta e doações.'}
       backgroundImage="/images/nossasenhoragarabandal.jpg"
-      quote="A Fé é a luz que guia os nossos passos na escuridão."
+      quote={isEn ? 'Faith is the light that guides our steps in the darkness.' : 'A Fé é a luz que guia os nossos passos na escuridão.'}
     >
       <form onSubmit={handleLogin} className="space-y-6">
         {error && (
@@ -114,14 +117,14 @@ function LoginScreen() {
         )}
 
         <div className="space-y-6">
-          <GoogleButton isLoading={loading} text="Entrar com Google" />
+          <GoogleButton isLoading={loading} text={isEn ? 'Sign in with Google' : 'Entrar com Google'} />
 
           <div className="relative flex items-center justify-center">
             <div className="absolute inset-0 flex items-center">
               <div className="w-full border-t border-gray-200"></div>
             </div>
             <span className="relative z-10 bg-white px-2 text-xs text-gray-400 font-bold uppercase tracking-widest">
-              Ou entrar com email
+              {isEn ? 'Or sign in with email' : 'Ou entrar com email'}
             </span>
           </div>
 
@@ -129,7 +132,7 @@ function LoginScreen() {
             <PremiumInput
               label="Email"
               type="email"
-              placeholder="exemplo@email.com"
+              placeholder="example@email.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               disabled={loading}
@@ -146,10 +149,10 @@ function LoginScreen() {
               />
               <div className="flex justify-end">
                 <Link
-                  href="/auth/forgot-password"
+                  href={t.urls.forgotPassword}
                   className="text-xs font-bold text-garabandal-gold hover:text-yellow-600 transition-colors uppercase tracking-wider mt-2"
                 >
-                  Esqueceu a password?
+                  {isEn ? 'Forgot your password?' : 'Esqueceu a password?'}
                 </Link>
               </div>
             </div>
@@ -171,7 +174,7 @@ function LoginScreen() {
             <Loader2 className="w-5 h-5 animate-spin" />
           ) : (
             <>
-              Entrar na App
+              {isEn ? 'Sign In' : 'Entrar na App'}
               <ArrowRight className="w-4 h-4" />
             </>
           )}
@@ -179,9 +182,9 @@ function LoginScreen() {
 
         <div className="text-center pt-4 border-t border-gray-100">
           <p className="text-sm text-gray-500">
-            Ainda não tem conta?{' '}
-            <Link href="/register" className="font-bold text-garabandal-dark hover:underline">
-              Criar conta
+            {isEn ? "Don't have an account?" : 'Ainda não tem conta?'}{' '}
+            <Link href={t.urls.register} className="font-bold text-garabandal-dark hover:underline">
+              {isEn ? 'Create account' : 'Criar conta'}
             </Link>
           </p>
         </div>
