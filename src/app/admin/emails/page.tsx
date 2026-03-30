@@ -20,6 +20,7 @@ import {
     renderBrochureEmail,
     renderAbandonmentRecoveryEmail,
     renderBookingConfirmationEmail,
+    renderPilgrimagePaymentReminderEmail,
     renderWelcomeEmail,
 } from '../../../lib/email-renderer';
 import { Mail, Smartphone, Monitor, ChevronRight, Info, CheckCircle } from 'lucide-react';
@@ -358,6 +359,27 @@ const EMAIL_TEMPLATES = {
                 totalAmount: 450,
                 paymentMethod: 'bank_transfer',
                 magicLink: 'https://apostoladodegarabandal.com/auth/verify?token=mock',
+            }),
+    },
+    'pilgrimage-payment-reminder': {
+        label: '💳 Lembrete de Pagamento da Peregrinação',
+        title: 'Lembrete de Pagamento',
+        category: 'Leads & Peregrinações',
+        recipient: 'Peregrino',
+        when: 'Enviado automaticamente antes do vencimento e após atraso do sinal ou das prestações.',
+        why: 'Reduzir esquecimentos e incentivar a regularização dos pagamentos em falta.',
+        technical: 'Cron: /api/cron/pilgrimage-payment-reminders -> sendPilgrimagePaymentReminderEmail',
+        render: () =>
+            renderPilgrimagePaymentReminderEmail({
+                toEmail: 'peregrino@test.com',
+                recipientName: 'Peregrino',
+                pilgrimageName: 'Peregrinacao a Garabandal',
+                obligationLabel: 'Prestação 1',
+                dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+                amountDue: 350,
+                totalRemaining: 1050,
+                bookingUrl: 'https://apostoladodegarabandal.com/peregrinacoes/inscricao/BOOK-2025-001?viewToken=mock&token=mock',
+                stage: 'upcoming_7d',
             }),
     },
 } satisfies Record<string, EmailTemplate>;

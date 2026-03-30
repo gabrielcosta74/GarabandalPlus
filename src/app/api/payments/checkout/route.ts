@@ -1,9 +1,12 @@
 import { NextResponse } from 'next/server';
-import { stripe } from '../../../../lib/stripe';
 import { supabaseServer } from '../../../../lib/supabase';
 import { getAppUrl } from '../../../../lib/config';
 import { reduniqClient } from '../../../../lib/reduniq/client';
 import { checkRateLimit } from '../../../../lib/rate-limit';
+import {
+    buildPilgrimageReduniqFeeNote,
+    calculatePilgrimageReduniqCharge,
+} from '../../../../lib/pilgrimage-reduniq-fees';
 
 const normalizeRedirectUrl = (candidate: string, baseOrigin: string): string => {
     const raw = String(candidate || '').trim();
@@ -77,8 +80,8 @@ export async function POST(req: Request) {
         const body = await req.json();
         const bookingId = typeof body?.bookingId === 'string' ? body.bookingId : null;
         const priceType = body?.priceType === 'deposit' ? 'deposit' : 'full';
-        const provider = body?.provider === 'reduniq' ? 'reduniq' : 'stripe';
-        const reduniqSolution = Number.isInteger(body?.reduniqSolution) ? Number(body.reduniqSolution) : undefined;
+        const provider = body?.provider === 'reduniq' ? 'reduniq' : null;
+        const dryRun = body?.dryRun === true;
         const requestedAmountRaw = Number(body?.amountToPay);
         const requestedAmount = Number.isFinite(requestedAmountRaw) && requestedAmountRaw > 0
             ? Math.round(requestedAmountRaw * 100) / 100
@@ -86,6 +89,13 @@ export async function POST(req: Request) {
 
         if (!bookingId) {
             return NextResponse.json({ error: 'bookingId em falta.' }, { status: 400 });
+        }
+
+        if (!provider) {
+            return NextResponse.json(
+                { error: 'Nas peregrinações, os pagamentos online estão disponíveis apenas via Reduniq.' },
+                { status: 400 },
+            );
         }
 
         // 1. Fetch Booking Details
@@ -158,142 +168,100 @@ export async function POST(req: Request) {
         const fallbackOrigin = originCandidates[0] || 'http://localhost:3000';
         const nowIso = new Date().toISOString();
         const bookingPrefix = String(booking.id || '').slice(0, 8);
+        const isLocalHost = fallbackOrigin.includes('localhost') || fallbackOrigin.includes('127.0.0.1');
+        const allowDryRun = dryRun && (process.env.NODE_ENV !== 'production' || isLocalHost);
 
-        // 3A. Reduniq Checkout
-        if (provider === 'reduniq') {
-            const orderRef = `pil${bookingPrefix}${Date.now().toString().slice(-8)}`;
-            const safeDescription = `Peregrinacao ${bookingPrefix}`;
+        // Online pilgrimage checkout uses the general Reduniq terminal only.
+        const orderRef = `pil${bookingPrefix}${Date.now().toString().slice(-8)}`;
+        const safeDescription = `Peregrinacao ${bookingPrefix}`;
+        const charge = calculatePilgrimageReduniqCharge(safeAmountToPay);
+        const chargedAmount = charge.chargedAmount;
+        const feeNote = buildPilgrimageReduniqFeeNote(safeAmountToPay);
 
-            let initResult: any = null;
-            let selectedOrigin = fallbackOrigin;
-
-            for (const candidateOrigin of originCandidates.length ? originCandidates : [fallbackOrigin]) {
-                const successUrl = `${candidateOrigin}/peregrinacoes/inscricao/${booking.id}?provider=reduniq&orderRef=${orderRef}&status=success`;
-                const cancelUrl = `${candidateOrigin}/peregrinacoes/inscricao/${booking.id}?provider=reduniq&orderRef=${orderRef}&status=failed&canceled=true`;
-                const notificationUrl = `${candidateOrigin}/api/webhooks/reduniq`;
-
-                const attemptInit = async (solution?: number, action: 100 | 101 = 101) => reduniqClient.initiatePayment({
-                    amount: safeAmountToPay,
-                    orderRef,
-                    returnUrlOk: successUrl,
-                    returnUrlError: cancelUrl,
-                    notificationUrl,
-                    description: safeDescription,
-                    solution,
-                    languageCode: 'por',
-                    action,
-                });
-
-                // 1) Requested solution/action
-                initResult = await attemptInit(reduniqSolution, 101);
-                if (initResult?.success && initResult?.url) {
-                    selectedOrigin = candidateOrigin;
-                    break;
-                }
-
-                // 2) No solution, action 101
-                initResult = await attemptInit(undefined, 101);
-                if (initResult?.success && initResult?.url) {
-                    selectedOrigin = candidateOrigin;
-                    break;
-                }
-
-                // 3) No solution, action 100
-                initResult = await attemptInit(undefined, 100);
-                if (initResult?.success && initResult?.url) {
-                    selectedOrigin = candidateOrigin;
-                    break;
-                }
-            }
-
-            if (!initResult?.success || !initResult?.url) {
-                console.error('[Reduniq][Pilgrimage] Init failed', {
-                    error: initResult?.error,
-                    resultCode: initResult?.resultCode,
-                    raw: initResult?.raw,
-                    bookingId: booking.id,
-                    orderRef,
-                    amount: safeAmountToPay,
-                    originCandidates,
-                });
-                return NextResponse.json(
-                    { error: toSafeCheckoutError(initResult?.error || 'Falha ao iniciar pagamento Reduniq.') },
-                    { status: 502 },
-                );
-            }
-
-            try {
-                await supabaseAdmin.from('pilgrimage_payments').insert({
-                    booking_id: booking.id,
-                    user_id: booking.user_id,
-                    amount: safeAmountToPay,
-                    method: 'reduniq',
-                    status: 'pending',
-                    payment_intent_id: initResult.token || initResult.transactionId || orderRef,
-                    external_reference: orderRef,
-                    created_at: nowIso,
-                    notes: `Pagamento via Reduniq (${priceType})`,
-                });
-            } catch (dbErr) {
-                console.warn('Não foi possível criar registo preliminar de peregrinação (Reduniq):', dbErr);
-            }
-
-            const normalizedGatewayUrl = normalizeRedirectUrl(initResult.url, selectedOrigin);
-            return NextResponse.json({ url: normalizedGatewayUrl, orderRef });
+        if (allowDryRun) {
+            return NextResponse.json({
+                dryRun: true,
+                provider: 'reduniq',
+                terminalMode: 'general',
+                bookingId: booking.id,
+                priceType,
+                lineItemTitle,
+                baseAmount: safeAmountToPay,
+                feeAmount: charge.feeAmount,
+                chargedAmount,
+                totalRemaining,
+                orderRefPreview: orderRef,
+                notesPreview: `${feeNote} | Tipo: ${priceType}`,
+            });
         }
 
-        // 3B. Stripe Checkout
-        const session = await stripe.checkout.sessions.create({
-            payment_method_types: ['card', 'multibanco'],
-            line_items: [
-                {
-                    price_data: {
-                        currency: 'eur',
-                        product_data: {
-                            name: lineItemTitle,
-                            description: `Reserva #${bookingPrefix}`,
-                            images: ['https://apostoladodegarabandal.com/images/nossasenhoragarabandal.jpg'],
-                        },
-                        unit_amount: Math.round(safeAmountToPay * 100),
-                    },
-                    quantity: 1,
-                },
-            ],
-            mode: 'payment',
-            success_url: `${fallbackOrigin}/peregrinacoes/inscricao/${booking.id}?success=true&provider=stripe&session_id={CHECKOUT_SESSION_ID}`,
-            cancel_url: `${fallbackOrigin}/peregrinacoes/inscricao/${booking.id}?canceled=true&provider=stripe`,
-            metadata: {
-                booking_id: booking.id,
-                userId: booking.user_id,
-                type: 'pilgrimage_payment',
-                payment_type: priceType,
-                provider: 'stripe',
-            },
-            customer_email: undefined
-        });
+        let initResult: any = null;
+        let selectedOrigin = fallbackOrigin;
+
+        for (const candidateOrigin of originCandidates.length ? originCandidates : [fallbackOrigin]) {
+            const successUrl = `${candidateOrigin}/peregrinacoes/inscricao/${booking.id}?provider=reduniq&orderRef=${orderRef}&status=success`;
+            const cancelUrl = `${candidateOrigin}/peregrinacoes/inscricao/${booking.id}?provider=reduniq&orderRef=${orderRef}&status=failed&canceled=true`;
+            const notificationUrl = `${candidateOrigin}/api/webhooks/reduniq`;
+
+            const attemptInit = async (action: 100 | 101 = 101) => reduniqClient.initiatePayment({
+                amount: chargedAmount,
+                orderRef,
+                returnUrlOk: successUrl,
+                returnUrlError: cancelUrl,
+                notificationUrl,
+                description: safeDescription,
+                languageCode: 'por',
+                action,
+            });
+
+            initResult = await attemptInit(101);
+            if (initResult?.success && initResult?.url) {
+                selectedOrigin = candidateOrigin;
+                break;
+            }
+
+            initResult = await attemptInit(100);
+            if (initResult?.success && initResult?.url) {
+                selectedOrigin = candidateOrigin;
+                break;
+            }
+        }
+
+        if (!initResult?.success || !initResult?.url) {
+            console.error('[Reduniq][Pilgrimage] Init failed', {
+                error: initResult?.error,
+                resultCode: initResult?.resultCode,
+                raw: initResult?.raw,
+                bookingId: booking.id,
+                orderRef,
+                baseAmount: safeAmountToPay,
+                chargedAmount,
+                originCandidates,
+            });
+            return NextResponse.json(
+                { error: toSafeCheckoutError(initResult?.error || 'Falha ao iniciar pagamento Reduniq.') },
+                { status: 502 },
+            );
+        }
 
         try {
             await supabaseAdmin.from('pilgrimage_payments').insert({
                 booking_id: booking.id,
                 user_id: booking.user_id,
                 amount: safeAmountToPay,
-                method: 'stripe',
+                method: 'reduniq',
                 status: 'pending',
-                payment_intent_id: session.payment_intent ? String(session.payment_intent) : null,
-                external_reference: session.id,
+                payment_intent_id: initResult.token || initResult.transactionId || orderRef,
+                external_reference: orderRef,
                 created_at: nowIso,
-                notes: `Checkout Stripe (${priceType})`,
+                notes: `${feeNote} | Tipo: ${priceType}`,
             });
         } catch (dbErr) {
-            console.warn('Não foi possível criar registo preliminar de peregrinação (Stripe):', dbErr);
+            console.warn('Não foi possível criar registo preliminar de peregrinação (Reduniq):', dbErr);
         }
 
-        if (!session.url) {
-            return NextResponse.json({ error: 'URL de pagamento Stripe inválida.' }, { status: 502 });
-        }
-
-        const normalizedStripeUrl = normalizeRedirectUrl(session.url, fallbackOrigin);
-        return NextResponse.json({ url: normalizedStripeUrl });
+        const normalizedGatewayUrl = normalizeRedirectUrl(initResult.url, selectedOrigin);
+        return NextResponse.json({ url: normalizedGatewayUrl, orderRef });
 
     } catch (error: any) {
         console.error("Checkout Error:", error);

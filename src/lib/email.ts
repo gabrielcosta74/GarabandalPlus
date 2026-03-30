@@ -5,6 +5,7 @@ import {
   renderMemberDiplomaEmail,
   renderDonationReceiptEmail,
   renderQuotaReminderEmail,
+  renderPilgrimagePaymentReminderEmail,
   renderStoreOwnerEmail,
   renderStoreBuyerEmail,
   renderStoreShippingEmail,
@@ -29,6 +30,7 @@ import {
   MemberDiplomaInput,
   DonationReceiptInput,
   QuotaReminderInput,
+  PilgrimagePaymentReminderInput,
   StoreItem,
   GeneralLeadInput,
   AbandonmentRecoveryInput,
@@ -49,6 +51,7 @@ export type {
   MemberDiplomaInput,
   DonationReceiptInput,
   QuotaReminderInput,
+  PilgrimagePaymentReminderInput,
   StoreItem,
   GeneralLeadInput,
   AbandonmentRecoveryInput,
@@ -67,6 +70,7 @@ export {
   renderMemberDiplomaEmail,
   renderDonationReceiptEmail,
   renderQuotaReminderEmail,
+  renderPilgrimagePaymentReminderEmail,
   renderStoreOwnerEmail,
   renderStoreBuyerEmail,
   renderStoreShippingEmail,
@@ -195,6 +199,22 @@ export const sendQuotaReminderEmail = async (payload: QuotaReminderInput) => {
     subject: content.subject,
     html: content.html,
     attachments: [], // Fix: ensure attachments is passed or undefined, but rendering doesn't need it.
+  });
+  return true;
+};
+
+export const sendPilgrimagePaymentReminderEmail = async (payload: PilgrimagePaymentReminderInput) => {
+  if (!resendClient) {
+    console.warn('Resend nao configurado. Ignorar envio de email.');
+    return false;
+  }
+
+  const content = renderPilgrimagePaymentReminderEmail(payload);
+  await resendClient.emails.send({
+    from: notifyFrom,
+    to: [payload.toEmail],
+    subject: content.subject,
+    html: content.html,
   });
   return true;
 };

@@ -35,6 +35,7 @@ import {
     DEFAULT_BANK_TRANSFER_DETAILS,
     normalizeBankTransferDetails,
 } from '../../../../lib/bank-transfer-details';
+import { calculatePilgrimageReduniqCharge } from '../../../../lib/pilgrimage-reduniq-fees';
 
 /* -------------------------------------------------------------------------- */
 /*                                    Types                                   */
@@ -65,25 +66,21 @@ type PaymentOption = {
     id: string;
     label: string;
     description: string;
-    provider: 'stripe' | 'reduniq';
-    reduniqSolution?: number;
+    provider: 'reduniq';
     iconSrc?: string;
     iconAlt?: string;
 };
 
-const paymentOptions: PaymentOption[] = UNIFIED_ONLINE_PAYMENT_OPTIONS.map((option) => ({
-    id: option.id,
-    label: option.label,
-    description: option.description,
-    provider: option.provider === 'reduniq' ? 'reduniq' : 'stripe',
-    reduniqSolution:
-        option.id === 'reduniq_card' ? 106 :
-            option.id === 'reduniq_mbway' ? 107 :
-                option.id === 'reduniq_multibanco' ? 108 :
-                    undefined,
-    iconSrc: option.iconSrc,
-    iconAlt: option.iconAlt,
-}));
+const paymentOptions: PaymentOption[] = UNIFIED_ONLINE_PAYMENT_OPTIONS
+    .filter((option) => option.provider === 'reduniq')
+    .map((option) => ({
+        id: option.id,
+        label: option.label,
+        description: option.description,
+        provider: 'reduniq',
+        iconSrc: option.iconSrc,
+        iconAlt: option.iconAlt,
+    }));
 
 /* -------------------------------------------------------------------------- */
 /*                                  Component                                 */
@@ -372,6 +369,9 @@ export default function BookingDashboardPage() {
     }
 
     const amountToPay = nextAmountToPay;
+    const selectedPaymentOption = paymentOptions.find((opt) => opt.id === selectedPaymentId) || paymentOptions[0];
+    const reduniqChargePreview = calculatePilgrimageReduniqCharge(amountToPay);
+    const showReduniqFeePreview = selectedPaymentOption?.provider === 'reduniq' && amountToPay > 0;
 
 
     // Fetch Booking Data - Extracted for reuse
@@ -557,9 +557,6 @@ export default function BookingDashboardPage() {
                     priceType: paymentMode,
                     provider: selectedOption.provider,
                     amountToPay,
-                    ...(selectedOption.provider === 'reduniq' && selectedOption.reduniqSolution
-                        ? { reduniqSolution: selectedOption.reduniqSolution }
-                        : {}),
                 }),
             });
             const data = await res.json();
@@ -931,6 +928,29 @@ export default function BookingDashboardPage() {
                                                 {isConverted && exchangeRate && <p className="text-white/50 text-xs">Aprox. {amountToPay} € (Taxa: {exchangeRate})</p>}
                                             </div>
 
+                                            {showReduniqFeePreview && (
+                                                <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-left space-y-2">
+                                                    <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-amber-300">
+                                                        Pagamentos Online via Reduniq
+                                                    </p>
+                                                    <div className="flex items-center justify-between text-sm text-amber-50">
+                                                        <span>Valor da peregrinação</span>
+                                                        <span className="font-bold">{formatPrice(reduniqChargePreview.baseAmount)}</span>
+                                                    </div>
+                                                    <div className="flex items-center justify-between text-sm text-amber-50">
+                                                        <span>Taxa adicional Reduniq</span>
+                                                        <span className="font-bold">{formatPrice(reduniqChargePreview.feeAmount)}</span>
+                                                    </div>
+                                                    <div className="flex items-center justify-between text-base text-white pt-2 border-t border-white/10">
+                                                        <span className="font-semibold">Total apresentado no terminal</span>
+                                                        <span className="font-extrabold">{formatPrice(reduniqChargePreview.chargedAmount)}</span>
+                                                    </div>
+                                                    <p className="text-[11px] leading-relaxed text-amber-100/80">
+                                                        Cartão, MB WAY, PIX e Multibanco seguem todos para o terminal geral da Reduniq. A taxa adicional é apresentada separadamente nesse terminal.
+                                                    </p>
+                                                </div>
+                                            )}
+
                                             {/* LISTA UNIFICADA DE PAGAMENTOS (Direct Action) */}
                                             <div className="space-y-3 animate-in fade-in slide-in-from-bottom-4 duration-500">
 
@@ -939,6 +959,8 @@ export default function BookingDashboardPage() {
                                                     <button
                                                         key={option.id}
                                                         onClick={() => handleOnlinePayment(option.id)}
+                                                        onMouseEnter={() => setSelectedPaymentId(option.id)}
+                                                        onFocus={() => setSelectedPaymentId(option.id)}
                                                         disabled={processing}
                                                         className="w-full relative group overflow-hidden rounded-2xl border-2 border-white/10 bg-white/5 hover:bg-white/10 hover:border-yellow-500/50 transition-all p-4 flex items-center gap-4 text-left disabled:opacity-50 disabled:cursor-not-allowed"
                                                     >

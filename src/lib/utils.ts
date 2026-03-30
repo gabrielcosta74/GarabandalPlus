@@ -110,6 +110,7 @@ export interface Payment {
     method: string;
     created_at: string;
     notes?: string;
+    receipt_url?: string | null;
 }
 
 /**

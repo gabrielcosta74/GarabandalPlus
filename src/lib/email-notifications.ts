@@ -11,7 +11,17 @@ type NotificationType =
   | 'quota_reminder_1d'
   | 'quota_overdue_7d'
   | 'quota_overdue_14d'
-  | 'quota_overdue_30d';
+  | 'quota_overdue_30d'
+  | 'pilgrimage_deposit_reminder_3d'
+  | 'pilgrimage_deposit_reminder_1d'
+  | 'pilgrimage_deposit_due_today'
+  | 'pilgrimage_deposit_overdue_2d'
+  | 'pilgrimage_deposit_overdue_5d'
+  | 'pilgrimage_payment_reminder_7d'
+  | 'pilgrimage_payment_reminder_2d'
+  | 'pilgrimage_payment_due_today'
+  | 'pilgrimage_payment_overdue_3d'
+  | 'pilgrimage_payment_overdue_10d';
 
 type NotificationRecord = {
   id: string;

@@ -220,7 +220,8 @@ export async function POST(request: Request) {
                 metadata: {
                     type: 'pilgrimage_payment',
                     booking_id: pilgrimagePayment.booking_id,
-                    reduniqTransactionId: manualCheck.transactionId
+                    reduniqTransactionId: manualCheck.transactionId,
+                    existingNotes: pilgrimagePayment.notes || null,
                 }
             };
 

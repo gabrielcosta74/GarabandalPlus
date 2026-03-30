@@ -362,6 +362,14 @@ export async function handlePilgrimageSuccess(ctx: PaymentHandlerContext) {
         throw new Error('Reserva sem utilizador associado.');
     }
 
+    const existingNotes = typeof (metadata as any)?.existingNotes === 'string'
+        ? String((metadata as any).existingNotes).trim()
+        : '';
+    const confirmedNote = `Pagamento confirmado via ${method}`;
+    const notes = existingNotes
+        ? (existingNotes.includes(confirmedNote) ? existingNotes : `${existingNotes} | ${confirmedNote}`)
+        : confirmedNote;
+
     const { error: paymentUpsertError } = await supabaseServer.from('pilgrimage_payments').upsert({
         booking_id: bookingId,
         user_id: bookingUserId,
@@ -372,7 +380,7 @@ export async function handlePilgrimageSuccess(ctx: PaymentHandlerContext) {
         method,
         verified_at: verifiedAt,
         transaction_id: String((metadata as any)?.reduniqTransactionId || paymentReference || ''),
-        notes: `Pagamento via ${method}`
+        notes
     }, { onConflict: 'external_reference' });
 
     if (paymentUpsertError) {

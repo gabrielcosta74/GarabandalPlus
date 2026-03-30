@@ -1,5 +1,6 @@
 import {
     renderBookingConfirmationEmail,
+    renderPilgrimagePaymentReminderEmail,
     renderStoreOwnerEmail,
     renderStoreBuyerEmail,
     renderStoreShippingEmail,
@@ -21,6 +22,22 @@ export const EMAIL_REGISTRY = {
             totalAmount: 450,
             paymentMethod: 'bank_transfer',
             magicLink: 'https://app.example.com/auth/verify?token=mock'
+        })
+    },
+    'pilgrimage_payment_reminder': {
+        label: 'Lembrete de Pagamento da Peregrinação',
+        description: 'Aviso automático antes e depois do vencimento do sinal ou das prestações.',
+        recipient: 'Peregrino',
+        render: (data: any) => renderPilgrimagePaymentReminderEmail(data || {
+            toEmail: 'peregrino@example.com',
+            recipientName: 'Maria',
+            pilgrimageName: 'Peregrinação a Garabandal',
+            obligationLabel: 'Prestação 1',
+            dueDate: '2026-04-10T00:00:00.000Z',
+            amountDue: 350,
+            totalRemaining: 1050,
+            bookingUrl: 'https://apostoladodegarabandal.com/peregrinacoes/inscricao/booking-1?viewToken=mock&token=mock',
+            stage: 'upcoming_7d',
         })
     },
 

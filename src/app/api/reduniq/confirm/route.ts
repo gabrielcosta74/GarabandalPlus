@@ -417,7 +417,12 @@ export async function POST(request: Request) {
           paymentReference: tokenToUse,
           externalReference: pilgrimagePayment.external_reference,
           method: 'reduniq',
-          metadata: { type: 'pilgrimage_payment', booking_id: pilgrimagePayment.booking_id, reduniqTransactionId: transactionId },
+          metadata: {
+            type: 'pilgrimage_payment',
+            booking_id: pilgrimagePayment.booking_id,
+            reduniqTransactionId: transactionId,
+            existingNotes: pilgrimagePayment.notes || null,
+          },
           paymentDate,
         };
 

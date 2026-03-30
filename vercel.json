@@ -15,6 +15,10 @@
     {
       "path": "/api/cron/membership-rules",
       "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/cron/pilgrimage-payment-reminders",
+      "schedule": "15 9 * * *"
     }
   ]
 }

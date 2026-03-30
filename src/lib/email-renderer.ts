@@ -85,6 +85,27 @@ export type QuotaReminderInput = {
   membershipUrl?: string | null;
 };
 
+export type PilgrimagePaymentReminderInput = {
+  toEmail: string;
+  recipientName?: string | null;
+  pilgrimageName: string;
+  obligationLabel: string;
+  dueDate: string;
+  amountDue: number;
+  totalRemaining: number;
+  bookingUrl: string;
+  stage:
+    | 'upcoming_3d'
+    | 'upcoming_1d'
+    | 'upcoming_7d'
+    | 'upcoming_2d'
+    | 'due_today'
+    | 'overdue_2d'
+    | 'overdue_5d'
+    | 'overdue_3d'
+    | 'overdue_10d';
+};
+
 export type GeneralLeadInput = {
   email: string;
   name?: string;
@@ -495,6 +516,102 @@ export const renderQuotaReminderEmail = (payload: QuotaReminderInput) => {
         })}
 
                         ${Button({ label: "Renovar Agora", url: payload.membershipUrl || `${APP_URL}/member` })}
+                    `,
+      })}
+            `,
+    }),
+  };
+};
+
+export const renderPilgrimagePaymentReminderEmail = (
+  payload: PilgrimagePaymentReminderInput,
+) => {
+  const isShortDeadline =
+    payload.stage === 'upcoming_3d' ||
+    payload.stage === 'upcoming_1d' ||
+    payload.stage === 'overdue_2d' ||
+    payload.stage === 'overdue_5d';
+  const subtitleMap: Record<PilgrimagePaymentReminderInput['stage'], string> = {
+    upcoming_3d: 'Faltam 3 dias para pagar o sinal de inscrição',
+    upcoming_1d: 'Falta 1 dia para pagar o sinal de inscrição',
+    upcoming_7d: 'Faltam 7 dias para o vencimento',
+    upcoming_2d: 'Faltam 2 dias para o vencimento',
+    due_today: 'O pagamento vence hoje',
+    overdue_2d: 'O sinal de inscrição está em atraso',
+    overdue_5d: 'O sinal de inscrição continua por regularizar',
+    overdue_3d: 'O pagamento está em atraso',
+    overdue_10d: 'Continua pendente regularizar este valor',
+  };
+
+  const introMap: Record<PilgrimagePaymentReminderInput['stage'], string> = {
+    upcoming_3d:
+      'O sinal de inscrição tem prazo de 5 dias após a reserva. Faltam 3 dias para o vencimento.',
+    upcoming_1d:
+      'O prazo do sinal de inscrição termina amanhã. Se ainda não regularizou, recomendamos concluir hoje.',
+    upcoming_7d:
+      'Queremos lembrar com antecedência para que consiga organizar o pagamento sem pressão de última hora.',
+    upcoming_2d:
+      'O vencimento está muito próximo. Se ainda não regularizou, este é um bom momento para concluir o pagamento.',
+    due_today:
+      'Passamos só para recordar que este pagamento vence hoje e continua pendente.',
+    overdue_2d:
+      'O prazo de 5 dias para pagamento do sinal já passou. Se já efetuou a transferência, pode enviar o comprovativo na sua inscrição.',
+    overdue_5d:
+      'O sinal de inscrição continua pendente após o prazo inicial. Pedimos, por favor, que regularize este valor para não comprometer a sua vaga.',
+    overdue_3d:
+      'Verificámos que este valor ainda não foi registado. Se já efetuou o pagamento, pode entrar na sua inscrição e enviar o comprovativo.',
+    overdue_10d:
+      'Este valor continua em aberto. Pedimos, por favor, que regularize a situação assim que possível para manter a sua inscrição sem pendências.',
+  };
+
+  const overdueStages: PilgrimagePaymentReminderInput['stage'][] = [
+    'overdue_2d',
+    'overdue_5d',
+    'overdue_3d',
+    'overdue_10d',
+  ];
+  const effectiveIsOverdue = overdueStages.includes(payload.stage);
+  const heading = effectiveIsOverdue ? 'Pagamento em Falta' : 'Lembrete de Pagamento';
+
+  return {
+    subject: effectiveIsOverdue
+      ? `Pagamento pendente da peregrinação: ${payload.pilgrimageName}`
+      : `Lembrete de pagamento da peregrinação: ${payload.pilgrimageName}`,
+    html: Layout({
+      title: heading,
+      children: `
+                ${Header({
+        title: heading,
+        subtitle: payload.pilgrimageName,
+      })}
+                ${Section({
+        children: `
+                        ${Text(`Olá <strong>${payload.recipientName || 'Peregrino'}</strong>,`)}
+                        ${Text(introMap[payload.stage])}
+                        ${Card({
+          children: `
+                                ${InfoRow({ label: 'Referente a', value: payload.obligationLabel })}
+                                ${InfoRow({ label: 'Vencimento', value: formatDate(payload.dueDate) })}
+                                ${InfoRow({ label: 'Valor desta fase', value: formatCurrency(payload.amountDue) })}
+                                ${InfoRow({ label: 'Total ainda em falta', value: formatCurrency(payload.totalRemaining), isLast: true })}
+                            `,
+        })}
+                        ${Card({
+          children: `
+                                <p style="margin:0;color:${effectiveIsOverdue ? COLORS.error : COLORS.heading};font-weight:700;">
+                                    ${subtitleMap[payload.stage]}
+                                </p>
+                                <p style="margin:12px 0 0;color:${COLORS.textLight};">
+                                    Pode entrar na sua inscrição para pagar agora ou enviar o comprovativo, caso já tenha feito a transferência.
+                                </p>
+                            `,
+        })}
+                        ${Button({ label: 'Gerir Inscrição', url: payload.bookingUrl })}
+                        ${Text(
+                          isShortDeadline
+                            ? 'Este aviso refere-se ao prazo curto do sinal de inscrição. Se já regularizou este valor recentemente, pode desconsiderar este email.'
+                            : 'Se já regularizou este valor recentemente, pode desconsiderar este aviso.',
+                        )}
                     `,
       })}
             `,
