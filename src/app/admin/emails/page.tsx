@@ -99,6 +99,28 @@ const MOCK_DONATION_NOTIFICATION = {
 };
 
 const MOCK_QUOTA_LINK = 'https://apostoladodegarabandal.com/tornar-membro';
+const MOCK_PILGRIMAGE_BOOKING_URL =
+    'https://apostoladodegarabandal.com/peregrinacoes/inscricao/BOOK-2025-001?viewToken=mock&token=mock';
+
+const BASE_PILGRIMAGE_REMINDER_PREVIEW: Parameters<typeof renderPilgrimagePaymentReminderEmail>[0] = {
+    toEmail: 'peregrino@test.com',
+    recipientName: 'Peregrino',
+    pilgrimageName: 'Peregrinacao a Garabandal',
+    obligationLabel: 'Prestação 1',
+    dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+    amountDue: 350,
+    totalRemaining: 1050,
+    bookingUrl: MOCK_PILGRIMAGE_BOOKING_URL,
+    stage: 'upcoming_7d',
+};
+
+const buildPilgrimageReminderPreview = (
+    overrides: Partial<Parameters<typeof renderPilgrimagePaymentReminderEmail>[0]>,
+) =>
+    renderPilgrimagePaymentReminderEmail({
+        ...BASE_PILGRIMAGE_REMINDER_PREVIEW,
+        ...overrides,
+    });
 
 type EmailTemplate = {
     label: string;
@@ -370,16 +392,63 @@ const EMAIL_TEMPLATES = {
         why: 'Reduzir esquecimentos e incentivar a regularização dos pagamentos em falta.',
         technical: 'Cron: /api/cron/pilgrimage-payment-reminders -> sendPilgrimagePaymentReminderEmail',
         render: () =>
-            renderPilgrimagePaymentReminderEmail({
-                toEmail: 'peregrino@test.com',
-                recipientName: 'Peregrino',
-                pilgrimageName: 'Peregrinacao a Garabandal',
+            buildPilgrimageReminderPreview({
                 obligationLabel: 'Prestação 1',
                 dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
                 amountDue: 350,
                 totalRemaining: 1050,
-                bookingUrl: 'https://apostoladodegarabandal.com/peregrinacoes/inscricao/BOOK-2025-001?viewToken=mock&token=mock',
                 stage: 'upcoming_7d',
+            }),
+    },
+    'pilgrimage-deposit-reminder': {
+        label: '🕊️ Aviso do Sinal da Peregrinação',
+        title: 'Lembrete do Sinal de Inscrição',
+        category: 'Leads & Peregrinações',
+        recipient: 'Peregrino',
+        when: 'Enviado para lembrar o prazo curto de 5 dias do sinal de inscrição.',
+        why: 'Dar visibilidade aos avisos iniciais do sinal antes do vencimento.',
+        technical: 'Cron: /api/cron/pilgrimage-payment-reminders -> sendPilgrimagePaymentReminderEmail',
+        render: () =>
+            buildPilgrimageReminderPreview({
+                obligationLabel: 'Sinal de Inscrição',
+                dueDate: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+                amountDue: 500,
+                totalRemaining: 1700,
+                stage: 'upcoming_1d',
+            }),
+    },
+    'pilgrimage-deposit-overdue': {
+        label: '🔔 Sinal em Atraso',
+        title: 'Aviso de Sinal em Atraso',
+        category: 'Leads & Peregrinações',
+        recipient: 'Peregrino',
+        when: 'Enviado quando o sinal continua em falta após o prazo de inscrição.',
+        why: 'Permitir rever o tom e o conteúdo dos avisos de atraso do sinal.',
+        technical: 'Cron: /api/cron/pilgrimage-payment-reminders -> sendPilgrimagePaymentReminderEmail',
+        render: () =>
+            buildPilgrimageReminderPreview({
+                obligationLabel: 'Sinal de Inscrição',
+                dueDate: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
+                amountDue: 500,
+                totalRemaining: 1700,
+                stage: 'overdue_5d',
+            }),
+    },
+    'pilgrimage-installment-overdue': {
+        label: '📆 Prestação em Atraso',
+        title: 'Aviso de Prestação em Atraso',
+        category: 'Leads & Peregrinações',
+        recipient: 'Peregrino',
+        when: 'Enviado quando uma prestação continua por liquidar após a data de vencimento.',
+        why: 'Permitir validar o email mais firme usado para prestações vencidas.',
+        technical: 'Cron: /api/cron/pilgrimage-payment-reminders -> sendPilgrimagePaymentReminderEmail',
+        render: () =>
+            buildPilgrimageReminderPreview({
+                obligationLabel: 'Prestação 2',
+                dueDate: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
+                amountDue: 350,
+                totalRemaining: 700,
+                stage: 'overdue_10d',
             }),
     },
 } satisfies Record<string, EmailTemplate>;
