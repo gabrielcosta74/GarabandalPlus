@@ -71,6 +71,7 @@ export default function AdminSidebar({ onLogout, className }: { onLogout: () => 
                 { label: 'Convites de Membros', icon: UserPlus, href: '/admin/convites' },
                 { label: 'Leilão', icon: Gavel, href: '/admin/leilao' },
                 { label: 'Emails do Sistema', icon: Mail, href: '/admin/emails' },
+                { label: 'Atividade Email', icon: Mail, href: '/admin/notificacoes-email' },
             ]
         },
         {

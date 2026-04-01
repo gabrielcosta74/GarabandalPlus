@@ -11,18 +11,25 @@ export const metadata: Metadata = {
   metadataBase: new URL(APP_URL),
   title: {
     template: '%s | Garabandal +',
-    default: 'Garabandal +',
+    default: 'Garabandal + | Apostolado de Garabandal',
   },
-  description: 'Santuário virtual do Apostolado de Garabandal. Peregrinações, doações e missão de evangelização com foco na fé e na mensagem de Nossa Senhora.',
+  description: 'Apostolado de Garabandal — associação sem fins lucrativos dedicada à divulgação das aparições de Nossa Senhora de Garabandal, organização de peregrinações marianas e apostolado da fé no Brasil e em Portugal.',
   keywords: [
-    'Garabandal',
     'Apostolado de Garabandal',
-    'Peregrinação católica',
-    'Doações católicas',
-    'Mensagem de Garabandal',
-    'Santuário virtual',
-    'Nossa Senhora',
-    'Evangelização'
+    'peregrinação Garabandal',
+    'peregrinação mariana Brasil',
+    'Nossa Senhora de Garabandal',
+    'aparições de Garabandal',
+    'peregrinação católica Brasil',
+    'peregrinação mariana',
+    'o aviso de Garabandal',
+    'Nossa Senhora do Carmo Garabandal',
+    'apostolado mariano',
+    'peregrinação Fátima Garabandal',
+    'artigos religiosos católicos',
+    'doação apostolado católico',
+    'mensagem de Garabandal',
+    'evangelização católica',
   ],
   authors: [{ name: 'Apostolado de Garabandal' }],
   openGraph: {
@@ -30,22 +37,30 @@ export const metadata: Metadata = {
     locale: 'pt_BR',
     url: APP_URL,
     siteName: 'Garabandal +',
-    title: 'Garabandal +',
-    description: 'Santuário virtual com peregrinações, doações e missão de evangelização.',
+    title: 'Garabandal + | Apostolado de Garabandal',
+    description: 'Associação sem fins lucrativos. Aparições de Garabandal, peregrinações marianas, apostolado da fé e evangelização no Brasil e em Portugal.',
     images: [
       {
-        url: '/images/og-image.jpg',
+        url: `${APP_URL}/opengraph-image`,
         width: 1200,
         height: 630,
-        alt: 'Apostolado de Garabandal',
+        alt: 'Apostolado de Garabandal — Peregrinações Marianas',
       },
     ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Garabandal +',
-    description: 'Santuário virtual com peregrinações, doações e missão de evangelização.',
-    images: ['/images/og-image.jpg'],
+    title: 'Garabandal + | Apostolado de Garabandal',
+    description: 'Peregrinações marianas, doações e missão de evangelização. Apostolado de Nossa Senhora de Garabandal.',
+    images: [`${APP_URL}/opengraph-image`],
+  },
+  alternates: {
+    canonical: APP_URL,
+    languages: {
+      'pt-BR': APP_URL,
+      'pt-PT': APP_URL,
+      'en': `${APP_URL}/en`,
+    },
   },
   verification: {
     google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION || undefined,
@@ -69,7 +84,7 @@ export default function RootLayout({
   return (
     <html lang="pt-BR">
       <head />
-      <body className={inter.className}>
+      <body className={`${inter.variable} ${playfair.variable} ${inter.className}`}>
         <script
           type="application/ld+json"
           // eslint-disable-next-line react/no-danger
@@ -78,20 +93,54 @@ export default function RootLayout({
               '@context': 'https://schema.org',
               '@graph': [
                 {
-                  '@type': 'Organization',
-                  name: 'Garabandal +',
+                  '@type': ['Organization', 'NGO', 'ReligiousOrganization'],
+                  '@id': `${APP_URL}/#organization`,
+                  name: 'Apostolado de Garabandal',
+                  alternateName: 'Garabandal +',
                   url: APP_URL,
-                  logo: `${APP_URL}/images/og-image.jpg`,
+                  logo: {
+                    '@type': 'ImageObject',
+                    url: `${APP_URL}/icon-512.png`,
+                    width: 512,
+                    height: 512,
+                  },
+                  description: 'Associação católica dedicada à divulgação das aparições de Nossa Senhora de Garabandal, organização de peregrinações marianas e apostolado mariano em português.',
+                  knowsAbout: [
+                    'Aparições de Garabandal',
+                    'Nossa Senhora de Garabandal',
+                    'Nossa Senhora do Carmo',
+                    'O Aviso de Garabandal',
+                    'Peregrinações Marianas',
+                    'Aparições Marianas',
+                    'Evangelização Católica',
+                    'Peregrinação Católica Brasil',
+                  ],
+                  areaServed: [
+                    { '@type': 'Country', name: 'Brasil' },
+                    { '@type': 'Country', name: 'Portugal' },
+                  ],
                   sameAs: [
-                    'https://www.instagram.com/apostoladodegarabandaloficial/'
-                  ]
+                    'https://www.instagram.com/apostoladodegarabandaloficial/',
+                    'https://www.apostoladodegarabandal.com',
+                  ],
+                  nonprofitStatus: 'ReligiousNonprofit',
                 },
                 {
                   '@type': 'WebSite',
+                  '@id': `${APP_URL}/#website`,
                   name: 'Garabandal +',
                   url: APP_URL,
-                  inLanguage: 'pt-BR'
-                }
+                  inLanguage: ['pt-BR', 'pt-PT', 'en'],
+                  publisher: { '@id': `${APP_URL}/#organization` },
+                  potentialAction: {
+                    '@type': 'SearchAction',
+                    target: {
+                      '@type': 'EntryPoint',
+                      urlTemplate: `${APP_URL}/loja?q={search_term_string}`,
+                    },
+                    'query-input': 'required name=search_term_string',
+                  },
+                },
               ]
             })
           }}

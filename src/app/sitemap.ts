@@ -6,66 +6,113 @@ import { buildProductPath } from '../lib/slug';
 export const revalidate = 3600;
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  const now = new Date();
+
   const baseRoutes: MetadataRoute.Sitemap = [
+    // ── Core pages ──────────────────────────────────────────────────
     {
       url: `${APP_URL}/`,
-      lastModified: new Date(),
+      lastModified: now,
       changeFrequency: 'weekly',
       priority: 1,
     },
     {
       url: `${APP_URL}/peregrinacoes`,
-      lastModified: new Date(),
+      lastModified: now,
       changeFrequency: 'weekly',
-      priority: 0.9,
-    },
-    {
-      url: `${APP_URL}/donations`,
-      lastModified: new Date(),
-      changeFrequency: 'monthly',
-      priority: 0.8,
+      priority: 0.95,
     },
     {
       url: `${APP_URL}/loja`,
-      lastModified: new Date(),
+      lastModified: now,
       changeFrequency: 'weekly',
+      priority: 0.85,
+    },
+    {
+      url: `${APP_URL}/donations`,
+      lastModified: now,
+      changeFrequency: 'monthly',
       priority: 0.8,
     },
     {
       url: `${APP_URL}/tornar-membro`,
-      lastModified: new Date(),
+      lastModified: now,
       changeFrequency: 'monthly',
-      priority: 0.7,
+      priority: 0.75,
+    },
+    {
+      url: `${APP_URL}/sobre-nos`,
+      lastModified: now,
+      changeFrequency: 'monthly',
+      priority: 0.65,
     },
     {
       url: `${APP_URL}/intencoes`,
-      lastModified: new Date(),
+      lastModified: now,
       changeFrequency: 'monthly',
       priority: 0.6,
     },
     {
       url: `${APP_URL}/transparencia`,
-      lastModified: new Date(),
+      lastModified: now,
+      changeFrequency: 'monthly',
+      priority: 0.55,
+    },
+    // ── English versions ─────────────────────────────────────────────
+    {
+      url: `${APP_URL}/en`,
+      lastModified: now,
+      changeFrequency: 'weekly',
+      priority: 0.7,
+    },
+    {
+      url: `${APP_URL}/en/pilgrimages`,
+      lastModified: now,
+      changeFrequency: 'weekly',
+      priority: 0.7,
+    },
+    {
+      url: `${APP_URL}/en/store`,
+      lastModified: now,
+      changeFrequency: 'weekly',
+      priority: 0.65,
+    },
+    {
+      url: `${APP_URL}/en/donations`,
+      lastModified: now,
       changeFrequency: 'monthly',
       priority: 0.6,
     },
     {
-      url: `${APP_URL}/termos`,
-      lastModified: new Date(),
+      url: `${APP_URL}/en/become-member`,
+      lastModified: now,
       changeFrequency: 'monthly',
-      priority: 0.4,
+      priority: 0.6,
+    },
+    {
+      url: `${APP_URL}/en/about`,
+      lastModified: now,
+      changeFrequency: 'monthly',
+      priority: 0.5,
+    },
+    // ── Legal ────────────────────────────────────────────────────────
+    {
+      url: `${APP_URL}/termos`,
+      lastModified: now,
+      changeFrequency: 'yearly',
+      priority: 0.3,
     },
     {
       url: `${APP_URL}/privacidade`,
-      lastModified: new Date(),
-      changeFrequency: 'monthly',
-      priority: 0.4,
+      lastModified: now,
+      changeFrequency: 'yearly',
+      priority: 0.3,
     },
     {
       url: `${APP_URL}/cookies`,
-      lastModified: new Date(),
-      changeFrequency: 'monthly',
-      priority: 0.4,
+      lastModified: now,
+      changeFrequency: 'yearly',
+      priority: 0.2,
     },
   ];
 
@@ -85,9 +132,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       if (product?.product_id) {
         dynamicRoutes.push({
           url: `${APP_URL}${buildProductPath(product.product_id, product.name)}`,
-          lastModified: new Date(),
+          lastModified: now,
           changeFrequency: 'weekly',
-          priority: 0.7,
+          priority: 0.75,
         });
       }
     });
@@ -112,9 +159,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       if (pilgrimage?.slug) {
         dynamicRoutes.push({
           url: `${APP_URL}/peregrinacoes/${pilgrimage.slug}`,
-          lastModified: new Date(),
+          lastModified: now,
           changeFrequency: 'weekly',
-          priority: 0.8,
+          priority: 0.9,
         });
       }
     });

@@ -26,7 +26,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const url = `${APP_URL}/peregrinacoes/${slug}`;
   const fallbackTitle = `Peregrinação ${slugToTitle(slug)} | Garabandal +`;
-  const fallbackDescription = 'Detalhes da peregrinação organizada pelo Apostolado de Garabandal.';
+  const fallbackDescription = 'Peregrinação mariana organizada pelo Apostolado de Garabandal. Junte-se a nós nesta viagem espiritual.';
 
   if (!supabaseServer) {
     return {
@@ -39,18 +39,48 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   try {
     const data = await fetchPilgrimage(slug);
 
-    const title = data?.title ? `${data.title} | Garabandal +` : fallbackTitle;
-    const description = data?.description || fallbackDescription;
+    const title = data?.title ? `${data.title} | Apostolado de Garabandal` : fallbackTitle;
+    const description = data?.description
+      ? `${data.description.slice(0, 155)}…`
+      : fallbackDescription;
+
+    const ogImages = data?.cover_image
+      ? [{ url: data.cover_image, width: 1200, height: 630, alt: data.title || 'Peregrinação Mariana' }]
+      : [{ url: `${APP_URL}/opengraph-image`, width: 1200, height: 630, alt: title }];
 
     return {
       title,
       description,
-      alternates: { canonical: url },
+      keywords: [
+        data?.title || 'peregrinação mariana',
+        'peregrinação Garabandal',
+        'peregrinação mariana Brasil',
+        'peregrinação católica organizada',
+        'Apostolado de Garabandal',
+        'Nossa Senhora de Garabandal',
+        'tour espiritual católico',
+      ],
+      alternates: {
+        canonical: url,
+        languages: {
+          'pt-BR': url,
+          'pt-PT': url,
+        },
+      },
       openGraph: {
         url,
         title,
         description,
-        images: data?.cover_image ? [data.cover_image] : undefined,
+        type: 'website',
+        locale: 'pt_BR',
+        siteName: 'Garabandal +',
+        images: ogImages,
+      },
+      twitter: {
+        card: 'summary_large_image',
+        title,
+        description,
+        images: ogImages.map((i) => i.url),
       },
     };
   } catch {
@@ -72,19 +102,37 @@ export default async function PeregrinacaoLayout({ children, params }: Props) {
 
   const eventSchema = {
     '@context': 'https://schema.org',
-    '@type': 'Event',
-    name: pilgrimage.title || 'Peregrinação',
-    description: pilgrimage.description || undefined,
+    '@type': ['Event', 'TouristTrip'],
+    name: pilgrimage.title || 'Peregrinação Mariana',
+    description: pilgrimage.description || 'Peregrinação mariana organizada pelo Apostolado de Garabandal.',
     startDate: pilgrimage.start_date || undefined,
     endDate: pilgrimage.end_date || undefined,
     eventAttendanceMode: 'https://schema.org/OfflineEventAttendanceMode',
     eventStatus: 'https://schema.org/EventScheduled',
-    image: pilgrimage.cover_image ? [pilgrimage.cover_image] : undefined,
+    inLanguage: 'pt-BR',
+    image: pilgrimage.cover_image
+      ? [pilgrimage.cover_image]
+      : [`${APP_URL}/opengraph-image`],
+    location: {
+      '@type': 'Place',
+      name: 'San Sebastián de Garabandal',
+      address: {
+        '@type': 'PostalAddress',
+        addressLocality: 'Garabandal',
+        addressRegion: 'Cantabria',
+        addressCountry: 'ES',
+      },
+    },
     organizer: {
       '@type': 'Organization',
-      name: 'Garabandal +',
+      name: 'Apostolado de Garabandal',
       url: APP_URL,
     },
+    audience: {
+      '@type': 'Audience',
+      audienceType: 'Católicos devotos de Nossa Senhora de Garabandal',
+    },
+    keywords: 'peregrinação mariana, Garabandal, Nossa Senhora, apostolado, Brasil, Portugal',
     offers: pilgrimage.base_price
       ? {
         '@type': 'Offer',
@@ -92,6 +140,7 @@ export default async function PeregrinacaoLayout({ children, params }: Props) {
         priceCurrency: 'EUR',
         url: `${APP_URL}/peregrinacoes/${slug}`,
         availability: 'https://schema.org/InStock',
+        validFrom: new Date().toISOString(),
       }
       : undefined,
   };

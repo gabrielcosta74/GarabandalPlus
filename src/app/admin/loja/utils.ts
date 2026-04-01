@@ -105,6 +105,8 @@ export const PRODUCT_DEFINITIONS: Record<string, ProductTypeDefinition> = {
         defaultCategorySlug: 'livros-digitais',
         metadataFields: [
             { key: 'author', label: 'Autor', type: 'text' },
+            { key: 'publisher', label: 'Editora', type: 'text' },
+            { key: 'isbn', label: 'ISBN', type: 'text' },
             { key: 'pages', label: 'Nº Páginas', type: 'number' },
             { key: 'format', label: 'Formato', type: 'select', options: ['PDF', 'EPUB', 'MOBI'] }
         ]

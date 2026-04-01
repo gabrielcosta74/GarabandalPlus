@@ -14,8 +14,11 @@ export default function robots(): MetadataRoute.Robots {
           '/loja',
           '/loja/*',
           '/tornar-membro',
+          '/sobre-nos',
           '/intencoes',
-          '/transparencia'
+          '/transparencia',
+          '/en',
+          '/en/*',
         ],
         disallow: [
           '/admin',
