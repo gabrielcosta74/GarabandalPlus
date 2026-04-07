@@ -18,6 +18,25 @@ export function buildRecoveryRedirectUrl(appUrl: string) {
   return url.toString();
 }
 
+export function hasAuthCallbackPayload(currentUrl: string) {
+  const url = new URL(currentUrl);
+  const hash = url.hash.replace(/^#/, '');
+  const hashParams = new URLSearchParams(hash);
+
+  return Boolean(
+    url.searchParams.get('code') ||
+    hashParams.get('code') ||
+    url.searchParams.get('token_hash') ||
+    url.searchParams.get('token') ||
+    hashParams.get('access_token') ||
+    hashParams.get('refresh_token') ||
+    url.searchParams.get('error') ||
+    hashParams.get('error') ||
+    url.searchParams.get('error_description') ||
+    hashParams.get('error_description')
+  );
+}
+
 export function resolveAuthCallbackRedirect({ type, next, refCode }: AuthCallbackRedirectInput) {
   if (type === 'recovery') {
     return '/auth/update-password';

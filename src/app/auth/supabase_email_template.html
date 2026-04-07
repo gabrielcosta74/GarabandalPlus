@@ -39,7 +39,7 @@
                     style="margin: auto;">
                     <tr>
                         <td style="border-radius: 12px; background-color: #eab308; text-align: center;">
-                            <a href="{{ .ConfirmationURL }}" target="_blank"
+                            <a href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=recovery&next=/auth/update-password" target="_blank"
                                 style="background-color: #eab308; border: 1px solid #eab308; font-family: sans-serif; font-size: 20px; line-height: 1.1; text-align: center; text-decoration: none; display: block; border-radius: 12px; font-weight: bold; color: #000000; padding: 20px 40px; white-space: nowrap; text-transform: uppercase;">
                                 DEFINIR NOVA PASSWORD
                             </a>
