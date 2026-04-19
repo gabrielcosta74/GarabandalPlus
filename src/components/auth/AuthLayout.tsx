@@ -185,17 +185,25 @@ export const GoogleButton = ({
     isLoading = false,
     className = "",
     referralCode,
+    locale,
+    next,
 }: {
     text?: string;
     isLoading?: boolean;
     className?: string;
     referralCode?: string;
+    locale?: string;
+    next?: string;
 }) => {
     const handleGoogleLogin = async () => {
         if (!supabaseBrowser) return;
         try {
-            // Preserve the referral code through the OAuth redirect by appending it to the callback URL.
-            const callbackUrl = `${window.location.origin}/auth-callback${referralCode ? `?ref=${encodeURIComponent(referralCode)}` : ''}`;
+            const params = new URLSearchParams();
+            if (referralCode) params.set('ref', referralCode);
+            if (locale) params.set('locale', locale);
+            if (next) params.set('next', next);
+            const qs = params.toString();
+            const callbackUrl = `${window.location.origin}/auth-callback${qs ? `?${qs}` : ''}`;
             const { error } = await supabaseBrowser.auth.signInWithOAuth({
                 provider: 'google',
                 options: {

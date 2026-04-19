@@ -2,6 +2,7 @@ export type AuthCallbackRedirectInput = {
   type?: string | null;
   next?: string | null;
   refCode?: string | null;
+  locale?: string | null;
 };
 
 export type UpdatePasswordAuthPayload =
@@ -9,6 +10,18 @@ export type UpdatePasswordAuthPayload =
   | { kind: 'otp'; tokenHash: string; type: string }
   | { kind: 'session'; accessToken: string; refreshToken: string }
   | { kind: 'none' };
+
+const SUPABASE_OTP_TYPES = new Set([
+  'signup',
+  'invite',
+  'magiclink',
+  'recovery',
+  'email_change',
+  'email',
+  'sms',
+  'phone_change',
+  'reauthentication',
+]);
 
 export function buildRecoveryRedirectUrl(appUrl: string) {
   const baseUrl = appUrl.replace(/\/$/, '');
@@ -22,24 +35,33 @@ export function hasAuthCallbackPayload(currentUrl: string) {
   const url = new URL(currentUrl);
   const hash = url.hash.replace(/^#/, '');
   const hashParams = new URLSearchParams(hash);
+  const type = url.searchParams.get('type') || hashParams.get('type');
+  const hasSupabaseOtpToken = Boolean(
+    (url.searchParams.get('token_hash') || url.searchParams.get('token')) &&
+    type &&
+    SUPABASE_OTP_TYPES.has(type)
+  );
+  const hasHashSession = Boolean(hashParams.get('access_token') && hashParams.get('refresh_token'));
+  const hasSupabaseErrorCode = Boolean(url.searchParams.get('error_code') || hashParams.get('error_code'));
+  const hasAuthError = Boolean(
+    (url.searchParams.get('error') || hashParams.get('error')) &&
+    (hasSupabaseErrorCode || (type && SUPABASE_OTP_TYPES.has(type)))
+  );
 
   return Boolean(
     url.searchParams.get('code') ||
     hashParams.get('code') ||
-    url.searchParams.get('token_hash') ||
-    url.searchParams.get('token') ||
-    hashParams.get('access_token') ||
-    hashParams.get('refresh_token') ||
-    url.searchParams.get('error') ||
-    hashParams.get('error') ||
-    url.searchParams.get('error_description') ||
-    hashParams.get('error_description')
+    hasSupabaseOtpToken ||
+    hasHashSession ||
+    hasAuthError
   );
 }
 
-export function resolveAuthCallbackRedirect({ type, next, refCode }: AuthCallbackRedirectInput) {
+export function resolveAuthCallbackRedirect({ type, next, refCode, locale }: AuthCallbackRedirectInput) {
+  const isEn = locale === 'en';
+
   if (type === 'recovery') {
-    return '/auth/update-password';
+    return isEn ? '/en/auth/update-password' : '/auth/update-password';
   }
 
   if (next && next.startsWith('/')) {
@@ -47,10 +69,12 @@ export function resolveAuthCallbackRedirect({ type, next, refCode }: AuthCallbac
   }
 
   if (refCode) {
-    return `/tornar-membro?ref=${encodeURIComponent(refCode)}&join=1`;
+    return isEn
+      ? `/en/become-member?ref=${encodeURIComponent(refCode)}&join=1`
+      : `/tornar-membro?ref=${encodeURIComponent(refCode)}&join=1`;
   }
 
-  return '/';
+  return isEn ? '/en/member' : '/member';
 }
 
 export function detectUpdatePasswordAuthPayload(currentUrl: string): UpdatePasswordAuthPayload {

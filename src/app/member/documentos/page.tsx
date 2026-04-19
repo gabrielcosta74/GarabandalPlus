@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { Toaster, toast } from 'sonner';
+import { useLocale } from '../../../contexts/LocaleContext';
 
 type MemberContent = {
     id: string;
@@ -20,19 +21,22 @@ type MemberContent = {
 };
 
 export default function MemberDocumentosNavigationPage() {
+    const { locale } = useLocale();
     const [contents, setContents] = useState<MemberContent[]>([]);
     const [loading, setLoading] = useState(true);
+    const isEn = locale === 'en';
+    const localePrefix = isEn ? '/en' : '';
 
     useEffect(() => {
         const fetchContents = async () => {
             try {
                 const token = await getBrowserAccessToken();
-                const res = await fetch('/api/member/contents', {
+                const res = await fetch(`/api/member/contents?locale=${locale}`, {
                     headers: { Authorization: `Bearer ${token}` },
                     cache: 'no-store'
                 });
                 const data = await res.json().catch(() => null);
-                if (!res.ok) throw new Error(data?.error || "Falha ao carregar o arquivo confidencial");
+                if (!res.ok) throw new Error(data?.error || (isEn ? 'Failed to load the private archive' : 'Falha ao carregar o arquivo confidencial'));
                 setContents(data?.contents || []);
             } catch (error: any) {
                 toast.error(error.message);
@@ -41,7 +45,7 @@ export default function MemberDocumentosNavigationPage() {
             }
         };
         fetchContents();
-    }, []);
+    }, [isEn, locale]);
 
     const pdfCount = contents.filter(c => c.type === 'pdf').length;
     const audioCount = contents.filter(c => c.type === 'audio').length;
@@ -60,13 +64,15 @@ export default function MemberDocumentosNavigationPage() {
                         <div className="max-w-3xl">
                             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-xs font-bold uppercase tracking-wider text-emerald-400 mb-6">
                                 <FolderLock className="w-4 h-4" />
-                                Arquivo Reservado
+                                {isEn ? 'Private Archive' : 'Arquivo Reservado'}
                             </div>
                             <h1 className="font-serif text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-6 leading-tight">
-                                O Tesouro Oculto de Garabandal
+                                {isEn ? 'The Hidden Treasury of Garabandal' : 'O Tesouro Oculto de Garabandal'}
                             </h1>
                             <p className="text-slate-400 text-lg md:text-xl leading-relaxed">
-                                Mergulha na profundidade das Aparições. Aqui preservamos relatórios originais, áudios com testemunhos diretos e galerias fotográficas inéditas sobre os eventos ocorridos em San Sebastián de Garabandal, reservados exclusivamente para os que apoiam a Mensagem.
+                                {isEn
+                                    ? 'Dive into the depth of the Apparitions. Here we preserve original reports, audio testimonies and rare photographic galleries about the events of San Sebastian de Garabandal, reserved for those who support the Message.'
+                                    : 'Mergulha na profundidade das Aparições. Aqui preservamos relatórios originais, áudios com testemunhos diretos e galerias fotográficas inéditas sobre os eventos ocorridos em San Sebastián de Garabandal, reservados exclusivamente para os que apoiam a Mensagem.'}
                             </p>
                         </div>
                         <div className="hidden lg:flex shrink-0 w-48 h-48 bg-gradient-to-br from-emerald-500/20 to-slate-900 rounded-full items-center justify-center border border-emerald-500/30">
@@ -78,20 +84,20 @@ export default function MemberDocumentosNavigationPage() {
                 {/* Selection Cards */}
                 <section className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
                     <Link 
-                        href="/member/documentos/manuscritos"
+                        href={`${localePrefix}/member/documents/manuscripts`}
                         className="group relative overflow-hidden rounded-3xl p-8 text-left transition-all duration-500 border-2 border-slate-800 bg-slate-900/50 hover:bg-slate-800 hover:border-red-500/50 hover:-translate-y-1 hover:shadow-2xl hover:shadow-red-500/10"
                     >
                         <div className="absolute top-0 right-0 w-32 h-32 bg-red-500/10 rounded-full blur-[50px] opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
                         <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-6 transition-colors duration-300 bg-red-500/10 text-red-500 group-hover:bg-red-500/20">
                             <FileText className="w-7 h-7" />
                         </div>
-                        <h3 className="text-2xl font-serif font-bold text-white mb-2 group-hover:text-red-400 transition-colors">Manuscritos</h3>
-                        <p className="text-slate-400 text-sm leading-relaxed mb-6">Documentos e registos escritos sobre as Aparições.</p>
+                        <h3 className="text-2xl font-serif font-bold text-white mb-2 group-hover:text-red-400 transition-colors">{isEn ? 'Manuscripts' : 'Manuscritos'}</h3>
+                        <p className="text-slate-400 text-sm leading-relaxed mb-6">{isEn ? 'Documents and written records about the Apparitions.' : 'Documentos e registos escritos sobre as Aparições.'}</p>
                         <div className="flex items-center justify-between mt-auto">
                             {loading ? (
                                 <div className="h-4 w-16 bg-slate-800 rounded animate-pulse"></div>
                             ) : (
-                                <span className="text-xs font-bold uppercase tracking-wider text-slate-500">{pdfCount} {pdfCount === 1 ? 'Ficheiro' : 'Ficheiros'}</span>
+                                <span className="text-xs font-bold uppercase tracking-wider text-slate-500">{pdfCount} {pdfCount === 1 ? (isEn ? 'File' : 'Ficheiro') : (isEn ? 'Files' : 'Ficheiros')}</span>
                             )}
                             <div className="w-8 h-8 rounded-full flex items-center justify-center transition-all bg-slate-800 text-white group-hover:bg-red-500/20 group-hover:text-red-400">
                                 <ChevronRight className="w-4 h-4" />
@@ -100,20 +106,20 @@ export default function MemberDocumentosNavigationPage() {
                     </Link>
 
                     <Link 
-                        href="/member/documentos/testemunhos"
+                        href={`${localePrefix}/member/documents/testimonies`}
                         className="group relative overflow-hidden rounded-3xl p-8 text-left transition-all duration-500 border-2 border-slate-800 bg-slate-900/50 hover:bg-slate-800 hover:border-purple-500/50 hover:-translate-y-1 hover:shadow-2xl hover:shadow-purple-500/10"
                     >
                         <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/10 rounded-full blur-[50px] opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
                         <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-6 transition-colors duration-300 bg-purple-500/10 text-purple-500 group-hover:bg-purple-500/20">
                             <Music className="w-7 h-7" />
                         </div>
-                        <h3 className="text-2xl font-serif font-bold text-white mb-2 group-hover:text-purple-400 transition-colors">Testemunhos</h3>
-                        <p className="text-slate-400 text-sm leading-relaxed mb-6">Gravações áudio vitais e mensagens documentadas.</p>
+                        <h3 className="text-2xl font-serif font-bold text-white mb-2 group-hover:text-purple-400 transition-colors">{isEn ? 'Testimonies' : 'Testemunhos'}</h3>
+                        <p className="text-slate-400 text-sm leading-relaxed mb-6">{isEn ? 'Audio recordings and documented messages.' : 'Gravações áudio vitais e mensagens documentadas.'}</p>
                         <div className="flex items-center justify-between mt-auto">
                             {loading ? (
                                 <div className="h-4 w-16 bg-slate-800 rounded animate-pulse"></div>
                             ) : (
-                                <span className="text-xs font-bold uppercase tracking-wider text-slate-500">{audioCount} {audioCount === 1 ? 'Áudio' : 'Áudios'}</span>
+                                <span className="text-xs font-bold uppercase tracking-wider text-slate-500">{audioCount} {audioCount === 1 ? (isEn ? 'Audio' : 'Áudio') : (isEn ? 'Audio Files' : 'Áudios')}</span>
                             )}
                             <div className="w-8 h-8 rounded-full flex items-center justify-center transition-all bg-slate-800 text-white group-hover:bg-purple-500/20 group-hover:text-purple-400">
                                 <ChevronRight className="w-4 h-4" />
@@ -122,20 +128,20 @@ export default function MemberDocumentosNavigationPage() {
                     </Link>
 
                     <Link 
-                        href="/member/documentos/fotografias"
+                        href={`${localePrefix}/member/documents/photographs`}
                         className="group relative overflow-hidden rounded-3xl p-8 text-left transition-all duration-500 border-2 border-slate-800 bg-slate-900/50 hover:bg-slate-800 hover:border-blue-500/50 hover:-translate-y-1 hover:shadow-2xl hover:shadow-blue-500/10"
                     >
                         <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-full blur-[50px] opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
                         <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-6 transition-colors duration-300 bg-blue-500/10 text-blue-500 group-hover:bg-blue-500/20">
                             <ImageIcon className="w-7 h-7" />
                         </div>
-                        <h3 className="text-2xl font-serif font-bold text-white mb-2 group-hover:text-blue-400 transition-colors">Fotografias</h3>
-                        <p className="text-slate-400 text-sm leading-relaxed mb-6">Galerias ocultas históricas e imagens exclusivas.</p>
+                        <h3 className="text-2xl font-serif font-bold text-white mb-2 group-hover:text-blue-400 transition-colors">{isEn ? 'Photographs' : 'Fotografias'}</h3>
+                        <p className="text-slate-400 text-sm leading-relaxed mb-6">{isEn ? 'Historic hidden galleries and exclusive images.' : 'Galerias ocultas históricas e imagens exclusivas.'}</p>
                         <div className="flex items-center justify-between mt-auto">
                             {loading ? (
                                 <div className="h-4 w-16 bg-slate-800 rounded animate-pulse"></div>
                             ) : (
-                                <span className="text-xs font-bold uppercase tracking-wider text-slate-500">{galleryCount} {galleryCount === 1 ? 'Galeria' : 'Galerias'}</span>
+                                <span className="text-xs font-bold uppercase tracking-wider text-slate-500">{galleryCount} {galleryCount === 1 ? (isEn ? 'Gallery' : 'Galeria') : (isEn ? 'Galleries' : 'Galerias')}</span>
                             )}
                             <div className="w-8 h-8 rounded-full flex items-center justify-center transition-all bg-slate-800 text-white group-hover:bg-blue-500/20 group-hover:text-blue-400">
                                 <ChevronRight className="w-4 h-4" />

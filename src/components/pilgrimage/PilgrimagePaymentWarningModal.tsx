@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import Link from 'next/link';
 import { AlertTriangle, ArrowRight, X } from 'lucide-react';
+import { useLocale } from '../../contexts/LocaleContext';
 
 type PilgrimagePaymentWarningModalProps = {
     isOpen: boolean;
@@ -15,6 +16,9 @@ export default function PilgrimagePaymentWarningModal({
     onClose,
     continueLink
 }: PilgrimagePaymentWarningModalProps) {
+    const { locale } = useLocale();
+    const isEn = locale === 'en';
+
     useEffect(() => {
         if (!isOpen) {
             return;
@@ -45,7 +49,7 @@ export default function PilgrimagePaymentWarningModal({
         <div className="fixed inset-0 z-[100000001]">
             <button
                 type="button"
-                aria-label="Fechar aviso de inscrição"
+                aria-label={isEn ? 'Close registration notice' : 'Fechar aviso de inscrição'}
                 onClick={onClose}
                 className="absolute inset-0 bg-slate-950/70 backdrop-blur-sm"
             />
@@ -58,9 +62,9 @@ export default function PilgrimagePaymentWarningModal({
                                 <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-yellow-100 text-yellow-700">
                                     <AlertTriangle className="h-6 w-6" />
                                 </div>
-                                <h2 className="text-2xl font-bold text-slate-900">Antes de iniciar a inscrição</h2>
+                                <h2 className="text-2xl font-bold text-slate-900">{isEn ? 'Before you start registration' : 'Antes de iniciar a inscrição'}</h2>
                                 <p className="mt-2 text-sm leading-relaxed text-slate-500">
-                                    Leia este aviso antes de avançar para o formulário.
+                                    {isEn ? 'Please read this notice before continuing to the form.' : 'Leia este aviso antes de avançar para o formulário.'}
                                 </p>
                             </div>
                             <button
@@ -76,12 +80,14 @@ export default function PilgrimagePaymentWarningModal({
                     <div className="space-y-4 px-5 py-5 md:px-8 md:py-8">
                         <div className="rounded-3xl border border-yellow-200 bg-yellow-50 p-5">
                             <p className="text-base font-semibold leading-relaxed text-yellow-950">
-                                Após realizar a sua inscrição terá que realizar num prazo máximo de 5 dias úteis, o pagamento/doação do valor da inscrição para confirmar e garantir a sua inscrição.
+                                {isEn
+                                    ? 'After submitting your registration, you must complete the registration payment/donation within 5 business days to confirm and secure your place.'
+                                    : 'Após realizar a sua inscrição terá que realizar num prazo máximo de 5 dias úteis, o pagamento/doação do valor da inscrição para confirmar e garantir a sua inscrição.'}
                             </p>
                         </div>
 
                         <p className="text-sm leading-relaxed text-slate-600">
-                            Se não fizer esse pagamento dentro do prazo, a sua inscrição poderá não ficar confirmada.
+                            {isEn ? 'If you do not complete that payment within the deadline, your registration may not be confirmed.' : 'Se não fizer esse pagamento dentro do prazo, a sua inscrição poderá não ficar confirmada.'}
                         </p>
                     </div>
 
@@ -92,14 +98,14 @@ export default function PilgrimagePaymentWarningModal({
                                 onClick={onClose}
                                 className="inline-flex items-center justify-center rounded-xl border border-slate-200 px-4 py-3 text-sm font-bold text-slate-700 transition-colors hover:bg-slate-50"
                             >
-                                Cancelar
+                                {isEn ? 'Cancel' : 'Cancelar'}
                             </button>
                             <Link
                                 href={continueLink}
                                 onClick={onClose}
                                 className="inline-flex items-center justify-center gap-2 rounded-xl bg-yellow-400 px-4 py-3 text-sm font-black text-slate-950 transition-colors hover:bg-yellow-500"
                             >
-                                Continuar para inscrição
+                                {isEn ? 'Continue to registration' : 'Continuar para inscrição'}
                                 <ArrowRight className="h-4 w-4" />
                             </Link>
                         </div>

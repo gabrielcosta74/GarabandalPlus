@@ -6,6 +6,7 @@ import { useState, useEffect } from 'react';
 import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Video, Clock } from 'lucide-react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useLocale } from '../../../contexts/LocaleContext';
 
 type Event = {
     id: string;
@@ -18,6 +19,8 @@ type Event = {
 };
 
 export default function CalendarPage() {
+    const { locale } = useLocale();
+    const isEn = locale === 'en';
     const [currentDate, setCurrentDate] = useState(new Date());
     const [events, setEvents] = useState<Event[]>([]);
     const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
@@ -70,8 +73,8 @@ export default function CalendarPage() {
         });
     };
 
-    const monthName = currentDate.toLocaleDateString('pt-PT', { month: 'long', year: 'numeric' });
-    const weekDays = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+    const monthName = currentDate.toLocaleDateString(isEn ? 'en-GB' : 'pt-PT', { month: 'long', year: 'numeric' });
+    const weekDays = isEn ? ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] : ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
     // Selected Day Events
     const selectedDayEvents = selectedDate ? events.filter(e => {
@@ -87,8 +90,8 @@ export default function CalendarPage() {
                 {/* Header */}
                 <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                     <div>
-                        <h1 className="text-3xl font-serif text-white">Calendário de Eventos</h1>
-                        <p className="text-slate-400">Agenda de reuniões e encontros do Apostolado.</p>
+                        <h1 className="text-3xl font-serif text-white">{isEn ? 'Events Calendar' : 'Calendário de Eventos'}</h1>
+                        <p className="text-slate-400">{isEn ? 'Schedule of Apostolate meetings and gatherings.' : 'Agenda de reuniões e encontros do Apostolado.'}</p>
                     </div>
                 </div>
 
@@ -179,13 +182,13 @@ export default function CalendarPage() {
 
                                     <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2 pb-4 border-b border-white/10">
                                         <CalendarIcon className="w-6 h-6 text-blue-500" />
-                                        {selectedDate.toLocaleDateString('pt-PT', { weekday: 'long', day: 'numeric', month: 'long' })}
+                                        {selectedDate.toLocaleDateString(isEn ? 'en-GB' : 'pt-PT', { weekday: 'long', day: 'numeric', month: 'long' })}
                                     </h3>
 
                                     <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
                                         {selectedDayEvents.length === 0 ? ( // Added check for no events
                                             <div className="text-center py-12 text-slate-500 border border-dashed border-white/10 rounded-xl">
-                                                <p className="text-sm">Sem eventos.</p>
+                                                <p className="text-sm">{isEn ? 'No events.' : 'Sem eventos.'}</p>
                                             </div>
                                         ) : (
                                             selectedDayEvents.map(event => (
@@ -226,7 +229,7 @@ export default function CalendarPage() {
                                                                     target="_blank"
                                                                     className={`flex items-center justify-center gap-2 w-full py-3 rounded-lg text-sm font-bold uppercase tracking-wide transition-all ${isLive ? 'bg-red-600 hover:bg-red-500 text-white shadow-lg shadow-red-900/20' : 'bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-900/20'}`}
                                                                 >
-                                                                    Participar na Reunião <Video className={isLive ? "w-4 h-4 animate-pulse" : "w-4 h-4"} />
+                                                            {isEn ? 'Join Meeting' : 'Participar na Reunião'} <Video className={isLive ? "w-4 h-4 animate-pulse" : "w-4 h-4"} />
                                                                 </a>
                                                             );
                                                         }
@@ -234,14 +237,14 @@ export default function CalendarPage() {
                                                         if (event.meeting_url) {
                                                             return (
                                                                 <button disabled className="w-full py-3 rounded-lg bg-slate-800 text-slate-400 text-sm font-bold uppercase tracking-wide cursor-not-allowed flex items-center justify-center gap-2">
-                                                                    <Clock className="w-4 h-4 text-blue-400" /> Acesso abre 30 min antes
+                                                                    <Clock className="w-4 h-4 text-blue-400" /> {isEn ? 'Access opens 30 min before' : 'Acesso abre 30 min antes'}
                                                                 </button>
                                                             );
                                                         }
 
                                                         return (
                                                             <div className="w-full py-3 rounded-lg bg-orange-500/10 border border-orange-500/20 text-orange-400 text-sm font-bold uppercase tracking-wide text-center">
-                                                                Link disponível no dia do evento
+                                                                {isEn ? 'Link available on event day' : 'Link disponível no dia do evento'}
                                                             </div>
                                                         );
                                                     })()}

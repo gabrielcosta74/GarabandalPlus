@@ -51,6 +51,22 @@ export type ReminderCandidate = {
   stage: ReminderStage;
 };
 
+export type ReminderPlanEntry = {
+  kind: ReminderStageKind;
+  notificationType: ReminderNotificationType;
+  diffDays: number;
+  scheduledFor: string;
+  isPast: boolean;
+  isToday: boolean;
+  isFuture: boolean;
+};
+
+export type ReminderPlan = Omit<ReminderCandidate, 'stage'> & {
+  reminderKind: 'deposit' | 'installment';
+  currentStage: ReminderStage | null;
+  timeline: ReminderPlanEntry[];
+};
+
 export type ReminderBooking = {
   id: string;
   user_id?: string | null;
@@ -110,16 +126,17 @@ const addDays = (value: string, days: number) => {
 export const parsePaymentPlan = (
   value: unknown,
 ): Array<{ date: string; amount: number }> => {
-  const parsed =
-    typeof value === 'string'
-      ? (() => {
-          try {
-            return JSON.parse(value);
-          } catch {
-            return [];
-          }
-        })()
-      : value;
+  let parsed: unknown = value;
+
+  // Some bookings persisted `payment_plan` as a JSON string inside another JSON string.
+  // Unwrap a few times so reminder logic matches the live booking payloads in Supabase.
+  for (let depth = 0; depth < 3 && typeof parsed === 'string'; depth += 1) {
+    try {
+      parsed = JSON.parse(parsed);
+    } catch {
+      return [];
+    }
+  }
 
   if (!Array.isArray(parsed)) return [];
 
@@ -179,12 +196,18 @@ export const buildBookingAccessUrl = (appUrl: string, bookingId: string, viewTok
 const getReminderStage = (diffDays: number, stages: ReminderStage[]) =>
   stages.find((stage) => stage.diffDays === diffDays) || null;
 
+const getReminderStagesForObligation = (obligationKey: string) =>
+  obligationKey === 'deposit' ? DEPOSIT_REMINDER_STAGES : INSTALLMENT_REMINDER_STAGES;
+
+const getReminderKind = (obligationKey: string): 'deposit' | 'installment' =>
+  obligationKey === 'deposit' ? 'deposit' : 'installment';
+
 const sumPendingReceiptValidationAmount = (payments: Payment[] = []) =>
   payments
     .filter((payment) => isPaymentAwaitingReceiptValidation(payment))
     .reduce((sum, payment) => sum + normalizeNumber(payment.amount), 0);
 
-export const resolveReminderCandidate = (
+const resolveReminderBase = (
   booking: ReminderBooking,
   options: {
     email?: string | null;
@@ -192,7 +215,7 @@ export const resolveReminderCandidate = (
     appUrl: string;
     now?: Date;
   },
-): ReminderCandidate | null => {
+) => {
   const now = options.now || new Date();
   const totalAmount = normalizeNumber(booking.total_amount);
   const paidAmount = normalizeNumber(booking.paid_amount);
@@ -241,14 +264,6 @@ export const resolveReminderCandidate = (
   const dueDate = new Date(activeObligation.dueDate);
   if (Number.isNaN(dueDate.getTime())) return null;
 
-  const stage = getReminderStage(
-    daysBetweenUtc(now, dueDate),
-    activeObligation.obligationKey === 'deposit'
-      ? DEPOSIT_REMINDER_STAGES
-      : INSTALLMENT_REMINDER_STAGES,
-  );
-  if (!stage) return null;
-
   const email = normalizeString(options.email);
   if (!email) return null;
 
@@ -272,6 +287,102 @@ export const resolveReminderCandidate = (
     totalAmount,
     paidAmount,
     totalRemaining,
+  };
+};
+
+export const buildReminderReference = (
+  bookingId: string,
+  obligationKey: string,
+  notificationType: ReminderNotificationType,
+  dueDate: string,
+) => [
+  bookingId,
+  obligationKey,
+  notificationType,
+  dueDate.slice(0, 10),
+].join(':');
+
+export const buildReminderTimeline = (
+  obligationKey: string,
+  dueDate: string,
+  now: Date = new Date(),
+): ReminderPlanEntry[] => {
+  const stages = getReminderStagesForObligation(obligationKey);
+
+  return stages
+    .map((stage) => {
+      const scheduledFor = addDays(dueDate, -stage.diffDays);
+      if (!scheduledFor) return null;
+
+      const scheduledDate = new Date(scheduledFor);
+      if (Number.isNaN(scheduledDate.getTime())) return null;
+
+      const diff = daysBetweenUtc(now, scheduledDate);
+
+      return {
+        kind: stage.kind,
+        notificationType: stage.notificationType,
+        diffDays: stage.diffDays,
+        scheduledFor,
+        isPast: diff < 0,
+        isToday: diff === 0,
+        isFuture: diff > 0,
+      };
+    })
+    .filter((entry): entry is ReminderPlanEntry => Boolean(entry));
+};
+
+export const resolveReminderCandidate = (
+  booking: ReminderBooking,
+  options: {
+    email?: string | null;
+    recipientName?: string | null;
+    appUrl: string;
+    now?: Date;
+  },
+): ReminderCandidate | null => {
+  const now = options.now || new Date();
+  const base = resolveReminderBase(booking, options);
+  if (!base) return null;
+
+  const dueDate = new Date(base.dueDate);
+  if (Number.isNaN(dueDate.getTime())) return null;
+
+  const stage = getReminderStage(
+    daysBetweenUtc(now, dueDate),
+    getReminderStagesForObligation(base.obligationKey),
+  );
+  if (!stage) return null;
+
+  return {
+    ...base,
     stage,
+  };
+};
+
+export const projectReminderPlan = (
+  booking: ReminderBooking,
+  options: {
+    email?: string | null;
+    recipientName?: string | null;
+    appUrl: string;
+    now?: Date;
+  },
+): ReminderPlan | null => {
+  const now = options.now || new Date();
+  const base = resolveReminderBase(booking, options);
+  if (!base) return null;
+
+  const dueDate = new Date(base.dueDate);
+  if (Number.isNaN(dueDate.getTime())) return null;
+
+  return {
+    ...base,
+    reminderKind: getReminderKind(base.obligationKey),
+    currentStage: getReminderStage(
+      daysBetweenUtc(now, dueDate),
+      getReminderStagesForObligation(base.obligationKey),
+    ),
+    timeline: buildReminderTimeline(base.obligationKey, base.dueDate, now),
   };
 };

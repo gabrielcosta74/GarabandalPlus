@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useCurrency } from "../providers/CurrencyProvider";
+import { useLocale } from "../../contexts/LocaleContext";
 
 type ReferralWidgetProps = {
   userId: string;
@@ -39,6 +40,8 @@ export default function ReferralWidget({
   const [copiedLink, setCopiedLink] = useState(false);
   const [copiedWidgetCode, setCopiedWidgetCode] = useState(false);
   const { formatPrice } = useCurrency();
+  const { locale } = useLocale();
+  const isEn = locale === 'en';
 
   useEffect(() => {
     const ensureReferralCode = async () => {
@@ -80,9 +83,11 @@ export default function ReferralWidget({
 
   const shareUrl =
     typeof window !== "undefined"
-      ? `${window.location.origin}/convite/${referralCode}`
+      ? `${window.location.origin}${isEn ? `/en/invite/${referralCode}` : `/convite/${referralCode}`}`
       : "";
-  const shareText = `Olá! 👋 Faço parte do *Apostolado de Garabandal* e convido-te a conhecer a nossa missão. 🕊️✨\n\nAo registares-te como Membro através do meu convite, ajudas a apoiar a missão e as obras da nova Casa de Acolhimento do Apostolado. 🙏\n\nComo agradecimento, ganhas de imediato *${formatPrice(2.50)} de saldo de boas-vindas* para usares na nossa Loja Online. 🎁\n\nJunta-te a nós aqui:`;
+  const shareText = isEn
+    ? `Hello! 👋 I'm part of the *Apostolado de Garabandal* and I invite you to learn about our mission. 🕊️✨\n\nBy registering as a Member through my invite, you help support the mission and works of the new Apostolado's Welcome House. 🙏\n\nAs a thank you, you immediately earn *${formatPrice(2.50)} in welcome credit* to use in our Online Store. 🎁\n\nJoin us here:`
+    : `Olá! 👋 Faço parte do *Apostolado de Garabandal* e convido-te a conhecer a nossa missão. 🕊️✨\n\nAo registares-te como Membro através do meu convite, ajudas a apoiar a missão e as obras da nova Casa de Acolhimento do Apostolado. 🙏\n\nComo agradecimento, ganhas de imediato *${formatPrice(2.50)} de saldo de boas-vindas* para usares na nossa Loja Online. 🎁\n\nJunta-te a nós aqui:`;
 
   const handleShare = async () => {
     if (!referralCode) return;
@@ -118,14 +123,14 @@ export default function ReferralWidget({
           <div>
             <div className="flex items-center gap-2 mb-0.5">
               <p className="text-[10px] text-slate-400 uppercase tracking-widest font-bold">
-                Saldo da Loja
+                {isEn ? 'Store Balance' : 'Saldo da Loja'}
               </p>
               <button
                 onClick={() => setIsModalOpen(true)}
                 className="flex items-center gap-1 text-[10px] text-yellow-500 hover:text-yellow-400 transition-colors bg-yellow-500/10 px-1.5 py-0.5 rounded cursor-pointer"
               >
                 <Info className="w-3 h-3" />
-                <span>Como funciona?</span>
+                <span>{isEn ? 'How it works?' : 'Como funciona?'}</span>
               </button>
             </div>
             <div className="flex items-baseline gap-2">
@@ -134,7 +139,7 @@ export default function ReferralWidget({
               </span>
               {referralsCount > 0 && (
                 <span className="text-xs text-slate-500 font-medium whitespace-nowrap">
-                  ({referralsCount} amigos)
+                  ({referralsCount} {isEn ? 'friends' : 'amigos'})
                 </span>
               )}
             </div>
@@ -144,7 +149,7 @@ export default function ReferralWidget({
         {/* Middle: Referral Code Display */}
         {!isGenerating && referralCode && (
           <div className="flex flex-col items-center sm:items-start w-full sm:w-auto relative z-10 border-y sm:border-y-0 sm:border-x border-white/5 py-4 sm:py-0 sm:px-8">
-            <p className="text-[10px] text-slate-400 uppercase tracking-widest font-bold mb-2">O Teu Código</p>
+            <p className="text-[10px] text-slate-400 uppercase tracking-widest font-bold mb-2">{isEn ? 'Your Code' : 'O Teu Código'}</p>
             <button
               onClick={() => {
                 navigator.clipboard.writeText(referralCode);
@@ -152,7 +157,7 @@ export default function ReferralWidget({
                 setTimeout(() => setCopiedWidgetCode(false), 3000);
               }}
               className="group/code flex items-center bg-slate-950/50 hover:bg-slate-900 border border-white/10 hover:border-yellow-500/30 rounded-lg p-1 pr-3 transition-colors text-left"
-              title="Copiar Código"
+              title={isEn ? "Copy Code" : "Copiar Código"}
             >
               <div className="bg-slate-800 text-white font-mono text-sm px-3 py-1.5 rounded-md font-bold tracking-widest mr-3">
                 {referralCode}
@@ -173,11 +178,11 @@ export default function ReferralWidget({
           >
             {isGenerating ? (
               <span className="animate-pulse flex items-center gap-2">
-                <Share2 className="w-4 h-4 opacity-50" />A gerar...
+                <Share2 className="w-4 h-4 opacity-50" />{isEn ? 'Generating...' : 'A gerar...'}
               </span>
             ) : (
               <span className="flex items-center gap-2">
-                <Share2 className="w-4 h-4" /> Convidar Amigos
+                <Share2 className="w-4 h-4" /> {isEn ? 'Invite Friends' : 'Convidar Amigos'}
               </span>
             )}
           </button>
@@ -215,26 +220,34 @@ export default function ReferralWidget({
                 </div>
 
                 <h3 className="text-xl font-bold text-white mb-4">
-                  Como funciona o Saldo?
+                  {isEn ? 'How does the Balance work?' : 'Como funciona o Saldo?'}
                 </h3>
                 <div className="space-y-4 mb-6">
                   <div className="flex gap-3">
                     <div className="w-6 h-6 rounded-full bg-yellow-500/20 text-yellow-500 flex items-center justify-center text-xs font-bold shrink-0">1</div>
-                    <p className="text-sm text-slate-300">Partilhas o teu código ou link exclusivo com um amigo.</p>
+                    <p className="text-sm text-slate-300">{isEn ? 'You share your exclusive code or link with a friend.' : 'Partilhas o teu código ou link exclusivo com um amigo.'}</p>
                   </div>
                   <div className="flex gap-3">
                     <div className="w-6 h-6 rounded-full bg-yellow-500/20 text-yellow-500 flex items-center justify-center text-xs font-bold shrink-0">2</div>
-                    <p className="text-sm text-slate-300">O teu amigo regista-se e finaliza o seu primeiro donativo para apoiar a Missão.</p>
+                    <p className="text-sm text-slate-300">{isEn ? 'Your friend registers and completes their first donation to support the Mission.' : 'O teu amigo regista-se e finaliza o seu primeiro donativo para apoiar a Missão.'}</p>
                   </div>
                   <div className="flex gap-3">
                     <div className="w-6 h-6 rounded-full bg-yellow-500/20 text-yellow-500 flex items-center justify-center text-xs font-bold shrink-0">3</div>
                     <p className="text-sm text-slate-300">
-                      <strong>Ganham ambos {formatPrice(2.50)}</strong> creditados na hora nesta carteira virtual!
+                      {isEn ? (
+                        <><strong>You both get {formatPrice(2.50)}</strong> instantly credited to this virtual wallet!</>
+                      ) : (
+                        <><strong>Ganham ambos {formatPrice(2.50)}</strong> creditados na hora nesta carteira virtual!</>
+                      )}
                     </p>
                   </div>
                   <div className="bg-white/5 rounded-lg p-3 border border-white/10 mt-2">
                     <p className="text-xs text-slate-400 leading-relaxed">
-                      Podes acumular saldo consoante o número de pessoas que convidares. Todo o valor pode (e deve) ser trocado por artigos, livros ou doações na nossa <strong>Loja Online</strong>.
+                      {isEn ? (
+                        <>You can accumulate balance based on the number of people you invite. The entire amount can (and should) be exchanged for items, books or donations in our <strong>Online Store</strong>.</>
+                      ) : (
+                        <>Podes acumular saldo consoante o número de pessoas que convidares. Todo o valor pode (e deve) ser trocado por artigos, livros ou doações na nossa <strong>Loja Online</strong>.</>
+                      )}
                     </p>
                   </div>
                 </div>
@@ -246,7 +259,7 @@ export default function ReferralWidget({
                   }}
                   className="w-full py-3.5 bg-yellow-500 hover:bg-yellow-400 text-slate-900 font-bold rounded-xl flex items-center justify-center gap-2 transition-colors shadow-lg shadow-yellow-500/20"
                 >
-                  <Share2 className="w-4 h-4" /> Convidar Amigos Agora
+                  <Share2 className="w-4 h-4" /> {isEn ? 'Invite Friends Now' : 'Convidar Amigos Agora'}
                 </button>
               </motion.div>
             </motion.div>
@@ -281,11 +294,10 @@ export default function ReferralWidget({
                 </button>
 
                 <h3 className="text-xl font-bold text-white mb-2">
-                  Partilhar Convite
+                  {isEn ? 'Share Invite' : 'Partilhar Convite'}
                 </h3>
                 <p className="text-sm text-slate-400 mb-6">
-                  Copia a mensagem abaixo e envia aos teus amigos pelo WhatsApp
-                  Web, Email ou Redes Sociais.
+                  {isEn ? 'Copy the message below and send it to your friends via WhatsApp Web, Email or Social Networks.' : 'Copia a mensagem abaixo e envia aos teus amigos pelo WhatsApp Web, Email ou Redes Sociais.'}
                 </p>
 
                 <div className="bg-slate-950/50 border border-white/5 rounded-xl p-4 mb-6 relative group">
@@ -309,14 +321,14 @@ export default function ReferralWidget({
                       <Copy className="w-4 h-4" />
                     )}
                     <span className="text-xs font-bold">
-                      {copiedText ? "Copiado!" : "Copiar Texto"}
+                      {copiedText ? (isEn ? "Copied!" : "Copiado!") : (isEn ? "Copy Text" : "Copiar Texto")}
                     </span>
                   </button>
                 </div>
 
                 <div className="flex flex-col gap-2">
                   <p className="text-xs text-slate-500 font-bold uppercase tracking-wider pl-1">
-                    Apenas o Link de Convite
+                    {isEn ? 'Only the Invite Link' : 'Apenas o Link de Convite'}
                   </p>
                   <div className="flex gap-2">
                     <input
@@ -339,7 +351,7 @@ export default function ReferralWidget({
                         <Copy className="w-5 h-5" />
                       )}
                       <span className="hidden sm:inline">
-                        {copiedLink ? "Copiado" : "Copiar"}
+                        {copiedLink ? (isEn ? "Copied" : "Copiado") : (isEn ? "Copy" : "Copiar")}
                       </span>
                     </button>
                   </div>

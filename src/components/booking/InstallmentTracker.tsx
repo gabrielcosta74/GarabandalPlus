@@ -2,8 +2,9 @@
 
 import { Check, Clock, AlertCircle } from 'lucide-react';
 import { format } from 'date-fns';
-import { pt } from 'date-fns/locale';
+import { enUS, pt } from 'date-fns/locale';
 import { calculateInstallmentStatus, type InstallmentStatus, type Payment } from '../../lib/utils';
+import { useLocale } from '../../contexts/LocaleContext';
 
 interface InstallmentTrackerProps {
     totalAmount: number;
@@ -24,6 +25,9 @@ export default function InstallmentTracker({
     formatPrice = (val) => `${val.toFixed(2)}€`,
     useDonationCopy = false
 }: InstallmentTrackerProps) {
+    const { locale } = useLocale();
+    const isEn = locale === 'en';
+    const dateLocale = isEn ? enUS : pt;
     // Calculate installment status using waterfall algorithm
     const installments = calculateInstallmentStatus(
         paidAmount,
@@ -70,10 +74,10 @@ export default function InstallmentTracker({
             {/* Header */}
             <div className="bg-gradient-to-r from-indigo-600 to-purple-600 p-6">
                 <h3 className="text-xl font-bold text-white flex items-center gap-2">
-                    💰 Plano de {useDonationCopy ? 'Doações' : 'Pagamentos'}
+                    💰 {isEn ? `${useDonationCopy ? 'Donation' : 'Payment'} Plan` : `Plano de ${useDonationCopy ? 'Doações' : 'Pagamentos'}`}
                 </h3>
                 <p className="text-indigo-100 text-sm mt-1">
-                    Acompanha o estado de cada prestação
+                    {isEn ? 'Track the status of each installment' : 'Acompanha o estado de cada prestação'}
                 </p>
             </div>
 
@@ -96,7 +100,7 @@ export default function InstallmentTracker({
                                     </h4>
                                     {installment.dueDate && installment.status !== 'paid' && (
                                         <p className="text-xs opacity-75">
-                                            Vencimento: {format(new Date(installment.dueDate), 'dd MMM yyyy', { locale: pt })}
+                                            {isEn ? 'Due' : 'Vencimento'}: {format(new Date(installment.dueDate), 'dd MMM yyyy', { locale: dateLocale })}
                                         </p>
                                     )}
                                 </div>
@@ -104,9 +108,9 @@ export default function InstallmentTracker({
 
                             {/* Status Badge */}
                             <div className="text-xs font-bold uppercase px-3 py-1 rounded-full bg-white/50">
-                                {installment.status === 'paid' && (useDonationCopy ? '✅ Doado' : '✅ Pago')}
-                                {installment.status === 'partial' && '⚠️ Parcial'}
-                                {installment.status === 'pending' && '⏳ Pendente'}
+                                {installment.status === 'paid' && (useDonationCopy ? (isEn ? '✅ Donated' : '✅ Doado') : (isEn ? '✅ Paid' : '✅ Pago'))}
+                                {installment.status === 'partial' && (isEn ? '⚠️ Partial' : '⚠️ Parcial')}
+                                {installment.status === 'pending' && (isEn ? '⏳ Pending' : '⏳ Pendente')}
                             </div>
                         </div>
 
@@ -120,7 +124,7 @@ export default function InstallmentTracker({
                             </span>
                             {installment.remainingAmount > 0 && (
                                 <span className="text-sm font-bold ml-auto">
-                                    Falta: {formatPrice(installment.remainingAmount)}
+                                    {isEn ? 'Remaining' : 'Falta'}: {formatPrice(installment.remainingAmount)}
                                 </span>
                             )}
                         </div>
@@ -140,7 +144,9 @@ export default function InstallmentTracker({
                         {installment.payments.length > 0 && (
                             <div className="mt-3 pt-3 border-t border-current/20">
                                 <p className="text-xs font-bold mb-2 opacity-75">
-                                    📎 {installment.payments.length} doaç{installment.payments.length > 1 ? 'ões' : 'ão'} registada{installment.payments.length > 1 ? 's' : ''}:
+                                    📎 {isEn
+                                        ? `${installment.payments.length} recorded ${installment.payments.length > 1 ? 'payments' : 'payment'}:`
+                                        : `${installment.payments.length} doaç${installment.payments.length > 1 ? 'ões' : 'ão'} registada${installment.payments.length > 1 ? 's' : ''}:`}
                                 </p>
                                 <div className="space-y-1">
                                     {installment.payments.map((payment: { id: string; amount: number; date: string; method: string }, pidx: number) => (
@@ -149,7 +155,7 @@ export default function InstallmentTracker({
                                                 {formatPrice(payment.amount)} · {payment.method}
                                             </span>
                                             <span className="opacity-75">
-                                                {format(new Date(payment.date), 'dd MMM', { locale: pt })}
+                                                {format(new Date(payment.date), 'dd MMM', { locale: dateLocale })}
                                             </span>
                                         </div>
                                     ))}
@@ -163,20 +169,22 @@ export default function InstallmentTracker({
             {/* Summary Footer */}
             <div className="bg-slate-50 border-t border-slate-200 p-6">
                 <div className="flex items-center justify-between text-sm">
-                    <span className="font-bold text-slate-700">{useDonationCopy ? 'Total Doado:' : 'Total Pago:'}</span>
+                    <span className="font-bold text-slate-700">{useDonationCopy ? (isEn ? 'Total Donated:' : 'Total Doado:') : (isEn ? 'Total Paid:' : 'Total Pago:')}</span>
                     <span className="text-2xl font-bold text-green-600">
                         {formatPrice(paidAmount)}
                     </span>
                 </div>
                 <div className="flex items-center justify-between text-sm mt-2">
-                    <span className="font-bold text-slate-700">{useDonationCopy ? 'Saldo a Doar:' : 'Saldo Devedor:'}</span>
+                    <span className="font-bold text-slate-700">{useDonationCopy ? (isEn ? 'Remaining to Donate:' : 'Saldo a Doar:') : (isEn ? 'Outstanding Balance:' : 'Saldo Devedor:')}</span>
                     <span className="text-2xl font-bold text-slate-900">
                         {formatPrice(Math.max(0, totalAmount - paidAmount))}
                     </span>
                 </div>
                 <div className="mt-3 pt-3 border-t border-slate-300">
                     <div className="text-xs text-slate-500 text-center">
-                        💡 {useDonationCopy ? 'As doações são alocadas automaticamente por ordem de vencimento' : 'Os pagamentos são alocados automaticamente por ordem de vencimento'}
+                        💡 {useDonationCopy
+                            ? (isEn ? 'Donations are automatically allocated by due-date order' : 'As doações são alocadas automaticamente por ordem de vencimento')
+                            : (isEn ? 'Payments are automatically allocated by due-date order' : 'Os pagamentos são alocados automaticamente por ordem de vencimento')}
                     </div>
                 </div>
             </div>

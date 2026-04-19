@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation"; // Removed useParams as we get product via props
+import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { Product, loadCart, saveCart } from "../../data";
@@ -11,6 +11,7 @@ import { ShoppingCart, ArrowLeft, Check, Truck, ShieldCheck, CreditCard, Globe }
 import { useCurrency } from "../../../../components/providers/CurrencyProvider";
 import { listCountryOptions } from "../../../../lib/country-utils";
 import { inferIsDigitalProduct } from "../../../../lib/product-kind";
+import { useLocale } from "../../../../contexts/LocaleContext";
 
 const getVatRate = (product: Product) => (product.isPhysical ? 0.06 : 0.23);
 
@@ -27,6 +28,8 @@ interface ProductClientProps {
 
 export default function ProductClient({ product, relatedProducts }: ProductClientProps) {
     const { formatPrice } = useCurrency();
+    const { locale } = useLocale();
+    const isEn = locale === 'en';
     const router = useRouter();
     const [justAdded, setJustAdded] = useState(false);
 
@@ -57,11 +60,15 @@ export default function ProductClient({ product, relatedProducts }: ProductClien
         return (
             <StoreLayoutWrapper>
                 <div className="container mx-auto px-6 py-32 text-center">
-                    <h2 className="font-serif text-3xl text-garabandal-dark mb-4">Produto não encontrado</h2>
-                    <p className="text-gray-500 mb-8">O produto que procuras não está disponível.</p>
-                    <Link className="inline-flex items-center gap-2 text-garabandal-gold font-bold hover:underline" href="/loja-online">
+                    <h2 className="font-serif text-3xl text-garabandal-dark mb-4">
+                        {isEn ? 'Product not found' : 'Produto não encontrado'}
+                    </h2>
+                    <p className="text-gray-500 mb-8">
+                        {isEn ? 'The product you are looking for is not available.' : 'O produto que procuras não está disponível.'}
+                    </p>
+                    <Link className="inline-flex items-center gap-2 text-garabandal-gold font-bold hover:underline" href={isEn ? '/en/store' : '/loja-online'}>
                         <ArrowLeft size={16} />
-                        Voltar à loja
+                        {isEn ? 'Back to store' : 'Voltar à loja'}
                     </Link>
                 </div>
             </StoreLayoutWrapper>
@@ -92,9 +99,9 @@ export default function ProductClient({ product, relatedProducts }: ProductClien
     return (
         <StoreLayoutWrapper>
             <div className="container mx-auto px-6 py-8 md:py-12 max-w-7xl">
-                <Link href="/loja-online" className="inline-flex items-center text-gray-400 hover:text-garabandal-gold transition-colors mb-8 text-xs font-bold uppercase tracking-widest">
+                <Link href={isEn ? '/en/store' : '/loja-online'} className="inline-flex items-center text-gray-400 hover:text-garabandal-gold transition-colors mb-8 text-xs font-bold uppercase tracking-widest">
                     <ArrowLeft size={14} className="mr-2" />
-                    Voltar à loja
+                    {isEn ? 'Back to store' : 'Voltar à loja'}
                 </Link>
 
                 {/* Product Layout */}
@@ -125,7 +132,7 @@ export default function ProductClient({ product, relatedProducts }: ProductClien
                         transition={{ delay: 0.2 }}
                         className="flex flex-col"
                     >
-                        <div className="mb-2 text-garabandal-gold text-[10px] font-bold uppercase tracking-[0.2em]">Loja Oficial</div>
+                        <div className="mb-2 text-garabandal-gold text-[10px] font-bold uppercase tracking-[0.2em]">{isEn ? 'Official Store' : 'Loja Oficial'}</div>
                         <h1 className="font-serif text-3xl md:text-4xl text-garabandal-dark mb-4 leading-tight">
                             {product.name}
                         </h1>
@@ -140,7 +147,7 @@ export default function ProductClient({ product, relatedProducts }: ProductClien
                             </div>
                             {productMode !== 'digital' && typeof product.stock === "number" && (
                                 <div className={`text-sm font-bold uppercase tracking-widest px-3 py-1 rounded-full ${isSoldOut ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>
-                                    {isSoldOut ? "Esgotado" : `Stock: ${product.stock}`}
+                                    {isSoldOut ? (isEn ? 'Sold Out' : 'Esgotado') : `Stock: ${product.stock}`}
                                 </div>
                             )}
                         </div>
@@ -151,7 +158,7 @@ export default function ProductClient({ product, relatedProducts }: ProductClien
                                 {formatPrice(product.price)}
                             </span>
                             <span className="text-gray-400 text-xs uppercase tracking-wider">
-                                {formatPrice(breakdown.base)} + {formatPrice(breakdown.vat)} IVA
+                                {formatPrice(breakdown.base)} + {formatPrice(breakdown.vat)} {isEn ? 'VAT' : 'IVA'}
                             </span>
                         </div>
 
@@ -161,11 +168,11 @@ export default function ProductClient({ product, relatedProducts }: ProductClien
                                 <CreditCard size={18} />
                             </div>
                             <div>
-                                <p className="text-blue-900 font-bold text-xs">Membro do Apostolado?</p>
-                                <p className="text-blue-600/70 text-[10px]">Tens 5% de desconto em todos os produtos.</p>
+                                <p className="text-blue-900 font-bold text-xs">{isEn ? 'Apostolate Member?' : 'Membro do Apostolado?'}</p>
+                                <p className="text-blue-600/70 text-[10px]">{isEn ? 'You get 5% off all products.' : 'Tens 5% de desconto em todos os produtos.'}</p>
                             </div>
-                            <Link href="/tornar-membro" className="ml-auto text-[10px] font-bold uppercase tracking-wider text-blue-600 hover:underline">
-                                Saber mais
+                            <Link href={isEn ? '/en/become-member' : '/tornar-membro'} className="ml-auto text-[10px] font-bold uppercase tracking-wider text-blue-600 hover:underline">
+                                {isEn ? 'Learn more' : 'Saber mais'}
                             </Link>
                         </div>
 
@@ -184,16 +191,16 @@ export default function ProductClient({ product, relatedProducts }: ProductClien
                         `}
                             >
                                 {isSoldOut ? (
-                                    "Indisponível"
+                                    isEn ? 'Unavailable' : 'Indisponível'
                                 ) : justAdded ? (
                                     <>
                                         <Check size={18} />
-                                        Adicionado
+                                        {isEn ? 'Added' : 'Adicionado'}
                                     </>
                                 ) : (
                                     <>
                                         <ShoppingCart size={18} />
-                                        Adicionar ao Carrinho
+                                        {isEn ? 'Add to Cart' : 'Adicionar ao Carrinho'}
                                     </>
                                 )}
                             </button>
@@ -202,7 +209,7 @@ export default function ProductClient({ product, relatedProducts }: ProductClien
                                     onClick={handleBuyNow}
                                     className="flex-1 py-4 rounded-xl border-2 border-gray-100 text-garabandal-dark text-sm font-bold uppercase tracking-widest hover:border-garabandal-gold hover:text-white hover:bg-garabandal-gold transition-all duration-300"
                                 >
-                                    Comprar Agora
+                                    {isEn ? 'Buy Now' : 'Comprar Agora'}
                                 </button>
                             )}
                         </div>
@@ -213,33 +220,33 @@ export default function ProductClient({ product, relatedProducts }: ProductClien
                                 <>
                                     <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
                                         <Check size={16} className="text-garabandal-gold" />
-                                        <span>Acesso imediato após pagamento</span>
+                                        <span>{isEn ? 'Immediate access after payment' : 'Acesso imediato após pagamento'}</span>
                                     </div>
                                     <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
                                         <ShieldCheck size={16} className="text-garabandal-gold" />
-                                        <span>Pagamento 100% Seguro</span>
+                                        <span>{isEn ? '100% Secure Payment' : 'Pagamento 100% Seguro'}</span>
                                     </div>
                                 </>
                             ) : productMode === 'clothing' ? (
                                 <>
                                     <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
                                         <Truck size={16} className="text-garabandal-gold" />
-                                        <span>Envio protegido com embalagem adequada</span>
+                                        <span>{isEn ? 'Protected shipping with appropriate packaging' : 'Envio protegido com embalagem adequada'}</span>
                                     </div>
                                     <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
                                         <ShieldCheck size={16} className="text-garabandal-gold" />
-                                        <span>Pagamento 100% Seguro</span>
+                                        <span>{isEn ? '100% Secure Payment' : 'Pagamento 100% Seguro'}</span>
                                     </div>
                                 </>
                             ) : (
                                 <>
                                     <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
                                         <Truck size={16} className="text-garabandal-gold" />
-                                        <span>Envio seguro para todo o mundo</span>
+                                        <span>{isEn ? 'Secure worldwide shipping' : 'Envio seguro para todo o mundo'}</span>
                                     </div>
                                     <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
                                         <ShieldCheck size={16} className="text-garabandal-gold" />
-                                        <span>Pagamento 100% Seguro</span>
+                                        <span>{isEn ? '100% Secure Payment' : 'Pagamento 100% Seguro'}</span>
                                     </div>
                                 </>
                             )}
@@ -253,10 +260,10 @@ export default function ProductClient({ product, relatedProducts }: ProductClien
                                         <Globe size={20} />
                                     </div>
                                     <div>
-                                        <h3 className="font-bold text-gray-900 text-sm mb-1">Disponibilidade de Envio</h3>
+                                        <h3 className="font-bold text-gray-900 text-sm mb-1">{isEn ? 'Shipping Availability' : 'Disponibilidade de Envio'}</h3>
                                         {product.allowedCountries && product.allowedCountries.length > 0 ? (
                                             <div className="text-sm text-gray-600">
-                                                <p className="mb-2">Stock disponível para envio apenas nos seguintes países:</p>
+                                                <p className="mb-2">{isEn ? 'Stock available for shipping only to the following countries:' : 'Stock disponível para envio apenas nos seguintes países:'}</p>
                                                 <div className="flex flex-wrap gap-2">
                                                     {product.allowedCountries.map(code => {
                                                         const country = listCountryOptions().find(c => c.code === code);
@@ -271,7 +278,7 @@ export default function ProductClient({ product, relatedProducts }: ProductClien
                                             </div>
                                         ) : (
                                             <p className="text-sm text-gray-600">
-                                                Stock disponível para envio internacional (<span className="font-bold text-green-600">todos os países</span>).
+                                                {isEn ? <>Stock available for international shipping (<span className="font-bold text-green-600">all countries</span>).</> : <>Stock disponível para envio internacional (<span className="font-bold text-green-600">todos os países</span>).</>}
                                             </p>
                                         )}
                                     </div>
@@ -286,8 +293,8 @@ export default function ProductClient({ product, relatedProducts }: ProductClien
                 {relatedProducts.length > 0 && (
                     <section>
                         <div className="flex items-end justify-between mb-10 border-b border-gray-100 pb-6">
-                            <h2 className="font-serif text-3xl text-garabandal-dark">Também pode gostar</h2>
-                            <Link href="/loja-online" className="text-xs font-bold uppercase tracking-widest text-gray-400 hover:text-garabandal-gold transition-colors">Ver todos</Link>
+                            <h2 className="font-serif text-3xl text-garabandal-dark">{isEn ? 'You might also like' : 'Também pode gostar'}</h2>
+                            <Link href={isEn ? '/en/store' : '/loja-online'} className="text-xs font-bold uppercase tracking-widest text-gray-400 hover:text-garabandal-gold transition-colors">{isEn ? 'View all' : 'Ver todos'}</Link>
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-8">

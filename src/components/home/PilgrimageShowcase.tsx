@@ -4,10 +4,11 @@ import React, { useRef } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { motion, useScroll, useTransform } from 'framer-motion';
-import { ArrowRight, MapPin, CalendarDays, ChevronRight } from 'lucide-react';
+import { ArrowRight, MapPin, ChevronRight } from 'lucide-react';
 import { format } from 'date-fns';
-import { pt } from 'date-fns/locale';
+import { enUS, pt } from 'date-fns/locale';
 import { parseCivilDate } from '../../lib/utils';
+import { useLocale } from '../../contexts/LocaleContext';
 
 interface Pilgrimage {
     id: string;
@@ -32,6 +33,9 @@ interface PilgrimageShowcaseProps {
 const PilgrimageShowcase: React.FC<PilgrimageShowcaseProps> = ({ pilgrimages }) => {
     const containerRef = useRef<HTMLElement>(null);
     const scrollContainerRef = useRef<HTMLDivElement>(null);
+    const { t, locale } = useLocale();
+    const isEn = locale === 'en';
+    const dateLocale = isEn ? enUS : pt;
 
     const { scrollYProgress } = useScroll({
         target: containerRef,
@@ -54,6 +58,8 @@ const PilgrimageShowcase: React.FC<PilgrimageShowcaseProps> = ({ pilgrimages }) 
             scrollContainerRef.current.scrollBy({ left: -400, behavior: 'smooth' });
         }
     };
+
+    const pilgrimagesHref = t.urls.pilgrimages;
 
     return (
         <section ref={containerRef} className="relative min-h-[90vh] flex flex-col justify-center py-24 overflow-hidden bg-slate-900 border-t border-white/5">
@@ -85,10 +91,14 @@ const PilgrimageShowcase: React.FC<PilgrimageShowcaseProps> = ({ pilgrimages }) 
                     >
                         <div className="flex items-center gap-4 mb-4">
                             <span className="h-[1px] w-8 bg-garabandal-gold/50" />
-                            <span className="text-garabandal-gold text-xs font-bold uppercase tracking-[0.2em]">Viagens Espirituais</span>
+                            <span className="text-garabandal-gold text-xs font-bold uppercase tracking-[0.2em]">
+                                {isEn ? 'Spiritual Journeys' : 'Viagens Espirituais'}
+                            </span>
                         </div>
                         <h2 className="font-serif text-3xl md:text-5xl lg:text-5xl text-white leading-[1.1] tracking-tight">
-                            Descubra as Nossas <span className="text-transparent bg-clip-text bg-gradient-to-r from-garabandal-gold to-yellow-200">Próximas Peregrinações</span>
+                            {isEn
+                                ? <>Discover Our <span className="text-transparent bg-clip-text bg-gradient-to-r from-garabandal-gold to-yellow-200">Upcoming Pilgrimages</span></>
+                                : <>Descubra as Nossas <span className="text-transparent bg-clip-text bg-gradient-to-r from-garabandal-gold to-yellow-200">Próximas Peregrinações</span></>}
                         </h2>
                     </motion.div>
 
@@ -99,8 +109,8 @@ const PilgrimageShowcase: React.FC<PilgrimageShowcaseProps> = ({ pilgrimages }) 
                         transition={{ duration: 0.6, delay: 0.2 }}
                         className="flex items-center gap-4"
                     >
-                        <Link href="/peregrinacoes" className="text-sm font-bold text-white/70 tracking-widest uppercase hover:text-white transition-colors flex items-center gap-2 text-right">
-                            Ver Todas as Peregrinações <ChevronRight className="w-4 h-4" />
+                        <Link href={pilgrimagesHref} className="text-sm font-bold text-white/70 tracking-widest uppercase hover:text-white transition-colors flex items-center gap-2 text-right">
+                            {isEn ? 'View All Pilgrimages' : 'Ver Todas as Peregrinações'} <ChevronRight className="w-4 h-4" />
                         </Link>
                     </motion.div>
                 </div>
@@ -112,7 +122,7 @@ const PilgrimageShowcase: React.FC<PilgrimageShowcaseProps> = ({ pilgrimages }) 
                 <button
                     onClick={scrollLeft}
                     className="hidden md:flex absolute left-4 xl:left-12 top-1/2 -translate-y-1/2 z-30 w-14 h-14 rounded-full bg-slate-900/90 border border-white/20 text-white items-center justify-center hover:bg-garabandal-gold hover:text-garabandal-dark hover:border-transparent transition-all backdrop-blur-md shadow-2xl opacity-0 group-hover/slider:opacity-100"
-                    aria-label="Anterior"
+                    aria-label={isEn ? 'Previous' : 'Anterior'}
                 >
                     <ChevronRight className="w-8 h-8 rotate-180" />
                 </button>
@@ -120,12 +130,12 @@ const PilgrimageShowcase: React.FC<PilgrimageShowcaseProps> = ({ pilgrimages }) 
                 <button
                     onClick={scrollRight}
                     className="hidden md:flex absolute right-4 xl:right-12 top-1/2 -translate-y-1/2 z-30 w-14 h-14 rounded-full bg-slate-900/90 border border-white/20 text-white items-center justify-center hover:bg-garabandal-gold hover:text-garabandal-dark hover:border-transparent transition-all backdrop-blur-md shadow-2xl opacity-0 group-hover/slider:opacity-100"
-                    aria-label="Próximo"
+                    aria-label={isEn ? 'Next' : 'Próximo'}
                 >
                     <ChevronRight className="w-8 h-8" />
                 </button>
 
-                {/* Scroll Hint Gradients (Left and Right edges) */}
+                {/* Scroll Hint Gradients */}
                 <div className="absolute left-0 top-0 bottom-8 w-8 md:w-24 bg-gradient-to-r from-slate-900 to-transparent z-10 pointer-events-none" />
                 <div className="absolute right-0 top-0 bottom-8 w-12 md:w-32 bg-gradient-to-l from-slate-900 via-slate-900/80 to-transparent z-10 pointer-events-none flex items-center justify-end pr-4 md:pr-8">
                     <motion.div
@@ -145,26 +155,29 @@ const PilgrimageShowcase: React.FC<PilgrimageShowcaseProps> = ({ pilgrimages }) 
                 >
                     {pilgrimages.map((pilgrimage, index) => {
                         const startDate = parseCivilDate(pilgrimage.start_date);
-
-                        // Status & Urgency Logic
                         const effectiveVacancies = pilgrimage.effective_vacancies ?? (pilgrimage.total_vacancies - pilgrimage.confirmed_pax);
 
-                        let badgeType = 'default'; // normal
+                        let badgeType = 'default';
                         let badgeText = '';
 
                         if (pilgrimage.status === 'full' || pilgrimage.status === 'closed' || effectiveVacancies <= 0) {
                             badgeType = 'danger';
-                            badgeText = 'Esgotado';
+                            badgeText = isEn ? 'Sold Out' : 'Esgotado';
                         } else if (pilgrimage.status === 'waitlist') {
                             badgeType = 'warning';
-                            badgeText = 'Lista de Espera';
+                            badgeText = isEn ? 'Waitlist' : 'Lista de Espera';
                         } else if (effectiveVacancies <= 5) {
                             badgeType = 'urgent';
-                            badgeText = `Últimas ${effectiveVacancies} ${effectiveVacancies === 1 ? 'Vaga' : 'Vagas'}!`;
+                            badgeText = isEn
+                                ? `Last ${effectiveVacancies} ${effectiveVacancies === 1 ? 'Spot' : 'Spots'}!`
+                                : `Últimas ${effectiveVacancies} ${effectiveVacancies === 1 ? 'Vaga' : 'Vagas'}!`;
                         } else if (effectiveVacancies <= 10) {
                             badgeType = 'attention';
-                            badgeText = 'Quase Cheio';
+                            badgeText = isEn ? 'Nearly Full' : 'Quase Cheio';
                         }
+
+                        // Card link: go to the pilgrimages list page anchored to this slug
+                        const cardHref = `${pilgrimagesHref}#${pilgrimage.slug}`;
 
                         return (
                             <motion.div
@@ -176,7 +189,7 @@ const PilgrimageShowcase: React.FC<PilgrimageShowcaseProps> = ({ pilgrimages }) 
                                 className="snap-center shrink-0 w-[300px] md:w-[400px] group perspective-1000"
                             >
                                 <Link
-                                    href={`/peregrinacoes#${pilgrimage.slug}`}
+                                    href={cardHref}
                                     className={`block relative aspect-[4/5] bg-slate-800 rounded-[2rem] overflow-hidden shadow-2xl border transition-all duration-500 hover:-translate-y-2 hover:shadow-garabandal-gold/20
                                         ${badgeType === 'danger' ? 'border-red-500/30 hover:border-red-400/50 grayscale-[50%]' : 'border-white/10 hover:border-white/20'}`}
                                 >
@@ -188,10 +201,10 @@ const PilgrimageShowcase: React.FC<PilgrimageShowcaseProps> = ({ pilgrimages }) 
                                         sizes="(max-width: 768px) 300px, 400px"
                                     />
 
-                                    {/* Overlay Gradient / Decreased Exposure */}
+                                    {/* Overlay */}
                                     <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/70 to-black/40" />
 
-                                    {/* Action/Urgency Badges (Top Left) */}
+                                    {/* Badge */}
                                     {badgeText && (
                                         <div className="absolute top-5 left-5 z-20">
                                             <div className={`
@@ -206,19 +219,19 @@ const PilgrimageShowcase: React.FC<PilgrimageShowcaseProps> = ({ pilgrimages }) 
                                         </div>
                                     )}
 
-                                    {/* Date Badge (Top Right) */}
+                                    {/* Date Badge */}
                                     <div className={`absolute top-5 right-5 z-20 transition-transform duration-500 ${badgeText ? 'group-hover:-translate-y-1' : ''}`}>
                                         <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-3 text-center shadow-lg shadow-black/20">
                                             <div className="text-xl font-serif font-bold text-white leading-none">
-                                                {format(startDate, "dd", { locale: pt })}
+                                                {format(startDate, "dd", { locale: dateLocale })}
                                             </div>
                                             <div className="text-[10px] font-bold text-garabandal-gold uppercase tracking-wider mt-1">
-                                                {format(startDate, "MMM", { locale: pt })}
+                                                {format(startDate, "MMM", { locale: dateLocale })}
                                             </div>
                                         </div>
                                     </div>
 
-                                    {/* Content area */}
+                                    {/* Content */}
                                     <div className="absolute bottom-0 left-0 w-full p-6 md:p-8 flex flex-col justify-end z-10">
                                         {pilgrimage.itinerary_summary && (
                                             <div className="flex items-center gap-2 mb-3">
@@ -239,7 +252,9 @@ const PilgrimageShowcase: React.FC<PilgrimageShowcaseProps> = ({ pilgrimages }) 
 
                                         <div className="flex items-center justify-between mt-auto">
                                             <div className="flex flex-col">
-                                                <span className="text-[10px] text-slate-400 uppercase tracking-wider">A partir de</span>
+                                                <span className="text-[10px] text-slate-400 uppercase tracking-wider">
+                                                    {isEn ? 'From' : 'A partir de'}
+                                                </span>
                                                 <span className="text-xl font-bold text-white">€{pilgrimage.base_price}</span>
                                             </div>
 
@@ -253,7 +268,7 @@ const PilgrimageShowcase: React.FC<PilgrimageShowcaseProps> = ({ pilgrimages }) 
                                         </div>
                                     </div>
 
-                                    {/* Hover glow effect */}
+                                    {/* Hover glow */}
                                     <div className={`absolute inset-0 border-2 rounded-[2rem] transition-colors duration-500 pointer-events-none
                                         ${badgeType === 'danger' ? 'border-red-500/0 group-hover:border-red-500/30' : 'border-garabandal-gold/0 group-hover:border-garabandal-gold/50'}`}
                                     />

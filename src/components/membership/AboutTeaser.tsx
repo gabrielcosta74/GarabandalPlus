@@ -5,8 +5,12 @@ import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { ArrowRight, History } from 'lucide-react';
 import Image from 'next/image';
+import { useLocale } from '../../contexts/LocaleContext';
 
 const AboutTeaser: React.FC = () => {
+    const { t } = useLocale();
+    const a = t.membership.about;
+    const aboutUrl = t.urls.about;
     return (
         <section className="relative py-24 overflow-hidden bg-slate-50">
             {/* Background elements */}
@@ -31,25 +35,19 @@ const AboutTeaser: React.FC = () => {
                     >
                         <div className="flex items-center gap-3 mb-6">
                             <span className="h-px w-8 bg-garabandal-gold" />
-                            <span className="text-sm font-bold tracking-[0.2em] text-garabandal-gold uppercase">A Nossa Missão</span>
+                            <span className="text-sm font-bold tracking-[0.2em] text-garabandal-gold uppercase">{a.eyebrow}</span>
                         </div>
 
                         <h2 className="text-3xl md:text-5xl font-serif font-bold text-garabandal-dark mb-6 leading-tight">
-                            Há mais de <span className="text-garabandal-gold italic">16 anos</span> a divulgar Garabandal
+                            {a.titleLead} <span className="text-garabandal-gold italic">{a.titleYears}</span> {a.titleTrail}
                         </h2>
 
                         <p className="text-lg text-slate-600 mb-8 leading-relaxed">
-                            Fundado a 13 de Outubro de 2007, o nosso apostolado tem por objetivo essencial divulgar
-                            em língua portuguesa a história das aparições de Nossa Senhora do Carmo de Garabandal. Num
-                            mundo marcado pela falta de valores, queremos ser uma luz de Esperança e Fé.
+                            {a.paragraph}
                         </p>
 
                         <ul className="space-y-4 mb-10">
-                            {[
-                                "Apoiar incessantemente o peregrino que visita Garabandal",
-                                "Defender e promover os valores e a tradição cristã",
-                                "Viver de forma profunda a Eucaristia"
-                            ].map((item, i) => (
+                            {a.bullets.map((item, i) => (
                                 <motion.li
                                     key={i}
                                     initial={{ opacity: 0, y: 10 }}
@@ -67,10 +65,10 @@ const AboutTeaser: React.FC = () => {
                         </ul>
 
                         <Link
-                            href="/sobre-nos"
+                            href={aboutUrl}
                             className="inline-flex items-center gap-2 px-8 py-4 bg-garabandal-dark !text-white !opacity-100 rounded-full font-bold uppercase tracking-widest text-sm hover:bg-slate-800 transition-all shadow-xl shadow-slate-900/10 group"
                         >
-                            Conheça a Nossa História
+                            {a.cta}
                             <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                         </Link>
                     </motion.div>
@@ -90,7 +88,7 @@ const AboutTeaser: React.FC = () => {
                         <div className="relative aspect-[4/5] md:aspect-square rounded-2xl overflow-hidden shadow-2xl">
                             <Image
                                 src="/images/nossasenhoragarabandal.jpg"
-                                alt="Imagem de Nossa Senhora de Garabandal"
+                                alt={a.imageAlt}
                                 fill
                                 className="object-cover transform hover:scale-105 transition-transform duration-700 ease-in-out"
                                 sizes="(max-width: 768px) 100vw, 50vw"
@@ -100,8 +98,8 @@ const AboutTeaser: React.FC = () => {
 
                             <div className="absolute bottom-0 left-0 p-8 w-full backdrop-blur-sm bg-black/20 text-white">
                                 <History className="w-8 h-8 text-garabandal-gold mb-3" />
-                                <h3 className="font-serif text-2xl font-bold mb-2">Uma Associação Sem Fins Lucrativos</h3>
-                                <p className="text-sm text-white/80 line-clamp-2">Acreditamos no caminho da oração, do sacrifício e da caridade para alcançar a felicidade plena.</p>
+                                <h3 className="font-serif text-2xl font-bold mb-2">{a.cardTitle}</h3>
+                                <p className="text-sm text-white/80 line-clamp-2">{a.cardDesc}</p>
                             </div>
                         </div>
                     </motion.div>

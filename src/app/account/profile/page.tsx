@@ -8,32 +8,29 @@ import ChangePasswordModal from '../../../components/auth/ChangePasswordModal';
 import ChangeEmailModal from '../../../components/auth/ChangeEmailModal';
 import { supabaseBrowser } from '../../../lib/supabase-browser';
 import { useAuth } from '../../../contexts/AuthContext';
+import { useLocale } from '../../../contexts/LocaleContext';
 import { User, MapPin, Shield, Edit2, KeyRound, LogOut, CheckCircle2, Mail } from 'lucide-react';
 
 export default function AccountProfilePage() {
-  // Use centralized AuthContext for data to ensure synchronization
   const { memberData, user, refreshMemberData } = useAuth();
+  const { locale } = useLocale();
+  const isEn = locale === 'en';
 
   const [showProfile, setShowProfile] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [showEmailModal, setShowEmailModal] = useState(false);
 
-  // Security states
   const [securityMessage, setSecurityMessage] = useState('');
   const [securityLoading, setSecurityLoading] = useState(false);
   const [securityStatus, setSecurityStatus] = useState<'success' | 'error' | null>(null);
   const router = useRouter();
 
-  // Refresh data on mount to ensure freshness
   useEffect(() => {
     refreshMemberData();
   }, [refreshMemberData]);
 
-  // Derived state for display
   const profileDisplay = memberData || ({} as any);
   const currentEmail = user?.email || '';
-
-  // Legacy password reset replaced by ChangePasswordModal
 
   const handleLogoutAll = async () => {
     if (!supabaseBrowser) return;
@@ -44,7 +41,7 @@ export default function AccountProfilePage() {
       router.replace('/login');
     } catch (err) {
       console.warn('Erro ao terminar sessoes.', err);
-      setSecurityMessage('Não foi possível terminar todas as sessões.');
+      setSecurityMessage(isEn ? 'Unable to sign out from all sessions.' : 'Não foi possível terminar todas as sessões.');
       setSecurityStatus('error');
       setSecurityLoading(false);
     }
@@ -76,7 +73,6 @@ export default function AccountProfilePage() {
       </div>
 
       <div className="relative z-10 h-full flex flex-col items-center justify-center text-center p-6 space-y-4">
-        {/* Static Profile Picture */}
         <div className="w-32 h-32 rounded-full p-1 bg-gradient-to-br from-garabandal-gold to-yellow-600 shadow-2xl relative">
           <div className="w-full h-full rounded-full bg-slate-900 flex items-center justify-center overflow-hidden border-4 border-slate-900 z-10">
             {profileDisplay.avatar_url ? (
@@ -87,25 +83,24 @@ export default function AccountProfilePage() {
           </div>
         </div>
 
-        {/* Edit Button */}
         <button
           onClick={() => setShowProfile(true)}
           className="flex items-center gap-2 px-4 py-1.5 bg-white/10 hover:bg-white/30 text-white rounded-full text-[10px] font-bold uppercase tracking-widest backdrop-blur-sm border border-white/20 hover:border-white/50 shadow-xl transition-colors duration-200"
-          aria-label="Editar Perfil"
+          aria-label={isEn ? "Edit Profile" : "Editar Perfil"}
         >
           <Edit2 className="w-3 h-3" />
-          Mudar Foto
+          {isEn ? 'Change Photo' : 'Mudar Foto'}
         </button>
 
         <div>
-          <h2 className="font-serif text-3xl font-bold text-white mb-1">{profileDisplay.nome || 'Utilizador'}</h2>
+          <h2 className="font-serif text-3xl font-bold text-white mb-1">{profileDisplay.nome || (isEn ? 'User' : 'Utilizador')}</h2>
           {profileDisplay.is_membro ? (
             <p className="text-garabandal-gold font-medium tracking-wide uppercase text-xs">
-              Membro • Nº {profileDisplay.numero_socio || '---'}
+              {isEn ? 'Member' : 'Membro'} • Nº {profileDisplay.numero_socio || '---'}
             </p>
           ) : (
             <p className="text-slate-400 font-medium tracking-wide uppercase text-xs">
-              Utilizador Registado
+              {isEn ? 'Registered User' : 'Utilizador Registado'}
             </p>
           )}
         </div>
@@ -115,10 +110,9 @@ export default function AccountProfilePage() {
 
   return (
     <DashboardShell
-      title="O Meu Perfil"
-      subtitle="Gere a tua identidade e preferências na comunidade."
+      title={isEn ? 'My Profile' : 'O Meu Perfil'}
+      subtitle={isEn ? 'Manage your community identity and preferences.' : 'Gere a tua identidade e preferências na comunidade.'}
     >
-
 
       <ChangePasswordModal
         visible={showPasswordModal}
@@ -148,11 +142,9 @@ export default function AccountProfilePage() {
       <HeroSection />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Left Column - Personal Data */}
         <div className="lg:col-span-2 space-y-6">
           <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 relative overflow-hidden group">
             <div className="absolute top-0 right-0 p-4 opacity-0 group-hover:opacity-100 transition-opacity">
-              {/* Desktop edit button hidden for standard users, visible on hover */}
             </div>
 
             <div className="flex items-center justify-between mb-6">
@@ -161,8 +153,8 @@ export default function AccountProfilePage() {
                   <User className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="font-serif text-lg font-bold text-gray-900">Dados Pessoais</h3>
-                  <p className="text-sm text-gray-500">A tua identificação na plataforma.</p>
+                  <h3 className="font-serif text-lg font-bold text-gray-900">{isEn ? 'Personal Data' : 'Dados Pessoais'}</h3>
+                  <p className="text-sm text-gray-500">{isEn ? 'Your platform identification.' : 'A tua identificação na plataforma.'}</p>
                 </div>
               </div>
 
@@ -171,14 +163,14 @@ export default function AccountProfilePage() {
                 className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-bold transition-colors flex items-center gap-2"
               >
                 <Edit2 className="w-4 h-4" />
-                Editar
+                {isEn ? 'Edit' : 'Editar'}
               </button>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6">
-              <Field label="Nome" value={profileDisplay.nome} />
+              <Field label={isEn ? 'Name' : 'Nome'} value={profileDisplay.nome} />
               <Field label="Email" value={currentEmail || profileDisplay.email} />
-              <Field label="Telefone" value={profileDisplay.telefone} />
+              <Field label={isEn ? 'Phone' : 'Telefone'} value={profileDisplay.telefone} />
               <Field label="NIF / CPF" value={profileDisplay.nif} />
             </div>
           </div>
@@ -190,8 +182,8 @@ export default function AccountProfilePage() {
                   <MapPin className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="font-serif text-lg font-bold text-gray-900">Morada de Envio</h3>
-                  <p className="text-sm text-gray-500">Para onde enviamos as encomendas.</p>
+                  <h3 className="font-serif text-lg font-bold text-gray-900">{isEn ? 'Shipping Address' : 'Morada de Envio'}</h3>
+                  <p className="text-sm text-gray-500">{isEn ? 'Where we send your orders.' : 'Para onde enviamos as encomendas.'}</p>
                 </div>
               </div>
 
@@ -200,23 +192,22 @@ export default function AccountProfilePage() {
                 className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-bold transition-colors flex items-center gap-2"
               >
                 <Edit2 className="w-4 h-4" />
-                Editar
+                {isEn ? 'Edit' : 'Editar'}
               </button>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6">
               <div className="sm:col-span-2">
-                <Field label="Endereço" value={profileDisplay.address} />
+                <Field label={isEn ? 'Address' : 'Endereço'} value={profileDisplay.address} />
               </div>
-              <Field label="Código Postal / CEP" value={profileDisplay.postal_code} />
-              <Field label="País" value={profileDisplay.country} />
+              <Field label={isEn ? 'Postal Code / ZIP' : 'Código Postal / CEP'} value={profileDisplay.postal_code} />
+              <Field label={isEn ? 'Country' : 'País'} value={profileDisplay.country} />
             </div>
           </div>
-        </div >
+        </div>
 
-        {/* Right Column - Security & Actions */}
-        < div className="space-y-6" >
+        <div className="space-y-6">
           <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
-            <SectionHeader icon={Shield} title="Segurança" subtitle="Protege a tua conta." />
+            <SectionHeader icon={Shield} title={isEn ? 'Security' : 'Segurança'} subtitle={isEn ? 'Protect your account.' : 'Protege a tua conta.'} />
 
             <div className="space-y-3 mt-6">
               <button
@@ -224,7 +215,7 @@ export default function AccountProfilePage() {
                 disabled={securityLoading}
                 className="w-full flex items-center justify-between px-4 py-4 bg-gray-50 hover:bg-gray-100 rounded-xl transition-colors text-sm font-bold text-gray-800 group border border-gray-200"
               >
-                <span className="flex items-center gap-3"><Mail className="w-5 h-5 text-gray-500 group-hover:text-garabandal-gold" /> Alterar Email</span>
+                <span className="flex items-center gap-3"><Mail className="w-5 h-5 text-gray-500 group-hover:text-garabandal-gold" /> {isEn ? 'Change Email' : 'Alterar Email'}</span>
               </button>
 
               <button
@@ -232,7 +223,7 @@ export default function AccountProfilePage() {
                 disabled={securityLoading}
                 className="w-full flex items-center justify-between px-4 py-4 bg-gray-50 hover:bg-gray-100 rounded-xl transition-colors text-sm font-bold text-gray-800 group border border-gray-200"
               >
-                <span className="flex items-center gap-3"><KeyRound className="w-5 h-5 text-gray-500 group-hover:text-garabandal-gold" /> Alterar Password</span>
+                <span className="flex items-center gap-3"><KeyRound className="w-5 h-5 text-gray-500 group-hover:text-garabandal-gold" /> {isEn ? 'Change Password' : 'Alterar Password'}</span>
               </button>
 
               <button
@@ -240,7 +231,7 @@ export default function AccountProfilePage() {
                 disabled={securityLoading}
                 className="w-full flex items-center justify-between px-4 py-3 bg-red-50 hover:bg-red-100 rounded-xl transition-colors text-sm font-medium text-red-600 group"
               >
-                <span className="flex items-center gap-3"><LogOut className="w-4 h-4" /> Terminar Sessões</span>
+                <span className="flex items-center gap-3"><LogOut className="w-4 h-4" /> {isEn ? 'Log Out All Sessions' : 'Terminar Sessões'}</span>
               </button>
             </div>
 
@@ -251,9 +242,8 @@ export default function AccountProfilePage() {
               </div>
             )}
           </div>
-        </div >
-      </div >
-    </DashboardShell >
+        </div>
+      </div>
+    </DashboardShell>
   );
-
 }

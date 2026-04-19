@@ -29,6 +29,7 @@ import { ProductView, normalizeProduct, PRODUCT_DEFINITIONS, ProductTypeDefiniti
 import CustomSelect from '../../../components/admin/ui/CustomSelect';
 import VariantManager, { Variant } from '../../../components/admin/store/VariantManager';
 import { listCountryOptions } from '../../../lib/country-utils';
+import BilingualField, { TranslateAllButton } from '../../../components/admin/BilingualField';
 
 // --- COMPONENTS ---
 
@@ -260,10 +261,12 @@ export default function AdminLojaPage() {
 
       const payload = {
         name: draft.name,
+        name_en: draft.name_en || null,
         sku: draft.sku,
         category_id: draft.categoryId,
         category_name: selectedCategory?.name || null,
         description: draft.description,
+        description_en: draft.description_en || null,
         price: Number.isFinite(draft.price) ? draft.price : 0,
         stock: isPhysical ? finalStock : null,
         is_active: draft.status === 'ativo',
@@ -530,7 +533,6 @@ export default function AdminLojaPage() {
                             </label>
                           </div>
                           <div className="flex-1 space-y-4">
-                            <FormInput label="Nome" value={draft.name} onChange={(v: string) => setDraft({ ...draft, name: v })} placeholder="Nome do produto" />
                             <FormInput
                               label="SKU"
                               value={draft.sku}
@@ -540,6 +542,17 @@ export default function AdminLojaPage() {
                             />
                           </div>
                         </div>
+
+                        <BilingualField
+                          label="Nome do Produto"
+                          ptValue={draft.name}
+                          enValue={draft.name_en ?? ''}
+                          onChangePt={v => setDraft({ ...draft, name: v })}
+                          onChangeEn={v => setDraft({ ...draft, name_en: v })}
+                          placeholder="Nome do produto"
+                          placeholderEn="Product name"
+                          required
+                        />
 
                         <div className="grid grid-cols-2 gap-4">
                           <CustomSelect
@@ -588,15 +601,17 @@ export default function AdminLojaPage() {
                           />
                         </div>
 
-                        <div>
-                          <label className="block text-xs font-bold uppercase text-slate-500 mb-1.5">Descrição</label>
-                          <textarea
-                            value={draft.description}
-                            onChange={e => setDraft({ ...draft, description: e.target.value })}
-                            className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white h-24 focus:ring-2 focus:ring-amber-500/20 outline-none resize-none"
-                            placeholder="Descrição completa do produto..."
-                          />
-                        </div>
+                        <BilingualField
+                          label="Descrição"
+                          ptValue={draft.description}
+                          enValue={draft.description_en ?? ''}
+                          onChangePt={v => setDraft({ ...draft, description: v })}
+                          onChangeEn={v => setDraft({ ...draft, description_en: v })}
+                          type="textarea"
+                          rows={4}
+                          placeholder="Descrição completa do produto..."
+                          placeholderEn="Full product description..."
+                        />
                       </div>
                     )}
 

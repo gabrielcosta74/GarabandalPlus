@@ -5,6 +5,7 @@ import VIPLayout from '../../../components/member/VIPLayout';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Flame, X, Loader2, Sparkles, ArrowDown, Hand } from 'lucide-react';
 import { supabaseBrowser } from '../../../lib/supabase-browser';
+import { useLocale } from '../../../contexts/LocaleContext';
 
 // --- Types ---
 
@@ -16,6 +17,8 @@ type TutorialStep = {
 // --- Components ---
 
 const RealisticCandle = ({ onClick, pulse = true, isTutorialHighlight = false }: { onClick?: () => void, pulse?: boolean, isTutorialHighlight?: boolean }) => {
+    const { locale } = useLocale();
+    const isEn = locale === 'en';
     return (
         <div
             onClick={onClick}
@@ -81,7 +84,7 @@ const RealisticCandle = ({ onClick, pulse = true, isTutorialHighlight = false }:
 
             {onClick && !isTutorialHighlight && (
                 <div className="absolute -bottom-16 left-1/2 -translate-x-1/2 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity text-orange-200/80 text-sm font-medium tracking-widest uppercase">
-                    Tocai para Acender
+                    {isEn ? 'Tap to Light' : 'Tocai para Acender'}
                 </div>
             )}
         </div>
@@ -112,6 +115,8 @@ const SmallCandle = ({ date }: { date: string }) => (
 // --- Main Page ---
 
 export default function IntentionsPage() {
+    const { locale } = useLocale();
+    const isEn = locale === 'en';
     const [isModalOpen, setIsModalOpen] = useState(false);
 
     // Tutorial State
@@ -136,7 +141,7 @@ export default function IntentionsPage() {
                 const { data: { user } } = await supabaseBrowser.auth.getUser();
                 if (user) {
                     const { data: member } = await supabaseBrowser.from('membros').select('nome').eq('id', user.id).single();
-                    setUser({ id: user.id, name: member?.nome || 'Devoto' });
+                    setUser({ id: user.id, name: member?.nome || (isEn ? 'Devotee' : 'Devoto') });
 
                     const { data: history } = await supabaseBrowser
                         .from('prayer_intentions')
@@ -201,7 +206,7 @@ export default function IntentionsPage() {
 
         } catch (error) {
             setSubmissionState('idle');
-            alert("Erro ao enviar. Tente novamente.");
+            alert(isEn ? "Error sending. Try again." : "Erro ao enviar. Tente novamente.");
         }
     };
 
@@ -247,10 +252,10 @@ export default function IntentionsPage() {
                                 className="bg-[#1a1a1a] p-8 rounded-2xl border border-white/10 max-w-sm text-center shadow-2xl"
                             >
                                 <Sparkles className="w-12 h-12 text-orange-400 mx-auto mb-4" />
-                                <h3 className="text-xl font-serif text-white mb-2">Tutorial Interativo</h3>
-                                <p className="text-white/60 mb-6">Bem-vindo ao Santuário. Vamos ensinar-lhe como acender as suas velas.</p>
+                                <h3 className="text-xl font-serif text-white mb-2">{isEn ? 'Interactive Tutorial' : 'Tutorial Interativo'}</h3>
+                                <p className="text-white/60 mb-6">{isEn ? 'Welcome to the Sanctuary. We will teach you how to light your candles.' : 'Bem-vindo ao Santuário. Vamos ensinar-lhe como acender as suas velas.'}</p>
                                 <button onClick={advanceTutorial} className="bg-white text-black px-8 py-3 rounded-full font-bold hover:bg-orange-50 transition-colors">
-                                    Começar
+                                    {isEn ? 'Start' : 'Começar'}
                                 </button>
                             </motion.div>
                         </div>
@@ -270,7 +275,7 @@ export default function IntentionsPage() {
                                     className="mt-72 flex flex-col items-center"
                                 >
                                     <div className="bg-orange-600 text-white px-6 py-2 rounded-full font-bold shadow-lg mb-4 whitespace-nowrap animate-bounce">
-                                        Toque na vela
+                                        {isEn ? 'Tap the candle' : 'Toque na vela'}
                                     </div>
                                     <Hand className="w-12 h-12 text-white fill-white rotate-180 animate-pulse" />
                                 </motion.div>
@@ -289,10 +294,10 @@ export default function IntentionsPage() {
                                 <div className="mx-auto bg-orange-500/20 w-16 h-16 rounded-full flex items-center justify-center mb-4">
                                     <ArrowDown className="w-8 h-8 text-orange-500 animate-bounce" />
                                 </div>
-                                <h3 className="text-xl font-bold text-white mb-2">As Suas Velas</h3>
-                                <p className="text-white/60 mb-6">Todas as suas intenções ficarão guardadas aqui em baixo para sempre.</p>
+                                <h3 className="text-xl font-bold text-white mb-2">{isEn ? 'Your Candles' : 'As Suas Velas'}</h3>
+                                <p className="text-white/60 mb-6">{isEn ? 'All your intentions will be saved down here forever.' : 'Todas as suas intenções ficarão guardadas aqui em baixo para sempre.'}</p>
                                 <button onClick={advanceTutorial} className="text-white underline hover:text-orange-400">
-                                    Entendi, Obrigado
+                                    {isEn ? 'Got it, Thanks' : 'Entendi, Obrigado'}
                                 </button>
                             </motion.div>
                         </div>
@@ -316,10 +321,14 @@ export default function IntentionsPage() {
                         className="mb-12"
                     >
                         <h1 className="font-serif text-2xl md:text-4xl lg:text-5xl text-transparent bg-clip-text bg-gradient-to-b from-white to-white/60 mb-6 leading-tight max-w-4xl mx-auto">
-                            Enviar pedido de oração a<br className="hidden md:block" /> Nossa Senhora do Carmo de Garabandal
+                            {isEn ? (
+                                <>Send prayer request to<br className="hidden md:block" /> Our Lady of Mount Carmel of Garabandal</>
+                            ) : (
+                                <>Enviar pedido de oração a<br className="hidden md:block" /> Nossa Senhora do Carmo de Garabandal</>
+                            )}
                         </h1>
                         <p className="text-white/60 font-light max-w-lg mx-auto leading-relaxed text-sm md:text-base px-4">
-                            As suas intenções são apresentadas a Nossa Senhora de Garabandal na igreja em Garabandal.
+                            {isEn ? 'Your intentions are presented to Our Lady of Garabandal in the Garabandal church.' : 'As suas intenções são apresentadas a Nossa Senhora de Garabandal na igreja em Garabandal.'}
                         </p>
                     </motion.div>
 
@@ -344,7 +353,7 @@ export default function IntentionsPage() {
                         >
                             <div className="flex items-center gap-3 mb-6 justify-center text-white/30 text-xs uppercase tracking-widest font-bold">
                                 <Sparkles className="w-3 h-3" />
-                                As minhas velas
+                                {isEn ? 'My candles' : 'As minhas velas'}
                             </div>
 
                             <div className="flex flex-wrap justify-center gap-8 md:gap-12">
@@ -380,16 +389,16 @@ export default function IntentionsPage() {
                                         <div className="w-20 h-20 rounded-full bg-green-500/10 flex items-center justify-center mb-6 text-green-500 border border-green-500/20 shadow-[0_0_30px_rgba(34,197,94,0.2)]">
                                             <Flame className="w-8 h-8 fill-green-500 animate-pulse" />
                                         </div>
-                                        <h3 className="text-2xl font-serif text-white mb-2">Vela Acesa</h3>
-                                        <p className="text-white/50 mb-8">A sua intenção subiu aos céus e será apresentada em Garabandal.</p>
-                                        <button onClick={handleClose} className="text-sm text-white/40 hover:text-white transition-colors">Fechar este momento</button>
+                                        <h3 className="text-2xl font-serif text-white mb-2">{isEn ? 'Candle Lit' : 'Vela Acesa'}</h3>
+                                        <p className="text-white/50 mb-8">{isEn ? 'Your intention went up to heaven and will be presented in Garabandal.' : 'A sua intenção subiu aos céus e será apresentada em Garabandal.'}</p>
+                                        <button onClick={handleClose} className="text-sm text-white/40 hover:text-white transition-colors">{isEn ? 'Close this moment' : 'Fechar este momento'}</button>
                                     </div>
                                 ) : (
                                     <div className="p-8 md:p-10">
                                         <div className="flex justify-between items-start mb-8">
                                             <div>
-                                                <h2 className="text-2xl font-serif text-white">Nova Intenção</h2>
-                                                <p className="text-white/40 text-sm mt-1">Escreva o que vai na sua alma hoje.</p>
+                                                <h2 className="text-2xl font-serif text-white">{isEn ? 'New Intention' : 'Nova Intenção'}</h2>
+                                                <p className="text-white/40 text-sm mt-1">{isEn ? "Write what's on your soul today." : 'Escreva o que vai na sua alma hoje.'}</p>
                                             </div>
                                             <button onClick={handleClose} className="rounded-full p-2 bg-white/5 hover:bg-white/10 text-white/50 transition-colors">
                                                 <X className="w-5 h-5" />
@@ -399,7 +408,7 @@ export default function IntentionsPage() {
                                         <textarea
                                             value={intention}
                                             onChange={(e) => setIntention(e.target.value)}
-                                            placeholder="Minha mãe do céu, hoje peço-te..."
+                                            placeholder={isEn ? "My heavenly mother, today I ask you..." : "Minha mãe do céu, hoje peço-te..."}
                                             className="w-full bg-white/5 border border-white/10 rounded-xl p-4 h-40 text-white placeholder:text-white/20 focus:outline-none focus:border-orange-500/50 focus:ring-1 focus:ring-orange-500/50 resize-none mb-8 font-serif leading-relaxed"
                                             autoFocus
                                         />
@@ -410,7 +419,7 @@ export default function IntentionsPage() {
                                             className="w-full py-4 bg-white text-black font-medium rounded-xl hover:bg-slate-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-[0_0_20px_rgba(255,255,255,0.1)] flex items-center justify-center gap-2"
                                         >
                                             {submissionState === 'loading' ? <Loader2 className="w-5 h-5 animate-spin" /> : (
-                                                <>Acender a Vela <Flame className="w-4 h-4" /></>
+                                                <>{isEn ? 'Light Candle' : 'Acender a Vela'} <Flame className="w-4 h-4" /></>
                                             )}
                                         </button>
                                     </div>

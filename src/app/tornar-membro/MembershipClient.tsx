@@ -11,6 +11,7 @@ import { QuotaWarning } from "../../components/membership/QuotaWarning";
 import { useAuth } from "../../contexts/AuthContext";
 import { getMembershipAmountClient } from "../../lib/membership-pricing";
 import AboutTeaser from "../../components/membership/AboutTeaser";
+import { useLocale } from "../../contexts/LocaleContext";
 
 function TornarMembroContent() {
     const search = useSearchParams();
@@ -18,6 +19,8 @@ function TornarMembroContent() {
     const joinParam = search.get("join");
     const router = useRouter();
     const { isMember, memberData, loading, isAuthenticated } = useAuth();
+    const { t, locale } = useLocale();
+    const m = t.membership;
     const [modalOpen, setModalOpen] = useState(false);
     const membershipAmount = getMembershipAmountClient();
     const [impact, setImpact] = useState({ members: 0, raised: 0, goal: 2500 });
@@ -45,9 +48,9 @@ function TornarMembroContent() {
 
     useEffect(() => {
         if (!loading && isAuthenticated && hasMembership) {
-            router.replace("/member");
+            router.replace(locale === 'en' ? "/en/member" : "/member");
         }
-    }, [hasMembership, isAuthenticated, loading, router]);
+    }, [hasMembership, isAuthenticated, loading, locale, router]);
 
     // Auto-open modal if ?join=1 or ?ref is present
     useEffect(() => {
@@ -89,16 +92,24 @@ function TornarMembroContent() {
                     onClick={() => setModalOpen(true)}
                     className="w-full py-4 bg-garabandal-dark text-white rounded-xl font-bold uppercase tracking-widest shadow-lg"
                 >
-                    Tornar-me Membro · {new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR' }).format(membershipAmount)}
+                    {m.mobileBar.cta} · {new Intl.NumberFormat(locale === 'en' ? 'en-GB' : 'pt-PT', { style: 'currency', currency: 'EUR' }).format(membershipAmount)}
                 </button>
             </div>
         </main>
     );
 }
 
+function MembershipSuspenseFallback() {
+    return (
+        <div className="h-screen flex items-center justify-center">
+            <div className="animate-spin w-8 h-8 border-2 border-garabandal-gold border-t-transparent rounded-full" />
+        </div>
+    );
+}
+
 export default function MembershipClient() {
     return (
-        <Suspense fallback={<div className="h-screen flex items-center justify-center">A carregar...</div>}>
+        <Suspense fallback={<MembershipSuspenseFallback />}>
             <TornarMembroContent />
         </Suspense>
     );

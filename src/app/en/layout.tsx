@@ -1,5 +1,4 @@
 import type { Metadata } from 'next';
-import ClientLayout from '../../components/layouts/ClientLayout';
 
 export const metadata: Metadata = {
   title: {
@@ -23,9 +22,5 @@ export const metadata: Metadata = {
 };
 
 export default function EnglishLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <ClientLayout locale="en">
-      {children}
-    </ClientLayout>
-  );
+  return <>{children}</>;
 }

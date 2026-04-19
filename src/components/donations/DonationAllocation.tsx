@@ -1,32 +1,35 @@
 import { motion } from 'framer-motion';
 import { BrickWall, Hammer, Lightbulb, Home, Users } from 'lucide-react';
+import { useLocale } from '../../contexts/LocaleContext';
 
 export default function DonationAllocation() {
+    const { locale } = useLocale();
+    const isEn = locale === 'en';
     const items = [
         {
             icon: BrickWall,
-            title: 'Obras Estruturais',
-            desc: 'Reforço de fundações, paredes e telhado para garantir segurança total.'
+            title: isEn ? 'Structural Works' : 'Obras Estruturais',
+            desc: isEn ? 'Reinforcement of foundations, walls and roof to guarantee full safety.' : 'Reforço de fundações, paredes e telhado para garantir segurança total.'
         },
         {
             icon: Hammer,
-            title: 'Materiais de Qualidade',
-            desc: 'Revestimentos duráveis e isolamento térmico para os invernos rigorosos.'
+            title: isEn ? 'Quality Materials' : 'Materiais de Qualidade',
+            desc: isEn ? 'Durable finishes and thermal insulation for harsh winters.' : 'Revestimentos duráveis e isolamento térmico para os invernos rigorosos.'
         },
         {
             icon: Users,
-            title: 'Mão de Obra Local',
-            desc: 'Apoio à economia local através da contratação de equipas especializadas.'
+            title: isEn ? 'Local Workforce' : 'Mão de Obra Local',
+            desc: isEn ? 'Support for the local economy through specialist teams.' : 'Apoio à economia local através da contratação de equipas especializadas.'
         },
         {
             icon: Lightbulb,
-            title: 'Infraestruturas',
-            desc: 'Renovação completa das redes de água, eletricidade e saneamento.'
+            title: isEn ? 'Infrastructure' : 'Infraestruturas',
+            desc: isEn ? 'Complete renewal of water, electricity and sanitation systems.' : 'Renovação completa das redes de água, eletricidade e saneamento.'
         },
         {
             icon: Home,
-            title: 'Espaços de Acolhimento',
-            desc: 'Criação de quartos confortáveis, cozinha equipada e áreas de convívio.'
+            title: isEn ? 'Welcoming Spaces' : 'Espaços de Acolhimento',
+            desc: isEn ? 'Creation of comfortable rooms, an equipped kitchen and shared spaces.' : 'Criação de quartos confortáveis, cozinha equipada e áreas de convívio.'
         },
     ];
 
@@ -40,10 +43,12 @@ export default function DonationAllocation() {
                     className="text-center mb-16"
                 >
                     <h2 className="text-3xl sm:text-4xl md:text-5xl font-serif text-garabandal-dark mb-6">
-                        Transparência Total
+                        {isEn ? 'Full Transparency' : 'Transparência Total'}
                     </h2>
                     <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-                        Cada euro doado é aplicado diretamente na renovação. Aqui está como o seu investimento será utilizado.
+                        {isEn
+                            ? 'Every euro donated goes directly into the renovation. Here is how your contribution will be used.'
+                            : 'Cada euro doado é aplicado diretamente na renovação. Aqui está como o seu investimento será utilizado.'}
                     </p>
                 </motion.div>
 

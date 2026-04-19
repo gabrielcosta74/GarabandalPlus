@@ -1,11 +1,14 @@
 import { Trash2 } from 'lucide-react';
+import BilingualField from '../../../../../components/admin/BilingualField';
 
 interface DetailedItineraryItem {
     id?: string;
     pilgrimage_id?: string;
     day_number: number | null;
     title: string | null;
+    title_en?: string | null;
     description: string | null;
+    description_en?: string | null;
     image_url: string | null;
     display_order: number | null;
 }
@@ -52,7 +55,6 @@ export default function DetailedItineraryTab({
                             <button onClick={() => removeDetailedItem(idx)} className="text-red-400 hover:text-red-600 bg-red-50 p-2 rounded-lg"><Trash2 className="w-4 h-4" /></button>
                         </div>
 
-                        {/* Day Badge */}
                         <div className="flex flex-col items-center gap-1">
                             <span className="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Dia</span>
                             <div className="w-12 h-12 rounded-xl bg-slate-900 text-white flex items-center justify-center font-bold text-xl shadow-lg shadow-slate-200">
@@ -60,16 +62,17 @@ export default function DetailedItineraryTab({
                             </div>
                         </div>
 
-                        {/* Fields */}
                         <div className="flex-1 space-y-4">
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 <div className="md:col-span-2">
-                                    <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Título do Dia</label>
-                                    <input
-                                        value={item.title || ''}
-                                        onChange={e => updateDetailedItem(idx, 'title', e.target.value)}
-                                        className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg font-bold"
+                                    <BilingualField
+                                        label="Título do Dia"
+                                        ptValue={item.title || ''}
+                                        enValue={item.title_en || ''}
+                                        onChangePt={value => updateDetailedItem(idx, 'title', value)}
+                                        onChangeEn={value => updateDetailedItem(idx, 'title_en', value)}
                                         placeholder="Ex: Chegada a Santander"
+                                        placeholderEn="Ex: Arrival in Santander"
                                     />
                                 </div>
                                 <div>
@@ -83,15 +86,18 @@ export default function DetailedItineraryTab({
                                 </div>
                             </div>
 
-                            <div>
-                                <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Descrição das Atividades</label>
-                                <textarea
-                                    value={item.description || ''}
-                                    onChange={e => updateDetailedItem(idx, 'description', e.target.value)}
-                                    className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-sm h-24 resize-none"
-                                    placeholder="Detalhe o programa para este dia..."
-                                />
-                            </div>
+                            <BilingualField
+                                label="Descrição das Atividades"
+                                ptValue={item.description || ''}
+                                enValue={item.description_en || ''}
+                                onChangePt={value => updateDetailedItem(idx, 'description', value)}
+                                onChangeEn={value => updateDetailedItem(idx, 'description_en', value)}
+                                type="textarea"
+                                rows={5}
+                                placeholder="Detalhe o programa para este dia..."
+                                placeholderEn="Describe the plan for this day..."
+                            />
+
                             <div>
                                 <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Imagem (URL)</label>
                                 <input

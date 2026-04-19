@@ -1,6 +1,7 @@
 import { FileText, Image as ImageIcon, Link as LinkIcon, Calendar, Euro, Users, CheckCircle } from 'lucide-react';
 import ImageUpload from '../../../../../components/admin/ImageUpload';
 import { getCivilDateInputValue } from '../../../../../lib/utils';
+import BilingualField, { TranslateAllButton } from '../../../../../components/admin/BilingualField';
 
 interface GeneralInfoTabProps {
     form: any;
@@ -29,6 +30,13 @@ export default function GeneralInfoTab({ form, setForm }: GeneralInfoTabProps) {
         { value: 'draft', label: 'Rascunho', description: 'Invisível ao público', color: 'bg-purple-50 border-purple-200 text-purple-700 ring-purple-500' },
     ];
 
+    // Campos traduzíveis desta tab para o botão "Traduzir tudo"
+    const translatableFields = [
+        { ptValue: form.title ?? '', onChangeEn: (v: string) => setForm({ ...form, title_en: v }) },
+        { ptValue: form.itinerary_summary ?? '', onChangeEn: (v: string) => setForm({ ...form, itinerary_summary_en: v }) },
+        { ptValue: form.description ?? '', onChangeEn: (v: string) => setForm({ ...form, description_en: v }) },
+    ];
+
     return (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
 
@@ -39,21 +47,24 @@ export default function GeneralInfoTab({ form, setForm }: GeneralInfoTabProps) {
                         <FileText className="w-4 h-4 text-indigo-500" />
                         Detalhes Principais
                     </h3>
+                    <TranslateAllButton fields={translatableFields} />
                 </div>
                 <div className="p-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
 
-                    {/* Left Column: Title & Slug */}
+                    {/* Left Column: Title, Slug, Itinerary, Description */}
                     <div className="lg:col-span-2 space-y-6">
-                        <div>
-                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Título da Viagem</label>
-                            <input
-                                type="text"
-                                className="w-full text-xl p-4 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all font-serif font-medium text-slate-900 placeholder:text-slate-300 shadow-sm"
-                                value={form.title}
-                                onChange={e => setForm({ ...form, title: e.target.value })}
-                                placeholder="Ex: Peregrinação a Garabandal 2024"
-                            />
-                        </div>
+
+                        <BilingualField
+                            label="Título da Viagem"
+                            ptValue={form.title ?? ''}
+                            enValue={form.title_en ?? ''}
+                            onChangePt={v => setForm({ ...form, title: v })}
+                            onChangeEn={v => setForm({ ...form, title_en: v })}
+                            placeholder="Ex: Peregrinação a Garabandal 2024"
+                            placeholderEn="Ex: Pilgrimage to Garabandal 2024"
+                            inputClassName="text-xl font-serif font-medium text-slate-900"
+                            required
+                        />
 
                         <div>
                             <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 flex items-center gap-2">
@@ -70,28 +81,30 @@ export default function GeneralInfoTab({ form, setForm }: GeneralInfoTabProps) {
                                     onChange={e => setForm({ ...form, slug: e.target.value })}
                                 />
                             </div>
+                            <p className="text-[10px] text-slate-400 mt-1">O slug é partilhado entre PT e EN. A versão EN acede via /en/pilgrimages/{form.slug || '...'}</p>
                         </div>
 
-                        <div>
-                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Resumo de Itinerário</label>
-                            <input
-                                type="text"
-                                className="w-full text-base p-4 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all font-medium text-slate-800 placeholder:text-slate-300 shadow-sm"
-                                value={form.itinerary_summary || ''}
-                                onChange={e => setForm({ ...form, itinerary_summary: e.target.value })}
-                                placeholder="Ex: Lisboa - Fátima - Garabandal - Bilbao"
-                            />
-                        </div>
+                        <BilingualField
+                            label="Resumo de Itinerário"
+                            ptValue={form.itinerary_summary ?? ''}
+                            enValue={form.itinerary_summary_en ?? ''}
+                            onChangePt={v => setForm({ ...form, itinerary_summary: v })}
+                            onChangeEn={v => setForm({ ...form, itinerary_summary_en: v })}
+                            placeholder="Ex: Lisboa - Fátima - Garabandal - Bilbao"
+                            placeholderEn="Ex: Lisbon - Fatima - Garabandal - Bilbao"
+                        />
 
-                        <div>
-                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Descrição Completa</label>
-                            <textarea
-                                className="w-full p-4 bg-slate-50/50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all h-40 resize-none text-slate-600 leading-relaxed"
-                                value={form.description}
-                                onChange={e => setForm({ ...form, description: e.target.value })}
-                                placeholder="Descreva os pontos altos da viagem, o tema espiritual e o que os peregrinos podem esperar..."
-                            />
-                        </div>
+                        <BilingualField
+                            label="Descrição Completa"
+                            ptValue={form.description ?? ''}
+                            enValue={form.description_en ?? ''}
+                            onChangePt={v => setForm({ ...form, description: v })}
+                            onChangeEn={v => setForm({ ...form, description_en: v })}
+                            type="textarea"
+                            rows={6}
+                            placeholder="Descreva os pontos altos da viagem, o tema espiritual e o que os peregrinos podem esperar..."
+                            placeholderEn="Describe the highlights of the trip, the spiritual theme and what pilgrims can expect..."
+                        />
                     </div>
 
                     {/* Right Column: Status & Dates */}

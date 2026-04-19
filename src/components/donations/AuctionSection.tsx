@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Gavel } from 'lucide-react';
 import { AuctionCard } from '../auction/AuctionCard';
+import { useLocale } from '../../contexts/LocaleContext';
 
 type AuctionItem = {
     id: string;
@@ -18,6 +19,8 @@ type AuctionItem = {
 export default function AuctionSection() {
     const [items, setItems] = useState<AuctionItem[]>([]);
     const [loading, setLoading] = useState(true);
+    const { locale } = useLocale();
+    const isEn = locale === 'en';
 
     useEffect(() => {
         const fetchItems = async () => {
@@ -49,13 +52,15 @@ export default function AuctionSection() {
                 <div className="text-center mb-12">
                     <div className="inline-flex items-center gap-2 bg-yellow-50 text-yellow-700 rounded-full px-4 py-2 text-xs font-bold uppercase tracking-widest mb-4 border border-yellow-200">
                         <Gavel className="w-4 h-4" />
-                        Leilão Solidário
+                        {isEn ? 'Charity Auction' : 'Leilão Solidário'}
                     </div>
                     <h2 className="text-3xl sm:text-4xl font-serif font-bold text-slate-900 mb-3">
-                        Peças com Alma, Causas com Coração
+                        {isEn ? 'Pieces with Soul, Causes with Heart' : 'Peças com Alma, Causas com Coração'}
                     </h2>
                     <p className="text-slate-500 max-w-2xl mx-auto">
-                        Peças únicas restauradas com amor. Licite e contribua diretamente para a construção da Casa do Apostolado.
+                        {isEn
+                            ? 'Unique pieces restored with love. Bid and contribute directly to building the House of the Apostolate.'
+                            : 'Peças únicas restauradas com amor. Licite e contribua diretamente para a construção da Casa do Apostolado.'}
                     </p>
                 </div>
 

@@ -13,19 +13,20 @@ import AuthLandingGuard from '../auth/AuthLandingGuard';
 
 export default function ClientLayout({
     children,
-    locale = 'pt',
+    locale,
 }: {
     children: ReactNode;
     locale?: LocaleCode;
 }) {
     const pathname = usePathname();
+    const resolvedLocale: LocaleCode = locale ?? (pathname?.startsWith('/en') ? 'en' : 'pt');
     const isAdmin = pathname?.startsWith('/admin');
     const isEmbed = pathname?.startsWith('/embed');
     const hideHeader = isAdmin || isEmbed;
     const hideFooter = isAdmin || isEmbed;
 
     return (
-        <LocaleProvider locale={locale}>
+        <LocaleProvider locale={resolvedLocale}>
             <AuthProvider>
                 <AuthLandingGuard />
                 <CurrencyProvider>

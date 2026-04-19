@@ -23,6 +23,7 @@ import { GoogleButton } from "../auth/AuthLayout";
 import { UNIFIED_ONLINE_PAYMENT_OPTIONS } from "../../lib/payment-options";
 import { getMembershipAmountClient } from "../../lib/membership-pricing";
 import { normalizeQuotaStatus } from "../../lib/membership-status";
+import { useLocale } from "../../contexts/LocaleContext";
 
 interface MembershipModalProps {
     isOpen: boolean;
@@ -31,22 +32,10 @@ interface MembershipModalProps {
     referralCode?: string;
 }
 
-const slides = [
-    {
-        title: "Pertencer a uma missão viva",
-        text: "A tua quota sustenta encontros, publicações e acolhimento de peregrinos.",
-        imageUrl: "/images/espalharpalavra.webp",
-    },
-    {
-        title: "Graças da Comunidade",
-        text: "Acesso a Vídeos Exclusivos, Altar de Intenções e Desconto de 50€ em Peregrinações.",
-        imageUrl: "/images/descontoslivros.webp",
-    },
-    {
-        title: "Impacto concreto",
-        text: "Cada novo membro ajuda a manter a mensagem presente e ativa.",
-        imageUrl: "/images/associacao.webp",
-    },
+const slideImages = [
+    "/images/espalharpalavra.webp",
+    "/images/descontoslivros.webp",
+    "/images/associacao.webp",
 ];
 
 const countryOptions = listCountryLabels();
@@ -116,6 +105,11 @@ const SelectField = ({ label, children, ...props }: React.SelectHTMLAttributes<H
 
 export default function MembershipModal({ isOpen, onClose, impact, referralCode }: MembershipModalProps) {
     const { formatPrice } = useCurrency();
+    const { locale, t } = useLocale();
+    const m = t.membership.modal;
+    const slides = m.slides;
+    const termsUrl = t.urls.terms;
+    const privacyUrl = t.urls.privacy;
     const membershipAmount = getMembershipAmountClient();
     const [step, setStep] = useState(1);
     const [slideIndex, setSlideIndex] = useState(0);
@@ -131,6 +125,9 @@ export default function MembershipModal({ isOpen, onClose, impact, referralCode 
     const [error, setError] = useState<string | null>(null);
     const [acceptedTerms, setAcceptedTerms] = useState(false);
     const [manualReferralCode, setManualReferralCode] = useState(referralCode || "");
+    const [pendingConfirmationEmail, setPendingConfirmationEmail] = useState<string | null>(null);
+    const [resendLoading, setResendLoading] = useState(false);
+    const [resendMessage, setResendMessage] = useState<string | null>(null);
 
     useEffect(() => {
         if (referralCode) setManualReferralCode(referralCode);
@@ -157,6 +154,18 @@ export default function MembershipModal({ isOpen, onClose, impact, referralCode 
 
     const selectedPayment = UNIFIED_ONLINE_PAYMENT_OPTIONS.find((o) => o.id === selectedPaymentId) || UNIFIED_ONLINE_PAYMENT_OPTIONS[0];
     const { user: authUser, memberData: authMemberData, refreshMemberData } = useAuth();
+    const getModalReturnPath = (refCode = manualReferralCode.trim()) => {
+        const params = new URLSearchParams({ join: "1" });
+        if (refCode) params.set("ref", refCode);
+        return `${locale === 'en' ? '/en/become-member' : '/tornar-membro'}?${params.toString()}`;
+    };
+    const getAuthCallbackUrl = (refCode = manualReferralCode.trim()) => {
+        const cbUrl = new URL('/auth-callback', window.location.origin);
+        if (refCode) cbUrl.searchParams.set('ref', refCode);
+        cbUrl.searchParams.set('locale', locale);
+        cbUrl.searchParams.set('next', getModalReturnPath(refCode));
+        return cbUrl.toString();
+    };
 
     const loadLiveMemberData = async (userId: string) => {
         if (!supabaseBrowser) return null;
@@ -177,12 +186,12 @@ export default function MembershipModal({ isOpen, onClose, impact, referralCode 
             if (authUser?.id) {
                 setSessionUserId(authUser.id);
                 setSessionEmail(authUser.email ?? null);
-                setIsNewAccount(false);
                 setFormData((prev) => (prev.email ? prev : { ...prev, email: authUser.email || "" }));
 
                 // Force fresh read from DB to avoid stale context after admin changes.
                 await refreshMemberData();
                 const liveData = await loadLiveMemberData(authUser.id);
+                setIsNewAccount(!liveData);
 
                 // Check if profile is complete
                 const isComplete = liveData?.nome && liveData?.email && liveData?.telefone && liveData?.address && liveData?.postal_code && liveData?.country;
@@ -198,9 +207,9 @@ export default function MembershipModal({ isOpen, onClose, impact, referralCode 
             if (data.session?.user?.id) {
                 setSessionUserId(data.session.user.id);
                 setSessionEmail(data.session.user.email ?? null);
-                setIsNewAccount(false);
                 setFormData((prev) => (prev.email ? prev : { ...prev, email: data.session?.user?.email || "" }));
                 const liveData = await loadLiveMemberData(data.session.user.id);
+                setIsNewAccount(!liveData);
 
                 if (liveData?.nome && liveData?.email && liveData?.telefone && liveData?.address && liveData?.postal_code && liveData?.country) {
                     setStep(3);
@@ -261,11 +270,11 @@ export default function MembershipModal({ isOpen, onClose, impact, referralCode 
 
 
     const validateStepTwo = () => {
-        if (!formData.nome || formData.nome.trim().length < 3) return "Indica o nome completo.";
-        if (!formData.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim())) return "Email inválido.";
-        if (!formData.morada || formData.morada.trim().length < 3) return "Indica a morada.";
-        if (!formData.pais) return "Seleciona o país.";
-        if (!formData.codigoPostal || formData.codigoPostal.trim().length < 3) return "Indica o código postal.";
+        if (!formData.nome || formData.nome.trim().length < 3) return m.step2.errorName;
+        if (!formData.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim())) return m.step2.errorEmail;
+        if (!formData.morada || formData.morada.trim().length < 3) return m.step2.errorAddress;
+        if (!formData.pais) return m.step2.errorCountry;
+        if (!formData.codigoPostal || formData.codigoPostal.trim().length < 3) return m.step2.errorPostal;
 
         if (!validatePostalCode(formData.pais, formData.codigoPostal)) return getPostalInvalidMessage(formData.pais);
         if (!validatePhone(formData.telefone, formData.pais)) return getPhoneInvalidMessage(formData.pais);
@@ -280,64 +289,109 @@ export default function MembershipModal({ isOpen, onClose, impact, referralCode 
 
         const email = formData.email.trim().toLowerCase();
         if (!email || !password) {
-            setError("Preenche o email e a password.");
+            setError(m.step1.errorFillEmailPass);
             return;
         }
 
         setAuthLoading(true);
         setError(null);
+        setResendMessage(null);
 
         try {
-            if (!supabaseBrowser) throw new Error("Sistema indisponível temporariamente.");
+            if (!supabaseBrowser) throw new Error(m.step1.errorUnavailable);
 
             if (authMode === 'signup') {
-                if (password.length < 6) throw new Error("A password deve ter 6+ caracteres.");
-                if (password !== confirmPassword) throw new Error("As passwords não coincidem.");
-                if (!acceptedTerms) throw new Error("Tens de aceitar os termos e condições.");
+                if (password.length < 6) throw new Error(m.step1.errorMinPass);
+                if (password !== confirmPassword) throw new Error(m.step1.errorMismatch);
+                if (!acceptedTerms) throw new Error(m.step1.errorAcceptTerms);
 
                 const finalRefCode = manualReferralCode.trim();
-                const redirectTo = `${window.location.origin}/auth-callback${finalRefCode ? `?ref=${encodeURIComponent(finalRefCode)}` : ''}`;
+                const redirectTo = getAuthCallbackUrl(finalRefCode);
                 const { data, error: upErr } = await supabaseBrowser.auth.signUp({
-                    email, password, options: { emailRedirectTo: redirectTo }
+                    email,
+                    password,
+                    options: {
+                        emailRedirectTo: redirectTo,
+                        data: { language: locale, locale },
+                    }
                 });
                 if (upErr) throw upErr;
-                if (!data.user?.id) throw new Error("Erro ao criar conta.");
+                if (!data.user?.id) throw new Error(m.step1.errorCreateAccount);
+                if (data.user?.identities?.length === 0) {
+                    setPendingConfirmationEmail(email);
+                    setAuthMode('login');
+                    throw new Error(m.step1.emailAlreadyRegistered);
+                }
 
                 // If Supabase expects email confirmation, session will be null
                 if (!data.session) {
-                    setError("Conta criada com sucesso! Por favor verifica o teu email para a confirmar antes de continuares.");
+                    setPendingConfirmationEmail(email);
+                    setResendMessage(m.step1.accountCreatedCheck);
                     setAuthLoading(false);
                     return;
                 }
                 setSessionUserId(data.user.id);
+                setSessionEmail(data.user.email ?? email);
                 setIsNewAccount(true);
+                setPendingConfirmationEmail(null);
                 setStep(2);
             } else {
-                if (!supabaseBrowser) throw new Error("Sistema indisponível.");
+                if (!supabaseBrowser) throw new Error(m.step1.errorUnavailable);
                 const { data, error: inErr } = await supabaseBrowser.auth.signInWithPassword({ email, password });
                 if (inErr) throw inErr;
-                if (!data.user?.id) throw new Error("Erro ao entrar.");
-
-                // Check if profile exists
-                const { data: memberProfile } = await supabaseBrowser
-                    .from('membros')
-                    .select('id')
-                    .eq('id', data.user.id)
-                    .maybeSingle();
-
-                if (!memberProfile) {
-                    setIsNewAccount(true);
-                } else {
-                    setIsNewAccount(false);
-                }
+                if (!data.user?.id) throw new Error(m.step1.errorSignIn);
 
                 setSessionUserId(data.user.id);
-                setStep(2);
+                setSessionEmail(data.user.email ?? email);
+
+                const liveData = await loadLiveMemberData(data.user.id);
+                setIsNewAccount(!liveData);
+                setFormData((prev) => ({ ...prev, email: data.user?.email || email }));
+
+                const isComplete = !!(
+                    liveData?.nome &&
+                    liveData?.email &&
+                    liveData?.telefone &&
+                    liveData?.address &&
+                    liveData?.postal_code &&
+                    liveData?.country
+                );
+                setStep(isComplete ? 3 : 2);
             }
         } catch (err) {
-            setError(err instanceof Error ? err.message : "Ocorreu um erro.");
+            setError(err instanceof Error ? err.message : m.step1.errorGeneric);
         } finally {
             setAuthLoading(false);
+        }
+    };
+
+    const handleResendConfirmation = async () => {
+        const emailToResend = (pendingConfirmationEmail || formData.email).trim().toLowerCase();
+        if (!emailToResend || resendLoading) return;
+
+        setResendLoading(true);
+        setError(null);
+        setResendMessage(null);
+
+        try {
+            if (!supabaseBrowser) throw new Error(m.step1.errorUnavailable);
+            const { error: resendError } = await supabaseBrowser.auth.resend({
+                type: 'signup',
+                email: emailToResend,
+                options: { emailRedirectTo: getAuthCallbackUrl() },
+            });
+            if (resendError) throw resendError;
+            setPendingConfirmationEmail(emailToResend);
+            setResendMessage(m.step1.confirmationResent);
+        } catch (err: any) {
+            const message = String(err?.message || '');
+            if (err?.status === 429 || message.toLowerCase().includes('only request')) {
+                setError(m.step1.resendRateLimited);
+            } else {
+                setError(message || m.step1.errorGeneric);
+            }
+        } finally {
+            setResendLoading(false);
         }
     };
 
@@ -360,7 +414,7 @@ export default function MembershipModal({ isOpen, onClose, impact, referralCode 
             payload.estado_quota = "pendente";
         }
 
-        if (!supabaseBrowser) throw new Error("Sistema indisponível.");
+        if (!supabaseBrowser) throw new Error(m.step1.errorUnavailable);
 
         // Enforce referral code assignment for existing non-member profiles
         const finalRefCode = manualReferralCode.trim();
@@ -379,12 +433,12 @@ export default function MembershipModal({ isOpen, onClose, impact, referralCode 
         const { error } = await supabaseBrowser.from("membros").upsert(payload, { onConflict: "id" });
         if (error) {
             if (error.code === '23505') { // Unique Violation
-                if (error.message?.includes('email')) throw new Error("Este email já está registado noutra conta.");
-                if (error.message?.includes('nif')) throw new Error("Este NIF já está registado noutra conta.");
-                if (error.message?.includes('numero_socio')) throw new Error("Conflito ao gerar número de membro. Tenta novamente.");
-                throw new Error("Dados duplicados (Email, NIF ou número de membro).");
+                if (error.message?.includes('email')) throw new Error(m.step2.errorEmailDuplicate);
+                if (error.message?.includes('nif')) throw new Error(m.step2.errorNifDuplicate);
+                if (error.message?.includes('numero_socio')) throw new Error(m.step2.errorMemberConflict);
+                throw new Error(m.step2.errorDuplicate);
             }
-            throw new Error(`Erro ao guardar perfil: ${error.message || 'Desconhecido'} `);
+            throw new Error(`${m.step2.errorSave}: ${error.message || '—'} `);
         }
     };
 
@@ -392,7 +446,7 @@ export default function MembershipModal({ isOpen, onClose, impact, referralCode 
         setPaymentError(null);
         setAuthLoading(true);
         try {
-            if (!sessionUserId) throw new Error("Sessão inválida.");
+            if (!sessionUserId) throw new Error(m.step3.errorSession);
             await saveProfile(sessionUserId);
 
             const res = await fetch("/api/checkout", {
@@ -401,8 +455,10 @@ export default function MembershipModal({ isOpen, onClose, impact, referralCode 
                 body: JSON.stringify({
                     amount: membershipAmount,
                     type: "membership",
+                    locale,
                     userId: sessionUserId,
                     provider: selectedPayment.provider,
+                    paymentOptionId: selectedPaymentId,
                     donorName: formData.nome?.trim() || undefined,
                     donorEmail: formData.email?.trim().toLowerCase() || undefined,
                     donorCountry: countryMeta?.code || undefined,
@@ -412,13 +468,13 @@ export default function MembershipModal({ isOpen, onClose, impact, referralCode 
             });
 
             const data = await res.json();
-            if (!res.ok) throw new Error(data.message || "Erro no pagamento.");
+            if (!res.ok) throw new Error(data.message || m.step3.errorPayment);
 
             // Stripe Redirect
             setPaymentUrl(data.url);
             setStep(4);
         } catch (err) {
-            setPaymentError(err instanceof Error ? err.message : "Erro no pagamento.");
+            setPaymentError(err instanceof Error ? err.message : m.step3.errorPayment);
         } finally {
             setAuthLoading(false);
         }
@@ -457,14 +513,14 @@ export default function MembershipModal({ isOpen, onClose, impact, referralCode 
                         {/* LEFT SIDEBAR (Visual) */}
                         <div className="hidden md:flex w-1/3 bg-garabandal-mist relative flex-col justify-between p-8 border-r border-gray-100">
                             <div>
-                                <div className="text-3xl font-serif text-garabandal-dark mb-1">Apostolado</div>
-                                <div className="text-xs uppercase tracking-widest text-garabandal-gold font-bold mb-8">De Garabandal</div>
+                                <div className="text-3xl font-serif text-garabandal-dark mb-1">{m.sidebarTitle}</div>
+                                <div className="text-xs uppercase tracking-widest text-garabandal-gold font-bold mb-8">{m.sidebarSubtitle}</div>
 
                                 <div className="bg-white/80 backdrop-blur-sm p-6 rounded-2xl border border-white/50 shadow-sm mb-6">
                                     <div className="text-4xl font-serif text-garabandal-dark mb-1">{formatPrice(membershipAmount)}</div>
-                                    <div className="text-xs text-gray-500 uppercase tracking-wider mb-4">{isRenewal ? 'Renovação Anual' : 'Quota Anual'}</div>
+                                    <div className="text-xs text-gray-500 uppercase tracking-wider mb-4">{isRenewal ? m.annualRenewal : m.annualFee}</div>
                                     <div className="space-y-3">
-                                        {["Vídeos Exclusivos", "Altar de Intenções", "Desconto 50€ Peregrinações", "Missas Anuais"].map((item, i) => (
+                                        {[m.benefitVideos, m.benefitAltar, m.benefitVoucher, m.benefitMasses].map((item, i) => (
                                             <div key={i} className="flex items-center gap-2 text-sm text-gray-600">
                                                 <div className="w-5 h-5 rounded-full bg-green-100 text-green-600 flex items-center justify-center">
                                                     <Check size={12} strokeWidth={3} />
@@ -484,7 +540,7 @@ export default function MembershipModal({ isOpen, onClose, impact, referralCode 
                                         transition={{ duration: 0.5 }}
                                         className="absolute inset-0"
                                     >
-                                        <img src={slides[slideIndex].imageUrl} className="w-full h-full object-cover opacity-80" alt="" />
+                                        <img src={slideImages[slideIndex]} className="w-full h-full object-cover opacity-80" alt="" />
                                         <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent p-6 flex flex-col justify-end text-white">
                                             <p className="font-bold text-sm mb-1">{slides[slideIndex].title}</p>
                                             <p className="text-xs opacity-80 line-clamp-2">{slides[slideIndex].text}</p>
@@ -508,13 +564,13 @@ export default function MembershipModal({ isOpen, onClose, impact, referralCode 
                                     )}
                                     <div>
                                         <div className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-0.5">
-                                            Passo {step} de 4
+                                            {m.step.replace('{current}', String(step)).replace('{total}', '4')}
                                         </div>
                                         <h3 className="font-serif text-xl font-bold text-garabandal-dark leading-none">
-                                            {step === 1 && "Criar Conta"}
-                                            {step === 2 && "Dados Pessoais"}
-                                            {step === 3 && (isRenewal ? "Renovar Quota" : "Método de Pagamento")}
-                                            {step === 4 && "Confirmação"}
+                                            {step === 1 && m.titles.account}
+                                            {step === 2 && m.titles.personal}
+                                            {step === 3 && (isRenewal ? m.titles.renew : m.titles.payment)}
+                                            {step === 4 && m.titles.confirm}
                                         </h3>
                                     </div>
                                 </div>
@@ -538,8 +594,8 @@ export default function MembershipModal({ isOpen, onClose, impact, referralCode 
                                                 <div className="w-16 h-16 bg-garabandal-gold/10 text-garabandal-gold rounded-2xl flex items-center justify-center mx-auto mb-4">
                                                     <Lock size={32} />
                                                 </div>
-                                                <h4 className="text-2xl font-serif text-garabandal-dark mb-2">Identificação</h4>
-                                                <p className="text-gray-500">Para associarmos a tua quota ao teu perfil.</p>
+                                                <h4 className="text-2xl font-serif text-garabandal-dark mb-2">{m.step1.heading}</h4>
+                                                <p className="text-gray-500">{m.step1.subheading}</p>
                                             </div>
 
                                             <div className="bg-gray-100 p-1 rounded-xl flex mb-8">
@@ -547,43 +603,45 @@ export default function MembershipModal({ isOpen, onClose, impact, referralCode 
                                                     className={`flex-1 py-2.5 text-xs font-bold uppercase tracking-wider rounded-lg transition-all ${authMode === 'login' ? 'bg-white shadow-sm text-garabandal-dark' : 'text-gray-400 hover:text-gray-600'}`}
                                                     onClick={() => setAuthMode('login')}
                                                 >
-                                                    Entrar
+                                                    {m.step1.signIn}
                                                 </button>
                                                 <button
                                                     className={`flex-1 py-2.5 text-xs font-bold uppercase tracking-wider rounded-lg transition-all ${authMode === 'signup' ? 'bg-white shadow-sm text-garabandal-dark' : 'text-gray-400 hover:text-gray-600'}`}
                                                     onClick={() => setAuthMode('signup')}
                                                 >
-                                                    Registar
+                                                    {m.step1.signUp}
                                                 </button>
                                             </div>
 
                                             <div className="mb-6">
                                                 <GoogleButton
                                                     isLoading={authLoading}
-                                                    text={authMode === 'login' ? "Entrar com Google" : "Registar com Google"}
+                                                    text={authMode === 'login' ? m.step1.googleSignIn : m.step1.googleSignUp}
                                                     className="bg-white border-gray-200 shadow-sm hover:shadow-md py-3"
                                                     referralCode={manualReferralCode.trim()}
+                                                    locale={locale}
+                                                    next={getModalReturnPath()}
                                                 />
                                                 <div className="relative flex items-center justify-center mt-6">
                                                     <div className="absolute inset-0 flex items-center">
                                                         <div className="w-full border-t border-gray-200"></div>
                                                     </div>
                                                     <span className="relative z-10 bg-white px-2 text-[10px] text-gray-400 font-bold uppercase tracking-widest">
-                                                        Ou com email
+                                                        {m.step1.orEmail}
                                                     </span>
                                                 </div>
                                             </div>
 
                                             <div className="space-y-5">
                                                 <InputField
-                                                    label="Email"
+                                                    label={m.step1.email}
                                                     type="email"
                                                     value={formData.email}
                                                     onChange={e => setFormData(p => ({ ...p, email: e.target.value }))}
                                                 />
 
                                                 <PasswordInput
-                                                    label="Password"
+                                                    label={m.step1.password}
                                                     value={password}
                                                     onChange={e => setPassword(e.target.value)}
                                                 />
@@ -591,7 +649,7 @@ export default function MembershipModal({ isOpen, onClose, impact, referralCode 
                                                 {authMode === 'signup' && (
                                                     <>
                                                         <PasswordInput
-                                                            label="Confirmar Password"
+                                                            label={m.step1.confirmPassword}
                                                             value={confirmPassword}
                                                             onChange={e => setConfirmPassword(e.target.value)}
                                                         />
@@ -607,20 +665,45 @@ export default function MembershipModal({ isOpen, onClose, impact, referralCode 
                                                                 />
                                                             </div>
                                                             <label htmlFor="modal-terms" className="text-xs text-gray-500 leading-relaxed font-medium">
-                                                                Li e aceito os{" "}
-                                                                <Link href="/termos" target="_blank" className="underline hover:text-garabandal-gold">
-                                                                    Termos e Condições
+                                                                {m.step1.acceptPrefix}{" "}
+                                                                <Link href={termsUrl} target="_blank" className="underline hover:text-garabandal-gold">
+                                                                    {m.step1.terms}
                                                                 </Link>{" "}
-                                                                e a{" "}
-                                                                <Link href="/privacidade" target="_blank" className="underline hover:text-garabandal-gold">
-                                                                    Política de Privacidade
+                                                                {m.step1.acceptMid}{" "}
+                                                                <Link href={privacyUrl} target="_blank" className="underline hover:text-garabandal-gold">
+                                                                    {m.step1.privacy}
                                                                 </Link>{" "}
-                                                                do Apostolado de Garabandal.
+                                                                {m.step1.acceptSuffix}
                                                             </label>
                                                         </div>
                                                     </>
                                                 )}
                                             </div>
+
+                                            {pendingConfirmationEmail && (
+                                                <motion.div
+                                                    initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
+                                                    className="mt-6 p-4 bg-green-50 text-green-800 text-sm rounded-xl border border-green-100"
+                                                >
+                                                    <div className="font-bold mb-1">{m.step1.checkInboxTitle}</div>
+                                                    <div className="leading-relaxed">
+                                                        {m.step1.checkInboxHelp.replace('{email}', pendingConfirmationEmail)}
+                                                    </div>
+                                                    {resendMessage && (
+                                                        <div className="mt-2 text-xs font-semibold text-green-700">
+                                                            {resendMessage}
+                                                        </div>
+                                                    )}
+                                                    <button
+                                                        type="button"
+                                                        onClick={handleResendConfirmation}
+                                                        disabled={resendLoading}
+                                                        className="mt-3 text-xs font-bold uppercase tracking-widest text-green-900 underline underline-offset-4 disabled:opacity-60"
+                                                    >
+                                                        {resendLoading ? m.step1.processing : m.step1.resendConfirmation}
+                                                    </button>
+                                                </motion.div>
+                                            )}
 
                                             {error && (
                                                 <motion.div
@@ -636,7 +719,7 @@ export default function MembershipModal({ isOpen, onClose, impact, referralCode 
                                                 disabled={authLoading}
                                                 className="w-full mt-8 bg-garabandal-dark text-white font-bold uppercase tracking-widest py-4 rounded-xl hover:bg-black transition-all flex justify-center items-center gap-2 shadow-lg shadow-garabandal-dark/20 hover:scale-[1.02] active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
                                             >
-                                                {authLoading ? "A processar..." : "Continuar"}
+                                                {authLoading ? m.step1.processing : m.step1.continue}
                                                 {!authLoading && <ChevronLeft size={16} className="rotate-180" />}
                                             </button>
                                         </motion.div>
@@ -650,31 +733,31 @@ export default function MembershipModal({ isOpen, onClose, impact, referralCode 
                                             className="max-w-xl mx-auto"
                                         >
                                             <div className="mb-8">
-                                                <h4 className="text-2xl font-serif text-garabandal-dark mb-2">Completar Perfil</h4>
-                                                <p className="text-gray-500 text-sm">Necessário para a emissão do recibo.</p>
+                                                <h4 className="text-2xl font-serif text-garabandal-dark mb-2">{m.step2.heading}</h4>
+                                                <p className="text-gray-500 text-sm">{m.step2.subheading}</p>
                                             </div>
 
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                                                 <div className="md:col-span-2">
-                                                    <InputField label="Nome Completo" value={formData.nome} onChange={e => setFormData(p => ({ ...p, nome: e.target.value }))} />
+                                                    <InputField label={m.step2.fullName} value={formData.nome} onChange={e => setFormData(p => ({ ...p, nome: e.target.value }))} />
                                                 </div>
                                                 <div className="md:col-span-2">
                                                     <InputField
-                                                        label="Email"
+                                                        label={m.step2.email}
                                                         value={formData.email}
                                                         readOnly
                                                     />
-                                                    <p className="text-[11px] text-gray-500 mt-1 ml-1">Email bloqueado para evitar inconsistências na inscrição de membro.</p>
+                                                    <p className="text-[11px] text-gray-500 mt-1 ml-1">{m.step2.emailLocked}</p>
                                                 </div>
                                                 <div>
-                                                    <SelectField label="País" value={formData.pais} onChange={e => setFormData(p => ({ ...p, pais: e.target.value }))}>
-                                                        <option value="">Selecionar...</option>
+                                                    <SelectField label={m.step2.country} value={formData.pais} onChange={e => setFormData(p => ({ ...p, pais: e.target.value }))}>
+                                                        <option value="">{m.step2.selectCountry}</option>
                                                         {countryOptions.map(c => <option key={c} value={c}>{c}</option>)}
                                                     </SelectField>
                                                 </div>
                                                 <div>
                                                     <InputField
-                                                        label="Telefone"
+                                                        label={m.step2.phone}
                                                         value={formData.telefone}
                                                         placeholder={countryMeta?.phoneExample}
                                                         onChange={e => setFormData(p => ({ ...p, telefone: withCountryPrefix(e.target.value, formData.pais) }))}
@@ -683,7 +766,7 @@ export default function MembershipModal({ isOpen, onClose, impact, referralCode 
                                                 </div>
                                                 <div className="md:col-span-2">
                                                     <InputField
-                                                        label="Morada"
+                                                        label={m.step2.address}
                                                         value={formData.morada}
                                                         inputMode={getPostalInputMode(formData.pais)}
                                                         onChange={e => setFormData(p => ({ ...p, morada: e.target.value }))}
@@ -691,14 +774,14 @@ export default function MembershipModal({ isOpen, onClose, impact, referralCode 
                                                 </div>
                                                 <div>
                                                     <InputField
-                                                        label="Código Postal / CEP"
+                                                        label={m.step2.postal}
                                                         value={formData.codigoPostal}
                                                         placeholder={countryMeta?.postalPlaceholder}
                                                         onChange={e => setFormData(p => ({ ...p, codigoPostal: formatPostalCode(e.target.value, formData.pais) }))}
                                                     />
                                                 </div>
                                                 <div>
-                                                    <InputField label="NIF / CPF (Opcional)" value={formData.nif} onChange={e => setFormData(p => ({ ...p, nif: e.target.value }))} />
+                                                    <InputField label={m.step2.nif} value={formData.nif} onChange={e => setFormData(p => ({ ...p, nif: e.target.value }))} />
                                                 </div>
                                             </div>
 
@@ -716,7 +799,7 @@ export default function MembershipModal({ isOpen, onClose, impact, referralCode 
                                                 }}
                                                 className="w-full mt-8 bg-garabandal-dark text-white font-bold uppercase tracking-widest py-4 rounded-xl hover:bg-black transition-all flex justify-center items-center gap-2 shadow-lg shadow-garabandal-dark/20 hover:scale-[1.02] active:scale-95"
                                             >
-                                                Confirmar Dados
+                                                {m.step2.confirm}
                                             </button>
                                         </motion.div>
                                     )}
@@ -729,8 +812,8 @@ export default function MembershipModal({ isOpen, onClose, impact, referralCode 
                                             className="max-w-xl mx-auto"
                                         >
                                             <div className="mb-8">
-                                                <h4 className="text-2xl font-serif text-garabandal-dark mb-2">{isRenewal ? 'Renovar Quota' : 'Tornar-se Membro'}</h4>
-                                                <p className="text-gray-500 text-sm">Escolha como pretende pagar a quota de {formatPrice(membershipAmount)}.</p>
+                                                <h4 className="text-2xl font-serif text-garabandal-dark mb-2">{isRenewal ? m.step3.headingRenew : m.step3.headingNew}</h4>
+                                                <p className="text-gray-500 text-sm">{m.step3.subheading.replace('{amount}', formatPrice(membershipAmount))}</p>
                                             </div>
 
                                             {!isRenewal && (
@@ -740,13 +823,13 @@ export default function MembershipModal({ isOpen, onClose, impact, referralCode 
                                                     </div>
                                                     <div className="relative z-10">
                                                         <InputField
-                                                            label="Código de Convite (Opcional)"
-                                                            placeholder="Ex: RUI-R033"
+                                                            label={m.step3.referralLabel}
+                                                            placeholder={m.step3.referralPlaceholder}
                                                             value={manualReferralCode}
                                                             onChange={(e) => setManualReferralCode(e.target.value.toUpperCase())}
                                                         />
                                                         <p className="text-[11px] text-yellow-800/80 mt-2 font-medium">
-                                                            Se foste convidado por um amigo, insere o código dele (se ainda não estiver preenchido) para ambos ganharem bónus!
+                                                            {m.step3.referralHint}
                                                         </p>
                                                     </div>
                                                 </div>
@@ -792,7 +875,7 @@ export default function MembershipModal({ isOpen, onClose, impact, referralCode 
 
                                             <div className="mt-8 flex items-center gap-3 p-4 bg-blue-50/50 rounded-xl text-xs font-bold text-blue-800/60 uppercase tracking-wide">
                                                 <Lock size={14} />
-                                                <span>Ambiente 100% seguro e encriptado (SSL)</span>
+                                                <span>{m.step3.secureNote}</span>
                                             </div>
 
                                             {paymentError && (
@@ -806,7 +889,7 @@ export default function MembershipModal({ isOpen, onClose, impact, referralCode 
                                                 disabled={authLoading}
                                                 className="w-full mt-8 bg-garabandal-dark text-white font-bold uppercase tracking-widest py-4 rounded-xl hover:bg-black transition-all flex justify-center items-center gap-2 shadow-lg shadow-garabandal-dark/20 hover:scale-[1.02] active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
                                             >
-                                                {authLoading ? "A processar..." : `Pagar ${formatPrice(membershipAmount)} com Segurança`}
+                                                {authLoading ? m.step3.processing : m.step3.payButton.replace('{amount}', formatPrice(membershipAmount))}
                                             </button>
                                         </motion.div>
                                     )}
@@ -821,9 +904,9 @@ export default function MembershipModal({ isOpen, onClose, impact, referralCode 
                                             <div className="w-24 h-24 bg-green-100 text-green-600 rounded-full flex items-center justify-center mb-8 animate-[bounce_2s_infinite]">
                                                 <CreditCard size={40} />
                                             </div>
-                                            <h3 className="text-3xl font-serif text-garabandal-dark mb-4">A Redirecionar...</h3>
+                                            <h3 className="text-3xl font-serif text-garabandal-dark mb-4">{m.step4.heading}</h3>
                                             <p className="text-gray-500 mb-8 text-lg font-light leading-relaxed">
-                                                Estamos a transferi-lo para a página segura de pagamento da <strong className="text-gray-900 font-bold">{selectedPayment.label}</strong>.
+                                                {m.step4.subheadingPrefix} <strong className="text-gray-900 font-bold">{selectedPayment.label}</strong>.
                                             </p>
 
                                             <div className="w-full max-w-xs bg-gray-100 rounded-full h-1.5 mb-8 overflow-hidden">
@@ -835,7 +918,7 @@ export default function MembershipModal({ isOpen, onClose, impact, referralCode 
                                                 className="text-sm font-bold text-garabandal-gold hover:text-garabandal-dark transition-colors uppercase tracking-widest border-b border-transparent hover:border-current"
                                                 onClick={e => !paymentUrl && e.preventDefault()}
                                             >
-                                                Clique aqui se não abrir automaticamente
+                                                {m.step4.fallbackLink}
                                             </a>
                                         </motion.div>
                                     )}

@@ -2,13 +2,15 @@
 
 import { Suspense, useMemo, useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import AuthLayout, { PremiumInput, GoogleButton } from '../../components/auth/AuthLayout';
 import { supabaseBrowser } from '../../lib/supabase-browser';
 import { motion } from 'framer-motion';
 import { ArrowRight, Loader2, AlertCircle } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useLocale } from '../../contexts/LocaleContext';
+import { isActiveMember } from '../../lib/store-discounts';
+import { resolveLoginTarget } from '../../lib/login-routing';
 
 export default function LoginPage() {
   return (
@@ -24,10 +26,11 @@ export default function LoginPage() {
 
 function LoginScreen() {
   const router = useRouter();
+  const pathname = usePathname();
   const search = useSearchParams();
-  const { setSession, isAuthenticated, loading: authLoading } = useAuth();
+  const { isAuthenticated, isMember, loading: authLoading } = useAuth();
   const { locale, t } = useLocale();
-  const isEn = locale === 'en';
+  const isEn = locale === 'en' || pathname?.startsWith('/en');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -40,10 +43,10 @@ function LoginScreen() {
   useEffect(() => {
     if (isAuthenticated && !authLoading) {
       const next = search.get('next');
-      const target = next && next.startsWith('/') ? next : '/';
+      const target = resolveLoginTarget(next, isMember, isEn);
       router.replace(target);
     }
-  }, [isAuthenticated, authLoading, router, search]);
+  }, [isAuthenticated, isMember, authLoading, router, search, isEn]);
 
   if (isAuthenticated && !authLoading) {
     return (
@@ -81,12 +84,15 @@ function LoginScreen() {
       // But if we want instant feedback, the context is already listening.
 
       const next = search.get('next');
-      const target = next && next.startsWith('/') ? next : '/';
+      const { data: member } = await supabaseBrowser
+        .from('membros')
+        .select('is_membro, estado_quota, tipo_subscricao, proxima_quota')
+        .eq('id', data.user.id)
+        .maybeSingle();
+      const isActive = isActiveMember(member);
+      const target = resolveLoginTarget(next, isActive, isEn);
 
-      // Force a hard refresh if needed, but usually push is enough.
-      // If we are already authenticated (via effect), we will redirect anyway.
-      router.push(target);
-      router.refresh();
+      window.location.assign(target);
 
     } catch (err: any) {
       setError(err.message || 'Erro ao iniciar sessão.');
@@ -117,7 +123,12 @@ function LoginScreen() {
         )}
 
         <div className="space-y-6">
-          <GoogleButton isLoading={loading} text={isEn ? 'Sign in with Google' : 'Entrar com Google'} />
+          <GoogleButton
+            isLoading={loading}
+            text={isEn ? 'Sign in with Google' : 'Entrar com Google'}
+            locale={isEn ? 'en' : 'pt'}
+            next={resolveLoginTarget(search.get('next'), false, isEn)}
+          />
 
           <div className="relative flex items-center justify-center">
             <div className="absolute inset-0 flex items-center">

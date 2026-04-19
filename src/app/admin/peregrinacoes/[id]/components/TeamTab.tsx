@@ -1,14 +1,17 @@
 import { Trash2, Crown } from 'lucide-react';
+import BilingualField from '../../../../../components/admin/BilingualField';
 
 interface TeamMember {
     id?: string;
     pilgrimage_id?: string;
     name: string;
     role: string;
+    role_en?: string | null;
     country: string;
     image_url: string;
     is_special_guest: boolean;
     description: string;
+    description_en?: string | null;
     display_order: number;
 }
 
@@ -23,10 +26,12 @@ export default function TeamTab({ teamMembers, setTeamMembers }: TeamTabProps) {
             id: `temp-${Date.now()}`,
             name: '',
             role: 'Guia Espiritual',
+            role_en: '',
             country: 'PT',
             image_url: '',
             is_special_guest: false,
             description: '',
+            description_en: '',
             display_order: teamMembers.length + 1
         }]);
     };
@@ -80,11 +85,14 @@ export default function TeamTab({ teamMembers, setTeamMembers }: TeamTabProps) {
                                     className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg font-bold text-lg"
                                     placeholder="Nome..."
                                 />
-                                <input
-                                    value={member.role}
-                                    onChange={e => updateTeamMember(idx, 'role', e.target.value)}
-                                    className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-indigo-600 uppercase tracking-wider"
+                                <BilingualField
+                                    label="Cargo"
+                                    ptValue={member.role}
+                                    enValue={member.role_en || ''}
+                                    onChangePt={value => updateTeamMember(idx, 'role', value)}
+                                    onChangeEn={value => updateTeamMember(idx, 'role_en', value)}
                                     placeholder="Cargo (ex: Guia)"
+                                    placeholderEn="Role (ex: Guide)"
                                 />
                             </div>
                         </div>
@@ -107,11 +115,16 @@ export default function TeamTab({ teamMembers, setTeamMembers }: TeamTabProps) {
                                 />
                             </div>
 
-                            <textarea
-                                value={member.description}
-                                onChange={e => updateTeamMember(idx, 'description', e.target.value)}
-                                className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-sm h-20 resize-none"
+                            <BilingualField
+                                label="Descrição / Biografia"
+                                ptValue={member.description}
+                                enValue={member.description_en || ''}
+                                onChangePt={value => updateTeamMember(idx, 'description', value)}
+                                onChangeEn={value => updateTeamMember(idx, 'description_en', value)}
+                                type="textarea"
+                                rows={4}
                                 placeholder="Pequena biografia..."
+                                placeholderEn="Short biography..."
                             />
 
                             <input

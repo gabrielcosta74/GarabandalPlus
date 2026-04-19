@@ -25,7 +25,7 @@ import {
     Landmark
 } from 'lucide-react';
 import { format } from 'date-fns';
-import { pt } from 'date-fns/locale';
+import { enUS, pt } from 'date-fns/locale';
 import InstallmentTracker from '../../../../components/booking/InstallmentTracker';
 import BookingOnboardingModal from '../../../../components/booking/BookingOnboardingModal';
 import BankTransferModal from '../../../../components/booking/BankTransferModal'; // Imported BankTransferModal
@@ -36,6 +36,7 @@ import {
     normalizeBankTransferDetails,
 } from '../../../../lib/bank-transfer-details';
 import { calculatePilgrimageReduniqCharge } from '../../../../lib/pilgrimage-reduniq-fees';
+import { useLocale } from '../../../../contexts/LocaleContext';
 
 /* -------------------------------------------------------------------------- */
 /*                                    Types                                   */
@@ -89,7 +90,13 @@ const paymentOptions: PaymentOption[] = UNIFIED_ONLINE_PAYMENT_OPTIONS
 export default function BookingDashboardPage() {
     const params = useParams();
     const router = useRouter();
+    const { locale } = useLocale();
     const id = params.id as string;
+    const isEn = locale === 'en';
+    const dateLocale = isEn ? enUS : pt;
+    const loginPath = isEn ? '/en/login' : '/login';
+    const homePath = isEn ? '/en' : '/';
+    const registrationsPath = isEn ? '/en/my-registrations' : '/peregrinacoes/minhas-inscricoes';
 
     const [processing, setProcessing] = useState(false);
     const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
@@ -340,15 +347,15 @@ export default function BookingDashboardPage() {
 
     // Calculate Amount to Pay Now
     let nextAmountToPay = totalAmount - paidAmount;
-    let nextLabel = "Total Restante";
+    let nextLabel = isEn ? 'Remaining Total' : 'Total Restante';
 
     if (paymentMode === 'full') {
         nextAmountToPay = Math.max(0, parseFloat((totalAmount - paidAmount).toFixed(2)));
-        nextLabel = paidAmount > 0 ? "Valor Restante" : "Pagamento Total";
+        nextLabel = paidAmount > 0 ? (isEn ? 'Remaining Amount' : 'Valor Restante') : (isEn ? 'Full Payment' : 'Pagamento Total');
     } else {
         if (!isDepositPaid) {
             nextAmountToPay = depositValue - paidAmount;
-            nextLabel = "Sinal de Inscrição";
+            nextLabel = isEn ? 'Registration Deposit' : 'Sinal de Inscrição';
         } else if (hasPlan && !isFullyPaid) {
             // Find first installment not paid
             const nextIdx = paymentPlan.findIndex((_: any, idx: number) => getInstallmentState(idx, 0) === 'pending');
@@ -363,7 +370,7 @@ export default function BookingDashboardPage() {
                 // Ensure we don't show negative values (floating point safety)
                 nextAmountToPay = Math.max(0, parseFloat(nextAmountToPay.toFixed(2)));
 
-                nextLabel = `Prestação ${nextIdx + 1} (${format(new Date(paymentPlan[nextIdx].date), 'MMMM', { locale: pt })})`;
+                nextLabel = `${isEn ? 'Installment' : 'Prestação'} ${nextIdx + 1} (${format(new Date(paymentPlan[nextIdx].date), 'MMMM', { locale: dateLocale })})`;
             }
         }
     }
@@ -476,31 +483,31 @@ export default function BookingDashboardPage() {
                             <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center text-green-600 mx-auto mb-6 shadow-sm">
                                 <CheckCircle2 className="w-10 h-10" />
                             </div>
-                            <h2 className="text-3xl font-bold text-slate-900 mb-2">QUASE LÁ!</h2>
+                            <h2 className="text-3xl font-bold text-slate-900 mb-2">{isEn ? 'ALMOST THERE!' : 'QUASE LÁ!'}</h2>
                             <div className="bg-amber-50 border-2 border-amber-200 rounded-2xl p-6 text-left my-6 animate-pulse">
                                 <div className="flex items-start gap-4">
                                     <div className="bg-amber-100 p-2 rounded-full text-amber-700 mt-1"><Clock className="w-6 h-6" /></div>
                                     <div>
-                                        <h3 className="font-bold text-amber-900 text-lg">Falta 1 Passo: Validação & Pagamento</h3>
-                                        <p className="text-amber-800 text-sm mt-1">Enviámos agora mesmo um email para ti. <strong>Tens de abrir esse email</strong> e clicar no link para acederes à tua conta e pagares, senão a reserva não fica válida.</p>
+                                        <h3 className="font-bold text-amber-900 text-lg">{isEn ? '1 Step Left: Validation & Payment' : 'Falta 1 Passo: Validação & Pagamento'}</h3>
+                                        <p className="text-amber-800 text-sm mt-1">{isEn ? <>We have just sent you an email. <strong>You must open that email</strong> and click the link to access your account and pay, otherwise the booking will not become valid.</> : <>Enviámos agora mesmo um email para ti. <strong>Tens de abrir esse email</strong> e clicar no link para acederes à tua conta e pagares, senão a reserva não fica válida.</>}</p>
                                     </div>
                                 </div>
                             </div>
 
                             <div className="bg-slate-50 rounded-2xl p-6 border border-slate-100 mb-8 text-left">
-                                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Referência (Guarda este número)</p>
+                                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">{isEn ? 'Reference (save this number)' : 'Referência (Guarda este número)'}</p>
                                 <p className="text-2xl font-mono font-bold text-slate-800 tracking-wider">#{id.slice(0, 8).toUpperCase()}</p>
                             </div>
 
                             <p className="text-sm text-slate-400 mb-6">
-                                Podes aceder a esta área mais tarde através do link seguro que enviámos para o teu email.
+                                {isEn ? 'You can access this area later through the secure link we sent to your email.' : 'Podes aceder a esta área mais tarde através do link seguro que enviámos para o teu email.'}
                             </p>
 
                             <button
-                                onClick={() => window.location.href = `/`}
+                                onClick={() => window.location.href = homePath}
                                 className="w-full py-4 px-6 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold transition-all"
                             >
-                                Voltar à Página Inicial
+                                {isEn ? 'Back to Home Page' : 'Voltar à Página Inicial'}
                             </button>
                         </div>
                     </div>
@@ -515,14 +522,14 @@ export default function BookingDashboardPage() {
                         <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center text-yellow-600 mx-auto mb-6">
                             <Users className="w-8 h-8" />
                         </div>
-                        <h2 className="text-2xl font-bold text-slate-900 mb-2">Confirma a tua Identidade</h2>
-                        <p className="text-slate-500 mb-6">Para veres os detalhes da tua reserva, por favor faz login com a conta que usaste.</p>
+                        <h2 className="text-2xl font-bold text-slate-900 mb-2">{isEn ? 'Confirm Your Identity' : 'Confirma a tua Identidade'}</h2>
+                        <p className="text-slate-500 mb-6">{isEn ? 'To view your booking details, please sign in with the account you used.' : 'Para veres os detalhes da tua reserva, por favor faz login com a conta que usaste.'}</p>
 
                         <button
-                            onClick={() => window.location.href = `/login?next=${encodeURIComponent(window.location.pathname)}`}
+                            onClick={() => window.location.href = `${loginPath}?next=${encodeURIComponent(window.location.pathname)}`}
                             className="w-full py-3 px-6 bg-yellow-600 hover:bg-yellow-700 text-white rounded-xl font-bold transition-all"
                         >
-                            Entrar na Minha Conta
+                            {isEn ? 'Sign In to My Account' : 'Entrar na Minha Conta'}
                         </button>
                     </div>
                 </div>
@@ -534,7 +541,7 @@ export default function BookingDashboardPage() {
 
     if (!booking) return (
         <VIPLayout allowPublic={true}>
-            <div className="flex justify-center py-20 text-slate-500">Reserva não encontrada.</div>
+            <div className="flex justify-center py-20 text-slate-500">{isEn ? 'Booking not found.' : 'Reserva não encontrada.'}</div>
         </VIPLayout>
     );
 
@@ -677,12 +684,11 @@ export default function BookingDashboardPage() {
                         <div className="w-20 h-20 bg-amber-100 rounded-full flex items-center justify-center text-amber-600 mx-auto mb-4">
                             <AlertCircle className="w-10 h-10" />
                         </div>
-                        <h2 className="text-3xl font-bold text-amber-900">Aguarde pela Validação</h2>
+                        <h2 className="text-3xl font-bold text-amber-900">{isEn ? 'Waiting for Validation' : 'Aguarde pela Validação'}</h2>
                         <p className="text-amber-800 text-lg max-w-xl mx-auto">
-                            A sua inscrição foi registada, mas os valores totais ainda estão a ser calculados pelo nosso sistema.
-                            <strong> Receberá um email em breve com os dados de pagamento.</strong>
+                            {isEn ? <>Your registration was recorded, but the total amounts are still being calculated by our system.<strong> You will receive an email shortly with the payment details.</strong></> : <>A sua inscrição foi registada, mas os valores totais ainda estão a ser calculados pelo nosso sistema.<strong> Receberá um email em breve com os dados de pagamento.</strong></>}
                         </p>
-                        <button onClick={() => window.location.reload()} className="bg-amber-600 text-white px-8 py-4 rounded-2xl font-bold text-xl hover:bg-amber-700 transition-all">Atualizar Página</button>
+                        <button onClick={() => window.location.reload()} className="bg-amber-600 text-white px-8 py-4 rounded-2xl font-bold text-xl hover:bg-amber-700 transition-all">{isEn ? 'Refresh Page' : 'Atualizar Página'}</button>
                     </div>
                 )}
 
@@ -694,12 +700,12 @@ export default function BookingDashboardPage() {
                             <div className="hidden md:flex justify-center mb-6 animate-in fade-in slide-in-from-top duration-700 delay-300">
                                 <div className="bg-white/10 border border-white/20 backdrop-blur-md rounded-full px-5 py-2 flex items-center gap-2 text-sm text-amber-100">
                                     <span className="bg-amber-500/20 p-1 rounded-full"><Package className="w-3 h-3 text-amber-500" /></span>
-                                    <span>Para voltares aqui: Menu &gt; <strong>Minhas Inscrições</strong></span>
+                                    <span>{isEn ? <>To come back here: Menu &gt; <strong>My Registrations</strong></> : <>Para voltares aqui: Menu &gt; <strong>Minhas Inscrições</strong></>}</span>
                                 </div>
                             </div>
 
                             <div className="space-y-1">
-                                <p className="text-amber-500 font-bold uppercase tracking-[0.2em] text-xs md:text-sm">Reserva Registada com Sucesso</p>
+                                <p className="text-amber-500 font-bold uppercase tracking-[0.2em] text-xs md:text-sm">{isEn ? 'Booking Successfully Registered' : 'Reserva Registada com Sucesso'}</p>
                                 <h1 className="text-4xl md:text-6xl font-serif font-bold text-white tracking-tight leading-tight drop-shadow-xl max-w-4xl mx-auto">
                                     {booking.pilgrimage.title}
                                 </h1>
@@ -717,25 +723,25 @@ export default function BookingDashboardPage() {
                                     <div className="flex justify-between items-start gap-4">
                                         <div className="space-y-2">
                                             <h3 className="text-3xl font-bold text-slate-900">
-                                                {isFullyPaid ? 'VIAGEM CONFIRMADA!' : 'FALTA 1 PASSO: PAGAMENTO'}
+                                                {isFullyPaid ? (isEn ? 'TRIP CONFIRMED!' : 'VIAGEM CONFIRMADA!') : (isEn ? '1 STEP LEFT: PAYMENT' : 'FALTA 1 PASSO: PAGAMENTO')}
                                             </h3>
                                             <p className="text-slate-500 text-xl leading-relaxed">
                                                 {isFullyPaid
-                                                    ? 'Já recebemos o seu pagamento total. Está pronto para partir!'
+                                                    ? (isEn ? 'We have already received your full payment. You are ready to go!' : 'Já recebemos o seu pagamento total. Está pronto para partir!')
                                                     : paymentMode === 'full'
-                                                        ? 'A sua inscrição aguarda o pagamento total para garantir o lugar.'
-                                                        : 'Terá que efetuar num prazo máximo de 5 dias úteis o pagamento/doação do valor do sinal para confirmar e garantir a sua inscrição.'}
+                                                        ? (isEn ? 'Your registration is waiting for full payment to secure the place.' : 'A sua inscrição aguarda o pagamento total para garantir o lugar.')
+                                                        : (isEn ? 'You must complete the deposit payment/donation within 5 business days to confirm and secure your registration.' : 'Terá que efetuar num prazo máximo de 5 dias úteis o pagamento/doação do valor do sinal para confirmar e garantir a sua inscrição.')}
                                             </p>
                                         </div>
                                         <div className="text-right shrink-0 bg-slate-50 px-4 py-3 rounded-2xl border border-slate-100 hidden sm:block">
-                                            <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-1">Total</p>
+                                            <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-1">{isEn ? 'Total' : 'Total'}</p>
                                             <p className="text-xl md:text-2xl font-serif font-bold text-slate-900">{formatPrice(totalAmount)}</p>
                                         </div>
                                     </div>
 
                                     {/* Payment Roadmap for Seniors */}
                                     <div className="space-y-6 pt-4">
-                                        <p className="font-bold text-slate-400 uppercase tracking-widest text-xs">O Seu Plano de Viagem</p>
+                                        <p className="font-bold text-slate-400 uppercase tracking-widest text-xs">{isEn ? 'Your Travel Plan' : 'O Seu Plano de Viagem'}</p>
 
                                         <div className="space-y-4">
                                             {isFullPaymentFlow ? (
@@ -765,8 +771,8 @@ export default function BookingDashboardPage() {
                                                             <MapPin className="w-8 h-8" />
                                                         </div>
                                                         <div>
-                                                            <p className="font-bold text-xl text-slate-900">2. Peregrinação</p>
-                                                            <p className="text-slate-400">{isFullyPaid ? 'Desejamos-lhe uma excelente viagem!' : 'Aguardamos pela conclusão do pagamento'}</p>
+                                                            <p className="font-bold text-xl text-slate-900">{isEn ? '2. Pilgrimage' : '2. Peregrinação'}</p>
+                                                            <p className="text-slate-400">{isFullyPaid ? (isEn ? 'We wish you an excellent trip!' : 'Desejamos-lhe uma excelente viagem!') : (isEn ? 'Waiting for payment completion' : 'Aguardamos pela conclusão do pagamento')}</p>
                                                         </div>
                                                     </div>
                                                 </>
@@ -778,9 +784,9 @@ export default function BookingDashboardPage() {
                                                             {isDepositPaid ? <Check className="w-8 h-8" /> : (isVerifying ? <Clock className="w-8 h-8" /> : <CreditCard className="w-8 h-8" />)}
                                                         </div>
                                                         <div>
-                                                            <p className={`font-bold text-xl ${isDepositPaid ? 'text-slate-900' : (isVerifying ? 'text-amber-600' : 'text-red-600')}`}>1. Pagamento do Sinal ({formatPrice(depositValue)})</p>
+                                                            <p className={`font-bold text-xl ${isDepositPaid ? 'text-slate-900' : (isVerifying ? 'text-amber-600' : 'text-red-600')}`}>{isEn ? '1. Deposit Payment' : '1. Pagamento do Sinal'} ({formatPrice(depositValue)})</p>
                                                             <p className="text-slate-500">
-                                                                {isDepositPaid ? 'PAGO E CONFIRMADO' : (isVerifying ? 'A AGUARDAR VALIDAÇÃO...' : 'PENDENTE - Pagar Agora')}
+                                                                {isDepositPaid ? (isEn ? 'PAID AND CONFIRMED' : 'PAGO E CONFIRMADO') : (isVerifying ? (isEn ? 'WAITING FOR VALIDATION...' : 'A AGUARDAR VALIDAÇÃO...') : (isEn ? 'PENDING - Pay Now' : 'PENDENTE - Pagar Agora'))}
                                                             </p>
                                                         </div>
                                                     </div>
@@ -802,11 +808,11 @@ export default function BookingDashboardPage() {
                                                                                     <CreditCard className="w-8 h-8" />}
                                                                         </div>
                                                                         <div>
-                                                                            <p className="font-bold text-xl text-slate-900">Prestação {idx + 1} ({formatPrice(Number(step.amount))})</p>
+                                                                            <p className="font-bold text-xl text-slate-900">{isEn ? 'Installment' : 'Prestação'} {idx + 1} ({formatPrice(Number(step.amount))})</p>
                                                                             <p className="text-slate-400">
-                                                                                {state === 'paid' ? 'PAGO' :
-                                                                                    state === 'verifying' ? 'A AGUARDAR VALIDAÇÃO...' :
-                                                                                        `Vence a ${format(new Date(step.date), "dd 'de' MMMM", { locale: pt })}`}
+                                                                                {state === 'paid' ? (isEn ? 'PAID' : 'PAGO') :
+                                                                                    state === 'verifying' ? (isEn ? 'WAITING FOR VALIDATION...' : 'A AGUARDAR VALIDAÇÃO...') :
+                                                                                        (isEn ? `Due on ${format(new Date(step.date), 'dd MMMM', { locale: dateLocale })}` : `Vence a ${format(new Date(step.date), "dd 'de' MMMM", { locale: dateLocale })}`)}
                                                                             </p>
                                                                         </div>
                                                                     </div>
@@ -821,11 +827,11 @@ export default function BookingDashboardPage() {
                                                                     {isFullyPaid ? <Check className="w-8 h-8" /> : <Clock className="w-8 h-8" />}
                                                                 </div>
                                                                 <div>
-                                                                    <p className="font-bold text-xl text-slate-900">2. Mensalidades / Restante</p>
+                                                                    <p className="font-bold text-xl text-slate-900">{isEn ? '2. Installments / Remaining Balance' : '2. Mensalidades / Restante'}</p>
                                                                     <p className="text-slate-400">
                                                                         {isFullyPaid
-                                                                            ? 'TUDO PAGO'
-                                                                            : `Taxa de inscrição ${formatPrice(depositValue)} + restante ${formatPrice(Math.max(0, totalAmount - depositValue))}`}
+                                                                            ? (isEn ? 'FULLY PAID' : 'TUDO PAGO')
+                                                                            : (isEn ? `Registration fee ${formatPrice(depositValue)} + remaining ${formatPrice(Math.max(0, totalAmount - depositValue))}` : `Taxa de inscrição ${formatPrice(depositValue)} + restante ${formatPrice(Math.max(0, totalAmount - depositValue))}`)}
                                                                     </p>
                                                                 </div>
                                                             </div>
@@ -841,8 +847,8 @@ export default function BookingDashboardPage() {
                                                             <MapPin className="w-8 h-8" />
                                                         </div>
                                                         <div>
-                                                            <p className="font-bold text-xl text-slate-900">{hasPlan ? (paymentPlan.length + 2) : 3}. Peregrinação</p>
-                                                            <p className="text-slate-400">{isFullyPaid ? 'Desejamos-lhe uma excelente viagem!' : 'Aguardamos pela conclusão dos pagamentos'}</p>
+                                                            <p className="font-bold text-xl text-slate-900">{hasPlan ? (paymentPlan.length + 2) : 3}. {isEn ? 'Pilgrimage' : 'Peregrinação'}</p>
+                                                            <p className="text-slate-400">{isFullyPaid ? (isEn ? 'We wish you an excellent trip!' : 'Desejamos-lhe uma excelente viagem!') : (isEn ? 'Waiting for payment completion' : 'Aguardamos pela conclusão dos pagamentos')}</p>
                                                         </div>
                                                     </div>
                                                 </>
@@ -862,14 +868,14 @@ export default function BookingDashboardPage() {
                                                 {refreshing ? (
                                                     <>
                                                         <Loader2 className="w-4 h-4 animate-spin" />
-                                                        <span>A atualizar...</span>
+                                                        <span>{isEn ? 'Updating...' : 'A atualizar...'}</span>
                                                     </>
                                                 ) : (
                                                     <>
                                                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                                                         </svg>
-                                                        <span>Atualizar Pagamentos</span>
+                                                        <span>{isEn ? 'Refresh Payments' : 'Atualizar Pagamentos'}</span>
                                                     </>
                                                 )}
                                             </button>
@@ -877,18 +883,18 @@ export default function BookingDashboardPage() {
 
                                         {isFullPaymentFlow ? (
                                             <div className="rounded-3xl border border-slate-200 bg-slate-50 p-6">
-                                                <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-3">Resumo do Pagamento Total</p>
+                                                <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-3">{isEn ? 'Full Payment Summary' : 'Resumo do Pagamento Total'}</p>
                                                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
                                                     <div className="rounded-xl bg-white border border-slate-200 p-4">
-                                                        <p className="text-slate-500 text-xs uppercase tracking-widest mb-1">Total</p>
+                                                        <p className="text-slate-500 text-xs uppercase tracking-widest mb-1">{isEn ? 'Total' : 'Total'}</p>
                                                         <p className="text-lg font-bold text-slate-900">{formatPrice(totalAmount)}</p>
                                                     </div>
                                                     <div className="rounded-xl bg-white border border-slate-200 p-4">
-                                                        <p className="text-slate-500 text-xs uppercase tracking-widest mb-1">Pago</p>
+                                                        <p className="text-slate-500 text-xs uppercase tracking-widest mb-1">{isEn ? 'Paid' : 'Pago'}</p>
                                                         <p className="text-lg font-bold text-green-700">{formatPrice(paidAmount)}</p>
                                                     </div>
                                                     <div className="rounded-xl bg-white border border-slate-200 p-4">
-                                                        <p className="text-slate-500 text-xs uppercase tracking-widest mb-1">Em Falta</p>
+                                                        <p className="text-slate-500 text-xs uppercase tracking-widest mb-1">{isEn ? 'Outstanding' : 'Em Falta'}</p>
                                                         <p className="text-lg font-bold text-amber-700">{formatPrice(Math.max(0, totalAmount - paidAmount))}</p>
                                                     </div>
                                                 </div>
@@ -914,39 +920,39 @@ export default function BookingDashboardPage() {
                                             {uploadSuccess && (
                                                 <div className="absolute inset-0 bg-green-600 flex flex-col items-center justify-center p-6 text-white z-10 animate-in fade-in zoom-in duration-300">
                                                     <CheckCircle2 className="w-16 h-16 mb-4 animate-bounce" />
-                                                    <h3 className="text-2xl font-bold">Enviado!</h3>
-                                                    <p className="text-green-100 text-sm mt-2">O seu comprovativo foi recebido. Vamos validar e atualizar o estado da sua reserva em breve.</p>
-                                                    <button onClick={() => window.location.reload()} className="mt-6 px-6 py-3 bg-white text-green-700 font-bold rounded-xl shadow-lg">Entendido</button>
+                                                    <h3 className="text-2xl font-bold">{isEn ? 'Uploaded!' : 'Enviado!'}</h3>
+                                                    <p className="text-green-100 text-sm mt-2">{isEn ? 'Your receipt was received. We will validate it and update your booking status shortly.' : 'O seu comprovativo foi recebido. Vamos validar e atualizar o estado da sua reserva em breve.'}</p>
+                                                    <button onClick={() => window.location.reload()} className="mt-6 px-6 py-3 bg-white text-green-700 font-bold rounded-xl shadow-lg">{isEn ? 'Understood' : 'Entendido'}</button>
                                                 </div>
                                             )}
 
                                             <div className="space-y-1">
-                                                <p className="text-yellow-500 font-bold uppercase tracking-widest text-xs">Valor a Pagar Agora: {nextLabel}</p>
+                                                <p className="text-yellow-500 font-bold uppercase tracking-widest text-xs">{isEn ? 'Amount to Pay Now' : 'Valor a Pagar Agora'}: {nextLabel}</p>
                                                 <p className="text-3xl md:text-5xl font-bold text-white tracking-tight break-words" title={formatPrice(amountToPay)}>
                                                     {formatPrice(amountToPay)}
                                                 </p>
-                                                {isConverted && exchangeRate && <p className="text-white/50 text-xs">Aprox. {amountToPay} € (Taxa: {exchangeRate})</p>}
+                                                {isConverted && exchangeRate && <p className="text-white/50 text-xs">{isEn ? 'Approx.' : 'Aprox.'} {amountToPay} € ({isEn ? 'Rate' : 'Taxa'}: {exchangeRate})</p>}
                                             </div>
 
                                             {showReduniqFeePreview && (
                                                 <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-left space-y-2">
                                                     <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-amber-300">
-                                                        Pagamentos Online via Reduniq
+                                                        {isEn ? 'Online Payments via Reduniq' : 'Pagamentos Online via Reduniq'}
                                                     </p>
                                                     <div className="flex items-center justify-between text-sm text-amber-50">
-                                                        <span>Valor da peregrinação</span>
+                                                        <span>{isEn ? 'Pilgrimage amount' : 'Valor da peregrinação'}</span>
                                                         <span className="font-bold">{formatPrice(reduniqChargePreview.baseAmount)}</span>
                                                     </div>
                                                     <div className="flex items-center justify-between text-sm text-amber-50">
-                                                        <span>Taxa adicional Reduniq</span>
+                                                        <span>{isEn ? 'Additional Reduniq fee' : 'Taxa adicional Reduniq'}</span>
                                                         <span className="font-bold">{formatPrice(reduniqChargePreview.feeAmount)}</span>
                                                     </div>
                                                     <div className="flex items-center justify-between text-base text-white pt-2 border-t border-white/10">
-                                                        <span className="font-semibold">Total apresentado no terminal</span>
+                                                        <span className="font-semibold">{isEn ? 'Total shown in the terminal' : 'Total apresentado no terminal'}</span>
                                                         <span className="font-extrabold">{formatPrice(reduniqChargePreview.chargedAmount)}</span>
                                                     </div>
                                                     <p className="text-[11px] leading-relaxed text-amber-100/80">
-                                                        Cartão, MB WAY, PIX e Multibanco seguem todos para o terminal geral da Reduniq. A taxa adicional é apresentada separadamente nesse terminal.
+                                                        {isEn ? 'Card, MB WAY, PIX, and Multibanco all go through the general Reduniq terminal. The additional fee is shown separately there.' : 'Cartão, MB WAY, PIX e Multibanco seguem todos para o terminal geral da Reduniq. A taxa adicional é apresentada separadamente nesse terminal.'}
                                                     </p>
                                                 </div>
                                             )}
@@ -978,7 +984,7 @@ export default function BookingDashboardPage() {
                                                         </div>
                                                         <div className="flex-1">
                                                             <p className="font-bold text-lg text-white group-hover:text-yellow-400 transition-colors">
-                                                                Pagar com {option.label.replace(' / ', '/')}
+                                                                {isEn ? 'Pay with' : 'Pagar com'} {option.label.replace(' / ', '/')}
                                                             </p>
                                                             <p className="text-xs text-white/50">{option.description}</p>
                                                         </div>
@@ -999,10 +1005,10 @@ export default function BookingDashboardPage() {
                                                                 : 'border-red-500/40 bg-red-500/15 text-red-100'
                                                         }`}>
                                                         <p className="font-bold">
-                                                            {reduniqConfirming ? 'A confirmar pagamento...' : reduniqFeedback?.title}
+                                                            {reduniqConfirming ? (isEn ? 'Confirming payment...' : 'A confirmar pagamento...') : reduniqFeedback?.title}
                                                         </p>
                                                         <p className="text-xs mt-1 opacity-90">
-                                                            {reduniqConfirming ? 'Aguarde um momento.' : reduniqFeedback?.message}
+                                                            {reduniqConfirming ? (isEn ? 'Please wait a moment.' : 'Aguarde um momento.') : reduniqFeedback?.message}
                                                         </p>
                                                     </div>
                                                 )}
@@ -1010,15 +1016,15 @@ export default function BookingDashboardPage() {
                                                 {/* SEPARATOR */}
                                                 <div className="relative py-2">
                                                     <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-white/10"></div></div>
-                                                    <div className="relative flex justify-center"><span className="bg-slate-950 px-4 text-[10px] text-white/50 uppercase tracking-widest font-bold">OU</span></div>
+                                                    <div className="relative flex justify-center"><span className="bg-slate-950 px-4 text-[10px] text-white/50 uppercase tracking-widest font-bold">{isEn ? 'OR' : 'OU'}</span></div>
                                                 </div>
 
                                                 {/* 2. TRANSFERÊNCIA BANCÁRIA (Manual) */}
                                                 {isVerifying ? (
                                                     <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl text-amber-500 text-sm font-bold flex flex-col items-center gap-2">
                                                         <Clock className="w-6 h-6" />
-                                                        <p>Comprovativo em análise</p>
-                                                        <p className="text-[10px] font-medium opacity-70">Aguarde a validação da nossa equipa.</p>
+                                                        <p>{isEn ? 'Receipt under review' : 'Comprovativo em análise'}</p>
+                                                        <p className="text-[10px] font-medium opacity-70">{isEn ? 'Please wait for validation by our team.' : 'Aguarde a validação da nossa equipa.'}</p>
                                                     </div>
                                                 ) : (
                                                     <button
@@ -1030,9 +1036,9 @@ export default function BookingDashboardPage() {
                                                         </div>
                                                         <div className="flex-1">
                                                             <p className="font-bold text-lg text-white group-hover:text-amber-300 transition-colors">
-                                                                Transferência Bancária
+                                                                {isEn ? 'Bank Transfer' : 'Transferência Bancária'}
                                                             </p>
-                                                            <p className="text-xs text-white/50">Obrigatório enviar comprovativo para validação</p>
+                                                            <p className="text-xs text-white/50">{isEn ? 'Receipt upload required for validation' : 'Obrigatório enviar comprovativo para validação'}</p>
                                                         </div>
                                                         <ChevronRight className="w-5 h-5 text-white/30 group-hover:text-white transition-colors" />
                                                     </button>
@@ -1056,10 +1062,10 @@ export default function BookingDashboardPage() {
                                             <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center text-green-600 mx-auto mb-6 shadow-sm">
                                                 <CheckCircle2 className="w-10 h-10" />
                                             </div>
-                                            <h4 className="text-2xl font-bold text-green-900">Inscrição Confirmada!</h4>
-                                            <p className="text-green-700 mt-2 font-medium">O seu pagamento foi recebido com sucesso.</p>
+                                            <h4 className="text-2xl font-bold text-green-900">{isEn ? 'Registration Confirmed!' : 'Inscrição Confirmada!'}</h4>
+                                            <p className="text-green-700 mt-2 font-medium">{isEn ? 'Your payment was received successfully.' : 'O seu pagamento foi recebido com sucesso.'}</p>
                                             <div className="mt-6 p-4 bg-white/50 rounded-xl text-sm text-green-800">
-                                                <p>Desejamos-lhe uma excelente peregrinação.</p>
+                                                <p>{isEn ? 'We wish you an excellent pilgrimage.' : 'Desejamos-lhe uma excelente peregrinação.'}</p>
                                             </div>
                                         </div>
                                     )}
@@ -1072,11 +1078,11 @@ export default function BookingDashboardPage() {
                             <div className="bg-slate-50 rounded-4xl p-10 border border-slate-200">
                                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
                                     <div>
-                                        <h3 className="text-2xl font-bold text-slate-900">Plano de Doações Selecionado</h3>
-                                        <p className="text-slate-500">Agendamento das suas próximas mensalidades (Dia 10 de cada mês)</p>
+                                        <h3 className="text-2xl font-bold text-slate-900">{isEn ? 'Selected Donation Plan' : 'Plano de Doações Selecionado'}</h3>
+                                        <p className="text-slate-500">{isEn ? 'Schedule of your upcoming installments (10th day of each month)' : 'Agendamento das suas próximas mensalidades (Dia 10 de cada mês)'}</p>
                                     </div>
                                     <div className="bg-indigo-100 text-indigo-700 px-4 py-2 rounded-xl font-bold">
-                                        Total Restante: {formatPrice(totalAmount - paidAmount)}
+                                        {isEn ? 'Remaining Total' : 'Total Restante'}: {formatPrice(totalAmount - paidAmount)}
                                     </div>
                                 </div>
 
@@ -1088,8 +1094,8 @@ export default function BookingDashboardPage() {
                                                     {idx + 1}ª
                                                 </div>
                                                 <div>
-                                                    <p className="font-bold text-slate-900 capitalize">{format(new Date(inst.date), "MMMM yyyy", { locale: pt })}</p>
-                                                    <p className="text-xs text-slate-400">Vencimento: Dia 10</p>
+                                                    <p className="font-bold text-slate-900 capitalize">{format(new Date(inst.date), "MMMM yyyy", { locale: dateLocale })}</p>
+                                                    <p className="text-xs text-slate-400">{isEn ? 'Due: Day 10' : 'Vencimento: Dia 10'}</p>
                                                 </div>
                                             </div>
                                             <p className="text-2xl font-bold text-slate-900">{formatPrice(Number(inst.amount))}</p>
@@ -1102,7 +1108,7 @@ export default function BookingDashboardPage() {
 
                         <div className="text-center pb-12">
                             <button onClick={() => window.print()} className="text-slate-400 hover:text-slate-600 font-bold flex items-center justify-center gap-2 mx-auto transition-colors">
-                                <Upload className="w-4 h-4 rotate-180" /> Descarregar / Imprimir Resumo
+                                <Upload className="w-4 h-4 rotate-180" /> {isEn ? 'Download / Print Summary' : 'Descarregar / Imprimir Resumo'}
                             </button>
                         </div>
                     </>

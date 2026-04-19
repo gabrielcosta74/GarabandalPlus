@@ -1,4 +1,8 @@
-import { Hotel, User, Users, Bed } from 'lucide-react';
+import { Hotel, User, Users, Bed, ShieldCheck } from 'lucide-react';
+import BilingualField, {
+    BilingualListField,
+    TranslateAllButton,
+} from '../../../../../components/admin/BilingualField';
 
 interface PricingTabProps {
     form: any;
@@ -18,6 +22,19 @@ export default function PricingTab({ form, setForm }: PricingTabProps) {
             }
         });
     };
+
+    const translatableFields = [
+        { ptValue: form.payment_plan_text ?? '', onChangeEn: (v: string) => setForm({ ...form, payment_plan_text_en: v }) },
+        { ptValue: form.cancellation_policy_text ?? '', onChangeEn: (v: string) => setForm({ ...form, cancellation_policy_text_en: v }) },
+        {
+            ptValue: (form.included_items ?? []).join('\n'),
+            onChangeEn: (v: string) => setForm({ ...form, included_items_en: v.split('\n').map((item) => item.trim()).filter(Boolean) })
+        },
+        {
+            ptValue: (form.not_included_items ?? []).join('\n'),
+            onChangeEn: (v: string) => setForm({ ...form, not_included_items_en: v.split('\n').map((item) => item.trim()).filter(Boolean) })
+        },
+    ];
 
     const renderPriceCard = (type: 'single' | 'double' | 'triple' | 'quadruple', label: string, sublabel: string, icon: any) => {
         const value = form.pricing_config?.room_supplements?.[type] || 0;
@@ -61,6 +78,10 @@ export default function PricingTab({ form, setForm }: PricingTabProps) {
 
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="flex justify-end">
+                <TranslateAllButton fields={translatableFields} />
+            </div>
+
             <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
                 <div className="bg-amber-50/50 px-8 py-6 border-b border-amber-100">
                     <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
@@ -80,46 +101,64 @@ export default function PricingTab({ form, setForm }: PricingTabProps) {
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Financial Info */}
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
                     <div className="bg-slate-50 px-6 py-4 border-b border-slate-200">
                         <h3 className="font-bold text-slate-800">Informações Financeiras</h3>
                     </div>
                     <div className="p-6 space-y-4">
-                        <div>
-                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Plano de Pagamento</label>
-                            <textarea
-                                className="w-full p-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-500/20 focus:border-slate-500 outline-none transition-all h-24 resize-none"
-                                value={form.payment_plan_text || ''}
-                                onChange={e => setForm({ ...form, payment_plan_text: e.target.value })}
-                                placeholder="Ex: Pode parcelar em até 8x sem juros..."
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Política de Cancelamento</label>
-                            <textarea
-                                className="w-full p-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-500/20 focus:border-slate-500 outline-none transition-all h-32 resize-none"
-                                value={form.cancellation_policy_text || ''}
-                                onChange={e => setForm({ ...form, cancellation_policy_text: e.target.value })}
-                                placeholder="Insira o texto da política ou HTML básico..."
-                            />
-                        </div>
+                        <BilingualField
+                            label="Plano de Pagamento"
+                            ptValue={form.payment_plan_text || ''}
+                            enValue={form.payment_plan_text_en || ''}
+                            onChangePt={v => setForm({ ...form, payment_plan_text: v })}
+                            onChangeEn={v => setForm({ ...form, payment_plan_text_en: v })}
+                            type="textarea"
+                            rows={5}
+                            placeholder="Ex: Pode parcelar em até 8x sem juros..."
+                            placeholderEn="Ex: Payment can be split into up to 8 interest-free installments..."
+                        />
+
+                        <BilingualField
+                            label="Política de Cancelamento"
+                            ptValue={form.cancellation_policy_text || ''}
+                            enValue={form.cancellation_policy_text_en || ''}
+                            onChangePt={v => setForm({ ...form, cancellation_policy_text: v })}
+                            onChangeEn={v => setForm({ ...form, cancellation_policy_text_en: v })}
+                            type="textarea"
+                            rows={6}
+                            placeholder="Insira o texto da política ou HTML básico..."
+                            placeholderEn="Enter the policy text or basic HTML..."
+                        />
                     </div>
                 </div>
 
-                {/* Exclusions */}
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-                    <div className="bg-slate-50 px-6 py-4 border-b border-slate-200">
-                        <h3 className="font-bold text-slate-800">O que NÃO está incluído</h3>
+                    <div className="bg-slate-50 px-6 py-4 border-b border-slate-200 flex items-center gap-2">
+                        <ShieldCheck className="w-4 h-4 text-slate-500" />
+                        <h3 className="font-bold text-slate-800">Incluído / Não Incluído</h3>
                     </div>
-                    <div className="p-6">
-                        <p className="text-xs text-slate-400 mb-2">Insira um item por linha.</p>
-                        <textarea
-                            className="w-full p-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all h-64 resize-none"
-                            value={form.not_included_items?.join('\n') || ''}
-                            onChange={e => setForm({ ...form, not_included_items: e.target.value.split('\n').filter(Boolean) })}
-                            placeholder="Ex: Seguros&#10;Bagagem Extra&#10;Almoços Livres"
+                    <div className="p-6 space-y-5">
+                        <BilingualListField
+                            label="Incluído no Valor"
+                            ptValues={form.included_items ?? []}
+                            enValues={form.included_items_en ?? []}
+                            onChangePt={values => setForm({ ...form, included_items: values })}
+                            onChangeEn={values => setForm({ ...form, included_items_en: values })}
+                            rows={7}
+                            placeholder="Um item por linha&#10;Ex: Hotel em quarto duplo&#10;Transfers no destino"
+                            placeholderEn="One item per line&#10;Ex: Hotel in double room&#10;Transfers at destination"
+                        />
+
+                        <BilingualListField
+                            label="Não Incluído"
+                            ptValues={form.not_included_items ?? []}
+                            enValues={form.not_included_items_en ?? []}
+                            onChangePt={values => setForm({ ...form, not_included_items: values })}
+                            onChangeEn={values => setForm({ ...form, not_included_items_en: values })}
+                            rows={7}
+                            placeholder="Um item por linha&#10;Ex: Seguros&#10;Bagagem Extra&#10;Almoços Livres"
+                            placeholderEn="One item per line&#10;Ex: Insurance&#10;Extra baggage&#10;Free lunches"
                         />
                     </div>
                 </div>

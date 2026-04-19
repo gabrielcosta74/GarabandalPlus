@@ -58,13 +58,13 @@ type Pilgrimage = {
     meeting_point_text?: string;
     meeting_end_text?: string;
     flight_info_text?: string;
-    flight_price_from?: number; // New: Flight price option
-    group_flight_details?: string; // New: Option B details
+    flight_price_from?: number;
+    group_flight_details?: string;
     payment_plan_text?: string;
     cancellation_policy_text?: string;
     not_included_items?: string[];
     itinerary_summary?: string;
-    registration_deadline?: string; // New: Deadline
+    registration_deadline?: string;
     // Pricing Config (JSONB)
     pricing_config: {
         room_supplements?: {
@@ -74,6 +74,46 @@ type Pilgrimage = {
             quadruple?: number;
         };
     } | null;
+    // EN translations
+    title_en?: string | null;
+    description_en?: string | null;
+    itinerary_summary_en?: string | null;
+    meeting_point_text_en?: string | null;
+    meeting_end_text_en?: string | null;
+    flight_info_text_en?: string | null;
+    payment_plan_text_en?: string | null;
+    cancellation_policy_text_en?: string | null;
+    transport_description_en?: string | null;
+    accommodation_description_en?: string | null;
+    included_items_en?: string[] | null;
+    not_included_items_en?: string[] | null;
+    group_flight_details_en?: string | null;
+};
+
+type DetailedItineraryItem = {
+    id?: string;
+    pilgrimage_id?: string;
+    day_number: number | null;
+    title: string | null;
+    title_en?: string | null;
+    description: string | null;
+    description_en?: string | null;
+    image_url: string | null;
+    display_order: number | null;
+};
+
+type TeamMember = {
+    id?: string;
+    pilgrimage_id?: string;
+    name: string;
+    role: string;
+    role_en?: string | null;
+    country: string;
+    image_url: string;
+    is_special_guest: boolean;
+    description: string;
+    description_en?: string | null;
+    display_order: number;
 };
 
 const TABS = [
@@ -117,8 +157,8 @@ export default function PilgrimageEditorPage() {
     });
 
     const [stages, setStages] = useState<any[]>([]);
-    const [detailedItems, setDetailedItems] = useState<any[]>([]);
-    const [teamMembers, setTeamMembers] = useState<any[]>([]);
+    const [detailedItems, setDetailedItems] = useState<DetailedItineraryItem[]>([]);
+    const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
 
     // Search Suggestions State (for Itinerary)
     const [suggestions, setSuggestions] = useState<Record<number, any[]>>({});
@@ -304,7 +344,9 @@ export default function PilgrimageEditorPage() {
                         pilgrimage_id: pid,
                         day_number: safeDay,
                         title: (item.title ?? '').toString(),
+                        title_en: (item.title_en ?? '').toString(),
                         description: (item.description ?? '').toString(),
+                        description_en: (item.description_en ?? '').toString(),
                         image_url: (item.image_url ?? '').toString(),
                         display_order: index + 1,
                     };
@@ -347,10 +389,12 @@ export default function PilgrimageEditorPage() {
                     pilgrimage_id: pid,
                     name: (member.name ?? '').toString(),
                     role: (member.role ?? '').toString(),
+                    role_en: (member.role_en ?? '').toString(),
                     country: (member.country ?? '').toString().toUpperCase(),
                     image_url: (member.image_url ?? '').toString(),
                     is_special_guest: Boolean(member.is_special_guest),
                     description: (member.description ?? '').toString(),
+                    description_en: (member.description_en ?? '').toString(),
                     display_order: index + 1,
                 }))
                 .filter((member) => {
@@ -467,7 +511,9 @@ export default function PilgrimageEditorPage() {
             id: `temp-${Date.now()}`,
             day_number: detailedItems.length + 1,
             title: '',
+            title_en: '',
             description: '',
+            description_en: '',
             image_url: '',
             display_order: detailedItems.length + 1
         }]);

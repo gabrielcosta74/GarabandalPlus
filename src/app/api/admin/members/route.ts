@@ -24,12 +24,16 @@ export async function GET(req: Request) {
         const { data: members, error } = await supabaseServer
             .from('membros')
             .select('*')
+            .not('numero_socio', 'is', null)
             .order('numero_socio', { ascending: true });
 
         if (error) throw error;
 
         // Calculate Summary
-        const allMembers = members || [];
+        const allMembers = (members || []).filter((member) => {
+            const quotaStatus = normalizeQuotaStatus(member.estado_quota);
+            return member.is_membro || quotaStatus !== 'pendente';
+        });
         const total = allMembers.length;
 
         const active = allMembers.filter(m => isPaidStatus(m.estado_quota)).length;

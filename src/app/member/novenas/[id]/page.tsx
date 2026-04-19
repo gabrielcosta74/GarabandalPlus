@@ -8,15 +8,20 @@ import { Calendar, CheckCircle, ChevronRight, Lock, BookOpen, Sparkles, ArrowLef
 import Link from 'next/link';
 import confetti from 'canvas-confetti';
 import { supabaseBrowser } from '../../../../lib/supabase-browser';
+import { useLocale } from '../../../../contexts/LocaleContext';
 
 // --- Types ---
 type NovenaFull = {
     id: string;
     title: string;
+    title_en?: string | null;
     description: string;
+    description_en?: string | null;
     image_url: string | null;
     prayer_intro: string;
+    prayer_intro_en?: string | null;
     prayer_final: string;
+    prayer_final_en?: string | null;
     days: {
         day_number: number;
         theme: string;
@@ -33,7 +38,7 @@ type NovenaProgress = {
     is_complete: boolean;
 };
 
-const CATHOLIC_QUOTES = [
+const CATHOLIC_QUOTES_PT = [
     "Tudo posso naquele que me fortalece. (Filipenses 4:13)",
     "A oração é a chave que abre o coração de Deus.",
     "Quem a Deus tem, nada lhe falta. Só Deus basta. (Santa Teresa de Ávila)",
@@ -44,14 +49,29 @@ const CATHOLIC_QUOTES = [
     "Onde houver ódio, que eu leve o amor. (São Francisco de Assis)"
 ];
 
+const CATHOLIC_QUOTES_EN = [
+    "I can do all things through Him who strengthens me. (Philippians 4:13)",
+    "Prayer is the key that opens the heart of God.",
+    "He who has God lacks nothing. God alone is enough. (Saint Teresa of Avila)",
+    "Do not be afraid, for I am with you. (Isaiah 41:10)",
+    "The measure of love is to love without measure. (Saint Augustine)",
+    "God never tires of forgiving. (Pope Francis)",
+    "To serve God is to reign.",
+    "Where there is hatred, let me bring love. (Saint Francis of Assisi)"
+];
+
 export default function NovenaPlayerPage() {
     const params = useParams(); // { id }
     const router = useRouter();
+    const { locale } = useLocale();
     const [novena, setNovena] = useState<NovenaFull | null>(null);
     const [progress, setProgress] = useState<NovenaProgress | null>(null);
     const [loading, setLoading] = useState(true);
     const [userId, setUserId] = useState<string | null>(null);
     const [completedDayQuote, setCompletedDayQuote] = useState<string | null>(null);
+    const isEn = locale === 'en';
+    const loginPath = isEn ? '/en/login' : '/login';
+    const novenasPath = isEn ? '/en/member/novenas' : '/member/novenas';
 
     // Initial Load
     useEffect(() => {
@@ -60,7 +80,7 @@ export default function NovenaPlayerPage() {
 
             const { data: { session } } = await supabaseBrowser.auth.getSession();
             if (!session) {
-                router.push('/login');
+                router.push(loginPath);
                 return;
             }
             setUserId(session.user.id);
@@ -76,13 +96,17 @@ export default function NovenaPlayerPage() {
                 .single();
 
             if (novenaError || !novenaData) {
-                alert("Novena não encontrada.");
-                router.push('/member/novenas');
+                alert(isEn ? 'Novena not found.' : 'Novena não encontrada.');
+                router.push(novenasPath);
                 return;
             }
 
             // Sort days (ensure 1-9 order)
             novenaData.days.sort((a: any, b: any) => a.day_number - b.day_number);
+            novenaData.title = isEn ? novenaData.title_en || novenaData.title : novenaData.title;
+            novenaData.description = isEn ? novenaData.description_en || novenaData.description : novenaData.description;
+            novenaData.prayer_intro = isEn ? novenaData.prayer_intro_en || novenaData.prayer_intro : novenaData.prayer_intro;
+            novenaData.prayer_final = isEn ? novenaData.prayer_final_en || novenaData.prayer_final : novenaData.prayer_final;
             setNovena(novenaData);
 
             // 2. Fetch Progress
@@ -103,7 +127,7 @@ export default function NovenaPlayerPage() {
             setLoading(false);
         };
         init();
-    }, [params.id, router]);
+    }, [isEn, loginPath, novenasPath, params.id, router]);
 
     // Actions
     const startNovena = async () => {
@@ -132,7 +156,8 @@ export default function NovenaPlayerPage() {
         const now = new Date().toISOString();
 
         // Quote
-        const randomQuote = CATHOLIC_QUOTES[Math.floor(Math.random() * CATHOLIC_QUOTES.length)];
+        const sourceQuotes = isEn ? CATHOLIC_QUOTES_EN : CATHOLIC_QUOTES_PT;
+        const randomQuote = sourceQuotes[Math.floor(Math.random() * sourceQuotes.length)];
         setCompletedDayQuote(randomQuote);
 
         let updatePayload: any = {
@@ -179,7 +204,7 @@ export default function NovenaPlayerPage() {
 
     const resetNovena = async () => {
         if (!userId || !novena) return;
-        if (confirm("Tens a certeza que desejas reiniciar? O progresso atual será perdido.")) {
+        if (confirm(isEn ? 'Are you sure you want to restart? Your current progress will be lost.' : 'Tens a certeza que desejas reiniciar? O progresso atual será perdido.')) {
             await supabaseBrowser
                 .from('novena_progress')
                 .delete()
@@ -209,9 +234,9 @@ export default function NovenaPlayerPage() {
             <div className="max-w-4xl mx-auto pb-20">
                 {/* Nav */}
                 <div className="mb-8 flex items-center justify-between">
-                    <Link href="/member/novenas" className="inline-flex items-center text-slate-400 hover:text-white transition-colors text-sm font-medium">
+                    <Link href={novenasPath} className="inline-flex items-center text-slate-400 hover:text-white transition-colors text-sm font-medium">
                         <ArrowLeft className="w-4 h-4 mr-2" />
-                        Minhas Novenas
+                        {isEn ? 'My Novenas' : 'Minhas Novenas'}
                     </Link>
                 </div>
 
@@ -240,7 +265,7 @@ export default function NovenaPlayerPage() {
                                 className="px-10 py-4 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl transition-all hover:scale-105 shadow-xl shadow-indigo-600/30 flex items-center gap-2 text-lg"
                             >
                                 <Sparkles className="w-5 h-5" />
-                                Iniciar Jornada de 9 Dias
+                                {isEn ? 'Start 9-Day Journey' : 'Iniciar Jornada de 9 Dias'}
                             </button>
                         </div>
                     </div>
@@ -254,16 +279,18 @@ export default function NovenaPlayerPage() {
                         >
                             <CheckCircle className="w-12 h-12 text-slate-900" />
                         </motion.div>
-                        <h2 className="text-4xl font-serif text-white mb-4">Parabéns!</h2>
+                        <h2 className="text-4xl font-serif text-white mb-4">{isEn ? 'Congratulations!' : 'Parabéns!'}</h2>
                         <p className="text-slate-300 max-w-lg mb-8 text-lg">
-                            Completaste a <strong>{novena.title}</strong>. Que as graças desta oração permaneçam contigo.
+                            {isEn
+                                ? <>You completed <strong>{novena.title}</strong>. May the graces of this prayer remain with you.</>
+                                : <>Completaste a <strong>{novena.title}</strong>. Que as graças desta oração permaneçam contigo.</>}
                         </p>
                         <div className="flex flex-col gap-4 w-full max-w-xs">
-                            <Link href="/member/novenas" className="w-full py-3 bg-white/5 hover:bg-white/10 text-white font-bold rounded-xl transition-colors">
-                                Voltar ao Catálogo
+                            <Link href={novenasPath} className="w-full py-3 bg-white/5 hover:bg-white/10 text-white font-bold rounded-xl transition-colors">
+                                {isEn ? 'Back to Catalogue' : 'Voltar ao Catálogo'}
                             </Link>
                             <button onClick={resetNovena} className="w-full py-3 text-sm text-slate-500 hover:text-white transition-colors">
-                                Reiniciar Novena
+                                {isEn ? 'Restart Novena' : 'Reiniciar Novena'}
                             </button>
                         </div>
                     </div>
@@ -276,13 +303,13 @@ export default function NovenaPlayerPage() {
                                 <div>
                                     <span className="text-indigo-400 text-xs font-bold uppercase tracking-wider mb-2 block flex items-center gap-2">
                                         <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse" />
-                                        Em Progresso
+                                        {isEn ? 'In Progress' : 'Em Progresso'}
                                     </span>
                                     <h2 className="text-2xl md:text-3xl font-serif text-white line-clamp-1">{novena.title}</h2>
                                 </div>
                                 <div className="text-center bg-slate-950 p-3 rounded-xl border border-white/5 min-w-[80px]">
                                     <span className="block text-2xl font-bold text-white">{progress.current_day} <span className="text-sm text-slate-500 font-normal">/ 9</span></span>
-                                    <span className="text-[10px] text-slate-500 uppercase tracking-wider">Dia</span>
+                                    <span className="text-[10px] text-slate-500 uppercase tracking-wider">{isEn ? 'Day' : 'Dia'}</span>
                                 </div>
                             </div>
 
@@ -317,7 +344,7 @@ export default function NovenaPlayerPage() {
                                         {/* Intro Prayer */}
                                         {novena.prayer_intro && (
                                             <div className="p-6 bg-indigo-900/10 rounded-2xl border-l-4 border-indigo-500/30 italic text-base text-slate-400">
-                                                <p className="font-bold text-indigo-400 text-xs uppercase mb-2">Oração Inicial</p>
+                                                <p className="font-bold text-indigo-400 text-xs uppercase mb-2">{isEn ? 'Opening Prayer' : 'Oração Inicial'}</p>
                                                 {novena.prayer_intro}
                                             </div>
                                         )}
@@ -330,14 +357,14 @@ export default function NovenaPlayerPage() {
                                         {/* Final Prayer */}
                                         {novena.prayer_final && (
                                             <div className="p-6 bg-slate-900/50 rounded-2xl border border-white/5 italic text-base text-slate-400">
-                                                <p className="font-bold text-slate-500 text-xs uppercase mb-2">Oração Final</p>
+                                                <p className="font-bold text-slate-500 text-xs uppercase mb-2">{isEn ? 'Closing Prayer' : 'Oração Final'}</p>
                                                 {novena.prayer_final}
                                             </div>
                                         )}
 
                                         <div className="flex items-center justify-center gap-2 text-sm text-slate-500 italic pt-4">
                                             <span className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
-                                            Rezar: 1 Pai Nosso, 1 Ave Maria, 1 Glória.
+                                            {isEn ? 'Pray: 1 Our Father, 1 Hail Mary, 1 Glory Be.' : 'Rezar: 1 Pai Nosso, 1 Ave Maria, 1 Glória.'}
                                         </div>
                                     </div>
 
@@ -348,22 +375,22 @@ export default function NovenaPlayerPage() {
                                         className="w-full py-5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-2xl transition-all shadow-lg shadow-indigo-900/20 flex items-center justify-center gap-3 text-lg group hover:scale-[1.02]"
                                     >
                                         {progress.current_day === 9 ? (
-                                            <>Concluir Novena <Sparkles className="w-6 h-6" /></>
+                                            <>{isEn ? 'Complete Novena' : 'Concluir Novena'} <Sparkles className="w-6 h-6" /></>
                                         ) : (
-                                            <>Concluir Dia {progress.current_day} <ChevronRight className="w-6 h-6 group-hover:translate-x-1 transition-transform" /></>
+                                            <>{isEn ? `Complete Day ${progress.current_day}` : `Concluir Dia ${progress.current_day}`} <ChevronRight className="w-6 h-6 group-hover:translate-x-1 transition-transform" /></>
                                         )}
                                     </button>
 
                                     <div className="mt-6 text-center">
                                         <button onClick={resetNovena} className="text-xs text-red-400/40 hover:text-red-400 transition-colors uppercase tracking-widest font-bold">
-                                            Reiniciar do Zero
+                                            {isEn ? 'Restart from Scratch' : 'Reiniciar do Zero'}
                                         </button>
                                     </div>
 
                                 </motion.div>
                             ) : (
                                 <div className="text-center py-20 text-slate-500">
-                                    Conteúdo não encontrado para este dia.
+                                    {isEn ? 'Content not found for this day.' : 'Conteúdo não encontrado para este dia.'}
                                 </div>
                             )}
                         </div>
@@ -395,7 +422,7 @@ export default function NovenaPlayerPage() {
                                     <Sparkles className="w-10 h-10 text-indigo-500" />
                                 </div>
 
-                                <h3 className="text-3xl font-serif text-white mb-6">Mensagem de Fé</h3>
+                                <h3 className="text-3xl font-serif text-white mb-6">{isEn ? 'Message of Faith' : 'Mensagem de Fé'}</h3>
                                 <blockquote className="text-xl text-slate-300 italic mb-10 leading-relaxed font-light">
                                     "{completedDayQuote}"
                                 </blockquote>
@@ -404,7 +431,7 @@ export default function NovenaPlayerPage() {
                                     onClick={() => setCompletedDayQuote(null)}
                                     className="px-8 py-4 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl transition-colors w-full text-lg"
                                 >
-                                    Amém 🙏
+                                    {isEn ? 'Amen' : 'Amém'} 🙏
                                 </button>
                             </motion.div>
                         </div>

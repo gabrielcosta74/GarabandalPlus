@@ -5,6 +5,7 @@ import { isPaidStatus } from './membership-status';
 import { reduniqClient } from './reduniq/client';
 import { resolveCountryMeta } from './country-utils';
 import { getMembershipAmountServer } from './membership-pricing';
+import { type AppLocale, withLocalePrefix } from './locale-routing';
 
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
 const siteUrl = getAppUrl();
@@ -22,6 +23,7 @@ export const stripe = stripeSecretKey
 export type CheckoutPayload = {
   amount: number;
   type: 'donation' | 'membership';
+  locale?: AppLocale;
   userId?: string;
   provider?: 'stripe' | 'reduniq';
   orderRef?: string;
@@ -96,6 +98,7 @@ async function ensureCanPayMembership(userId: string) {
 export async function createCheckoutSession({
   amount,
   type,
+  locale = 'pt',
   userId,
   provider = 'stripe',
   orderRef: orderRefOverride,
@@ -148,9 +151,10 @@ export async function createCheckoutSession({
   if (provider === 'reduniq') {
     const orderRef = orderRefOverride || `reduniq_${Date.now()}_${Math.random().toString(36).substring(7)}`;
     const safeSiteUrl = siteUrl.replace(/\/$/, '');
-    const successUrl = `${safeSiteUrl}/thank-you?type=${type}&amount=${normalizedAmount}&provider=reduniq&orderRef=${orderRef}&status=success`;
-    const errorUrl = `${safeSiteUrl}/thank-you?type=${type}&amount=${normalizedAmount}&provider=reduniq&orderRef=${orderRef}&status=failed&canceled=true`;
-    const languageCode = donorCountryValue === 'PT' || donorCountryValue === 'BR' ? 'por' : 'eng';
+    const thankYouPath = withLocalePrefix('/thank-you', locale);
+    const successUrl = `${safeSiteUrl}${thankYouPath}?type=${type}&amount=${normalizedAmount}&provider=reduniq&orderRef=${orderRef}&status=success`;
+    const errorUrl = `${safeSiteUrl}${thankYouPath}?type=${type}&amount=${normalizedAmount}&provider=reduniq&orderRef=${orderRef}&status=failed&canceled=true`;
+    const languageCode = locale === 'en' ? 'eng' : 'por';
 
     const attemptInit = async (solution?: number) => await reduniqClient.initiatePayment({
       amount: normalizedAmount,
@@ -212,6 +216,7 @@ export async function createCheckoutSession({
             donor_nif: donorNifValue || null,
             metadata: {
               provider: 'reduniq',
+              locale,
               reduniq_method: reduniqMethodHint,
               payment_option_id: paymentOptionId || null,
               forcedSolution: reduniqSolution || null,
@@ -235,6 +240,7 @@ export async function createCheckoutSession({
             payment_intent_id: initResult.token || initResult.transactionId || orderRef,
             external_reference: orderRef,
             data_pagamento: new Date().toISOString().slice(0, 10),
+            notes: locale === 'en' ? '[locale:en]' : null,
           });
         }
       } catch (err) {
@@ -249,11 +255,14 @@ export async function createCheckoutSession({
   const lineItemName = type === 'membership' ? 'Quota anual' : 'Donativo';
   const priceLabel = type === 'membership' ? 'Quota Apostolado' : 'Doação Apostolado';
 
-  const successUrl = `${siteUrl.replace(/\/$/, '')}/thank-you?type=${type}&amount=${normalizedAmount}&provider=stripe`;
+  const safeSiteUrl = siteUrl.replace(/\/$/, '');
+  const thankYouPath = withLocalePrefix('/thank-you', locale);
+  const donationsPath = withLocalePrefix('/donations', locale);
+  const successUrl = `${safeSiteUrl}${thankYouPath}?type=${type}&amount=${normalizedAmount}&provider=stripe`;
   const cancelUrl =
     type === 'donation'
-      ? `${siteUrl.replace(/\/$/, '')}/donations?canceled=true`
-      : `${siteUrl.replace(/\/$/, '')}/thank-you?type=${type}&amount=${normalizedAmount}&provider=stripe&status=failed&canceled=true`;
+      ? `${safeSiteUrl}${donationsPath}?canceled=true`
+      : `${safeSiteUrl}${thankYouPath}?type=${type}&amount=${normalizedAmount}&provider=stripe&status=failed&canceled=true`;
 
   const session = await stripe!.checkout.sessions.create({
     mode: 'payment',
@@ -284,6 +293,7 @@ export async function createCheckoutSession({
       donorMessage: donorMessage?.trim().slice(0, 500) || '',
       receiptRequired: receiptRequired ? 'true' : 'false',
       paymentOptionId: paymentOptionId || '',
+      locale,
     },
   });
 
@@ -302,6 +312,7 @@ export async function createCheckoutSession({
           description: 'Doação (checkout)',
           metadata: {
             provider: 'stripe',
+            locale,
             payment_option_id: paymentOptionId || null,
             donorAddress: donorAddressValue || null,
             donorCity: donorCityValue || null,
@@ -330,6 +341,7 @@ export async function createCheckoutSession({
           payment_intent_id: session.payment_intent,
           external_reference: session.id,
           data_pagamento: new Date().toISOString().slice(0, 10),
+          notes: locale === 'en' ? '[locale:en]' : null,
         });
       }
     } catch (err) {

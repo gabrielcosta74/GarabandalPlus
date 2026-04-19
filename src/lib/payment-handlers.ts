@@ -2,7 +2,6 @@ import { SupabaseClient } from '@supabase/supabase-js';
 import {
     sendMembershipNotification,
     sendMemberReceiptEmail,
-    sendMemberDiplomaEmail,
     sendDonationReceiptEmail,
     sendAuctionPaymentConfirmedEmail,
 } from './email'; // Assume these exist and are exported
@@ -14,6 +13,9 @@ import { calculateNextQuotaDate } from './membership-logic';
 import { getNextMemberNumber } from './membership-db';
 
 const formatISODate = (date: Date) => date.toISOString().slice(0, 10);
+const resolveEmailLocale = (value?: any): 'pt' | 'en' => String(value || '').toLowerCase() === 'en' ? 'en' : 'pt';
+const resolveLocaleFromNotes = (notes?: string | null): 'pt' | 'en' =>
+    /\[locale:en\]/i.test(String(notes || '')) ? 'en' : 'pt';
 
 const ensureUniqueMemberNumber = async (
     supabaseServer: SupabaseClient,
@@ -106,9 +108,11 @@ export async function handleDonationSuccess(ctx: PaymentHandlerContext) {
         .match(matchQuery)
         .maybeSingle();
 
+    const emailLocale = metadata.locale === 'en' || (existingDonation?.metadata as any)?.locale === 'en' ? 'en' : 'pt';
     const mergedMetadata = {
         ...(existingDonation?.metadata || {}),
         provider: method === 'reduniq' ? 'reduniq' : ((existingDonation?.metadata as any)?.provider || 'stripe'),
+        locale: emailLocale,
         reduniq_method: reduniqMethodHint || (existingDonation?.metadata as any)?.reduniq_method || null,
         donorAddress: donorAddress ?? (existingDonation?.metadata as any)?.donorAddress ?? null,
         donorCity: donorCity ?? (existingDonation?.metadata as any)?.donorCity ?? null,
@@ -188,6 +192,7 @@ export async function handleDonationSuccess(ctx: PaymentHandlerContext) {
                 paymentReference,
                 paidAt: ctx.paymentDate?.toISOString() || new Date().toISOString(),
                 method,
+                locale: emailLocale,
             });
             await markNotificationSent(supabaseServer, notif.recordId);
         }
@@ -212,7 +217,7 @@ export async function handleMembershipSuccess(ctx: PaymentHandlerContext) {
     // Check Notification Status
     let paymentRow: any = null;
     try {
-        const { data } = await supabaseServer.from('pagamentos_quotas').select('id, email_notificado_at')
+        const { data } = await supabaseServer.from('pagamentos_quotas').select('id, email_notificado_at, notes')
             .match(externalReference ? { external_reference: externalReference } : { payment_intent_id: paymentReference })
             .maybeSingle();
         paymentRow = data;
@@ -291,6 +296,9 @@ export async function handleMembershipSuccess(ctx: PaymentHandlerContext) {
         const shouldNotify = !paymentRow?.email_notificado_at;
         if (shouldNotify) {
             const memberEmail = membro?.email || customerDetails?.email;
+            const emailLocale = resolveEmailLocale(metadata.locale) === 'en'
+                ? 'en'
+                : resolveLocaleFromNotes(paymentRow?.notes);
             // Send standard notification (Membership Paid/Renewed)
             await sendMembershipNotification({
                 kind: wasMember ? 'renewal' : 'new',
@@ -305,14 +313,17 @@ export async function handleMembershipSuccess(ctx: PaymentHandlerContext) {
                 paidAt: paymentDate.toISOString()
             });
 
-            // Update flag
-            if (paymentRow?.id) await supabaseServer.from('pagamentos_quotas').update({ email_notificado_at: new Date().toISOString() }).eq('id', paymentRow.id);
-
-            // Handle Diploma
+            // Send the member-facing receipt. New members receive the diploma attached.
             const shouldAttachDiploma = !membro?.diploma_enviado_at && !!numero_socio;
-            if (shouldAttachDiploma && memberEmail) {
-                const pdfBytes = await generateMemberDiplomaPdf({ memberName: membro.nome, memberNumber: Number(numero_socio), issuedAt: new Date().toISOString() });
-                // Send Receipt with Diploma
+            if (memberEmail) {
+                const attachments = shouldAttachDiploma
+                    ? [{
+                        filename: 'diploma.pdf',
+                        content: Buffer.from(await generateMemberDiplomaPdf({ memberName: membro.nome, memberNumber: Number(numero_socio), issuedAt: new Date().toISOString() })),
+                        contentType: 'application/pdf',
+                    }]
+                    : undefined;
+
                 await sendMemberReceiptEmail({
                     toEmail: memberEmail,
                     memberName: membro.nome,
@@ -324,11 +335,18 @@ export async function handleMembershipSuccess(ctx: PaymentHandlerContext) {
                     nextQuotaDate: formatISODate(nextQuotaDate),
                     paidAt: paymentDate.toISOString(),
                     kind: wasMember ? 'renewal' : 'new',
-                    attachments: [{ filename: 'diploma.pdf', content: Buffer.from(pdfBytes), contentType: 'application/pdf' }],
-                    hasDiploma: true
+                    attachments,
+                    hasDiploma: shouldAttachDiploma,
+                    locale: emailLocale,
                 });
-                await supabaseServer.from('membros').update({ diploma_enviado_at: new Date().toISOString() }).eq('id', userId);
+
+                if (shouldAttachDiploma) {
+                    await supabaseServer.from('membros').update({ diploma_enviado_at: new Date().toISOString() }).eq('id', userId);
+                }
             }
+
+            // Mark as notified only after all configured sends complete.
+            if (paymentRow?.id) await supabaseServer.from('pagamentos_quotas').update({ email_notificado_at: new Date().toISOString() }).eq('id', paymentRow.id);
         }
 
         await createAdminNotification('member', wasMember ? 'Renovação' : 'Novo Sócio', `${membro?.nome} - ${amountCents / 100}€`, '/admin/membros');

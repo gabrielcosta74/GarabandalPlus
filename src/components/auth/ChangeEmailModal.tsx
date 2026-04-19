@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Mail, Loader2, CheckCircle2 } from 'lucide-react';
 import { supabaseBrowser } from '../../lib/supabase-browser';
+import { useLocale } from '../../contexts/LocaleContext';
 
 type Props = {
   visible: boolean;
@@ -13,6 +14,9 @@ type Props = {
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function ChangeEmailModal({ visible, onClose, currentEmail, onRequested }: Props) {
+  const { locale } = useLocale();
+  const isEn = locale === 'en';
+
   const [newEmail, setNewEmail] = useState('');
   const [confirmEmail, setConfirmEmail] = useState('');
   const [loading, setLoading] = useState(false);
@@ -40,22 +44,22 @@ export default function ChangeEmailModal({ visible, onClose, currentEmail, onReq
     const normalizedConfirm = confirmEmail.trim().toLowerCase();
 
     if (!normalizedNew || !EMAIL_REGEX.test(normalizedNew)) {
-      setError('Indica um novo email válido.');
+      setError(isEn ? 'Provide a valid new email.' : 'Indica um novo email válido.');
       return;
     }
 
     if (normalizedNew !== normalizedConfirm) {
-      setError('A confirmação do email não coincide.');
+      setError(isEn ? 'Email confirmation does not match.' : 'A confirmação do email não coincide.');
       return;
     }
 
     if (normalizedCurrent && normalizedNew === normalizedCurrent) {
-      setError('O novo email é igual ao atual.');
+      setError(isEn ? 'The new email is the same as the current.' : 'O novo email é igual ao atual.');
       return;
     }
 
     if (!supabaseBrowser) {
-      setError('Cliente de autenticação indisponível.');
+      setError(isEn ? 'Authentication client unavailable.' : 'Cliente de autenticação indisponível.');
       return;
     }
 
@@ -69,11 +73,11 @@ export default function ChangeEmailModal({ visible, onClose, currentEmail, onReq
 
       if (updateError) throw updateError;
 
-      setSuccessMessage('Pedido enviado. Confirma o novo email no link recebido para concluir a alteração.');
+      setSuccessMessage(isEn ? 'Request sent. Confirm the new email via the link received to complete the change.' : 'Pedido enviado. Confirma o novo email no link recebido para concluir a alteração.');
       onRequested?.();
     } catch (err: any) {
       console.error(err);
-      setError(err?.message || 'Não foi possível iniciar a alteração de email.');
+      setError(err?.message || (isEn ? 'Could not initiate email change.' : 'Não foi possível iniciar a alteração de email.'));
     } finally {
       setLoading(false);
     }
@@ -108,14 +112,16 @@ export default function ChangeEmailModal({ visible, onClose, currentEmail, onReq
               <div className="w-16 h-16 rounded-full bg-garabandal-gold/10 flex items-center justify-center mb-4 text-garabandal-dark mx-auto">
                 <Mail className="w-8 h-8" />
               </div>
-              <h2 className="font-serif text-2xl font-bold text-garabandal-dark text-center mb-2">Alterar Email</h2>
+              <h2 className="font-serif text-2xl font-bold text-garabandal-dark text-center mb-2">
+                {isEn ? 'Change Email' : 'Alterar Email'}
+              </h2>
               <p className="text-gray-500 text-sm text-center mb-6">
-                Vais receber um email de confirmação para concluir a alteração.
+                {isEn ? 'You will receive a confirmation email to complete the change.' : 'Vais receber um email de confirmação para concluir a alteração.'}
               </p>
 
               {currentEmail && (
                 <div className="mb-4 rounded-xl border border-gray-200 bg-gray-50 p-3 text-xs text-gray-600">
-                  Email atual: <span className="font-semibold text-gray-800">{currentEmail}</span>
+                  {isEn ? 'Current email:' : 'Email atual:'} <span className="font-semibold text-gray-800">{currentEmail}</span>
                 </div>
               )}
 
@@ -134,14 +140,14 @@ export default function ChangeEmailModal({ visible, onClose, currentEmail, onReq
                 <form onSubmit={handleSubmit} className="space-y-4">
                   <div>
                     <label className="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-1.5 ml-1">
-                      Novo Email
+                      {isEn ? 'New Email' : 'Novo Email'}
                     </label>
                     <input
                       type="email"
                       value={newEmail}
                       onChange={(e) => setNewEmail(e.target.value)}
                       className="w-full rounded-xl border-gray-200 bg-gray-50/50 py-3 px-4 text-gray-900 focus:bg-white focus:border-garabandal-gold focus:ring-garabandal-gold/20 transition-all outline-none md:text-sm"
-                      placeholder="novo-email@exemplo.com"
+                      placeholder={isEn ? 'new-email@example.com' : 'novo-email@exemplo.com'}
                       autoComplete="email"
                       disabled={loading}
                     />
@@ -149,14 +155,14 @@ export default function ChangeEmailModal({ visible, onClose, currentEmail, onReq
 
                   <div>
                     <label className="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-1.5 ml-1">
-                      Confirmar Novo Email
+                      {isEn ? 'Confirm New Email' : 'Confirmar Novo Email'}
                     </label>
                     <input
                       type="email"
                       value={confirmEmail}
                       onChange={(e) => setConfirmEmail(e.target.value)}
                       className="w-full rounded-xl border-gray-200 bg-gray-50/50 py-3 px-4 text-gray-900 focus:bg-white focus:border-garabandal-gold focus:ring-garabandal-gold/20 transition-all outline-none md:text-sm"
-                      placeholder="novo-email@exemplo.com"
+                      placeholder={isEn ? 'new-email@example.com' : 'novo-email@exemplo.com'}
                       autoComplete="email"
                       disabled={loading}
                     />
@@ -169,14 +175,14 @@ export default function ChangeEmailModal({ visible, onClose, currentEmail, onReq
                       className="flex-1 h-12 rounded-xl font-bold text-gray-500 hover:bg-gray-100 transition-colors"
                       disabled={loading}
                     >
-                      Cancelar
+                      {isEn ? 'Cancel' : 'Cancelar'}
                     </button>
                     <button
                       type="submit"
                       disabled={loading || !newEmail || !confirmEmail}
                       className="flex-1 h-12 bg-garabandal-dark text-white rounded-xl font-bold hover:bg-slate-800 transition-all shadow-lg disabled:opacity-70 flex items-center justify-center gap-2"
                     >
-                      {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Enviar'}
+                      {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : (isEn ? 'Send' : 'Enviar')}
                     </button>
                   </div>
                 </form>

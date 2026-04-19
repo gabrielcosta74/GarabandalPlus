@@ -6,11 +6,14 @@ import { supabaseBrowser } from '../../../lib/supabase-browser';
 import { MOCK_COURSES, Course } from '../../../lib/academy-data';
 import { Play, Clock, ChevronRight, User, Star, BookOpen, Heart, Film, Info, Plus, Check, ChevronLeft } from 'lucide-react';
 import Link from 'next/link';
+import { useLocale } from '../../../contexts/LocaleContext';
 
 // --- Components ---
 
 // 1. Hero Banner (Slideshow Version)
 function HeroBanner({ featuredCourses }: { featuredCourses: Course[] }) {
+    const { locale } = useLocale();
+    const isEn = locale === 'en';
     const [currentIndex, setCurrentIndex] = useState(0);
     const [isFading, setIsFading] = useState(false);
     const timeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -52,7 +55,7 @@ function HeroBanner({ featuredCourses }: { featuredCourses: Course[] }) {
                 <div className="max-w-2xl animate-fade-in-up">
                     <div className="mb-4 flex items-center gap-3">
                         <span className="text-yellow-500 font-bold tracking-widest text-xs uppercase bg-yellow-500/10 px-3 py-1 rounded border border-yellow-500/20 backdrop-blur-sm">
-                            Em Destaque #{currentIndex + 1}
+                            {isEn ? `Featured #${currentIndex + 1}` : `Em Destaque #${currentIndex + 1}`}
                         </span>
                         {course.is_premium && (
                             <span className="text-amber-200 font-bold tracking-widest text-xs uppercase bg-amber-900/40 px-3 py-1 rounded border border-amber-500/30 backdrop-blur-sm">
@@ -66,7 +69,7 @@ function HeroBanner({ featuredCourses }: { featuredCourses: Course[] }) {
                     </h1>
 
                     <div className="flex items-center gap-4 text-slate-300 text-sm md:text-base font-medium mb-6">
-                        <span className="text-green-400 font-bold">98% Relevância</span>
+                        <span className="text-green-400 font-bold">{isEn ? '98% Match' : '98% Relevância'}</span>
                         <span>{course.duration || '45m'}</span>
                         <span>{course.category}</span>
                     </div>
@@ -80,10 +83,10 @@ function HeroBanner({ featuredCourses }: { featuredCourses: Course[] }) {
                             href={`/member/curso/${course.slug}`}
                             className="bg-yellow-500 text-black hover:bg-yellow-400 px-8 py-3.5 rounded-lg font-bold flex items-center gap-3 transition-all hover:scale-105 shadow-xl hover:shadow-yellow-500/20"
                         >
-                            <Play className="w-6 h-6 fill-black" /> Assistir
+                            <Play className="w-6 h-6 fill-black" /> {isEn ? 'Watch' : 'Assistir'}
                         </Link>
                         <button className="bg-slate-800/80 hover:bg-slate-700/80 backdrop-blur-md text-white px-8 py-3.5 rounded-lg font-bold flex items-center gap-3 transition-all border border-white/20 hover:border-white/40 shadow-lg">
-                            <Info className="w-6 h-6" /> Mais Informações
+                            <Info className="w-6 h-6" /> {isEn ? 'More Info' : 'Mais Informações'}
                         </button>
                     </div>
                 </div>
@@ -107,6 +110,8 @@ function HeroBanner({ featuredCourses }: { featuredCourses: Course[] }) {
 
 // 2. Course Card (Progress & List Enabled)
 function NetflixCard({ course, showProgress = false, isListed = false, onToggleList }: { course: Course, showProgress?: boolean, isListed?: boolean, onToggleList?: (id: string, currentlyInList: boolean) => void }) {
+    const { locale } = useLocale();
+    const isEn = locale === 'en';
     const [inList, setInList] = useState(isListed);
     const [loadingToggle, setLoadingToggle] = useState(false);
 
@@ -164,7 +169,7 @@ function NetflixCard({ course, showProgress = false, isListed = false, onToggleL
                     </h4>
 
                     <div className="flex items-center gap-2 text-[10px] text-slate-300 font-bold">
-                        <span className="text-green-400">Novo</span>
+                        <span className="text-green-400">{isEn ? 'New' : 'Novo'}</span>
                         <span className="border border-slate-500 px-1 rounded">HD</span>
                         <span>{course.duration || '20m'}</span>
                     </div>
@@ -252,6 +257,8 @@ function CarouselSection({ title, courses, showProgress = false, watchlistItems 
 }
 
 export default function CoursesPage() {
+    const { locale } = useLocale();
+    const isEn = locale === 'en';
     const [courses, setCourses] = useState<Course[]>([]);
     const [loading, setLoading] = useState(true);
     const [watchlist, setWatchlist] = useState<string[]>([]);
@@ -346,7 +353,7 @@ export default function CoursesPage() {
         return (
             <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white">
                 <div className="w-12 h-12 border-4 border-yellow-600 border-t-transparent rounded-full animate-spin mb-4" />
-                <p className="text-slate-400 animate-pulse">Carregando catálogo...</p>
+                <p className="text-slate-400 animate-pulse">{isEn ? 'Loading catalog...' : 'Carregando catálogo...'}</p>
             </div>
         );
     }
@@ -386,7 +393,7 @@ export default function CoursesPage() {
                     {/* NEW: Personalization Rows */}
                     {continueWatching.length > 0 && (
                         <CarouselSection
-                            title="Continuar a Ver"
+                            title={isEn ? "Continue Watching" : "Continuar a Ver"}
                             courses={continueWatching}
                             showProgress={true}
                             watchlistItems={watchlist}
@@ -395,7 +402,7 @@ export default function CoursesPage() {
                     )}
                     {myList.length > 0 && (
                         <CarouselSection
-                            title="Minha Lista"
+                            title={isEn ? "My List" : "Minha Lista"}
                             courses={myList}
                             watchlistItems={watchlist}
                             onToggleList={toggleWatchlist}
@@ -403,13 +410,13 @@ export default function CoursesPage() {
                     )}
 
                     {/* Standard Categories */}
-                    {profecias.length > 0 && <CarouselSection title="Profecias & O Futuro" courses={profecias} watchlistItems={watchlist} onToggleList={toggleWatchlist} />}
-                    {documentaries.length > 0 && <CarouselSection title="Documentários Originais" courses={documentaries} watchlistItems={watchlist} onToggleList={toggleWatchlist} />}
-                    {theology.length > 0 && <CarouselSection title="Estudos & Teologia" courses={theology} watchlistItems={watchlist} onToggleList={toggleWatchlist} />}
-                    {spirituality.length > 0 && <CarouselSection title="Vida Espiritual" courses={spirituality} watchlistItems={watchlist} onToggleList={toggleWatchlist} />}
+                    {profecias.length > 0 && <CarouselSection title={isEn ? "Prophecies & The Future" : "Profecias & O Futuro"} courses={profecias} watchlistItems={watchlist} onToggleList={toggleWatchlist} />}
+                    {documentaries.length > 0 && <CarouselSection title={isEn ? "Original Documentaries" : "Documentários Originais"} courses={documentaries} watchlistItems={watchlist} onToggleList={toggleWatchlist} />}
+                    {theology.length > 0 && <CarouselSection title={isEn ? "Studies & Theology" : "Estudos & Teologia"} courses={theology} watchlistItems={watchlist} onToggleList={toggleWatchlist} />}
+                    {spirituality.length > 0 && <CarouselSection title={isEn ? "Spiritual Life" : "Vida Espiritual"} courses={spirituality} watchlistItems={watchlist} onToggleList={toggleWatchlist} />}
 
                     {(profecias.length === 0 && documentaries.length === 0) && (
-                        <CarouselSection title="Adicionados Recentemente" courses={allOthers} watchlistItems={watchlist} onToggleList={toggleWatchlist} />
+                        <CarouselSection title={isEn ? "Recently Added" : "Adicionados Recentemente"} courses={allOthers} watchlistItems={watchlist} onToggleList={toggleWatchlist} />
                     )}
                 </div>
             </div>

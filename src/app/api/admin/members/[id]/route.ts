@@ -126,10 +126,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
         const nextIsMember = updates.is_membro ?? currentMember?.is_membro ?? false;
         const nextQuotaStatus = normalizeQuotaStatus(updates.estado_quota ?? currentMember?.estado_quota);
-        if (!nextIsMember && nextQuotaStatus === 'pendente' && updates.numero_socio !== undefined && updates.numero_socio !== null) {
-            return NextResponse.json({
-                error: 'Não é permitido atribuir número de sócio a um registo pendente/não membro.'
-            }, { status: 400 });
+        if (!nextIsMember && nextQuotaStatus === 'pendente') {
+            updates.numero_socio = null;
         }
 
         const { data, error } = await supabaseServer

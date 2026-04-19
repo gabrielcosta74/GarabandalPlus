@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useLocale } from "../../contexts/LocaleContext";
 
 interface MobileDonationCTAProps {
     onDonate: () => void;
@@ -9,6 +10,8 @@ interface MobileDonationCTAProps {
 
 export default function MobileDonationCTA({ onDonate }: MobileDonationCTAProps) {
     const [isVisible, setIsVisible] = useState(false);
+    const { locale } = useLocale();
+    const isEn = locale === 'en';
 
     useEffect(() => {
         const handleScroll = () => {
@@ -36,10 +39,10 @@ export default function MobileDonationCTA({ onDonate }: MobileDonationCTAProps) 
                     <div className="relative flex items-center justify-between gap-4 max-w-md mx-auto">
                         <div className="flex flex-col">
                             <span className="text-sm font-bold text-gray-900 leading-tight">
-                                Ajude a construir
+                                {isEn ? 'Help us build' : 'Ajude a construir'}
                             </span>
                             <span className="text-xs text-gray-500">
-                                Cada gesto conta.
+                                {isEn ? 'Every gesture matters.' : 'Cada gesto conta.'}
                             </span>
                         </div>
 
@@ -47,7 +50,7 @@ export default function MobileDonationCTA({ onDonate }: MobileDonationCTAProps) 
                             onClick={onDonate}
                             className="px-6 py-3 bg-garabandal-gold text-garabandal-dark font-bold text-sm rounded-full shadow-lg hover:shadow-xl active:scale-95 transition-all w-auto whitespace-nowrap"
                         >
-                            Doar Agora
+                            {isEn ? 'Donate Now' : 'Doar Agora'}
                         </button>
                     </div>
                 </motion.div>

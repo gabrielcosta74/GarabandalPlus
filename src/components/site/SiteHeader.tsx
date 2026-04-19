@@ -283,6 +283,24 @@ export default function SiteHeader() {
           {/* 3. Actions Area (Cart, User, Mobile Toggle) */}
           <div className="flex items-center gap-3">
 
+            {/* Language Switcher */}
+            <button
+              onClick={() => {
+                if (locale === 'pt') {
+                  // PT → EN: prepend /en
+                  router.push('/en' + (pathname === '/' ? '' : pathname));
+                } else {
+                  // EN → PT: strip /en prefix
+                  const ptPath = pathname.startsWith('/en') ? pathname.slice(3) || '/' : pathname;
+                  router.push(ptPath);
+                }
+              }}
+              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider transition-all bg-white/10 border border-white/20 hover:bg-white/20 backdrop-blur-md text-white"
+              aria-label="Switch language"
+            >
+              {locale === 'pt' ? '🇬🇧 EN' : '🇵🇹 PT'}
+            </button>
+
             {/* Cart Button */}
             <div className="relative group">
               <Link
@@ -688,6 +706,32 @@ export default function SiteHeader() {
                     </button>
                   </div>
                 ) : null}
+
+                {/* Language Switcher */}
+                <div className="mt-6 pt-6 border-t border-slate-100">
+                  <p className="text-xs font-bold text-slate-400 uppercase tracking-widest px-2 mb-3">Idioma / Language</p>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => {
+                        const ptPath = pathname.startsWith('/en') ? pathname.slice(3) || '/' : pathname;
+                        router.push(ptPath);
+                        setIsMobileOpen(false);
+                      }}
+                      className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all ${locale === 'pt' ? 'bg-yellow-500 text-white shadow-sm' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
+                    >
+                      🇵🇹 Português
+                    </button>
+                    <button
+                      onClick={() => {
+                        router.push('/en' + (pathname === '/' ? '' : pathname.startsWith('/en') ? pathname.slice(3) : pathname));
+                        setIsMobileOpen(false);
+                      }}
+                      className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all ${locale === 'en' ? 'bg-yellow-500 text-white shadow-sm' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
+                    >
+                      🇬🇧 English
+                    </button>
+                  </div>
+                </div>
 
               </div>
             </motion.div>

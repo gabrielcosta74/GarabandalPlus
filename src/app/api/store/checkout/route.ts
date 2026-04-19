@@ -10,6 +10,7 @@ import { normalizeEmail } from '../../../../lib/normalize';
 import { reduniqClient } from '../../../../lib/reduniq/client';
 import { inferIsDigitalProduct } from '../../../../lib/product-kind';
 import { checkRateLimit } from '../../../../lib/rate-limit';
+import { inferRequestLocale, withLocalePrefix } from '../../../../lib/locale-routing';
 
 const itemSchema = z.object({
   id: z.string().min(1),
@@ -61,6 +62,8 @@ const bodySchema = z.object({
 
 export async function POST(request: Request) {
   try {
+    const locale = inferRequestLocale(request);
+    const thankYouPath = withLocalePrefix('/thank-you', locale);
     const rateLimit = checkRateLimit(request, {
       keyPrefix: 'store-checkout',
       windowMs: 60_000,
@@ -402,7 +405,7 @@ export async function POST(request: Request) {
         // If fully paid by wallet, we skip the payment gateway and return the success URL directly.
         if (isFullyPaidByWallet) {
           const siteUrl = getAppUrl();
-          const successUrl = `${siteUrl}/thank-you?type=store&amount=${roundedTotal}&provider=wallet&orderRef=${orderRef}&status=success`;
+          const successUrl = `${siteUrl}${thankYouPath}?type=store&amount=${roundedTotal}&provider=wallet&orderRef=${orderRef}&status=success`;
           return NextResponse.json({ url: successUrl, orderRef, requestId });
         }
       } catch (err) {
@@ -417,8 +420,8 @@ export async function POST(request: Request) {
     const siteUrl = getAppUrl();
 
     if (provider === 'reduniq') {
-      const successUrl = `${siteUrl}/thank-you?type=store&amount=${netAmountToPay}&provider=reduniq&orderRef=${orderRef}&status=success`;
-      const cancelUrl = `${siteUrl}/thank-you?type=store&amount=${netAmountToPay}&provider=reduniq&orderRef=${orderRef}&status=failed&canceled=true`;
+      const successUrl = `${siteUrl}${thankYouPath}?type=store&amount=${netAmountToPay}&provider=reduniq&orderRef=${orderRef}&status=success`;
+      const cancelUrl = `${siteUrl}${thankYouPath}?type=store&amount=${netAmountToPay}&provider=reduniq&orderRef=${orderRef}&status=failed&canceled=true`;
       const countryCode = (shipping?.country || billing?.country || 'PT').slice(0, 2).toUpperCase();
       const languageCode = countryCode === 'PT' || countryCode === 'BR' ? 'por' : 'eng';
       // Keep Reduniq description short/stable to avoid gateway quirks with long or special-character-heavy cart summaries.
@@ -481,8 +484,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ message: 'Stripe não configurado.', code: 'STRIPE_MISSING', requestId }, { status: 500 });
     }
 
-    const successUrl = `${siteUrl}/thank-you?type=store&amount=${netAmountToPay}&provider=stripe&session_id={CHECKOUT_SESSION_ID}`;
-    const cancelUrl = `${siteUrl}/thank-you?type=store&amount=${netAmountToPay}&provider=stripe&status=failed&canceled=true`;
+    const successUrl = `${siteUrl}${thankYouPath}?type=store&amount=${netAmountToPay}&provider=stripe&session_id={CHECKOUT_SESSION_ID}`;
+    const cancelUrl = `${siteUrl}${thankYouPath}?type=store&amount=${netAmountToPay}&provider=stripe&status=failed&canceled=true`;
 
     const lineItems = itemsResolved.map((item) => ({
       quantity: item.qty,

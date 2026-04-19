@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import styles from './account.module.css';
 import { supabaseBrowser } from '../../lib/supabase-browser';
+import { useLocale } from '../../contexts/LocaleContext';
 
 type Props = {
   title: string;
@@ -15,20 +16,29 @@ type Props = {
 export default function AccountShell({ title, subtitle, children }: Props) {
   const router = useRouter();
   const pathname = usePathname();
+  const { locale } = useLocale();
   const [ready, setReady] = useState(false);
   const [summaryEmail, setSummaryEmail] = useState('');
   const [summaryIsMember, setSummaryIsMember] = useState(false);
+  const isEn = locale === 'en' || pathname?.startsWith('/en');
+  const loginPath = isEn ? '/en/login' : '/login';
+  const profilePath = isEn ? '/en/account/profile' : '/account/profile';
+  const memberPath = isEn ? '/en/member' : '/member';
+  const quotaPath = isEn ? '/en/member/quota' : '/member/quota';
+  const historyPath = isEn ? '/en/member/history' : '/member/history';
+  const libraryPath = isEn ? '/en/library' : '/biblioteca';
+  const ordersPath = isEn ? '/en/orders' : '/encomendas';
 
   useEffect(() => {
     const checkSession = async () => {
       if (!supabaseBrowser) {
-        router.replace('/login');
+        router.replace(loginPath);
         return;
       }
       const { data } = await supabaseBrowser.auth.getSession();
       if (!data.session?.user?.id) {
         const next = pathname ? `?next=${encodeURIComponent(pathname)}` : '';
-        router.replace(`/login${next}`);
+        router.replace(`${loginPath}${next}`);
         return;
       }
       setSummaryEmail(data.session.user.email ?? '');
@@ -41,7 +51,7 @@ export default function AccountShell({ title, subtitle, children }: Props) {
       setReady(true);
     };
     checkSession();
-  }, [pathname, router]);
+  }, [loginPath, pathname, router]);
 
   if (!ready) return <div style={{ minHeight: '60vh' }} />;
 
@@ -50,31 +60,31 @@ export default function AccountShell({ title, subtitle, children }: Props) {
       <div className={styles.shell}>
         <aside className={styles.aside}>
           <div className={styles.navSection}>
-            <h2>Conta</h2>
+            <h2>{isEn ? 'Account' : 'Conta'}</h2>
             <nav className={styles.nav}>
-              <Link className={pathname === '/account/profile' ? styles.active : ''} href="/account/profile">
-                Perfil
+              <Link className={pathname === profilePath ? styles.active : ''} href={profilePath}>
+                {isEn ? 'Profile' : 'Perfil'}
               </Link>
             </nav>
           </div>
           {summaryIsMember ? (
             <div className={styles.navSection}>
-              <h2>Membro</h2>
+              <h2>{isEn ? 'Member' : 'Membro'}</h2>
               <nav className={styles.nav}>
-                <Link className={pathname === '/member' ? styles.active : ''} href="/member">
-                  Area de membro
+                <Link className={pathname === memberPath ? styles.active : ''} href={memberPath}>
+                  {isEn ? 'Member area' : 'Area de membro'}
                 </Link>
-                <Link className={pathname === '/member/quota' ? styles.active : ''} href="/member/quota">
-                  Quota anual
+                <Link className={pathname === quotaPath ? styles.active : ''} href={quotaPath}>
+                  {isEn ? 'Annual fee' : 'Quota anual'}
                 </Link>
-                <Link className={pathname === '/member/history' ? styles.active : ''} href="/member/history">
-                  Historico
+                <Link className={pathname === historyPath ? styles.active : ''} href={historyPath}>
+                  {isEn ? 'History' : 'Historico'}
                 </Link>
-                <Link className={pathname === '/biblioteca' ? styles.active : ''} href="/biblioteca">
-                  Biblioteca
+                <Link className={pathname === libraryPath ? styles.active : ''} href={libraryPath}>
+                  {isEn ? 'Library' : 'Biblioteca'}
                 </Link>
-                <Link className={pathname === '/encomendas' ? styles.active : ''} href="/encomendas">
-                  Encomendas
+                <Link className={pathname === ordersPath ? styles.active : ''} href={ordersPath}>
+                  {isEn ? 'Orders' : 'Encomendas'}
                 </Link>
               </nav>
             </div>
@@ -94,8 +104,8 @@ export default function AccountShell({ title, subtitle, children }: Props) {
                 <strong>{summaryEmail}</strong>
               </div>
               <div>
-                <span>Estado</span>
-                <strong>{summaryIsMember ? 'Membro ativo' : 'Conta livre'}</strong>
+                <span>{isEn ? 'Status' : 'Estado'}</span>
+                <strong>{summaryIsMember ? (isEn ? 'Active member' : 'Membro ativo') : (isEn ? 'Free account' : 'Conta livre')}</strong>
               </div>
             </div>
           ) : null}

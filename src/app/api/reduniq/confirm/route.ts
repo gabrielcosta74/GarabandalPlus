@@ -355,6 +355,7 @@ export async function POST(request: Request) {
             donorZip: donation.donor_zip,
             donorCountry: donation.donor_country,
             receiptRequired: donation.receipt_required,
+            locale: (donation.metadata as any)?.locale || 'pt',
             reduniq_method: (donation.metadata as any)?.reduniq_method || null,
             reduniqTransactionId: transactionId,
           },
@@ -387,7 +388,7 @@ export async function POST(request: Request) {
           paymentReference: tokenToUse,
           externalReference: quota.external_reference,
           method: 'reduniq',
-          metadata: { type: 'membership', userId: quota.user_id, reduniqTransactionId: transactionId },
+          metadata: { type: 'membership', userId: quota.user_id, reduniqTransactionId: transactionId, locale: /\[locale:en\]/i.test(String(quota.notes || '')) ? 'en' : 'pt' },
           paymentDate,
         };
 

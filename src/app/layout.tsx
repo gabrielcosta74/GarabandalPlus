@@ -145,9 +145,7 @@ export default function RootLayout({
             })
           }}
         />
-        <ClientLayout>
-          {children}
-        </ClientLayout>
+        <ClientLayout>{children}</ClientLayout>
       </body>
     </html>
   );

@@ -8,6 +8,7 @@ import Link from 'next/link';
 import { motion } from 'framer-motion';
 
 import { MOCK_COURSES, Course } from '../../../lib/academy-data';
+import { useLocale } from '../../../contexts/LocaleContext';
 
 // --- Types ---
 // (Course type is now imported)
@@ -18,10 +19,12 @@ import { MOCK_COURSES, Course } from '../../../lib/academy-data';
 // --- Components ---
 
 function CourseCard({ course, isLandscape = true }: { course: Course, isLandscape?: boolean }) {
+    const { locale } = useLocale();
+    const isEn = locale === 'en';
     const bgImage = course.thumbnail_url || 'https://images.unsplash.com/photo-1544928147-79a2dbc1f389?q=80&w=2574&auto=format&fit=crop';
 
     return (
-        <Link href={`/member/academy/${course.slug}`} className={`group relative flex-shrink-0 ${isLandscape ? 'w-[280px] md:w-[320px]' : 'w-[200px]'}`}>
+        <Link href={`${isEn ? '/en/member/academy' : '/member/academy'}/${course.slug}`} className={`group relative flex-shrink-0 ${isLandscape ? 'w-[280px] md:w-[320px]' : 'w-[200px]'}`}>
             <div className={`
                 ${isLandscape ? 'aspect-video' : 'aspect-[2/3]'} 
                 rounded-lg overflow-hidden relative shadow-lg transition-all duration-500 
@@ -69,6 +72,8 @@ function CourseCard({ course, isLandscape = true }: { course: Course, isLandscap
 }
 
 function HeroBanner({ course }: { course: Course }) {
+    const { locale } = useLocale();
+    const isEn = locale === 'en';
     if (!course) return null;
     const bgImage = course.thumbnail_url || 'https://images.unsplash.com/photo-1473172707857-f9e276582ab6?q=80&w=2670&auto=format&fit=crop';
 
@@ -86,7 +91,7 @@ function HeroBanner({ course }: { course: Course }) {
             <div className="absolute bottom-0 left-0 p-8 md:p-16 w-full md:w-2/3 lg:w-1/2 flex flex-col items-start z-10">
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-orange-600 text-white text-[10px] font-bold uppercase tracking-[0.2em] mb-6 shadow-lg shadow-orange-900/50 border border-orange-400/20 animate-fade-in">
                     <Star className="w-3 h-3 fill-white" />
-                    Destaque
+                    {isEn ? 'Featured' : 'Destaque'}
                 </div>
 
                 <h2 className="text-4xl md:text-6xl font-serif font-bold text-white mb-6 leading-[1.1] drop-shadow-2xl">
@@ -98,13 +103,13 @@ function HeroBanner({ course }: { course: Course }) {
                 </p>
 
                 <div className="flex flex-wrap gap-4 w-full">
-                    <Link href={`/member/academy/${course.slug}`} className="px-8 py-4 bg-white text-slate-950 font-bold rounded-xl hover:bg-slate-200 transition-all flex items-center justify-center gap-3 shadow-xl hover:scale-105 active:scale-95">
+                    <Link href={`${isEn ? '/en/member/academy' : '/member/academy'}/${course.slug}`} className="px-8 py-4 bg-white text-slate-950 font-bold rounded-xl hover:bg-slate-200 transition-all flex items-center justify-center gap-3 shadow-xl hover:scale-105 active:scale-95">
                         <Play className="w-5 h-5 fill-slate-950" />
-                        Assistir Agora
+                        {isEn ? 'Watch Now' : 'Assistir Agora'}
                     </Link>
                     <button className="px-8 py-4 bg-white/10 text-white font-bold rounded-xl hover:bg-white/20 border border-white/10 transition-all flex items-center justify-center gap-2 backdrop-blur-md">
                         <Info className="w-5 h-5" />
-                        Mais Detalhes
+                        {isEn ? 'More Details' : 'Mais Detalhes'}
                     </button>
                 </div>
             </div>
@@ -113,6 +118,8 @@ function HeroBanner({ course }: { course: Course }) {
 }
 
 function SectionRail({ title, icon: Icon, courses, isVertical = false }: { title: string, icon?: any, courses: Course[], isVertical?: boolean }) {
+    const { locale } = useLocale();
+    const isEn = locale === 'en';
     if (!courses || courses.length === 0) return null;
 
     return (
@@ -123,7 +130,7 @@ function SectionRail({ title, icon: Icon, courses, isVertical = false }: { title
                     {title}
                 </h3>
                 <button className="text-xs font-bold text-slate-500 hover:text-white uppercase tracking-wider flex items-center gap-1 transition-colors group">
-                    Ver Tudo <ChevronRight className="w-3 h-3 transition-transform group-hover:translate-x-1" />
+                    {isEn ? 'View All' : 'Ver Tudo'} <ChevronRight className="w-3 h-3 transition-transform group-hover:translate-x-1" />
                 </button>
             </div>
 
@@ -152,8 +159,10 @@ function SectionRail({ title, icon: Icon, courses, isVertical = false }: { title
 // --- Main Page ---
 
 export default function AcademyHubPage() {
+    const { locale } = useLocale();
     const [courses, setCourses] = useState<Course[]>([]);
     const [loading, setLoading] = useState(true);
+    const isEn = locale === 'en';
 
     useEffect(() => {
         async function loadCourses() {
@@ -179,7 +188,11 @@ export default function AcademyHubPage() {
 
             if (data && data.length > 0) {
                 console.log("Loaded courses from DB:", data.length);
-                setCourses(data);
+                setCourses(data.map((course: any) => ({
+                    ...course,
+                    title: isEn ? course.title_en || course.title : course.title,
+                    description: isEn ? course.description_en || course.description : course.description,
+                })));
             } else {
                 console.log("No courses found in DB, using mocks for demonstration.");
                 setCourses(MOCK_COURSES);
@@ -187,7 +200,7 @@ export default function AcademyHubPage() {
             setLoading(false);
         }
         loadCourses();
-    }, []);
+    }, [isEn]);
 
     // Filter Logic
     const featuredCourse = courses[0];
@@ -203,7 +216,7 @@ export default function AcademyHubPage() {
     const mockSpirit = others.filter(c => c.category === 'Vida Espiritual');
 
     if (loading) {
-        return <div className="min-h-screen bg-slate-950 flex items-center justify-center text-white">Carregando conteúdos...</div>;
+        return <div className="min-h-screen bg-slate-950 flex items-center justify-center text-white">{isEn ? 'Loading content...' : 'Carregando conteúdos...'}</div>;
     }
 
     return (
@@ -217,7 +230,7 @@ export default function AcademyHubPage() {
                             <div className="p-2 bg-slate-900 border border-white/10 rounded-lg">
                                 <Film className="w-5 h-5 text-orange-500" />
                             </div>
-                            <span className="text-sm font-bold text-slate-400 uppercase tracking-widest">Academia Garabandal</span>
+                            <span className="text-sm font-bold text-slate-400 uppercase tracking-widest">{isEn ? 'Garabandal Academy' : 'Academia Garabandal'}</span>
                         </div>
                     </div>
 
@@ -228,12 +241,12 @@ export default function AcademyHubPage() {
 
                     {/* CONTENT RAILS */}
                     <div className="space-y-4 -mt-10 relative z-20">
-                        {theology.length > 0 && <SectionRail title="Teologia & Formação" icon={BookOpen} courses={theology} />}
-                        {spirituality.length > 0 && <SectionRail title="Vida de Oração" icon={Heart} courses={spirituality} />}
-                        {docs.length > 0 && <SectionRail title="Documentários Originais" icon={Film} courses={docs} />}
+                        {theology.length > 0 && <SectionRail title={isEn ? 'Theology & Formation' : 'Teologia & Formação'} icon={BookOpen} courses={theology} />}
+                        {spirituality.length > 0 && <SectionRail title={isEn ? 'Life of Prayer' : 'Vida de Oração'} icon={Heart} courses={spirituality} />}
+                        {docs.length > 0 && <SectionRail title={isEn ? 'Original Documentaries' : 'Documentários Originais'} icon={Film} courses={docs} />}
 
                         {/* If using Mocks and specific cats are empty, show 'More' */}
-                        {others.length > 0 && theology.length === 0 && <SectionRail title="Todos os Conteúdos" icon={Film} courses={others} />}
+                        {others.length > 0 && theology.length === 0 && <SectionRail title={isEn ? 'All Content' : 'Todos os Conteúdos'} icon={Film} courses={others} />}
                     </div>
 
                 </div>

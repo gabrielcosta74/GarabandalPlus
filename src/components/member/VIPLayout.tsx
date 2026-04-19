@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { AlertTriangle } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
+import { useLocale } from '../../contexts/LocaleContext';
 import { isActiveMember } from '../../lib/store-discounts';
 import { QuotaWarning } from '../membership/QuotaWarning';
 
@@ -15,8 +16,14 @@ type VIPLayoutProps = {
 export default function VIPLayout({ children, allowPublic, requireMember = true }: VIPLayoutProps) {
     const router = useRouter();
     const pathname = usePathname();
+    const { locale } = useLocale();
     const [ready, setReady] = useState(false);
     const { user, memberData, loading } = useAuth();
+    const isEn = locale === 'en' || pathname?.startsWith('/en');
+    const localePrefix = isEn ? '/en' : '';
+    const loginPath = `${localePrefix}/login`;
+    const quotaPath = `${localePrefix}/member/quota`;
+    const joinPath = isEn ? '/en/become-member' : '/tornar-membro';
 
     useEffect(() => {
         if (allowPublic && !ready) {
@@ -28,13 +35,13 @@ export default function VIPLayout({ children, allowPublic, requireMember = true 
         if (!user) {
             if (!allowPublic) {
                 const next = pathname ? `?next=${encodeURIComponent(pathname)}` : '';
-                router.replace(`/login${next}`);
+                router.replace(`${loginPath}${next}`);
             }
             return;
         }
 
         // Access Control Logic
-        const isQuotaPage = pathname === '/member/quota';
+        const isQuotaPage = pathname === quotaPath;
 
         const isActive = isActiveMember(memberData);
         if (!allowPublic && requireMember && !isActive) {
@@ -46,21 +53,21 @@ export default function VIPLayout({ children, allowPublic, requireMember = true 
 
             if (memberData?.numero_socio) {
                 // Has been a member -> Redirect to Pay Quota
-                router.replace('/member/quota');
+                router.replace(quotaPath);
             } else {
                 // Never was a member -> Redirect to Signup
-                router.replace('/tornar-membro');
+                router.replace(joinPath);
             }
             return;
         }
 
         if (!ready) setReady(true);
-    }, [allowPublic, loading, memberData, pathname, ready, router, user]);
+    }, [allowPublic, joinPath, loading, loginPath, memberData, pathname, quotaPath, ready, router, user]);
 
     if (!ready) {
         return (
             <div className="min-h-screen bg-slate-950 flex items-center justify-center">
-                <div className="text-white">Carregando...</div>
+                <div className="text-white">{isEn ? 'Loading...' : 'Carregando...'}</div>
             </div>
         );
     }

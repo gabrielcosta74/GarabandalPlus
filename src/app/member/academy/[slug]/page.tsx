@@ -8,6 +8,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { supabaseBrowser } from '../../../../lib/supabase-browser';
 import { MOCK_COURSES, Course, Episode } from '../../../../lib/academy-data';
+import { useLocale } from '../../../../contexts/LocaleContext';
 
 // --- Types ---
 
@@ -24,6 +25,7 @@ type Resource = {
 export default function CoursePlayerPage() {
     const params = useParams();
     const slug = params?.slug as string;
+    const { locale } = useLocale();
 
     const [course, setCourse] = useState<Course | null>(null);
     const [episodes, setEpisodes] = useState<Episode[]>([]);
@@ -33,6 +35,8 @@ export default function CoursePlayerPage() {
     const [showUnlockModal, setShowUnlockModal] = useState(false);
     const [activeTab, setActiveTab] = useState<'episodes' | 'resources'>('episodes');
     const [loading, setLoading] = useState(true);
+    const isEn = locale === 'en';
+    const academyPath = isEn ? '/en/member/academy' : '/member/academy';
 
     // Fetch Course & Episodes
     useEffect(() => {
@@ -47,7 +51,13 @@ export default function CoursePlayerPage() {
                     .select('*')
                     .eq('slug', slug)
                     .single();
-                courseData = data;
+                courseData = data
+                    ? {
+                        ...data,
+                        title: isEn ? data.title_en || data.title : data.title,
+                        description: isEn ? data.description_en || data.description : data.description,
+                    }
+                    : null;
             }
 
             if (courseData) {
@@ -84,8 +94,13 @@ export default function CoursePlayerPage() {
                         .order('position', { ascending: true });
 
                     if (epData && epData.length > 0) {
-                        setEpisodes(epData);
-                        setActiveEpisode(epData[0]);
+                        const mappedEpisodes = epData.map((episode: any) => ({
+                            ...episode,
+                            title: isEn ? episode.title_en || episode.title : episode.title,
+                            description: isEn ? episode.description_en || episode.description : episode.description,
+                        }));
+                        setEpisodes(mappedEpisodes);
+                        setActiveEpisode(mappedEpisodes[0]);
                     }
                 }
             } else {
@@ -106,7 +121,7 @@ export default function CoursePlayerPage() {
         }
 
         if (slug) loadCourseData();
-    }, [slug]);
+    }, [isEn, slug]);
 
 
     const handleUnlock = () => {
@@ -115,8 +130,8 @@ export default function CoursePlayerPage() {
         setShowUnlockModal(false);
     };
 
-    if (loading) return <div className="min-h-screen bg-slate-950 flex items-center justify-center text-white">Carregando...</div>;
-    if (!course) return <div className="min-h-screen bg-slate-950 flex items-center justify-center text-white">Curso não encontrado.</div>;
+    if (loading) return <div className="min-h-screen bg-slate-950 flex items-center justify-center text-white">{isEn ? 'Loading...' : 'Carregando...'}</div>;
+    if (!course) return <div className="min-h-screen bg-slate-950 flex items-center justify-center text-white">{isEn ? 'Course not found.' : 'Curso não encontrado.'}</div>;
 
     const bgImage = course.thumbnail_url || 'https://images.unsplash.com/photo-1544928147-79a2dbc1f389?q=80&w=2574&auto=format&fit=crop';
 
@@ -124,9 +139,9 @@ export default function CoursePlayerPage() {
         <VIPLayout>
             <div className="max-w-[1600px] mx-auto p-4 md:p-8 pb-20">
                 {/* Back Link */}
-                <Link href="/member/academy" className="inline-flex items-center text-slate-400 hover:text-white mb-6 transition-colors text-xs font-bold uppercase tracking-wider group">
+                <Link href={academyPath} className="inline-flex items-center text-slate-400 hover:text-white mb-6 transition-colors text-xs font-bold uppercase tracking-wider group">
                     <ChevronLeft className="w-4 h-4 mr-1 transition-transform group-hover:-translate-x-1" />
-                    Voltar à Academia
+                    {isEn ? 'Back to Academy' : 'Voltar à Academia'}
                 </Link>
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -149,19 +164,20 @@ export default function CoursePlayerPage() {
                                         <div className="mx-auto w-16 h-16 bg-gradient-to-br from-orange-500 to-orange-700 rounded-2xl flex items-center justify-center mb-6 shadow-xl shadow-orange-900/30 transform rotate-3">
                                             <Lock className="w-8 h-8 text-white" />
                                         </div>
-                                        <h2 className="text-3xl font-serif font-bold text-white mb-3">Conteúdo de Apoio</h2>
+                                        <h2 className="text-3xl font-serif font-bold text-white mb-3">{isEn ? 'Support Content' : 'Conteúdo de Apoio'}</h2>
                                         <p className="text-slate-300 mb-8 text-lg font-light leading-relaxed">
-                                            Este documentário é fruto de meses de investigação.
-                                            Ao desbloquear, você ajuda-nos a continuar a produzir conteúdos que evangelizam.
+                                            {isEn
+                                                ? 'This documentary is the fruit of months of research. By unlocking it, you help us continue producing content that evangelizes.'
+                                                : 'Este documentário é fruto de meses de investigação. Ao desbloquear, você ajuda-nos a continuar a produzir conteúdos que evangelizam.'}
                                         </p>
                                         <button
                                             onClick={() => setShowUnlockModal(true)}
                                             className="px-8 py-4 bg-white text-slate-900 font-bold rounded-xl shadow-lg hover:scale-105 transition-all flex items-center gap-3 mx-auto"
                                         >
                                             <Key className="w-5 h-5 text-orange-600" />
-                                            Desbloquear Acesso Completo
+                                            {isEn ? 'Unlock Full Access' : 'Desbloquear Acesso Completo'}
                                         </button>
-                                        <p className="mt-4 text-xs text-slate-500 uppercase tracking-widest font-bold">Donativo sugerido: {Number(course.price || 5).toFixed(2)} €</p>
+                                        <p className="mt-4 text-xs text-slate-500 uppercase tracking-widest font-bold">{isEn ? 'Suggested donation' : 'Donativo sugerido'}: {Number(course.price || 5).toFixed(2)} €</p>
                                     </div>
                                 </div>
                             ) : (
@@ -180,7 +196,7 @@ export default function CoursePlayerPage() {
                                     ) : (
                                         <div className="text-center text-slate-500">
                                             <Play className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                                            <p>Selecione um episódio</p>
+                                            <p>{isEn ? 'Select an episode' : 'Selecione um episódio'}</p>
                                         </div>
                                     )}
                                 </div>
@@ -193,7 +209,7 @@ export default function CoursePlayerPage() {
                                 <span className={`px-3 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider border ${course.is_premium ? 'bg-orange-950/30 border-orange-500/30 text-orange-400' : 'bg-slate-800/50 border-white/10 text-slate-300'}`}>
                                     {course.is_premium ? 'Premium' : 'Incluído'}
                                 </span>
-                                <span className="text-slate-500 text-sm font-serif italic">com {course.instructor}</span>
+                                <span className="text-slate-500 text-sm font-serif italic">{isEn ? 'with' : 'com'} {course.instructor}</span>
                             </div>
                             <h1 className="text-3xl md:text-4xl font-serif font-bold text-white mb-4 leading-tight">{course.title}</h1>
                             <p className="text-slate-300 leading-relaxed text-lg font-light border-l-2 border-slate-700 pl-6">
@@ -212,13 +228,13 @@ export default function CoursePlayerPage() {
                                     onClick={() => setActiveTab('episodes')}
                                     className={`flex-1 py-4 text-sm font-bold uppercase tracking-wider transition-colors ${activeTab === 'episodes' ? 'bg-white/5 text-white border-b-2 border-orange-500' : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'}`}
                                 >
-                                    Episódios
+                                    {isEn ? 'Episodes' : 'Episódios'}
                                 </button>
                                 <button
                                     onClick={() => setActiveTab('resources')}
                                     className={`flex-1 py-4 text-sm font-bold uppercase tracking-wider transition-colors ${activeTab === 'resources' ? 'bg-white/5 text-white border-b-2 border-orange-500' : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'}`}
                                 >
-                                    Materiais
+                                    {isEn ? 'Resources' : 'Materiais'}
                                 </button>
                             </div>
 
@@ -258,7 +274,7 @@ export default function CoursePlayerPage() {
                                         })}
                                         {episodes.length === 0 && (
                                             <div className="p-8 text-center text-slate-500 text-sm">
-                                                Ainda não há episódios disponíveis.
+                                                {isEn ? 'There are no episodes available yet.' : 'Ainda não há episódios disponíveis.'}
                                             </div>
                                         )}
                                     </div>
@@ -267,13 +283,13 @@ export default function CoursePlayerPage() {
                                         {/* Simplified Mock Resources for demo, ideally fetched from DB too */}
 
                                         <div className="text-center py-10 text-slate-500">
-                                            <p>Sem materiais adicionais para este curso.</p>
+                                            <p>{isEn ? 'No additional materials for this course.' : 'Sem materiais adicionais para este curso.'}</p>
                                         </div>
 
                                         {!isLocked && (
                                             <div className="mt-6 p-4 bg-blue-500/5 border border-blue-500/10 rounded-xl text-xs text-blue-300 leading-relaxed">
                                                 <Info className="w-4 h-4 mb-2 inline-block mr-1" />
-                                                Estes materiais são para uso pessoal e estudo espiritual.
+                                                {isEn ? 'These materials are for personal use and spiritual study.' : 'Estes materiais são para uso pessoal e estudo espiritual.'}
                                             </div>
                                         )}
                                     </div>
@@ -301,17 +317,19 @@ export default function CoursePlayerPage() {
                                 <div className="w-16 h-16 bg-orange-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
                                     <Lock className="w-8 h-8 text-orange-500" />
                                 </div>
-                                <h3 className="text-2xl font-serif font-bold text-white mb-2">Desbloquear Conteúdo</h3>
+                                <h3 className="text-2xl font-serif font-bold text-white mb-2">{isEn ? 'Unlock Content' : 'Desbloquear Conteúdo'}</h3>
                                 <p className="text-slate-400 text-sm mb-8 px-4">
-                                    Ajude a missão Garabandal com um donativo de <strong>{Number(course.price || 5).toFixed(2)}€</strong> e tenha acesso imediato.
+                                    {isEn
+                                        ? <>Support the Garabandal mission with a donation of <strong>{Number(course.price || 5).toFixed(2)}€</strong> and get immediate access.</>
+                                        : <>Ajude a missão Garabandal com um donativo de <strong>{Number(course.price || 5).toFixed(2)}€</strong> e tenha acesso imediato.</>}
                                 </p>
                                 <button
                                     onClick={handleUnlock}
                                     className="w-full py-4 bg-white text-slate-900 font-bold rounded-xl hover:bg-slate-200 transition-colors mb-3"
                                 >
-                                    Confirmar Donativo
+                                    {isEn ? 'Confirm Donation' : 'Confirmar Donativo'}
                                 </button>
-                                <button onClick={() => setShowUnlockModal(false)} className="text-sm text-slate-500 hover:text-white">Cancelar</button>
+                                <button onClick={() => setShowUnlockModal(false)} className="text-sm text-slate-500 hover:text-white">{isEn ? 'Cancel' : 'Cancelar'}</button>
                             </div>
                         </motion.div>
                     </div>

@@ -10,6 +10,7 @@ import {
     DEFAULT_BANK_TRANSFER_DETAILS,
     normalizeBankTransferDetails,
 } from '../../lib/bank-transfer-details';
+import { useLocale } from '../../contexts/LocaleContext';
 
 const impactOptions = [
     { value: 25, label: "Argamassas", impact: "Sacos de cimento para sanear paredes", icon: BrickWall },
@@ -27,6 +28,7 @@ interface DonationModalProps {
 
 export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
     const { formatPrice, currency } = useCurrency();
+    const { locale } = useLocale();
     const [step, setStep] = useState(1);
     const [selectedPreset, setSelectedPreset] = useState(25);
     const [customAmount, setCustomAmount] = useState('');
@@ -63,6 +65,48 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
     }, [customAmount, selectedPreset]);
 
     const selectedPayment = UNIFIED_DONATION_PAYMENT_OPTIONS.find(p => p.id === selectedPaymentId) || UNIFIED_DONATION_PAYMENT_OPTIONS[0];
+    const isEn = locale === 'en';
+    const localizedImpactOptions = useMemo(() => impactOptions.map((option) => ({
+        ...option,
+        label: isEn
+            ? ({
+                Argamassas: 'Mortar',
+                Pavimento: 'Flooring',
+                Telhado: 'Roof',
+                Vigas: 'Beams',
+                Janela: 'Window',
+                Aquecimento: 'Heating',
+            } as Record<string, string>)[option.label] || option.label
+            : option.label,
+        impact: isEn
+            ? ({
+                'Sacos de cimento para sanear paredes': 'Bags of cement to stabilize walls',
+                '1m² de cerâmica nova e durável': '1m² of durable new ceramic flooring',
+                '1m² de telhas e isolamento': '1m² of roof tiles and insulation',
+                'Tratamento das madeiras originais': 'Treatment of original timber beams',
+                'Vidro duplo eficiente': 'Efficient double glazing',
+                'Radiadores para o inverno': 'Radiators for winter',
+            } as Record<string, string>)[option.impact] || option.impact
+            : option.impact,
+    })), [isEn]);
+    const localizedPaymentOptions = useMemo(() => UNIFIED_DONATION_PAYMENT_OPTIONS.map((option) => ({
+        ...option,
+        label: isEn
+            ? ({
+                'Cartão de Crédito': 'Credit Card',
+                'Transferência Bancária': 'Bank Transfer',
+            } as Record<string, string>)[option.label] || option.label
+            : option.label,
+        description: isEn
+            ? ({
+                'Pagamento instantâneo': 'Instant payment',
+                'Pagamento de serviços': 'Service payment',
+                'Transferência manual': 'Manual transfer',
+            } as Record<string, string>)[option.description] || option.description
+            : option.description,
+        badge: option.badge && isEn ? 'New' : option.badge,
+        iconAlt: option.iconAlt && isEn ? ({ 'Cartão de Crédito': 'Credit Card' } as Record<string, string>)[option.iconAlt] || option.iconAlt : option.iconAlt,
+    })), [isEn]);
 
     const nifLabel = formData.pais === 'BR' ? 'CPF' : 'NIF';
 
@@ -97,19 +141,19 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
         if (!file) return;
 
         if (!supabaseBrowser) {
-            setError("Erro: Cliente Supabase não inicializado.");
+            setError(isEn ? 'Error: Supabase client not initialized.' : "Erro: Cliente Supabase não inicializado.");
             return;
         }
 
         const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/heic', 'image/heif', 'application/pdf'];
         if (!allowedTypes.includes(file.type)) {
-            setError("Tipo de ficheiro inválido. Use JPG, PNG, WEBP, HEIC ou PDF.");
+            setError(isEn ? 'Invalid file type. Use JPG, PNG, WEBP, HEIC or PDF.' : "Tipo de ficheiro inválido. Use JPG, PNG, WEBP, HEIC ou PDF.");
             return;
         }
 
         // Limit to 10MB just in case
         if (file.size > 10 * 1024 * 1024) {
-            setError("O ficheiro é demasiado grande (máximo 10MB).");
+            setError(isEn ? 'The file is too large (maximum 10MB).' : "O ficheiro é demasiado grande (máximo 10MB).");
             return;
         }
 
@@ -133,7 +177,7 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
                     });
 
                 const timeout = new Promise<never>((_, reject) =>
-                    setTimeout(() => reject(new Error("O envio demorou demasiado tempo (timeout). Verifique a sua ligação.")), 45000)
+                    setTimeout(() => reject(new Error(isEn ? 'The upload took too long (timeout). Please check your connection.' : "O envio demorou demasiado tempo (timeout). Verifique a sua ligação.")), 45000)
                 );
 
                 return await Promise.race([uploadPromise, timeout]);
@@ -143,7 +187,7 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
 
             if (uploadError) {
                 console.error('Erro no upload Storage:', uploadError);
-                throw new Error(uploadError.message || "Erro ao guardar o ficheiro no servidor.");
+                throw new Error(uploadError.message || (isEn ? 'Error while saving the file on the server.' : "Erro ao guardar o ficheiro no servidor."));
             }
 
             console.log('Upload bem sucedido, obtendo URL pública...');
@@ -151,13 +195,13 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
                 .from('payment-proofs')
                 .getPublicUrl(fileName);
 
-            if (!data?.publicUrl) throw new Error("Não foi possível gerar link para o ficheiro.");
+            if (!data?.publicUrl) throw new Error(isEn ? 'Could not generate a file link.' : "Não foi possível gerar link para o ficheiro.");
 
             setProofUrl(data.publicUrl);
             console.log('URL de prova definida:', data.publicUrl);
         } catch (err: any) {
             console.error('Erro fatal no upload:', err);
-            setError(err.message || "Falha ao carregar comprovativo. Tente novamente ou use outro formato.");
+            setError(err.message || (isEn ? 'Failed to upload proof of payment. Please try again or use another format.' : "Falha ao carregar comprovativo. Tente novamente ou use outro formato."));
         } finally {
             setUploadingProof(false);
             if (e.target) e.target.value = '';
@@ -166,12 +210,12 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
 
     const handleManualDonation = async () => {
         if (uploadingProof) {
-            setError("Aguarde: o comprovativo ainda está a ser carregado.");
+            setError(isEn ? 'Please wait: proof of payment is still uploading.' : "Aguarde: o comprovativo ainda está a ser carregado.");
             return;
         }
 
         if (!proofUrl) {
-            setError("Para concluir por transferência bancária, é obrigatório enviar o comprovativo.");
+            setError(isEn ? 'To complete by bank transfer, proof of payment is required.' : "Para concluir por transferência bancária, é obrigatório enviar o comprovativo.");
             return;
         }
 
@@ -198,12 +242,12 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
 
             if (!res.ok) {
                 const body = await res.json();
-                throw new Error(body.message || "Erro ao registar doação.");
+                throw new Error(body.message || (isEn ? 'Error while registering donation.' : "Erro ao registar doação."));
             }
 
             setStep(4); // Success step
         } catch (err: any) {
-            setError(err?.message || "Não foi possível registar a doação. Verifique os dados e tente novamente.");
+            setError(err?.message || (isEn ? 'Could not register the donation. Please check the details and try again.' : "Não foi possível registar a doação. Verifique os dados e tente novamente."));
         } finally {
             setLoading(false);
         }
@@ -213,23 +257,23 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
         setError(null);
         if (step === 1) {
             if (amount < 1) {
-                setError("O valor mínimo é 1.");
+                setError(isEn ? 'The minimum amount is 1.' : "O valor mínimo é 1.");
                 return;
             }
             setStep(2);
         } else if (step === 2) {
             if (!formData.nome.trim() || !formData.email.trim()) {
-                setError("Nome e email são obrigatórios.");
+                setError(isEn ? 'Name and email are required.' : "Nome e email são obrigatórios.");
                 return;
             }
             if (!/^\S+@\S+\.\S+$/.test(formData.email)) {
-                setError("Email inválido.");
+                setError(isEn ? 'Invalid email.' : "Email inválido.");
                 return;
             }
 
             if (receiptRequired) {
                 if (!formData.morada || !formData.cidade || !formData.codigoPostal) {
-                    setError("Endereço completo é necessário para o recibo fiscal.");
+                    setError(isEn ? 'Full address is required for the receipt.' : "Endereço completo é necessário para o recibo fiscal.");
                     return;
                 }
                 if (formData.codigoPostal && !validatePostalCode(formData.pais, formData.codigoPostal)) {
@@ -238,7 +282,7 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
                 }
                 const nifClean = formData.nif.replace(/\D/g, '');
                 if (nifClean && !isValidNif(nifClean, formData.pais)) {
-                    setError(`${nifLabel} inválido.`);
+                    setError(isEn ? `Invalid ${nifLabel}.` : `${nifLabel} inválido.`);
                     return;
                 }
             }
@@ -264,6 +308,7 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
                 body: JSON.stringify({
                     amount,
                     type: 'donation',
+                    locale,
                     provider: chosenProvider,
                     paymentOptionId: selectedPaymentId,
                     donorName: formData.nome,
@@ -280,11 +325,11 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
 
             if (!res.ok) {
                 const body = await res.json().catch(() => ({}));
-                throw new Error(body?.message || "Erro ao iniciar doação.");
+                throw new Error(body?.message || (isEn ? 'Error starting donation.' : "Erro ao iniciar doação."));
             }
 
             const { url } = await res.json();
-            if (!url) throw new Error("Erro de resposta do servidor.");
+            if (!url) throw new Error(isEn ? 'Server response error.' : "Erro de resposta do servidor.");
 
             window.location.href = url;
         } catch (err: any) {
@@ -317,12 +362,12 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
                         <div className="hidden md:flex w-1/3 bg-garabandal-dark text-white p-8 flex-col justify-between relative overflow-hidden">
                             <div className="absolute inset-0 bg-garabandal-gold/10 blur-3xl rounded-full translate-x-1/2 -translate-y-1/2" />
                             <div className="relative z-10">
-                                <h3 className="text-2xl font-serif mb-2">A tua doação</h3>
-                                <p className="text-gray-400 text-sm">Renova a Casa de Acolhimento</p>
+                                <h3 className="text-2xl font-serif mb-2">{isEn ? 'Your donation' : 'A tua doação'}</h3>
+                                <p className="text-gray-400 text-sm">{isEn ? 'Renew the House of Welcome' : 'Renova a Casa de Acolhimento'}</p>
                             </div>
                             <div className="relative z-10 space-y-6">
                                 <div className="bg-white/10 rounded-2xl p-4 backdrop-blur-md">
-                                    <span className="text-xs text-garabandal-gold uppercase tracking-wider font-bold">Valor</span>
+                                    <span className="text-xs text-garabandal-gold uppercase tracking-wider font-bold">{isEn ? 'Amount' : 'Valor'}</span>
                                     <div className="text-3xl font-serif mt-1">{formatPrice(amount)}</div>
                                 </div>
                             </div>
@@ -345,11 +390,11 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
                                 {step === 1 && (
                                     <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-8">
                                         <div>
-                                            <h2 className="text-2xl font-bold text-garabandal-dark mb-2">Escolhe o valor</h2>
-                                            <p className="text-gray-500">Cada contribuição faz a diferença.</p>
+                                            <h2 className="text-2xl font-bold text-garabandal-dark mb-2">{isEn ? 'Choose an amount' : 'Escolhe o valor'}</h2>
+                                            <p className="text-gray-500">{isEn ? 'Every contribution makes a difference.' : 'Cada contribuição faz a diferença.'}</p>
                                         </div>
                                         <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                                            {impactOptions.map((option) => (
+                                            {localizedImpactOptions.map((option) => (
                                                 <button
                                                     key={option.value}
                                                     onClick={() => { setSelectedPreset(option.value); setCustomAmount(''); }}
@@ -360,7 +405,7 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
                                                 >
                                                     {option.popular && (
                                                         <div className="absolute top-0 right-0 bg-garabandal-gold text-garabandal-dark text-[9px] font-bold px-2 py-0.5 rounded-bl-lg uppercase tracking-wider">
-                                                            Popular
+                                                            {isEn ? 'Popular' : 'Popular'}
                                                         </div>
                                                     )}
 
@@ -388,19 +433,19 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
                                                 <div className="relative">
                                                     <input type="number" value={customAmount} onChange={e => { setCustomAmount(e.target.value); setSelectedPreset(0); }}
                                                         className={`w-full p-4 text-center rounded-xl border-2 transition-all outline-none font-bold placeholder:font-normal ${customAmount ? 'border-garabandal-gold text-garabandal-dark ring-1 ring-garabandal-gold' : 'border-gray-100 text-gray-600 focus:border-garabandal-gold/50'}`}
-                                                        placeholder="Outro valor (€) - Define o teu próprio impacto" />
+                                                        placeholder={isEn ? 'Other amount (€) - Define your own impact' : 'Outro valor (€) - Define o teu próprio impacto'} />
                                                 </div>
                                             </div>
                                         </div>
                                         <div>
-                                            <h3 className="font-bold text-garabandal-dark mb-4">Método de Pagamento</h3>
+                                            <h3 className="font-bold text-garabandal-dark mb-4">{isEn ? 'Payment Method' : 'Método de Pagamento'}</h3>
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                                {UNIFIED_DONATION_PAYMENT_OPTIONS.map((opt) => (
+                                                {localizedPaymentOptions.map((opt) => (
                                                     <button key={opt.id} onClick={() => setSelectedPaymentId(opt.id)}
                                                         className={`p-4 rounded-xl border text-left flex items-center gap-3 transition-all relative overflow-hidden ${selectedPaymentId === opt.id ? 'border-garabandal-gold bg-garabandal-gold/5 ring-1 ring-garabandal-gold' : 'border-gray-100 hover:border-gray-300'} ${opt.highlight ? 'ring-1 ring-green-500/30 bg-green-50/50' : ''}`}>
                                                         {opt.highlight && (
                                                             <div className="absolute top-0 right-0 bg-green-500 text-white text-[10px] uppercase font-bold px-2 py-0.5 rounded-bl-lg">
-                                                                Novo
+                                                                {isEn ? 'New' : 'Novo'}
                                                             </div>
                                                         )}
                                                         {opt.iconSrc ? (
@@ -419,14 +464,14 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
                                 {step === 2 && (
                                     <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-6">
                                         <div>
-                                            <h2 className="text-2xl font-bold text-garabandal-dark mb-1">Os teus dados</h2>
-                                            <p className="text-sm text-gray-500">Mantém-nos informados sobre quem apoia esta missão.</p>
+                                            <h2 className="text-2xl font-bold text-garabandal-dark mb-1">{isEn ? 'Your details' : 'Os teus dados'}</h2>
+                                            <p className="text-sm text-gray-500">{isEn ? 'Tell us who is supporting this mission.' : 'Mantém-nos informados sobre quem apoia esta missão.'}</p>
                                         </div>
 
                                         <div className="bg-garabandal-gold/5 border border-garabandal-gold/20 rounded-2xl p-4 flex items-center justify-between">
                                             <div>
-                                                <p className="text-sm font-bold text-garabandal-dark">Desejas um recibo fiscal?</p>
-                                                <p className="text-xs text-gray-500">Para benefícios fiscais em Portugal.</p>
+                                                <p className="text-sm font-bold text-garabandal-dark">{isEn ? 'Do you want a receipt?' : 'Desejas um recibo fiscal?'}</p>
+                                                <p className="text-xs text-gray-500">{isEn ? 'Useful for tax purposes in Portugal.' : 'Para benefícios fiscais em Portugal.'}</p>
                                             </div>
                                             <button
                                                 onClick={() => setReceiptRequired(!receiptRequired)}
@@ -438,9 +483,9 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
 
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                             <div className="col-span-1 md:col-span-2 space-y-2">
-                                                <label className="text-sm font-medium text-gray-700">Nome Completo</label>
+                                                <label className="text-sm font-medium text-gray-700">{isEn ? 'Full Name' : 'Nome Completo'}</label>
                                                 <input value={formData.nome} onChange={e => setFormData({ ...formData, nome: e.target.value })}
-                                                    className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-garabandal-gold outline-none transition-all" placeholder="Teu nome" />
+                                                    className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-garabandal-gold outline-none transition-all" placeholder={isEn ? 'Your name' : 'Teu nome'} />
                                             </div>
                                             <div className="space-y-2">
                                                 <label className="text-sm font-medium text-gray-700">Email</label>
@@ -448,7 +493,7 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
                                                     className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-garabandal-gold outline-none transition-all" placeholder="exemplo@email.com" />
                                             </div>
                                             <div className="space-y-2">
-                                                <label className="text-sm font-medium text-gray-700">País</label>
+                                                <label className="text-sm font-medium text-gray-700">{isEn ? 'Country' : 'País'}</label>
                                                 <select value={formData.pais} onChange={e => setFormData({ ...formData, pais: e.target.value })}
                                                     className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none">
                                                     <option value="PT">Portugal</option><option value="BR">Brasil</option>
@@ -458,32 +503,32 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
                                             {receiptRequired && (
                                                 <>
                                                     <div className="space-y-2 animate-in fade-in slide-in-from-top-2">
-                                                        <label className="text-sm font-medium text-gray-700">Código Postal / CEP</label>
+                                                        <label className="text-sm font-medium text-gray-700">{isEn ? 'Postal Code / ZIP' : 'Código Postal / CEP'}</label>
                                                         <input value={formData.codigoPostal} onChange={e => setFormData({ ...formData, codigoPostal: formatPostalCode(e.target.value, formData.pais) })}
-                                                            inputMode={getPostalInputMode(formData.pais)} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none" placeholder="0000-000" />
+                                                            inputMode={getPostalInputMode(formData.pais)} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none" placeholder={formData.pais === 'BR' ? '00000-000' : '0000-000'} />
                                                     </div>
                                                     <div className="space-y-2 animate-in fade-in slide-in-from-top-2">
                                                         <label className="text-sm font-medium text-gray-700">{nifLabel}</label>
                                                         <input value={formData.nif} onChange={e => setFormData({ ...formData, nif: e.target.value })}
-                                                            className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none" placeholder="Teu NIF/CPF" />
+                                                            className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none" placeholder={isEn ? `Your ${nifLabel}` : 'Teu NIF/CPF'} />
                                                     </div>
                                                     <div className="col-span-1 md:col-span-2 space-y-2 animate-in fade-in slide-in-from-top-2">
-                                                        <label className="text-sm font-medium text-gray-700">Morada</label>
+                                                        <label className="text-sm font-medium text-gray-700">{isEn ? 'Address' : 'Morada'}</label>
                                                         <input value={formData.morada} onChange={e => setFormData({ ...formData, morada: e.target.value })}
-                                                            className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none" placeholder="Rua, número, andar" />
+                                                            className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none" placeholder={isEn ? 'Street, number, floor' : 'Rua, número, andar'} />
                                                     </div>
                                                     <div className="col-span-1 md:col-span-2 space-y-2 animate-in fade-in slide-in-from-top-2">
-                                                        <label className="text-sm font-medium text-gray-700">Cidade</label>
+                                                        <label className="text-sm font-medium text-gray-700">{isEn ? 'City' : 'Cidade'}</label>
                                                         <input value={formData.cidade} onChange={e => setFormData({ ...formData, cidade: e.target.value })}
-                                                            className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none" placeholder="Sua cidade" />
+                                                            className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none" placeholder={isEn ? 'Your city' : 'Sua cidade'} />
                                                     </div>
                                                 </>
                                             )}
 
                                             <div className="col-span-1 md:col-span-2 space-y-2">
-                                                <label className="text-sm font-medium text-gray-700">Mensagem (Opcional)</label>
+                                                <label className="text-sm font-medium text-gray-700">{isEn ? 'Message (Optional)' : 'Mensagem (Opcional)'}</label>
                                                 <textarea value={formData.mensagem} onChange={e => setFormData({ ...formData, mensagem: e.target.value })}
-                                                    className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none h-24 resize-none" placeholder="Deixe uma mensagem de apoio." />
+                                                    className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none h-24 resize-none" placeholder={isEn ? 'Leave a message of support.' : 'Deixe uma mensagem de apoio.'} />
                                             </div>
                                         </div>
                                     </motion.div>
@@ -492,9 +537,9 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
                                 {step === 3 && (
                                     <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-6">
                                         <div className="text-center">
-                                            <h2 className="text-2xl font-bold text-garabandal-dark mb-2">Dados da Transferência</h2>
+                                            <h2 className="text-2xl font-bold text-garabandal-dark mb-2">{isEn ? 'Bank Transfer Details' : 'Dados da Transferência'}</h2>
                                             <p className="text-gray-500 text-sm">
-                                                Para concluir a doação de <strong>{formatPrice(amount)}</strong>.
+                                                {isEn ? <>To complete the donation of <strong>{formatPrice(amount)}</strong>.</> : <>Para concluir a doação de <strong>{formatPrice(amount)}</strong>.</>}
                                             </p>
                                         </div>
 
@@ -510,11 +555,11 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
                                                     }}>
                                                     {bankTransferDetails.iban}
                                                 </div>
-                                                {copiedIban && <p className="text-xs text-green-300 font-bold mt-1">IBAN copiado</p>}
+                                                {copiedIban && <p className="text-xs text-green-300 font-bold mt-1">{isEn ? 'IBAN copied' : 'IBAN copiado'}</p>}
                                             </div>
                                             <div className="grid grid-cols-2 gap-4 border-t border-white/10 pt-4">
-                                                <div><p className="text-[10px] uppercase text-garabandal-gold/80 mb-1">Titular</p><p className="text-xs font-bold">{bankTransferDetails.beneficiary_name}</p></div>
-                                                <div><p className="text-[10px] uppercase text-garabandal-gold/80 mb-1">Banco</p><p className="text-xs font-bold">{bankTransferDetails.bank_name}</p></div>
+                                                <div><p className="text-[10px] uppercase text-garabandal-gold/80 mb-1">{isEn ? 'Beneficiary' : 'Titular'}</p><p className="text-xs font-bold">{bankTransferDetails.beneficiary_name}</p></div>
+                                                <div><p className="text-[10px] uppercase text-garabandal-gold/80 mb-1">{isEn ? 'Bank' : 'Banco'}</p><p className="text-xs font-bold">{bankTransferDetails.bank_name}</p></div>
                                             </div>
                                             {(bankTransferDetails.bic_swift || bankTransferDetails.reference_note) && (
                                                 <div className="grid grid-cols-1 gap-2 border-t border-white/10 pt-4">
@@ -526,7 +571,7 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
                                                     )}
                                                     {bankTransferDetails.reference_note && (
                                                         <div>
-                                                            <p className="text-[10px] uppercase text-garabandal-gold/80 mb-1">Referência</p>
+                                                            <p className="text-[10px] uppercase text-garabandal-gold/80 mb-1">{isEn ? 'Reference' : 'Referência'}</p>
                                                             <p className="text-xs">{bankTransferDetails.reference_note}</p>
                                                         </div>
                                                     )}
@@ -534,7 +579,7 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
                                             )}
                                             {(bankTransferDetails.address_street || bankTransferDetails.address_postal_code || bankTransferDetails.address_city || bankTransferDetails.address_country) && (
                                                 <div className="border-t border-white/10 pt-4">
-                                                    <p className="text-[10px] uppercase text-garabandal-gold/80 mb-1">Morada</p>
+                                                    <p className="text-[10px] uppercase text-garabandal-gold/80 mb-1">{isEn ? 'Address' : 'Morada'}</p>
                                                     <p className="text-xs">
                                                         {[
                                                             bankTransferDetails.address_street,
@@ -548,7 +593,7 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
                                             )}
                                             {bankTransferDetails.support_email && (
                                                 <p className="text-[11px] text-gray-200 border-t border-white/10 pt-3">
-                                                    Dúvidas: {bankTransferDetails.support_email}
+                                                    {isEn ? 'Questions' : 'Dúvidas'}: {bankTransferDetails.support_email}
                                                 </p>
                                             )}
                                         </div>
@@ -558,15 +603,15 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
                                                 <div className="w-12 h-12 bg-white rounded-xl shadow-sm flex items-center justify-center mb-3">
                                                     {uploadingProof ? <Loader2 className="w-6 h-6 animate-spin text-garabandal-gold" /> : <Upload className="w-6 h-6 text-gray-400" />}
                                                 </div>
-                                                <h4 className="font-bold text-garabandal-dark text-sm">Carregar Comprovativo</h4>
+                                                <h4 className="font-bold text-garabandal-dark text-sm">{isEn ? 'Upload Proof of Payment' : 'Carregar Comprovativo'}</h4>
                                                 <p className="text-xs text-gray-500 max-w-[200px] mx-auto mt-1">
-                                                    Acelera a verificação enviando uma foto ou PDF do comprovativo.
+                                                    {isEn ? 'Speed up verification by sending a photo or PDF of the proof.' : 'Acelera a verificação enviando uma foto ou PDF do comprovativo.'}
                                                 </p>
                                             </div>
 
                                             {proofUrl ? (
                                                 <div className="bg-green-50 text-green-700 p-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2">
-                                                    <CheckCircle className="w-4 h-4" /> Comprovativo Carregado!
+                                                    <CheckCircle className="w-4 h-4" /> {isEn ? 'Proof Uploaded!' : 'Comprovativo Carregado!'}
                                                 </div>
                                             ) : (
                                                 <button
@@ -574,7 +619,7 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
                                                     disabled={uploadingProof}
                                                     className="px-4 py-2 bg-white border border-gray-200 rounded-lg text-xs font-bold hover:bg-gray-50 transition-all flex items-center gap-2 mx-auto"
                                                 >
-                                                    {uploadingProof ? 'A processar...' : 'Selecionar Ficheiro'}
+                                                    {uploadingProof ? (isEn ? 'Processing...' : 'A processar...') : (isEn ? 'Select File' : 'Selecionar Ficheiro')}
                                                 </button>
                                             )}
 
@@ -582,7 +627,7 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
 
                                             {!proofUrl && (
                                                 <div className="bg-amber-50 text-amber-800 p-3 rounded-xl text-xs font-semibold border border-amber-100">
-                                                    O comprovativo é obrigatório para concluir a doação por transferência bancária.
+                                                    {isEn ? 'Proof of payment is required to complete the donation by bank transfer.' : 'O comprovativo é obrigatório para concluir a doação por transferência bancária.'}
                                                 </div>
                                             )}
                                         </div>
@@ -594,10 +639,10 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
                                         >
                                             {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <CheckCircle className="w-5 h-5" />}
                                             {uploadingProof
-                                                ? 'A carregar comprovativo...'
+                                                ? (isEn ? 'Uploading proof...' : 'A carregar comprovativo...')
                                                 : !proofUrl
-                                                    ? 'Anexa o comprovativo para continuar'
-                                                    : 'Concluir e Enviar'}
+                                                    ? (isEn ? 'Attach proof to continue' : 'Anexa o comprovativo para continuar')
+                                                    : (isEn ? 'Finish and Submit' : 'Concluir e Enviar')}
                                         </button>
                                     </motion.div>
                                 )}
@@ -608,13 +653,13 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
                                             <CheckCircle className="w-12 h-12" />
                                         </div>
                                         <div className="space-y-2">
-                                            <h2 className="text-3xl font-serif font-bold text-garabandal-dark">Muitíssimo Obrigado!</h2>
+                                            <h2 className="text-3xl font-serif font-bold text-garabandal-dark">{isEn ? 'Thank You Very Much!' : 'Muitíssimo Obrigado!'}</h2>
                                             <p className="text-gray-500 max-w-sm mx-auto">
-                                                Recebemos o teu registo. Vamos validar a transferência e em breve receberás um email de confirmação.
+                                                {isEn ? 'We received your submission. We will validate the transfer and you will soon receive a confirmation email.' : 'Recebemos o teu registo. Vamos validar a transferência e em breve receberás um email de confirmação.'}
                                             </p>
                                         </div>
                                         <button onClick={onClose} className="px-10 py-3 bg-garabandal-dark text-white font-bold rounded-xl hover:bg-black transition-all">
-                                            Fechar
+                                            {isEn ? 'Close' : 'Fechar'}
                                         </button>
                                     </motion.div>
                                 )}
@@ -626,12 +671,12 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
                                     {error && <div className="absolute bottom-24 left-6 right-6 p-3 bg-red-100 text-red-700 text-xs rounded-lg text-center font-bold flex items-center gap-2 justify-center animate-in fade-in slide-in-from-bottom-2"><AlertCircle className="w-4 h-4" />{error}</div>}
                                     <button onClick={() => { if (step === 1) onClose(); else setStep(step - 1); }}
                                         className="px-6 py-3 font-medium text-gray-500 hover:text-gray-800 transition-colors">
-                                        {step === 1 ? 'Cancelar' : 'Voltar'}
+                                        {step === 1 ? (isEn ? 'Cancel' : 'Cancelar') : (isEn ? 'Back' : 'Voltar')}
                                     </button>
                                     {step < 3 && (
                                         <button onClick={handleNextStep} disabled={loading}
                                             className="px-8 py-3 bg-garabandal-dark text-white font-bold rounded-xl hover:bg-black transition-all flex items-center gap-2 disabled:opacity-50">
-                                            {loading ? 'A processar...' : <>{step === 1 ? 'Continuar' : 'Confirmar Doação'} <ChevronRight className="w-4 h-4" /></>}
+                                            {loading ? (isEn ? 'Processing...' : 'A processar...') : <>{step === 1 ? (isEn ? 'Continue' : 'Continuar') : (isEn ? 'Confirm Donation' : 'Confirmar Doação')} <ChevronRight className="w-4 h-4" /></>}
                                         </button>
                                     )}
                                 </div>

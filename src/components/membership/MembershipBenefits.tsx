@@ -1,18 +1,20 @@
 "use client";
 
-import { motion } from "framer-motion";
-import { BookOpen, Users, Flag, Flame, GraduationCap, ArrowRight, Church, Mic2, Ticket } from "lucide-react";
+import { BookOpen, Users, GraduationCap, ArrowRight, Church, Mic2, Ticket } from "lucide-react";
+import { useLocale } from "../../contexts/LocaleContext";
 
 export default function MembershipBenefits() {
+    const { t } = useLocale();
+    const b = t.membership.benefits;
     return (
         <section className="py-24 bg-slate-50 relative overflow-hidden">
             <div className="container mx-auto px-6">
 
                 <div className="max-w-3xl mx-auto text-center mb-20">
-                    <span className="text-[#d97706] text-xs font-bold uppercase tracking-widest mb-4 block">O que recebe em troca</span>
-                    <h2 className="font-serif text-4xl md:text-5xl text-slate-900 mb-6">Graças da Comunidade</h2>
+                    <span className="text-[#d97706] text-xs font-bold uppercase tracking-widest mb-4 block">{b.eyebrow}</span>
+                    <h2 className="font-serif text-4xl md:text-5xl text-slate-900 mb-6">{b.heading}</h2>
                     <p className="text-gray-500 text-lg font-light leading-relaxed">
-                        Ferramentas exclusivas para o seu crescimento espiritual e união com a obra de Garabandal.
+                        {b.subtitle}
                     </p>
                 </div>
 
@@ -29,12 +31,12 @@ export default function MembershipBenefits() {
                             <div className="w-14 h-14 rounded-2xl bg-white/10 backdrop-blur-md flex items-center justify-center mb-6 text-white border border-white/20">
                                 <GraduationCap size={28} />
                             </div>
-                            <h3 className="text-3xl font-serif text-white mb-4">Vídeos Exclusivos</h3>
+                            <h3 className="text-3xl font-serif text-white mb-4">{b.videos}</h3>
                             <p className="text-gray-200 text-lg leading-relaxed max-w-xl mb-6">
-                                Acesso ilimitado a conteúdos em vídeo, documentários exclusivos e materiais de estudo aprofundado sobre as Aparições e a espiritualidade mariana.
+                                {b.videosDesc}
                             </p>
                             <div className="flex items-center gap-2 text-white/70 text-sm font-bold uppercase tracking-widest group-hover:text-white transition-colors">
-                                Explorar Conteúdos <ArrowRight size={14} />
+                                {b.videosLink} <ArrowRight size={14} />
                             </div>
                         </div>
                     </div>
@@ -48,9 +50,9 @@ export default function MembershipBenefits() {
                             <div className="w-14 h-14 rounded-2xl bg-white/10 backdrop-blur-md flex items-center justify-center mb-6 text-white border border-white/20">
                                 <BookOpen size={28} />
                             </div>
-                            <h3 className="text-3xl font-serif text-white mb-4">5% nos Livros</h3>
+                            <h3 className="text-3xl font-serif text-white mb-4">{b.discount}</h3>
                             <p className="text-gray-200 text-lg leading-relaxed mb-6">
-                                Desconto direto permanente em toda a livraria oficial. Aprofunde a sua fé com as nossas publicações exclusivas.
+                                {b.discountDesc}
                             </p>
                         </div>
                     </div>
@@ -67,9 +69,9 @@ export default function MembershipBenefits() {
                             <div className="w-12 h-12 rounded-xl bg-orange-500/20 backdrop-blur-md flex items-center justify-center mb-4 text-orange-300 border border-orange-500/30">
                                 <Church size={24} />
                             </div>
-                            <h3 className="text-xl font-serif font-bold text-white mb-3">Altar de Intenções</h3>
+                            <h3 className="text-xl font-serif font-bold text-white mb-3">{b.altar}</h3>
                             <p className="text-gray-300 text-sm font-light leading-relaxed">
-                                As suas orações levadas regularmente ao local sagrado das Aparições.
+                                {b.altarDesc}
                             </p>
                         </div>
                     </div>
@@ -83,9 +85,9 @@ export default function MembershipBenefits() {
                             <div className="w-12 h-12 rounded-xl bg-white/10 backdrop-blur-md flex items-center justify-center mb-4 text-white border border-white/20">
                                 <Church size={24} />
                             </div>
-                            <h3 className="text-xl font-serif font-bold text-white mb-3">Missas Anuais</h3>
+                            <h3 className="text-xl font-serif font-bold text-white mb-3">{b.masses}</h3>
                             <p className="text-gray-300 text-sm font-light leading-relaxed">
-                                Eucaristias celebradas pelas intenções dos associados durante todo o ano.
+                                {b.massesDesc}
                             </p>
                         </div>
                     </div>
@@ -99,9 +101,9 @@ export default function MembershipBenefits() {
                             <div className="w-12 h-12 rounded-xl bg-white/10 backdrop-blur-md flex items-center justify-center mb-4 text-white border border-white/20">
                                 <Ticket size={24} />
                             </div>
-                            <h3 className="text-xl font-serif font-bold text-white mb-3">Desconto 50€ nas Peregrinações</h3>
+                            <h3 className="text-xl font-serif font-bold text-white mb-3">{b.voucher}</h3>
                             <p className="text-gray-300 text-sm font-light leading-relaxed">
-                                Desconto direto de 50€ para utilizar numa das peregrinações anuais.
+                                {b.voucherDesc}
                             </p>
                         </div>
                     </div>
@@ -118,9 +120,9 @@ export default function MembershipBenefits() {
                             <div className="w-12 h-12 rounded-xl bg-white/10 backdrop-blur-md flex items-center justify-center mb-4 text-white border border-white/20">
                                 <Users size={24} />
                             </div>
-                            <h3 className="text-xl font-serif font-bold text-white mb-3">Vida Associativa</h3>
+                            <h3 className="text-xl font-serif font-bold text-white mb-3">{b.community}</h3>
                             <p className="text-gray-300 text-sm font-light leading-relaxed">
-                                Participação ativa na vida da associação, com direito a voto e voz nas decisões.
+                                {b.communityDesc}
                             </p>
                         </div>
                     </div>
@@ -134,9 +136,9 @@ export default function MembershipBenefits() {
                             <div className="w-12 h-12 rounded-xl bg-white/10 backdrop-blur-md flex items-center justify-center mb-4 text-white border border-white/20">
                                 <Mic2 size={24} />
                             </div>
-                            <h3 className="text-xl font-serif font-bold text-white mb-3">5% nas Conferências</h3>
+                            <h3 className="text-xl font-serif font-bold text-white mb-3">{b.conferences}</h3>
                             <p className="text-gray-300 text-sm font-light leading-relaxed">
-                                Condições especiais de acesso aos eventos e conferências anuais do Apostolado.
+                                {b.conferencesDesc}
                             </p>
                         </div>
                     </div>

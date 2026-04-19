@@ -1,4 +1,5 @@
-import { Hotel, Users, Bus, Train, Info } from 'lucide-react';
+import { Hotel, Bus, Info } from 'lucide-react';
+import BilingualField, { TranslateAllButton } from '../../../../../components/admin/BilingualField';
 
 interface LogisticsTabProps {
     form: any;
@@ -6,8 +7,23 @@ interface LogisticsTabProps {
 }
 
 export default function LogisticsTab({ form, setForm }: LogisticsTabProps) {
+
+    const translatableFields = [
+        { ptValue: form.accommodation_description ?? '', onChangeEn: (v: string) => setForm({ ...form, accommodation_description_en: v }) },
+        { ptValue: form.transport_description ?? '', onChangeEn: (v: string) => setForm({ ...form, transport_description_en: v }) },
+        { ptValue: form.meeting_point_text ?? '', onChangeEn: (v: string) => setForm({ ...form, meeting_point_text_en: v }) },
+        { ptValue: form.meeting_end_text ?? '', onChangeEn: (v: string) => setForm({ ...form, meeting_end_text_en: v }) },
+        { ptValue: form.group_flight_details ?? '', onChangeEn: (v: string) => setForm({ ...form, group_flight_details_en: v }) },
+        { ptValue: form.flight_info_text ?? '', onChangeEn: (v: string) => setForm({ ...form, flight_info_text_en: v }) },
+    ];
+
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+
+            {/* Translate all button */}
+            <div className="flex justify-end">
+                <TranslateAllButton fields={translatableFields} />
+            </div>
 
             {/* Accommodation and Transport */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -28,15 +44,17 @@ export default function LogisticsTab({ form, setForm }: LogisticsTabProps) {
                                 placeholder="Ex: Hotéis 4* ou 3* Superior"
                             />
                         </div>
-                        <div>
-                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Descrição / Notas</label>
-                            <textarea
-                                className="w-full p-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-500/20 focus:border-slate-500 outline-none transition-all h-24 resize-none"
-                                value={form.accommodation_description || ''}
-                                onChange={e => setForm({ ...form, accommodation_description: e.target.value })}
-                                placeholder="Detalhes sobre o alojamento..."
-                            />
-                        </div>
+                        <BilingualField
+                            label="Descrição / Notas"
+                            ptValue={form.accommodation_description ?? ''}
+                            enValue={form.accommodation_description_en ?? ''}
+                            onChangePt={v => setForm({ ...form, accommodation_description: v })}
+                            onChangeEn={v => setForm({ ...form, accommodation_description_en: v })}
+                            type="textarea"
+                            rows={3}
+                            placeholder="Detalhes sobre o alojamento..."
+                            placeholderEn="Accommodation details..."
+                        />
                     </div>
                 </div>
 
@@ -57,23 +75,22 @@ export default function LogisticsTab({ form, setForm }: LogisticsTabProps) {
                                 placeholder="Ex: Autocarro Grande Turismo"
                             />
                         </div>
-                        <div>
-                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Descrição / Notas</label>
-                            <textarea
-                                className="w-full p-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-500/20 focus:border-slate-500 outline-none transition-all h-24 resize-none"
-                                value={form.transport_description || ''}
-                                onChange={e => setForm({ ...form, transport_description: e.target.value })}
-                                placeholder="Detalhes sobre transfers, autocarros no local..."
-                            />
-                        </div>
+                        <BilingualField
+                            label="Descrição / Notas"
+                            ptValue={form.transport_description ?? ''}
+                            enValue={form.transport_description_en ?? ''}
+                            onChangePt={v => setForm({ ...form, transport_description: v })}
+                            onChangeEn={v => setForm({ ...form, transport_description_en: v })}
+                            type="textarea"
+                            rows={3}
+                            placeholder="Detalhes sobre transfers, autocarros no local..."
+                            placeholderEn="Transfer and transport details..."
+                        />
                     </div>
                 </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-
-
-                {/* Logistics Details */}
                 <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
                     {/* Meeting Points */}
                     <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col h-full">
@@ -81,24 +98,28 @@ export default function LogisticsTab({ form, setForm }: LogisticsTabProps) {
                             <h3 className="font-bold text-slate-800 text-sm uppercase tracking-wide">Ponto de Encontro</h3>
                         </div>
                         <div className="p-6 space-y-4">
-                            <div>
-                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Início (Local e Hora)</label>
-                                <textarea
-                                    className="w-full p-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-500/20 focus:border-slate-500 outline-none transition-all h-20 resize-none"
-                                    value={form.meeting_point_text || ''}
-                                    onChange={e => setForm({ ...form, meeting_point_text: e.target.value })}
-                                    placeholder="Ex: Aeroporto de Lisboa, dia 11 de Outubro às 09:00"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Fim (Local e Hora)</label>
-                                <textarea
-                                    className="w-full p-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-500/20 focus:border-slate-500 outline-none transition-all h-20 resize-none"
-                                    value={form.meeting_end_text || ''}
-                                    onChange={e => setForm({ ...form, meeting_end_text: e.target.value })}
-                                    placeholder="Ex: Paris, dia 24 de Outubro às 16:00"
-                                />
-                            </div>
+                            <BilingualField
+                                label="Início (Local e Hora)"
+                                ptValue={form.meeting_point_text ?? ''}
+                                enValue={form.meeting_point_text_en ?? ''}
+                                onChangePt={v => setForm({ ...form, meeting_point_text: v })}
+                                onChangeEn={v => setForm({ ...form, meeting_point_text_en: v })}
+                                type="textarea"
+                                rows={3}
+                                placeholder="Ex: Aeroporto de Lisboa, dia 11 de Outubro às 09:00"
+                                placeholderEn="Ex: Lisbon Airport, October 11th at 09:00"
+                            />
+                            <BilingualField
+                                label="Fim (Local e Hora)"
+                                ptValue={form.meeting_end_text ?? ''}
+                                enValue={form.meeting_end_text_en ?? ''}
+                                onChangePt={v => setForm({ ...form, meeting_end_text: v })}
+                                onChangeEn={v => setForm({ ...form, meeting_end_text_en: v })}
+                                type="textarea"
+                                rows={3}
+                                placeholder="Ex: Paris, dia 24 de Outubro às 16:00"
+                                placeholderEn="Ex: Paris, October 24th at 16:00"
+                            />
                         </div>
                     </div>
 
@@ -124,23 +145,29 @@ export default function LogisticsTab({ form, setForm }: LogisticsTabProps) {
                                     Preencha para <strong>ativar a Opção B (Voo de Grupo)</strong> na página pública.
                                 </p>
 
-                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Detalhes Voo de Grupo (Opção B)</label>
-                                <textarea
-                                    className="w-full p-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-500/20 focus:border-slate-500 outline-none transition-all h-24 resize-none"
-                                    value={form.group_flight_details || ''}
-                                    onChange={e => setForm({ ...form, group_flight_details: e.target.value })}
+                                <BilingualField
+                                    label="Detalhes Voo de Grupo (Opção B)"
+                                    ptValue={form.group_flight_details ?? ''}
+                                    enValue={form.group_flight_details_en ?? ''}
+                                    onChangePt={v => setForm({ ...form, group_flight_details: v })}
+                                    onChangeEn={v => setForm({ ...form, group_flight_details_en: v })}
+                                    type="textarea"
+                                    rows={3}
                                     placeholder="Ex: Ida: TP123 Lisboa-Madrid 08:00... Volta: ..."
+                                    placeholderEn="Ex: Outbound: TP123 Lisbon-Madrid 08:00... Return: ..."
                                 />
                             </div>
-                            <div>
-                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Opção A (Voo Próprio) / Avisos</label>
-                                <textarea
-                                    className="w-full p-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-500/20 focus:border-slate-500 outline-none transition-all h-32 resize-none"
-                                    value={form.flight_info_text || ''}
-                                    onChange={e => setForm({ ...form, flight_info_text: e.target.value })}
-                                    placeholder="Ex: Não inclui voos. Recomendamos voo TP123..."
-                                />
-                            </div>
+                            <BilingualField
+                                label="Opção A (Voo Próprio) / Avisos"
+                                ptValue={form.flight_info_text ?? ''}
+                                enValue={form.flight_info_text_en ?? ''}
+                                onChangePt={v => setForm({ ...form, flight_info_text: v })}
+                                onChangeEn={v => setForm({ ...form, flight_info_text_en: v })}
+                                type="textarea"
+                                rows={4}
+                                placeholder="Ex: Não inclui voos. Recomendamos voo TP123..."
+                                placeholderEn="Ex: Flights not included. We recommend flight TP123..."
+                            />
                         </div>
                     </div>
                 </div>

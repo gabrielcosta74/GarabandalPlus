@@ -3,6 +3,7 @@
 import { X, Copy, CheckCircle2, Upload, AlertCircle } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useLocale } from '../../contexts/LocaleContext';
 
 interface BankTransferModalProps {
     isOpen: boolean;
@@ -39,6 +40,8 @@ export default function BankTransferModal({
     supportEmail,
     onUploadClick,
 }: BankTransferModalProps) {
+    const { locale } = useLocale();
+    const isEn = locale === 'en';
     const [mounted, setMounted] = useState(false);
     const [copied, setCopied] = useState(false);
 
@@ -77,8 +80,8 @@ export default function BankTransferModal({
                             {/* Header */}
                             <div className="bg-slate-900 p-6 flex justify-between items-center relative z-10">
                                 <div>
-                                    <h2 className="text-xl font-bold text-white">Dados para Transferência</h2>
-                                    <p className="text-slate-400 text-sm">Realize a transferência segura pelo seu banco</p>
+                                    <h2 className="text-xl font-bold text-white">{isEn ? 'Bank Transfer Details' : 'Dados para Transferência'}</h2>
+                                    <p className="text-slate-400 text-sm">{isEn ? 'Complete the secure transfer through your bank' : 'Realize a transferência segura pelo seu banco'}</p>
                                 </div>
                                 <button
                                     onClick={onClose}
@@ -92,7 +95,7 @@ export default function BankTransferModal({
 
                                 {/* Amount Display */}
                                 <div className="text-center space-y-2">
-                                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Valor a Transferir</p>
+                                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">{isEn ? 'Amount to Transfer' : 'Valor a Transferir'}</p>
                                     <div className="text-4xl font-bold text-slate-900 bg-slate-50 border border-slate-100 rounded-2xl py-4">
                                         {formattedTotal || `${totalAmount}€`}
                                     </div>
@@ -100,27 +103,27 @@ export default function BankTransferModal({
 
                                 {/* IBAN Box */}
                                 <div className="space-y-3">
-                                    <p className="text-sm font-bold text-slate-700">IBAN para Doação</p>
+                                    <p className="text-sm font-bold text-slate-700">{isEn ? 'Transfer IBAN' : 'IBAN para Doação'}</p>
                                     <button
                                         onClick={handleCopy}
                                         className="w-full bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-xl p-4 flex items-center justify-between group transition-colors text-left"
                                     >
                                         <div className="space-y-1">
                                             <p className="font-mono text-lg md:text-xl font-bold text-blue-900 break-all">{iban}</p>
-                                            {beneficiaryName && <p className="text-xs text-blue-600 font-medium">Conta: {beneficiaryName}</p>}
+                                            {beneficiaryName && <p className="text-xs text-blue-600 font-medium">{isEn ? 'Account' : 'Conta'}: {beneficiaryName}</p>}
                                         </div>
                                         <div className="p-2 bg-blue-200 rounded-lg text-blue-700 group-hover:scale-105 transition-transform">
                                             {copied ? <CheckCircle2 className="w-5 h-5" /> : <Copy className="w-5 h-5" />}
                                         </div>
                                     </button>
-                                    <p className="text-center text-xs text-slate-400">Clique acima para copiar o IBAN</p>
+                                    <p className="text-center text-xs text-slate-400">{isEn ? 'Click above to copy the IBAN' : 'Clique acima para copiar o IBAN'}</p>
                                 </div>
 
                                 {(bankName || bicSwift || referenceNote || supportEmail || addressStreet || addressPostalCode || addressCity || addressCountry) && (
                                     <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200 space-y-2">
                                         {bankName && (
                                             <p className="text-sm text-slate-700">
-                                                <span className="font-bold">Banco:</span> {bankName}
+                                                <span className="font-bold">{isEn ? 'Bank:' : 'Banco:'}</span> {bankName}
                                             </p>
                                         )}
                                         {bicSwift && (
@@ -130,17 +133,17 @@ export default function BankTransferModal({
                                         )}
                                         {referenceNote && (
                                             <p className="text-sm text-slate-700">
-                                                <span className="font-bold">Referência:</span> {referenceNote}
+                                                <span className="font-bold">{isEn ? 'Reference:' : 'Referência:'}</span> {referenceNote}
                                             </p>
                                         )}
                                         {supportEmail && (
                                             <p className="text-sm text-slate-700">
-                                                <span className="font-bold">Contacto:</span> {supportEmail}
+                                                <span className="font-bold">{isEn ? 'Contact:' : 'Contacto:'}</span> {supportEmail}
                                             </p>
                                         )}
                                         {(addressStreet || addressPostalCode || addressCity || addressCountry) && (
                                             <p className="text-sm text-slate-700">
-                                                <span className="font-bold">Morada:</span>{' '}
+                                                <span className="font-bold">{isEn ? 'Address:' : 'Morada:'}</span>{' '}
                                                 {[addressStreet, [addressPostalCode, addressCity].filter(Boolean).join(' '), addressCountry]
                                                     .filter((part) => part && part.trim().length > 0)
                                                     .join(', ')}
@@ -154,14 +157,14 @@ export default function BankTransferModal({
                                     <div className="flex items-start gap-3">
                                         <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
                                         <div className="space-y-1">
-                                            <h4 className="font-bold text-amber-900 text-sm">Passos Importantes</h4>
+                                            <h4 className="font-bold text-amber-900 text-sm">{isEn ? 'Important Steps' : 'Passos Importantes'}</h4>
                                             <ul className="text-sm text-amber-800 space-y-1 list-disc list-inside">
-                                                <li>Realize a transferência do valor exato.</li>
-                                                <li>Guarde o comprovativo (PDF ou Foto).</li>
-                                                <li>Envie o comprovativo no botão abaixo para o pagamento entrar em validação.</li>
+                                                <li>{isEn ? 'Transfer the exact amount.' : 'Realize a transferência do valor exato.'}</li>
+                                                <li>{isEn ? 'Keep the receipt (PDF or photo).' : 'Guarde o comprovativo (PDF ou Foto).'}</li>
+                                                <li>{isEn ? 'Send the receipt using the button below so the payment can enter validation.' : 'Envie o comprovativo no botão abaixo para o pagamento entrar em validação.'}</li>
                                             </ul>
                                             <p className="text-xs text-amber-900 font-semibold pt-1">
-                                                Sem comprovativo enviado, a equipa administrativa não recebe nenhum pedido de validação.
+                                                {isEn ? 'Without an uploaded receipt, the administrative team does not receive any validation request.' : 'Sem comprovativo enviado, a equipa administrativa não recebe nenhum pedido de validação.'}
                                             </p>
                                         </div>
                                     </div>
@@ -177,13 +180,13 @@ export default function BankTransferModal({
                                         className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-4 rounded-xl shadow-lg transition-all flex items-center justify-center gap-2"
                                     >
                                         <Upload className="w-5 h-5" />
-                                        Já fiz a transferência, Enviar Comprovativo
+                                        {isEn ? 'I already made the transfer, Upload Receipt' : 'Já fiz a transferência, Enviar Comprovativo'}
                                     </button>
                                     <button
                                         onClick={onClose}
                                         className="w-full py-3 text-slate-400 hover:text-slate-600 font-medium text-sm transition-colors"
                                     >
-                                        Vou fazer depois
+                                        {isEn ? "I'll do it later" : 'Vou fazer depois'}
                                     </button>
                                 </div>
                             </div>

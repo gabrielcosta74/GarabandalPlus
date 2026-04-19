@@ -10,6 +10,7 @@ import DonationModal from '../../components/donations/DonationModal';
 import DonationVideo from '../../components/donations/DonationVideo';
 import AuctionSection from '../../components/donations/AuctionSection';
 import MobileDonationCTA from '../../components/donations/MobileDonationCTA';
+import { useLocale } from '../../contexts/LocaleContext';
 
 type ProgressMeta = {
     goal: number;
@@ -29,6 +30,8 @@ type ReduniqResult = {
 };
 
 export default function DonationsClient() {
+    const { locale } = useLocale();
+    const isEn = locale === 'en';
     const [progress, setProgress] = useState<ProgressMeta>({ goal: 2500, raised: 0 });
     const [modalOpen, setModalOpen] = useState(false);
     const [reduniqResult, setReduniqResult] = useState<ReduniqResult | null>(null);
@@ -109,8 +112,8 @@ export default function DonationsClient() {
 
     const bannerState = useMemo(() => {
         if (!showReduniqBanner || reduniqParams.provider !== 'reduniq') return null;
-        if (reduniqLoading) return { type: 'info', title: 'A verificar pagamento...', message: 'Estamos a consultar o estado do pagamento na Reduniq.' };
-        if (reduniqError) return { type: 'error', title: 'Pagamento não confirmado', message: reduniqError };
+        if (reduniqLoading) return { type: 'info', title: isEn ? 'Checking payment...' : 'A verificar pagamento...', message: isEn ? 'We are checking the payment status with Reduniq.' : 'Estamos a consultar o estado do pagamento na Reduniq.' };
+        if (reduniqError) return { type: 'error', title: isEn ? 'Payment not confirmed' : 'Pagamento não confirmado', message: reduniqError };
         if (!reduniqResult) return null;
 
         const status = reduniqResult.transactionStatus || '';
@@ -118,35 +121,35 @@ export default function DonationsClient() {
         if (isSuccess) {
             return {
                 type: 'success',
-                title: 'Pagamento confirmado',
-                message: 'O pagamento foi confirmado pela Reduniq.'
+                title: isEn ? 'Payment confirmed' : 'Pagamento confirmado',
+                message: isEn ? 'The payment was confirmed by Reduniq.' : 'O pagamento foi confirmado pela Reduniq.'
             };
         }
 
-        const isPending = status === '0' || status === '1' || status === '2';
+            const isPending = status === '0' || status === '1' || status === '2';
         if (isPending) {
             const messageParts = [];
             if (reduniqResult.resultMessage) messageParts.push(reduniqResult.resultMessage);
-            if (reduniqResult.statusLabel) messageParts.push(`Estado: ${reduniqResult.statusLabel}`);
-            if (!messageParts.length) messageParts.push('Pagamento em processamento.');
+            if (reduniqResult.statusLabel) messageParts.push(`${isEn ? 'Status' : 'Estado'}: ${reduniqResult.statusLabel}`);
+            if (!messageParts.length) messageParts.push(isEn ? 'Payment is being processed.' : 'Pagamento em processamento.');
             return {
                 type: 'info',
-                title: 'Pagamento em processamento',
+                title: isEn ? 'Payment processing' : 'Pagamento em processamento',
                 message: messageParts.join(' • ')
             };
         }
 
         const messageParts = [];
         if (reduniqResult.resultMessage) messageParts.push(reduniqResult.resultMessage);
-        if (reduniqResult.statusLabel) messageParts.push(`Estado: ${reduniqResult.statusLabel}`);
-        if (!messageParts.length) messageParts.push('Pagamento não confirmado.');
+        if (reduniqResult.statusLabel) messageParts.push(`${isEn ? 'Status' : 'Estado'}: ${reduniqResult.statusLabel}`);
+        if (!messageParts.length) messageParts.push(isEn ? 'Payment not confirmed.' : 'Pagamento não confirmado.');
 
         return {
             type: 'error',
-            title: 'Pagamento não confirmado',
+            title: isEn ? 'Payment not confirmed' : 'Pagamento não confirmado',
             message: messageParts.join(' • ')
         };
-    }, [reduniqLoading, reduniqError, reduniqResult, reduniqParams.provider, showReduniqBanner]);
+    }, [isEn, reduniqLoading, reduniqError, reduniqResult, reduniqParams.provider, showReduniqBanner]);
 
     return (
         <main className="bg-white min-h-screen">
@@ -168,7 +171,7 @@ export default function DonationsClient() {
                                     onClick={() => setShowReduniqBanner(false)}
                                     className="text-xs font-semibold uppercase tracking-wide opacity-70 hover:opacity-100"
                                 >
-                                    Fechar
+                                    {isEn ? 'Close' : 'Fechar'}
                                 </button>
                             </div>
                             {reduniqResult && (
@@ -192,15 +195,17 @@ export default function DonationsClient() {
             {/* Footer CTA */}
             <section className="py-16 md:py-24 bg-garabandal-dark text-white text-center">
                 <div className="container mx-auto px-6">
-                    <h2 className="text-3xl sm:text-4xl md:text-5xl font-serif mb-6">Juntos construímos o futuro</h2>
+                    <h2 className="text-3xl sm:text-4xl md:text-5xl font-serif mb-6">{isEn ? 'Together we build the future' : 'Juntos construímos o futuro'}</h2>
                     <p className="text-gray-400 max-w-2xl mx-auto mb-10">
-                        A tua generosidade permite-nos continuar a acolher com amor e dignidade. Obrigado por fazeres parte desta missão.
+                        {isEn
+                            ? 'Your generosity allows us to continue welcoming with love and dignity. Thank you for being part of this mission.'
+                            : 'A tua generosidade permite-nos continuar a acolher com amor e dignidade. Obrigado por fazeres parte desta missão.'}
                     </p>
                     <button
                         onClick={() => setModalOpen(true)}
                         className="px-10 py-4 bg-garabandal-gold text-garabandal-dark font-bold rounded-full hover:scale-105 hover:shadow-[0_0_20px_rgba(234,179,8,0.4)] transition-all duration-300"
                     >
-                        Fazer uma Doação
+                        {isEn ? 'Make a Donation' : 'Fazer uma Doação'}
                     </button>
                 </div>
             </section>

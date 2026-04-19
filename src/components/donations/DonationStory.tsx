@@ -1,7 +1,11 @@
 import { motion } from 'framer-motion';
 import { Heart } from 'lucide-react';
+import { useLocale } from '../../contexts/LocaleContext';
 
 export default function DonationStory() {
+    const { locale } = useLocale();
+    const isEn = locale === 'en';
+
     return (
         <section id="historia" className="py-16 md:py-24 bg-garabandal-mist relative overflow-hidden">
             <div className="container mx-auto px-6">
@@ -12,10 +16,12 @@ export default function DonationStory() {
                     className="text-center max-w-3xl mx-auto mb-16"
                 >
                     <h2 className="text-3xl sm:text-4xl md:text-5xl font-serif text-garabandal-dark mb-6">
-                        Presente e Futuro
+                        {isEn ? 'Present and Future' : 'Presente e Futuro'}
                     </h2>
                     <p className="text-lg text-gray-600">
-                        Garabandal será um grande local de conversão a nível mundial e a nossa casa estará pronta para servir o plano de Deus!
+                        {isEn
+                            ? 'Garabandal will become a great place of conversion worldwide, and our house will be ready to serve God’s plan.'
+                            : 'Garabandal será um grande local de conversão a nível mundial e a nossa casa estará pronta para servir o plano de Deus!'}
                     </p>
                 </motion.div>
 
@@ -29,7 +35,7 @@ export default function DonationStory() {
                         className="group relative rounded-3xl overflow-hidden shadow-xl min-h-[500px]"
                     >
                         <div className="absolute top-4 left-4 bg-black/60 backdrop-blur-md text-white px-4 py-1.5 rounded-full text-sm font-medium z-10">
-                            Estado Atual
+                            {isEn ? 'Current State' : 'Estado Atual'}
                         </div>
                         <img
                             src="/images/casaantes1.webp"
@@ -38,10 +44,11 @@ export default function DonationStory() {
                         />
                         <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent opacity-90" />
                         <div className="absolute bottom-0 left-0 p-8">
-                            <h3 className="text-xl font-bold text-white mb-2">Em Ruínas</h3>
+                            <h3 className="text-xl font-bold text-white mb-2">{isEn ? 'In Ruins' : 'Em Ruínas'}</h3>
                             <p className="text-gray-300 text-sm leading-relaxed">
-                                Atualmente, a casa encontra-se degradada e necessita de reconstrução total.
-                                As fotos mostram o estado real do imóvel que adquirimos e que precisa da sua ajuda para ser reerguido.
+                                {isEn
+                                    ? 'At present, the house is severely deteriorated and needs complete reconstruction. These photos show the real state of the property we acquired and that needs your help to rise again.'
+                                    : 'Atualmente, a casa encontra-se degradada e necessita de reconstrução total. As fotos mostram o estado real do imóvel que adquirimos e que precisa da sua ajuda para ser reerguido.'}
                             </p>
                         </div>
                     </motion.div>
@@ -55,7 +62,7 @@ export default function DonationStory() {
                         className="group relative rounded-3xl overflow-hidden shadow-2xl ring-4 ring-garabandal-gold/20 min-h-[500px]"
                     >
                         <div className="absolute top-4 left-4 bg-garabandal-gold text-garabandal-dark px-4 py-1.5 rounded-full text-sm font-bold z-10 shadow-lg">
-                            O Projeto
+                            {isEn ? 'The Project' : 'O Projeto'}
                         </div>
                         <img
                             src="/images/casaafter.webp"
@@ -64,10 +71,11 @@ export default function DonationStory() {
                         />
                         <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent opacity-80" />
                         <div className="absolute bottom-0 left-0 p-8">
-                            <h3 className="text-xl font-bold text-white mb-2">Visão Futura</h3>
+                            <h3 className="text-xl font-bold text-white mb-2">{isEn ? 'Future Vision' : 'Visão Futura'}</h3>
                             <p className="text-gray-200 text-sm leading-relaxed">
-                                Esta projeção (IA) ilustra o nosso objetivo: renovar a casa para, numa primeira fase, acolher o Apostolado.
-                                Futuramente, será um refúgio seguro para acolher em massa durante os eventos profetizados.
+                                {isEn
+                                    ? 'This AI projection illustrates our goal: to renew the house so that, in a first stage, it can host the Apostolate. In the future, it will become a safe refuge to welcome many people during the prophesied events.'
+                                    : 'Esta projeção (IA) ilustra o nosso objetivo: renovar a casa para, numa primeira fase, acolher o Apostolado. Futuramente, será um refúgio seguro para acolher em massa durante os eventos profetizados.'}
                             </p>
                         </div>
                     </motion.div>
@@ -87,11 +95,11 @@ export default function DonationStory() {
                         </div>
                     </div>
                     <div className="lg:w-2/3 space-y-4 text-center lg:text-left">
-                        <h3 className="text-2xl font-serif text-red-900">Necessitamos da sua ajuda!</h3>
+                        <h3 className="text-2xl font-serif text-red-900">{isEn ? 'We Need Your Help!' : 'Necessitamos da sua ajuda!'}</h3>
                         <p className="text-red-800/80 leading-relaxed font-medium">
-                            A casa adquirida necessita de obras e de requalificação, pois a maior parte está em ruínas.
-                            A nossa Associação necessita de doações e da boa vontade das pessoas que nos queiram ajudar neste projeto.
-                            Ajude-nos nesta missão!
+                            {isEn
+                                ? 'The house we acquired needs restoration and renovation, as most of it lies in ruins. Our Association needs donations and the goodwill of those who want to help us in this project. Help us in this mission.'
+                                : 'A casa adquirida necessita de obras e de requalificação, pois a maior parte está em ruínas. A nossa Associação necessita de doações e da boa vontade das pessoas que nos queiram ajudar neste projeto. Ajude-nos nesta missão!'}
                         </p>
                     </div>
                 </motion.div>

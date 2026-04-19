@@ -18,6 +18,8 @@ export type MembershipNotificationInput = {
   paidAt?: string | null;
 };
 
+export type EmailLocale = "pt" | "en";
+
 export type DonationNotificationInput = {
   donorName?: string | null;
   donorEmail?: string | null;
@@ -55,6 +57,7 @@ export type MemberReceiptInput = {
   kind: "new" | "renewal";
   attachments?: EmailAttachment[];
   hasDiploma?: boolean;
+  locale?: EmailLocale;
 };
 
 export type MemberDiplomaInput = {
@@ -63,6 +66,7 @@ export type MemberDiplomaInput = {
   memberNumber: number;
   issuedAt?: string | null;
   attachments: EmailAttachment[];
+  locale?: EmailLocale;
 };
 
 export type DonationReceiptInput = {
@@ -73,6 +77,7 @@ export type DonationReceiptInput = {
   paymentReference?: string | null;
   paidAt?: string | null;
   method: string;
+  locale?: EmailLocale;
 };
 
 export type QuotaReminderInput = {
@@ -174,14 +179,14 @@ const FONTS = {
 /*                                  HELPERS                                   */
 /* -------------------------------------------------------------------------- */
 
-export const formatCurrency = (value: number, currency = "EUR") =>
-  new Intl.NumberFormat("pt-PT", { style: "currency", currency }).format(value);
+export const formatCurrency = (value: number, currency = "EUR", locale: EmailLocale = "pt") =>
+  new Intl.NumberFormat(locale === "en" ? "en-GB" : "pt-PT", { style: "currency", currency }).format(value);
 
-export const formatDate = (value?: string | null) => {
+export const formatDate = (value?: string | null, locale: EmailLocale = "pt") => {
   if (!value) return "-";
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return value;
-  return parsed.toLocaleDateString("pt-PT");
+  return parsed.toLocaleDateString(locale === "en" ? "en-GB" : "pt-PT");
 };
 
 /* -------------------------------------------------------------------------- */
@@ -192,13 +197,15 @@ const Layout = ({
   title,
   preview,
   children,
+  locale = "pt",
 }: {
   title: string;
   preview?: string;
   children: string;
+  locale?: EmailLocale;
 }) => `
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="${locale === "en" ? "en" : "pt-BR"}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width">
@@ -213,8 +220,8 @@ const Layout = ({
       ${children}
       <div style="background:${COLORS.bg};padding:32px;text-align:center;color:${COLORS.textLight};font-size:13px;">
         <p style="margin:0 0 12px;">${title} • Apostolado de Garabandal</p>
-        <p style="margin:0;font-weight:600;color:${COLORS.heading};">Unindo FÉ e ESPERANÇA.</p>
-        <p style="margin:12px 0 0;font-size:11px;opacity:0.7;">Se precisar de ajuda, basta responder a este email.</p>
+        <p style="margin:0;font-weight:600;color:${COLORS.heading};">${locale === "en" ? "Uniting FAITH and HOPE." : "Unindo FÉ e ESPERANÇA."}</p>
+        <p style="margin:12px 0 0;font-size:11px;opacity:0.7;">${locale === "en" ? "If you need help, simply reply to this email." : "Se precisar de ajuda, basta responder a este email."}</p>
       </div>
     </div>
   </div>
@@ -345,46 +352,49 @@ export const renderMembershipEmail = (payload: MembershipNotificationInput) => {
 };
 
 export const renderMemberReceiptEmail = (payload: MemberReceiptInput) => {
-  const memberLabel = payload.memberName || "Estimado Membro";
-  const amountText = formatCurrency(payload.amount, payload.currency || "EUR");
+  const locale = payload.locale === "en" ? "en" : "pt";
+  const isEn = locale === "en";
+  const memberLabel = payload.memberName || (isEn ? "Dear Member" : "Estimado Membro");
+  const amountText = formatCurrency(payload.amount, payload.currency || "EUR", locale);
 
   return {
-    subject: `Recibo Apostolado - ${amountText}`,
+    subject: isEn ? `Apostolate Receipt - ${amountText}` : `Recibo Apostolado - ${amountText}`,
     html: Layout({
-      title: "Recibo de Pagamento",
-      preview: `Confirmação do pagamento da sua anuidade.`,
+      title: isEn ? "Payment Receipt" : "Recibo de Pagamento",
+      preview: isEn ? `Confirmation of your annual membership payment.` : `Confirmação do pagamento da sua anuidade.`,
+      locale,
       children: `
                 ${Header({
-        title: "Pagamento Confirmado",
-        subtitle: "Obrigado pelo seu apoio contínuo.",
+        title: isEn ? "Payment Confirmed" : "Pagamento Confirmado",
+        subtitle: isEn ? "Thank you for your continued support." : "Obrigado pelo seu apoio contínuo.",
       })}
                 ${Section({
         children: `
-                        ${Text(`Olá <strong>${memberLabel}</strong>,`)}
-                        ${Text("Confirmamos a receção do pagamento da sua anuidade. A sua contribuição é essencial para manter viva a missão de Garabandal.")}
+                        ${Text(isEn ? `Hello <strong>${memberLabel}</strong>,` : `Olá <strong>${memberLabel}</strong>,`)}
+                        ${Text(isEn ? "We confirm receipt of your annual membership payment. Your contribution is essential to keeping the mission of Garabandal alive." : "Confirmamos a receção do pagamento da sua anuidade. A sua contribuição é essencial para manter viva a missão de Garabandal.")}
                         
                         ${payload.hasDiploma
             ? `
                             <div style="background:${COLORS.primaryLight};border:1px solid ${COLORS.primary};border-radius:12px;padding:16px;margin-bottom:24px;text-align:center;">
-                                <strong style="color:${COLORS.primary};display:block;margin-bottom:4px;">🎓 Diploma de Membro</strong>
-                                <span style="font-size:14px;">O seu diploma digital segue em anexo a este email.</span>
+                                <strong style="color:${COLORS.primary};display:block;margin-bottom:4px;">${isEn ? "Member Certificate" : "Diploma de Membro"}</strong>
+                                <span style="font-size:14px;">${isEn ? "Your digital member certificate is attached to this email." : "O seu diploma digital segue em anexo a este email."}</span>
                             </div>
                         `
             : ""
           }
 
-                        ${HeadingSmall("Detalhes da Transação")}
+                        ${HeadingSmall(isEn ? "Transaction Details" : "Detalhes da Transação")}
                         ${Card({
             children: `
-                                ${InfoRow({ label: "Nº Associado", value: payload.memberNumber || "-" })}
-                                ${InfoRow({ label: "Valor", value: amountText })}
-                                ${InfoRow({ label: "Método", value: payload.paymentMethod })}
-                                ${InfoRow({ label: "Referência", value: payload.paymentReference || "-" })}
-                                ${InfoRow({ label: "Data", value: formatDate(payload.paidAt), isLast: true })}
+                                ${InfoRow({ label: isEn ? "Member No." : "Nº Associado", value: payload.memberNumber || "-" })}
+                                ${InfoRow({ label: isEn ? "Amount" : "Valor", value: amountText })}
+                                ${InfoRow({ label: isEn ? "Method" : "Método", value: payload.paymentMethod })}
+                                ${InfoRow({ label: isEn ? "Reference" : "Referência", value: payload.paymentReference || "-" })}
+                                ${InfoRow({ label: isEn ? "Date" : "Data", value: formatDate(payload.paidAt, locale), isLast: true })}
                             `,
           })}
                         
-                        ${Button({ label: "Acessar Área de Membro", url: `${APP_URL}/member` })}
+                        ${Button({ label: isEn ? "Go to Member Area" : "Acessar Área de Membro", url: isEn ? `${APP_URL}/en/member` : `${APP_URL}/member` })}
                     `,
       })}
             `,
@@ -657,24 +667,27 @@ export const renderPaymentReceiptAdminNotification = (
 };
 
 export const renderDonationReceiptEmail = (payload: DonationReceiptInput) => {
-  const amountText = formatCurrency(payload.amount, payload.currency || "EUR");
+  const locale = payload.locale === "en" ? "en" : "pt";
+  const isEn = locale === "en";
+  const amountText = formatCurrency(payload.amount, payload.currency || "EUR", locale);
   return {
-    subject: `Doação registada com sucesso - ${amountText}`,
+    subject: isEn ? `Donation successfully registered - ${amountText}` : `Doação registada com sucesso - ${amountText}`,
     html: Layout({
-      title: "Doação Registada",
+      title: isEn ? "Donation Registered" : "Doação Registada",
+      locale,
       children: `
-                ${Header({ title: "Obrigado pela sua generosidade", subtitle: "Doação confirmada" })}
+                ${Header({ title: isEn ? "Thank you for your generosity" : "Obrigado pela sua generosidade", subtitle: isEn ? "Donation confirmed" : "Doação confirmada" })}
                 ${Section({
         children: `
-                        ${Text(`Obrigado, <strong>${payload.donorName || "Benfeitor"}</strong>. O seu apoio é fundamental para a missão do Apostolado.`)}
+                        ${Text(isEn ? `Thank you, <strong>${payload.donorName || "Benefactor"}</strong>. Your support is essential to the Apostolate's mission.` : `Obrigado, <strong>${payload.donorName || "Benfeitor"}</strong>. O seu apoio é fundamental para a missão do Apostolado.`)}
                         ${Card({
           children: `
-                                ${InfoRow({ label: "Valor", value: amountText })}
-                                ${InfoRow({ label: "Método", value: payload.method })}
-                                ${InfoRow({ label: "Referência", value: payload.paymentReference || "-", isLast: true })}
+                                ${InfoRow({ label: isEn ? "Amount" : "Valor", value: amountText })}
+                                ${InfoRow({ label: isEn ? "Method" : "Método", value: payload.method })}
+                                ${InfoRow({ label: isEn ? "Reference" : "Referência", value: payload.paymentReference || "-", isLast: true })}
                             `,
         })}
-                        ${Text("Guardaremos este registo para efeitos administrativos e fiscais, quando aplicável.")}
+                        ${Text(isEn ? "We will keep this record for administrative and tax purposes, when applicable." : "Guardaremos este registo para efeitos administrativos e fiscais, quando aplicável.")}
                     `,
       })}
             `,
@@ -1036,18 +1049,23 @@ export const renderMembershipRevokedEmail = (payload: any) => ({
   }),
 });
 
-export const renderMemberDiplomaEmail = (payload: MemberDiplomaInput) => ({
-  subject: "O seu diploma de membro",
-  html: Layout({
-    title: "Diploma de Membro",
-    children: Section({
-      children: `
-                ${Text(`Olá <strong>${payload.memberName || "membro"}</strong>,`)}
-                ${Text("Enviamos em anexo o seu diploma digital de membro do Apostolado de Garabandal.")}
+export const renderMemberDiplomaEmail = (payload: MemberDiplomaInput) => {
+  const locale = payload.locale === "en" ? "en" : "pt";
+  const isEn = locale === "en";
+  return {
+    subject: isEn ? "Your member certificate" : "O seu diploma de membro",
+    html: Layout({
+      title: isEn ? "Member Certificate" : "Diploma de Membro",
+      locale,
+      children: Section({
+        children: `
+                ${Text(isEn ? `Hello <strong>${payload.memberName || "member"}</strong>,` : `Olá <strong>${payload.memberName || "membro"}</strong>,`)}
+                ${Text(isEn ? "Attached is your digital member certificate from the Apostolate of Garabandal." : "Enviamos em anexo o seu diploma digital de membro do Apostolado de Garabandal.")}
 `,
+      }),
     }),
-  }),
-});
+  };
+};
 
 /* -------------------------------------------------------------------------- */
 /*                             AUCTION EMAILS                                 */

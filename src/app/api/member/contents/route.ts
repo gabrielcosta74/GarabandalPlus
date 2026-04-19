@@ -1,8 +1,10 @@
 import { NextResponse } from 'next/server';
 import { createSupabaseServerClient } from '../../../../lib/auth-utils';
 
-export async function GET() {
+export async function GET(req: Request) {
     try {
+        const locale = new URL(req.url).searchParams.get('locale');
+        const isEn = locale === 'en';
         const supabase = await createSupabaseServerClient();
         const { data: { user }, error: userError } = await supabase.auth.getUser();
 
@@ -14,7 +16,7 @@ export async function GET() {
             .from('member_contents')
             .select(`
                 *,
-                category:member_content_categories(id, name, slug),
+                category:member_content_categories(id, name, name_en, slug),
                 member_gallery_images(*)
             `)
             .eq('is_published', true)
@@ -22,7 +24,19 @@ export async function GET() {
 
         if (error) throw error;
 
-        return NextResponse.json({ contents: data });
+        const contents = (data || []).map((item: any) => ({
+            ...item,
+            title: isEn ? item.title_en || item.title : item.title,
+            description: isEn ? item.description_en || item.description : item.description,
+            category: item.category
+                ? {
+                    ...item.category,
+                    name: isEn ? item.category.name_en || item.category.name : item.category.name,
+                }
+                : null,
+        }));
+
+        return NextResponse.json({ contents });
 
     } catch (error: any) {
         console.error("Member API Error fetching contents:", error);

@@ -1,11 +1,35 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, Minus } from 'lucide-react';
+import { useLocale } from '../../contexts/LocaleContext';
 
 export default function DonationFAQ() {
     const [openIndex, setOpenIndex] = useState<number | null>(0);
+    const { locale } = useLocale();
+    const isEn = locale === 'en';
 
-    const faqs = [
+    const faqs = isEn ? [
+        {
+            q: 'Which payment methods are available?',
+            a: 'You can donate by Credit Card, MB WAY, PIX, Multibanco or Bank Transfer. The available methods appear in the donation modal.',
+        },
+        {
+            q: 'Is the donation secure?',
+            a: 'Yes. Online payments are processed by certified partners and sensitive data is not stored by us.',
+        },
+        {
+            q: 'How does bank transfer work?',
+            a: 'When you choose Bank Transfer, we show the bank details and ask you to upload proof of payment in the form. The donation is registered after submission.',
+        },
+        {
+            q: 'Can I request a donation receipt?',
+            a: 'Yes. In the form, enable the receipt option and fill in the required details. The receipt is issued and validated by the administrative team after payment confirmation.',
+        },
+        {
+            q: 'What are donations used for?',
+            a: 'Donations support the mission of the Apostolate: pilgrimages, evangelization and the maintenance of projects and works in progress.',
+        }
+    ] : [
         {
             q: 'Quais métodos de pagamento estão disponíveis?',
             a: 'Pode doar com Cartão de Crédito, MB WAY, PIX, Multibanco ou por Transferência Bancária. Os métodos disponíveis aparecem no modal de doação.',
@@ -37,8 +61,8 @@ export default function DonationFAQ() {
                     viewport={{ once: true }}
                     className="text-center mb-16"
                 >
-                    <h2 className="text-3xl sm:text-4xl font-serif text-garabandal-dark mb-4">Dúvidas Frequentes</h2>
-                    <p className="text-gray-600">Esclareça as suas questões antes de contribuir.</p>
+                    <h2 className="text-3xl sm:text-4xl font-serif text-garabandal-dark mb-4">{isEn ? 'Frequently Asked Questions' : 'Dúvidas Frequentes'}</h2>
+                    <p className="text-gray-600">{isEn ? 'Clarify your questions before contributing.' : 'Esclareça as suas questões antes de contribuir.'}</p>
                 </motion.div>
 
                 <div className="space-y-4">

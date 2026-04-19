@@ -7,10 +7,12 @@ import { createCheckoutSession } from '../../../lib/payments';
 import { validatePostalCode } from '../../../lib/country-utils';
 import { getAppUrl } from '../../../lib/config';
 import { getMembershipAmountServer } from '../../../lib/membership-pricing';
+import { inferRequestLocale } from '../../../lib/locale-routing';
 
 const bodySchema = z.object({
   amount: z.number().positive(), // Validated but overridden for membership
   type: z.enum(['donation', 'membership']),
+  locale: z.enum(['pt', 'en']).optional(),
   userId: z.string().optional(),
   provider: z.enum(['stripe', 'reduniq']).default('stripe'),
   reduniqSolution: z.number().int().optional(),
@@ -33,6 +35,7 @@ export async function POST(request: Request) {
   try {
     const json = await request.json();
     const data = bodySchema.parse(json);
+    const locale = data.locale || inferRequestLocale(request);
     const { type, userId, provider, donorName, donorEmail } = data;
     const orderRef = provider === 'reduniq'
       ? `reduniq_${Date.now()}_${Math.random().toString(36).substring(7)}`
@@ -58,6 +61,7 @@ export async function POST(request: Request) {
     const checkoutUrl = await createCheckoutSession({
       amount: data.amount,
       type: type,
+      locale,
       userId: userId,
       provider: provider, // Passed through
       orderRef,

@@ -11,6 +11,7 @@ export const getNextMemberNumber = async (supabaseServer: SupabaseClient) => {
             .from('membros')
             .select('numero_socio, is_membro, estado_quota')
             .not('numero_socio', 'is', null)
+            .order('numero_socio', { ascending: true })
             .range(from, from + pageSize - 1);
 
         if (error) throw error;

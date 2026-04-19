@@ -32,6 +32,9 @@ export interface ProductRow {
     tax_rate?: number | null;
     description?: string | null;
     variants?: ProductVariant[] | null;
+    // EN translations
+    name_en?: string | null;
+    description_en?: string | null;
 }
 
 export interface ProductView {
@@ -50,13 +53,16 @@ export interface ProductView {
     tags: string[];
     lowStockThreshold: number;
     allowedCountries: string[];
-    specifications: Record<string, any>; // Stores shipping info too
+    specifications: Record<string, any>;
     taxRate: number;
     description: string;
     typeId: string;
     metadata: Record<string, any>;
     variants: ProductVariant[];
-    slug?: string; // Helpful for links
+    slug?: string;
+    // EN translations
+    name_en?: string;
+    description_en?: string;
 }
 
 // --- NEW CONFIGURATION CONSTANTS ---
@@ -207,7 +213,9 @@ export const normalizeProduct = (p: ProductRow): ProductView => {
         specifications: p.specifications || {},
         taxRate: p.tax_rate ?? 0.23,
         description: p.description || '',
-        variants: Array.isArray(p.variants) ? p.variants : []
+        variants: Array.isArray(p.variants) ? p.variants : [],
+        name_en: p.name_en || '',
+        description_en: p.description_en || '',
     };
 };
 

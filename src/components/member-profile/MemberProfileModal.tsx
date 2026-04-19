@@ -3,6 +3,7 @@ import { supabaseBrowser } from '../../lib/supabase-browser';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, User, MapPin, Save, Camera, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useLocale } from '../../contexts/LocaleContext';
 import {
   formatPostalCode,
   getPhoneInvalidMessage,
@@ -37,6 +38,9 @@ export default function MemberProfileModal({
   onSaved,
   onAvatarUpdated,
 }: Props) {
+  const { locale } = useLocale();
+  const isEn = locale === 'en';
+
   const hydrateFromInitialData = (data: Record<string, any>) => {
     setNome(data.nome || '');
     setTelefone(data.telefone || '');
@@ -92,12 +96,7 @@ export default function MemberProfileModal({
   const countryMeta = useMemo(() => resolveCountryMeta(country), [country]);
 
   const validate = () => {
-    if (!nome || nome.trim().length < 3) return 'Indica o nome completo.';
-
-    // Address and Postal Code are now optional for flexibility
-    // if (!address || address.trim().length < 3) return 'Indica a morada.';
-    // if (!country) return 'Seleciona o país.';
-    // if (!postalCode || postalCode.trim().length < 3) return 'Indica o código postal.';
+    if (!nome || nome.trim().length < 3) return isEn ? 'Provide full name.' : 'Indica o nome completo.';
 
     if (postalCode && country && !validatePostalCode(country, postalCode)) {
       return getPostalInvalidMessage(country);
@@ -115,12 +114,12 @@ export default function MemberProfileModal({
     const file = e.target.files[0];
 
     if (file.size > 5 * 1024 * 1024) {
-      setError("A imagem deve ter no máximo 5MB.");
+      setError(isEn ? 'Image must be less than 5MB.' : "A imagem deve ter no máximo 5MB.");
       return;
     }
 
     if (!supabaseBrowser) {
-      setError("Erro de configuração do Supabase.");
+      setError(isEn ? 'Supabase configuration error.' : "Erro de configuração do Supabase.");
       return;
     }
 
@@ -131,32 +130,21 @@ export default function MemberProfileModal({
 
     try {
       if (!userId) {
-        throw new Error('Sessão inválida. Faz login novamente e volta a tentar.');
+        throw new Error(isEn ? 'Invalid session. Please login again and try.' : 'Sessão inválida. Faz login novamente e volta a tentar.');
       }
       const fileExt = file.name.split('.').pop() || 'jpg';
       const filePath = `${userId}/avatar.${fileExt}`;
 
-      // 2. Upload to Storage (Upsert handles the replacement)
       const { error: uploadError } = await supabaseBrowser.storage
         .from('avatars')
         .upload(filePath, file, { upsert: true, contentType: file.type || 'image/jpeg' });
 
       if (uploadError) throw uploadError;
 
-      // 2. Get Public URL
       const { data } = supabaseBrowser.storage
         .from('avatars')
         .getPublicUrl(filePath);
       const publicUrl = `${data.publicUrl}?v=${Date.now()}`;
-
-      // 3. Update Database Immediately (Upsert to be safe)
-      // We use upsert to create the row if it doesn't exist, or update if it does.
-      // We only touch the avatar_url and id to avoid validation errors on other fields if they are empty
-      // relying on the DB to handle defaults or the fact that it's an update.
-      // However, if it's a NEW row, we might need required fields? 
-      // Usually trigger handles creation, so update should be sufficient. 
-      // But let's stick to update first, and correct if needed.
-      // Actually, user requested "auto-save".
 
       const { error: dbError } = await supabaseBrowser
         .from('membros')
@@ -169,8 +157,6 @@ export default function MemberProfileModal({
 
       if (dbError) throw dbError;
 
-      // 4. Success State
-      // Cleanup: Delete old avatar if exists (Prevent Storage Bloat)
       if (avatarUrl && avatarUrl !== publicUrl && avatarUrl.includes('avatars')) {
         try {
           const oldPath = avatarUrl
@@ -185,54 +171,14 @@ export default function MemberProfileModal({
       }
 
       setAvatarUrl(publicUrl);
-      setPreviewUrl(null); // Clear preview, show real URL
-      toast.success('Foto atualizada com sucesso!');
+      setPreviewUrl(null); 
+      toast.success(isEn ? 'Photo updated successfully!' : 'Foto atualizada com sucesso!');
 
-      // Notify parent to refresh data (e.g. header avatar) WITHOUT closing modal
       await onAvatarUpdated?.();
-
-      // Close modal? User said "Should not need to click save". 
-      // Usually profile modals stay open. We just show success.
-      // But onSaved might close it. Let's check parent behavior.
-      // Parent onSaved: await refreshMemberData(); setShowProfile(false);
-      // Wait, if parent closes the modal, users might be annoyed if they wanted to edit name too.
-      // But the user said "Not need to fill the form".
-      // Let's NOT call onSaved() if it closes the modal.
-      // We should effectively separate "Photo Save" from "Profile Save".
-      // So we need a way to refresh data WITHOUT closing.
-      // The prop `onSaved` in `AccountProfilePage` closes the modal.
-      // I should probably NOT call onSaved, but I need to refresh the parent context data.
-      // Since I can't easily reach the parent context refresh without triggering the close...
-      // I will just show toast success and perhaps RELY on the fact that when they eventually close/save, it syncs?
-      // OR, the image component in parent will update if it uses the same source? 
-      // Parent uses `memberData` from context. Context needs refresh.
-
-      // Hack: We can't refresh parent without onSaved. 
-      // But the user complained "It doesn't update". 
-      // Ideally I should ask for a new prop `onAvatarUpdated`?
-      // Or just assume `onSaved` SHOULD NOT close if it's just an avatar update?
-      // I can't change the parent props easily without checking usage everywhere.
-      // Let's look at AccountProfilePage usage:
-      // onSaved={async () => { await refreshMemberData(); setShowProfile(false); }}
-
-      // Okay, I will NOT call onSaved here. I will just rely on the local state `avatarUrl` updating the modal UI.
-      // The parent background might not update immediately, but the modal WILL.
-      // That satisfies "upload gave well". 
-      // Wait, "não altera a foto de perfil nem nada" -> Might mean the header/background.
-      // If I don't refresh context, header won't change.
-      // But if I call onSaved, modal closes.
-
-      // I'll stick to: Update DB + Update Local State + Toast.
-      // When they eventually close or save form, it syncs.
-      // If they refresh page, it's there.
-
-      // Wait, I can try to force a router refresh? No.
-      // I'll add a toast "Foto guardada!"
 
     } catch (err: any) {
       console.error(err);
-      setError(err?.message || "Erro ao carregar a imagem. Tenta novamente.");
-      // Revert preview if failed
+      setError(err?.message || (isEn ? 'Error loading image. Try again.' : "Erro ao carregar a imagem. Tenta novamente."));
       setPreviewUrl(null);
     } finally {
       setUploadingAvatar(false);
@@ -250,11 +196,11 @@ export default function MemberProfileModal({
       return;
     }
     if (!supabaseBrowser) {
-      setError('Supabase não configurado.');
+      setError(isEn ? 'Supabase not configured.' : 'Supabase não configurado.');
       return;
     }
     if (!userId) {
-      setError('Sessão inválida. Faz login novamente.');
+      setError(isEn ? 'Invalid session. Please login again and try.' : 'Sessão inválida. Faz login novamente.');
       return;
     }
 
@@ -262,9 +208,6 @@ export default function MemberProfileModal({
 
     try {
       let finalAvatarUrl = avatarUrl;
-
-      // Avatar is now handled separately via instant upload
-      // if (avatarFile) { ... } logic removed
 
       const payload = {
         id: userId,
@@ -283,14 +226,14 @@ export default function MemberProfileModal({
         .upsert(payload, { onConflict: 'id' });
 
       if (upsertError) {
-        setError(upsertError.message || 'Não foi possível gravar.');
+        setError(upsertError.message || (isEn ? 'Could not save.' : 'Não foi possível gravar.'));
         return;
       }
 
       onSaved?.();
     } catch (err: any) {
       console.error(err);
-      setError(err?.message || 'Erro ao gravar dados.');
+      setError(err?.message || (isEn ? 'Error saving data.' : 'Erro ao gravar dados.'));
     } finally {
       setSaving(false);
     }
@@ -299,14 +242,12 @@ export default function MemberProfileModal({
   const inputClass = "w-full rounded-xl border-gray-200 bg-gray-50/50 py-3 px-4 text-gray-900 focus:bg-white focus:border-garabandal-gold focus:ring-garabandal-gold/20 transition-all outline-none md:text-sm";
   const labelClass = "block text-xs font-bold uppercase tracking-wider text-gray-400 mb-1.5 ml-1";
 
-  // Display Image Source
   const displayImage = previewUrl || avatarUrl;
 
   return (
     <AnimatePresence>
       {visible && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6">
-          {/* Backdrop */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -315,20 +256,17 @@ export default function MemberProfileModal({
             className="absolute inset-0 bg-garabandal-mist/90 backdrop-blur-sm"
           />
 
-          {/* Modal Content */}
           <motion.div
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
             className="relative w-full max-w-2xl bg-white rounded-3xl shadow-xl overflow-hidden flex flex-col max-h-[90vh]"
           >
-            {/* Header / Avatar Section */}
             <div className="p-6 sm:p-8 border-b border-gray-100 flex flex-col items-center justify-center bg-gray-50/30 relative z-10">
               <button onClick={onClose} className="absolute top-6 right-6 p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-all">
                 <X className="w-5 h-5" />
               </button>
 
-              {/* Avatar Uploader */}
               <div className="relative group cursor-pointer" onClick={() => fileInputRef.current?.click()}>
                 <div className="w-28 h-28 rounded-full bg-white border-4 border-white shadow-lg overflow-hidden flex items-center justify-center relative">
                   {displayImage ? (
@@ -339,12 +277,10 @@ export default function MemberProfileModal({
                     </div>
                   )}
 
-                  {/* Overlay on Hover */}
                   <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                     <Camera className="w-8 h-8 text-white drop-shadow-md" />
                   </div>
 
-                  {/* Loading State */}
                   {uploadingAvatar && (
                     <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-20">
                       <Loader2 className="w-8 h-8 text-white animate-spin" />
@@ -352,7 +288,6 @@ export default function MemberProfileModal({
                   )}
                 </div>
 
-                {/* Badge */}
                 <div className="absolute bottom-1 right-1 bg-garabandal-gold text-garabandal-dark p-2 rounded-full shadow-md border-2 border-white transform translate-x-1 translate-y-1">
                   <Camera className="w-4 h-4" />
                 </div>
@@ -366,11 +301,10 @@ export default function MemberProfileModal({
                 />
               </div>
 
-              <h2 className="font-serif text-2xl font-bold text-garabandal-dark mt-4">{nome || 'Novo Membro'}</h2>
-              <p className="text-gray-500 text-sm">Atualiza a tua foto e dados pessoais.</p>
+              <h2 className="font-serif text-2xl font-bold text-garabandal-dark mt-4">{nome || (isEn ? 'New Member' : 'Novo Membro')}</h2>
+              <p className="text-gray-500 text-sm">{isEn ? 'Update your photo and personal data.' : 'Atualiza a tua foto e dados pessoais.'}</p>
             </div>
 
-            {/* Form Fields */}
             <div className="flex-1 overflow-y-auto p-6 sm:p-8 space-y-6">
               {error && (
                 <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="p-4 rounded-xl bg-red-50 text-red-600 text-sm font-bold border border-red-100 flex items-center gap-2">
@@ -381,30 +315,30 @@ export default function MemberProfileModal({
               <div className="space-y-4">
                 <div className="flex items-center gap-2 mb-2">
                   <User className="w-4 h-4 text-garabandal-gold" />
-                  <h3 className="font-serif text-lg font-bold text-gray-900">Identificação</h3>
+                  <h3 className="font-serif text-lg font-bold text-gray-900">{isEn ? 'Identification' : 'Identificação'}</h3>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="md:col-span-2">
-                    <label className={labelClass}>Nome Completo *</label>
-                    <input value={nome} onChange={(e) => { setDirty(true); setNome(e.target.value); }} className={inputClass} placeholder="Nome completo" />
+                    <label className={labelClass}>{isEn ? 'Full Name *' : 'Nome Completo *'}</label>
+                    <input value={nome} onChange={(e) => { setDirty(true); setNome(e.target.value); }} className={inputClass} placeholder={isEn ? 'Full name' : "Nome completo"} />
                   </div>
                   <div>
-                    <label className={labelClass}>Email da Conta</label>
+                    <label className={labelClass}>{isEn ? 'Account Email' : 'Email da Conta'}</label>
                     <input
                       value={currentEmail || initialData.email || ''}
                       className={`${inputClass} bg-gray-100`}
                       type="email"
                       readOnly
                     />
-                    <p className="mt-1 ml-1 text-[11px] text-gray-500">Para alterar o email, usa a secção Segurança.</p>
+                    <p className="mt-1 ml-1 text-[11px] text-gray-500">{isEn ? 'To change the email, use the Security section.' : 'Para alterar o email, usa a secção Segurança.'}</p>
                   </div>
                   <div>
-                    <label className={labelClass}>Telefone *</label>
+                    <label className={labelClass}>{isEn ? 'Phone *' : 'Telefone *'}</label>
                     <input value={telefone} onChange={(e) => { setDirty(true); setTelefone(withCountryPrefix(e.target.value, country)); }} onBlur={() => setTelefone(normalizePhone(withCountryPrefix(telefone, country)))} className={inputClass} placeholder={countryMeta?.phoneExample} />
                   </div>
                   <div>
-                    <label className={labelClass}>NIF / CPF (opcional)</label>
-                    <input value={nif} onChange={(e) => { setDirty(true); setNif(e.target.value); }} className={inputClass} placeholder="Número de contribuinte (NIF/CPF)" />
+                    <label className={labelClass}>{isEn ? 'Tax ID (optional)' : 'NIF / CPF (opcional)'}</label>
+                    <input value={nif} onChange={(e) => { setDirty(true); setNif(e.target.value); }} className={inputClass} placeholder={isEn ? 'Tax ID (NIF/CPF)' : "Número de contribuinte (NIF/CPF)"} />
                   </div>
                 </div>
               </div>
@@ -414,13 +348,13 @@ export default function MemberProfileModal({
               <div className="space-y-4">
                 <div className="flex items-center gap-2 mb-2">
                   <MapPin className="w-4 h-4 text-garabandal-gold" />
-                  <h3 className="font-serif text-lg font-bold text-gray-900">Morada</h3>
+                  <h3 className="font-serif text-lg font-bold text-gray-900">{isEn ? 'Address' : 'Morada'}</h3>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="md:col-span-2">
-                    <label className={labelClass}>País *</label>
+                    <label className={labelClass}>{isEn ? 'Country *' : 'País *'}</label>
                     <select value={country} onChange={(e) => { setDirty(true); setCountry(e.target.value); }} className={inputClass}>
-                      <option value="">Seleciona o país</option>
+                      <option value="">{isEn ? 'Select country' : 'Seleciona o país'}</option>
                       {countryOptions.map((opt) => (
                         <option key={opt.code} value={opt.code}>
                           {opt.label}
@@ -429,11 +363,11 @@ export default function MemberProfileModal({
                     </select>
                   </div>
                   <div className="md:col-span-2">
-                    <label className={labelClass}>Morada (opcional)</label>
-                    <input value={address} onChange={(e) => { setDirty(true); setAddress(e.target.value); }} className={inputClass} placeholder="Rua, número, andar" />
+                    <label className={labelClass}>{isEn ? 'Address (optional)' : 'Morada (opcional)'}</label>
+                    <input value={address} onChange={(e) => { setDirty(true); setAddress(e.target.value); }} className={inputClass} placeholder={isEn ? "Street, number, floor" : "Rua, número, andar"} />
                   </div>
                   <div>
-                    <label className={labelClass}>Código Postal / CEP (opcional)</label>
+                    <label className={labelClass}>{isEn ? 'Postal Code / ZIP (optional)' : 'Código Postal / CEP (opcional)'}</label>
                     <input
                       value={postalCode}
                       onChange={(e) => { setDirty(true); setPostalCode(formatPostalCode(e.target.value, country)); }}
@@ -446,14 +380,13 @@ export default function MemberProfileModal({
               </div>
             </div>
 
-            {/* Footer Actions */}
             <div className="p-6 sm:p-8 border-t border-gray-100 bg-gray-50/50 flex justify-end gap-3 z-10">
               {onClose && (
                 <button
                   onClick={onClose}
                   className="px-6 py-2.5 rounded-xl font-bold text-gray-500 hover:bg-gray-100 hover:text-gray-900 transition-colors"
                 >
-                  Cancelar
+                  {isEn ? 'Cancel' : 'Cancelar'}
                 </button>
               )}
               <button
@@ -464,12 +397,12 @@ export default function MemberProfileModal({
                 {saving ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    A guardar...
+                    {isEn ? 'Saving...' : 'A guardar...'}
                   </>
                 ) : (
                   <>
                     <Save className="w-4 h-4" />
-                    Guardar
+                    {isEn ? 'Save' : 'Guardar'}
                   </>
                 )}
               </button>

@@ -5,9 +5,8 @@ import VIPLayout from '../../components/member/VIPLayout';
 import Link from 'next/link';
 import { supabaseBrowser } from '../../lib/supabase-browser';
 import { MapPin, Calendar, Users, ChevronRight, Info, ShieldCheck } from 'lucide-react';
-import { format } from 'date-fns';
-import { pt } from 'date-fns/locale';
 import { PilgrimageHero } from '../../components/pilgrimage/PilgrimageHero';
+import { useLocale } from '../../contexts/LocaleContext';
 import { PilgrimageCard } from '../../components/pilgrimage/PilgrimageCard';
 import { PastPilgrimagesGallery } from '../../components/pilgrimage/PastPilgrimagesGallery';
 import { PilgrimageTestimonials } from '../../components/pilgrimage/PilgrimageTestimonials';
@@ -36,6 +35,8 @@ type Pilgrimage = {
 };
 
 export default function PilgrimagesPage() {
+    const { t } = useLocale();
+    const p = t.pilgrimages;
     const [pilgrimages, setPilgrimages] = useState<Pilgrimage[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -123,8 +124,8 @@ export default function PilgrimagesPage() {
                                 <Users className="w-6 h-6" />
                             </div>
                             <div>
-                                <h3 className="font-bold text-slate-900 mb-1">Pequenos Grupos</h3>
-                                <p className="text-sm text-slate-500 leading-relaxed">Experiência intimista e acompanhamento personalizado.</p>
+                                <h3 className="font-bold text-slate-900 mb-1">{p.hero.trustSmallGroups}</h3>
+                                <p className="text-sm text-slate-500 leading-relaxed">{p.hero.trustSmallGroupsDesc}</p>
                             </div>
                         </div>
                         <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] flex items-start gap-4 hover:transform hover:-translate-y-1 transition-all duration-300">
@@ -132,8 +133,8 @@ export default function PilgrimagesPage() {
                                 <ShieldCheck className="w-6 h-6" />
                             </div>
                             <div>
-                                <h3 className="font-bold text-slate-900 mb-1">100% Organizado</h3>
-                                <p className="text-sm text-slate-500 leading-relaxed">Voos, hotéis e refeições incluídos. Sem preocupações.</p>
+                                <h3 className="font-bold text-slate-900 mb-1">{p.hero.trustOrganized}</h3>
+                                <p className="text-sm text-slate-500 leading-relaxed">{p.hero.trustOrganizedDesc}</p>
                             </div>
                         </div>
                         <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] flex items-start gap-4 hover:transform hover:-translate-y-1 transition-all duration-300">
@@ -141,8 +142,8 @@ export default function PilgrimagesPage() {
                                 <Calendar className="w-6 h-6" />
                             </div>
                             <div>
-                                <h3 className="font-bold text-slate-900 mb-1">Roteiro Espiritual</h3>
-                                <p className="text-sm text-slate-500 leading-relaxed">Programa diário com missa, terço e conferências.</p>
+                                <h3 className="font-bold text-slate-900 mb-1">{p.hero.trustSpiritual}</h3>
+                                <p className="text-sm text-slate-500 leading-relaxed">{p.hero.trustSpiritualDesc}</p>
                             </div>
                         </div>
                     </div>
@@ -161,8 +162,8 @@ export default function PilgrimagesPage() {
                     {/* Listings Header */}
                     <div className="flex items-end justify-between mb-8 px-2">
                         <div>
-                            <h2 className="text-3xl font-serif font-bold text-slate-900">Próximas Partidas</h2>
-                            <p className="text-slate-500 mt-1">Reserve o seu lugar antes que esgote.</p>
+                            <h2 className="text-3xl font-serif font-bold text-slate-900">{p.upcoming}</h2>
+                            <p className="text-slate-500 mt-1">{p.upcomingSubtitle}</p>
                         </div>
                     </div>
 
@@ -170,17 +171,15 @@ export default function PilgrimagesPage() {
                     {loading ? (
                         <div className="text-center py-24">
                             <div className="animate-spin w-10 h-10 border-3 border-yellow-500 border-t-transparent rounded-full mx-auto mb-6" />
-                            <p className="text-slate-500 font-medium animate-pulse">A carregar viagens inspiradoras...</p>
+                            <p className="text-slate-500 font-medium animate-pulse">{p.loading}</p>
                         </div>
                     ) : pilgrimages.length === 0 ? (
                         <div className="bg-white rounded-[2rem] border-2 border-dashed border-slate-200 p-16 text-center shadow-sm">
                             <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-6 text-slate-300">
                                 <MapPin className="w-10 h-10" />
                             </div>
-                            <h3 className="text-2xl font-serif font-bold text-slate-900 mb-3">Sem peregrinações ativas</h3>
-                            <p className="text-slate-500 max-w-md mx-auto leading-relaxed">
-                                De momento não temos inscrições abertas. Subscreva a newsletter para ser o primeiro a saber.
-                            </p>
+                            <h3 className="text-2xl font-serif font-bold text-slate-900 mb-3">{p.noActive}</h3>
+                            <p className="text-slate-500 max-w-md mx-auto leading-relaxed">{p.noActiveDesc}</p>
                         </div>
                     ) : (
                         <div className="grid grid-cols-1 gap-8">
@@ -199,17 +198,13 @@ export default function PilgrimagesPage() {
                                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-8 h-8"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" /><path d="M12 5 9.04 11H6a5.5 5.5 0 0 0 5.5 5.5l.5.5" /></svg>
                                 </div>
                                 <div>
-                                    <h3 className="text-xl md:text-2xl font-serif font-bold text-indigo-950 mb-3">Mais do que uma Viagem, uma Missão</h3>
+                                    <h3 className="text-xl md:text-2xl font-serif font-bold text-indigo-950 mb-3">{p.missionTitle}</h3>
                                     <div className="space-y-4 text-indigo-900/80 leading-relaxed max-w-2xl">
+                                        <p>{p.missionDesc}</p>
                                         <p>
-                                            Cada peregrinação que organiza connosco não é apenas um caminho geografico, mas uma oferta espiritual.
+                                            <span className="font-semibold text-indigo-900">{p.missionDonation}</span>
                                         </p>
-                                        <p>
-                                            <span className="font-semibold text-indigo-900">A sua inscrição é, em si mesma, uma doação</span> que sustenta a obra de evangelização do Apostolado e, de modo especial, apoia a <span className="font-bold underline decoration-indigo-300 decoration-2 underline-offset-2">construção da Casa do Apostolado</span>.
-                                        </p>
-                                        <p className="text-sm italic opacity-90">
-                                            Ao peregrinar, torna-se uma "pedra viva" nesta construção, ajudando a erguer um espaço de acolhimento e oração para as gerações futuras.
-                                        </p>
+                                        <p className="text-sm italic opacity-90">{p.missionDonationDesc}</p>
                                     </div>
                                 </div>
                             </div>
@@ -221,10 +216,8 @@ export default function PilgrimagesPage() {
                     <div className="mt-20 bg-slate-900 rounded-3xl p-8 md:p-12 text-center relative overflow-hidden">
                         <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-yellow-500/10 rounded-full blur-[80px] translate-x-1/2 -translate-y-1/2" />
                         <div className="relative z-10 max-w-2xl mx-auto">
-                            <h3 className="text-2xl md:text-3xl font-serif font-bold text-white mb-4">Não encontrou a data ideal?</h3>
-                            <p className="text-slate-400 mb-8">
-                                Deixe o seu contacto para receber notícias sobre novas datas e caminhos de peregrinação.
-                            </p>
+                            <h3 className="text-2xl md:text-3xl font-serif font-bold text-white mb-4">{p.waitlistTitle}</h3>
+                            <p className="text-slate-400 mb-8">{p.waitlistDesc}</p>
                             <GeneralWaitlistForm />
                         </div>
                     </div>
@@ -236,6 +229,8 @@ export default function PilgrimagesPage() {
 }
 
 function GeneralWaitlistForm() {
+    const { t } = useLocale();
+    const p = t.pilgrimages;
     const [email, setEmail] = useState('');
     const [loading, setLoading] = useState(false);
     const [status, setStatus] = useState<'idle' | 'success' | 'error'>('idle');
@@ -272,8 +267,8 @@ function GeneralWaitlistForm() {
     if (status === 'success') {
         return (
             <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-6 max-w-md mx-auto animate-fade-in text-center">
-                <p className="text-green-400 font-medium mb-1">✨ Inscrição confirmada</p>
-                <p className="text-green-400/80 text-sm">Será contactado pelo Apostolado quando surgir uma nova peregrinação.</p>
+                <p className="text-green-400 font-medium mb-1">{p.waitlistConfirmed}</p>
+                <p className="text-green-400/80 text-sm">{p.waitlistConfirmedDesc}</p>
             </div>
         );
     }
@@ -284,7 +279,7 @@ function GeneralWaitlistForm() {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="O seu melhor email"
+                placeholder={p.waitlistPlaceholder}
                 disabled={loading}
                 className="w-full sm:flex-1 h-16 shrink-0 text-lg rounded-xl px-4 bg-white/10 border border-white/10 text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-yellow-500/50 disabled:opacity-50 appearance-none"
             />
@@ -293,7 +288,7 @@ function GeneralWaitlistForm() {
                 disabled={loading}
                 className="w-full sm:w-auto h-16 shrink-0 px-8 bg-yellow-500 hover:bg-yellow-400 text-slate-900 font-bold rounded-xl transition-colors disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center min-w-[120px] text-lg"
             >
-                {loading ? <div className="animate-spin w-5 h-5 border-2 border-slate-900 border-t-transparent rounded-full" /> : 'Avise-me'}
+                {loading ? <div className="animate-spin w-5 h-5 border-2 border-slate-900 border-t-transparent rounded-full" /> : p.waitlistButton}
             </button>
             {status === 'error' && (
                 <div className="absolute -bottom-8 left-0 w-full text-center">

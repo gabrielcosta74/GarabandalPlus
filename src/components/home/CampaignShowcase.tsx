@@ -7,12 +7,15 @@ import { ArrowUpRight, Home, Heart } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { DonationMeta, formatCurrency } from '../../lib/donations';
+import { useLocale } from '../../contexts/LocaleContext';
 
 interface CampaignShowcaseProps {
     meta: DonationMeta;
 }
 
 const CampaignShowcase: React.FC<CampaignShowcaseProps> = ({ meta }) => {
+    const { t, locale } = useLocale();
+    const isEn = locale === 'en';
     const ref = useRef<HTMLDivElement>(null);
     const { scrollYProgress } = useScroll({
         target: ref,
@@ -73,22 +76,24 @@ const CampaignShowcase: React.FC<CampaignShowcaseProps> = ({ meta }) => {
                             <div className="relative z-10">
                                 <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-300 text-[10px] font-bold uppercase tracking-[0.2em] mb-8">
                                     <Home className="w-3 h-3" />
-                                    Projeto Casa de Acolhimento
+                                    {isEn ? 'Welcome House Project' : 'Projeto Casa de Acolhimento'}
                                 </span>
 
                                 <h2 className="font-serif text-4xl md:text-5xl lg:text-6xl text-white mb-6 leading-[1.1]">
-                                    {CAMPAIGN_CONTENT.title}
+                                    {isEn ? 'Welcome House' : CAMPAIGN_CONTENT.title}
                                 </h2>
 
                                 <p className="text-xl text-slate-300 font-light leading-relaxed mb-8 border-l-2 border-amber-500/50 pl-6">
-                                    {CAMPAIGN_CONTENT.description}
+                                    {isEn
+                                        ? 'The Association has acquired a house in the mountains near Garabandal to serve as support for pilgrims seeking to encounter God through Garabandal.'
+                                        : CAMPAIGN_CONTENT.description}
                                 </p>
 
                                 <div className="flex flex-col gap-6">
                                     {/* Progress Bar */}
                                     <div className="relative pt-2">
                                         <div className="flex justify-between items-end mb-2 text-sm font-medium">
-                                            <span className="text-amber-400">Progresso Atual</span>
+                                            <span className="text-amber-400">{isEn ? 'Current Progress' : 'Progresso Atual'}</span>
                                             <span className="text-white">{progress}%</span>
                                         </div>
                                         <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden">
@@ -107,18 +112,18 @@ const CampaignShowcase: React.FC<CampaignShowcaseProps> = ({ meta }) => {
                                     {/* Stats Grid */}
                                     <div className="grid grid-cols-2 gap-4">
                                         <div className="bg-black/20 rounded-2xl p-4 border border-white/5">
-                                            <div className="text-xs text-white/50 uppercase tracking-widest mb-1">Angariado</div>
+                                            <div className="text-xs text-white/50 uppercase tracking-widest mb-1">{isEn ? 'Raised' : 'Angariado'}</div>
                                             <div className="text-2xl md:text-3xl font-serif text-white">{formatCurrency(meta.raised)}</div>
                                         </div>
                                         <div className="bg-black/20 rounded-2xl p-4 border border-white/5">
-                                            <div className="text-xs text-white/50 uppercase tracking-widest mb-1">Meta Final</div>
+                                            <div className="text-xs text-white/50 uppercase tracking-widest mb-1">{isEn ? 'Final Goal' : 'Meta Final'}</div>
                                             <div className="text-xl md:text-2xl font-serif text-white/60">{formatCurrency(meta.goal)}</div>
                                         </div>
                                     </div>
 
-                                    <Link href="/donations" className="mt-4">
+                                    <Link href={t.urls.donations} className="mt-4">
                                         <button className="cursor-pointer w-full group relative bg-amber-500 hover:bg-amber-400 text-slate-900 px-8 py-5 rounded-xl font-bold uppercase tracking-widest text-xs transition-all duration-300 shadow-xl shadow-amber-900/20 flex items-center justify-center gap-3">
-                                            <span>{CAMPAIGN_CONTENT.cta}</span>
+                                            <span>{isEn ? 'Donate to the Project' : CAMPAIGN_CONTENT.cta}</span>
                                             <ArrowUpRight className="w-4 h-4 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform duration-300" />
                                         </button>
                                     </Link>
@@ -140,7 +145,7 @@ const CampaignShowcase: React.FC<CampaignShowcaseProps> = ({ meta }) => {
                             <div className="relative bg-slate-900/90 backdrop-blur-sm border border-white/10 p-8 rounded-[2rem] text-center">
                                 <Heart className="w-8 h-8 text-amber-500 mx-auto mb-4 fill-amber-500/20" />
                                 <p className="font-serif text-2xl text-white italic mb-4">
-                                    "{CAMPAIGN_CONTENT.subtitle}"
+                                    "{isEn ? 'Your support builds this refuge.' : CAMPAIGN_CONTENT.subtitle}"
                                 </p>
                                 <div className="w-12 h-1 bg-gradient-to-r from-amber-500 to-transparent mx-auto rounded-full" />
                             </div>

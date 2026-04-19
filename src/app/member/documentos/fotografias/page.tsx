@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { Toaster, toast } from 'sonner';
+import { useLocale } from '../../../../contexts/LocaleContext';
 
 type MemberGalleryImage = {
     id: string;
@@ -31,8 +32,11 @@ type MemberContent = {
 };
 
 export default function FotografiasPage() {
+    const { locale } = useLocale();
     const [contents, setContents] = useState<MemberContent[]>([]);
     const [loading, setLoading] = useState(true);
+    const isEn = locale === 'en';
+    const documentsPath = isEn ? '/en/member/documents' : '/member/documentos';
 
     // Gallery Viewer State
     const [activeGallery, setActiveGallery] = useState<MemberContent | null>(null);
@@ -42,12 +46,12 @@ export default function FotografiasPage() {
         const fetchContents = async () => {
             try {
                 const token = await getBrowserAccessToken();
-                const res = await fetch('/api/member/contents', {
+                const res = await fetch(`/api/member/contents?locale=${locale}`, {
                     headers: { Authorization: `Bearer ${token}` },
                     cache: 'no-store'
                 });
                 const data = await res.json().catch(() => null);
-                if (!res.ok) throw new Error(data?.error || "Falha ao carregar o arquivo confidencial");
+                if (!res.ok) throw new Error(data?.error || (isEn ? 'Failed to load the private archive' : 'Falha ao carregar o arquivo confidencial'));
                 setContents(data?.contents || []);
             } catch (error: any) {
                 toast.error(error.message);
@@ -56,7 +60,7 @@ export default function FotografiasPage() {
             }
         };
         fetchContents();
-    }, []);
+    }, [isEn, locale]);
 
     const openGallery = (content: MemberContent) => {
         setActiveGallery(content);
@@ -91,24 +95,24 @@ export default function FotografiasPage() {
             
             <div className="space-y-10 pb-24">
                 <div className="mt-8 flex items-center gap-4">
-                    <Link href="/member/documentos" className="p-2 bg-slate-800 hover:bg-slate-700 text-white rounded-full transition-colors flex items-center justify-center">
+                    <Link href={documentsPath} className="p-2 bg-slate-800 hover:bg-slate-700 text-white rounded-full transition-colors flex items-center justify-center">
                         <ArrowLeft className="w-5 h-5" />
                     </Link>
-                    <h1 className="text-3xl font-serif font-bold text-white tracking-tight">Galerias Fotográficas</h1>
+                    <h1 className="text-3xl font-serif font-bold text-white tracking-tight">{isEn ? 'Photo Galleries' : 'Galerias Fotográficas'}</h1>
                 </div>
 
                 {loading ? (
                     <div className="flex flex-col items-center justify-center py-32 animate-in fade-in duration-500">
                         <Loader2 className="w-12 h-12 text-emerald-500 animate-spin mb-6" />
-                        <p className="text-slate-400 font-medium tracking-wide">Aceder ao Arquivo Confidencial...</p>
+                        <p className="text-slate-400 font-medium tracking-wide">{isEn ? 'Accessing the private archive...' : 'Aceder ao Arquivo Confidencial...'}</p>
                     </div>
                 ) : galleries.length === 0 ? (
                     <div className="bg-slate-900/50 border border-slate-800 rounded-3xl p-16 text-center animate-in fade-in zoom-in-95 duration-500">
                         <div className="w-24 h-24 bg-blue-500/10 rounded-full flex items-center justify-center mx-auto mb-6">
                             <ImageIcon className="w-10 h-10 text-blue-500" />
                         </div>
-                        <h3 className="text-2xl font-serif font-bold text-white mb-3">O Arquivo Encontra-se Vazio</h3>
-                        <p className="text-slate-400 max-w-md mx-auto leading-relaxed">De momento não existem galerias partilhadas.</p>
+                        <h3 className="text-2xl font-serif font-bold text-white mb-3">{isEn ? 'The Archive Is Empty' : 'O Arquivo Encontra-se Vazio'}</h3>
+                        <p className="text-slate-400 max-w-md mx-auto leading-relaxed">{isEn ? 'There are no shared galleries at the moment.' : 'De momento não existem galerias partilhadas.'}</p>
                     </div>
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -135,9 +139,9 @@ export default function FotografiasPage() {
                                     
                                     <div className="relative z-10 p-6 w-full">
                                         <div className="flex flex-col gap-3">
-                                            <div className="inline-flex items-center self-start gap-1.5 px-3 py-1.5 bg-blue-500/20 text-blue-300 rounded-lg text-xs font-bold backdrop-blur-md border border-blue-500/30">
-                                                <ImageIcon className="w-3.5 h-3.5" />
-                                                {count} Fotografias
+                                                <div className="inline-flex items-center self-start gap-1.5 px-3 py-1.5 bg-blue-500/20 text-blue-300 rounded-lg text-xs font-bold backdrop-blur-md border border-blue-500/30">
+                                                    <ImageIcon className="w-3.5 h-3.5" />
+                                                {count} {count === 1 ? (isEn ? 'Photo' : 'Fotografia') : (isEn ? 'Photos' : 'Fotografias')}
                                             </div>
                                             <h3 className="font-serif font-bold text-white text-xl leading-snug group-hover:text-blue-300 transition-colors">{gallery.title}</h3>
                                         </div>

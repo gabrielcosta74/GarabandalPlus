@@ -3,6 +3,7 @@ import { supabaseServer } from '../../../../lib/supabase';
 import { getAppUrl } from '../../../../lib/config';
 import { reduniqClient } from '../../../../lib/reduniq/client';
 import { checkRateLimit } from '../../../../lib/rate-limit';
+import { inferRequestLocale, withLocalePrefix } from '../../../../lib/locale-routing';
 import {
     buildPilgrimageReduniqFeeNote,
     calculatePilgrimageReduniqCharge,
@@ -40,6 +41,8 @@ const toSafeCheckoutError = (error: unknown): string => {
 
 export async function POST(req: Request) {
     try {
+        const locale = inferRequestLocale(req);
+        const bookingPathBase = withLocalePrefix('/pilgrimages/registration', locale);
         const rateLimit = checkRateLimit(req, {
             keyPrefix: 'payments-checkout',
             windowMs: 60_000,
@@ -199,8 +202,8 @@ export async function POST(req: Request) {
         let selectedOrigin = fallbackOrigin;
 
         for (const candidateOrigin of originCandidates.length ? originCandidates : [fallbackOrigin]) {
-            const successUrl = `${candidateOrigin}/peregrinacoes/inscricao/${booking.id}?provider=reduniq&orderRef=${orderRef}&status=success`;
-            const cancelUrl = `${candidateOrigin}/peregrinacoes/inscricao/${booking.id}?provider=reduniq&orderRef=${orderRef}&status=failed&canceled=true`;
+            const successUrl = `${candidateOrigin}${bookingPathBase}/${booking.id}?provider=reduniq&orderRef=${orderRef}&status=success`;
+            const cancelUrl = `${candidateOrigin}${bookingPathBase}/${booking.id}?provider=reduniq&orderRef=${orderRef}&status=failed&canceled=true`;
             const notificationUrl = `${candidateOrigin}/api/webhooks/reduniq`;
 
             const attemptInit = async (action: 100 | 101 = 101) => reduniqClient.initiatePayment({
@@ -210,7 +213,7 @@ export async function POST(req: Request) {
                 returnUrlError: cancelUrl,
                 notificationUrl,
                 description: safeDescription,
-                languageCode: 'por',
+                languageCode: locale === 'en' ? 'eng' : 'por',
                 action,
             });
 

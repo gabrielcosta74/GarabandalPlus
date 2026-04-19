@@ -31,6 +31,7 @@ type LibraryItem = {
 
 import useSWR from 'swr';
 import { useAuth } from '../../contexts/AuthContext';
+import { useLocale } from '../../contexts/LocaleContext';
 
 const fetchLibrary = async (url: string) => {
   const { data: { session } } = await supabaseBrowser.auth.getSession();
@@ -49,11 +50,13 @@ const fetchLibrary = async (url: string) => {
 
 export default function BibliotecaPage() {
   const { user, loading: authLoading } = useAuth();
+  const { locale } = useLocale();
+  const isEn = locale === 'en';
   const formatShortDate = (value?: string | null) => {
     if (!value) return '-';
     const dt = new Date(value);
     if (Number.isNaN(dt.getTime())) return '-';
-    return new Intl.DateTimeFormat('pt-PT', { dateStyle: 'short' }).format(dt);
+    return new Intl.DateTimeFormat(isEn ? 'en-GB' : 'pt-PT', { dateStyle: 'short' }).format(dt);
   };
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -103,8 +106,8 @@ export default function BibliotecaPage() {
 
   return (
     <DashboardShell
-      title="Biblioteca Digital"
-      subtitle="Acede aos teus livros e documentos digitais a qualquer momento."
+      title={isEn ? 'Digital Library' : 'Biblioteca Digital'}
+      subtitle={isEn ? 'Access your digital books and documents at any time.' : 'Acede aos teus livros e documentos digitais a qualquer momento.'}
     >
       {loading ? (
         <div className="py-20 flex justify-center">
@@ -119,11 +122,11 @@ export default function BibliotecaPage() {
           <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-6">
             <PackageOpen className="w-8 h-8 text-gray-400" />
           </div>
-          <h2 className="font-serif text-2xl font-bold text-garabandal-dark mb-2">A tua estante está vazia</h2>
-          <p className="text-gray-500 max-w-md mx-auto mb-8">Quando comprares um PDF ou livro digital na nossa loja, ele aparecerá aqui automaticamente.</p>
-          <Link href="/loja-online" className="px-6 py-3 bg-garabandal-gold text-garabandal-dark font-bold rounded-xl hover:bg-yellow-400 transition-all shadow-lg hover:shadow-xl inline-flex items-center gap-2">
+          <h2 className="font-serif text-2xl font-bold text-garabandal-dark mb-2">{isEn ? 'Your shelf is empty' : 'A tua estante está vazia'}</h2>
+          <p className="text-gray-500 max-w-md mx-auto mb-8">{isEn ? 'When you buy a PDF or digital book in our store, it will appear here automatically.' : 'Quando comprares um PDF ou livro digital na nossa loja, ele aparecerá aqui automaticamente.'}</p>
+          <Link href={isEn ? '/en/store' : '/loja-online'} className="px-6 py-3 bg-garabandal-gold text-garabandal-dark font-bold rounded-xl hover:bg-yellow-400 transition-all shadow-lg hover:shadow-xl inline-flex items-center gap-2">
             <BookOpen className="w-4 h-4" />
-            Explorar Loja Online
+            {isEn ? 'Explore Online Store' : 'Explorar Loja Online'}
           </Link>
         </div>
       ) : (
@@ -134,7 +137,7 @@ export default function BibliotecaPage() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               <input
                 type="text"
-                placeholder="Pesquisar por título..."
+                placeholder={isEn ? 'Search by title...' : 'Pesquisar por título...'}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 focus:border-garabandal-gold focus:ring-garabandal-gold/20 outline-none transition-all"
@@ -145,7 +148,7 @@ export default function BibliotecaPage() {
                 onClick={() => setFilterFormat('all')}
                 className={`px-4 py-2 rounded-lg text-sm font-bold whitespace-nowrap transition-all ${filterFormat === 'all' ? 'bg-garabandal-dark text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
               >
-                Todos
+                {isEn ? 'All' : 'Todos'}
               </button>
               <button
                 onClick={() => setFilterFormat('pdf')}
@@ -159,7 +162,7 @@ export default function BibliotecaPage() {
           {/* Grid */}
           {filteredItems.length === 0 ? (
             <div className="text-center py-12">
-              <p className="text-gray-400">Nenhum item encontrado.</p>
+              <p className="text-gray-400">{isEn ? 'No items found.' : 'Nenhum item encontrado.'}</p>
             </div>
           ) : (
             <motion.div
@@ -187,18 +190,18 @@ export default function BibliotecaPage() {
                     </div>
                   </div>
                   <div className="flex-1 flex flex-col">
-                    <div className="text-xs text-gray-400 font-mono mb-1">Ref. última compra: {item.orderRef}</div>
+                    <div className="text-xs text-gray-400 font-mono mb-1">{isEn ? 'Last order ref.' : 'Ref. última compra'}: {item.orderRef}</div>
                     <h3 className="font-serif text-lg font-bold text-gray-900 mb-2 line-clamp-2 leading-tight">{item.product.name}</h3>
                     <div className="flex flex-wrap items-center gap-2 text-[11px] mb-2">
                       <span className="px-2 py-1 rounded-full bg-amber-50 text-amber-700 font-bold">
-                        Comprado {item.purchaseCount}x
+                        {isEn ? `Purchased ${item.purchaseCount}x` : `Comprado ${item.purchaseCount}x`}
                       </span>
                       <span className="px-2 py-1 rounded-full bg-slate-100 text-slate-600 font-semibold">
-                        {item.orderCount} encomenda{item.orderCount > 1 ? 's' : ''}
+                        {item.orderCount} {isEn ? `order${item.orderCount > 1 ? 's' : ''}` : `encomenda${item.orderCount > 1 ? 's' : ''}`}
                       </span>
                     </div>
                     <p className="text-xs text-gray-500 mb-2">
-                      Primeira compra: {formatShortDate(item.firstPurchasedAt || item.createdAt)} · Última compra: {formatShortDate(item.lastPurchasedAt || item.createdAt)}
+                      {isEn ? 'First purchase' : 'Primeira compra'}: {formatShortDate(item.firstPurchasedAt || item.createdAt)} · {isEn ? 'Last purchase' : 'Última compra'}: {formatShortDate(item.lastPurchasedAt || item.createdAt)}
                     </p>
                     <div className="mt-auto pt-4">
                       {(item.downloadUrl || item.fileUrl) ? (
@@ -209,11 +212,11 @@ export default function BibliotecaPage() {
                           className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-garabandal-mist text-garabandal-dark font-bold rounded-xl hover:bg-garabandal-gold hover:text-white transition-all group/btn"
                         >
                           <Download className="w-4 h-4 group-hover/btn:-translate-y-0.5 transition-transform" />
-                          Baixar PDF
+                          {isEn ? 'Download PDF' : 'Baixar PDF'}
                         </a>
                       ) : (
                         <button disabled className="w-full py-2.5 bg-gray-50 text-gray-400 font-bold rounded-xl cursor-not-allowed">
-                          Indisponível
+                          {isEn ? 'Unavailable' : 'Indisponível'}
                         </button>
                       )}
                     </div>

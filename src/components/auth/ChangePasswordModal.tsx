@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { supabaseBrowser } from '../../lib/supabase-browser';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Lock, CheckCircle2, Loader2, Eye, EyeOff } from 'lucide-react';
+import { useLocale } from '../../contexts/LocaleContext';
 
 type Props = {
     visible: boolean;
@@ -9,6 +10,9 @@ type Props = {
 };
 
 export default function ChangePasswordModal({ visible, onClose }: Props) {
+    const { locale } = useLocale();
+    const isEn = locale === 'en';
+
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
@@ -22,12 +26,12 @@ export default function ChangePasswordModal({ visible, onClose }: Props) {
         setError(null);
 
         if (password.length < 6) {
-            setError('A password deve ter pelo menos 6 caracteres.');
+            setError(isEn ? 'Password must be at least 6 characters long.' : 'A password deve ter pelo menos 6 caracteres.');
             return;
         }
 
         if (password !== confirmPassword) {
-            setError('As passwords não coincidem.');
+            setError(isEn ? 'Passwords do not match.' : 'As passwords não coincidem.');
             return;
         }
 
@@ -54,7 +58,7 @@ export default function ChangePasswordModal({ visible, onClose }: Props) {
 
         } catch (err: any) {
             console.error(err);
-            setError(err.message || 'Erro ao atualizar password.');
+            setError(err.message || (isEn ? 'Error updating password.' : 'Erro ao atualizar password.'));
         } finally {
             setLoading(false);
         }
@@ -79,12 +83,23 @@ export default function ChangePasswordModal({ visible, onClose }: Props) {
                         className="relative w-full max-w-md bg-white rounded-3xl shadow-xl overflow-hidden"
                     >
                         <div className="p-6 sm:p-8 flex flex-col items-center text-center">
+                            <button
+                                onClick={onClose}
+                                className="absolute top-4 right-4 p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
+                            >
+                                <X className="w-5 h-5" />
+                            </button>
+
                             <div className="w-16 h-16 rounded-full bg-garabandal-gold/10 flex items-center justify-center mb-4 text-garabandal-dark">
                                 <Lock className="w-8 h-8" />
                             </div>
 
-                            <h2 className="font-serif text-2xl font-bold text-garabandal-dark mb-2">Alterar Password</h2>
-                            <p className="text-gray-500 text-sm mb-6">Define uma nova palavra-passe segura para a tua conta.</p>
+                            <h2 className="font-serif text-2xl font-bold text-garabandal-dark mb-2">
+                                {isEn ? 'Change Password' : 'Alterar Password'}
+                            </h2>
+                            <p className="text-gray-500 text-sm mb-6">
+                                {isEn ? 'Set a new secure password for your account.' : 'Define uma nova palavra-passe segura para a tua conta.'}
+                            </p>
 
                             {error && (
                                 <div className="w-full mb-4 p-3 bg-red-50 text-red-600 rounded-xl text-sm font-bold border border-red-100 flex items-center gap-2 justify-center">
@@ -95,7 +110,9 @@ export default function ChangePasswordModal({ visible, onClose }: Props) {
                             {success ? (
                                 <div className="w-full py-8 flex flex-col items-center animate-in fade-in zoom-in duration-300">
                                     <CheckCircle2 className="w-16 h-16 text-green-500 mb-4" />
-                                    <p className="text-lg font-bold text-gray-900">Password Alterada!</p>
+                                    <p className="text-lg font-bold text-gray-900">
+                                        {isEn ? 'Password Changed!' : 'Password Alterada!'}
+                                    </p>
                                 </div>
                             ) : (
                                 <form onSubmit={handleSave} className="w-full space-y-4">
@@ -105,7 +122,7 @@ export default function ChangePasswordModal({ visible, onClose }: Props) {
                                             value={password}
                                             onChange={(e) => setPassword(e.target.value)}
                                             className="w-full h-14 px-4 rounded-xl bg-gray-50 border border-gray-200 focus:border-garabandal-gold focus:ring-4 focus:ring-garabandal-gold/10 outline-none transition-all text-lg"
-                                            placeholder="Nova Password"
+                                            placeholder={isEn ? "New Password" : "Nova Password"}
                                             disabled={loading}
                                         />
                                         <button
@@ -123,7 +140,7 @@ export default function ChangePasswordModal({ visible, onClose }: Props) {
                                             value={confirmPassword}
                                             onChange={(e) => setConfirmPassword(e.target.value)}
                                             className="w-full h-14 px-4 rounded-xl bg-gray-50 border border-gray-200 focus:border-garabandal-gold focus:ring-4 focus:ring-garabandal-gold/10 outline-none transition-all text-lg"
-                                            placeholder="Confirmar Password"
+                                            placeholder={isEn ? "Confirm Password" : "Confirmar Password"}
                                             disabled={loading}
                                         />
                                     </div>
@@ -135,14 +152,14 @@ export default function ChangePasswordModal({ visible, onClose }: Props) {
                                             className="flex-1 h-14 rounded-xl font-bold text-gray-500 hover:bg-gray-100 transition-colors"
                                             disabled={loading}
                                         >
-                                            Cancelar
+                                            {isEn ? 'Cancel' : 'Cancelar'}
                                         </button>
                                         <button
                                             type="submit"
                                             disabled={loading || !password || !confirmPassword}
                                             className="flex-1 h-14 bg-garabandal-dark text-white rounded-xl font-bold hover:bg-slate-800 transition-all shadow-lg active:scale-95 disabled:opacity-70 disabled:active:scale-100 flex items-center justify-center gap-2"
                                         >
-                                            {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Confirmar'}
+                                            {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : (isEn ? 'Confirm' : 'Confirmar')}
                                         </button>
                                     </div>
                                 </form>

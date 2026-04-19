@@ -1,10 +1,10 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { ArrowRight, Star, Heart } from "lucide-react";
-import Link from 'next/link';
+import { ArrowRight } from "lucide-react";
 import { useCurrency } from "../providers/CurrencyProvider";
 import { getMembershipAmountClient } from "../../lib/membership-pricing";
+import { useLocale } from "../../contexts/LocaleContext";
 
 type Props = {
     onJoinClick?: () => void;
@@ -12,6 +12,8 @@ type Props = {
 
 export default function MembershipHero({ onJoinClick }: Props) {
     const { formatPrice } = useCurrency();
+    const { t } = useLocale();
+    const m = t.membership;
     const membershipAmount = getMembershipAmountClient();
 
     return (
@@ -44,18 +46,18 @@ export default function MembershipHero({ onJoinClick }: Props) {
                             className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#d97706]/10 border border-[#d97706]/20 backdrop-blur-md mb-8"
                         >
                             <span className="w-2 h-2 rounded-full bg-[#d97706] animate-pulse" />
-                            <span className="text-[#d97706] text-xs font-bold uppercase tracking-widest">Junte-se à Missão Oficial</span>
+                            <span className="text-[#d97706] text-xs font-bold uppercase tracking-widest">{m.hero.badge}</span>
                         </motion.div>
 
                         <h1 className="font-serif text-5xl md:text-7xl text-white leading-tight mb-8 drop-shadow-2xl">
-                            Apostolado <br />
+                            {m.hero.title} <br />
                             <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#fbbf24] to-[#d97706]">
-                                de Garabandal
+                                {m.hero.titleHighlight}
                             </span>
                         </h1>
 
                         <p className="text-lg md:text-xl text-slate-300 font-light leading-relaxed mb-10 max-w-xl mx-auto lg:mx-0">
-                            Mais do que uma subscrição, um compromisso espiritual. Ajude a propagar as mensagens de Nossa Senhora e receba graças exclusivas.
+                            {m.hero.subtitle}
                         </p>
 
                         <div className="flex flex-col sm:flex-row items-center gap-6 justify-center lg:justify-start">
@@ -64,14 +66,14 @@ export default function MembershipHero({ onJoinClick }: Props) {
                                 className="group relative px-8 py-5 bg-[#d97706] text-white rounded-2xl font-bold uppercase tracking-widest hover:bg-[#b45309] transition-all shadow-[0_0_30px_-5px_rgba(217,119,6,0.5)] hover:shadow-[0_0_50px_-10px_rgba(217,119,6,0.7)] hover:scale-105 active:scale-95"
                             >
                                 <span className="flex items-center gap-3">
-                                    Tornar-me Membro
+                                    {m.hero.cta}
                                     <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
                                 </span>
                             </button>
 
                             <div className="text-left">
-                                <div className="text-2xl font-serif text-white">{formatPrice(membershipAmount)}<span className="text-sm text-slate-400">/ano</span></div>
-                                <div className="text-xs text-[#d97706] font-bold uppercase tracking-wider">Acesso Digital Imediato</div>
+                                <div className="text-2xl font-serif text-white">{formatPrice(membershipAmount)}<span className="text-sm text-slate-400">{m.hero.perYear}</span></div>
+                                <div className="text-xs text-[#d97706] font-bold uppercase tracking-wider">{m.hero.immediateAccess}</div>
                             </div>
                         </div>
                     </motion.div>
@@ -91,13 +93,13 @@ export default function MembershipHero({ onJoinClick }: Props) {
                             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent z-10" />
                             <img
                                 src="/images/associacao.webp"
-                                alt="Nossa Senhora de Garabandal"
+                                alt={m.hero.imageLabel}
                                 className="w-full h-full object-cover transform transition-transform duration-[3s] group-hover:scale-110"
                             />
 
                             {/* Overlay Content */}
                             <div className="absolute bottom-0 left-0 right-0 p-8 z-20 text-center">
-                                <p className="text-xs text-white/60 uppercase tracking-widest font-bold">Apostolado de Garabandal</p>
+                                <p className="text-xs text-white/60 uppercase tracking-widest font-bold">{m.hero.imageLabel}</p>
                             </div>
 
                             {/* Border Glow */}

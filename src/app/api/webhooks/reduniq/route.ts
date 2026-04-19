@@ -150,6 +150,7 @@ export async function POST(request: Request) {
                         donorZip: donation.donor_zip,
                         donorCountry: donation.donor_country,
                         receiptRequired: donation.receipt_required,
+                        locale: (donation.metadata as any)?.locale || 'pt',
                         reduniq_method: (donation.metadata as any)?.reduniq_method || null,
                         reduniqTransactionId: manualCheck.transactionId
                         // ... other meta if needed
@@ -186,7 +187,8 @@ export async function POST(request: Request) {
                     method: 'reduniq',
                     metadata: {
                         type: 'membership',
-                        userId: quota.user_id
+                        userId: quota.user_id,
+                        locale: /\[locale:en\]/i.test(String(quota.notes || '')) ? 'en' : 'pt',
                     }
                 };
                 await handleMembershipSuccess(context);

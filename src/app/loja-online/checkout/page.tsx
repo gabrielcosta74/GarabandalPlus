@@ -20,6 +20,7 @@ import {
 import { getShippingCost, getShippingLabel, getShippingOrigin, isPhysicalShippingAllowed } from '../../../lib/shipping-rules';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Check, ChevronRight, CreditCard, User, ShoppingBag, MapPin, ArrowLeft, ShieldCheck, Loader2, QrCode, Wallet } from 'lucide-react';
+import { useLocale } from '../../../contexts/LocaleContext';
 
 const getVatRate = (product: Product) => (product.isPhysical ? 0.06 : 0.23);
 
@@ -78,6 +79,8 @@ const saveCheckoutDraft = (data: any) => {
 };
 
 export default function CheckoutPage() {
+  const { locale } = useLocale();
+  const isEn = locale === 'en';
   const { formatPrice } = useCurrency();
   const [cart, setCart] = useState<CartItem[]>([]);
   const [step, setStep] = useState(1);
@@ -135,11 +138,13 @@ export default function CheckoutPage() {
     () => UNIFIED_ONLINE_PAYMENT_OPTIONS.find((option) => option.id === selectedPaymentId) ?? UNIFIED_ONLINE_PAYMENT_OPTIONS[0],
     [selectedPaymentId],
   );
-  const nifLabel = shipping.country === 'BR' ? 'CPF (opcional)' : 'NIF / CPF (opcional)';
+  const nifLabel = shipping.country === 'BR'
+    ? (isEn ? 'CPF (optional)' : 'CPF (opcional)')
+    : (isEn ? 'TIN / CPF (optional)' : 'NIF / CPF (opcional)');
   const nifHelper =
     shipping.country === 'BR'
-      ? 'CPF: número de contribuinte no Brasil (11 dígitos).'
-      : 'NIF / CPF: número de contribuinte.';
+      ? (isEn ? 'CPF: taxpayer number in Brazil (11 digits).' : 'CPF: número de contribuinte no Brasil (11 dígitos).')
+      : (isEn ? 'TIN / CPF: taxpayer number.' : 'NIF / CPF: número de contribuinte.');
 
   const isValidNif = (value: string, country: string) => {
     const digits = value.replace(/\\D/g, '');
@@ -388,25 +393,25 @@ export default function CheckoutPage() {
   const nextStep = () => {
     setError(null);
     if (step === 1) {
-      if (!cartEntries.length) { setError('Adiciona artigos ao carrinho.'); return; }
+      if (!cartEntries.length) { setError(isEn ? 'Add items to your cart.' : 'Adiciona artigos ao carrinho.'); return; }
       setStep(2);
       return;
     }
     if (step === 2) {
-      if (!buyer.fullName || !buyer.email) { setError('Indica o nome e o email do comprador.'); return; }
-      if (!isValidNif(buyer.nif, shipping.country)) { setError(shipping.country === 'BR' ? 'CPF inválido.' : 'NIF inválido.'); return; }
+      if (!buyer.fullName || !buyer.email) { setError(isEn ? "Enter the buyer's name and email." : 'Indica o nome e o email do comprador.'); return; }
+      if (!isValidNif(buyer.nif, shipping.country)) { setError(shipping.country === 'BR' ? (isEn ? 'Invalid CPF.' : 'CPF inválido.') : (isEn ? 'Invalid tax number.' : 'NIF inválido.')); return; }
 
       if (hasPhysical) {
-        if (!shipping.address1 || !shipping.doorNumber || !shipping.city || !shipping.postalCode) { setError('Indica a morada de envio completa.'); return; }
-        if (!shipping.country) { setError('Seleciona o país de envio.'); return; }
-        if (!isPhysicalShippingAllowed(shipping.country)) { setError('Envio físico não disponível para este país.'); return; }
+        if (!shipping.address1 || !shipping.doorNumber || !shipping.city || !shipping.postalCode) { setError(isEn ? 'Enter the full shipping address.' : 'Indica a morada de envio completa.'); return; }
+        if (!shipping.country) { setError(isEn ? 'Select the shipping country.' : 'Seleciona o país de envio.'); return; }
+        if (!isPhysicalShippingAllowed(shipping.country)) { setError(isEn ? 'Physical shipping is not available for this country.' : 'Envio físico não disponível para este país.'); return; }
         if (!validatePostalCode(shipping.country, shipping.postalCode)) { setError(getPostalInvalidMessage(shipping.country)); return; }
       }
 
       if (!billingSameAsShipping) {
-        if (!billing.address1 || !billing.city || !billing.postalCode) { setError('Indica a morada de faturação completa.'); return; }
-        if (!billing.country) { setError('Seleciona o país de faturação.'); return; }
-        if (!validatePostalCode(billing.country, billing.postalCode)) { setError(`Código postal de faturação inválido (${billing.country}).`); return; }
+        if (!billing.address1 || !billing.city || !billing.postalCode) { setError(isEn ? 'Enter the full billing address.' : 'Indica a morada de faturação completa.'); return; }
+        if (!billing.country) { setError(isEn ? 'Select the billing country.' : 'Seleciona o país de faturação.'); return; }
+        if (!validatePostalCode(billing.country, billing.postalCode)) { setError(isEn ? `Invalid billing postal code (${billing.country}).` : `Código postal de faturação inválido (${billing.country}).`); return; }
       }
 
       setStep(3);
@@ -458,13 +463,13 @@ export default function CheckoutPage() {
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        throw new Error(body?.message || 'Não foi possível iniciar o pagamento.');
+        throw new Error(body?.message || (isEn ? 'Could not start the payment.' : 'Não foi possível iniciar o pagamento.'));
       }
       const { url } = await res.json();
-      if (!url) throw new Error('Erro no servidor.');
+      if (!url) throw new Error(isEn ? 'Server error.' : 'Erro no servidor.');
       window.location.href = url;
     } catch (err: any) {
-      setError(err?.message || 'Erro ao iniciar pagamento.');
+      setError(err?.message || (isEn ? 'Error starting payment.' : 'Erro ao iniciar pagamento.'));
     } finally {
       setLoading(false);
     }
@@ -489,12 +494,12 @@ export default function CheckoutPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <Link href="/loja" className="flex items-center gap-2 text-sm font-medium text-gray-500 hover:text-garabandal-dark transition-colors">
             <ArrowLeft className="w-4 h-4" />
-            Voltar à Loja
+            {isEn ? 'Back to Store' : 'Voltar à Loja'}
           </Link>
-          <h1 className="font-serif text-lg font-bold text-garabandal-dark hidden sm:block">Checkout Seguro</h1>
+          <h1 className="font-serif text-lg font-bold text-garabandal-dark hidden sm:block">{isEn ? 'Secure Checkout' : 'Checkout Seguro'}</h1>
           <div className="flex items-center gap-1.5 text-xs font-bold text-green-600 bg-green-50 px-2 py-1 rounded-full">
             <ShieldCheck className="w-3.5 h-3.5" />
-            Ambiente Seguro
+            {isEn ? 'Secure Environment' : 'Ambiente Seguro'}
           </div>
         </div>
       </header>
@@ -509,9 +514,9 @@ export default function CheckoutPage() {
             <nav aria-label="Progress">
               <ol role="list" className="flex items-center">
                 {[
-                  { id: 1, name: 'Carrinho', icon: ShoppingBag },
-                  { id: 2, name: 'Dados & Envio', icon: MapPin },
-                  { id: 3, name: 'Pagamento', icon: CreditCard },
+                  { id: 1, name: isEn ? 'Cart' : 'Carrinho', icon: ShoppingBag },
+                  { id: 2, name: isEn ? 'Details & Shipping' : 'Dados & Envio', icon: MapPin },
+                  { id: 3, name: isEn ? 'Payment' : 'Pagamento', icon: CreditCard },
                 ].map((s, idx) => {
                   const isActive = step === s.id;
                   const isComplete = step > s.id;
@@ -545,13 +550,13 @@ export default function CheckoutPage() {
               >
                 {step === 1 && (
                   <div className="space-y-6">
-                    <h2 className="font-serif text-2xl font-bold text-garabandal-dark">O teu carrinho</h2>
+                    <h2 className="font-serif text-2xl font-bold text-garabandal-dark">{isEn ? 'Your cart' : 'O teu carrinho'}</h2>
                     {cartEntries.length === 0 ? (
                       <div className="text-center py-12">
                         <ShoppingBag className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                        <p className="text-gray-500">O carrinho está vazio.</p>
-                        <Link href="/loja" className="mt-4 inline-block text-garabandal-gold font-bold hover:underline">
-                          Ir para a loja
+                        <p className="text-gray-500">{isEn ? 'Your cart is empty.' : 'O carrinho está vazio.'}</p>
+                        <Link href={isEn ? '/en/store' : '/loja'} className="mt-4 inline-block text-garabandal-gold font-bold hover:underline">
+                          {isEn ? 'Go to store' : 'Ir para a loja'}
                         </Link>
                       </div>
                     ) : (
@@ -569,7 +574,7 @@ export default function CheckoutPage() {
                                   <p className="text-sm text-gray-500">{formatPrice(item.price)}</p>
                                   {!item.isPhysical && ownedDigitalProductIds.has(item.id) && (
                                     <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-2 py-1 mt-2 inline-block font-semibold">
-                                      Já tens este produto na tua biblioteca. Podes comprar novamente se quiseres.
+                                      {isEn ? 'You already have this product in your library. You can buy it again if you want.' : 'Já tens este produto na tua biblioteca. Podes comprar novamente se quiseres.'}
                                     </p>
                                   )}
                                 </div>
@@ -585,7 +590,7 @@ export default function CheckoutPage() {
                                   <button onClick={() => updateQty(item.id, item.qty + 1)} className="w-6 h-6 flex items-center justify-center text-gray-500 hover:bg-gray-100 rounded-md transition-colors">+</button>
                                 </div>
                                 <div className="text-xs text-gray-400 ml-auto hidden sm:block">
-                                  {formatVatDisplay(getVatBreakdown(item.price, getVatRate(item)).vat, formatPrice)} IVA incluído
+                                  {formatVatDisplay(getVatBreakdown(item.price, getVatRate(item)).vat, formatPrice)} {isEn ? 'VAT included' : 'IVA incluído'}
                                 </div>
                               </div>
                             </div>
@@ -601,19 +606,19 @@ export default function CheckoutPage() {
                     <div className="space-y-4">
                       <h2 className="font-serif text-2xl font-bold text-garabandal-dark flex items-center gap-2">
                         <User className="w-6 h-6 text-garabandal-gold" />
-                        Dados do Comprador
+                        {isEn ? 'Buyer Details' : 'Dados do Comprador'}
                       </h2>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="md:col-span-2">
-                          <label className={labelClass}>Nome Completo *</label>
-                          <input type="text" value={buyer.fullName} onChange={(e) => setBuyer({ ...buyer, fullName: e.target.value })} className={inputClass} placeholder="Seu nome" />
+                          <label className={labelClass}>{isEn ? 'Full Name *' : 'Nome Completo *'}</label>
+                          <input type="text" value={buyer.fullName} onChange={(e) => setBuyer({ ...buyer, fullName: e.target.value })} className={inputClass} placeholder={isEn ? 'Your name' : 'Seu nome'} />
                         </div>
                         <div>
                           <label className={labelClass}>Email *</label>
-                          <input type="email" value={buyer.email} onChange={(e) => setBuyer({ ...buyer, email: e.target.value })} className={inputClass} placeholder="nome@exemplo.com" />
+                          <input type="email" value={buyer.email} onChange={(e) => setBuyer({ ...buyer, email: e.target.value })} className={inputClass} placeholder={isEn ? 'name@example.com' : 'nome@exemplo.com'} />
                         </div>
                         <div>
-                          <label className={labelClass}>Telefone</label>
+                          <label className={labelClass}>{isEn ? 'Phone' : 'Telefone'}</label>
                           <input
                             type="tel"
                             value={buyer.phone}
@@ -638,7 +643,7 @@ export default function CheckoutPage() {
                         <div className="flex items-center justify-between">
                           <h2 className="font-serif text-2xl font-bold text-garabandal-dark flex items-center gap-2">
                             <MapPin className="w-6 h-6 text-garabandal-gold" />
-                            Morada de Envio
+                            {isEn ? 'Shipping Address' : 'Morada de Envio'}
                           </h2>
                         </div>
 
@@ -647,7 +652,7 @@ export default function CheckoutPage() {
                           <div className="bg-garabandal-gold/5 border border-garabandal-gold/20 rounded-xl p-4 flex items-start gap-3">
                             <input type="checkbox" checked={useSavedAddress} onChange={(e) => { setUseSavedAddress(e.target.checked); if (e.target.checked && savedProfile) applySavedAddress(savedProfile); }} className="mt-1 w-4 h-4 text-garabandal-gold rounded border-gray-300 focus:ring-garabandal-gold" />
                             <div>
-                              <p className="font-bold text-gray-900 text-sm">Usar morada do perfil</p>
+                              <p className="font-bold text-gray-900 text-sm">{isEn ? 'Use profile address' : 'Usar morada do perfil'}</p>
                               <p className="text-xs text-gray-500 mt-0.5">{savedProfile.address}, {savedProfile.postal_code} {savedProfile.country}</p>
                             </div>
                           </div>
@@ -655,14 +660,14 @@ export default function CheckoutPage() {
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <div className="md:col-span-2">
-                            <label className={labelClass}>País *</label>
+                            <label className={labelClass}>{isEn ? 'Country *' : 'País *'}</label>
                             <select value={shipping.country} onChange={(e) => setShipping({ ...shipping, country: e.target.value })} className={inputClass}>
                               {countryOptions.map(opt => <option key={opt.code} value={opt.code}>{opt.label}</option>)}
                             </select>
                           </div>
                           <div className="md:col-span-2 relative">
-                            <label className={labelClass}>Morada *</label>
-                            <input type="text" value={shipping.address1} onChange={(e) => setShipping({ ...shipping, address1: e.target.value })} className={inputClass} placeholder="Rua, Avenida, etc" />
+                            <label className={labelClass}>{isEn ? 'Address *' : 'Morada *'}</label>
+                            <input type="text" value={shipping.address1} onChange={(e) => setShipping({ ...shipping, address1: e.target.value })} className={inputClass} placeholder={isEn ? 'Street, Avenue, etc.' : 'Rua, Avenida, etc'} />
                             {ADDRESS_AUTOCOMPLETE_ENABLED && addressLoading && <div className="absolute right-3 top-9"><Loader2 className="w-4 h-4 animate-spin text-gray-400" /></div>}
                             {ADDRESS_AUTOCOMPLETE_ENABLED && addressSuggestions.length > 0 && (
                               <div className="absolute z-10 w-full mt-1 bg-white border border-gray-100 rounded-xl shadow-xl overflow-hidden">
@@ -675,19 +680,19 @@ export default function CheckoutPage() {
                             )}
                           </div>
                           <div>
-                            <label className={labelClass}>Nº Porta / Andar *</label>
-                            <input type="text" value={shipping.doorNumber} onChange={(e) => setShipping({ ...shipping, doorNumber: e.target.value })} className={inputClass} placeholder="Ex: 4º Esq" />
+                            <label className={labelClass}>{isEn ? 'Door / Floor *' : 'Nº Porta / Andar *'}</label>
+                            <input type="text" value={shipping.doorNumber} onChange={(e) => setShipping({ ...shipping, doorNumber: e.target.value })} className={inputClass} placeholder={isEn ? 'E.g. 4th left' : 'Ex: 4º Esq'} />
                           </div>
                           <div>
-                            <label className={labelClass}>Morada linha 2 (opcional)</label>
+                            <label className={labelClass}>{isEn ? 'Address line 2 (optional)' : 'Morada linha 2 (opcional)'}</label>
                             <input type="text" value={shipping.address2} onChange={(e) => setShipping({ ...shipping, address2: e.target.value })} className={inputClass} placeholder="" />
                           </div>
                           <div>
-                            <label className={labelClass}>Cidade *</label>
-                            <input type="text" value={shipping.city} onChange={(e) => setShipping({ ...shipping, city: e.target.value })} className={inputClass} placeholder="Cidade" />
+                            <label className={labelClass}>{isEn ? 'City *' : 'Cidade *'}</label>
+                            <input type="text" value={shipping.city} onChange={(e) => setShipping({ ...shipping, city: e.target.value })} className={inputClass} placeholder={isEn ? 'City' : 'Cidade'} />
                           </div>
                           <div>
-                            <label className={labelClass}>Código Postal / CEP *</label>
+                            <label className={labelClass}>{isEn ? 'Postal Code / ZIP *' : 'Código Postal / CEP *'}</label>
                             <input
                               type="text"
                               value={shipping.postalCode}
@@ -706,7 +711,7 @@ export default function CheckoutPage() {
                       <div className="flex items-center justify-between">
                         <h2 className="font-serif text-2xl font-bold text-garabandal-dark flex items-center gap-2">
                           <ShieldCheck className="w-6 h-6 text-garabandal-gold" />
-                          Dados de Faturação
+                          {isEn ? 'Billing Details' : 'Dados de Faturação'}
                         </h2>
                       </div>
 
@@ -719,7 +724,7 @@ export default function CheckoutPage() {
                               onChange={(e) => setBillingSameAsShipping(e.target.checked)}
                               className="w-5 h-5 rounded border-gray-300 text-garabandal-gold focus:ring-garabandal-gold"
                             />
-                            <span className="font-medium text-gray-900">A morada de faturação é igual à de envio</span>
+                            <span className="font-medium text-gray-900">{isEn ? 'Billing address is the same as shipping' : 'A morada de faturação é igual à de envio'}</span>
                           </label>
                         </div>
                       )}
@@ -727,21 +732,21 @@ export default function CheckoutPage() {
                       {(!billingSameAsShipping || !hasPhysical) && (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-4 duration-300">
                           <div className="md:col-span-2">
-                            <label className={labelClass}>País de Faturação *</label>
+                            <label className={labelClass}>{isEn ? 'Billing Country *' : 'País de Faturação *'}</label>
                             <select value={billing.country} onChange={(e) => setBilling({ ...billing, country: e.target.value })} className={inputClass}>
                               {countryOptions.map(opt => <option key={opt.code} value={opt.code}>{opt.label}</option>)}
                             </select>
                           </div>
                           <div className="md:col-span-2">
-                            <label className={labelClass}>Morada de Faturação *</label>
-                            <input type="text" value={billing.address1} onChange={(e) => setBilling({ ...billing, address1: e.target.value })} className={inputClass} placeholder="Rua, Lugar..." />
+                            <label className={labelClass}>{isEn ? 'Billing Address *' : 'Morada de Faturação *'}</label>
+                            <input type="text" value={billing.address1} onChange={(e) => setBilling({ ...billing, address1: e.target.value })} className={inputClass} placeholder={isEn ? 'Street, Place...' : 'Rua, Lugar...'} />
                           </div>
                           <div>
-                            <label className={labelClass}>Cidade *</label>
+                            <label className={labelClass}>{isEn ? 'City *' : 'Cidade *'}</label>
                             <input type="text" value={billing.city} onChange={(e) => setBilling({ ...billing, city: e.target.value })} className={inputClass} />
                           </div>
                           <div>
-                            <label className={labelClass}>Código Postal / CEP *</label>
+                            <label className={labelClass}>{isEn ? 'Postal Code / ZIP *' : 'Código Postal / CEP *'}</label>
                             <input
                               type="text"
                               value={billing.postalCode}
@@ -759,12 +764,12 @@ export default function CheckoutPage() {
                       {sessionUserId && (
                         <label className="flex items-center gap-2 cursor-pointer select-none">
                           <input type="checkbox" checked={saveAddress} onChange={(e) => setSaveAddress(e.target.checked)} className="rounded border-gray-300 text-garabandal-gold focus:ring-garabandal-gold" />
-                          <span className="text-sm text-gray-600">Atualizar morada no meu perfil</span>
+                          <span className="text-sm text-gray-600">{isEn ? 'Update address in my profile' : 'Atualizar morada no meu perfil'}</span>
                         </label>
                       )}
                       <label className="flex items-center gap-2 cursor-pointer select-none">
                         <input type="checkbox" checked={saveCheckout} onChange={(e) => setSaveCheckout(e.target.checked)} className="rounded border-gray-300 text-garabandal-gold focus:ring-garabandal-gold" />
-                        <span className="text-sm text-gray-600">Guardar dados neste dispositivo para a próxima</span>
+                        <span className="text-sm text-gray-600">{isEn ? 'Save details on this device for next time' : 'Guardar dados neste dispositivo para a próxima'}</span>
                       </label>
                     </div>
                   </div>
@@ -772,7 +777,7 @@ export default function CheckoutPage() {
 
                 {step === 3 && (
                   <div className="space-y-6">
-                    <h2 className="font-serif text-2xl font-bold text-garabandal-dark">Pagamento</h2>
+                    <h2 className="font-serif text-2xl font-bold text-garabandal-dark">{isEn ? 'Payment' : 'Pagamento'}</h2>
                     <div className="space-y-3">
                       {UNIFIED_ONLINE_PAYMENT_OPTIONS.map((option) => {
                         const active = selectedPaymentId === option.id;
@@ -788,7 +793,7 @@ export default function CheckoutPage() {
                           >
                             {option.highlight && (
                               <div className="absolute top-0 right-0 bg-green-500 text-white text-[10px] uppercase font-bold px-2 py-0.5 rounded-bl-lg">
-                                Novo
+                                {isEn ? 'New' : 'Novo'}
                               </div>
                             )}
                             <div className="flex items-center gap-3">
@@ -812,7 +817,7 @@ export default function CheckoutPage() {
                               </div>
                               {active && (
                                 <span className="text-xs font-bold uppercase tracking-wider text-garabandal-dark bg-garabandal-gold/20 px-2 py-1 rounded-full">
-                                  Selecionado
+                                  {isEn ? 'Selected' : 'Selecionado'}
                                 </span>
                               )}
                             </div>
@@ -824,9 +829,9 @@ export default function CheckoutPage() {
                       <div className="flex items-start gap-3 text-sm text-gray-600">
                         <ShieldCheck className="w-5 h-5 text-garabandal-gold mt-0.5" />
                         <div>
-                          <p className="font-semibold text-gray-900">Pagamento seguro</p>
+                          <p className="font-semibold text-gray-900">{isEn ? 'Secure payment' : 'Pagamento seguro'}</p>
                           <p>
-                            Serás redirecionado para o terminal de pagamento selecionado e, no final, voltas para a página de confirmação.
+                            {isEn ? 'You will be redirected to the selected payment terminal and, at the end, you will return to the confirmation page.' : 'Serás redirecionado para o terminal de pagamento selecionado e, no final, voltas para a página de confirmação.'}
                           </p>
                         </div>
                       </div>
@@ -847,7 +852,7 @@ export default function CheckoutPage() {
                       onClick={previousStep}
                       className="px-6 py-3 rounded-xl font-bold text-gray-600 hover:bg-gray-100 transition-colors"
                     >
-                      Voltar
+                      {isEn ? 'Back' : 'Voltar'}
                     </button>
                   )}
 
@@ -858,7 +863,7 @@ export default function CheckoutPage() {
                   >
                     {loading ? <Loader2 className="animate-spin w-5 h-5" /> : (
                       <>
-                        {step === 3 ? `Pagar ${formatPrice(totalToPay)}` : 'Continuar'}
+                        {step === 3 ? `${isEn ? 'Pay' : 'Pagar'} ${formatPrice(totalToPay)}` : (isEn ? 'Continue' : 'Continuar')}
                         {step !== 3 && <ChevronRight className="w-5 h-5" />}
                       </>
                     )}
@@ -873,7 +878,7 @@ export default function CheckoutPage() {
             <div className="sticky top-24 space-y-6">
               <div className="bg-white rounded-3xl shadow-lg shadow-gray-200/50 border border-gray-100 overflow-hidden">
                 <div className="p-6 sm:p-8 bg-garabandal-mist/30 border-b border-gray-100">
-                  <h3 className="font-serif text-xl font-bold text-gray-900">Resumo do Pedido</h3>
+                  <h3 className="font-serif text-xl font-bold text-gray-900">{isEn ? 'Order Summary' : 'Resumo do Pedido'}</h3>
                 </div>
 
                 {/* Member Upsell - Only if not member */}
@@ -884,12 +889,12 @@ export default function CheckoutPage() {
                         <ShieldCheck className="w-3 h-3" />
                       </div>
                       <div>
-                        <p className="text-sm font-bold text-garabandal-dark">Se fosses Membro...</p>
-                        <p className="text-xs text-gray-600">Poupavas <span className="font-bold text-green-600">{formatPrice(baseSubtotal * MEMBER_DISCOUNT_RATE)}</span> nesta compra!</p>
+                        <p className="text-sm font-bold text-garabandal-dark">{isEn ? 'If you were a member...' : 'Se fosses Membro...'}</p>
+                        <p className="text-xs text-gray-600">{isEn ? <>You would save <span className="font-bold text-green-600">{formatPrice(baseSubtotal * MEMBER_DISCOUNT_RATE)}</span> on this purchase!</> : <>Poupavas <span className="font-bold text-green-600">{formatPrice(baseSubtotal * MEMBER_DISCOUNT_RATE)}</span> nesta compra!</>}</p>
                       </div>
                     </div>
-                    <Link href="/tornar-membro" target="_blank" className="text-center text-xs font-bold uppercase tracking-wider text-garabandal-dark border border-garabandal-dark/20 rounded-lg py-2 hover:bg-white transition-colors">
-                      Tornar-me Membro
+                    <Link href={isEn ? '/en/become-member' : '/tornar-membro'} target="_blank" className="text-center text-xs font-bold uppercase tracking-wider text-garabandal-dark border border-garabandal-dark/20 rounded-lg py-2 hover:bg-white transition-colors">
+                      {isEn ? 'Become a Member' : 'Tornar-me Membro'}
                     </Link>
                   </div>
                 )}
@@ -898,24 +903,24 @@ export default function CheckoutPage() {
                   {/* Totals */}
                   <div className="space-y-3 text-sm">
                     <div className="flex justify-between text-gray-600">
-                      <span>Subtotal</span>
+                      <span>{isEn ? 'Subtotal' : 'Subtotal'}</span>
                       <span className="font-medium text-gray-900">{formatPrice(baseSubtotal)}</span>
                     </div>
                     {isMemberActive && discountValue > 0 && (
                       <div className="flex justify-between text-green-600">
-                        <span>Desconto de Membro (5%)</span>
+                        <span>{isEn ? 'Member Discount (5%)' : 'Desconto de Membro (5%)'}</span>
                         <span className="font-bold">-{formatPrice(discountValue)}</span>
                       </div>
                     )}
                     <div className="flex justify-between text-gray-600">
-                      <span>IVA</span>
+                      <span>{isEn ? 'VAT' : 'IVA'}</span>
                       <span className="font-medium text-gray-900">{formatVatDisplay(vatTotals.vat, formatPrice)}</span>
                     </div>
                     {hasPhysical && (
                       <div className="flex justify-between text-gray-600">
-                        <span>Envio {shippingOriginLabel && <span className="text-xs text-gray-400">({shippingOriginLabel})</span>}</span>
+                        <span>{isEn ? 'Shipping' : 'Envio'} {shippingOriginLabel && <span className="text-xs text-gray-400">({shippingOriginLabel})</span>}</span>
                         <span className="font-medium text-gray-900">
-                          {shippingCost === null ? 'Calculado a seguir' : shippingCost === 0 ? 'Grátis' : formatPrice(shippingCost)}
+                          {shippingCost === null ? (isEn ? 'Calculated next' : 'Calculado a seguir') : shippingCost === 0 ? (isEn ? 'Free' : 'Grátis') : formatPrice(shippingCost)}
                         </span>
                       </div>
                     )}
@@ -926,8 +931,8 @@ export default function CheckoutPage() {
                             <Wallet className="w-4 h-4" />
                           </div>
                           <div>
-                            <p className="text-sm font-bold text-gray-900 leading-tight">A Tua Carteira</p>
-                            <p className="text-xs text-gray-600">Saldo atual: <span className="font-bold text-garabandal-dark">{formatPrice(storeCreditsBalance)}</span></p>
+                            <p className="text-sm font-bold text-gray-900 leading-tight">{isEn ? 'Your Wallet' : 'A Tua Carteira'}</p>
+                            <p className="text-xs text-gray-600">{isEn ? 'Current balance' : 'Saldo atual'}: <span className="font-bold text-garabandal-dark">{formatPrice(storeCreditsBalance)}</span></p>
                           </div>
                         </div>
 
@@ -938,7 +943,7 @@ export default function CheckoutPage() {
                                 <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${applyCredits ? 'bg-garabandal-gold border-garabandal-gold' : 'border-gray-300 group-hover:border-garabandal-gold'}`}>
                                   {applyCredits && <Check className="w-3 h-3 text-white" />}
                                 </div>
-                                <span className="text-sm font-medium text-gray-700 group-hover:text-gray-900 transition-colors">Usar saldo na encomenda</span>
+                                <span className="text-sm font-medium text-gray-700 group-hover:text-gray-900 transition-colors">{isEn ? 'Use balance on this order' : 'Usar saldo na encomenda'}</span>
                               </div>
                               {applyCredits && appliedCreditsValue > 0 && (
                                 <span className="font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded-md">-{formatPrice(appliedCreditsValue)}</span>
@@ -948,14 +953,14 @@ export default function CheckoutPage() {
                           </div>
                         ) : (
                           <div className="bg-white/50 rounded-lg p-3 border border-garabandal-gold/10 text-center">
-                            <p className="text-xs text-gray-500">Sem saldo disponível para desconto nesta compra.</p>
+                            <p className="text-xs text-gray-500">{isEn ? 'No balance available to discount this purchase.' : 'Sem saldo disponível para desconto nesta compra.'}</p>
                           </div>
                         )}
 
                         <div className="mt-4 pt-3 border-t border-garabandal-gold/10 flex items-start gap-3">
                           <div className="bg-garabandal-gold text-white text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider shrink-0 mt-0.5">Bónus</div>
                           <p className="text-xs text-gray-600 leading-relaxed">
-                            Convida amigos a tornarem-se membros e ganhem ambos <strong className="text-gray-900">{formatPrice(2.50)}</strong> para usarem aqui! <a href="/member" className="text-garabandal-gold hover:underline font-bold whitespace-nowrap">Convidar amigos &rarr;</a>
+                            {isEn ? <>Invite friends to become members and both of you earn <strong className="text-gray-900">{formatPrice(2.50)}</strong> to use here! <a href={isEn ? '/en/member' : '/member'} className="text-garabandal-gold hover:underline font-bold whitespace-nowrap">Invite friends &rarr;</a></> : <>Convida amigos a tornarem-se membros e ganhem ambos <strong className="text-gray-900">{formatPrice(2.50)}</strong> para usarem aqui! <a href="/member" className="text-garabandal-gold hover:underline font-bold whitespace-nowrap">Convidar amigos &rarr;</a></>}
                           </p>
                         </div>
                       </div>
@@ -964,10 +969,10 @@ export default function CheckoutPage() {
 
                   <div className="pt-4 border-t border-gray-100">
                     <div className="flex justify-between items-end">
-                      <span className="text-lg font-bold text-gray-900">Total</span>
+                      <span className="text-lg font-bold text-gray-900">{isEn ? 'Total' : 'Total'}</span>
                       <span className="text-3xl font-serif font-bold text-garabandal-dark">{formatPrice(totalToPay)}</span>
                     </div>
-                    <p className="text-right text-xs text-gray-400 mt-1">IVA incluído à taxa legal</p>
+                    <p className="text-right text-xs text-gray-400 mt-1">{isEn ? 'VAT included at the legal rate' : 'IVA incluído à taxa legal'}</p>
                   </div>
                 </div>
 
@@ -985,11 +990,7 @@ export default function CheckoutPage() {
               </div>
 
               <p className="text-center text-xs text-gray-400 px-4">
-                Ao confirmar a encomenda, concordas com os nossos{" "}
-                <Link href="/termos" className="underline hover:text-gray-600">Termos e Condições</Link>,{" "}
-                <Link href="/privacidade" className="underline hover:text-gray-600">Política de Privacidade</Link>{" "}
-                e{" "}
-                <Link href="/cookies" className="underline hover:text-gray-600">Política de Cookies</Link>.
+                {isEn ? <>By confirming the order, you agree to our{" "}<Link href="/termos" className="underline hover:text-gray-600">Terms and Conditions</Link>,{" "}<Link href="/privacidade" className="underline hover:text-gray-600">Privacy Policy</Link>{" "}and{" "}<Link href="/cookies" className="underline hover:text-gray-600">Cookie Policy</Link>.</> : <>Ao confirmar a encomenda, concordas com os nossos{" "}<Link href="/termos" className="underline hover:text-gray-600">Termos e Condições</Link>,{" "}<Link href="/privacidade" className="underline hover:text-gray-600">Política de Privacidade</Link>{" "}e{" "}<Link href="/cookies" className="underline hover:text-gray-600">Política de Cookies</Link>.</>}
               </p>
             </div>
           </div>

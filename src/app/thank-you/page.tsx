@@ -6,9 +6,11 @@ import { motion } from 'framer-motion';
 import { Check, Download, Home, ArrowRight, Loader2, CreditCard, ShoppingBag, ShieldCheck, Heart, Mail, ScrollText } from 'lucide-react';
 import { supabaseBrowser } from '../../lib/supabase-browser';
 import { useAuth } from '../../contexts/AuthContext';
+import { useLocale } from '../../contexts/LocaleContext';
 
 export default function ThankYouPage() {
   const { refreshMemberData } = useAuth();
+  const { locale } = useLocale();
   const [ready, setReady] = useState(false);
   const [type, setType] = useState('donation');
   const [amount, setAmount] = useState<string | null>(null);
@@ -28,6 +30,15 @@ export default function ThankYouPage() {
   const [reduniqConfirm, setReduniqConfirm] = useState<any | null>(null);
   const [memberNumber, setMemberNumber] = useState<number | null>(null);
   const [memberEmail, setMemberEmail] = useState<string | null>(null);
+  const isEn = locale === 'en';
+  const homePath = isEn ? '/en' : '/';
+  const loginPath = isEn ? '/en/login' : '/login';
+  const libraryPath = isEn ? '/en/library' : '/biblioteca';
+  const ordersPath = isEn ? '/en/orders' : '/encomendas';
+  const memberPath = isEn ? '/en/member' : '/member';
+  const rightsPath = isEn ? '/en/member/rights-duties' : '/member/direitos-deveres';
+  const membershipRetryPath = isEn ? '/en/become-member?join=1' : '/tornar-membro?join=1';
+  const donationsPath = isEn ? '/en/donations' : '/donations';
 
   // --- Logic Preserved from Original ---
   useEffect(() => {
@@ -121,6 +132,7 @@ export default function ThankYouPage() {
 
   useEffect(() => {
     if (!ready || type !== 'membership') return;
+    if (provider === 'reduniq' && reduniqConfirmStatus !== 'done') return;
     const loadMemberContext = async () => {
       try {
         if (!supabaseBrowser) return;
@@ -146,7 +158,7 @@ export default function ThankYouPage() {
       }
     };
     loadMemberContext();
-  }, [ready, type, refreshMemberData]);
+  }, [provider, ready, reduniqConfirmStatus, type, refreshMemberData]);
 
   // --- UI Helpers ---
 
@@ -154,8 +166,8 @@ export default function ThankYouPage() {
     if (!amount) return null;
     const num = Number(amount);
     if (!Number.isFinite(num)) return null;
-    return new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR' }).format(num);
-  }, [amount]);
+    return new Intl.NumberFormat(isEn ? 'en-GB' : 'pt-PT', { style: 'currency', currency: 'EUR' }).format(num);
+  }, [amount, isEn]);
 
   const AccentIcon = useMemo(() => {
     if (type === 'store') return ShoppingBag;
@@ -177,25 +189,25 @@ export default function ThankYouPage() {
   const headerFailed = isStoreFailed || isReduniqFailed || isGenericFailed;
 
   const title = useMemo(() => {
-    if (headerFailed) return 'Pagamento Não Concluído';
-    if (type === 'membership') return 'Bem-vindo à Família';
-    if (type === 'store') return 'Compra Confirmada';
-    return 'Obrigado pelo Apoio';
-  }, [type, headerFailed]);
+    if (headerFailed) return isEn ? 'Payment Not Completed' : 'Pagamento Não Concluído';
+    if (type === 'membership') return isEn ? 'Welcome to the Family' : 'Bem-vindo à Família';
+    if (type === 'store') return isEn ? 'Order Confirmed' : 'Compra Confirmada';
+    return isEn ? 'Thank You for Your Support' : 'Obrigado pelo Apoio';
+  }, [headerFailed, isEn, type]);
 
   const description = useMemo(() => {
     if (headerFailed) {
-      if (type === 'membership') return 'A quota não foi concluída. Podes tentar novamente em segurança.';
-      if (type === 'store') return 'A compra não foi concluída. Verifica os dados de pagamento e tenta de novo.';
-      return 'A doação não foi concluída. Podes voltar a tentar quando quiseres.';
+      if (type === 'membership') return isEn ? 'Your annual fee was not completed. You can safely try again.' : 'A quota não foi concluída. Podes tentar novamente em segurança.';
+      if (type === 'store') return isEn ? 'Your order was not completed. Check the payment details and try again.' : 'A compra não foi concluída. Verifica os dados de pagamento e tenta de novo.';
+      return isEn ? 'Your donation was not completed. You can try again whenever you want.' : 'A doação não foi concluída. Podes voltar a tentar quando quiseres.';
     }
-    if (type === 'membership') return 'A tua quota está ativa. Podes consultar o estado e benefícios na tua área de membro.';
+    if (type === 'membership') return isEn ? 'Your annual fee is active. You can review your status and benefits in your member area.' : 'A tua quota está ativa. Podes consultar o estado e benefícios na tua área de membro.';
     if (type === 'store') {
-      if (accountExists) return 'Enviámos um email com os detalhes da tua encomenda. Podes acompanhar o estado na tua área pessoal.';
-      return 'Compra confirmada. Enviámos um email com um link para criar conta ou entrar e associar esta encomenda.';
+      if (accountExists) return isEn ? 'We sent you an email with your order details. You can track it in your personal area.' : 'Enviámos um email com os detalhes da tua encomenda. Podes acompanhar o estado na tua área pessoal.';
+      return isEn ? 'Order confirmed. We sent you an email with a link to create an account or sign in and attach this order.' : 'Compra confirmada. Enviámos um email com um link para criar conta ou entrar e associar esta encomenda.';
     }
-    return 'O teu donativo ajuda a manter viva a mensagem de Garabandal. Nossa Senhora de Garabandal rogai por nós.';
-  }, [type, headerFailed, accountExists]);
+    return isEn ? 'Your donation helps keep the message of Garabandal alive. Our Lady of Garabandal, pray for us.' : 'O teu donativo ajuda a manter viva a mensagem de Garabandal. Nossa Senhora de Garabandal rogai por nós.';
+  }, [accountExists, headerFailed, isEn, type]);
 
   if (!ready) {
     return (
@@ -256,7 +268,7 @@ export default function ThankYouPage() {
             transition={{ delay: 0.4 }}
           >
             <span className="inline-block px-3 py-1 rounded-full bg-white/5 border border-white/10 text-xs font-bold uppercase tracking-widest text-white/50 mb-4">
-              Confirmação
+              {isEn ? 'Confirmation' : 'Confirmação'}
             </span>
             <h1 className="text-3xl md:text-4xl font-serif text-white mb-4">{title}</h1>
             <p className="text-white/60 text-lg max-w-lg mx-auto leading-relaxed">{description}</p>
@@ -264,7 +276,7 @@ export default function ThankYouPage() {
             {amountText && (
               <div className="mt-6 flex items-center justify-center gap-2">
                 <div className="text-2xl font-bold text-white">{amountText}</div>
-                <div className="px-2 py-0.5 rounded bg-white/10 text-[10px] text-white/60 uppercase tracking-widest font-bold">Total</div>
+                <div className="px-2 py-0.5 rounded bg-white/10 text-[10px] text-white/60 uppercase tracking-widest font-bold">{isEn ? 'Total' : 'Total'}</div>
               </div>
             )}
           </motion.div>
@@ -274,14 +286,14 @@ export default function ThankYouPage() {
         <div className="p-8 md:p-10 bg-[#111]">
           {type === 'store' && !headerFailed && !accountExists && (
             <div className="mb-8 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-6">
-              <div className="font-bold text-amber-200 mb-2">Próximo passo para associar a encomenda</div>
+              <div className="font-bold text-amber-200 mb-2">{isEn ? 'Next step to attach your order' : 'Próximo passo para associar a encomenda'}</div>
               <div className="text-sm text-amber-100/90 leading-relaxed space-y-1">
-                <p>1. Abra o email de confirmação enviado para <strong>{confirmedEmail || 'o email da compra'}</strong>.</p>
-                <p>2. Clique em <strong>Associar Encomenda à Conta</strong>.</p>
-                <p>3. Na página do link, crie a conta (ou entre, se já existir) para guardar esta compra.</p>
+                <p>{isEn ? <>1. Open the confirmation email sent to <strong>{confirmedEmail || 'the purchase email'}</strong>.</> : <>1. Abra o email de confirmação enviado para <strong>{confirmedEmail || 'o email da compra'}</strong>.</>}</p>
+                <p>{isEn ? <>2. Click <strong>Attach Order to Account</strong>.</> : <>2. Clique em <strong>Associar Encomenda à Conta</strong>.</>}</p>
+                <p>{isEn ? '3. On that page, create your account (or sign in if you already have one) to save this order.' : '3. Na página do link, crie a conta (ou entre, se já existir) para guardar esta compra.'}</p>
               </div>
               <p className="text-xs text-amber-100/70 mt-3">
-                Se não encontrar o email, verifique Spam/Promoções.
+                {isEn ? "If you can't find the email, check Spam/Promotions." : 'Se não encontrar o email, verifique Spam/Promoções.'}
               </p>
             </div>
           )}
@@ -303,32 +315,32 @@ export default function ThankYouPage() {
                 <div className="flex-1">
                   <div className="font-bold text-white">
                     {reduniqConfirmStatus === 'confirming'
-                      ? 'A confirmar com a Reduniq...'
+                      ? (isEn ? 'Confirming with Reduniq...' : 'A confirmar com a Reduniq...')
                       : isReduniqSuccess
-                        ? 'Pagamento confirmado'
+                        ? (isEn ? 'Payment confirmed' : 'Pagamento confirmado')
                         : isReduniqPending
-                          ? 'Pagamento em processamento'
+                          ? (isEn ? 'Payment processing' : 'Pagamento em processamento')
                           : isReduniqFailed
-                            ? 'Pagamento não confirmado'
-                            : 'Estado do pagamento'}
+                            ? (isEn ? 'Payment not confirmed' : 'Pagamento não confirmado')
+                            : (isEn ? 'Payment status' : 'Estado do pagamento')}
                   </div>
                   <div className="text-sm text-white/60 mt-1 leading-relaxed">
                     {reduniqConfirmStatus === 'confirming'
-                      ? 'Estamos a validar o estado real da transação (via getResult).'
+                      ? (isEn ? 'We are validating the real transaction status (via getResult).' : 'Estamos a validar o estado real da transação (via getResult).')
                       : isReduniqSuccess
-                        ? 'A transação foi confirmada pela Reduniq.'
+                        ? (isEn ? 'The transaction was confirmed by Reduniq.' : 'A transação foi confirmada pela Reduniq.')
                         : isReduniqPending
-                          ? 'A transação ainda está em curso. Se for Pagamento de Serviços/MB, pode demorar alguns minutos.'
+                          ? (isEn ? 'The transaction is still in progress. If it is a service payment/MB, it may take a few minutes.' : 'A transação ainda está em curso. Se for Pagamento de Serviços/MB, pode demorar alguns minutos.')
                           : isReduniqFailed
-                            ? 'A transação foi recusada, cancelada ou terminou com erro.'
-                            : 'Não foi possível determinar o estado da transação.'}
+                            ? (isEn ? 'The transaction was declined, canceled, or ended with an error.' : 'A transação foi recusada, cancelada ou terminou com erro.')
+                            : (isEn ? 'Could not determine the transaction status.' : 'Não foi possível determinar o estado da transação.')}
                   </div>
 
                   {(orderRefParam || reduniqConfirm?.transactionId) && (
                     <div className="mt-3 text-xs text-white/50 flex flex-wrap gap-3">
                       {orderRefParam && <span>Ref: {orderRefParam}</span>}
-                      {reduniqConfirm?.transactionId && <span>Transação: {reduniqConfirm.transactionId}</span>}
-                      {reduniqConfirm?.resultCode && <span>Código: {reduniqConfirm.resultCode}</span>}
+                      {reduniqConfirm?.transactionId && <span>{isEn ? 'Transaction' : 'Transação'}: {reduniqConfirm.transactionId}</span>}
+                      {reduniqConfirm?.resultCode && <span>{isEn ? 'Code' : 'Código'}: {reduniqConfirm.resultCode}</span>}
                     </div>
                   )}
 
@@ -356,23 +368,22 @@ export default function ThankYouPage() {
                 <div className="bg-white/5 p-6 rounded-2xl border border-white/5">
                   <div className="flex items-center gap-3 mb-4 text-orange-400">
                     <Download className="w-5 h-5" />
-                    <h3 className="font-bold text-white">Produtos Digitais</h3>
+                    <h3 className="font-bold text-white">{isEn ? 'Digital Products' : 'Produtos Digitais'}</h3>
                   </div>
                   {confirmedEmail && (
                     <p className="text-white font-medium mb-4">
-                      Enviámos o email de acesso para <span className="text-orange-400">{confirmedEmail}</span>.
+                      {isEn ? <>We sent the access email to <span className="text-orange-400">{confirmedEmail}</span>.</> : <>Enviámos o email de acesso para <span className="text-orange-400">{confirmedEmail}</span>.</>}
                     </p>
                   )}
                   <p className="text-sm text-white/40 leading-relaxed mb-4">
-                    Pode descarregar os seus ficheiros agora ou aceder mais tarde na <strong className="text-white/70">Biblioteca Digital</strong> da sua área pessoal.
-                    <strong className="block mt-1 text-white/60">Estes links expiram em 7 dias.</strong>
+                    {isEn ? <>You can download your files now or access them later in your <strong className="text-white/70">Digital Library</strong> from your personal area.<strong className="block mt-1 text-white/60">These links expire in 7 days.</strong></> : <>Pode descarregar os seus ficheiros agora ou aceder mais tarde na <strong className="text-white/70">Biblioteca Digital</strong> da sua área pessoal.<strong className="block mt-1 text-white/60">Estes links expiram em 7 dias.</strong></>}
                   </p>
                   <div className="mb-4 flex flex-wrap gap-2">
-                    <Link href="/biblioteca" className="px-3 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs font-bold transition-colors">
-                      Ir para Biblioteca Digital
+                    <Link href={libraryPath} className="px-3 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs font-bold transition-colors">
+                      {isEn ? 'Go to Digital Library' : 'Ir para Biblioteca Digital'}
                     </Link>
-                    <Link href="/encomendas" className="px-3 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs font-bold transition-colors">
-                      Ver Minhas Encomendas
+                    <Link href={ordersPath} className="px-3 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs font-bold transition-colors">
+                      {isEn ? 'View My Orders' : 'Ver Minhas Encomendas'}
                     </Link>
                   </div>
 
@@ -387,7 +398,7 @@ export default function ThankYouPage() {
                           className="block w-full text-center px-4 py-3 rounded-xl bg-orange-600 hover:bg-orange-500 text-white font-bold transition-all flex items-center justify-center gap-2"
                         >
                           <Download className="w-4 h-4" />
-                          Descarregar {link.name}
+                          {isEn ? 'Download' : 'Descarregar'} {link.name}
                         </a>
                       ))}
                     </div>
@@ -398,9 +409,9 @@ export default function ThankYouPage() {
                 <div className="bg-white/5 p-6 rounded-2xl border border-white/5">
                   <div className="flex items-center gap-3 mb-4 text-blue-400">
                     <ShoppingBag className="w-5 h-5" />
-                    <h3 className="font-bold text-white">Produtos Físicos</h3>
+                    <h3 className="font-bold text-white">{isEn ? 'Physical Products' : 'Produtos Físicos'}</h3>
                   </div>
-                  <p className="text-sm text-white/40 leading-relaxed">Receberá um email com o tracking assim que a encomenda for expedida pelos nossos serviços.</p>
+                  <p className="text-sm text-white/40 leading-relaxed">{isEn ? 'You will receive an email with tracking details as soon as the order is shipped by our team.' : 'Receberá um email com o tracking assim que a encomenda for expedida pelos nossos serviços.'}</p>
                 </div>
               )}
             </div>
@@ -414,13 +425,13 @@ export default function ThankYouPage() {
                     <ShieldCheck className="w-6 h-6" />
                   </div>
                   <div className="flex-1">
-                    <h3 className="font-bold text-white text-lg mb-1">Membro Oficial Ativado</h3>
+                    <h3 className="font-bold text-white text-lg mb-1">{isEn ? 'Official Member Activated' : 'Membro Oficial Ativado'}</h3>
                     <p className="text-sm text-white/70 leading-relaxed">
-                      A sua quota foi confirmada. Entre agora na sua área de membro para ver conteúdos, agenda e gestão da sua conta.
+                      {isEn ? 'Your annual fee was confirmed. Enter your member area now to access content, calendar, and account management.' : 'A sua quota foi confirmada. Entre agora na sua área de membro para ver conteúdos, agenda e gestão da sua conta.'}
                     </p>
                     {memberNumber ? (
                       <div className="mt-3 inline-flex items-center gap-2 rounded-xl bg-black/30 border border-white/10 px-3 py-2 text-sm font-bold text-yellow-300">
-                        Nº de Membro: #{memberNumber}
+                        {isEn ? 'Member No.' : 'Nº de Membro'}: #{memberNumber}
                       </div>
                     ) : null}
                   </div>
@@ -431,9 +442,9 @@ export default function ThankYouPage() {
                 <div className="flex items-start gap-3">
                   <Mail className="w-5 h-5 text-blue-300 mt-0.5" />
                   <div>
-                    <p className="font-semibold text-white">Email enviado</p>
+                    <p className="font-semibold text-white">{isEn ? 'Email sent' : 'Email enviado'}</p>
                     <p className="text-sm text-white/70 mt-1">
-                      Verifique o email <strong>{memberEmail || 'da sua conta'}</strong>. Enviámos a confirmação da quota e o diploma digital de membro.
+                      {isEn ? <>Check the email <strong>{memberEmail || 'from your account'}</strong>. We sent the fee confirmation and your digital member diploma.</> : <>Verifique o email <strong>{memberEmail || 'da sua conta'}</strong>. Enviámos a confirmação da quota e o diploma digital de membro.</>}
                     </p>
                   </div>
                 </div>
@@ -444,39 +455,39 @@ export default function ThankYouPage() {
           {/* Actions */}
           <div className="flex flex-col md:flex-row items-center justify-center gap-4">
             <Link
-              href="/"
+              href={homePath}
               className="w-full md:w-auto px-8 py-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white font-medium transition-all flex items-center justify-center gap-2"
             >
               <Home className="w-4 h-4" />
-              Página Inicial
+              {isEn ? 'Home Page' : 'Página Inicial'}
             </Link>
 
             {type === 'store' ? (
               <>
                 {!accountExists ? (
                   <Link
-                    href="/login"
+                    href={loginPath}
                     className="w-full md:w-auto px-8 py-3 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold transition-all shadow-lg shadow-amber-900/20 flex items-center justify-center gap-2"
                   >
-                    Entrar / Criar Conta
+                    {isEn ? 'Sign In / Create Account' : 'Entrar / Criar Conta'}
                     <ArrowRight className="w-4 h-4" />
                   </Link>
                 ) : null}
                 {showDigital && accountExists ? (
                   <Link
-                    href="/biblioteca"
+                    href={libraryPath}
                     className="w-full md:w-auto px-8 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold transition-all shadow-lg shadow-indigo-900/20 flex items-center justify-center gap-2"
                   >
-                    Abrir Biblioteca
+                    {isEn ? 'Open Library' : 'Abrir Biblioteca'}
                     <ArrowRight className="w-4 h-4" />
                   </Link>
                 ) : null}
                 {showPhysical ? (
                   <Link
-                    href="/encomendas"
+                    href={ordersPath}
                     className="w-full md:w-auto px-8 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold transition-all shadow-lg shadow-blue-900/20 flex items-center justify-center gap-2"
                   >
-                    Ver Encomendas
+                    {isEn ? 'View Orders' : 'Ver Encomendas'}
                     <ArrowRight className="w-4 h-4" />
                   </Link>
                 ) : null}
@@ -484,36 +495,36 @@ export default function ThankYouPage() {
             ) : type === 'membership' ? (
               headerFailed ? (
                 <Link
-                  href="/tornar-membro?join=1"
+                  href={membershipRetryPath}
                   className="w-full md:w-auto px-8 py-3 rounded-xl bg-yellow-600 hover:bg-yellow-500 text-white font-bold transition-all shadow-lg shadow-yellow-900/20 flex items-center justify-center gap-2"
                 >
-                  Tentar Novamente
+                  {isEn ? 'Try Again' : 'Tentar Novamente'}
                   <ArrowRight className="w-4 h-4" />
                 </Link>
               ) : (
                 <>
                   <Link
-                    href="/member"
+                    href={memberPath}
                     className="w-full md:w-auto px-8 py-4 rounded-xl bg-yellow-500 hover:bg-yellow-400 text-black font-extrabold transition-all shadow-[0_0_35px_rgba(234,179,8,0.35)] flex items-center justify-center gap-2 text-base"
                   >
-                    Ir para Minha Área de Membro
+                    {isEn ? 'Go to My Member Area' : 'Ir para Minha Área de Membro'}
                     <ArrowRight className="w-5 h-5" />
                   </Link>
                   <Link
-                    href="/member/direitos-deveres"
+                    href={rightsPath}
                     className="w-full md:w-auto px-8 py-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/15 text-white font-bold transition-all flex items-center justify-center gap-2"
                   >
-                    Direitos e Deveres
+                    {isEn ? 'Rights and Duties' : 'Direitos e Deveres'}
                     <ScrollText className="w-4 h-4" />
                   </Link>
                 </>
               )
             ) : (
               <Link
-                href="/donations"
+                href={donationsPath}
                 className="w-full md:w-auto px-8 py-3 rounded-xl bg-orange-600 hover:bg-orange-500 text-white font-bold transition-all shadow-lg shadow-orange-900/20 flex items-center justify-center gap-2"
               >
-                Ver Campanha
+                {isEn ? 'View Campaign' : 'Ver Campanha'}
                 <ArrowRight className="w-4 h-4" />
               </Link>
             )}

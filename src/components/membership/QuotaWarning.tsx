@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { AlertTriangle, X } from 'lucide-react';
+import { usePathname } from 'next/navigation';
+import { useLocale } from '../../contexts/LocaleContext';
 import { isActiveMember } from '../../lib/store-discounts';
 import { normalizeQuotaStatus } from '../../lib/membership-status';
 
@@ -12,8 +14,13 @@ type QuotaWarningProps = {
 };
 
 export function QuotaWarning({ memberData, className = '' }: QuotaWarningProps) {
+    const pathname = usePathname();
+    const { locale, t } = useLocale();
     const [dismissed, setDismissed] = useState(true); // Default to true to prevent flash
     const [isOverdue, setIsOverdue] = useState(false);
+    const isEn = locale === 'en' || pathname?.startsWith('/en');
+    const quotaPath = isEn ? '/en/member/quota' : '/member/quota';
+    const o = t.membership.overdue;
 
     useEffect(() => {
         // Calculate status
@@ -44,23 +51,23 @@ export function QuotaWarning({ memberData, className = '' }: QuotaWarningProps) 
                     <AlertTriangle className="w-5 h-5 text-amber-200" />
                 </div>
                 <div>
-                    <p className="font-bold text-sm md:text-base leading-tight">Quota em Atraso</p>
+                    <p className="font-bold text-sm md:text-base leading-tight">{o.title}</p>
                     <p className="text-xs md:text-sm text-amber-100/80 leading-tight mt-0.5">
-                        A tua subscrição expirou. Renova agora para evitar a perda de acesso.
+                        {o.desc}
                     </p>
                 </div>
             </div>
             <div className="flex items-center gap-3 pl-3">
                 <Link
-                    href="/member/quota"
+                    href={quotaPath}
                     className="whitespace-nowrap px-4 py-1.5 bg-white !text-black font-bold text-xs md:text-sm rounded-lg hover:bg-amber-50 transition-colors shadow-sm border border-amber-100"
                 >
-                    Pagar
+                    {o.pay}
                 </Link>
                 <button
                     onClick={handleDismiss}
                     className="p-1 hover:bg-amber-700/50 rounded-lg transition-colors text-amber-200 hover:text-white"
-                    aria-label="Fechar aviso"
+                    aria-label={o.close}
                 >
                     <X className="w-5 h-5" />
                 </button>

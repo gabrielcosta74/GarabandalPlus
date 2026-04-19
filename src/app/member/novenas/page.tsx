@@ -6,12 +6,15 @@ import { motion } from 'framer-motion';
 import { Calendar, PlayCircle, Lock, BookOpen, Star, Sparkles, ArrowRight, LayoutGrid, CheckCircle2 } from 'lucide-react';
 import Link from 'next/link';
 import { supabaseBrowser } from '../../../lib/supabase-browser';
+import { useLocale } from '../../../contexts/LocaleContext';
 
 // --- Types ---
 type NovenaSummary = {
     id: string;
     title: string;
+    title_en?: string | null;
     description: string;
+    description_en?: string | null;
     image_url: string | null;
     slug: string;
 };
@@ -23,9 +26,12 @@ type NovenaProgressSummary = {
 };
 
 export default function NovenasHubPage() {
+    const { locale } = useLocale();
     const [novenas, setNovenas] = useState<NovenaSummary[]>([]);
     const [progressMap, setProgressMap] = useState<Record<string, NovenaProgressSummary>>({});
     const [loading, setLoading] = useState(true);
+    const isEn = locale === 'en';
+    const novenasBasePath = isEn ? '/en/member/novenas' : '/member/novenas';
 
     useEffect(() => {
         const loadData = async () => {
@@ -44,7 +50,15 @@ export default function NovenasHubPage() {
                 .eq('published', true)
                 .order('created_at', { ascending: false }); // Newest first
 
-            if (novenaList) setNovenas(novenaList);
+            if (novenaList) {
+                setNovenas(
+                    novenaList.map((novena: any) => ({
+                        ...novena,
+                        title: isEn ? novena.title_en || novena.title : novena.title,
+                        description: isEn ? novena.description_en || novena.description : novena.description,
+                    }))
+                );
+            }
 
             // 2. Fetch User Progress (if logged in)
             if (userId) {
@@ -65,7 +79,7 @@ export default function NovenasHubPage() {
             setLoading(false);
         };
         loadData();
-    }, []);
+    }, [isEn]);
 
     return (
         <VIPLayout>
@@ -75,13 +89,13 @@ export default function NovenasHubPage() {
                     <div className="space-y-4">
                         <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-sm font-bold uppercase tracking-wider text-indigo-400">
                             <BookOpen className="w-4 h-4 text-indigo-500" />
-                            Biblioteca Espiritual
+                            {isEn ? 'Spiritual Library' : 'Biblioteca Espiritual'}
                         </div>
                         <h1 className="font-serif text-4xl md:text-5xl font-bold text-white">
-                            Novenas & Jornadas
+                            {isEn ? 'Novenas & Prayer Journeys' : 'Novenas & Jornadas'}
                         </h1>
                         <p className="text-slate-400 text-lg max-w-2xl">
-                            Escolhe um caminho de oração. Reza durante 9 dias e fortalece a tua fé.
+                            {isEn ? 'Choose a path of prayer. Pray for 9 days and strengthen your faith.' : 'Escolhe um caminho de oração. Reza durante 9 dias e fortalece a tua fé.'}
                         </p>
                     </div>
                 </div>
@@ -95,7 +109,7 @@ export default function NovenasHubPage() {
                     </div>
                 ) : novenas.length === 0 ? (
                     <div className="text-center py-20 bg-slate-900 rounded-3xl border border-white/5">
-                        <p className="text-slate-500">Nenhuma novena disponível de momento.</p>
+                        <p className="text-slate-500">{isEn ? 'No novenas available right now.' : 'Nenhuma novena disponível de momento.'}</p>
                     </div>
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
@@ -107,7 +121,7 @@ export default function NovenasHubPage() {
                             return (
                                 <Link
                                     key={novena.id}
-                                    href={`/member/novenas/${novena.id}`}
+                                    href={`${novenasBasePath}/${novena.id}`}
                                     className="group relative block h-[450px] rounded-3xl overflow-hidden bg-slate-900 border border-white/10 hover:border-indigo-500/50 transition-all hover:shadow-2xl hover:shadow-indigo-500/10 hover:-translate-y-1"
                                 >
                                     {/* Image Background */}
@@ -122,18 +136,18 @@ export default function NovenasHubPage() {
                                     {/* Badges */}
                                     <div className="absolute top-4 left-4 z-20 flex flex-col gap-2">
                                         {isCompleted && (
-                                            <span className="inline-flex items-center gap-1 px-3 py-1 bg-green-500 text-white text-xs font-bold rounded-full shadow-lg">
-                                                <CheckCircle2 className="w-3 h-3" /> Concluída
+                                                <span className="inline-flex items-center gap-1 px-3 py-1 bg-green-500 text-white text-xs font-bold rounded-full shadow-lg">
+                                                <CheckCircle2 className="w-3 h-3" /> {isEn ? 'Completed' : 'Concluída'}
                                             </span>
                                         )}
                                         {isStarted && !isCompleted && (
                                             <span className="inline-flex items-center gap-1 px-3 py-1 bg-indigo-500 text-white text-xs font-bold rounded-full shadow-lg">
-                                                <PlayCircle className="w-3 h-3" /> Em Curso: Dia {progress.current_day}
+                                                <PlayCircle className="w-3 h-3" /> {isEn ? `In Progress: Day ${progress.current_day}` : `Em Curso: Dia ${progress.current_day}`}
                                             </span>
                                         )}
                                         {!isStarted && (
                                             <span className="inline-flex items-center gap-1 px-3 py-1 bg-slate-900/80 backdrop-blur text-slate-300 text-xs font-bold rounded-full border border-white/10">
-                                                Nova Jornada
+                                                {isEn ? 'New Journey' : 'Nova Jornada'}
                                             </span>
                                         )}
                                     </div>
@@ -158,7 +172,7 @@ export default function NovenasHubPage() {
                                         )}
 
                                         <div className="flex items-center text-sm font-bold text-white pt-2">
-                                            {isStarted ? 'Continuar Rezar' : 'Começar Agora'}
+                                            {isStarted ? (isEn ? 'Continue Praying' : 'Continuar Rezar') : (isEn ? 'Start Now' : 'Começar Agora')}
                                             <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform text-indigo-500" />
                                         </div>
                                     </div>

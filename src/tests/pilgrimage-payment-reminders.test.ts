@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { resolveReminderCandidate } from '../lib/pilgrimage-payment-reminders';
+import { parsePaymentPlan, projectReminderPlan, resolveReminderCandidate } from '../lib/pilgrimage-payment-reminders';
 import { renderPilgrimagePaymentReminderEmail } from '../lib/email-renderer';
 
 describe('pilgrimage payment reminders', () => {
@@ -176,5 +176,107 @@ describe('pilgrimage payment reminders', () => {
     expect(email.html).toContain('Gerir Inscrição');
     expect(email.html).toContain(`href="${bookingUrl}"`);
     expect(email.html).toContain('Prestação 1');
+  });
+
+  it('projects the full timeline for an unpaid deposit', () => {
+    const plan = projectReminderPlan(
+      {
+        id: 'booking-deposit',
+        user_id: 'user-4',
+        created_at: '2026-03-01T10:00:00.000Z',
+        total_amount: 1200,
+        paid_amount: 0,
+        status: 'pending',
+        view_token: 'token-deposit',
+        payment_plan: [{ date: '2026-04-10T10:00:00.000Z', amount: 700 }],
+        pilgrimage: {
+          title: 'Garabandal Maio',
+          deposit_value: 500,
+        },
+        pilgrims: [{ full_name: 'João', email: 'joao@example.com', birth_date: '1988-03-03' }],
+        payments: [],
+      },
+      {
+        email: 'joao@example.com',
+        recipientName: 'João',
+        appUrl: 'https://apostoladodegarabandal.com',
+        now: new Date('2026-03-03T12:00:00.000Z'),
+      },
+    );
+
+    expect(plan?.reminderKind).toBe('deposit');
+    expect(plan?.timeline.map((entry) => entry.kind)).toEqual([
+      'upcoming_3d',
+      'upcoming_1d',
+      'due_today',
+      'overdue_2d',
+      'overdue_5d',
+    ]);
+    expect(plan?.timeline[0]?.scheduledFor.slice(0, 10)).toBe('2026-03-03');
+    expect(plan?.timeline[0]?.isToday).toBe(true);
+  });
+
+  it('projects installment reminders after the deposit is paid', () => {
+    const plan = projectReminderPlan(
+      {
+        id: 'booking-installment',
+        user_id: 'user-5',
+        created_at: '2026-03-01T10:00:00.000Z',
+        total_amount: 1750,
+        paid_amount: 500,
+        status: 'confirmed',
+        view_token: 'token-installment',
+        payment_plan: [
+          { date: '2026-04-10T10:00:00.000Z', amount: 625 },
+          { date: '2026-05-10T10:00:00.000Z', amount: 625 },
+        ],
+        pilgrimage: {
+          title: 'Garabandal Outubro',
+          deposit_value: 500,
+        },
+        pilgrims: [{ full_name: 'Maria', email: 'maria@example.com', birth_date: '1990-01-01' }],
+        payments: [
+          {
+            id: 'pay-1',
+            amount: 500,
+            status: 'verified',
+            method: 'stripe',
+            created_at: '2026-03-01T10:05:00.000Z',
+          },
+        ],
+      },
+      {
+        email: 'maria@example.com',
+        recipientName: 'Maria',
+        appUrl: 'https://apostoladodegarabandal.com',
+        now: new Date('2026-04-03T12:00:00.000Z'),
+      },
+    );
+
+    expect(plan?.reminderKind).toBe('installment');
+    expect(plan?.obligationLabel).toBe('Prestação 1');
+    expect(plan?.timeline.map((entry) => entry.kind)).toEqual([
+      'upcoming_7d',
+      'upcoming_2d',
+      'due_today',
+      'overdue_3d',
+      'overdue_10d',
+    ]);
+    expect(plan?.timeline[0]?.scheduledFor.slice(0, 10)).toBe('2026-04-03');
+    expect(plan?.timeline[0]?.isToday).toBe(true);
+  });
+
+  it('parses payment plans stored as a nested JSON string from the database', () => {
+    const nestedValue = JSON.stringify(
+      JSON.stringify([
+        { date: '2026-04-10T16:42:40.828Z', amount: 208.33 },
+        { date: '2026-05-10T16:42:40.828Z', amount: 208.35 },
+      ]),
+    );
+
+    expect(parsePaymentPlan(nestedValue)).toEqual([
+      { date: '2026-04-10T16:42:40.828Z', amount: 208.33 },
+      { date: '2026-05-10T16:42:40.828Z', amount: 208.35 },
+    ]);
   });
 });

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import useSWR from 'swr';
 import { format, formatDistanceToNow } from 'date-fns';
 import { pt } from 'date-fns/locale';
+import { PilgrimagesTab } from './PilgrimagesTab';
 import AdminLayout from '../../../components/admin/AdminLayout';
 import { supabaseBrowser } from '../../../lib/supabase-browser';
 import {
@@ -38,6 +39,9 @@ import {
   X,
   XCircle,
   Zap,
+  CalendarClock,
+  CircleAlert,
+  CreditCard,
 } from 'lucide-react';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -52,7 +56,49 @@ type EmailActivityDetailResponse = {
   email: ResendEmailActivityDetail;
 };
 
-type PageTab = 'activity' | 'flows';
+type PilgrimageReminderTimelineEntry = {
+  kind: string;
+  notificationType: string;
+  diffDays: number;
+  scheduledFor: string;
+  isPast: boolean;
+  isToday: boolean;
+  isFuture: boolean;
+  alreadySent: boolean;
+  reference: string;
+  state: 'sent' | 'today' | 'scheduled' | 'overdue_pending';
+};
+
+type PilgrimageReminderPlan = {
+  bookingId: string;
+  recipientName: string;
+  email: string;
+  pilgrimageName: string;
+  bookingUrl: string;
+  obligationKey: string;
+  obligationLabel: string;
+  reminderKind: 'deposit' | 'installment';
+  amountDue: number;
+  totalRemaining: number;
+  dueDate: string;
+  nextPlanned: PilgrimageReminderTimelineEntry | null;
+  currentAction: PilgrimageReminderTimelineEntry | null;
+  timeline: PilgrimageReminderTimelineEntry[];
+};
+
+type PilgrimageReminderResponse = {
+  asOf: string;
+  summary: {
+    totalBookings: number;
+    deposits: number;
+    installments: number;
+    sendToday: number;
+    upcomingNext7Days: number;
+  };
+  reminders: PilgrimageReminderPlan[];
+};
+
+type PageTab = 'activity' | 'flows' | 'pilgrimages';
 type CategoryFilter = 'all' | EmailCategoryKey;
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -442,14 +488,26 @@ export default function AdminEmailActivityPage() {
   const [category, setCategory] = useState<CategoryFilter>('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [drawerEmailId, setDrawerEmailId] = useState<string | null>(null);
+  const [pilgrimageSearch, setPilgrimageSearch] = useState('');
 
   const { data, error, isLoading, mutate } = useSWR<EmailActivityResponse>(
     '/api/admin/email-activity?limit=100',
     fetcher,
     { revalidateOnFocus: false },
   );
+  const {
+    data: pilgrimageData,
+    error: pilgrimageError,
+    isLoading: pilgrimageLoading,
+    mutate: mutatePilgrimages,
+  } = useSWR<PilgrimageReminderResponse>(
+    '/api/admin/email-activity/pilgrimage-reminders',
+    fetcher,
+    { revalidateOnFocus: false },
+  );
 
   const emails = data?.emails || [];
+  const pilgrimageReminders = pilgrimageData?.reminders || [];
 
   const categoryCounts = useMemo(() => {
     const counts: Partial<Record<EmailCategoryKey, number>> = {};
@@ -472,6 +530,22 @@ export default function AdminEmailActivityPage() {
   }, [category, emails, search, status]);
 
   const summary = useMemo(() => buildEmailActivitySummary(filteredEmails), [filteredEmails]);
+  const filteredPilgrimageReminders = useMemo(() => {
+    const query = pilgrimageSearch.trim().toLowerCase();
+    if (!query) return pilgrimageReminders;
+
+    return pilgrimageReminders.filter((entry) =>
+      [
+        entry.recipientName,
+        entry.email,
+        entry.pilgrimageName,
+        entry.obligationLabel,
+      ]
+        .join(' ')
+        .toLowerCase()
+        .includes(query),
+    );
+  }, [pilgrimageReminders, pilgrimageSearch]);
 
   const totalPages = Math.max(1, Math.ceil(filteredEmails.length / PAGE_SIZE));
   const pagedEmails = filteredEmails.slice(
@@ -538,6 +612,7 @@ export default function AdminEmailActivityPage() {
         <div className="flex gap-1 rounded-2xl bg-slate-100 p-1 w-fit">
           {([
             { id: 'activity', label: 'Atividade', icon: Mail },
+            { id: 'pilgrimages', label: 'Avisos Peregrinação', icon: CalendarClock },
             { id: 'flows', label: 'Fluxos Automáticos', icon: Zap },
           ] as const).map(({ id, label, icon: Icon }) => (
             <button
@@ -751,6 +826,16 @@ export default function AdminEmailActivityPage() {
               )}
             </div>
           </div>
+        )}
+
+        {/* ═══════════════════════ TAB: PILGRIMAGES ═══════════════════════ */}
+        {pageTab === "pilgrimages" && (
+          <PilgrimagesTab
+            data={pilgrimageData}
+            error={pilgrimageError}
+            isLoading={pilgrimageLoading}
+            mutate={mutatePilgrimages}
+          />
         )}
 
         {/* ═══════════════════════ TAB: FLOWS ═══════════════════════ */}
@@ -1034,6 +1119,40 @@ function MetaItem({ label, value, mono = false }: { label: string; value: string
       <p className={`mt-0.5 text-xs text-slate-700 break-all leading-relaxed ${mono ? 'font-mono' : ''}`}>{value}</p>
     </div>
   );
+}
+
+function MiniMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5">
+      <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">{label}</p>
+      <p className="mt-1 text-xs font-semibold text-slate-800 break-words">{value}</p>
+    </div>
+  );
+}
+
+function translateReminderKind(kind: string) {
+  switch (kind) {
+    case 'upcoming_7d':
+      return '7 dias antes';
+    case 'upcoming_3d':
+      return '3 dias antes';
+    case 'upcoming_2d':
+      return '2 dias antes';
+    case 'upcoming_1d':
+      return '1 dia antes';
+    case 'due_today':
+      return 'No vencimento';
+    case 'overdue_2d':
+      return '2 dias em atraso';
+    case 'overdue_3d':
+      return '3 dias em atraso';
+    case 'overdue_5d':
+      return '5 dias em atraso';
+    case 'overdue_10d':
+      return '10 dias em atraso';
+    default:
+      return kind;
+  }
 }
 
 function AdminBadge() {

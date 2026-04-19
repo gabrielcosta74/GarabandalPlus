@@ -42,42 +42,42 @@ type Order = {
   items: OrderItem[];
 };
 
-const formatCurrency = (value: number, currency = 'EUR') =>
-  new Intl.NumberFormat('pt-PT', { style: 'currency', currency }).format(value);
+const formatCurrency = (value: number, currency = 'EUR', locale = 'pt-PT') =>
+  new Intl.NumberFormat(locale, { style: 'currency', currency }).format(value);
 
-const formatDate = (value: string) => new Date(value).toLocaleDateString('pt-PT', {
+const formatDate = (value: string, locale = 'pt-PT') => new Date(value).toLocaleDateString(locale, {
   day: '2-digit',
   month: 'long',
   year: 'numeric'
 });
 
-const getStatusInfo = (status: string) => {
+const getStatusInfo = (status: string, isEn = false) => {
   const normalized = status?.toLowerCase?.() || '';
-  if (normalized === 'paid' || normalized === 'pago') return { label: 'Pago', color: 'green', icon: CheckCircle2 };
-  if (normalized === 'pending' || normalized === 'pendente') return { label: 'Pendente', color: 'amber', icon: Clock };
-  if (normalized === 'failed') return { label: 'Falhado', color: 'red', icon: AlertCircle };
-  if (normalized === 'canceled' || normalized === 'cancelado') return { label: 'Cancelado', color: 'gray', icon: AlertCircle };
-  return { label: status || 'Indefinido', color: 'gray', icon: AlertCircle };
+  if (normalized === 'paid' || normalized === 'pago') return { label: isEn ? 'Paid' : 'Pago', color: 'green', icon: CheckCircle2 };
+  if (normalized === 'pending' || normalized === 'pendente') return { label: isEn ? 'Pending' : 'Pendente', color: 'amber', icon: Clock };
+  if (normalized === 'failed') return { label: isEn ? 'Failed' : 'Falhado', color: 'red', icon: AlertCircle };
+  if (normalized === 'canceled' || normalized === 'cancelado') return { label: isEn ? 'Canceled' : 'Cancelado', color: 'gray', icon: AlertCircle };
+  return { label: status || (isEn ? 'Undefined' : 'Indefinido'), color: 'gray', icon: AlertCircle };
 };
 
-const getShippingLabel = (status?: string | null) => {
+const getShippingLabel = (status?: string | null, isEn = false) => {
   const normalized = status?.toLowerCase?.() || '';
-  if (!normalized) return 'Em preparação';
-  if (normalized === 'enviado') return 'Enviado';
-  if (normalized === 'por_enviar') return 'Em preparação';
-  if (normalized === 'preparacao') return 'Em preparação';
-  return status || 'Em preparação';
+  if (!normalized) return isEn ? 'Preparing' : 'Em preparação';
+  if (normalized === 'enviado') return isEn ? 'Shipped' : 'Enviado';
+  if (normalized === 'por_enviar') return isEn ? 'Preparing' : 'Em preparação';
+  if (normalized === 'preparacao') return isEn ? 'Preparing' : 'Em preparação';
+  return status || (isEn ? 'Preparing' : 'Em preparação');
 };
 
-const OrderTimeline = ({ order }: { order: Order }) => {
+const OrderTimeline = ({ order, isEn }: { order: Order; isEn: boolean }) => {
   const isPaid = order.status?.toLowerCase() === 'paid' || order.status?.toLowerCase() === 'pago';
   const isShipped = order.shipping_status?.toLowerCase() === 'enviado';
 
   // Steps configuration
   const steps = [
-    { label: 'Pagamento', completed: isPaid, icon: CheckCircle2 },
-    { label: 'Preparação', completed: isPaid, icon: Package }, // Assuming prep starts after payment
-    { label: 'Enviado', completed: isShipped, icon: Truck },
+    { label: isEn ? 'Payment' : 'Pagamento', completed: isPaid, icon: CheckCircle2 },
+    { label: isEn ? 'Preparing' : 'Preparação', completed: isPaid, icon: Package },
+    { label: isEn ? 'Shipped' : 'Enviado', completed: isShipped, icon: Truck },
   ];
 
   // For digital only orders, show simplified timeline
@@ -86,12 +86,12 @@ const OrderTimeline = ({ order }: { order: Order }) => {
       <div className="flex items-center gap-4 py-4 px-2">
         <div className="flex items-center gap-2 text-green-600 font-bold">
           <CheckCircle2 className="w-5 h-5" />
-          <span className="text-sm">Pagamento Confirmado</span>
+          <span className="text-sm">{isEn ? 'Payment Confirmed' : 'Pagamento Confirmado'}</span>
         </div>
         <div className="h-px bg-gray-200 flex-1"></div>
         <div className="flex items-center gap-2 text-green-600 font-bold">
           <CheckCircle2 className="w-5 h-5" />
-          <span className="text-sm">Disponível na Biblioteca</span>
+          <span className="text-sm">{isEn ? 'Available in Library' : 'Disponível na Biblioteca'}</span>
         </div>
       </div>
     );
@@ -129,6 +129,7 @@ import useSWR from 'swr';
 import { User } from '@supabase/supabase-js';
 
 import { useAuth } from '../../contexts/AuthContext';
+import { useLocale } from '../../contexts/LocaleContext';
 
 const fetchOrders = async (url: string) => {
   const { data: { session } } = await supabaseBrowser.auth.getSession();
@@ -147,6 +148,9 @@ const fetchOrders = async (url: string) => {
 
 export default function EncomendasPage() {
   const { user, loading: authLoading } = useAuth();
+  const { locale } = useLocale();
+  const isEn = locale === 'en';
+  const uiLocale = isEn ? 'en-GB' : 'pt-PT';
 
   const [expandedOrder, setExpandedOrder] = useState<string | null>(null);
 
@@ -173,8 +177,8 @@ export default function EncomendasPage() {
 
   return (
     <DashboardShell
-      title="As Minhas Encomendas"
-      subtitle="Acompanha o estado das tuas compras e consulta o histórico."
+      title={isEn ? 'My Orders' : 'As Minhas Encomendas'}
+      subtitle={isEn ? 'Track your purchases and review your history.' : 'Acompanha o estado das tuas compras e consulta o histórico.'}
     >
       {loading ? (
         <div className="py-20 flex justify-center">
@@ -189,17 +193,17 @@ export default function EncomendasPage() {
           <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-6">
             <Package className="w-8 h-8 text-gray-400" />
           </div>
-          <h2 className="font-serif text-2xl font-bold text-garabandal-dark mb-2">Sem encomendas recentes</h2>
-          <p className="text-gray-500 max-w-md mx-auto mb-8">Ainda não fizeste nenhuma compra na nossa loja.</p>
-          <Link href="/loja-online" className="px-6 py-3 bg-garabandal-gold text-garabandal-dark font-bold rounded-xl hover:bg-yellow-400 transition-all shadow-lg hover:shadow-xl inline-flex items-center gap-2">
+          <h2 className="font-serif text-2xl font-bold text-garabandal-dark mb-2">{isEn ? 'No recent orders' : 'Sem encomendas recentes'}</h2>
+          <p className="text-gray-500 max-w-md mx-auto mb-8">{isEn ? 'You have not made any purchases in our store yet.' : 'Ainda não fizeste nenhuma compra na nossa loja.'}</p>
+          <Link href={isEn ? '/en/store' : '/loja-online'} className="px-6 py-3 bg-garabandal-gold text-garabandal-dark font-bold rounded-xl hover:bg-yellow-400 transition-all shadow-lg hover:shadow-xl inline-flex items-center gap-2">
             <ShoppingBag className="w-4 h-4" />
-            Explorar Loja Online
+            {isEn ? 'Explore Online Store' : 'Explorar Loja Online'}
           </Link>
         </div>
       ) : (
         <div className="space-y-6">
           {orders.map((order) => {
-            const status = getStatusInfo(order.status);
+            const status = getStatusInfo(order.status, isEn);
             const isExpanded = expandedOrder === order.order_ref;
 
             return (
@@ -227,14 +231,14 @@ export default function EncomendasPage() {
                           {status.label}
                         </span>
                       </div>
-                      <p className="text-sm text-gray-500">{formatDate(order.created_at)} • {order.items.length} itens</p>
+                      <p className="text-sm text-gray-500">{formatDate(order.created_at, uiLocale)} • {order.items.length} {isEn ? 'items' : 'itens'}</p>
                     </div>
                   </div>
 
                   <div className="flex items-center gap-6 w-full md:w-auto justify-between md:justify-end">
                     <div className="text-right">
-                      <p className="text-xs text-gray-400 uppercase font-bold tracking-wider mb-0.5">Total</p>
-                      <p className="font-bold text-lg text-garabandal-dark">{formatCurrency(order.total_amount, order.currency)}</p>
+                      <p className="text-xs text-gray-400 uppercase font-bold tracking-wider mb-0.5">{isEn ? 'Total' : 'Total'}</p>
+                      <p className="font-bold text-lg text-garabandal-dark">{formatCurrency(order.total_amount, order.currency, uiLocale)}</p>
                     </div>
                     <div className={`p-2 rounded-full transition-transform duration-300 ${isExpanded ? 'bg-gray-100 rotate-180' : 'bg-gray-50'}`}>
                       <ChevronDown className="w-5 h-5 text-gray-500" />
@@ -253,7 +257,7 @@ export default function EncomendasPage() {
                       <div className="p-6 md:p-8">
                         {/* Status Tracker */}
                         <div className="mb-10 max-w-2xl mx-auto">
-                          <OrderTimeline order={order} />
+                          <OrderTimeline order={order} isEn={isEn} />
                         </div>
 
                         {/* Items */}
@@ -261,9 +265,9 @@ export default function EncomendasPage() {
                           <table className="w-full text-sm text-left">
                             <thead className="bg-gray-50 text-xs font-bold uppercase tracking-wider text-gray-400 border-b border-gray-100">
                               <tr>
-                                <th className="py-3 px-4 pl-6">Produto</th>
-                                <th className="py-3 px-4 text-center">Qtd</th>
-                                <th className="py-3 px-4 pr-6 text-right">Total</th>
+                                <th className="py-3 px-4 pl-6">{isEn ? 'Product' : 'Produto'}</th>
+                                <th className="py-3 px-4 text-center">{isEn ? 'Qty' : 'Qtd'}</th>
+                                <th className="py-3 px-4 pr-6 text-right">{isEn ? 'Total' : 'Total'}</th>
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-50">
@@ -279,13 +283,13 @@ export default function EncomendasPage() {
                                       )}
                                       {item.is_physical === true && (
                                         <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">
-                                          Físico
+                                          {isEn ? 'Physical' : 'Físico'}
                                         </span>
                                       )}
                                     </div>
                                   </td>
                                   <td className="py-4 px-4 text-center text-gray-500">{item.qty}</td>
-                                  <td className="py-4 px-4 pr-6 text-right font-bold text-gray-900">{formatCurrency(item.total_price, order.currency)}</td>
+                                  <td className="py-4 px-4 pr-6 text-right font-bold text-gray-900">{formatCurrency(item.total_price, order.currency, uiLocale)}</td>
                                 </tr>
                               ))}
                             </tbody>
@@ -298,11 +302,11 @@ export default function EncomendasPage() {
                               <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-4">
                                 <div className="flex items-center gap-2 text-emerald-700 font-bold text-sm mb-2">
                                   <Download className="w-4 h-4" />
-                                  Produtos digitais disponíveis
+                                  {isEn ? 'Digital products available' : 'Produtos digitais disponíveis'}
                                 </div>
-                                <p className="text-sm text-emerald-700/80 mb-3">Pode aceder a qualquer momento na sua Biblioteca.</p>
-                                <Link href="/biblioteca" className="inline-flex items-center gap-2 text-sm font-bold text-emerald-700 hover:text-emerald-600">
-                                  Abrir Biblioteca
+                                <p className="text-sm text-emerald-700/80 mb-3">{isEn ? 'You can access them at any time in your Library.' : 'Pode aceder a qualquer momento na sua Biblioteca.'}</p>
+                                <Link href={isEn ? '/en/library' : '/biblioteca'} className="inline-flex items-center gap-2 text-sm font-bold text-emerald-700 hover:text-emerald-600">
+                                  {isEn ? 'Open Library' : 'Abrir Biblioteca'}
                                   <ArrowRight className="w-4 h-4" />
                                 </Link>
                               </div>
@@ -311,15 +315,15 @@ export default function EncomendasPage() {
                               <div className="bg-blue-50 border border-blue-100 rounded-xl p-4">
                                 <div className="flex items-center gap-2 text-blue-700 font-bold text-sm mb-2">
                                   <Truck className="w-4 h-4" />
-                                  {getShippingLabel(order.shipping_status)}
+                                  {getShippingLabel(order.shipping_status, isEn)}
                                 </div>
                                 {order.shipping_tracking ? (
                                   <p className="text-sm text-blue-700/80">Tracking: {order.shipping_tracking}</p>
                                 ) : (
-                                  <p className="text-sm text-blue-700/80">Enviamos o tracking assim que a encomenda for expedida.</p>
+                                  <p className="text-sm text-blue-700/80">{isEn ? 'We will send the tracking details as soon as the order ships.' : 'Enviamos o tracking assim que a encomenda for expedida.'}</p>
                                 )}
                                 {order.shipped_at ? (
-                                  <p className="text-xs text-blue-700/70 mt-2">Enviado em {formatDate(order.shipped_at)}</p>
+                                  <p className="text-xs text-blue-700/70 mt-2">{isEn ? 'Shipped on' : 'Enviado em'} {formatDate(order.shipped_at, uiLocale)}</p>
                                 ) : null}
                               </div>
                             )}
@@ -330,7 +334,7 @@ export default function EncomendasPage() {
                         <div className="flex flex-wrap items-center justify-end gap-3">
                           <button className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-bold text-gray-600 hover:bg-gray-50 transition-colors">
                             <Copy className="w-4 h-4" />
-                            Copiar Referência
+                            {isEn ? 'Copy Reference' : 'Copiar Referência'}
                           </button>
                         </div>
                       </div>

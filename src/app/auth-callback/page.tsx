@@ -12,10 +12,14 @@ export default function AuthCallbackPage() {
 
   useEffect(() => {
     let cancelled = false;
+    let locale = 'pt';
+    let loginPath = '/login';
+    let becomeMemberPath = '/tornar-membro';
+
     const watchdog = window.setTimeout(() => {
       if (cancelled) return;
       setMessage('A validação está a demorar. A redirecionar para login...');
-      window.location.replace('/login');
+      window.location.replace(loginPath);
     }, 12000);
 
     const handleAuth = async () => {
@@ -25,6 +29,10 @@ export default function AuthCallbackPage() {
         const searchParams = url.searchParams;
         const nextQuery = searchParams.get('next');
         const refCode = searchParams.get('ref');
+        locale = searchParams.get('locale') || 'pt';
+        const isEn = locale === 'en';
+        loginPath = isEn ? '/en/login' : '/login';
+        becomeMemberPath = isEn ? '/en/become-member' : '/tornar-membro';
 
         // Handle Hash Params (Legacy/Implicit flow)
         const hash = window.location.hash.replace(/^#/, '');
@@ -47,7 +55,7 @@ export default function AuthCallbackPage() {
         // This handles cases where auto-refresh or race conditions already established the session
         const { data: { session } } = await supabaseBrowser.auth.getSession();
         if (session) {
-          handleRedirect(type, nextQuery, refCode);
+          handleRedirect(type, nextQuery, refCode, locale);
           return;
         }
 
@@ -55,9 +63,9 @@ export default function AuthCallbackPage() {
           setMessage(msg);
           setTimeout(() => {
             if (refCode) {
-              window.location.replace(`/tornar-membro?ref=${encodeURIComponent(refCode)}&join=1`);
+              window.location.replace(`${becomeMemberPath}?ref=${encodeURIComponent(refCode)}&join=1`);
             } else {
-              window.location.replace('/login');
+              window.location.replace(loginPath);
             }
           }, 3000);
         };
@@ -78,7 +86,7 @@ export default function AuthCallbackPage() {
             handleError('Erro ao validar código. Tente fazer login manual.');
             return;
           }
-          handleRedirect(type, nextQuery, refCode);
+          handleRedirect(type, nextQuery, refCode, locale);
           return;
         }
 
@@ -94,7 +102,7 @@ export default function AuthCallbackPage() {
             handleError('Erro ao validar o link. Tente fazer login manual.');
             return;
           }
-          handleRedirect(type, nextQuery, refCode);
+          handleRedirect(type, nextQuery, refCode, locale);
           return;
         }
 
@@ -105,7 +113,7 @@ export default function AuthCallbackPage() {
           const { data } = await supabaseBrowser.auth.getSession();
           if (data.session) {
             // ALREADY LOGGED IN -> REDIRECT
-            handleRedirect(type, nextQuery, refCode);
+            handleRedirect(type, nextQuery, refCode, locale);
             return;
           }
 
@@ -163,16 +171,16 @@ export default function AuthCallbackPage() {
             .is('referred_by_code', null);
         }
 
-        handleRedirect(type, nextQuery, refCode);
+        handleRedirect(type, nextQuery, refCode, locale);
       } catch (err) {
         console.error('Auth callback error:', err);
         setMessage('Erro inesperado ao validar a conta.');
         setTimeout(() => {
           const fallbackRef = new URL(window.location.href).searchParams.get('ref');
           if (fallbackRef) {
-            window.location.replace(`/tornar-membro?ref=${encodeURIComponent(fallbackRef)}&join=1`);
+            window.location.replace(`${becomeMemberPath}?ref=${encodeURIComponent(fallbackRef)}&join=1`);
           } else {
-            window.location.replace('/login');
+            window.location.replace(loginPath);
           }
         }, 3000);
       }
@@ -186,9 +194,9 @@ export default function AuthCallbackPage() {
     };
   }, [router]);
 
-  const handleRedirect = (type: string | null, next: string | null, refCode?: string | null) => {
+  const handleRedirect = (type: string | null, next: string | null, refCode?: string | null, locale?: string | null) => {
     setMessage('Sessão confirmada. A redirecionar...');
-    window.location.href = resolveAuthCallbackRedirect({ type, next, refCode });
+    window.location.href = resolveAuthCallbackRedirect({ type, next, refCode, locale });
   };
 
   return (

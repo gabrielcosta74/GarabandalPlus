@@ -16,6 +16,7 @@ import {
     Settings
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
+import { useLocale } from '../../contexts/LocaleContext';
 import { QuotaWarning } from '../membership/QuotaWarning';
 
 type DashboardShellProps = {
@@ -27,43 +28,54 @@ type DashboardShellProps = {
 export default function DashboardShell({ title, subtitle, children }: DashboardShellProps) {
     const router = useRouter();
     const pathname = usePathname();
+    const { locale } = useLocale();
 
     const { user, memberData, isMember, loading, isAuthenticated, signOut } = useAuth();
+    const isEn = locale === 'en' || pathname?.startsWith('/en');
+    const localePrefix = isEn ? '/en' : '';
+    const loginPath = `${localePrefix}/login`;
+    const profilePath = `${localePrefix}/account/profile`;
+    const historyPath = `${localePrefix}/member/history`;
+    const memberPath = `${localePrefix}/member`;
+    const quotaPath = `${localePrefix}/member/quota`;
+    const becomeMemberPath = isEn ? '/en/become-member' : '/tornar-membro';
+    const ordersPath = isEn ? '/en/orders' : '/encomendas';
+    const libraryPath = isEn ? '/en/library' : '/biblioteca';
 
     useEffect(() => {
         if (!loading && !isAuthenticated) {
             const next = pathname ? `?next=${encodeURIComponent(pathname)}` : '';
-            router.replace(`/login${next}`);
+            router.replace(`${loginPath}${next}`);
         }
-    }, [isAuthenticated, loading, pathname, router]);
+    }, [isAuthenticated, loading, loginPath, pathname, router]);
 
     const handleLogout = async () => {
         await signOut();
-        router.replace('/login');
+        router.replace(loginPath);
     };
 
     const navItems = [
         {
-            section: 'Conta', items: [
-                { label: 'Perfil', href: '/account/profile', icon: User, hidden: false },
-                { label: 'O Meu Histórico', href: '/member/history', icon: Clock, hidden: false }, // NOW VISIBLE TO ALL
+            section: isEn ? 'Account' : 'Conta', items: [
+                { label: isEn ? 'Profile' : 'Perfil', href: profilePath, icon: User, hidden: false },
+                { label: isEn ? 'My History' : 'O Meu Histórico', href: historyPath, icon: Clock, hidden: false },
             ]
         },
         {
-            section: 'Membro', items: [
-                { label: 'Resumo', href: '/member', icon: LayoutDashboard, hidden: !isMember },
+            section: isEn ? 'Member' : 'Membro', items: [
+                { label: isEn ? 'Overview' : 'Resumo', href: memberPath, icon: LayoutDashboard, hidden: !isMember },
                 {
-                    label: 'Quota Anual',
-                    href: (isMember || memberData?.numero_socio) ? '/member/quota' : '/tornar-membro',
+                    label: isEn ? 'Annual Fee' : 'Quota Anual',
+                    href: (isMember || memberData?.numero_socio) ? quotaPath : becomeMemberPath,
                     icon: ShieldCheck,
                     hidden: false
                 },
             ]
         },
         {
-            section: 'Atividade', items: [
-                { label: 'Encomendas', href: '/encomendas', icon: ShoppingBag, hidden: false },
-                { label: 'Biblioteca', href: '/biblioteca', icon: BookOpen, hidden: false },
+            section: isEn ? 'Activity' : 'Atividade', items: [
+                { label: isEn ? 'Orders' : 'Encomendas', href: ordersPath, icon: ShoppingBag, hidden: false },
+                { label: isEn ? 'Library' : 'Biblioteca', href: libraryPath, icon: BookOpen, hidden: false },
             ]
         }
     ];
@@ -118,15 +130,15 @@ export default function DashboardShell({ title, subtitle, children }: DashboardS
                                 )}
                             </div>
                             <div className="min-w-0">
-                                <p className="text-xs font-medium text-gray-500 mb-0.5">Iniciado como</p>
+                                <p className="text-xs font-medium text-gray-500 mb-0.5">{isEn ? 'Logged in as' : 'Iniciado como'}</p>
                                 <p className="text-xs font-bold text-gray-900 truncate" title={user?.email || ''}>
-                                    {isMember ? 'Membro' : 'Utilizador'} • {memberData?.nome?.split(' ')[0] || ''}
+                                    {isMember ? (isEn ? 'Member' : 'Membro') : (isEn ? 'User' : 'Utilizador')} • {memberData?.nome?.split(' ')[0] || ''}
                                 </p>
                             </div>
                         </div>
                         <button onClick={handleLogout} className="flex items-center gap-3 px-3 py-2 text-red-600 hover:bg-red-50 rounded-xl w-full transition-colors text-sm font-medium">
                             <LogOut className="w-5 h-5" />
-                            Sair
+                            {isEn ? 'Sign out' : 'Sair'}
                         </button>
                     </div>
                 </aside>
