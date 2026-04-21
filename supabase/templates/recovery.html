@@ -1,0 +1,125 @@
+{{ if eq .Data.language "en" }}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Reset Your Password</title>
+</head>
+<body style="margin:0;padding:0;background-color:#F8FAFC;font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#334155;-webkit-font-smoothing:antialiased;">
+  <div style="display:none;font-size:1px;line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden;">We received a request to reset your password. Click here to continue.</div>
+  <div style="background-color:#F8FAFC;padding:40px 16px;">
+    <table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center" width="100%" style="max-width:600px;margin:0 auto;background:#FFFFFF;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
+      <tr>
+        <td style="background:linear-gradient(135deg,#0F172A 0%,#1E293B 100%);padding:48px 40px;text-align:center;border-bottom:4px solid #CA8A04;">
+          <div style="width:72px;height:72px;border-radius:50%;margin:0 auto 24px;background-color:#1E293B;background-image:url('https://apostoladodegarabandal.com/images/nossasenhoragarabandal.jpg');background-size:cover;background-position:center;border:3px solid rgba(202,138,4,0.8);box-shadow:0 0 0 4px rgba(202,138,4,0.15);"></div>
+          <p style="margin:0 0 8px;color:#CA8A04;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:3px;">Garabandal Apostolate</p>
+          <h1 style="margin:0;color:#FFFFFF;font-size:26px;font-weight:700;letter-spacing:-0.5px;line-height:1.2;">Reset Your Password</h1>
+          <p style="margin:12px 0 0;color:#94A3B8;font-size:15px;font-weight:400;">Account access recovery request</p>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:48px 40px;">
+          <p style="margin:0 0 12px;color:#64748B;font-size:15px;font-weight:500;">Hello,</p>
+          <p style="margin:0 0 24px;color:#0F172A;font-size:20px;font-weight:700;line-height:1.3;">We received a request to reset the password for your account.</p>
+          <p style="margin:0 0 32px;color:#334155;font-size:16px;line-height:1.7;">If this was you, click the button below to create a new secure password. The link is valid for <strong>60 minutes</strong> and can only be used once.</p>
+          <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin:0 0 32px;">
+            <tr>
+              <td style="background-color:#FEFCE8;border:1px solid #FDE68A;border-left:4px solid #CA8A04;border-radius:12px;padding:20px 24px;">
+                <p style="margin:0;color:#92400E;font-size:14px;line-height:1.6;"><strong>🔐 For your security:</strong> Never share this link with anyone. The Apostolate team will never ask for your password.</p>
+              </td>
+            </tr>
+          </table>
+          <table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center" style="margin:0 auto 40px;">
+            <tr>
+              <td style="border-radius:50px;background-color:#CA8A04;box-shadow:0 4px 16px rgba(202,138,4,0.35);">
+                <a href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=recovery&next=/en/auth/update-password" target="_blank" style="display:inline-block;padding:16px 48px;background-color:#CA8A04;color:#000000;text-decoration:none;font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:2px;border-radius:50px;white-space:nowrap;">Set New Password</a>
+              </td>
+            </tr>
+          </table>
+          <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin:0 0 32px;">
+            <tr>
+              <td style="background-color:#F8FAFC;border:1px solid #E2E8F0;border-radius:12px;padding:20px 24px;">
+                <p style="margin:0 0 8px;color:#64748B;font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Alternative link</p>
+                <p style="margin:0;font-size:12px;line-height:1.6;word-break:break-all;"><a href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=recovery&next=/en/auth/update-password" style="color:#CA8A04;text-decoration:underline;">{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=recovery</a></p>
+              </td>
+            </tr>
+          </table>
+          <p style="margin:0;color:#94A3B8;font-size:14px;line-height:1.6;text-align:center;">If you didn't request a password reset, you can safely ignore this email.<br>Your account remains protected.</p>
+        </td>
+      </tr>
+      <tr><td style="padding:0 40px;"><div style="height:1px;background-color:#E2E8F0;"></div></td></tr>
+      <tr>
+        <td style="background-color:#F8FAFC;padding:32px 40px;text-align:center;">
+          <p style="margin:0 0 6px;color:#94A3B8;font-size:13px;">Reset Password &bull; Garabandal Apostolate</p>
+          <p style="margin:0 0 12px;color:#CA8A04;font-size:13px;font-weight:700;letter-spacing:1px;">UNITING FAITH AND HOPE</p>
+          <p style="margin:0;color:#CBD5E1;font-size:11px;">If you need help, simply reply to this email.</p>
+        </td>
+      </tr>
+    </table>
+  </div>
+</body>
+</html>
+{{ else }}
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Recuperar Password</title>
+</head>
+<body style="margin:0;padding:0;background-color:#F8FAFC;font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#334155;-webkit-font-smoothing:antialiased;">
+  <div style="display:none;font-size:1px;line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden;">Recebemos um pedido para redefinir a sua password. Clique aqui para continuar.</div>
+  <div style="background-color:#F8FAFC;padding:40px 16px;">
+    <table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center" width="100%" style="max-width:600px;margin:0 auto;background:#FFFFFF;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
+      <tr>
+        <td style="background:linear-gradient(135deg,#0F172A 0%,#1E293B 100%);padding:48px 40px;text-align:center;border-bottom:4px solid #CA8A04;">
+          <div style="width:72px;height:72px;border-radius:50%;margin:0 auto 24px;background-color:#1E293B;background-image:url('https://apostoladodegarabandal.com/images/nossasenhoragarabandal.jpg');background-size:cover;background-position:center;border:3px solid rgba(202,138,4,0.8);box-shadow:0 0 0 4px rgba(202,138,4,0.15);"></div>
+          <p style="margin:0 0 8px;color:#CA8A04;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:3px;">Apostolado de Garabandal</p>
+          <h1 style="margin:0;color:#FFFFFF;font-size:26px;font-weight:700;letter-spacing:-0.5px;line-height:1.2;">Recuperar Password</h1>
+          <p style="margin:12px 0 0;color:#94A3B8;font-size:15px;font-weight:400;">Pedido de redefinição de acesso</p>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:48px 40px;">
+          <p style="margin:0 0 12px;color:#64748B;font-size:15px;font-weight:500;">Olá,</p>
+          <p style="margin:0 0 24px;color:#0F172A;font-size:20px;font-weight:700;line-height:1.3;">Recebemos um pedido para redefinir a password da sua conta.</p>
+          <p style="margin:0 0 32px;color:#334155;font-size:16px;line-height:1.7;">Se foi você, clique no botão abaixo para criar uma nova password segura. O link é válido por <strong>60 minutos</strong> e só pode ser usado uma vez.</p>
+          <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin:0 0 32px;">
+            <tr>
+              <td style="background-color:#FEFCE8;border:1px solid #FDE68A;border-left:4px solid #CA8A04;border-radius:12px;padding:20px 24px;">
+                <p style="margin:0;color:#92400E;font-size:14px;line-height:1.6;"><strong>🔐 Por segurança:</strong> Nunca partilhe este link com ninguém. A equipa do Apostolado nunca lhe pedirá a sua password.</p>
+              </td>
+            </tr>
+          </table>
+          <table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center" style="margin:0 auto 40px;">
+            <tr>
+              <td style="border-radius:50px;background-color:#CA8A04;box-shadow:0 4px 16px rgba(202,138,4,0.35);">
+                <a href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=recovery&next=/auth/update-password" target="_blank" style="display:inline-block;padding:16px 48px;background-color:#CA8A04;color:#000000;text-decoration:none;font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:2px;border-radius:50px;white-space:nowrap;">Definir Nova Password</a>
+              </td>
+            </tr>
+          </table>
+          <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin:0 0 32px;">
+            <tr>
+              <td style="background-color:#F8FAFC;border:1px solid #E2E8F0;border-radius:12px;padding:20px 24px;">
+                <p style="margin:0 0 8px;color:#64748B;font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Link alternativo</p>
+                <p style="margin:0;font-size:12px;line-height:1.6;word-break:break-all;"><a href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=recovery&next=/auth/update-password" style="color:#CA8A04;text-decoration:underline;">{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=recovery</a></p>
+              </td>
+            </tr>
+          </table>
+          <p style="margin:0;color:#94A3B8;font-size:14px;line-height:1.6;text-align:center;">Se não pediu para recuperar a password, pode ignorar este email com segurança.<br>A sua conta permanece protegida.</p>
+        </td>
+      </tr>
+      <tr><td style="padding:0 40px;"><div style="height:1px;background-color:#E2E8F0;"></div></td></tr>
+      <tr>
+        <td style="background-color:#F8FAFC;padding:32px 40px;text-align:center;">
+          <p style="margin:0 0 6px;color:#94A3B8;font-size:13px;">Recuperar Password &bull; Apostolado de Garabandal</p>
+          <p style="margin:0 0 12px;color:#CA8A04;font-size:13px;font-weight:700;letter-spacing:1px;">UNINDO FÉ E ESPERANÇA</p>
+          <p style="margin:0;color:#CBD5E1;font-size:11px;">Se precisar de ajuda, basta responder a este email.</p>
+        </td>
+      </tr>
+    </table>
+  </div>
+</body>
+</html>
+{{ end }}

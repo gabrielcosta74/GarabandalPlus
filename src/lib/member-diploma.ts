@@ -6,12 +6,13 @@ type MemberDiplomaInput = {
   memberName: string;
   memberNumber: number;
   issuedAt?: string | null;
+  locale?: 'pt' | 'en';
 };
 
 const DEFAULT_LOGO_URL =
   'https://7a8de8e761.clvaw-cdnwnd.com/71f1178ac9c9a00e4eb676b74ddebc1f/200000002-1e4111f3a0/nossasenhoragarabandal-9.jpg?ph=7a8de8e761';
 
-const RIGHTS = [
+const RIGHTS_PT = [
   'Desconto de 5% em livros e publicacoes da Associacao.',
   'Desconto de 5% em congressos e conferencias organizadas pela Associacao.',
   '50 euros de desconto em peregrinacoes e atividades sociais organizadas.',
@@ -19,17 +20,33 @@ const RIGHTS = [
   'Participar e votar na Assembleia Geral apos 2 anos de quotas pagas.',
 ];
 
-const DUTIES = [
+const RIGHTS_EN = [
+  '5% discount on books and publications by the Association.',
+  '5% discount on congresses and conferences organized by the Association.',
+  '50 euros discount on pilgrimages and organized social activities.',
+  'Annual masses offered for the intentions of members and their families.',
+  'Participate and vote in the General Assembly after 2 years of paid quotas.',
+];
+
+const DUTIES_PT = [
   'Cumprir obrigacoes estatutarias e deliberacoes dos orgaos sociais.',
   'Exercer funcoes para as quais for eleito ou designado.',
   'Pagar a quota anual estabelecida (25 EUR).',
   'Colaborar nas atividades da associacao e nos seus objetivos.',
 ];
 
-const formatDatePt = (value?: string | null) => {
+const DUTIES_EN = [
+  'Comply with statutory obligations and board decisions.',
+  'Perform the duties for which one was elected or appointed.',
+  'Pay the established annual quota (25 EUR).',
+  'Collaborate in the association\'s activities and its objectives.',
+];
+
+const formatDate = (value?: string | null, locale: 'pt' | 'en' = 'pt') => {
   const date = value ? new Date(value) : new Date();
-  if (Number.isNaN(date.getTime())) return new Date().toLocaleDateString('pt-PT');
-  return date.toLocaleDateString('pt-PT', { year: 'numeric', month: 'long', day: 'numeric' });
+  const l = locale === 'en' ? 'en-US' : 'pt-PT';
+  if (Number.isNaN(date.getTime())) return new Date().toLocaleDateString(l);
+  return date.toLocaleDateString(l, { year: 'numeric', month: 'long', day: 'numeric' });
 };
 
 const wrapText = (text: string, maxWidth: number, font: any, size: number) => {
@@ -111,7 +128,8 @@ const loadSignatureBytes = async () => {
   return null;
 };
 
-export const generateMemberDiplomaPdf = async ({ memberName, memberNumber, issuedAt }: MemberDiplomaInput) => {
+export const generateMemberDiplomaPdf = async ({ memberName, memberNumber, issuedAt, locale = 'pt' }: MemberDiplomaInput) => {
+  const isEn = locale === 'en';
   const pdfDoc = await PDFDocument.create();
   // Landscape A4 for a more certificate-like feel: 841.89 x 595.28
   const page = pdfDoc.addPage([841.89, 595.28]);
@@ -185,7 +203,7 @@ export const generateMemberDiplomaPdf = async ({ memberName, memberNumber, issue
 
   // --- Title ---
   cursorY = height - 160;
-  const title = 'DIPLOMA DE MEMBRO';
+  const title = isEn ? 'MEMBERSHIP DIPLOMA' : 'DIPLOMA DE MEMBRO';
   const titleSize = 32;
   const titleWidth = fontBold.widthOfTextAtSize(title, titleSize);
   page.drawText(title, {
@@ -196,7 +214,7 @@ export const generateMemberDiplomaPdf = async ({ memberName, memberNumber, issue
     color: darkBlue,
   });
 
-  const subTitle = 'APOSTOLADO DE GARABANDAL';
+  const subTitle = isEn ? 'GARABANDAL APOSTOLATE' : 'APOSTOLADO DE GARABANDAL';
   const subTitleSize = 16;
   const subTitleWidth = fontRegular.widthOfTextAtSize(subTitle, subTitleSize);
   page.drawText(subTitle, {
@@ -209,7 +227,7 @@ export const generateMemberDiplomaPdf = async ({ memberName, memberNumber, issue
 
   // --- Main Content ---
   cursorY -= 80;
-  const certText = 'Certifica-se que';
+  const certText = isEn ? 'This certifies that' : 'Certifica-se que';
   const certTextSize = 14;
   const certTextWidth = fontItalic.widthOfTextAtSize(certText, certTextSize);
   page.drawText(certText, {
@@ -241,7 +259,7 @@ export const generateMemberDiplomaPdf = async ({ memberName, memberNumber, issue
   });
 
   cursorY -= 30;
-  const memberSince = `é membro ativo com o número ${memberNumber}`;
+  const memberSince = isEn ? `is an active member under no. ${memberNumber}` : `é membro ativo com o número ${memberNumber}`;
   const numberTextSize = 14;
   const numberTextWidth = fontRegular.widthOfTextAtSize(memberSince, numberTextSize);
   page.drawText(memberSince, {
@@ -259,7 +277,8 @@ export const generateMemberDiplomaPdf = async ({ memberName, memberNumber, issue
   const colWidth = (width - margin * 2) / 2 - 60;
 
   // Rights Column
-  page.drawText('DIREITOS DO MEMBRO', {
+  const rightsTitle = isEn ? 'MEMBER RIGHTS' : 'DIREITOS DO MEMBRO';
+  page.drawText(rightsTitle, {
     x: col1X,
     y: colY,
     size: 12,
@@ -268,7 +287,8 @@ export const generateMemberDiplomaPdf = async ({ memberName, memberNumber, issue
   });
 
   let rightY = colY - 20;
-  RIGHTS.forEach((item) => {
+  const rightsList = isEn ? RIGHTS_EN : RIGHTS_PT;
+  rightsList.forEach((item) => {
     const lines = wrapText(`• ${item}`, colWidth + 20, fontRegular, 10);
     lines.forEach((line) => {
       page.drawText(line, {
@@ -284,7 +304,8 @@ export const generateMemberDiplomaPdf = async ({ memberName, memberNumber, issue
   });
 
   // Duties Column
-  page.drawText('DEVERES DO MEMBRO', {
+  const dutiesTitle = isEn ? 'MEMBER DUTIES' : 'DEVERES DO MEMBRO';
+  page.drawText(dutiesTitle, {
     x: col2X,
     y: colY,
     size: 12,
@@ -293,7 +314,8 @@ export const generateMemberDiplomaPdf = async ({ memberName, memberNumber, issue
   });
 
   let dutyY = colY - 20;
-  DUTIES.forEach((item) => {
+  const dutiesList = isEn ? DUTIES_EN : DUTIES_PT;
+  dutiesList.forEach((item) => {
     const lines = wrapText(`• ${item}`, colWidth, fontRegular, 10);
     lines.forEach((line) => {
       page.drawText(line, {
@@ -311,7 +333,9 @@ export const generateMemberDiplomaPdf = async ({ memberName, memberNumber, issue
   // --- Footer / Signature ---
   const footerY = margin + 60;
 
-  const dateText = `Emitido em Paços de Brandão, a ${formatDatePt(issuedAt)}`;
+  const dateText = isEn 
+    ? `Issued in Paços de Brandão on ${formatDate(issuedAt, locale)}`
+    : `Emitido em Paços de Brandão, a ${formatDate(issuedAt, locale)}`;
   page.drawText(dateText, {
     x: margin + 50,
     y: footerY,
@@ -320,7 +344,7 @@ export const generateMemberDiplomaPdf = async ({ memberName, memberNumber, issue
     color: textGrey,
   });
 
-  const sigLabel = 'A Direção';
+  const sigLabel = isEn ? 'The Board' : 'A Direção';
   const sigLabelWidth = fontBold.widthOfTextAtSize(sigLabel, 12);
   const sigX = width - margin - 150;
 

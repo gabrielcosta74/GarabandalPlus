@@ -361,10 +361,27 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
                 return NextResponse.json({ error: 'Membro sem número de sócio. Não é possível gerar diploma.' }, { status: 400 });
             }
 
+            let emailLocale: 'pt' | 'en' = 'pt';
+            try {
+                const { data: latestPayment } = await supabaseServer
+                    .from('pagamentos_quotas')
+                    .select('notes')
+                    .eq('user_id', id)
+                    .order('data_pagamento', { ascending: false })
+                    .limit(1)
+                    .single();
+                if (latestPayment?.notes && String(latestPayment.notes).includes('[locale:en]')) {
+                    emailLocale = 'en';
+                }
+            } catch (e) {
+                // ignore
+            }
+
             const pdfBytes = await generateMemberDiplomaPdf({
                 memberName: member.nome || 'Membro',
                 memberNumber: Number(member.numero_socio),
                 issuedAt: new Date().toISOString(),
+                locale: emailLocale,
             });
 
             await sendMemberDiplomaEmail({
@@ -372,6 +389,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
                 memberName: member.nome || 'Membro',
                 memberNumber: Number(member.numero_socio),
                 issuedAt: new Date().toISOString(),
+                locale: emailLocale,
                 attachments: [
                     {
                         filename: `diploma-socio-${member.numero_socio}.pdf`,

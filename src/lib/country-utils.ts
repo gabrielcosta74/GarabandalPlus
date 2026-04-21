@@ -88,16 +88,27 @@ export const validatePhone = (value: string, country: string | null | undefined)
   return digits.length >= meta.phoneMin && digits.length <= meta.phoneMax;
 };
 
-export const getPostalInvalidMessage = (country: string | null | undefined) => {
+export const getPostalInvalidMessage = (country: string | null | undefined, locale = 'pt-PT') => {
   const meta = resolveCountryMeta(country);
-  return meta ? `Código postal inválido. Exemplo: ${meta.postalExample}` : 'Código postal inválido.';
+  const isEnglish = locale.toLowerCase().startsWith('en');
+  if (meta) {
+    return isEnglish
+      ? `Invalid postal code. Example: ${meta.postalExample}`
+      : `Código postal inválido. Exemplo: ${meta.postalExample}`;
+  }
+  return isEnglish ? 'Invalid postal code.' : 'Código postal inválido.';
 };
 
-export const getPhoneInvalidMessage = (country: string | null | undefined) => {
+export const getPhoneInvalidMessage = (country: string | null | undefined, locale = 'pt-PT') => {
   const meta = resolveCountryMeta(country);
+  const isEnglish = locale.toLowerCase().startsWith('en');
   return meta
-    ? `Telefone inválido. Exemplo: ${meta.phoneExample}`
-    : 'Telefone inválido. Inclui o indicativo do país (+...).';
+    ? isEnglish
+      ? `Invalid phone number. Example: ${meta.phoneExample}`
+      : `Telefone inválido. Exemplo: ${meta.phoneExample}`
+    : isEnglish
+      ? 'Invalid phone number. Include the country code (+...).'
+      : 'Telefone inválido. Inclui o indicativo do país (+...).';
 };
 
 export const getPostalInputMode = (country: string | null | undefined) => {

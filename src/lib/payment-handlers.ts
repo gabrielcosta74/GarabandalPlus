@@ -180,25 +180,27 @@ export async function handleDonationSuccess(ctx: PaymentHandlerContext) {
         }
     }
 
-    // Notifications
-    if (donorEmail && amountCents > 0) {
-        const notif = await ensureNotificationRecord(supabaseServer, { type: 'donation_paid', reference: paymentReference, userId, email: donorEmail });
-        if (notif.shouldSend) {
-            await sendDonationReceiptEmail({
-                toEmail: donorEmail,
-                donorName,
-                amount: amountCents / 100,
-                currency,
-                paymentReference,
-                paidAt: ctx.paymentDate?.toISOString() || new Date().toISOString(),
-                method,
-                locale: emailLocale,
-            });
-            await markNotificationSent(supabaseServer, notif.recordId);
-        }
-    }
+    // Notifications — guarded by ensureNotificationRecord so webhook retries don't duplicate.
+    const notifRef = paymentReference || externalReference || '';
+    const notif = donorEmail && amountCents > 0
+        ? await ensureNotificationRecord(supabaseServer, { type: 'donation_paid', reference: notifRef, userId, email: donorEmail })
+        : { shouldSend: false, recordId: null };
 
-    await createAdminNotification('donation', 'Nova Doação', `${donorName || 'Anon'} - ${currency} ${(amountCents / 100).toFixed(2)}`, '/admin/doacoes');
+    if (notif.shouldSend && donorEmail) {
+        await sendDonationReceiptEmail({
+            toEmail: donorEmail,
+            donorName,
+            amount: amountCents / 100,
+            currency,
+            paymentReference,
+            paidAt: ctx.paymentDate?.toISOString() || new Date().toISOString(),
+            method,
+            locale: emailLocale,
+        });
+        await markNotificationSent(supabaseServer, notif.recordId);
+        // Admin notification shares the same idempotency gate — only fires once per payment.
+        await createAdminNotification('donation', 'Nova Doação', `${donorName || 'Anon'} - ${currency} ${(amountCents / 100).toFixed(2)}`, '/admin/doacoes');
+    }
 }
 
 /* -------------------------------------------------------------------------- */
@@ -319,7 +321,7 @@ export async function handleMembershipSuccess(ctx: PaymentHandlerContext) {
                 const attachments = shouldAttachDiploma
                     ? [{
                         filename: 'diploma.pdf',
-                        content: Buffer.from(await generateMemberDiplomaPdf({ memberName: membro.nome, memberNumber: Number(numero_socio), issuedAt: new Date().toISOString() })),
+                        content: Buffer.from(await generateMemberDiplomaPdf({ memberName: membro.nome, memberNumber: Number(numero_socio), issuedAt: new Date().toISOString(), locale: emailLocale })),
                         contentType: 'application/pdf',
                     }]
                     : undefined;
@@ -347,9 +349,10 @@ export async function handleMembershipSuccess(ctx: PaymentHandlerContext) {
 
             // Mark as notified only after all configured sends complete.
             if (paymentRow?.id) await supabaseServer.from('pagamentos_quotas').update({ email_notificado_at: new Date().toISOString() }).eq('id', paymentRow.id);
-        }
 
-        await createAdminNotification('member', wasMember ? 'Renovação' : 'Novo Sócio', `${membro?.nome} - ${amountCents / 100}€`, '/admin/membros');
+            // Admin notification is inside shouldNotify so webhook retries don't create duplicates.
+            await createAdminNotification('member', wasMember ? 'Renovação' : 'Novo Sócio', `${membro?.nome} - ${amountCents / 100}€`, '/admin/membros');
+        }
     }
 }
 

@@ -23,7 +23,7 @@ export default function RegisterPage() {
 
   // Redirect if already logged in
   if (isAuthenticated && !authLoading) {
-    router.replace('/');
+    router.replace(isEn ? '/en/member' : '/member');
     return null;
   }
   const [error, setError] = useState<string | null>(null);
@@ -48,9 +48,11 @@ export default function RegisterPage() {
     setLoading(true);
 
     try {
-      if (!supabaseBrowser) throw new Error('Erro de configuração: Supabase indisponível.');
+      if (!supabaseBrowser) throw new Error(isEn ? 'Configuration error: Supabase unavailable.' : 'Erro de configuração: Supabase indisponível.');
 
-      const redirectTo = `${window.location.origin}/auth-callback`;
+      const callbackUrl = new URL(`${window.location.origin}/auth-callback`);
+      callbackUrl.searchParams.set('locale', locale);
+      const redirectTo = callbackUrl.toString();
       const { data, error: signUpError } = await supabaseBrowser.auth.signUp({
         email: email.trim(),
         password: password.trim(),
@@ -63,7 +65,7 @@ export default function RegisterPage() {
       if (signUpError) throw signUpError;
 
       if (data.user?.identities?.length === 0) {
-        throw new Error('Este email já está registado.');
+        throw new Error(isEn ? 'This email is already registered.' : 'Este email já está registado.');
       }
 
       // Initialize member record logic here if critical, usually handled by webhook/trigger
@@ -85,7 +87,7 @@ export default function RegisterPage() {
       setConfirmSent(true);
 
     } catch (err: any) {
-      setError(err.message || 'Erro ao criar conta.');
+      setError(err.message || (isEn ? 'Error creating account.' : 'Erro ao criar conta.'));
     } finally {
       setLoading(false);
     }
@@ -143,7 +145,12 @@ export default function RegisterPage() {
         )}
 
         <div className="space-y-6">
-          <GoogleButton isLoading={loading} text={isEn ? 'Register with Google' : 'Registar com Google'} />
+          <GoogleButton
+            isLoading={loading}
+            text={isEn ? 'Register with Google' : 'Registar com Google'}
+            locale={isEn ? 'en' : 'pt'}
+            next={isEn ? '/en/member' : '/member'}
+          />
 
           <div className="relative flex items-center justify-center">
             <div className="absolute inset-0 flex items-center">

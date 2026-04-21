@@ -29,6 +29,7 @@ import {
     ChevronDown,
     ChevronRight,
     FolderLock,
+    Bot,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAdminNotifications } from '../../context/AdminNotificationContext';
@@ -83,6 +84,12 @@ export default function AdminSidebar({ onLogout, className }: { onLogout: () => 
                 { label: 'Orações', icon: BookOpen, href: '/admin/prayers' },
                 { label: 'Cursos & Vídeos', icon: GraduationCap, href: '/admin/academy' },
                 { label: 'Eventos Online', icon: Video, href: '/admin/events' },
+            ]
+        },
+        {
+            label: 'Assistente IA',
+            items: [
+                { label: 'Base de Conhecimento', icon: Bot, href: '/admin/chat-kb' },
             ]
         },
         {

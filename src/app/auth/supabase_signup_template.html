@@ -1,68 +1,156 @@
 <!DOCTYPE html>
-<html>
-
+<html lang="{{ if eq .Data.locale "en" }}en{{ else }}pt-PT{{ end }}">
 <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Confirmar Conta</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ if eq .Data.locale "en" }}Confirm Your Account{{ else }}Confirmar Conta{{ end }}</title>
 </head>
+<body style="margin:0;padding:0;background-color:#F8FAFC;font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#334155;-webkit-font-smoothing:antialiased;">
 
-<body style="margin: 0; padding: 0; background-color: #f4f4f5; font-family: sans-serif;">
+  <!-- Preview text (hidden) -->
+  <div style="display:none;font-size:1px;line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden;">
+    {{ if eq .Data.locale "en" }}Welcome to the Garabandal Apostolate! Confirm your account to get started.{{ else }}Bem-vindo(a) ao Apostolado de Garabandal! Confirme a sua conta para começar.{{ end }}
+  </div>
 
-    <table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center" width="100%"
-        style="max-width: 600px; margin: auto; background-color: #ffffff;">
-        <!-- Header -->
-        <tr>
-            <td
-                style="padding: 40px 20px; text-align: center; background-color: #1a1a1a; border-bottom: 4px solid #eab308;">
-                <h1 style="color: #ffffff; margin: 0; font-family: serif; letter-spacing: 2px; font-size: 24px;">
-                    APOSTOLADO DE GARABANDAL</h1>
-            </td>
-        </tr>
+  <div style="background-color:#F8FAFC;padding:40px 16px;">
+    <table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center" width="100%" style="max-width:600px;margin:0 auto;background:#FFFFFF;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
 
-        <!-- Body -->
-        <tr>
-            <td style="padding: 40px 30px;">
-                <p style="color: #4b5563; font-size: 18px; line-height: 1.6; margin-bottom: 24px;">
-                    Bem-vindo(a) ao Apostolado,
+      <!-- Header -->
+      <tr>
+        <td style="background:linear-gradient(135deg,#0F172A 0%,#1E293B 100%);padding:48px 40px;text-align:center;border-bottom:4px solid #CA8A04;">
+          <div style="width:72px;height:72px;border-radius:50%;margin:0 auto 24px;background-color:#1E293B;background-image:url('https://apostoladodegarabandal.com/images/nossasenhoragarabandal.jpg');background-size:cover;background-position:center;border:3px solid rgba(202,138,4,0.8);box-shadow:0 0 0 4px rgba(202,138,4,0.15);"></div>
+          <p style="margin:0 0 8px;color:#CA8A04;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:3px;">
+            {{ if eq .Data.locale "en" }}Garabandal Apostolate{{ else }}Apostolado de Garabandal{{ end }}
+          </p>
+          <h1 style="margin:0;color:#FFFFFF;font-size:26px;font-weight:700;letter-spacing:-0.5px;line-height:1.2;">
+            {{ if eq .Data.locale "en" }}Welcome!{{ else }}Bem-vindo(a)!{{ end }}
+          </h1>
+          <p style="margin:12px 0 0;color:#94A3B8;font-size:15px;font-weight:400;">
+            {{ if eq .Data.locale "en" }}Your account has been created{{ else }}A sua conta foi criada com sucesso{{ end }}
+          </p>
+        </td>
+      </tr>
+
+      <!-- Body -->
+      <tr>
+        <td style="padding:48px 40px;">
+
+          <p style="margin:0 0 12px;color:#64748B;font-size:15px;font-weight:500;">
+            {{ if eq .Data.locale "en" }}Hello,{{ else }}Olá,{{ end }}
+          </p>
+          <p style="margin:0 0 24px;color:#0F172A;font-size:20px;font-weight:700;line-height:1.3;">
+            {{ if eq .Data.locale "en" }}
+              We are delighted to have you join our digital community.
+            {{ else }}
+              Ficamos muito felizes por se juntar à nossa comunidade digital.
+            {{ end }}
+          </p>
+          <p style="margin:0 0 32px;color:#334155;font-size:16px;line-height:1.7;">
+            {{ if eq .Data.locale "en" }}
+              To activate your account and access the full member area, simply click the button below. The confirmation link is valid for <strong>24 hours</strong>.
+            {{ else }}
+              Para ativar a sua conta e ter acesso a toda a área de membro, basta clicar no botão abaixo. O link de confirmação é válido por <strong>24 horas</strong>.
+            {{ end }}
+          </p>
+
+          <!-- Feature highlights -->
+          <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin:0 0 32px;">
+            <tr>
+              <td style="background-color:#F8FAFC;border:1px solid #E2E8F0;border-radius:12px;padding:24px;">
+                <p style="margin:0 0 16px;color:#0F172A;font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">
+                  {{ if eq .Data.locale "en" }}What awaits you in the App:{{ else }}O que o espera na App:{{ end }}
                 </p>
-                <p style="color: #1f2937; font-size: 20px; line-height: 1.5; font-weight: bold; margin-bottom: 24px;">
-                    Ficamos felizes por se juntar à nossa comunidade digital.
-                </p>
-                <p style="color: #4b5563; font-size: 18px; line-height: 1.6; margin-bottom: 32px;">
-                    Para ativar a sua conta e começar a navegar, por favor clique no botão abaixo:
-                </p>
-
-                <!-- Button -->
-                <table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center"
-                    style="margin: auto;">
-                    <tr>
-                        <td style="border-radius: 12px; background-color: #eab308; text-align: center;">
-                            <a href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=email" target="_blank"
-                                style="background-color: #eab308; border: 1px solid #eab308; font-family: sans-serif; font-size: 20px; line-height: 1.1; text-align: center; text-decoration: none; display: block; border-radius: 12px; font-weight: bold; color: #000000; padding: 20px 40px; white-space: nowrap; text-transform: uppercase;">
-                                CONFIRMAR CONTA
-                            </a>
-                        </td>
-                    </tr>
+                <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+                  <tr>
+                    <td style="padding:6px 0;color:#334155;font-size:14px;">
+                      {{ if eq .Data.locale "en" }}🙏&nbsp; Prayers, novenas and intentions{{ else }}🙏&nbsp; Orações, novenas e intenções{{ end }}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding:6px 0;color:#334155;font-size:14px;">
+                      {{ if eq .Data.locale "en" }}📚&nbsp; Library of documents and manuscripts{{ else }}📚&nbsp; Biblioteca de documentos e manuscritos{{ end }}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding:6px 0;color:#334155;font-size:14px;">
+                      {{ if eq .Data.locale "en" }}✈️&nbsp; Pilgrimage registrations{{ else }}✈️&nbsp; Inscrição em peregrinações{{ end }}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding:6px 0;color:#334155;font-size:14px;">
+                      {{ if eq .Data.locale "en" }}🔴&nbsp; Live broadcasts{{ else }}🔴&nbsp; Transmissões em direto{{ end }}
+                    </td>
+                  </tr>
                 </table>
+              </td>
+            </tr>
+          </table>
 
-                <p style="color: #6b7280; font-size: 16px; line-height: 1.5; margin-top: 40px; text-align: center;">
-                    Se não criou esta conta, pode ignorar este email.
-                </p>
-            </td>
-        </tr>
+          <!-- CTA Button -->
+          <table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center" style="margin:0 auto 40px;">
+            <tr>
+              <td style="border-radius:50px;background-color:#CA8A04;box-shadow:0 4px 16px rgba(202,138,4,0.35);">
+                <a href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=email"
+                   target="_blank"
+                   style="display:inline-block;padding:16px 48px;background-color:#CA8A04;color:#000000;text-decoration:none;font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:2px;border-radius:50px;white-space:nowrap;">
+                  {{ if eq .Data.locale "en" }}Confirm My Account{{ else }}Confirmar a Minha Conta{{ end }}
+                </a>
+              </td>
+            </tr>
+          </table>
 
-        <!-- Footer -->
-        <tr>
-            <td style="padding: 30px; background-color: #f4f4f5; text-align: center; border-top: 1px solid #e5e7eb;">
-                <p style="margin: 0; color: #9ca3af; font-size: 14px;">
-                    &copy; Apostolado de Garabandal<br>
-                    <span style="font-size: 12px;">Enviado automaticamente pela App</span>
+          <!-- Fallback link -->
+          <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin:0 0 32px;">
+            <tr>
+              <td style="background-color:#F8FAFC;border:1px solid #E2E8F0;border-radius:12px;padding:20px 24px;">
+                <p style="margin:0 0 8px;color:#64748B;font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">
+                  {{ if eq .Data.locale "en" }}Alternative link{{ else }}Link alternativo{{ end }}
                 </p>
-            </td>
-        </tr>
+                <p style="margin:0;font-size:12px;line-height:1.6;word-break:break-all;">
+                  <a href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=email"
+                     style="color:#CA8A04;text-decoration:underline;">
+                    {{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=email
+                  </a>
+                </p>
+              </td>
+            </tr>
+          </table>
+
+          <p style="margin:0;color:#94A3B8;font-size:14px;line-height:1.6;text-align:center;">
+            {{ if eq .Data.locale "en" }}
+              If you didn't create this account, you can safely ignore this email.
+            {{ else }}
+              Se não criou esta conta, pode ignorar este email com segurança.
+            {{ end }}
+          </p>
+
+        </td>
+      </tr>
+
+      <!-- Divider -->
+      <tr>
+        <td style="padding:0 40px;">
+          <div style="height:1px;background-color:#E2E8F0;"></div>
+        </td>
+      </tr>
+
+      <!-- Footer -->
+      <tr>
+        <td style="background-color:#F8FAFC;padding:32px 40px;text-align:center;">
+          <p style="margin:0 0 6px;color:#94A3B8;font-size:13px;">
+            {{ if eq .Data.locale "en" }}Confirm Account · Garabandal Apostolate{{ else }}Confirmar Conta · Apostolado de Garabandal{{ end }}
+          </p>
+          <p style="margin:0 0 12px;color:#CA8A04;font-size:13px;font-weight:700;letter-spacing:1px;">
+            {{ if eq .Data.locale "en" }}UNITING FAITH AND HOPE{{ else }}UNINDO FÉ E ESPERANÇA{{ end }}
+          </p>
+          <p style="margin:0;color:#CBD5E1;font-size:11px;">
+            {{ if eq .Data.locale "en" }}If you need help, simply reply to this email.{{ else }}Se precisar de ajuda, basta responder a este email.{{ end }}
+          </p>
+        </td>
+      </tr>
+
     </table>
+  </div>
 
 </body>
-
 </html>

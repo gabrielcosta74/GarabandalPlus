@@ -1,7 +1,15 @@
 import { useEffect, useState, useMemo, useRef } from 'react';
+import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, CheckCircle, CreditCard, ChevronRight, Landmark, FileText, Upload, Loader2, AlertCircle, QrCode, BrickWall, Square, Home, Hammer, Wind, ThermometerSun } from 'lucide-react';
-import { formatPostalCode, getPostalInputMode, getPostalInvalidMessage, validatePostalCode } from '../../lib/country-utils';
+import { X, CheckCircle, CreditCard, ChevronRight, Landmark, Upload, Loader2, AlertCircle, BrickWall, Square, Home, Hammer, Wind, ThermometerSun } from 'lucide-react';
+import {
+    formatPostalCode,
+    getPostalInputMode,
+    getPostalInvalidMessage,
+    listCountryOptions,
+    resolveCountryMeta,
+    validatePostalCode,
+} from '../../lib/country-utils';
 import { supabaseBrowser } from '../../lib/supabase-browser';
 import { useCurrency } from '../providers/CurrencyProvider';
 import { UNIFIED_DONATION_PAYMENT_OPTIONS } from '../../lib/payment-options';
@@ -21,14 +29,19 @@ const impactOptions = [
     { value: 1000, label: "Aquecimento", impact: "Radiadores para o inverno", icon: ThermometerSun },
 ];
 
+const getErrorMessage = (error: unknown, fallback: string) => (
+    error instanceof Error && error.message ? error.message : fallback
+);
+
 interface DonationModalProps {
     isOpen: boolean;
     onClose: () => void;
 }
 
 export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
-    const { formatPrice, currency } = useCurrency();
+    const { formatPrice } = useCurrency();
     const { locale } = useLocale();
+    const isEn = locale === 'en';
     const [step, setStep] = useState(1);
     const [selectedPreset, setSelectedPreset] = useState(25);
     const [customAmount, setCustomAmount] = useState('');
@@ -51,10 +64,20 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
         morada: '',
         cidade: '',
         codigoPostal: '',
-        pais: 'PT',
+        pais: locale === 'en' ? 'US' : 'PT',
         nif: '',
         mensagem: ''
     });
+
+    useEffect(() => {
+        const localizedDefaultCountry = isEn ? 'US' : 'PT';
+        const previousDefaultCountry = isEn ? 'PT' : 'US';
+        setFormData((prev) => (
+            prev.pais === previousDefaultCountry
+                ? { ...prev, pais: localizedDefaultCountry }
+                : prev
+        ));
+    }, [isEn]);
 
     const amount = useMemo(() => {
         if (customAmount) {
@@ -65,7 +88,8 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
     }, [customAmount, selectedPreset]);
 
     const selectedPayment = UNIFIED_DONATION_PAYMENT_OPTIONS.find(p => p.id === selectedPaymentId) || UNIFIED_DONATION_PAYMENT_OPTIONS[0];
-    const isEn = locale === 'en';
+    const countryOptions = useMemo(() => listCountryOptions(isEn ? 'en' : 'pt-PT'), [isEn]);
+    const selectedCountryMeta = useMemo(() => resolveCountryMeta(formData.pais), [formData.pais]);
     const localizedImpactOptions = useMemo(() => impactOptions.map((option) => ({
         ...option,
         label: isEn
@@ -108,7 +132,8 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
         iconAlt: option.iconAlt && isEn ? ({ 'Cartão de Crédito': 'Credit Card' } as Record<string, string>)[option.iconAlt] || option.iconAlt : option.iconAlt,
     })), [isEn]);
 
-    const nifLabel = formData.pais === 'BR' ? 'CPF' : 'NIF';
+    const nifLabel = formData.pais === 'BR' ? 'CPF' : formData.pais === 'PT' ? 'NIF' : isEn ? 'Tax ID' : 'NIF';
+    const postalPlaceholder = selectedCountryMeta?.postalPlaceholder || (isEn ? 'Postal code / ZIP' : 'Código postal');
 
     useEffect(() => {
         const fetchBankTransferDetails = async () => {
@@ -183,7 +208,7 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
                 return await Promise.race([uploadPromise, timeout]);
             };
 
-            const { error: uploadError } = await uploadWithTimeout() as any;
+            const { error: uploadError } = await uploadWithTimeout();
 
             if (uploadError) {
                 console.error('Erro no upload Storage:', uploadError);
@@ -199,9 +224,9 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
 
             setProofUrl(data.publicUrl);
             console.log('URL de prova definida:', data.publicUrl);
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error('Erro fatal no upload:', err);
-            setError(err.message || (isEn ? 'Failed to upload proof of payment. Please try again or use another format.' : "Falha ao carregar comprovativo. Tente novamente ou use outro formato."));
+            setError(getErrorMessage(err, isEn ? 'Failed to upload proof of payment. Please try again or use another format.' : "Falha ao carregar comprovativo. Tente novamente ou use outro formato."));
         } finally {
             setUploadingProof(false);
             if (e.target) e.target.value = '';
@@ -232,7 +257,7 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
                     donorAddress: formData.morada,
                     donorCity: formData.cidade,
                     donorZip: formData.codigoPostal,
-                    donorCountry: formData.pais,
+                    donorCountry: formData.pais || undefined,
                     donorNif: formData.nif,
                     donorMessage: formData.mensagem,
                     proofUrl,
@@ -241,13 +266,13 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
             });
 
             if (!res.ok) {
-                const body = await res.json();
+                const body = await res.json() as { message?: string };
                 throw new Error(body.message || (isEn ? 'Error while registering donation.' : "Erro ao registar doação."));
             }
 
             setStep(4); // Success step
-        } catch (err: any) {
-            setError(err?.message || (isEn ? 'Could not register the donation. Please check the details and try again.' : "Não foi possível registar a doação. Verifique os dados e tente novamente."));
+        } catch (err: unknown) {
+            setError(getErrorMessage(err, isEn ? 'Could not register the donation. Please check the details and try again.' : "Não foi possível registar a doação. Verifique os dados e tente novamente."));
         } finally {
             setLoading(false);
         }
@@ -272,12 +297,12 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
             }
 
             if (receiptRequired) {
-                if (!formData.morada || !formData.cidade || !formData.codigoPostal) {
+                if (!formData.morada || !formData.cidade || !formData.codigoPostal || !formData.pais) {
                     setError(isEn ? 'Full address is required for the receipt.' : "Endereço completo é necessário para o recibo fiscal.");
                     return;
                 }
                 if (formData.codigoPostal && !validatePostalCode(formData.pais, formData.codigoPostal)) {
-                    setError(getPostalInvalidMessage(formData.pais));
+                    setError(getPostalInvalidMessage(formData.pais, isEn ? 'en' : 'pt-PT'));
                     return;
                 }
                 const nifClean = formData.nif.replace(/\D/g, '');
@@ -316,7 +341,7 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
                     donorAddress: receiptRequired ? formData.morada : null,
                     donorCity: receiptRequired ? formData.cidade : null,
                     donorZip: receiptRequired ? formData.codigoPostal : null,
-                    donorCountry: formData.pais,
+                    donorCountry: formData.pais || undefined,
                     donorNif: receiptRequired ? formData.nif.replace(/\D/g, '') : null,
                     donorMessage: formData.mensagem || null,
                     receiptRequired,
@@ -324,7 +349,7 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
             });
 
             if (!res.ok) {
-                const body = await res.json().catch(() => ({}));
+                const body = await res.json().catch(() => ({})) as { message?: string };
                 throw new Error(body?.message || (isEn ? 'Error starting donation.' : "Erro ao iniciar doação."));
             }
 
@@ -332,8 +357,8 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
             if (!url) throw new Error(isEn ? 'Server response error.' : "Erro de resposta do servidor.");
 
             window.location.href = url;
-        } catch (err: any) {
-            setError(err.message);
+        } catch (err: unknown) {
+            setError(getErrorMessage(err, isEn ? 'Could not start the donation.' : 'Não foi possível iniciar a doação.'));
             setLoading(false);
         }
     };
@@ -449,7 +474,7 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
                                                             </div>
                                                         )}
                                                         {opt.iconSrc ? (
-                                                            <img src={opt.iconSrc} alt={opt.iconAlt || opt.label} className="w-8 h-8 object-contain" />
+                                                            <Image src={opt.iconSrc} alt={opt.iconAlt || opt.label} width={32} height={32} className="w-8 h-8 object-contain" />
                                                         ) : (
                                                             <div className="w-8 h-8 flex items-center justify-center bg-gray-100 rounded-lg"><Landmark className="w-5 h-5 text-gray-400" /></div>
                                                         )}
@@ -496,7 +521,11 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
                                                 <label className="text-sm font-medium text-gray-700">{isEn ? 'Country' : 'País'}</label>
                                                 <select value={formData.pais} onChange={e => setFormData({ ...formData, pais: e.target.value })}
                                                     className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none">
-                                                    <option value="PT">Portugal</option><option value="BR">Brasil</option>
+                                                    {countryOptions.map((country) => (
+                                                        <option key={country.code} value={country.code}>
+                                                            {country.label}
+                                                        </option>
+                                                    ))}
                                                 </select>
                                             </div>
 
@@ -505,7 +534,7 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
                                                     <div className="space-y-2 animate-in fade-in slide-in-from-top-2">
                                                         <label className="text-sm font-medium text-gray-700">{isEn ? 'Postal Code / ZIP' : 'Código Postal / CEP'}</label>
                                                         <input value={formData.codigoPostal} onChange={e => setFormData({ ...formData, codigoPostal: formatPostalCode(e.target.value, formData.pais) })}
-                                                            inputMode={getPostalInputMode(formData.pais)} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none" placeholder={formData.pais === 'BR' ? '00000-000' : '0000-000'} />
+                                                            inputMode={getPostalInputMode(formData.pais)} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none" placeholder={postalPlaceholder} />
                                                     </div>
                                                     <div className="space-y-2 animate-in fade-in slide-in-from-top-2">
                                                         <label className="text-sm font-medium text-gray-700">{nifLabel}</label>

@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import AuthLayout, { PremiumInput } from '../../../components/auth/AuthLayout';
 import { supabaseBrowser } from '../../../lib/supabase-browser';
 import { motion } from 'framer-motion';
@@ -11,6 +11,11 @@ import { detectUpdatePasswordAuthPayload } from '../../../lib/auth-redirects';
 
 export default function UpdatePasswordPage() {
     const router = useRouter();
+    const pathname = usePathname();
+    const isEn = pathname?.startsWith('/en') ?? false;
+    const homePath = isEn ? '/en/member' : '/';
+    const loginPath = isEn ? '/en/login' : '/login';
+    const updatePath = isEn ? '/en/auth/update-password' : '/auth/update-password';
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [success, setSuccess] = useState(false);
@@ -24,13 +29,13 @@ export default function UpdatePasswordPage() {
         const watchdog = window.setTimeout(() => {
             if (cancelled) return;
             console.warn("⏱️ [UpdatePassword] Session check timeout.");
-            setError('Link inválido ou expirado. Peça um novo email de recuperação.');
+            setError(isEn ? 'Link invalid or expired. Request a new recovery email.' : 'Link inválido ou expirado. Peça um novo email de recuperação.');
             setCheckingSession(false);
         }, 12000);
 
         if (!supabaseBrowser) {
             console.error("Supabase client missing");
-            setError('Configuração de autenticação em falta.');
+            setError(isEn ? 'Authentication configuration missing.' : 'Configuração de autenticação em falta.');
             setCheckingSession(false);
             return;
         }
@@ -42,7 +47,7 @@ export default function UpdatePasswordPage() {
                 console.log("✅ [UpdatePassword] Password update verified via event via listener.");
                 setSuccess(true);
                 setLoading(false);
-                setTimeout(() => router.push('/'), 3000); // Ensure redirect happens
+                setTimeout(() => router.push(homePath), 3000); // Ensure redirect happens
             } else if (session) {
                 console.log("✅ [UpdatePassword] Session confirmed:", session.user.email);
                 window.clearTimeout(watchdog);
@@ -54,7 +59,7 @@ export default function UpdatePasswordPage() {
                     console.warn("⚠️ [UpdatePassword] No session/hash. Redirecting.");
                     // Debounce redirect slightly to allow hash processing if any
                     setTimeout(() => {
-                        if (!window.location.hash) router.replace('/login');
+                        if (!window.location.hash) router.replace(loginPath);
                     }, 1000);
                 }
             }
@@ -70,12 +75,12 @@ export default function UpdatePasswordPage() {
 
                 if (exchangeError) {
                     console.error("🚨 [UpdatePassword] exchangeCodeForSession error:", exchangeError);
-                    setError('O link de recuperação é inválido ou expirou.');
+                    setError(isEn ? 'The recovery link is invalid or has expired.' : 'O link de recuperação é inválido ou expirou.');
                     setCheckingSession(false);
                     return;
                 }
 
-                window.history.replaceState({}, '', '/auth/update-password');
+                window.history.replaceState({}, '', updatePath);
             } else if (authPayload.kind === 'otp') {
                 console.log("🔗 [UpdatePassword] OTP token found, verifying recovery...");
                 const { error: verifyError } = await supabaseBrowser.auth.verifyOtp({
@@ -85,12 +90,12 @@ export default function UpdatePasswordPage() {
 
                 if (verifyError) {
                     console.error("🚨 [UpdatePassword] verifyOtp error:", verifyError);
-                    setError('O link de recuperação é inválido ou expirou.');
+                    setError(isEn ? 'The recovery link is invalid or has expired.' : 'O link de recuperação é inválido ou expirou.');
                     setCheckingSession(false);
                     return;
                 }
 
-                window.history.replaceState({}, '', '/auth/update-password');
+                window.history.replaceState({}, '', updatePath);
             } else if (authPayload.kind === 'session') {
                 console.log("🔗 [UpdatePassword] Recovery hash found, setting session...");
                 const { error: sessionError } = await supabaseBrowser.auth.setSession({
@@ -100,12 +105,12 @@ export default function UpdatePasswordPage() {
 
                 if (sessionError) {
                     console.error("🚨 [UpdatePassword] setSession error:", sessionError);
-                    setError('O link de recuperação é inválido ou expirou.');
+                    setError(isEn ? 'The recovery link is invalid or has expired.' : 'O link de recuperação é inválido ou expirou.');
                     setCheckingSession(false);
                     return;
                 }
 
-                window.history.replaceState({}, '', '/auth/update-password');
+                window.history.replaceState({}, '', updatePath);
             }
 
             const { data: { session } } = await supabaseBrowser.auth.getSession();
@@ -115,12 +120,12 @@ export default function UpdatePasswordPage() {
                 return;
             }
 
-            setError('Link inválido ou expirado. Peça um novo email de recuperação.');
+            setError(isEn ? 'Link invalid or expired. Request a new recovery email.' : 'Link inválido ou expirado. Peça um novo email de recuperação.');
             setCheckingSession(false);
         };
         checkRecoverySession().catch((err) => {
             console.error("🚨 [UpdatePassword] Session check failed:", err);
-            setError('Não foi possível validar o link de recuperação.');
+            setError(isEn ? 'Could not validate the recovery link.' : 'Não foi possível validar o link de recuperação.');
             setCheckingSession(false);
         });
 
@@ -144,11 +149,11 @@ export default function UpdatePasswordPage() {
         setLoading(true);
 
         try {
-            if (!supabaseBrowser) throw new Error('Cliente Supabase não inicializado.');
+            if (!supabaseBrowser) throw new Error(isEn ? 'Supabase client not initialised.' : 'Cliente Supabase não inicializado.');
 
             // Double check session
             const { data: { session } } = await supabaseBrowser.auth.getSession();
-            if (!session) throw new Error('Sessão expirada. Recarregue a página.');
+            if (!session) throw new Error(isEn ? 'Session expired. Please reload the page.' : 'Sessão expirada. Recarregue a página.');
 
             console.log("🔒 [UpdatePassword] Attempting update...");
 
@@ -158,7 +163,7 @@ export default function UpdatePasswordPage() {
             });
 
             const timeoutPromise = new Promise<{ error: { message: string } | null }>((_, reject) =>
-                setTimeout(() => reject(new Error('O pedido demorou demasiado tempo. Verifique a sua conexão.')), 15000)
+                setTimeout(() => reject(new Error(isEn ? 'The request took too long. Please check your connection.' : 'O pedido demorou demasiado tempo. Verifique a sua conexão.')), 15000)
             );
 
             // Type assertion to handle the race result correctly
@@ -173,12 +178,12 @@ export default function UpdatePasswordPage() {
 
             // Auto redirect
             setTimeout(() => {
-                router.push('/');
+                router.push(homePath);
             }, 3000);
 
         } catch (err: any) {
             console.error("🚨 [UpdatePassword] Error:", err);
-            setError(err.message || 'Erro ao atualizar a password.');
+            setError(err.message || (isEn ? 'Error updating password.' : 'Erro ao atualizar a password.'));
             setLoading(false);
         }
     };
@@ -194,8 +199,8 @@ export default function UpdatePasswordPage() {
     if (success) {
         return (
             <AuthLayout
-                title="Password Atualizada"
-                subtitle="A sua conta está segura."
+                title={isEn ? 'Password Updated' : 'Password Atualizada'}
+                subtitle={isEn ? 'Your account is secure.' : 'A sua conta está segura.'}
                 backgroundImage="https://images.unsplash.com/photo-1516975080664-ed2fc6a32937?q=80&w=3570&auto=format&fit=crop"
             >
                 <div className="text-center py-10">
@@ -206,15 +211,17 @@ export default function UpdatePasswordPage() {
                     >
                         <CheckCircle2 className="w-10 h-10" />
                     </motion.div>
-                    <h3 className="text-xl font-bold text-gray-900 mb-2">Sucesso!</h3>
+                    <h3 className="text-xl font-bold text-gray-900 mb-2">{isEn ? 'Success!' : 'Sucesso!'}</h3>
                     <p className="text-gray-500 mb-8 max-w-sm mx-auto">
-                        A sua password foi alterada com sucesso. A redirecionar para a aplicação...
+                        {isEn
+                            ? 'Your password has been changed successfully. Redirecting to the application...'
+                            : 'A sua password foi alterada com sucesso. A redirecionar para a aplicação...'}
                     </p>
                     <Link
-                        href="/"
+                        href={homePath}
                         className="inline-block px-8 py-3 bg-garabandal-dark text-white font-bold rounded-xl hover:bg-black transition-colors"
                     >
-                        Ir para a Aplicação
+                        {isEn ? 'Go to App' : 'Ir para a Aplicação'}
                     </Link>
                 </div>
             </AuthLayout>
@@ -223,10 +230,10 @@ export default function UpdatePasswordPage() {
 
     return (
         <AuthLayout
-            title="Nova Password"
-            subtitle="Defina uma nova password segura para a sua conta."
+            title={isEn ? 'New Password' : 'Nova Password'}
+            subtitle={isEn ? 'Set a new secure password for your account.' : 'Defina uma nova password segura para a sua conta.'}
             backgroundImage="https://images.unsplash.com/photo-1516975080664-ed2fc6a32937?q=80&w=3570&auto=format&fit=crop"
-            quote="A Verdade libertar-vos-á."
+            quote={isEn ? 'The Truth shall set you free.' : 'A Verdade libertar-vos-á.'}
         >
             <form onSubmit={handlePasswordUpdate} className="space-y-6">
                 {error && (
@@ -244,14 +251,16 @@ export default function UpdatePasswordPage() {
                     <div className="flex gap-3">
                         <Lock className="w-5 h-5 text-yellow-600 shrink-0 mt-0.5" />
                         <p className="text-sm text-yellow-800 leading-relaxed">
-                            Crie uma password com pelo menos 6 caracteres. Recomendamos usar números e letras.
+                            {isEn
+                                ? 'Create a password with at least 6 characters. We recommend using numbers and letters.'
+                                : 'Crie uma password com pelo menos 6 caracteres. Recomendamos usar números e letras.'}
                         </p>
                     </div>
                 </div>
 
                 <div className="space-y-4">
                     <PremiumInput
-                        label="Nova Password"
+                        label={isEn ? 'New Password' : 'Nova Password'}
                         type="password"
                         placeholder="••••••••"
                         value={password}
@@ -260,13 +269,13 @@ export default function UpdatePasswordPage() {
                     />
 
                     <PremiumInput
-                        label="Confirmar Nova Password"
+                        label={isEn ? 'Confirm New Password' : 'Confirmar Nova Password'}
                         type="password"
                         placeholder="••••••••"
                         value={confirmPassword}
                         onChange={(e) => setConfirmPassword(e.target.value)}
                         disabled={loading}
-                        error={confirmPassword && password !== confirmPassword ? "As passwords não coincidem" : undefined}
+                        error={confirmPassword && password !== confirmPassword ? (isEn ? 'Passwords do not match' : 'As passwords não coincidem') : undefined}
                     />
                 </div>
 
@@ -285,7 +294,7 @@ export default function UpdatePasswordPage() {
                         <Loader2 className="w-5 h-5 animate-spin" />
                     ) : (
                         <>
-                            Atualizar Password
+                            {isEn ? 'Update Password' : 'Atualizar Password'}
                             <ArrowRight className="w-4 h-4" />
                         </>
                     )}

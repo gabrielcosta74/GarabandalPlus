@@ -42,9 +42,8 @@ export default function AdminPage() {
             return;
           }
 
-          if (mounted) {
-            setError('Esta conta não tem permissões de administrador.');
-          }
+          // Sign out the non-admin session so the login form works cleanly.
+          await supabaseBrowser.auth.signOut();
         }
       } catch (err) {
         console.error('Session check failed:', err);
