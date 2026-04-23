@@ -126,12 +126,22 @@ export async function GET(req: Request) {
         }
 
         const hasNif = (value: unknown) => typeof value === 'string' && value.trim().length > 0;
-        const normalizeProvider = (category: string, method?: string | null) => {
+        // Resolve the true provider. For donations, the authoritative source is metadata.provider
+        // because the `method` enum only allows stripe_card/bank_transfer/pix, so Reduniq donations
+        // are persisted as method='stripe_card'.
+        const resolveProvider = (category: string, method?: string | null, metadataProvider?: string | null): string => {
             const m = String(method || '').toLowerCase();
-            if (category === 'shop') return m.includes('reduniq') ? 'Reduniq' : m.includes('stripe') ? 'Stripe' : 'Loja';
-            if (category === 'donation') return m.includes('reduniq') ? 'Reduniq' : m.includes('stripe') ? 'Stripe' : m.includes('bank') ? 'Transferência' : 'Doação';
-            if (category === 'quota') return m.includes('stripe') ? 'Stripe' : m.includes('manual') ? 'Manual' : 'Quota';
-            if (category === 'pilgrimage') return m.includes('reduniq') ? 'Reduniq' : m.includes('stripe') ? 'Stripe' : m.includes('manual') ? 'Manual' : 'Peregrinação';
+            const mp = String(metadataProvider || '').toLowerCase();
+            if (mp === 'reduniq' || m.includes('reduniq') || m.includes('mbway') || m.includes('multibanco')) return 'Reduniq';
+            if (mp === 'stripe' || m.includes('stripe')) return 'Stripe';
+            if (m.includes('bank') || m.includes('transfer') || m.includes('deposito') || m.includes('depósito')) return 'Transferência';
+            if (m.includes('manual')) return 'Manual';
+            if (m === 'pix' || m.includes('pix')) return 'Pix';
+            if (m.includes('paypal')) return 'Paypal';
+            if (category === 'shop') return 'Loja';
+            if (category === 'donation') return 'Doação';
+            if (category === 'quota') return 'Quota';
+            if (category === 'pilgrimage') return 'Peregrinação';
             return '—';
         };
 
@@ -157,7 +167,7 @@ export async function GET(req: Request) {
                 customer_country: d.donor_country,
                 status: d.status,
                 method: d.method,
-                provider: normalizeProvider('donation', d.method),
+                provider: resolveProvider('donation', d.method, (d.metadata as any)?.provider),
                 created_at: d.created_at,
                 invoice_sent_at: d.invoice_sent_at,
                 has_nif: hasNif(d.donor_nif),
@@ -178,7 +188,7 @@ export async function GET(req: Request) {
                 customer_email: o.buyer_email || '—',
                 status: o.status,
                 method: o.payment_method,
-                provider: normalizeProvider('shop', o.payment_method),
+                provider: resolveProvider('shop', o.payment_method, o.payment_provider),
                 created_at: o.created_at,
                 customer_nif: storeNif || null,
                 customer_address: o.billing_address || o.shipping_address1,
@@ -230,7 +240,7 @@ export async function GET(req: Request) {
                 customer_zip: profile?.postal_code,
                 status: p.status,
                 method: p.method,
-                provider: normalizeProvider('pilgrimage', p.method),
+                provider: resolveProvider('pilgrimage', p.method, null),
                 created_at: p.created_at,
                 receipt_url: p.receipt_url,
                 notes: p.notes,
@@ -263,7 +273,7 @@ export async function GET(req: Request) {
                 customer_zip: profile?.postal_code,
                 status: q.estado,
                 method: q.metodo_pagamento,
-                provider: normalizeProvider('quota', q.metodo_pagamento),
+                provider: resolveProvider('quota', q.metodo_pagamento, null),
                 created_at: quotaCreatedAt,
                 invoice_sent_at: q.invoice_sent_at,
                 has_nif: hasNif(quotaNif),

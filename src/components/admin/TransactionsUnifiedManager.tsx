@@ -289,7 +289,7 @@ export default function TransactionsUnifiedManager() {
                 <div className="text-right">
                     <span className="font-black text-gray-900 text-sm block">{new Intl.NumberFormat('pt-PT', { style: 'currency', currency: t.currency }).format(t.amount)}</span>
                     <div className="flex items-center justify-end gap-1">
-                        <span className="text-[10px] text-gray-400 uppercase font-medium">{t.method?.replace('_', ' ') || 'Card'}</span>
+                        <span className="text-[10px] text-gray-400 uppercase font-medium">{t.provider || '—'}</span>
                         {t.invoice_sent_at && <span title="Recibo marcado como enviado"><FileText className="w-3 h-3 text-blue-500" /></span>}
                     </div>
                 </div>

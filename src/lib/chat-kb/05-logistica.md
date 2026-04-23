@@ -6,12 +6,17 @@ Todas as peregrinações são feitas em **autocarro (ônibus) de turismo privado
 
 ## Voos (passagem aérea)
 
-**Regra geral:** a passagem aérea **NÃO está incluída** no preço da peregrinação (salvo indicação explícita). Há duas opções:
+**Regra geral:** o valor principal da peregrinação é o **terrestre** (autocarro, hotéis, refeições, guia espiritual). O voo **NÃO está incluído** nesse valor base — é tratado à parte.
 
-1. **Através do Apostolado** (quando disponível) — a organização pode ajudar a reservar voo em grupo.
-2. **O peregrino compra a própria passagem** — neste caso compromete-se a estar no **ponto de encontro** (tipicamente Aeroporto de Lisboa, esta explicito no botao que diz "voos" a beira do botao de inscrever) na data e hora marcadas.
+### Como ver as opções de voo desta peregrinação
+Na página da peregrinação existe um botão **"Ver Opções de Voo"** (ao lado do botão de inscrição). Ao clicar, aparecem todas as opções disponíveis e o que está incluído em cada uma. **Recomendamos sempre consultar esse botão antes de se inscrever**, para perceber exatamente o que está a contratar.
 
-O ponto de encontro exato de cada peregrinação está indicado na sua página (campo "Ponto de encontro").
+### Opções típicas (variam por peregrinação):
+1. **Voo próprio** — o peregrino compra a sua própria passagem e compromete-se a estar no ponto de encontro (Aeroporto de Lisboa) na data e hora marcadas. Compra apenas o terrestre ao Apostolado.
+2. **Voo de grupo** (quando disponível) — o Apostolado ou uma agência parceira organiza um voo de grupo. O valor do voo é separado do terrestre e pago diretamente à agência.
+3. **Voo incluso para Brasil** (quando disponível) — peregrinos do Brasil podem seguir no voo organizado com saída do Brasil com o grupo e o diretor espiritual. Ver detalhes específicos no botão "Ver Opções de Voo" da página.
+
+O ponto de encontro exato, datas e horas estão indicados na página da peregrinação e no botão "Ver Opções de Voo".
 
 ## Hospedagem
 

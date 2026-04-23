@@ -10,7 +10,7 @@ R: Não é obrigatório. Peregrinos de todos os caminhos de fé são bem-vindos 
 R: Sim, sem juros. O número máximo de prestações depende da peregrinação (ver campo "Plano de pagamento"). Última prestação até 1 mês antes do início.
 
 **P: O voo está incluído?**
-R: Normalmente não. Cada peregrinação indica claramente se o aéreo está incluído ou se o peregrino tem de tratar da passagem.
+R: O valor principal da peregrinação é o terrestre (autocarro, hotéis, refeições, guia) — o voo NÃO está incluído nesse valor base. Na página da peregrinação existe um botão **"Ver Opções de Voo"** com todas as opções disponíveis: voo próprio, voo de grupo ou, para peregrinos do Brasil, voo organizado com saída do Brasil. Consulte esse botão antes de se inscrever para perceber exatamente o que está a contratar e o que é pago à parte.
 
 **P: Posso levar crianças?**
 R: Sim. Crianças 0–2 anos grátis; 2–6 anos com 20% desconto. Avaliar se a peregrinação tem caminhadas exigentes para crianças pequenas.

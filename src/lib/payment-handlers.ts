@@ -488,6 +488,8 @@ export async function handlePaymentFailedOrCanceled(ctx: PaymentHandlerContext, 
     } else if (type === 'store') {
         const orderRef = metadata.orderRef;
         if (orderRef) await supabaseServer.from('store_orders').update({ status }).eq('order_ref', orderRef);
+    } else if (type === 'pilgrimage_payment') {
+        await supabaseServer.from('pilgrimage_payments').update({ status: 'failed' }).match(matchQuery);
     }
 }
 
