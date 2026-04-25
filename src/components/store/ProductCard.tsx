@@ -4,22 +4,28 @@ import React from 'react';
 import Image from 'next/image';
 import { motion } from 'framer-motion';
 import { Product } from '../../app/loja-online/data';
-import { ShoppingCart, Globe, Eye } from 'lucide-react';
+import Link from 'next/link';
+import { Globe, Eye } from 'lucide-react';
 import { useCurrency } from '../providers/CurrencyProvider';
 import { inferIsDigitalProduct } from '../../lib/product-kind';
+import { useLocale } from '../../contexts/LocaleContext';
 
 interface ProductCardProps {
     product: Product;
+    href?: string;
     onClick: () => void;
     onAddToCart: (e: React.MouseEvent) => void;
 }
 
 const ProductCard = React.forwardRef<HTMLDivElement, ProductCardProps>(({
     product,
+    href,
     onClick,
     onAddToCart,
 }, ref) => {
     const { formatPrice } = useCurrency();
+    const { locale } = useLocale();
+    const isEn = locale === 'en';
     const isDigital = inferIsDigitalProduct({
         isPhysical: product.isPhysical,
         typeId: product.type_id,
@@ -43,14 +49,14 @@ const ProductCard = React.forwardRef<HTMLDivElement, ProductCardProps>(({
             ref={ref}
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            whileHover={{ y: -8 }}
-            className="group relative bg-[#ffffff] border border-gray-200/60 rounded-3xl overflow-hidden hover:shadow-[0_20px_40px_-15px_rgba(0,0,0,0.1)] transition-all cursor-pointer flex flex-col h-full"
+            whileHover={{ y: -6 }}
+            className="group relative bg-white border border-slate-100 rounded-3xl overflow-hidden hover:shadow-[0_20px_40px_-15px_rgba(0,0,0,0.08)] transition-all cursor-pointer flex flex-col h-full"
             onClick={onClick}
         >
-            {/* Image Area - Subtle gray background to contrast with white card */}
-            <div className="relative aspect-square bg-gray-50/80 p-8 overflow-hidden border-b border-gray-100 group-hover:bg-gray-100/50 transition-colors">
+            {/* Image Area */}
+            <div className="relative aspect-square bg-slate-50/50 p-8 md:p-10 overflow-hidden border-b border-slate-50 group-hover:bg-slate-100/50 transition-colors">
                 {product.tag && (
-                    <div className="absolute top-4 left-4 z-10 bg-garabandal-gold text-white text-[10px] font-bold uppercase tracking-widest px-3 py-1 rounded-full shadow-md">
+                    <div className="absolute top-4 left-4 z-10 bg-slate-900 text-amber-400 text-[10px] font-black uppercase tracking-[0.2em] px-4 py-1.5 rounded-full shadow-sm">
                         {product.tag}
                     </div>
                 )}
@@ -59,49 +65,51 @@ const ProductCard = React.forwardRef<HTMLDivElement, ProductCardProps>(({
                     alt={product.name}
                     fill
                     sizes="(min-width: 1280px) 20vw, (min-width: 1024px) 25vw, (min-width: 640px) 33vw, 50vw"
-                    className="object-contain transform transition-transform duration-700 group-hover:scale-110 drop-shadow-sm"
+                    className="object-contain transform transition-transform duration-700 group-hover:scale-105 mix-blend-multiply"
                 />
             </div>
 
             {/* Content */}
-            <div className="p-6 flex flex-col flex-grow">
-                <h3 className="font-serif text-xl text-garabandal-dark mb-2 group-hover:text-garabandal-gold transition-colors line-clamp-2 leading-tight">
+            <div className="p-5 md:p-6 flex flex-col flex-grow">
+                <h3 className="font-serif text-lg md:text-xl font-bold text-slate-900 mb-2 group-hover:text-amber-600 transition-colors line-clamp-2 leading-snug">
                     {product.name}
                 </h3>
-                <p className="text-gray-500 text-sm line-clamp-2 mb-6 flex-grow font-normal leading-relaxed">
+                <p className="text-slate-500 text-xs md:text-sm line-clamp-2 mb-6 flex-grow font-medium leading-relaxed">
                     {product.description}
                 </p>
 
-                <div className="mt-auto pt-4 border-t border-gray-50">
+                <div className="mt-auto pt-5 border-t border-slate-100">
                     <div className="flex items-end justify-between mb-5">
                         <div>
-                            <p className="text-2xl font-medium text-garabandal-dark tracking-tight">
+                            <p className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight">
                                 {formatPrice(product.price)}
                             </p>
-                            <div className="flex flex-col gap-1">
-                                <p className="text-[10px] text-gray-400 uppercase tracking-wider font-medium">
-                                    IVA incluído
+                            <div className="flex flex-col gap-1.5 mt-1">
+                                <p className="text-[10px] text-slate-400 uppercase tracking-widest font-bold">
+                                    {isEn ? 'VAT included' : 'IVA incluído'}
                                 </p>
                                 {product.allowedCountries && product.allowedCountries.length > 0 && (
-                                    <div className="flex items-center gap-1 text-[10px] text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100 w-fit" title={product.allowedCountries.join(', ')}>
-                                        <Globe size={10} />
-                                        <span className="font-bold uppercase tracking-wide">
-                                            {product.allowedCountries.length === 1 ? 'Envio Restrito' : 'Envio Limitado'}
+                                    <div className="flex items-center gap-1.5 text-[9px] text-slate-600 bg-slate-100 px-2 py-1 rounded-md w-fit" title={product.allowedCountries.join(', ')}>
+                                        <Globe size={10} className="text-slate-400" />
+                                        <span className="font-bold uppercase tracking-widest">
+                                            {product.allowedCountries.length === 1
+                                                ? (isEn ? 'Restricted Shipping' : 'Envio Restrito')
+                                                : (isEn ? 'Limited Shipping' : 'Envio Limitado')}
                                         </span>
                                     </div>
                                 )}
                             </div>
                         </div>
                         {!isDigital && typeof product.stock === 'number' && product.stock > 0 && product.stock < 10 && (
-                            <span className="text-[10px] text-amber-600 font-bold uppercase tracking-wider bg-amber-50 px-2 py-1 rounded border border-amber-100">
-                                Restam {product.stock}
+                            <span className="text-[9px] text-red-600 font-black uppercase tracking-[0.1em] bg-red-50 px-2.5 py-1.5 rounded-lg border border-red-100">
+                                {isEn ? 'Only' : 'Restam'} {product.stock}
                             </span>
                         )}
                         {/* Show if it has variants/sizes available */}
                         {product.variants && product.variants.length > 0 && (
-                            <div className="flex gap-1">
+                            <div className="flex flex-wrap justify-end gap-1 max-w-[50%]">
                                 {product.variants.slice(0, 3).map((v: any) => (
-                                    <span key={v.sku} className="text-[10px] text-slate-500 font-bold uppercase bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
+                                    <span key={v.sku} className="text-[9px] text-slate-600 font-bold uppercase bg-slate-100 px-2 py-1 rounded-md">
                                         {v.name}
                                     </span>
                                 ))}
@@ -112,32 +120,40 @@ const ProductCard = React.forwardRef<HTMLDivElement, ProductCardProps>(({
                         )}
                     </div>
 
-                    <motion.button
-                        whileTap={{ scale: 0.95 }}
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            onAddToCart(e);
-                        }}
-                        disabled={isSoldOut}
-                        className={`group/btn relative overflow-hidden w-full py-3.5 rounded-xl text-xs font-bold uppercase tracking-widest flex items-center justify-center gap-2 transition-all shadow-sm cursor-pointer
-                        ${isSoldOut
-                                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                                : 'bg-garabandal-dark text-white hover:bg-black hover:shadow-lg'
-                            }
-                    `}
-                    >
-                        {!isSoldOut && (
-                            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent translate-x-[-150%] group-hover/btn:translate-x-[150%] transition-transform duration-1000 ease-in-out pointer-events-none" />
-                        )}
-                        {isSoldOut ? (
-                            'Esgotado'
-                        ) : (
-                            <>
-                                <Eye size={20} className="transition-transform duration-300 group-hover/btn:-translate-y-0.5 group-hover/btn:scale-110" strokeWidth={2} />
-                                Ver Produto
-                            </>
-                        )}
-                    </motion.button>
+                    {href && !isSoldOut ? (
+                        <Link
+                            href={href}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onAddToCart(e);
+                            }}
+                            className="w-full py-3.5 rounded-xl text-xs font-black uppercase tracking-[0.15em] flex items-center justify-center transition-all cursor-pointer bg-yellow-400 text-slate-900 hover:bg-slate-900 hover:text-white shadow-md hover:shadow-lg"
+                        >
+                            <span>{isEn ? 'View Product' : 'Ver Produto'}</span>
+                        </Link>
+                    ) : (
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onAddToCart(e);
+                            }}
+                            disabled={isSoldOut}
+                            className={`w-full py-3.5 rounded-xl text-xs font-black uppercase tracking-[0.15em] flex items-center justify-center transition-all shadow-sm cursor-pointer
+                            ${isSoldOut
+                                    ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                                    : 'bg-yellow-400 text-slate-900 hover:bg-slate-900 hover:text-white hover:shadow-lg'
+                                }
+                        `}
+                        >
+                            <span>
+                                {isSoldOut ? (
+                                    isEn ? 'Out of Stock' : 'Esgotado'
+                                ) : (
+                                    isEn ? 'View Product' : 'Ver Produto'
+                                )}
+                            </span>
+                        </button>
+                    )}
                 </div>
             </div>
         </motion.div>

@@ -229,7 +229,8 @@ export default function PilgrimagesPage() {
 }
 
 function GeneralWaitlistForm() {
-    const { t } = useLocale();
+    const { locale, t } = useLocale();
+    const isEn = locale === 'en';
     const p = t.pilgrimages;
     const [email, setEmail] = useState('');
     const [loading, setLoading] = useState(false);
@@ -247,7 +248,8 @@ function GeneralWaitlistForm() {
                 body: JSON.stringify({
                     email,
                     type: 'general_waitlist',
-                    channel_preference: 'email'
+                    channel_preference: 'email',
+                    locale
                 })
             });
 
@@ -292,7 +294,7 @@ function GeneralWaitlistForm() {
             </button>
             {status === 'error' && (
                 <div className="absolute -bottom-8 left-0 w-full text-center">
-                    <p className="text-red-400 text-sm">Ocorreu um erro. Tente novamente.</p>
+                    <p className="text-red-400 text-sm">{isEn ? 'An error occurred. Please try again.' : 'Ocorreu um erro. Tente novamente.'}</p>
                 </div>
             )}
         </form>

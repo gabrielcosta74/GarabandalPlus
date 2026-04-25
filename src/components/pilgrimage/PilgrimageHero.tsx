@@ -6,8 +6,9 @@ import { useEffect, useState } from "react";
 import Link from 'next/link';
 import Image from 'next/image';
 import { format } from 'date-fns';
-import { pt } from 'date-fns/locale';
+import { enUS, pt } from 'date-fns/locale';
 import { useCurrency } from "../providers/CurrencyProvider";
+import { useLocale } from '../../contexts/LocaleContext';
 import { getPublicAvailabilityLabel, parseCivilDate } from '../../lib/utils';
 
 interface FeaturedPilgrimage {
@@ -32,6 +33,11 @@ const HERO_IMAGES = [
 export function PilgrimageHero({ featuredPilgrimage }: { featuredPilgrimage?: FeaturedPilgrimage }) {
     const [currentImage, setCurrentImage] = useState(0);
     const { formatPrice, currency } = useCurrency();
+    const { locale } = useLocale();
+    const isEn = locale === 'en';
+    const dateLocale = isEn ? enUS : pt;
+    const listHref = isEn ? '/en/pilgrimages' : '/peregrinacoes';
+    const donationsHref = isEn ? '/en/donations' : '/donations';
 
     useEffect(() => {
         const timer = setInterval(() => {
@@ -42,7 +48,9 @@ export function PilgrimageHero({ featuredPilgrimage }: { featuredPilgrimage?: Fe
 
     // Date Formatting
     const dateFormatted = featuredPilgrimage ?
-        `${format(parseCivilDate(featuredPilgrimage.start_date), "d MMM", { locale: pt })} - ${format(parseCivilDate(featuredPilgrimage.end_date), "d MMM, yyyy", { locale: pt })}`
+        (isEn
+            ? `${format(parseCivilDate(featuredPilgrimage.start_date), "MMM d", { locale: dateLocale })} - ${format(parseCivilDate(featuredPilgrimage.end_date), "MMM d, yyyy", { locale: dateLocale })}`
+            : `${format(parseCivilDate(featuredPilgrimage.start_date), "d MMM", { locale: dateLocale })} - ${format(parseCivilDate(featuredPilgrimage.end_date), "d MMM, yyyy", { locale: dateLocale })}`)
         : "";
     const remainingSpots = featuredPilgrimage
         ? Number.isFinite(Number(featuredPilgrimage.effective_vacancies))
@@ -93,14 +101,13 @@ export function PilgrimageHero({ featuredPilgrimage }: { featuredPilgrimage?: Fe
                                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
                                 <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
                             </span>
-                            Apoio à Construção
+                            {isEn ? 'Supporting the Construction' : 'Apoio à Construção'}
                         </div>
                         <h1 className="font-serif text-4xl sm:text-5xl md:text-7xl font-bold leading-[0.95] mb-6 md:mb-8 lg:tracking-tight">
-                            Onde o Céu <br />
-                            <span className="text-transparent bg-clip-text bg-gradient-to-r from-yellow-200 to-amber-500">Toca a Terra</span>
+                            {isEn ? <>Where Heaven <br /><span className="text-transparent bg-clip-text bg-gradient-to-r from-yellow-200 to-amber-500">Touches Earth</span></> : <>Onde o Céu <br /><span className="text-transparent bg-clip-text bg-gradient-to-r from-yellow-200 to-amber-500">Toca a Terra</span></>}
                         </h1>
                         <p className="text-lg md:text-xl text-slate-300 leading-relaxed font-light border-l-0 lg:border-l-2 border-indigo-500/50 pl-0 lg:pl-6 text-center lg:text-left mx-auto lg:mx-0 max-w-lg">
-                            Cada passo seu nesta jornada ajuda a erguer a <strong className="text-white font-serif">Casa do Apostolado</strong>. Peregrinar connosco é viver a fé e construir o futuro da missão.
+                            {isEn ? <>Every step of this journey helps raise the <strong className="text-white font-serif">House of the Apostolate</strong>. Pilgrimaging with us means living the faith and building the future of the mission.</> : <>Cada passo seu nesta jornada ajuda a erguer a <strong className="text-white font-serif">Casa do Apostolado</strong>. Peregrinar connosco é viver a fé e construir o futuro da missão.</>}
                         </p>
                     </motion.div>
 
@@ -111,15 +118,15 @@ export function PilgrimageHero({ featuredPilgrimage }: { featuredPilgrimage?: Fe
                         className="flex flex-wrap justify-center lg:justify-start gap-4 md:gap-6 pt-4"
                     >
                         {/* Cause Button */}
-                        <Link href="/donations" className="flex items-center gap-2 px-6 py-3 rounded-xl bg-white/10 hover:bg-white/20 border border-white/10 backdrop-blur-sm transition-all group">
+                        <Link href={donationsHref} className="flex items-center gap-2 px-6 py-3 rounded-xl bg-white/10 hover:bg-white/20 border border-white/10 backdrop-blur-sm transition-all group">
                             <Heart className="w-5 h-5 text-red-500 fill-red-500 group-hover:scale-110 transition-transform" />
-                            <span className="text-sm font-bold text-white">Conhecer o Projeto</span>
+                            <span className="text-sm font-bold text-white">{isEn ? 'Learn about the Project' : 'Conhecer o Projeto'}</span>
                         </Link>
 
                         {/* Trust Pill */}
                         <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-white/5 border border-white/5 backdrop-blur-sm">
                             <Star className="w-4 h-4 text-yellow-400" />
-                            <span className="text-sm font-medium text-slate-400">Guia Espiritual Oficial</span>
+                            <span className="text-sm font-medium text-slate-400">{isEn ? 'Official Spiritual Guide' : 'Guia Espiritual Oficial'}</span>
                         </div>
                     </motion.div>
                 </div>
@@ -139,7 +146,7 @@ export function PilgrimageHero({ featuredPilgrimage }: { featuredPilgrimage?: Fe
                                 <div className="absolute top-0 right-0 w-40 h-40 bg-blue-500/20 rounded-full blur-[60px] translate-x-1/2 -translate-y-1/2" />
 
                                 <div className="space-y-2 relative">
-                                    <span className="text-xs font-bold uppercase tracking-widest text-blue-400">Próxima Partida</span>
+                                    <span className="text-xs font-bold uppercase tracking-widest text-blue-400">{isEn ? 'Next Departure' : 'Próxima Partida'}</span>
                                     <h3 className="text-3xl font-serif font-bold text-white leading-none">
                                         {featuredPilgrimage.title}
                                     </h3>
@@ -158,7 +165,7 @@ export function PilgrimageHero({ featuredPilgrimage }: { featuredPilgrimage?: Fe
 
                                 <div className="flex flex-col gap-2 relative">
                                     <div className="text-left">
-                                        <span className="text-[10px] uppercase tracking-widest text-slate-500 font-bold block mb-1">Disponibilidade</span>
+                                        <span className="text-[10px] uppercase tracking-widest text-slate-500 font-bold block mb-1">{isEn ? 'Availability' : 'Disponibilidade'}</span>
                                         <span className="text-sm font-bold text-green-400 flex items-center justify-start gap-1">
                                             <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
                                             {getPublicAvailabilityLabel(remainingSpots)}
@@ -167,9 +174,9 @@ export function PilgrimageHero({ featuredPilgrimage }: { featuredPilgrimage?: Fe
                                 </div>
 
                                 <div className="pt-2">
-                                    <Link href={`/peregrinacoes/${featuredPilgrimage.slug}`} className="block w-full">
+                                    <Link href={`${listHref}/${featuredPilgrimage.slug}`} className="block w-full">
                                         <button className="w-full py-4 bg-yellow-500 hover:bg-yellow-400 text-slate-900 rounded-2xl font-bold text-sm uppercase tracking-wider flex items-center justify-center gap-2 transition-all shadow-lg hover:shadow-yellow-500/25 group-hover:translate-y-[-2px]">
-                                            Saber Mais
+                                            {isEn ? 'Learn More' : 'Saber Mais'}
                                             <ArrowRight className="w-4 h-4" />
                                         </button>
                                     </Link>

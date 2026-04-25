@@ -165,8 +165,8 @@ export default function BookingDashboardPage() {
             if (hasFailureHint) {
                 setReduniqFeedback({
                     kind: 'error',
-                    title: 'Pagamento não concluído',
-                    message: 'O pagamento da peregrinação foi cancelado ou recusado.',
+                    title: isEn ? 'Payment not completed' : 'Pagamento não concluído',
+                    message: isEn ? 'The pilgrimage payment was canceled or refused.' : 'O pagamento da peregrinação foi cancelado ou recusado.',
                 });
             }
             return;
@@ -193,7 +193,7 @@ export default function BookingDashboardPage() {
                     });
                     const data = await res.json().catch(() => ({}));
                     if (!res.ok || !data?.success) {
-                        throw new Error(data?.message || 'Falha ao confirmar pagamento Reduniq.');
+                        throw new Error(data?.message || (isEn ? 'Failed to confirm Reduniq payment.' : 'Falha ao confirmar pagamento Reduniq.'));
                     }
 
                     const txStatus = String(data?.transactionStatus || '');
@@ -204,8 +204,8 @@ export default function BookingDashboardPage() {
                         gotTerminalStatus = true;
                         setReduniqFeedback({
                             kind: 'success',
-                            title: 'Pagamento confirmado',
-                            message: 'Recebemos o teu pagamento. A reserva foi atualizada.',
+                            title: isEn ? 'Payment confirmed' : 'Pagamento confirmado',
+                            message: isEn ? 'We received your payment. The booking has been updated.' : 'Recebemos o teu pagamento. A reserva foi atualizada.',
                         });
                         await fetchBooking(true);
                         break;
@@ -215,8 +215,8 @@ export default function BookingDashboardPage() {
                         gotTerminalStatus = true;
                         setReduniqFeedback({
                             kind: 'error',
-                            title: 'Pagamento não concluído',
-                            message: finalMessage || 'A transação terminou com erro ou foi cancelada.',
+                            title: isEn ? 'Payment not completed' : 'Pagamento não concluído',
+                            message: finalMessage || (isEn ? 'The transaction ended with an error or was canceled.' : 'A transação terminou com erro ou foi cancelada.'),
                         });
                         break;
                     }
@@ -230,22 +230,22 @@ export default function BookingDashboardPage() {
                     if (hasFailureHint && finalStatus !== '4') {
                         setReduniqFeedback({
                             kind: 'error',
-                            title: 'Pagamento não concluído',
-                            message: finalMessage || 'A transação terminou com erro ou foi cancelada.',
+                            title: isEn ? 'Payment not completed' : 'Pagamento não concluído',
+                            message: finalMessage || (isEn ? 'The transaction ended with an error or was canceled.' : 'A transação terminou com erro ou foi cancelada.'),
                         });
                     } else {
                         setReduniqFeedback({
                             kind: 'info',
-                            title: 'Pagamento em processamento',
-                            message: 'O pagamento foi recebido e está a ser confirmado pela Reduniq. Vamos atualizar os valores automaticamente.',
+                            title: isEn ? 'Payment processing' : 'Pagamento em processamento',
+                            message: isEn ? 'The payment was received and is being confirmed by Reduniq. We will update the values automatically.' : 'O pagamento foi recebido e está a ser confirmado pela Reduniq. Vamos atualizar os valores automaticamente.',
                         });
                     }
                 }
             } catch (err: any) {
                 setReduniqFeedback({
                     kind: 'error',
-                    title: 'Falha na confirmação',
-                    message: err?.message || 'Não foi possível confirmar o estado do pagamento Reduniq.',
+                    title: isEn ? 'Confirmation failed' : 'Falha na confirmação',
+                    message: err?.message || (isEn ? 'Could not confirm the Reduniq payment status.' : 'Não foi possível confirmar o estado do pagamento Reduniq.'),
                 });
             } finally {
                 setReduniqConfirming(false);
@@ -412,7 +412,7 @@ export default function BookingDashboardPage() {
             if (!res.ok) {
                 // Check if it's an auth issue or just not found
                 if (res.status === 401) setAuthError(true);
-                else throw new Error(data.error || "Erro ao carregar");
+                else throw new Error(data.error || (isEn ? 'Error loading' : 'Erro ao carregar'));
             } else {
                 setBooking(data);
                 if (isRefresh) {
@@ -568,41 +568,39 @@ export default function BookingDashboardPage() {
             });
             const data = await res.json();
 
-            if (!res.ok) throw new Error(data.error || "Erro ao iniciar pagamento");
+            if (!res.ok) throw new Error(data.error || (isEn ? 'Error starting payment' : 'Erro ao iniciar pagamento'));
 
             if (data.url) {
                 const paymentUrl = String(data.url || '').trim();
                 if (!paymentUrl) {
-                    throw new Error("URL de pagamento vazia.");
+                    throw new Error(isEn ? 'Empty payment URL.' : 'URL de pagamento vazia.');
                 }
 
                 let redirectTo: string;
                 try {
                     redirectTo = new URL(paymentUrl, window.location.origin).toString();
                 } catch {
-                    // Fallback for edge cases where raw URL contains characters accepted by gateway but not by URL parser
                     try {
                         redirectTo = encodeURI(paymentUrl);
                     } catch {
-                        throw new Error("URL de pagamento inválida. Tenta novamente.");
+                        throw new Error(isEn ? 'Invalid payment URL. Please try again.' : 'URL de pagamento inválida. Tenta novamente.');
                     }
                 }
 
                 try {
                     window.location.assign(redirectTo);
                 } catch {
-                    // Final fallback using href assignment
                     window.location.href = redirectTo;
                 }
                 return;
             }
-            throw new Error("Gateway não devolveu URL de pagamento.");
+            throw new Error(isEn ? 'Gateway did not return a payment URL.' : 'Gateway não devolveu URL de pagamento.');
         } catch (e: any) {
-            const msg = String(e?.message || 'Erro ao iniciar pagamento');
+            const msg = String(e?.message || (isEn ? 'Error starting payment' : 'Erro ao iniciar pagamento'));
             const safeMsg = msg.toLowerCase().includes('expected pattern')
-                ? 'Falha a abrir o gateway de pagamento. Tenta novamente.'
+                ? (isEn ? 'Failed to open the payment gateway. Please try again.' : 'Falha a abrir o gateway de pagamento. Tenta novamente.')
                 : msg;
-            alert("Erro: " + safeMsg);
+            alert((isEn ? 'Error: ' : 'Erro: ') + safeMsg);
             setProcessing(false);
         }
     };
@@ -618,12 +616,12 @@ export default function BookingDashboardPage() {
 
         const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/heic', 'image/heif', 'application/pdf'];
         if (!allowedTypes.includes(file.type)) {
-            alert("Tipo de ficheiro inválido. Use JPG, PNG, WEBP, HEIC ou PDF.");
+            alert(isEn ? 'Invalid file type. Use JPG, PNG, WEBP, HEIC or PDF.' : 'Tipo de ficheiro inválido. Use JPG, PNG, WEBP, HEIC ou PDF.');
             return;
         }
 
         if (file.size > 10 * 1024 * 1024) {
-            alert("O ficheiro é demasiado grande (máximo 10MB).");
+            alert(isEn ? 'File is too large (maximum 10MB).' : 'O ficheiro é demasiado grande (máximo 10MB).');
             return;
         }
 
@@ -658,7 +656,7 @@ export default function BookingDashboardPage() {
                 });
 
                 const data = await res.json();
-                if (!res.ok) throw new Error(data.error || "Erro no upload");
+                if (!res.ok) throw new Error(data.error || (isEn ? 'Upload error' : 'Erro no upload'));
 
                 setUploadSuccess(true);
                 // Clean up success message after 5 seconds or keep it until reload
@@ -667,7 +665,7 @@ export default function BookingDashboardPage() {
                 }, 3000);
             };
         } catch (e: any) {
-            alert("Erro ao enviar: " + e.message);
+            alert((isEn ? 'Error sending: ' : 'Erro ao enviar: ') + e.message);
         } finally {
             setUploading(false);
         }
@@ -752,16 +750,16 @@ export default function BookingDashboardPage() {
                                                         </div>
                                                         <div>
                                                             <p className={`font-bold text-xl ${isFullyPaid ? 'text-slate-900' : (isVerifying ? 'text-amber-600' : 'text-red-600')}`}>
-                                                                1. Pagamento Total ({formatPrice(totalAmount)})
+                                                                {isEn ? '1. Full Payment' : '1. Pagamento Total'} ({formatPrice(totalAmount)})
                                                             </p>
                                                             <p className="text-slate-500">
                                                                 {isFullyPaid
-                                                                    ? 'PAGO E CONFIRMADO'
+                                                                    ? (isEn ? 'PAID AND CONFIRMED' : 'PAGO E CONFIRMADO')
                                                                     : isVerifying
-                                                                        ? 'A AGUARDAR VALIDAÇÃO...'
+                                                                        ? (isEn ? 'WAITING FOR VALIDATION...' : 'A AGUARDAR VALIDAÇÃO...')
                                                                         : paidAmount > 0
-                                                                            ? `PAGO ${formatPrice(paidAmount)} de ${formatPrice(totalAmount)}`
-                                                                            : 'PENDENTE - Pagar Agora'}
+                                                                            ? (isEn ? `PAID ${formatPrice(paidAmount)} of ${formatPrice(totalAmount)}` : `PAGO ${formatPrice(paidAmount)} de ${formatPrice(totalAmount)}`)
+                                                                            : (isEn ? 'PENDING - Pay Now' : 'PENDENTE - Pagar Agora')}
                                                             </p>
                                                         </div>
                                                     </div>

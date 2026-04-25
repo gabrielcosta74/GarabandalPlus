@@ -114,6 +114,7 @@ export type PilgrimagePaymentReminderInput = {
 export type GeneralLeadInput = {
   email: string;
   name?: string;
+  locale?: EmailLocale;
 };
 
 export type BrochureEmailInput = {
@@ -121,6 +122,7 @@ export type BrochureEmailInput = {
   name: string;
   pilgrimageName: string;
   pdfUrl: string;
+  locale?: EmailLocale;
 };
 
 export type AbandonmentRecoveryInput = {
@@ -445,41 +447,57 @@ export const renderBookingConfirmationEmail = (payload: {
   totalAmount: number;
   paymentMethod: string;
   magicLink: string;
+  locale?: 'pt' | 'en';
 }) => {
   const registrationFee = Number(payload.amount) || 0;
   const totalAmount = Number(payload.totalAmount) || 0;
   const remainingAmount = Math.max(0, totalAmount - registrationFee);
+  const isEn = payload.locale === 'en';
+
+  const t = {
+    subject: isEn ? `Registration received: ${payload.pilgrimageName}` : `Inscrição recebida: ${payload.pilgrimageName}`,
+    title: isEn ? 'Registration Received' : 'Inscrição Recebida',
+    intro: isEn ? 'Your registration has been successfully recorded.' : 'A sua inscrição foi registada com sucesso.',
+    summary: isEn ? 'Here is a direct summary of the amounts:' : 'Para facilitar, deixamos o resumo de valores de forma direta:',
+    pilgrimage: isEn ? 'Pilgrimage' : 'Peregrinação',
+    regFee: isEn ? 'Registration Fee' : 'Taxa de Inscrição',
+    remaining: isEn ? 'Remaining Amount' : 'Valor Restante',
+    total: isEn ? 'Total (Registration Fee + Remaining Amount)' : 'Total (Taxa de Inscrição + Valor Restante)',
+    warning: isEn ? 'Attention: if the Registration Fee is not paid, the place is not confirmed and you may lose the spot.' : 'Atenção: se a Taxa de Inscrição não for paga, o lugar não fica confirmado e pode perder a vaga.',
+    cta: isEn ? 'To follow your registration and complete the next payment steps, use the button below:' : 'Para acompanhar a sua inscrição e concluir os próximos passos de pagamento, use o botão abaixo:',
+    ctaButton: isEn ? 'Manage Registration' : 'Gerir Inscrição',
+  };
 
   return {
-    subject: `Inscrição recebida: ${payload.pilgrimageName}`,
+    subject: t.subject,
     html: Layout({
-      title: "Inscrição Recebida",
+      title: t.title,
       children: `
                 ${Header({
-        title: "Inscrição Recebida",
+        title: t.title,
         subtitle: payload.pilgrimageName,
       })}
                 ${Section({
         children: `
-                        ${Text("A sua inscrição foi registada com sucesso.")}
-                        ${Text("Para facilitar, deixamos o resumo de valores de forma direta:")}
+                        ${Text(t.intro)}
+                        ${Text(t.summary)}
                         ${Card({
           children: `
-                                ${InfoRow({ label: "Peregrinação", value: payload.pilgrimageName })}
-                                ${InfoRow({ label: "Taxa de Inscrição", value: formatCurrency(registrationFee) })}
-                                ${InfoRow({ label: "Valor Restante", value: formatCurrency(remainingAmount) })}
-                                ${InfoRow({ label: "Total (Taxa de Inscrição + Valor Restante)", value: formatCurrency(totalAmount), isLast: true })}
+                                ${InfoRow({ label: t.pilgrimage, value: payload.pilgrimageName })}
+                                ${InfoRow({ label: t.regFee, value: formatCurrency(registrationFee) })}
+                                ${InfoRow({ label: t.remaining, value: formatCurrency(remainingAmount) })}
+                                ${InfoRow({ label: t.total, value: formatCurrency(totalAmount), isLast: true })}
                             `,
         })}
                         ${Card({
           children: `
                                 <p style="margin:0;color:${COLORS.error};font-weight:700;">
-                                    Atenção: se a Taxa de Inscrição não for paga, o lugar não fica confirmado e pode perder a vaga.
+                                    ${t.warning}
                                 </p>
                             `,
         })}
-                        ${Text("Para acompanhar a sua inscrição e concluir os próximos passos de pagamento, use o botão abaixo:")}
-                        ${Button({ label: "Gerir Inscrição", url: payload.magicLink })}
+                        ${Text(t.cta)}
+                        ${Button({ label: t.ctaButton, url: payload.magicLink })}
                     `,
       })}
             `,
@@ -696,17 +714,20 @@ export const renderDonationReceiptEmail = (payload: DonationReceiptInput) => {
 };
 
 export const renderGeneralLeadEmail = (payload: GeneralLeadInput) => {
+  const locale = payload.locale === 'en' ? 'en' : 'pt';
+  const isEn = locale === 'en';
   return {
-    subject: "Recebemos o seu interesse",
+    subject: isEn ? "We received your interest" : "Recebemos o seu interesse",
     html: Layout({
-      title: "Interesse Registado",
+      title: isEn ? "Interest Registered" : "Interesse Registado",
+      locale,
       children: `
-                ${Header({ title: "Obrigado pelo seu interesse", subtitle: "Apostolado de Garabandal" })}
+                ${Header({ title: isEn ? "Thank you for your interest" : "Obrigado pelo seu interesse", subtitle: "Apostolado de Garabandal" })}
                 ${Section({
         children: `
-                        ${Text(`Olá <strong>${payload.name || "Peregrino"}</strong>,`)}
-                        ${Text("Recebemos o seu contacto com sucesso. Assim que existirem novidades ou novas vagas, entraremos em contacto por email.")}
-                        ${Button({ label: "Ver Peregrinações", url: `${APP_URL}/peregrinacoes` })}
+                        ${Text(isEn ? `Hello <strong>${payload.name || "Pilgrim"}</strong>,` : `Olá <strong>${payload.name || "Peregrino"}</strong>,`)}
+                        ${Text(isEn ? "We received your contact successfully. As soon as there are updates or new places available, we will contact you by email." : "Recebemos o seu contacto com sucesso. Assim que existirem novidades ou novas vagas, entraremos em contacto por email.")}
+                        ${Button({ label: isEn ? "View Pilgrimages" : "Ver Peregrinações", url: isEn ? `${APP_URL}/en/pilgrimages` : `${APP_URL}/peregrinacoes` })}
                     `,
       })}
             `,
@@ -993,19 +1014,698 @@ export const renderDonationNotification = (payload: any) => ({
   }),
 });
 
-export const renderBrochureEmail = (payload: BrochureEmailInput) => ({
-  subject: `Roteiro solicitado: ${payload.pilgrimageName} `,
+export const renderBrochureEmail = (payload: BrochureEmailInput) => {
+  const locale = payload.locale === 'en' ? 'en' : 'pt';
+  const isEn = locale === 'en';
+  return {
+  subject: isEn ? `Requested brochure: ${payload.pilgrimageName}` : `Roteiro solicitado: ${payload.pilgrimageName} `,
   html: Layout({
-    title: "Roteiro da Peregrinação",
+    title: isEn ? "Pilgrimage Brochure" : "Roteiro da Peregrinação",
+    locale,
     children: Section({
       children: `
-                ${Text(`Olá <strong>${payload.name}</strong>,`)}
-                ${Text(`Segue o roteiro solicitado para <strong>${payload.pilgrimageName}</strong>.`)}
-                ${Button({ label: "Baixar PDF", url: payload.pdfUrl })}
+                ${Text(isEn ? `Hello <strong>${payload.name}</strong>,` : `Olá <strong>${payload.name}</strong>,`)}
+                ${Text(isEn ? `Here is the brochure you requested for <strong>${payload.pilgrimageName}</strong>.` : `Segue o roteiro solicitado para <strong>${payload.pilgrimageName}</strong>.`)}
+                ${Button({ label: isEn ? "Download PDF" : "Baixar PDF", url: payload.pdfUrl })}
 `,
     }),
   }),
-});
+};
+};
+
+export type MarketingTemplateKey =
+  | 'brochure_followup_1'
+  | 'pilgrimage_testimony'
+  | 'pilgrimage_faq_objections'
+  | 'abandoned_registration_1'
+  | 'abandoned_registration_faq'
+  | 'abandoned_registration_final'
+  | 'waitlist_welcome'
+  | 'waitlist_open_spot'
+  | 'payment_support'
+  | 'donation_thank_you'
+  | 'donation_thank_you_story'
+  | 'donor_to_member'
+  | 'member_invitation'
+  | 'membership_renewal'
+  | 'member_referral_activation'
+  | 'referral_activation'
+  | 'share_mission';
+
+export type MarketingTemplatePayload = {
+  templateKey: string;
+  name?: string | null;
+  email?: string | null;
+  language?: EmailLocale;
+  pilgrimageName?: string | null;
+  pilgrimageUrl?: string | null;
+  bookingResumeUrl?: string | null;
+  brochureUrl?: string | null;
+  memberUrl?: string | null;
+  donationUrl?: string | null;
+  referralUrl?: string | null;
+  recommendation?: string | null;
+  subjectOverride?: string | null;
+  bodyOverride?: string | null;
+};
+
+type MarketingTemplateDefinition = {
+  key: MarketingTemplateKey;
+  name: string;
+  category: 'Peregrinações' | 'Doações' | 'Membros' | 'Partilha';
+  goal: string;
+  defaultSubject: string;
+  previewText: string;
+  ctaLabel: string;
+  ctaUrl: (payload: MarketingTemplatePayload) => string;
+  title: string;
+  subtitle: string;
+  paragraphs: string[];
+  requiredVariables: string[];
+};
+
+type MarketingTemplateLocalizedContent = Pick<
+  MarketingTemplateDefinition,
+  'goal' | 'defaultSubject' | 'previewText' | 'ctaLabel' | 'title' | 'subtitle' | 'paragraphs'
+>;
+
+const localizeMarketingPath = (path: string, locale: EmailLocale) => {
+  if (locale !== 'en') return path;
+  const map: Record<string, string> = {
+    '/peregrinacoes': '/en/pilgrimages',
+    '/tornar-membro': '/en/become-member',
+    '/sobre-nos': '/en/about',
+    '/donations': '/en/donations',
+    '/member': '/en/member',
+    '/member/quota': '/en/member/quota',
+  };
+  return map[path] || (path.startsWith('/en/') ? path : path);
+};
+
+const marketingUrl = (path: string, payload: MarketingTemplatePayload) =>
+  `${APP_URL}${localizeMarketingPath(path, payload.language === 'en' ? 'en' : 'pt')}`;
+
+const localizeMarketingUrl = (url: string, locale: EmailLocale) => {
+  if (locale !== 'en') return url;
+  return url
+    .replace(`${APP_URL}/peregrinacoes`, `${APP_URL}/en/pilgrimages`)
+    .replace(`${APP_URL}/tornar-membro`, `${APP_URL}/en/become-member`)
+    .replace(`${APP_URL}/sobre-nos`, `${APP_URL}/en/about`)
+    .replace(`${APP_URL}/donations`, `${APP_URL}/en/donations`)
+    .replace(`${APP_URL}/member`, `${APP_URL}/en/member`);
+};
+
+const fillMarketingVariables = (value: string, payload: MarketingTemplatePayload) => {
+  const locale = payload.language === 'en' ? 'en' : 'pt';
+  const fallbackName = locale === 'en' ? 'friend' : 'amigo/a';
+  const firstName = (payload.name || '').trim().split(/\s+/)[0] || payload.name || fallbackName;
+  const variables: Record<string, string> = {
+    name: payload.name || fallbackName,
+    first_name: firstName,
+    pilgrimage_name: payload.pilgrimageName || 'Garabandal',
+    pilgrimage_url: payload.pilgrimageUrl || marketingUrl('/peregrinacoes', payload),
+    booking_resume_url: payload.bookingResumeUrl || payload.pilgrimageUrl || marketingUrl('/peregrinacoes', payload),
+    brochure_url: payload.brochureUrl || payload.pilgrimageUrl || marketingUrl('/peregrinacoes', payload),
+    member_url: payload.memberUrl || marketingUrl('/tornar-membro', payload),
+    donation_url: payload.donationUrl || marketingUrl('/donations', payload),
+    referral_url: payload.referralUrl || marketingUrl('/member', payload),
+    recommendation: payload.recommendation || '',
+    app_url: APP_URL,
+  };
+
+  return value.replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g, (_, key: string) => variables[key] || '');
+};
+
+export const MARKETING_EMAIL_TEMPLATES: Record<MarketingTemplateKey, MarketingTemplateDefinition> = {
+  brochure_followup_1: {
+    key: 'brochure_followup_1',
+    name: 'Brochure follow-up',
+    category: 'Peregrinações',
+    goal: 'Converter pedido de roteiro em inscrição.',
+    defaultSubject: 'O roteiro de {{pilgrimage_name}} e o próximo passo',
+    previewText: 'Já tem o roteiro. Veja agora datas, disponibilidade e como reservar.',
+    ctaLabel: 'Ver Datas e Disponibilidade',
+    ctaUrl: (payload) => payload.pilgrimageUrl || marketingUrl('/peregrinacoes', payload),
+    title: 'O seu caminho pode começar aqui',
+    subtitle: '{{pilgrimage_name}}',
+    requiredVariables: ['name', 'pilgrimage_name', 'pilgrimage_url'],
+    paragraphs: [
+      'Olá <strong>{{name}}</strong>,',
+      'Obrigado por pedir o roteiro de <strong>{{pilgrimage_name}}</strong>. Se sentiu vontade de dar este passo, pode agora ver as datas, disponibilidade e condições com calma.',
+      'As vagas são acompanhadas pela nossa equipa para garantir uma experiência cuidada, com espírito de oração, grupo e acompanhamento. Se tiver alguma dúvida, responda a este email.',
+    ],
+  },
+  pilgrimage_testimony: {
+    key: 'pilgrimage_testimony',
+    name: 'Testemunho da peregrinação',
+    category: 'Peregrinações',
+    goal: 'Aumentar confiança e desejo espiritual.',
+    defaultSubject: 'Garabandal não é apenas uma viagem',
+    previewText: 'Uma peregrinação vivida em oração, silêncio e comunidade.',
+    ctaLabel: 'Conhecer a Peregrinação',
+    ctaUrl: (payload) => payload.pilgrimageUrl || marketingUrl('/peregrinacoes', payload),
+    title: 'Mais do que uma viagem',
+    subtitle: 'Uma experiência de fé e conversão',
+    requiredVariables: ['name', 'pilgrimage_url'],
+    paragraphs: [
+      'Olá <strong>{{first_name}}</strong>,',
+      'Muitas pessoas chegam a Garabandal com perguntas, cansaços e intenções muito concretas. O que encontram é um tempo de silêncio, oração, partilha e esperança.',
+      'Se sente que este caminho pode ser para si, veja o programa com calma. E se precisar de perceber melhor como tudo funciona, basta responder a este email.',
+    ],
+  },
+  pilgrimage_faq_objections: {
+    key: 'pilgrimage_faq_objections',
+    name: 'Dúvidas comuns da peregrinação',
+    category: 'Peregrinações',
+    goal: 'Remover objeções antes da inscrição.',
+    defaultSubject: 'Antes de se inscrever: dúvidas comuns',
+    previewText: 'Valores, quartos, viagem, pagamentos e acompanhamento.',
+    ctaLabel: 'Ver Detalhes da Peregrinação',
+    ctaUrl: (payload) => payload.pilgrimageUrl || marketingUrl('/peregrinacoes', payload),
+    title: 'Dúvidas antes de decidir?',
+    subtitle: '{{pilgrimage_name}}',
+    requiredVariables: ['name', 'pilgrimage_name', 'pilgrimage_url'],
+    paragraphs: [
+      'Olá <strong>{{first_name}}</strong>,',
+      'É normal querer esclarecer tudo antes de reservar: viagem, alojamento, quartos, pagamentos e acompanhamento. Reunimos os detalhes principais na página da peregrinação.',
+      'Se alguma questão continuar em aberto, responda a este email. Preferimos que decida com clareza, confiança e paz.',
+    ],
+  },
+  abandoned_registration_1: {
+    key: 'abandoned_registration_1',
+    name: 'Recuperação de inscrição',
+    category: 'Peregrinações',
+    goal: 'Recuperar inscrição iniciada e não concluída.',
+    defaultSubject: 'A sua inscrição ficou por concluir',
+    previewText: 'Pode retomar o processo ou pedir ajuda se encontrou alguma dificuldade.',
+    ctaLabel: 'Retomar Inscrição',
+    ctaUrl: (payload) => payload.bookingResumeUrl || payload.pilgrimageUrl || marketingUrl('/peregrinacoes', payload),
+    title: 'A sua inscrição ficou por concluir',
+    subtitle: '{{pilgrimage_name}}',
+    requiredVariables: ['name', 'booking_resume_url'],
+    paragraphs: [
+      'Olá <strong>{{name}}</strong>,',
+      'Vimos que começou a inscrição para <strong>{{pilgrimage_name}}</strong>, mas o processo ficou por concluir.',
+      'Se foi apenas uma interrupção, pode retomar pelo botão abaixo. Se teve alguma dificuldade com pagamentos, dados ou disponibilidade, responda a este email e ajudamos.',
+    ],
+  },
+  abandoned_registration_faq: {
+    key: 'abandoned_registration_faq',
+    name: 'Recuperação com esclarecimento',
+    category: 'Peregrinações',
+    goal: 'Ajudar leads bloqueados por dúvidas.',
+    defaultSubject: 'Ficou alguma dúvida na inscrição?',
+    previewText: 'Podemos ajudar com pagamento, quartos, viagem ou dados em falta.',
+    ctaLabel: 'Retomar Inscrição',
+    ctaUrl: (payload) => payload.bookingResumeUrl || payload.pilgrimageUrl || marketingUrl('/peregrinacoes', payload),
+    title: 'Ficou alguma dúvida?',
+    subtitle: 'Estamos aqui para ajudar',
+    requiredVariables: ['name', 'booking_resume_url'],
+    paragraphs: [
+      'Olá <strong>{{first_name}}</strong>,',
+      'Quando uma inscrição fica a meio, muitas vezes é por uma dúvida simples: pagamento, documentos, quarto, viagem, disponibilidade ou dados em falta.',
+      'Pode responder diretamente a este email. Se já está pronto para continuar, o botão abaixo leva-o de volta ao processo.',
+    ],
+  },
+  abandoned_registration_final: {
+    key: 'abandoned_registration_final',
+    name: 'Último lembrete de inscrição',
+    category: 'Peregrinações',
+    goal: 'Criar urgência moderada antes de encerrar follow-up.',
+    defaultSubject: 'Último lembrete sobre a sua inscrição',
+    previewText: 'Se ainda pretende participar, recomendamos concluir a inscrição.',
+    ctaLabel: 'Concluir Inscrição',
+    ctaUrl: (payload) => payload.bookingResumeUrl || payload.pilgrimageUrl || marketingUrl('/peregrinacoes', payload),
+    title: 'Último lembrete',
+    subtitle: '{{pilgrimage_name}}',
+    requiredVariables: ['name', 'booking_resume_url'],
+    paragraphs: [
+      'Olá <strong>{{first_name}}</strong>,',
+      'Este é apenas um último lembrete sobre a inscrição que ficou por concluir.',
+      'Se ainda sente que esta peregrinação é para si, recomendamos terminar o processo para que a equipa possa acompanhar a sua reserva com tempo.',
+    ],
+  },
+  waitlist_welcome: {
+    key: 'waitlist_welcome',
+    name: 'Boas-vindas à lista de espera',
+    category: 'Peregrinações',
+    goal: 'Confirmar interesse e manter contacto quente.',
+    defaultSubject: 'Confirmamos o seu interesse',
+    previewText: 'Ficou registado para receber novidades sobre peregrinações.',
+    ctaLabel: 'Ver Peregrinações',
+    ctaUrl: (payload) => marketingUrl('/peregrinacoes', payload),
+    title: 'Interesse registado',
+    subtitle: 'Lista de espera',
+    requiredVariables: ['name'],
+    paragraphs: [
+      'Olá <strong>{{name}}</strong>,',
+      'Confirmamos que o seu contacto ficou registado para receber novidades sobre peregrinações.',
+      'Quando existirem novas datas, vagas ou oportunidades relacionadas, entraremos em contacto. Entretanto, pode ver as peregrinações disponíveis no botão abaixo.',
+    ],
+  },
+  waitlist_open_spot: {
+    key: 'waitlist_open_spot',
+    name: 'Vaga disponível',
+    category: 'Peregrinações',
+    goal: 'Converter lista de espera quando há disponibilidade.',
+    defaultSubject: 'Há uma oportunidade para se inscrever',
+    previewText: 'Temos novidades sobre uma peregrinação com disponibilidade.',
+    ctaLabel: 'Ver Disponibilidade',
+    ctaUrl: (payload) => payload.pilgrimageUrl || marketingUrl('/peregrinacoes', payload),
+    title: 'Temos novidades',
+    subtitle: '{{pilgrimage_name}}',
+    requiredVariables: ['name', 'pilgrimage_url'],
+    paragraphs: [
+      'Olá <strong>{{first_name}}</strong>,',
+      'Estamos a contactar porque demonstrou interesse em peregrinações do Apostolado.',
+      'Existe agora uma oportunidade para consultar disponibilidade. Se esta data fizer sentido para si, recomendamos ver os detalhes e avançar com a inscrição.',
+    ],
+  },
+  payment_support: {
+    key: 'payment_support',
+    name: 'Apoio ao pagamento',
+    category: 'Peregrinações',
+    goal: 'Ajudar reservas com pagamentos pendentes.',
+    defaultSubject: 'Precisa de ajuda com o pagamento?',
+    previewText: 'Podemos ajudar a concluir ou validar o pagamento da peregrinação.',
+    ctaLabel: 'Gerir Inscrição',
+    ctaUrl: (payload) => payload.bookingResumeUrl || payload.pilgrimageUrl || marketingUrl('/peregrinacoes', payload),
+    title: 'Pagamento pendente',
+    subtitle: '{{pilgrimage_name}}',
+    requiredVariables: ['name', 'booking_resume_url'],
+    paragraphs: [
+      'Olá <strong>{{name}}</strong>,',
+      'Estamos a acompanhar a sua inscrição e vimos que ainda pode existir um pagamento ou comprovativo pendente.',
+      'Use o botão abaixo para gerir a inscrição. Se já pagou, pode responder a este email com o comprovativo para a equipa validar.',
+    ],
+  },
+  donation_thank_you: {
+    key: 'donation_thank_you',
+    name: 'Obrigado pela doação',
+    category: 'Doações',
+    goal: 'Agradecer e abrir relação futura.',
+    defaultSubject: 'Obrigado por apoiar a missão',
+    previewText: 'A sua generosidade ajuda-nos a continuar a servir.',
+    ctaLabel: 'Conhecer a Missão',
+    ctaUrl: (payload) => marketingUrl('/sobre-nos', payload),
+    title: 'Obrigado pela sua generosidade',
+    subtitle: 'Apostolado de Garabandal',
+    requiredVariables: ['name'],
+    paragraphs: [
+      'Olá <strong>{{name}}</strong>,',
+      'Obrigado por apoiar a missão do Apostolado. Cada gesto ajuda-nos a continuar a acolher, evangelizar e servir.',
+      'Rezamos para que Nossa Senhora o recompense pela sua generosidade. A sua ajuda faz parte concreta desta missão.',
+    ],
+  },
+  donation_thank_you_story: {
+    key: 'donation_thank_you_story',
+    name: 'Impacto da doação',
+    category: 'Doações',
+    goal: 'Mostrar impacto e preparar próximo pedido.',
+    defaultSubject: 'O fruto do seu apoio',
+    previewText: 'O seu apoio ajuda a sustentar esta missão todos os dias.',
+    ctaLabel: 'Apoiar Novamente',
+    ctaUrl: (payload) => payload.donationUrl || marketingUrl('/donations', payload),
+    title: 'O seu apoio dá fruto',
+    subtitle: 'Obrigado por caminhar connosco',
+    requiredVariables: ['name', 'donation_url'],
+    paragraphs: [
+      'Olá <strong>{{first_name}}</strong>,',
+      'O seu apoio ajuda a tornar possível o acolhimento, os conteúdos, as peregrinações e a presença contínua do Apostolado.',
+      'Se desejar continuar a ajudar esta missão, deixamos abaixo uma forma simples e segura de o fazer.',
+    ],
+  },
+  donor_to_member: {
+    key: 'donor_to_member',
+    name: 'Doador para membro',
+    category: 'Membros',
+    goal: 'Converter doador em membro.',
+    defaultSubject: 'Quer caminhar mais perto desta missão?',
+    previewText: 'Ser membro é uma forma estável de apoiar e participar.',
+    ctaLabel: 'Tornar-me Membro',
+    ctaUrl: (payload) => payload.memberUrl || marketingUrl('/tornar-membro', payload),
+    title: 'Caminhar mais perto',
+    subtitle: 'Convite para membro',
+    requiredVariables: ['name', 'member_url'],
+    paragraphs: [
+      'Olá <strong>{{first_name}}</strong>,',
+      'Como já demonstrou generosidade para com o Apostolado, gostaríamos de lhe apresentar o caminho de membro.',
+      'Ser membro é uma forma estável de apoiar a missão, participar mais de perto e ajudar este apostolado a chegar a mais pessoas.',
+    ],
+  },
+  member_invitation: {
+    key: 'member_invitation',
+    name: 'Convite para membro',
+    category: 'Membros',
+    goal: 'Convidar contacto quente a aderir.',
+    defaultSubject: 'Um convite para fazer parte do Apostolado',
+    previewText: 'Conheça a possibilidade de se tornar membro e apoiar a missão.',
+    ctaLabel: 'Ver Como Funciona',
+    ctaUrl: (payload) => payload.memberUrl || marketingUrl('/tornar-membro', payload),
+    title: 'Um convite especial',
+    subtitle: 'Tornar-se membro',
+    requiredVariables: ['name', 'member_url'],
+    paragraphs: [
+      'Olá <strong>{{name}}</strong>,',
+      'Queremos convidá-lo a conhecer a área de membros do Apostolado e a forma como pode apoiar esta missão de modo contínuo.',
+      'Pode ver tudo com calma no botão abaixo. Se tiver alguma dúvida, basta responder a este email.',
+    ],
+  },
+  membership_renewal: {
+    key: 'membership_renewal',
+    name: 'Renovação de membro',
+    category: 'Membros',
+    goal: 'Recuperar membros pendentes ou expirados.',
+    defaultSubject: 'Regularização da sua anuidade',
+    previewText: 'Mantenha o seu vínculo ativo com o Apostolado.',
+    ctaLabel: 'Regularizar Anuidade',
+    ctaUrl: (payload) => payload.memberUrl || marketingUrl('/member/quota', payload),
+    title: 'Regularizar anuidade',
+    subtitle: 'Área de membro',
+    requiredVariables: ['name', 'member_url'],
+    paragraphs: [
+      'Olá <strong>{{name}}</strong>,',
+      'A sua anuidade encontra-se pendente ou próxima de regularização. Para manter o seu vínculo ativo, pode aceder à área de membro.',
+      'Se já regularizou ou se tiver alguma dificuldade, responda a este email e ajudamos.',
+    ],
+  },
+  member_referral_activation: {
+    key: 'member_referral_activation',
+    name: 'Ativar partilha de membro',
+    category: 'Partilha',
+    goal: 'Estimular membros a convidar amigos.',
+    defaultSubject: 'Ajude-nos a levar esta missão a mais pessoas',
+    previewText: 'Partilhe o Apostolado com alguém que possa beneficiar.',
+    ctaLabel: 'Partilhar Convite',
+    ctaUrl: (payload) => payload.referralUrl || marketingUrl('/member', payload),
+    title: 'Partilhe a missão',
+    subtitle: 'Convide alguém próximo',
+    requiredVariables: ['name', 'referral_url'],
+    paragraphs: [
+      'Olá <strong>{{first_name}}</strong>,',
+      'Uma das formas mais bonitas de ajudar é apresentar o Apostolado a alguém que possa beneficiar desta missão.',
+      'Pode usar o seu convite de membro para partilhar com familiares, amigos ou pessoas da sua comunidade.',
+    ],
+  },
+  referral_activation: {
+    key: 'referral_activation',
+    name: 'Ativar convites',
+    category: 'Partilha',
+    goal: 'Estimular partilha através de convite.',
+    defaultSubject: 'O seu convite pode aproximar alguém da missão',
+    previewText: 'Partilhe o Apostolado com uma pessoa próxima.',
+    ctaLabel: 'Abrir Convite',
+    ctaUrl: (payload) => payload.referralUrl || marketingUrl('/member', payload),
+    title: 'Um convite simples',
+    subtitle: 'Partilhar o Apostolado',
+    requiredVariables: ['name', 'referral_url'],
+    paragraphs: [
+      'Olá <strong>{{first_name}}</strong>,',
+      'Se conhece alguém que gostaria de se aproximar da mensagem de Garabandal, pode partilhar o seu convite.',
+      'É uma forma simples e concreta de ajudar a missão a crescer, pessoa a pessoa.',
+    ],
+  },
+  share_mission: {
+    key: 'share_mission',
+    name: 'Partilhar missão',
+    category: 'Partilha',
+    goal: 'Reforçar partilha depois do primeiro convite.',
+    defaultSubject: 'Obrigado por ajudar a missão a crescer',
+    previewText: 'A sua partilha pode tocar outra pessoa.',
+    ctaLabel: 'Partilhar Novamente',
+    ctaUrl: (payload) => payload.referralUrl || marketingUrl('/member', payload),
+    title: 'A missão cresce pessoa a pessoa',
+    subtitle: 'Obrigado por partilhar',
+    requiredVariables: ['name', 'referral_url'],
+    paragraphs: [
+      'Olá <strong>{{first_name}}</strong>,',
+      'Obrigado por estar próximo da missão. Muitas pessoas chegam ao Apostolado porque alguém lhes falou com simplicidade e confiança.',
+      'Se sentir que deve partilhar novamente, deixamos o seu convite abaixo.',
+    ],
+  },
+};
+
+const MARKETING_EMAIL_TEMPLATE_EN: Record<MarketingTemplateKey, MarketingTemplateLocalizedContent> = {
+  brochure_followup_1: {
+    goal: 'Convert brochure request into a pilgrimage registration.',
+    defaultSubject: 'The brochure for {{pilgrimage_name}} and the next step',
+    previewText: 'You have the brochure. Now you can review dates, availability and how to register.',
+    ctaLabel: 'View Dates and Availability',
+    title: 'Your journey can begin here',
+    subtitle: '{{pilgrimage_name}}',
+    paragraphs: [
+      'Hello <strong>{{name}}</strong>,',
+      'Thank you for requesting the brochure for <strong>{{pilgrimage_name}}</strong>. If you feel called to take this step, you can now review the dates, availability and conditions calmly.',
+      'Places are accompanied by our team to ensure a careful experience of prayer, group spirit and support. If you have any question, simply reply to this email.',
+    ],
+  },
+  pilgrimage_testimony: {
+    goal: 'Build trust and spiritual desire.',
+    defaultSubject: 'Garabandal is not just a trip',
+    previewText: 'A pilgrimage lived in prayer, silence and community.',
+    ctaLabel: 'Discover the Pilgrimage',
+    title: 'More than a journey',
+    subtitle: 'An experience of faith and conversion',
+    paragraphs: [
+      'Hello <strong>{{first_name}}</strong>,',
+      'Many people arrive in Garabandal carrying questions, tiredness and very concrete intentions. What they find is a time of silence, prayer, sharing and hope.',
+      'If you feel this path may be for you, review the programme calmly. If you need to understand how everything works, simply reply to this email.',
+    ],
+  },
+  pilgrimage_faq_objections: {
+    goal: 'Answer common questions before registration.',
+    defaultSubject: 'Before registering: common questions',
+    previewText: 'Costs, rooms, travel, payments and accompaniment.',
+    ctaLabel: 'View Pilgrimage Details',
+    title: 'Questions before deciding?',
+    subtitle: '{{pilgrimage_name}}',
+    paragraphs: [
+      'Hello <strong>{{first_name}}</strong>,',
+      'It is normal to want clarity before booking: travel, accommodation, rooms, payments and support. We gathered the main details on the pilgrimage page.',
+      'If anything is still unclear, reply to this email. We want you to decide with clarity, confidence and peace.',
+    ],
+  },
+  abandoned_registration_1: {
+    goal: 'Recover a started but unfinished pilgrimage registration.',
+    defaultSubject: 'You can still complete your registration',
+    previewText: 'You can resume the process or ask for help if something was unclear.',
+    ctaLabel: 'Resume Registration',
+    title: 'Your registration was left unfinished',
+    subtitle: '{{pilgrimage_name}}',
+    paragraphs: [
+      'Hello <strong>{{name}}</strong>,',
+      'We saw that you started registering for <strong>{{pilgrimage_name}}</strong>, but the process was not completed.',
+      'If you were simply interrupted, you can resume using the button below. If you had difficulty with payments, details or availability, reply to this email and we will help.',
+    ],
+  },
+  abandoned_registration_faq: {
+    goal: 'Help leads blocked by questions.',
+    defaultSubject: 'Did you have a question during registration?',
+    previewText: 'We can help with payment, rooms, travel or missing details.',
+    ctaLabel: 'Resume Registration',
+    title: 'Did you have a question?',
+    subtitle: 'We are here to help',
+    paragraphs: [
+      'Hello <strong>{{first_name}}</strong>,',
+      'When a registration is left unfinished, it is often because of a simple question: payment, documents, room, travel, availability or missing details.',
+      'You can reply directly to this email. If you are ready to continue, the button below takes you back to the process.',
+    ],
+  },
+  abandoned_registration_final: {
+    goal: 'Create moderate urgency before ending follow-up.',
+    defaultSubject: 'Final reminder about your registration',
+    previewText: 'If you still wish to join, we recommend completing your registration.',
+    ctaLabel: 'Complete Registration',
+    title: 'Final reminder',
+    subtitle: '{{pilgrimage_name}}',
+    paragraphs: [
+      'Hello <strong>{{first_name}}</strong>,',
+      'This is just a final reminder about the registration that was left unfinished.',
+      'If you still feel this pilgrimage is for you, we recommend completing the process so the team can accompany your booking in time.',
+    ],
+  },
+  waitlist_welcome: {
+    goal: 'Confirm interest and keep the contact warm.',
+    defaultSubject: 'We have registered your interest',
+    previewText: 'You will receive updates about future pilgrimages.',
+    ctaLabel: 'View Pilgrimages',
+    title: 'Interest registered',
+    subtitle: 'Waiting list',
+    paragraphs: [
+      'Hello <strong>{{name}}</strong>,',
+      'We confirm that your contact has been registered to receive updates about pilgrimages.',
+      'When there are new dates, places or relevant opportunities, we will contact you. In the meantime, you can view available pilgrimages using the button below.',
+    ],
+  },
+  waitlist_open_spot: {
+    goal: 'Convert waiting-list contacts when availability opens.',
+    defaultSubject: 'There is an opportunity to register',
+    previewText: 'We have news about a pilgrimage with availability.',
+    ctaLabel: 'View Availability',
+    title: 'We have news',
+    subtitle: '{{pilgrimage_name}}',
+    paragraphs: [
+      'Hello <strong>{{first_name}}</strong>,',
+      'We are contacting you because you showed interest in Apostolate pilgrimages.',
+      'There is now an opportunity to review availability. If this date makes sense for you, we recommend checking the details and taking the next step.',
+    ],
+  },
+  payment_support: {
+    goal: 'Support bookings with pending payments.',
+    defaultSubject: 'Do you need help with the payment?',
+    previewText: 'We can help you complete or validate the payment.',
+    ctaLabel: 'Manage Registration',
+    title: 'Payment pending',
+    subtitle: '{{pilgrimage_name}}',
+    paragraphs: [
+      'Hello <strong>{{name}}</strong>,',
+      'We are following your registration and noticed there may still be a pending payment or proof of payment.',
+      'Use the button below to manage your registration. If you have already paid, you can reply to this email with the proof so the team can validate it.',
+    ],
+  },
+  donation_thank_you: {
+    goal: 'Thank the donor and open a future relationship.',
+    defaultSubject: 'Thank you for supporting the mission',
+    previewText: 'Your generosity helps us continue to serve.',
+    ctaLabel: 'Learn About the Mission',
+    title: 'Thank you for your generosity',
+    subtitle: 'Apostolate of Garabandal',
+    paragraphs: [
+      'Hello <strong>{{name}}</strong>,',
+      'Thank you for supporting the mission of the Apostolate. Every gesture helps us continue to welcome, evangelise and serve.',
+      'We pray that Our Lady rewards you for your generosity. Your help is a concrete part of this mission.',
+    ],
+  },
+  donation_thank_you_story: {
+    goal: 'Show impact and prepare a future ask.',
+    defaultSubject: 'The fruit of your support',
+    previewText: 'Your support helps sustain this mission every day.',
+    ctaLabel: 'Support Again',
+    title: 'Your support bears fruit',
+    subtitle: 'Thank you for walking with us',
+    paragraphs: [
+      'Hello <strong>{{first_name}}</strong>,',
+      'Your support helps make possible the welcome, content, pilgrimages and ongoing presence of the Apostolate.',
+      'If you would like to continue helping this mission, below is a simple and secure way to do so.',
+    ],
+  },
+  donor_to_member: {
+    goal: 'Convert a donor into a member.',
+    defaultSubject: 'Would you like to walk closer to this mission?',
+    previewText: 'Membership is a stable way to support and participate.',
+    ctaLabel: 'Become a Member',
+    title: 'Walk closer to the mission',
+    subtitle: 'Invitation to become a member',
+    paragraphs: [
+      'Hello <strong>{{first_name}}</strong>,',
+      'As you have already shown generosity towards the Apostolate, we would like to present the path of membership.',
+      'Being a member is a stable way to support the mission, participate more closely and help this apostolate reach more people.',
+    ],
+  },
+  member_invitation: {
+    goal: 'Invite a warm contact to become a member.',
+    defaultSubject: 'An invitation to be part of the Apostolate',
+    previewText: 'Discover the possibility of becoming a member and supporting the mission.',
+    ctaLabel: 'See How It Works',
+    title: 'A special invitation',
+    subtitle: 'Become a member',
+    paragraphs: [
+      'Hello <strong>{{name}}</strong>,',
+      'We would like to invite you to discover the Apostolate membership area and how you can support this mission continuously.',
+      'You can review everything calmly using the button below. If you have any question, simply reply to this email.',
+    ],
+  },
+  membership_renewal: {
+    goal: 'Recover pending or expired members.',
+    defaultSubject: 'Regularising your annual membership',
+    previewText: 'Keep your bond with the Apostolate active.',
+    ctaLabel: 'Regularise Membership',
+    title: 'Regularise your membership',
+    subtitle: 'Member area',
+    paragraphs: [
+      'Hello <strong>{{name}}</strong>,',
+      'Your annual membership is pending or due for regularisation. To keep your bond active, you can access the member area.',
+      'If you have already regularised it, or if you have any difficulty, reply to this email and we will help.',
+    ],
+  },
+  member_referral_activation: {
+    goal: 'Encourage members to invite friends.',
+    defaultSubject: 'Help us bring this mission to more people',
+    previewText: 'Share the Apostolate with someone who may benefit from it.',
+    ctaLabel: 'Share Invitation',
+    title: 'Share the mission',
+    subtitle: 'Invite someone close to you',
+    paragraphs: [
+      'Hello <strong>{{first_name}}</strong>,',
+      'One of the most beautiful ways to help is to introduce the Apostolate to someone who may benefit from this mission.',
+      'You can use your member invitation to share with family, friends or people in your community.',
+    ],
+  },
+  referral_activation: {
+    goal: 'Encourage sharing through an invitation.',
+    defaultSubject: 'Your invitation can bring someone closer to the mission',
+    previewText: 'Share the Apostolate with someone close to you.',
+    ctaLabel: 'Open Invitation',
+    title: 'A simple invitation',
+    subtitle: 'Share the Apostolate',
+    paragraphs: [
+      'Hello <strong>{{first_name}}</strong>,',
+      'If you know someone who would like to come closer to the message of Garabandal, you can share your invitation.',
+      'It is a simple and concrete way to help the mission grow, person by person.',
+    ],
+  },
+  share_mission: {
+    goal: 'Reinforce sharing after the first invitation.',
+    defaultSubject: 'Thank you for helping the mission grow',
+    previewText: 'Your sharing may touch another person.',
+    ctaLabel: 'Share Again',
+    title: 'The mission grows person by person',
+    subtitle: 'Thank you for sharing',
+    paragraphs: [
+      'Hello <strong>{{first_name}}</strong>,',
+      'Thank you for being close to the mission. Many people arrive at the Apostolate because someone spoke to them with simplicity and trust.',
+      'If you feel called to share again, your invitation is below.',
+    ],
+  },
+};
+
+export const renderMarketingTemplateEmail = (payload: MarketingTemplatePayload) => {
+  const baseTemplate =
+    MARKETING_EMAIL_TEMPLATES[payload.templateKey as MarketingTemplateKey] ||
+    MARKETING_EMAIL_TEMPLATES.brochure_followup_1;
+  const locale = payload.language === 'en' ? 'en' : 'pt';
+  const template =
+    locale === 'en'
+      ? { ...baseTemplate, ...MARKETING_EMAIL_TEMPLATE_EN[baseTemplate.key] }
+      : baseTemplate;
+  const subject = fillMarketingVariables(payload.subjectOverride || template.defaultSubject, payload);
+  const bodyParagraphs = payload.bodyOverride
+    ? payload.bodyOverride.split('\n').filter(Boolean)
+    : template.paragraphs;
+  const ctaUrl = localizeMarketingUrl(fillMarketingVariables(baseTemplate.ctaUrl(payload), payload), locale);
+
+  return {
+    subject,
+    html: Layout({
+      title: fillMarketingVariables(template.title, payload),
+      preview: fillMarketingVariables(template.previewText, payload),
+      locale,
+      children: `
+        ${Header({
+          title: fillMarketingVariables(template.title, payload),
+          subtitle: fillMarketingVariables(template.subtitle, payload),
+        })}
+        ${Section({
+          children: `
+            ${bodyParagraphs.map((paragraph) => Text(fillMarketingVariables(paragraph, payload))).join('')}
+            ${Button({ label: template.ctaLabel, url: ctaUrl })}
+          `,
+        })}
+      `,
+    }),
+    templateKey: template.key,
+  };
+};
 
 export const renderQuotaWarningEmail = (payload: any) => ({
   subject: "Lembrete: anuidade prestes a vencer",

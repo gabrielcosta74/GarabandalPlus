@@ -3,7 +3,9 @@ import { NextResponse } from 'next/server';
 import { supabaseServer } from '../../../../lib/supabase';
 import { APP_URL } from '../../../../lib/config';
 import { sendBrochureEmail } from '../../../../lib/email';
+import { inferRequestLocale } from '../../../../lib/locale-routing';
 import { checkRateLimit } from '../../../../lib/rate-limit';
+import { getPostHogClient } from '../../../../lib/posthog-server';
 
 export async function POST(req: Request) {
     const rateLimit = checkRateLimit(req, {
@@ -28,6 +30,7 @@ export async function POST(req: Request) {
     try {
         const body = await req.json();
         const { email, phone, name, pilgrimageId, step, data, type, channel_preference } = body;
+        const locale = body?.locale === 'en' || data?.locale === 'en' ? 'en' : inferRequestLocale(req);
 
         // Validation for Brochure: Needs either email or phone depending on channel
         const isBrochure = type === 'brochure_request';
@@ -69,6 +72,7 @@ export async function POST(req: Request) {
 
         const leadData = {
             ...(data || {}),
+            locale,
             channel_preference: channel_preference
         };
 
@@ -110,7 +114,7 @@ export async function POST(req: Request) {
 
         // IF BROCHURE: Trigger Delivery Immediately
         if (isBrochure) {
-            let pdfLink = 'https://apostoladodegarabandal.com/programa-2025.pdf';
+            let pdfLink = `${APP_URL}/programa-2025.pdf`;
             let pilgrimageTitle = 'Peregrinação';
 
             // Fetch dynamic details if possible
@@ -137,7 +141,8 @@ export async function POST(req: Request) {
                         email,
                         name,
                         pilgrimageName: pilgrimageTitle,
-                        pdfUrl: pdfLink
+                        pdfUrl: pdfLink,
+                        locale
                     });
                 } catch (emailError) {
                     console.error("Email Brochure Send Failed", emailError);
@@ -152,7 +157,7 @@ export async function POST(req: Request) {
             // Import dynamically to avoid circular deps if any, or just call helper
             const { sendGeneralLeadEmail } = await import('../../../../lib/email');
             try {
-                await sendGeneralLeadEmail({ email, name });
+                await sendGeneralLeadEmail({ email, name, locale });
 
                 // CRITICAL FIX: Update DB to mark as notified
                 await supabaseServer
@@ -166,6 +171,27 @@ export async function POST(req: Request) {
             } catch (emailError) {
                 console.error("Failed to send waitlist email", emailError);
             }
+        }
+
+        // Track lead capture server-side
+        try {
+            const posthog = getPostHogClient();
+            posthog?.capture({
+                distinctId: email || 'anonymous',
+                event: 'lead_captured',
+                properties: {
+                    lead_id: result.id,
+                    lead_type: type || (isGeneralLead ? 'general_waitlist' : 'draft'),
+                    is_brochure: isBrochure,
+                    is_general_waitlist: isGeneralLead,
+                    pilgrimage_id: pilgrimageId || null,
+                    channel: channel_preference || null,
+                    locale,
+                    is_new_lead: !existingLead,
+                },
+            });
+        } catch (phErr) {
+            console.warn('[API] PostHog capture failed:', phErr);
         }
 
         return NextResponse.json({ success: true, leadId: result.id });

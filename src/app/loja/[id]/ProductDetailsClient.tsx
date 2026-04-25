@@ -3,17 +3,22 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { ShoppingBag, ArrowLeft, Truck, Package, Info, AlertCircle, ShoppingCart, Check, Download, Globe } from 'lucide-react';
+import { ShoppingBag, ArrowLeft, Truck, Package, AlertCircle, ShoppingCart, Check, Download, Globe } from 'lucide-react';
 import { Product, loadCart, saveCart, CartItem } from '../../loja-online/data';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 import AddToCartModal from '../../../components/store/AddToCartModal';
 import { inferIsDigitalProduct } from '../../../lib/product-kind';
 import { listCountryOptions } from '../../../lib/country-utils';
+import { useLocale } from '../../../contexts/LocaleContext';
+import { getStoreHomePath } from '../../../lib/store-i18n';
+import { captureStoreEvent } from '../../../lib/analytics';
 
 export default function ProductDetailsClient({ initialProduct }: { initialProduct?: Product | null }) {
     const params = useParams();
     const router = useRouter();
+    const { locale } = useLocale();
+    const isEn = locale === 'en';
     const id = params?.id as string;
 
     const [product, setProduct] = useState<Product | null>(initialProduct ?? null);
@@ -26,12 +31,24 @@ export default function ProductDetailsClient({ initialProduct }: { initialProduc
     const [relatedProducts, setRelatedProducts] = useState<Product[]>([]);
 
     useEffect(() => {
-        if (id && !initialProduct) fetchProduct(id);
-    }, [id, initialProduct]);
+        if (id && (!initialProduct || isEn)) fetchProduct(id);
+    }, [id, initialProduct, isEn]);
+
+    useEffect(() => {
+        if (!product) return;
+        captureStoreEvent('store_product_viewed', {
+            product_id: product.id,
+            product_name: product.name,
+            category: product.category || null,
+            price: product.price,
+            currency: product.currency,
+            locale,
+        });
+    }, [product, locale]);
 
     const fetchProduct = async (productId: string) => {
         try {
-            const res = await fetch(`/api/store/products/${productId}?t=${Date.now()}`, {
+            const res = await fetch(`/api/store/products/${productId}?locale=${locale}&t=${Date.now()}`, {
                 cache: 'no-store'
             });
             if (!res.ok) throw new Error('Failed');
@@ -67,7 +84,7 @@ export default function ProductDetailsClient({ initialProduct }: { initialProduc
         } catch (err) {
             console.error(err);
             setError(true);
-            toast.error("Produto não encontrado");
+            toast.error(isEn ? "Product not found" : "Produto não encontrado");
         } finally {
             setLoading(false);
         }
@@ -78,7 +95,7 @@ export default function ProductDetailsClient({ initialProduct }: { initialProduc
 
         // Check variant selection
         if (product.variants && product.variants.length > 0 && !selectedVariant) {
-            toast.warning("Por favor selecione uma opção.");
+            toast.warning(isEn ? "Please select an option." : "Por favor selecione uma opção.");
             return;
         }
 
@@ -105,10 +122,19 @@ export default function ProductDetailsClient({ initialProduct }: { initialProduc
         }
 
         saveCart(next);
+        captureStoreEvent('store_add_to_cart', {
+            product_id: product.id,
+            product_name: product.name,
+            category: product.category || null,
+            price: product.price,
+            quantity: qty,
+            variant: selectedVariant?.name || null,
+            locale,
+        });
 
         // Fetch related products for upsell (simple random logic for now)
         try {
-            const res = await fetch(`/api/store/products?includeVariants=0&t=${Date.now()}`, {
+            const res = await fetch(`/api/store/products?includeVariants=0&locale=${locale}&t=${Date.now()}`, {
                 cache: 'no-store'
             });
             const data = await res.json();
@@ -156,15 +182,15 @@ export default function ProductDetailsClient({ initialProduct }: { initialProduc
                 <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center mb-6">
                     <Package className="w-8 h-8 text-slate-300" />
                 </div>
-                <h1 className="text-2xl font-serif font-bold text-slate-900 mb-2">Produto não encontrado</h1>
+                <h1 className="text-2xl font-serif font-bold text-slate-900 mb-2">{isEn ? 'Product not found' : 'Produto não encontrado'}</h1>
                 <p className="text-slate-500 mb-8 max-w-md">
-                    O produto que procura pode ter sido removido ou o link está incorreto.
+                    {isEn ? 'The product you are looking for may have been removed or the link is incorrect.' : 'O produto que procura pode ter sido removido ou o link está incorreto.'}
                 </p>
                 <button
-                    onClick={() => router.push('/loja')}
+                    onClick={() => router.push(getStoreHomePath(locale))}
                     className="bg-slate-900 text-white px-6 py-3 rounded-xl font-bold hover:bg-slate-800 transition-colors"
                 >
-                    Voltar à Loja
+                    {isEn ? 'Back to Store' : 'Voltar à Loja'}
                 </button>
             </div>
         );
@@ -201,8 +227,8 @@ export default function ProductDetailsClient({ initialProduct }: { initialProduc
         : (product.stock ?? 0) > 0;
 
     const isOutOfStock = productMode !== 'digital' && !hasStock;
-    const isBook = product.type_id?.includes('book') || product.category?.includes('Livro');
-    const countryOptions = listCountryOptions();
+    const isBook = product.type_id?.includes('book') || product.category?.includes('Livro') || product.category?.includes('Book');
+    const countryOptions = listCountryOptions(isEn ? 'en' : 'pt-PT');
     const allowedCountryLabels = (product.allowedCountries || [])
         .map((code) => {
             const country = countryOptions.find((c) => c.code === code);
@@ -213,9 +239,9 @@ export default function ProductDetailsClient({ initialProduct }: { initialProduc
         <div className="min-h-screen bg-white pb-20">
             {/* Nav Back */}
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-                <button onClick={() => router.push('/loja')} className="flex items-center gap-2 text-slate-500 hover:text-slate-900 transition-colors font-medium text-sm group">
+                <button onClick={() => router.push(getStoreHomePath(locale))} className="flex items-center gap-2 text-slate-500 hover:text-slate-900 transition-colors font-medium text-sm group">
                     <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
-                    Voltar à loja
+                    {isEn ? 'Back to store' : 'Voltar à loja'}
                 </button>
             </div>
 
@@ -244,7 +270,7 @@ export default function ProductDetailsClient({ initialProduct }: { initialProduc
                             {isDigital && (
                                 <div className="absolute top-6 left-6 flex flex-col gap-2">
                                     <div className="bg-purple-100 text-purple-700 px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider shadow-sm w-fit">
-                                        Download Imediato
+                                        {isEn ? 'Immediate Download' : 'Download Imediato'}
                                     </div>
                                 </div>
                             )}
@@ -256,7 +282,7 @@ export default function ProductDetailsClient({ initialProduct }: { initialProduc
                         <div>
                             <div className="flex items-center gap-3 mb-4">
                                 <span className="text-amber-600 font-bold uppercase tracking-wider text-xs">
-                                    {product.category || 'Geral'}
+                                    {product.category || (isEn ? 'General' : 'Geral')}
                                 </span>
                                 {product.tag && (
                                     <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-500 text-[10px] font-bold uppercase">
@@ -269,9 +295,9 @@ export default function ProductDetailsClient({ initialProduct }: { initialProduc
                             </h1>
                             <div className="flex items-baseline gap-4">
                                 <p className="text-3xl font-light text-slate-900">
-                                    {new Intl.NumberFormat('pt-PT', { style: 'currency', currency: product.currency }).format(product.price)}
+                                    {new Intl.NumberFormat(isEn ? 'en-US' : 'pt-PT', { style: 'currency', currency: product.currency }).format(product.price)}
                                 </p>
-                                {product.taxRate && product.taxRate > 0 && <span className="text-xs text-slate-400 font-medium">IVA incluído</span>}
+                                {product.taxRate && product.taxRate > 0 && <span className="text-xs text-slate-400 font-medium">{isEn ? 'VAT included' : 'IVA incluído'}</span>}
                             </div>
                         </div>
 
@@ -283,16 +309,16 @@ export default function ProductDetailsClient({ initialProduct }: { initialProduc
                                     let label = key;
                                     // Map common keys to nicer labels
                                     switch (key) {
-                                        case 'author': label = 'Autor'; break;
-                                        case 'publisher': label = 'Editora'; break;
+                                        case 'author': label = isEn ? 'Author' : 'Autor'; break;
+                                        case 'publisher': label = isEn ? 'Publisher' : 'Editora'; break;
                                         case 'isbn': label = 'ISBN'; break;
-                                        case 'pages': label = 'Páginas'; break;
+                                        case 'pages': label = isEn ? 'Pages' : 'Páginas'; break;
                                         case 'material': label = 'Material'; break;
-                                        case 'gender': label = 'Género'; break;
-                                        case 'dimensions': label = 'Dimensões'; break;
-                                        case 'weight_g': label = 'Peso'; break;
-                                        case 'format': label = 'Formato'; break;
-                                        case 'care_instructions': label = 'Cuidados'; break;
+                                        case 'gender': label = isEn ? 'Gender' : 'Género'; break;
+                                        case 'dimensions': label = isEn ? 'Dimensions' : 'Dimensões'; break;
+                                        case 'weight_g': label = isEn ? 'Weight' : 'Peso'; break;
+                                        case 'format': label = isEn ? 'Format' : 'Formato'; break;
+                                        case 'care_instructions': label = isEn ? 'Care' : 'Cuidados'; break;
                                     }
                                     return (
                                         <div key={key} className="flex items-center gap-2">
@@ -316,14 +342,16 @@ export default function ProductDetailsClient({ initialProduct }: { initialProduc
                             <div className="space-y-4">
                                 <div className="flex justify-between items-baseline">
                                     <label className="block text-xs font-bold uppercase text-slate-500">
-                                        {isClothing ? 'Tamanho' : 'Opção'}
+                                        {isClothing ? (isEn ? 'Size' : 'Tamanho') : (isEn ? 'Option' : 'Opção')}
                                     </label>
                                     {!isDigital && selectedVariant && (
                                         <motion.span
                                             initial={{ opacity: 0 }} animate={{ opacity: 1 }}
                                             className={`text-xs font-bold ${selectedVariant.stock > 0 ? 'text-emerald-600' : 'text-red-500'}`}
                                         >
-                                            {selectedVariant.stock > 0 ? (selectedVariant.stock < 10 ? `Restam ${selectedVariant.stock}` : 'Em Stock') : 'Esgotado'}
+                                            {selectedVariant.stock > 0
+                                                ? (selectedVariant.stock < 10 ? `${isEn ? 'Only' : 'Restam'} ${selectedVariant.stock}` : (isEn ? 'In Stock' : 'Em Stock'))
+                                                : (isEn ? 'Out of Stock' : 'Esgotado')}
                                         </motion.span>
                                     )}
                                 </div>
@@ -351,16 +379,16 @@ export default function ProductDetailsClient({ initialProduct }: { initialProduc
                         ) : isClothing ? (
                             // Fallback for clothing without variants: Explicit "Single Size" selector
                             <div className="space-y-4">
-                                <label className="block text-xs font-bold uppercase text-slate-500">Tamanho</label>
+                                <label className="block text-xs font-bold uppercase text-slate-500">{isEn ? 'Size' : 'Tamanho'}</label>
                                 <button
-                                    onClick={() => setSelectedVariant({ name: 'Único', stock: product.stock, sku: product.id })}
+                                    onClick={() => setSelectedVariant({ name: isEn ? 'One Size' : 'Único', stock: product.stock, sku: product.id })}
                                     className={`h-12 px-6 rounded-xl border-2 text-sm font-bold transition-all relative overflow-hidden flex items-center justify-center
                                         ${selectedVariant?.sku === product.id
                                             ? 'border-slate-900 bg-slate-900 text-white shadow-lg'
                                             : 'border-slate-200 bg-white text-slate-700 hover:border-slate-400'
                                         }`}
                                 >
-                                    Tamanho Único
+                                    {isEn ? 'One Size' : 'Tamanho Único'}
                                 </button>
                             </div>
 
@@ -370,8 +398,8 @@ export default function ProductDetailsClient({ initialProduct }: { initialProduc
                                 <div className="bg-red-50 text-red-700 px-6 py-4 rounded-xl border border-red-100 flex items-center gap-3">
                                     <AlertCircle className="w-5 h-5 flex-shrink-0" />
                                     <div>
-                                        <p className="font-bold text-sm uppercase tracking-wide">Esgotado</p>
-                                        <p className="text-sm opacity-80">Este artigo não está disponível de momento.</p>
+                                        <p className="font-bold text-sm uppercase tracking-wide">{isEn ? 'Out of Stock' : 'Esgotado'}</p>
+                                        <p className="text-sm opacity-80">{isEn ? 'This item is currently unavailable.' : 'Este artigo não está disponível de momento.'}</p>
                                     </div>
                                 </div>
                             ) : (
@@ -398,7 +426,7 @@ export default function ProductDetailsClient({ initialProduct }: { initialProduc
                                                 ) : (
                                                     <>
                                                         <ShoppingCart className="w-5 h-5" />
-                                                        Adicionar ao Carrinho
+                                                        {isEn ? 'Add to Cart' : 'Adicionar ao Carrinho'}
                                                     </>
                                                 )}
                                             </button>
@@ -414,25 +442,25 @@ export default function ProductDetailsClient({ initialProduct }: { initialProduc
                                     <>
                                         <div className="flex items-center gap-3 p-4 bg-purple-50 rounded-xl border border-purple-100">
                                             <Download className="w-5 h-5 text-purple-500" />
-                                            <span className="text-xs font-bold text-purple-800">Acesso Digital Imediato</span>
+                                            <span className="text-xs font-bold text-purple-800">{isEn ? 'Immediate Digital Access' : 'Acesso Digital Imediato'}</span>
                                         </div>
                                         <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-xl border border-slate-100">
                                             <Check className="w-5 h-5 text-slate-400" />
-                                            <span className="text-xs font-bold text-slate-600">Disponível na tua Biblioteca</span>
+                                            <span className="text-xs font-bold text-slate-600">{isEn ? 'Available in your Library' : 'Disponível na tua Biblioteca'}</span>
                                         </div>
                                     </>
                                 ) : productMode === 'clothing' ? (
                                     <>
                                         <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-xl border border-slate-100">
                                             <Package className="w-5 h-5 text-slate-400" />
-                                            <span className="text-xs font-bold text-slate-600">Seleção de Tamanho/Variante</span>
+                                            <span className="text-xs font-bold text-slate-600">{isEn ? 'Size / Variant selection' : 'Seleção de Tamanho/Variante'}</span>
                                         </div>
                                         <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-xl border border-slate-100">
                                             <Truck className="w-5 h-5 text-slate-400" />
                                             <span className="text-xs font-bold text-slate-600">
                                                 {product.allowedCountries && product.allowedCountries.length > 0
-                                                    ? 'Envio para países selecionados'
-                                                    : 'Envio protegido'}
+                                                    ? (isEn ? 'Shipping to selected countries' : 'Envio para países selecionados')
+                                                    : (isEn ? 'Protected shipping' : 'Envio protegido')}
                                             </span>
                                         </div>
                                     </>
@@ -440,14 +468,14 @@ export default function ProductDetailsClient({ initialProduct }: { initialProduc
                                     <>
                                         <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-xl border border-slate-100">
                                             <Package className="w-5 h-5 text-slate-400" />
-                                            <span className="text-xs font-bold text-slate-600">Embalamento Seguro</span>
+                                            <span className="text-xs font-bold text-slate-600">{isEn ? 'Secure Packaging' : 'Embalamento Seguro'}</span>
                                         </div>
                                         <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-xl border border-slate-100">
                                             <Truck className="w-5 h-5 text-slate-400" />
                                             <span className="text-xs font-bold text-slate-600">
                                                 {product.allowedCountries && product.allowedCountries.length > 0
-                                                    ? 'Envio para países selecionados'
-                                                    : 'Envio para todo o Mundo'}
+                                                    ? (isEn ? 'Shipping to selected countries' : 'Envio para países selecionados')
+                                                    : (isEn ? 'Worldwide shipping' : 'Envio para todo o Mundo')}
                                             </span>
                                         </div>
                                     </>
@@ -459,11 +487,11 @@ export default function ProductDetailsClient({ initialProduct }: { initialProduc
                                     <div className="flex items-start gap-3">
                                         <Globe className="w-5 h-5 text-blue-600 mt-0.5" />
                                         <div className="flex-1">
-                                            <p className="text-sm font-bold text-slate-900">Disponibilidade de Stock por País</p>
+                                            <p className="text-sm font-bold text-slate-900">{isEn ? 'Stock Availability by Country' : 'Disponibilidade de Stock por País'}</p>
                                             {allowedCountryLabels.length > 0 ? (
                                                 <>
                                                     <p className="text-sm text-slate-700 mt-1">
-                                                        Stock disponível para envio apenas nos seguintes países:
+                                                        {isEn ? 'Stock is available for shipping only to these countries:' : 'Stock disponível para envio apenas nos seguintes países:'}
                                                     </p>
                                                     <div className="flex flex-wrap gap-2 mt-3">
                                                         {allowedCountryLabels.map((country) => (
@@ -479,7 +507,7 @@ export default function ProductDetailsClient({ initialProduct }: { initialProduc
                                                 </>
                                             ) : (
                                                 <p className="text-sm text-slate-700 mt-1">
-                                                    Stock disponível para envio internacional (todos os países).
+                                                    {isEn ? 'Stock is available for international shipping (all countries).' : 'Stock disponível para envio internacional (todos os países).'}
                                                 </p>
                                             )}
                                         </div>
@@ -492,15 +520,15 @@ export default function ProductDetailsClient({ initialProduct }: { initialProduc
                         {product.specifications && Object.keys(product.specifications).length > 0 && (
                             <div className="pt-8 border-t border-slate-100">
                                 <h3 className="font-serif font-bold text-lg mb-4">
-                                    {isBook ? 'Detalhes da Obra' : 'Detalhes Técnicos'}
+                                    {isBook ? (isEn ? 'Book Details' : 'Detalhes da Obra') : (isEn ? 'Technical Details' : 'Detalhes Técnicos')}
                                 </h3>
                                 <div className="space-y-3">
                                     {Object.entries(product.specifications).map(([key, val]: [string, any]) => (
                                         <div key={key} className="flex justify-between py-2 border-b border-slate-50 last:border-0">
                                             <span className="text-sm font-medium text-slate-500 capitalize">
-                                                {key === 'author' ? 'Autor' :
-                                                    key === 'pages' ? 'Páginas' :
-                                                        key === 'publisher' ? 'Editora' :
+                                                {key === 'author' ? (isEn ? 'Author' : 'Autor') :
+                                                    key === 'pages' ? (isEn ? 'Pages' : 'Páginas') :
+                                                        key === 'publisher' ? (isEn ? 'Publisher' : 'Editora') :
                                                             key === 'isbn' ? 'ISBN' :
                                                                 key.replace(/_/g, ' ')}
                                             </span>
@@ -525,7 +553,7 @@ export default function ProductDetailsClient({ initialProduct }: { initialProduc
                                     disabled={adding}
                                     className="flex-1 bg-slate-900 text-white px-6 py-4 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg active:scale-95 transition-all"
                                 >
-                                    {adding ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : 'Adicionar ao Carrinho'}
+                                    {adding ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : (isEn ? 'Add to Cart' : 'Adicionar ao Carrinho')}
                                 </button>
                             </div>
                         </div>

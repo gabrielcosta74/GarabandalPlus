@@ -5,6 +5,7 @@ import { getAppUrl } from '../../../../lib/config';
 import { parseRoomInfo } from '../../../../lib/utils';
 import { generateViewToken, generateIdempotencyKey } from '../../../../lib/auth-utils';
 import { isActiveMember } from '../../../../lib/store-discounts';
+import { getPostHogClient } from '../../../../lib/posthog-server';
 
 async function findAuthUserByEmail(
     adminAuth: NonNullable<typeof supabaseServer>['auth']['admin'],
@@ -41,7 +42,8 @@ export async function POST(req: Request) {
 
     try {
         const body = await req.json();
-        const { email, pilgrim_data, pilgrimage_id, payment_method, room_distribution, idempotency_key } = body;
+        const { email, pilgrim_data, pilgrimage_id, payment_method, room_distribution, idempotency_key, locale } = body;
+        const bookingLocale: 'pt' | 'en' = locale === 'en' ? 'en' : 'pt';
         let bookingEmail = String(email || '').trim().toLowerCase();
 
         console.log(`📦 [API] Payload: Email=${bookingEmail}, Pilgrims=${pilgrim_data?.length}`);
@@ -310,7 +312,7 @@ export async function POST(req: Request) {
         }
 
         // 5. ATOMIC BOOKING TRANSACTION (Insert w/ Vacancy Check)
-        const bookingNotes = `Payment Plan: ${payment_method} | Created via API ${isNewUser ? '(New Account)' : ''}`;
+        const bookingNotes = `Payment Plan: ${payment_method} | Created via API ${isNewUser ? '(New Account)' : ''} | [locale:${bookingLocale}]`;
 
         const { data: atomicResult, error: atomicError } = await supabaseServer.rpc('create_booking_atomic', {
             p_pilgrimage_id: pilgrimage_id,
@@ -379,11 +381,14 @@ export async function POST(req: Request) {
             console.log(`📧 [API] Environment: ${process.env.NODE_ENV}`);
             console.log(`📧 [API] Using origin for magic link: ${origin}`);
 
+            const bookingPath = bookingLocale === 'en'
+                ? `/en/pilgrimages/registration/${booking.id}`
+                : `/peregrinacoes/inscricao/${booking.id}`;
             const { data: linkData, error: linkError } = await adminAuth.generateLink({
                 type: 'magiclink',
                 email: bookingEmail,
                 options: {
-                    redirectTo: `${origin}/peregrinacoes/inscricao/${booking.id}`
+                    redirectTo: `${origin}${bookingPath}`
                 }
             });
 
@@ -391,19 +396,17 @@ export async function POST(req: Request) {
                 console.error("⚠️ [API] Failed to generate magic link:", linkError);
             }
 
-            // Awaiting is safer for "flawless" execution confirmation, though slower.
-            // We'll await but catch errors so we don't fail the HTTP request if email fails.
-
-            const magicLink = linkData?.properties?.action_link || `${origin}/peregrinacoes/inscricao/${booking.id}`;
+            const magicLink = linkData?.properties?.action_link || `${origin}${bookingPath}`;
 
             await sendBookingConfirmationEmail({
                 bookingId: booking.id,
                 email: bookingEmail,
-                pilgrimageName: pilgrimage.title,
+                pilgrimageName: (bookingLocale === 'en' && (pilgrimage as any).title_en) ? (pilgrimage as any).title_en : pilgrimage.title,
                 amount: totalDepositAmount,
                 totalAmount: totalAmount,
                 paymentMethod: payment_method,
-                magicLink: magicLink
+                magicLink: magicLink,
+                locale: bookingLocale
             });
 
             const customerName = pilgrimsToInsert[0]?.full_name || 'Desconhecido';
@@ -422,6 +425,27 @@ export async function POST(req: Request) {
         }
 
         console.log("✅ [API] Success! Booking ID:", booking.id);
+
+        // Track booking creation server-side
+        try {
+            const posthog = getPostHogClient();
+            posthog?.capture({
+                distinctId: userId,
+                event: 'booking_created',
+                properties: {
+                    booking_id: booking.id,
+                    pilgrimage_id: pilgrimage_id,
+                    pilgrimage_name: pilgrimage.title,
+                    pilgrim_count: pilgrimsToInsert.length,
+                    total_amount: totalAmount,
+                    payment_method: payment_method,
+                    new_account: isNewUser,
+                    locale: bookingLocale,
+                },
+            });
+        } catch (phErr) {
+            console.warn('⚠️ [API] PostHog capture failed:', phErr);
+        }
 
         // 8. Auto-Login Logic (for new users)
         // If we created a new user, we have the password. Let's create a session immediately.

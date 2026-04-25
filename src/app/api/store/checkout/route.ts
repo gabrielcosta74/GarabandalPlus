@@ -11,6 +11,8 @@ import { reduniqClient } from '../../../../lib/reduniq/client';
 import { inferIsDigitalProduct } from '../../../../lib/product-kind';
 import { checkRateLimit } from '../../../../lib/rate-limit';
 import { inferRequestLocale, withLocalePrefix } from '../../../../lib/locale-routing';
+import { localizeStoreProductText } from '../../../../lib/store-i18n';
+import { getPostHogClient } from '../../../../lib/posthog-server';
 
 const itemSchema = z.object({
   id: z.string().min(1),
@@ -33,6 +35,7 @@ const bodySchema = z.object({
   applyStoreCredits: z.boolean().optional().default(false),
   appliedCreditsValue: z.number().nonnegative().optional().default(0),
   provider: z.enum(['stripe', 'reduniq', 'wallet']).default('stripe'),
+  locale: z.enum(['pt', 'en']).optional(),
   reduniqSolution: z.number().int().optional(),
   buyer: z.object({
     fullName: z.string().min(1),
@@ -62,8 +65,7 @@ const bodySchema = z.object({
 
 export async function POST(request: Request) {
   try {
-    const locale = inferRequestLocale(request);
-    const thankYouPath = withLocalePrefix('/thank-you', locale);
+    let locale = inferRequestLocale(request);
     const rateLimit = checkRateLimit(request, {
       keyPrefix: 'store-checkout',
       windowMs: 60_000,
@@ -83,7 +85,11 @@ export async function POST(request: Request) {
     const authHeader = request.headers.get('authorization') || '';
     const bearerToken = authHeader.toLowerCase().startsWith('bearer ') ? authHeader.slice(7).trim() : null;
     const json = await request.json();
-    const { items, total, applyStoreCredits, appliedCreditsValue: clientCreditsValue, provider, reduniqSolution, buyer, shipping, billing } = bodySchema.parse(json);
+    const parsedBody = bodySchema.parse(json);
+    const { items, total, applyStoreCredits, appliedCreditsValue: clientCreditsValue, provider, reduniqSolution, buyer, shipping, billing } = parsedBody;
+    locale = parsedBody.locale || locale;
+    const isEn = locale === 'en';
+    const thankYouPath = withLocalePrefix('/thank-you', locale);
     const buyerEmail = normalizeEmail(buyer.email);
 
     const normalizedItems = items.map((item) => ({ id: item.id, qty: item.qty }));
@@ -123,7 +129,7 @@ export async function POST(request: Request) {
     const normalizedSessionEmail = normalizeEmail(sessionEmail);
     if (normalizedSessionEmail && buyerEmail && normalizedSessionEmail !== buyerEmail) {
       return NextResponse.json(
-        { message: 'O email do comprador deve coincidir com o email da conta.', code: 'EMAIL_MISMATCH', requestId },
+        { message: isEn ? 'The buyer email must match the account email.' : 'O email do comprador deve coincidir com o email da conta.', code: 'EMAIL_MISMATCH', requestId },
         { status: 400 },
       );
     }
@@ -131,7 +137,7 @@ export async function POST(request: Request) {
     if (!isValidNif(buyer.nif, shipping?.country || '')) {
       return NextResponse.json(
         {
-          message: shipping?.country === 'BR' ? 'CPF invalido. Usa 11 digitos.' : 'NIF invalido. Usa 9 digitos.',
+          message: isEn ? 'Invalid taxpayer number.' : (shipping?.country === 'BR' ? 'CPF invalido. Usa 11 digitos.' : 'NIF invalido. Usa 9 digitos.'),
           code: 'NIF_INVALID',
           requestId,
         },
@@ -141,7 +147,7 @@ export async function POST(request: Request) {
 
     const { data: productRows, error: productError } = await supabaseServer
       .from('store_products')
-      .select('product_id, name, category, price, is_physical, is_active, stock, allowed_countries, type_id, digital_url')
+      .select('product_id, name, name_en, description, description_en, category, price, is_physical, is_active, stock, allowed_countries, type_id, digital_url')
       .in(
         'product_id',
         normalizedItems.map((item) => item.id),
@@ -167,9 +173,10 @@ export async function POST(request: Request) {
         digitalUrl: (product as any).digital_url,
       });
       const isPhysical = !isDigital;
+      const localized = localizeStoreProductText(product as any, locale);
       return {
         id: product.product_id,
-        name: product.name || 'Produto',
+        name: localized.name,
         price,
         qty: item.qty,
         isPhysical,
@@ -180,7 +187,7 @@ export async function POST(request: Request) {
 
     if (safeItems.some((item) => item === null)) {
       return NextResponse.json(
-        { message: 'Existe um produto invalido no carrinho.', code: 'INVALID_ITEM', requestId },
+        { message: isEn ? 'There is an invalid product in the cart.' : 'Existe um produto invalido no carrinho.', code: 'INVALID_ITEM', requestId },
         { status: 400 },
       );
     }
@@ -199,7 +206,7 @@ export async function POST(request: Request) {
     const shippingCost = getShippingCost(shipping?.country, hasPhysical);
     if (hasPhysical && !isPhysicalShippingAllowed(shipping?.country)) {
       return NextResponse.json(
-        { message: 'Envio físico disponível apenas para Portugal e Brasil.', code: 'SHIPPING_BLOCKED', requestId },
+        { message: isEn ? 'Physical shipping is currently available only for Portugal and Brazil.' : 'Envio físico disponível apenas para Portugal e Brasil.', code: 'SHIPPING_BLOCKED', requestId },
         { status: 400 },
       );
     }
@@ -220,7 +227,9 @@ export async function POST(request: Request) {
       if (blockedProduct) {
         return NextResponse.json(
           {
-            message: `O produto "${blockedProduct.name}" não envia para o seu país (${shipping.country}).`,
+            message: isEn
+              ? `The product "${blockedProduct.name}" cannot be shipped to your country (${shipping.country}).`
+              : `O produto "${blockedProduct.name}" não envia para o seu país (${shipping.country}).`,
             code: 'SHIPPING_COUNTRY_RESTRICTED',
             requestId
           },
@@ -232,7 +241,7 @@ export async function POST(request: Request) {
 
     if (hasPhysical && shippingCost === null) {
       return NextResponse.json(
-        { message: 'Não foi possível calcular os portes para o país selecionado.', code: 'SHIPPING_INVALID', requestId },
+        { message: isEn ? 'Could not calculate shipping for the selected country.' : 'Não foi possível calcular os portes para o país selecionado.', code: 'SHIPPING_INVALID', requestId },
         { status: 400 },
       );
     }
@@ -242,7 +251,7 @@ export async function POST(request: Request) {
 
     if (roundedTotal !== roundedSent) {
       return NextResponse.json(
-        { message: 'Total inválido.', code: 'TOTAL_MISMATCH', requestId },
+        { message: isEn ? 'Invalid total.' : 'Total inválido.', code: 'TOTAL_MISMATCH', requestId },
         { status: 400 },
       );
     }
@@ -273,7 +282,7 @@ export async function POST(request: Request) {
       // Reject if client sent a value higher than the FREE balance (tamper protection).
       if (clientCreditsValue > availableBalance + 0.01) {
         return NextResponse.json(
-          { message: 'Saldo de créditos indisponível. Já tem reservas em outros pedidos pendentes.', code: 'CREDITS_LOCKED', requestId },
+          { message: isEn ? 'Store credits unavailable. You already have credits reserved in other pending orders.' : 'Saldo de créditos indisponível. Já tem reservas em outros pedidos pendentes.', code: 'CREDITS_LOCKED', requestId },
           { status: 400 },
         );
       }
@@ -285,20 +294,20 @@ export async function POST(request: Request) {
 
     if (hasPhysical && !shipping) {
       return NextResponse.json(
-        { message: 'Morada obrigatória para envio físico.', code: 'SHIPPING_REQUIRED', requestId },
+        { message: isEn ? 'Shipping address is required for physical items.' : 'Morada obrigatória para envio físico.', code: 'SHIPPING_REQUIRED', requestId },
         { status: 400 },
       );
     }
 
     if (shipping && !validatePostalCode(shipping.country, shipping.postalCode)) {
       return NextResponse.json(
-        { message: 'Código postal de envio inválido.', code: 'POSTAL_INVALID', requestId },
+        { message: isEn ? 'Invalid shipping postal code.' : 'Código postal de envio inválido.', code: 'POSTAL_INVALID', requestId },
         { status: 400 },
       );
     }
     if (!validatePostalCode(billing.country, billing.postalCode)) {
       return NextResponse.json(
-        { message: 'Código postal de faturação inválido.', code: 'POSTAL_INVALID', requestId },
+        { message: isEn ? 'Invalid billing postal code.' : 'Código postal de faturação inválido.', code: 'POSTAL_INVALID', requestId },
         { status: 400 },
       );
     }
@@ -322,6 +331,7 @@ export async function POST(request: Request) {
       shippingOrigin: getShippingOrigin(shipping?.country),
       memberDiscount: memberDiscountRate ? String(memberDiscountRate) : '',
       paymentProvider,
+      locale,
     };
 
     if (supabaseServer) {
@@ -402,6 +412,30 @@ export async function POST(request: Request) {
         }
         // If not fully paid, credits will be deducted asynchronously by the webhook after successful Stripe/Reduniq payment.
 
+        // Track checkout initiation server-side
+        try {
+          const posthog = getPostHogClient();
+          const distinctId = buyerUserId ?? (buyerEmail || buyer.email);
+          posthog?.capture({
+            distinctId,
+            event: 'store_checkout_initiated',
+            properties: {
+              order_ref: orderRef,
+              provider: isFullyPaidByWallet ? 'wallet' : paymentProvider,
+              total_amount: roundedTotal,
+              net_amount: netAmountToPay,
+              item_count: itemsResolved.reduce((sum, item) => sum + item.qty, 0),
+              has_physical: hasPhysical,
+              shipping_country: shipping?.country ?? null,
+              credits_applied: verifiedCreditsToApply,
+              member_discount: memberDiscountRate > 0,
+              locale,
+            },
+          });
+        } catch (phErr) {
+          console.warn('PostHog capture failed:', phErr);
+        }
+
         // If fully paid by wallet, we skip the payment gateway and return the success URL directly.
         if (isFullyPaidByWallet) {
           const siteUrl = getAppUrl();
@@ -425,7 +459,7 @@ export async function POST(request: Request) {
       const countryCode = (shipping?.country || billing?.country || 'PT').slice(0, 2).toUpperCase();
       const languageCode = countryCode === 'PT' || countryCode === 'BR' ? 'por' : 'eng';
       // Keep Reduniq description short/stable to avoid gateway quirks with long or special-character-heavy cart summaries.
-      const description = `Loja Online - Pedido ${orderRef}`;
+      const description = `${isEn ? 'Online Store' : 'Loja Online'} - Pedido ${orderRef}`;
 
       const attemptInit = async (solution?: number) =>
         reduniqClient.initiatePayment({
@@ -504,7 +538,7 @@ export async function POST(request: Request) {
           currency: 'eur',
           unit_amount: Math.round(shippingCost * 100),
           product_data: {
-            name: 'Portes de envio',
+            name: isEn ? 'Shipping' : 'Portes de envio',
           },
         },
       });

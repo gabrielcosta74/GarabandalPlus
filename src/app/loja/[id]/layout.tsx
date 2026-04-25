@@ -2,6 +2,8 @@ import type { Metadata } from 'next';
 import { APP_URL } from '../../../lib/config';
 import { supabaseServer } from '../../../lib/supabase';
 import { buildProductPath } from '../../../lib/slug';
+import { inferIsDigitalProduct } from '../../../lib/product-kind';
+import { getPortugueseProductDescriptionFallback, localizeStoreProductText } from '../../../lib/store-i18n';
 
 type Props = {
   params: Promise<{ id: string }>;
@@ -24,8 +26,9 @@ const fetchProduct = async (param: string) => {
 
   const { data } = await supabaseServer
     .from('store_products')
-    .select('product_id, name, description, image_url, price, currency, stock, sku, category, type_id, metadata, specifications, is_active')
-    .in('product_id', Array.from(candidates));
+    .select('product_id, name, name_en, description, description_en, image_url, price, currency, stock, sku, category, type_id, metadata, specifications, is_active, is_physical, digital_url')
+    .in('product_id', Array.from(candidates))
+    .eq('is_active', true);
 
   if (!data || data.length === 0) return null;
   return data.reduce((best: any, current: any) => {
@@ -40,10 +43,14 @@ const isBookCategory = (category?: string, typeId?: string) => {
   return c.includes('livro') || t.includes('book');
 };
 
-const isDigitalCategory = (category?: string, typeId?: string) => {
-  const c = (category || '').toLowerCase();
-  const t = (typeId || '').toLowerCase();
-  return t.includes('digital') || c.includes('digital') || t.includes('pdf') || t.includes('ebook');
+const isDigitalCategory = (product: any) => {
+  return inferIsDigitalProduct({
+    isPhysical: product?.is_physical,
+    typeId: product?.type_id,
+    category: product?.category,
+    name: product?.name,
+    digitalUrl: product?.digital_url,
+  });
 };
 
 const getAuthorSchema = (author?: string | null) => {
@@ -66,6 +73,41 @@ const getAuthorSchema = (author?: string | null) => {
     '@type': isOrganization ? 'Organization' : 'Person',
     name: value,
   };
+};
+
+const truncateDescription = (value: string, maxLength = 155) => {
+  const normalized = value.replace(/\s+/g, ' ').trim();
+  if (normalized.length <= maxLength) return normalized;
+  return `${normalized.slice(0, maxLength - 1).trim()}…`;
+};
+
+const buildProductSeoDescription = (product: any, typePrefix: string, isBook: boolean, isDigital: boolean) => {
+  const meta = product.metadata || {};
+  const rawDescription = String(product.description || getPortugueseProductDescriptionFallback(product.name) || '').trim();
+  const authorPart = meta.author ? ` de ${meta.author}` : '';
+  const pagesPart = meta.pages ? `, ${meta.pages} páginas` : '';
+
+  if (rawDescription) {
+    const details = isBook ? ` Livro${authorPart}${pagesPart}.` : '';
+    const delivery = isDigital ? ' Download digital após confirmação.' : ' Envio para Portugal e Brasil.';
+    return truncateDescription(`${rawDescription}${details}${delivery}`);
+  }
+
+  return truncateDescription(
+    `${typePrefix} do Apostolado de Garabandal${authorPart}. Conteúdo católico sobre Garabandal para formação espiritual e devoção mariana.`,
+  );
+};
+
+const getProductAvailability = (product: any, isDigital: boolean) => {
+  if (isDigital) return 'https://schema.org/InStock';
+  if (typeof product.stock !== 'number') return 'https://schema.org/InStock';
+  return product.stock > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock';
+};
+
+const getAbsoluteImageUrl = (image?: string | null) => {
+  if (!image) return undefined;
+  if (image.startsWith('http://') || image.startsWith('https://')) return image;
+  return `${APP_URL}${image.startsWith('/') ? image : `/${image}`}`;
 };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -94,7 +136,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     }
 
     const isBook = isBookCategory(data.category, data.type_id);
-    const isDigital = isDigitalCategory(data.category, data.type_id);
+    const isDigital = isDigitalCategory(data);
     const meta = data.metadata || {};
 
     // Build rich title
@@ -102,13 +144,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     const title = `${data.name} — ${typePrefix} | Apostolado de Garabandal`;
 
     // Build rich description using product fields
-    const authorPart = meta.author ? ` de ${meta.author}` : '';
-    const pagesPart = meta.pages ? `, ${meta.pages} páginas` : '';
-    const rawDesc = data.description || '';
-    const shortDesc = rawDesc.length > 100 ? rawDesc.slice(0, 100) + '…' : rawDesc;
-    const description = data.description
-      ? `${shortDesc} ${isBook ? `Livro${authorPart}${pagesPart}.` : ''} Apostolado de Garabandal — entrega para o Brasil e Portugal.`.trim()
-      : `${typePrefix} do Apostolado de Garabandal${authorPart}. Artigos religiosos e espirituais para católicos no Brasil e em Portugal.`;
+    const description = buildProductSeoDescription(data, typePrefix, isBook, isDigital);
+    const englishName = localizeStoreProductText(data, 'en').name;
 
     // Build keywords
     const keywords: string[] = [
@@ -132,8 +169,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     if (isBook && !isDigital) keywords.push('livro físico católico', 'comprar livro católico Brasil');
     if (isBook && isDigital) keywords.push('livro digital católico', 'ebook católico', 'download livro católico');
 
-    const ogImages = data.image_url
-      ? [{ url: data.image_url, width: 800, height: 800, alt: data.name }]
+    const productImage = getAbsoluteImageUrl(data.image_url);
+    const ogImages = productImage
+      ? [{ url: productImage, width: 800, height: 800, alt: data.name }]
       : [{ url: `${APP_URL}/opengraph-image`, width: 1200, height: 630, alt: title }];
 
     return {
@@ -142,7 +180,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       keywords,
       alternates: {
         canonical: canonicalUrl,
-        languages: { 'pt-BR': canonicalUrl, 'pt-PT': canonicalUrl },
+        languages: {
+          'pt-BR': canonicalUrl,
+          'pt-PT': canonicalUrl,
+          en: `${APP_URL}${buildProductPath(data.product_id, englishName, 'en')}`,
+        },
       },
       openGraph: {
         url: canonicalUrl,
@@ -177,12 +219,9 @@ export default async function LojaProdutoLayout({ children, params }: Props) {
     return children;
   }
 
-  const availability = typeof product.stock === 'number' && product.stock > 0
-    ? 'https://schema.org/InStock'
-    : 'https://schema.org/OutOfStock';
-
   const isBook = isBookCategory(product.category, product.type_id);
-  const isDigital = isDigitalCategory(product.category, product.type_id);
+  const isDigital = isDigitalCategory(product);
+  const availability = getProductAvailability(product, isDigital);
   const meta = product.metadata || {};
   const productUrl = product?.product_id
     ? `${APP_URL}${buildProductPath(product.product_id, product?.name || null)}`
@@ -215,8 +254,8 @@ export default async function LojaProdutoLayout({ children, params }: Props) {
     '@context': 'https://schema.org',
     '@type': schemaType,
     name: product.name || 'Produto',
-    description: product.description || undefined,
-    image: product.image_url ? [product.image_url] : undefined,
+    description: product.description || getPortugueseProductDescriptionFallback(product.name) || undefined,
+    image: product.image_url ? [getAbsoluteImageUrl(product.image_url)] : undefined,
     sku: product.sku || undefined,
     category: product.category || undefined,
     inLanguage: 'pt-BR',
@@ -247,13 +286,13 @@ export default async function LojaProdutoLayout({ children, params }: Props) {
         name: 'Apostolado de Garabandal',
         url: APP_URL,
       },
-      shippingDetails: {
+      ...(!isDigital ? { shippingDetails: {
         '@type': 'OfferShippingDetails',
         shippingDestination: [
           { '@type': 'DefinedRegion', addressCountry: 'BR' },
           { '@type': 'DefinedRegion', addressCountry: 'PT' },
         ],
-      },
+      } } : {}),
     },
   };
 

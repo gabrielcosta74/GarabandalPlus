@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { getPostalInvalidMessage, listCountryOptions } from '../lib/country-utils';
+import { buildProductPath } from '../lib/slug';
+import { localizeStoreProductText, translateStoreCategory } from '../lib/store-i18n';
 
 describe('country utilities', () => {
   it('exposes a broad English country list for public forms', () => {
@@ -14,5 +16,44 @@ describe('country utilities', () => {
 
   it('returns validation messages in English when requested', () => {
     expect(getPostalInvalidMessage('GB', 'en')).toContain('Invalid postal code');
+  });
+});
+
+describe('store i18n utilities', () => {
+  it('builds English product URLs under /en/store', () => {
+    expect(buildProductPath('abc123', 'Livro de Teste', 'en')).toBe('/en/store/abc123-livro-de-teste');
+  });
+
+  it('uses English product translations with Portuguese fallback', () => {
+    const product = localizeStoreProductText({
+      name: 'Livro',
+      name_en: 'Book',
+      description: 'Descrição',
+      description_en: 'Description',
+      category: 'Livro Físico',
+      type_id: 'book_physical',
+    }, 'en');
+
+    expect(product.name).toBe('Book');
+    expect(product.description).toBe('Description');
+    expect(product.category).toBe('Books');
+  });
+
+  it('uses known English fallbacks for current store products while DB translations are empty', () => {
+    const product = localizeStoreProductText({
+      name: 'A História de Garabandal para Crianças - PDF',
+      description: '',
+      category: 'Livros Digitais',
+      type_id: 'book_digital',
+    }, 'en');
+
+    expect(product.name).toBe('The Story of Garabandal for Children - PDF');
+    expect(product.description).toContain('Digital PDF book');
+    expect(product.category).toBe('Digital Books');
+  });
+
+  it('translates known store categories for English pages', () => {
+    expect(translateStoreCategory('Artigo Religioso', 'religious_article', 'en')).toBe('Religious Articles');
+    expect(translateStoreCategory('Vestuário', 'clothing', 'en')).toBe('Clothing');
   });
 });

@@ -434,6 +434,7 @@ export const sendBookingConfirmationEmail = async (payload: {
   totalAmount: number;
   paymentMethod: string;
   magicLink: string;
+  locale?: 'pt' | 'en';
 }) => {
   if (!resendClient) {
     console.warn('Resend nao configurado. Ignorar envio de email.');

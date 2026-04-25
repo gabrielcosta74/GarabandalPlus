@@ -144,7 +144,11 @@ export default function AdminLojaPage() {
   }, [products]);
 
   const filteredProducts = products.filter(p => {
-    const matchSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase()) || p.sku.toLowerCase().includes(searchTerm.toLowerCase());
+    const normalizedSearch = searchTerm.toLowerCase();
+    const matchSearch =
+      p.name.toLowerCase().includes(normalizedSearch) ||
+      (p.name_en || '').toLowerCase().includes(normalizedSearch) ||
+      p.sku.toLowerCase().includes(normalizedSearch);
     const matchType = filterType === 'all' || p.type === filterType;
     return matchSearch && matchType;
   });
@@ -155,6 +159,7 @@ export default function AdminLojaPage() {
     setDraft({
       id: '',
       name: '',
+      name_en: '',
       sku: '',
       category: '',
       categoryId: null,
@@ -173,6 +178,7 @@ export default function AdminLojaPage() {
       specifications: {},
       taxRate: 0.23,
       description: '',
+      description_en: '',
       variants: []
     });
     setActiveTab('general');
@@ -419,6 +425,7 @@ export default function AdminLojaPage() {
                 <th className="px-6 py-4">Tipo / Categoria</th>
                 <th className="px-6 py-4 text-center">Stock</th>
                 <th className="px-6 py-4 text-right">Preço</th>
+                <th className="px-6 py-4 text-center">EN</th>
                 <th className="px-6 py-4 text-center">Status</th>
               </tr>
             </thead>
@@ -448,6 +455,17 @@ export default function AdminLojaPage() {
                       )}
                     </td>
                     <td className="px-6 py-4 text-right font-mono text-slate-700">{p.price.toFixed(2)}€</td>
+                    <td className="px-6 py-4 text-center">
+                      {p.name_en && p.description_en ? (
+                        <span className="inline-flex items-center rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-emerald-700 border border-emerald-100">
+                          Completo
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center rounded-full bg-amber-50 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-amber-700 border border-amber-100">
+                          Falta
+                        </span>
+                      )}
+                    </td>
                     <td className="px-6 py-4 text-center">
                       <span className={`inline-flex w-2.5 h-2.5 rounded-full ${p.status === 'ativo' ? 'bg-emerald-500' : 'bg-slate-300'}`} />
                     </td>
@@ -522,6 +540,22 @@ export default function AdminLojaPage() {
                     {/* GENERAL TAB */}
                     {activeTab === 'general' && (
                       <div className="space-y-6">
+                        <div className="bg-indigo-50 border border-indigo-100 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                          <div>
+                            <h3 className="font-bold text-slate-900 text-sm">Versão inglesa pública</h3>
+                            <p className="text-xs text-slate-600 mt-1">
+                              Estes campos alimentam automaticamente /en/store, produto, checkout e SEO.
+                            </p>
+                          </div>
+                          <TranslateAllButton
+                            fields={[
+                              { ptValue: draft.name, onChangeEn: v => setDraft(current => current ? { ...current, name_en: v } : current) },
+                              { ptValue: draft.description, onChangeEn: v => setDraft(current => current ? { ...current, description_en: v } : current) },
+                            ]}
+                            className="shrink-0"
+                          />
+                        </div>
+
                         <div className="flex gap-6">
                           <div className="w-32 h-32 flex-shrink-0 relative group">
                             <div className="w-full h-full rounded-2xl border-2 border-dashed border-slate-300 bg-white flex items-center justify-center overflow-hidden">

@@ -30,6 +30,7 @@ import {
     ChevronRight,
     FolderLock,
     Bot,
+    Megaphone,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAdminNotifications } from '../../context/AdminNotificationContext';
@@ -73,6 +74,12 @@ export default function AdminSidebar({ onLogout, className }: { onLogout: () => 
                 { label: 'Leilão', icon: Gavel, href: '/admin/leilao' },
                 { label: 'Emails do Sistema', icon: Mail, href: '/admin/emails' },
                 { label: 'Atividade Email', icon: Mail, href: '/admin/notificacoes-email' },
+            ]
+        },
+        {
+            label: 'Marketing & Growth',
+            items: [
+                { label: 'Marketing Platform', icon: Megaphone, href: '/admin/marketing' },
             ]
         },
         {

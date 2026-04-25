@@ -10,6 +10,7 @@ import * as z from 'zod';
 import { ChevronRight, ChevronLeft, Check, User, Users, Loader2, AlertCircle, MapPin, Globe, Mail } from 'lucide-react';
 import Link from 'next/link';
 import { useAuth } from '../../../../contexts/AuthContext';
+import { useLocale } from '../../../../contexts/LocaleContext';
 import { handleBookingWithAutoLogin } from '../../../../lib/booking-api';
 
 // Phone Input
@@ -20,63 +21,76 @@ import 'react-phone-number-input/style.css';
 import RoomOrganizer, { Room } from '../../../../components/booking/RoomOrganizer';
 import VIPLayout from '../../../../components/member/VIPLayout';
 import DateInput from '../../../../components/ui/DateInput';
+import ChatWidget from '../../../../components/pilgrimage/ChatWidget';
 
 /* -------------------------------------------------------------------------- */
 /*                                CONSTANTS                                   */
 /* -------------------------------------------------------------------------- */
-const COUNTRIES = [
+const getCountries = (isEn: boolean) => [
     { code: 'PT', name: 'Portugal', postalMask: '0000-000', postalPlaceholder: '1000-001' },
-    { code: 'BR', name: 'Brasil', postalMask: '00000-000', postalPlaceholder: '12345-678' },
-    { code: 'ES', name: 'Espanha', postalMask: '00000', postalPlaceholder: '28001' },
-    { code: 'FR', name: 'França', postalMask: '00000', postalPlaceholder: '75001' },
-    { code: 'CH', name: 'Suíça', postalMask: '0000', postalPlaceholder: '8001' },
-    { code: 'GB', name: 'Reino Unido', postalMask: '', postalPlaceholder: 'SW1A 1AA' },
-    { code: 'US', name: 'Estados Unidos', postalMask: '00000', postalPlaceholder: '90210' },
+    { code: 'BR', name: isEn ? 'Brazil' : 'Brasil', postalMask: '00000-000', postalPlaceholder: '12345-678' },
+    { code: 'ES', name: isEn ? 'Spain' : 'Espanha', postalMask: '00000', postalPlaceholder: '28001' },
+    { code: 'FR', name: isEn ? 'France' : 'França', postalMask: '00000', postalPlaceholder: '75001' },
+    { code: 'CH', name: isEn ? 'Switzerland' : 'Suíça', postalMask: '0000', postalPlaceholder: '8001' },
+    { code: 'GB', name: isEn ? 'United Kingdom' : 'Reino Unido', postalMask: '', postalPlaceholder: 'SW1A 1AA' },
+    { code: 'US', name: isEn ? 'United States' : 'Estados Unidos', postalMask: '00000', postalPlaceholder: '90210' },
     { code: 'AO', name: 'Angola', postalMask: '', postalPlaceholder: '' },
-    { code: 'MZ', name: 'Moçambique', postalMask: '', postalPlaceholder: '' },
-    { code: 'OTHER', name: 'Outro', postalMask: '', postalPlaceholder: '' },
+    { code: 'MZ', name: isEn ? 'Mozambique' : 'Moçambique', postalMask: '', postalPlaceholder: '' },
+    { code: 'OTHER', name: isEn ? 'Other' : 'Outro', postalMask: '', postalPlaceholder: '' },
 ];
+const COUNTRIES = getCountries(false);
 
 /* -------------------------------------------------------------------------- */
 /*                                 Validations                                */
 /* -------------------------------------------------------------------------- */
 
 // -- Schema Defs --
-const pilgrimSchema = z.object({
-    full_name: z.string({ required_error: "Nome completo é obrigatório" }).min(3, "Nome completo é obrigatório"),
-    email: z.string().email("Email inválido").optional().or(z.literal("")),
-    phone: z.string().optional(),
-    birth_date: z.string({ required_error: "Data de nascimento obrigatória" }).min(1, "Data de nascimento obrigatória"),
-    sex: z.enum(["M", "F"], { errorMap: () => ({ message: "Seleção do sexo obrigatória" }) }),
-    address: z.string({ required_error: "Morada obrigatória" }).min(5, "Morada obrigatória"),
-    postal_code: z.string({ required_error: "Código Postal / CEP obrigatório" }).min(4, "Código Postal / CEP obrigatório"),
-    city: z.string({ required_error: "Cidade obrigatória" }).min(2, "Cidade obrigatória"),
-    country: z.string({ required_error: "País obrigatório" }).min(2, "País obrigatório"),
-    cpf_nif: z.string().optional(),
-    flight_option: z.enum(["agency", "own", "none"], { errorMap: () => ({ message: "Seleção do voo obrigatória" }) }),
-    allergies: z.string().optional(),
-    notes: z.string().optional()
-});
+const createBookingSchema = (isEn: boolean) => {
+    const t = {
+        fullNameReq: isEn ? 'Full name is required' : 'Nome completo é obrigatório',
+        emailInv: isEn ? 'Invalid email' : 'Email inválido',
+        birthReq: isEn ? 'Birth date required' : 'Data de nascimento obrigatória',
+        sexReq: isEn ? 'Sex selection required' : 'Seleção do sexo obrigatória',
+        addrReq: isEn ? 'Address required' : 'Morada obrigatória',
+        postalReq: isEn ? 'Postal code required' : 'Código Postal / CEP obrigatório',
+        cityReq: isEn ? 'City required' : 'Cidade obrigatória',
+        countryReq: isEn ? 'Country required' : 'País obrigatório',
+        flightReq: isEn ? 'Flight selection required' : 'Seleção do voo obrigatória',
+        minPilgrim: isEn ? 'At least 1 pilgrim required' : 'Necessário pelo menos 1 peregrino',
+        dupEmail: isEn ? 'You cannot use the same email for multiple people. Each passenger must have a unique email for validation.' : 'Não é permitido usar o mesmo email para múltiplas pessoas. Cada passageiro deve ter um email único para validação.',
+        paymentReq: isEn ? 'Select a donation method' : 'Selecione um método de doação',
+        termsReq: isEn ? 'You must accept the terms to continue.' : 'Tens de aceitar as condições para continuar.',
+    };
+    const pilgrimSchema = z.object({
+        full_name: z.string({ required_error: t.fullNameReq }).min(3, t.fullNameReq),
+        email: z.string().email(t.emailInv).optional().or(z.literal("")),
+        phone: z.string().optional(),
+        birth_date: z.string({ required_error: t.birthReq }).min(1, t.birthReq),
+        sex: z.enum(["M", "F"], { errorMap: () => ({ message: t.sexReq }) }),
+        address: z.string({ required_error: t.addrReq }).min(5, t.addrReq),
+        postal_code: z.string({ required_error: t.postalReq }).min(4, t.postalReq),
+        city: z.string({ required_error: t.cityReq }).min(2, t.cityReq),
+        country: z.string({ required_error: t.countryReq }).min(2, t.countryReq),
+        cpf_nif: z.string().optional(),
+        flight_option: z.enum(["agency", "own", "none"], { errorMap: () => ({ message: t.flightReq }) }),
+        allergies: z.string().optional(),
+        notes: z.string().optional()
+    });
+    return z.object({
+        pilgrims: z.array(pilgrimSchema).min(1, t.minPilgrim)
+            .superRefine((items, ctx) => {
+                const emails = items.map(p => p.email?.toLowerCase().trim()).filter(Boolean);
+                const unique = new Set(emails);
+                if (unique.size !== emails.length) {
+                    ctx.addIssue({ code: z.ZodIssueCode.custom, message: t.dupEmail, path: [0, "email"] });
+                }
+            }),
+        payment_method: z.enum(['full', 'installments'], { errorMap: () => ({ message: t.paymentReq }) }),
+        terms_accepted: z.literal(true, { errorMap: () => ({ message: t.termsReq }) }),
+    });
+};
 
-const bookingSchema = z.object({
-    pilgrims: z.array(pilgrimSchema).min(1, "Necessário pelo menos 1 peregrino")
-        .superRefine((items, ctx) => {
-            const emails = items.map(p => p.email?.toLowerCase().trim()).filter(Boolean);
-            const unique = new Set(emails);
-            if (unique.size !== emails.length) {
-                ctx.addIssue({
-                    code: z.ZodIssueCode.custom,
-                    message: "Não é permitido usar o mesmo email para múltiplas pessoas. Cada passageiro deve ter um email único para validação.",
-                    path: [0, "email"] // Attaches error generally, or handled by form global error
-                });
-                // Or better, find the duplicate index? For now, global error is safe.
-            }
-        }),
-    payment_method: z.enum(['full', 'installments'], { errorMap: () => ({ message: "Selecione um método de doação" }) }),
-    terms_accepted: z.literal(true, { errorMap: () => ({ message: "Tens de aceitar as condições para continuar." }) }),
-});
-
-type BookingFormValues = z.infer<typeof bookingSchema>;
+type BookingFormValues = z.infer<ReturnType<typeof createBookingSchema>>;
 
 const calculatePilgrimPrice = (pilgrim: any, pilgrimage: any, rooms: Room[], pilgrimIndex: number, isMember: boolean = false) => {
     const room = rooms.find(r => r.occupantIndexes.includes(pilgrimIndex));
@@ -189,6 +203,9 @@ const calculateInstallments = (totalBalance: number, startDate: string, desiredC
 // -- Step 1: Identification Component --
 function StepIdentification({ onNext, initialEmail, pilgrimageId }: { onNext: (email: string, phone: string) => void, initialEmail?: string, pilgrimageId?: string }) {
     const router = useRouter();
+    const { locale } = useLocale();
+    const isEn = locale === 'en';
+    const myRegPath = isEn ? '/en/my-registrations' : '/peregrinacoes/minhas-inscricoes';
     const { user, signOut } = useAuth(); // Get current user for conditional UX
     const [email, setEmail] = useState(initialEmail || '');
     const [phone, setPhone] = useState<string | undefined>(''); // PhoneInput uses undefined | string
@@ -253,22 +270,22 @@ function StepIdentification({ onNext, initialEmail, pilgrimageId }: { onNext: (e
                 if (accountData?.exists) {
                     setLoading(false);
 
-                    const next = typeof window !== 'undefined' ? window.location.pathname : '/peregrinacoes';
+                    const next = typeof window !== 'undefined' ? window.location.pathname : (isEn ? '/en/pilgrimages' : '/peregrinacoes');
                     const decision = await Swal.fire({
-                        title: 'Conta já existente',
-                        text: 'Este email já está registado. Para continuar a inscrição, faz login na tua conta.',
+                        title: isEn ? 'Account already exists' : 'Conta já existente',
+                        text: isEn ? 'This email is already registered. To continue your registration, please log in to your account.' : 'Este email já está registado. Para continuar a inscrição, faz login na tua conta.',
                         icon: 'info',
                         showCancelButton: true,
                         showDenyButton: true,
-                        confirmButtonText: 'Ir para login',
-                        denyButtonText: 'Receber link mágico',
-                        cancelButtonText: 'Cancelar',
+                        confirmButtonText: isEn ? 'Go to login' : 'Ir para login',
+                        denyButtonText: isEn ? 'Receive magic link' : 'Receber link mágico',
+                        cancelButtonText: isEn ? 'Cancel' : 'Cancelar',
                         confirmButtonColor: '#eab308',
                         denyButtonColor: '#475569',
                     });
 
                     if (decision.isConfirmed) {
-                        router.push(`/login?next=${encodeURIComponent(next)}`);
+                        router.push(`${isEn ? '/en/login' : '/login'}?next=${encodeURIComponent(next)}`);
                     } else if (decision.isDenied) {
                         await handleSendMagicLink();
                     }
@@ -289,10 +306,11 @@ function StepIdentification({ onNext, initialEmail, pilgrimageId }: { onNext: (e
                     body: JSON.stringify({
                         email,
                         phone,
-                        name: "Peregrino (Rascunho)", // Name might be unknown yet if not separate input, or we can prompt for it. 
+                        name: isEn ? 'Pilgrim (Draft)' : 'Peregrino (Rascunho)',
                         pilgrimageId,
                         step: 1,
-                        data: { email, phone }
+                        data: { email, phone, locale },
+                        locale
                     })
                 });
             } catch (e) {
@@ -307,7 +325,7 @@ function StepIdentification({ onNext, initialEmail, pilgrimageId }: { onNext: (e
     const handleSendMagicLink = async () => {
         const duplicateEmail = (duplicateFound?.email || email || '').trim().toLowerCase();
         if (!duplicateEmail.includes('@')) {
-            Swal.fire('Erro', 'Email inválido para envio do link.', 'error');
+            Swal.fire(isEn ? 'Error' : 'Erro', isEn ? 'Invalid email for sending the link.' : 'Email inválido para envio do link.', 'error');
             return;
         }
 
@@ -323,7 +341,7 @@ function StepIdentification({ onNext, initialEmail, pilgrimageId }: { onNext: (e
                 }
                 : {
                     email: duplicateEmail,
-                    next: '/peregrinacoes/minhas-inscricoes'
+                    next: myRegPath
                 };
 
             const res = await fetch(endpoint, {
@@ -334,17 +352,17 @@ function StepIdentification({ onNext, initialEmail, pilgrimageId }: { onNext: (e
 
             const data = await res.json().catch(() => ({}));
             if (!res.ok || !data?.success) {
-                throw new Error(data?.message || 'Não foi possível enviar o email.');
+                throw new Error(data?.message || (isEn ? 'Could not send email.' : 'Não foi possível enviar o email.'));
             }
 
             Swal.fire({
-                title: 'Verifique o Email',
-                text: 'Enviámos um link de acesso direto para a sua reserva.',
+                title: isEn ? 'Check Your Email' : 'Verifique o Email',
+                text: isEn ? 'We sent a direct access link to your booking.' : 'Enviámos um link de acesso direto para a sua reserva.',
                 icon: 'success',
                 confirmButtonColor: '#eab308'
             });
         } catch (err: any) {
-            Swal.fire('Erro', err?.message || 'Não foi possível enviar o email.', 'error');
+            Swal.fire(isEn ? 'Error' : 'Erro', err?.message || (isEn ? 'Could not send email.' : 'Não foi possível enviar o email.'), 'error');
         }
     };
 
@@ -354,11 +372,10 @@ function StepIdentification({ onNext, initialEmail, pilgrimageId }: { onNext: (e
         const maskEmail = (email: string) => email.replace(/(?<=.{2}).(?=.*@)/g, '*');
 
         if (!user) {
-            // Scenario 1: Not authenticated
             return {
                 scenario: 1,
-                title: 'Reserva Já Existente',
-                text: 'Já tens uma reserva confirmada para esta peregrinação. Vamos enviar-te um link de acesso seguro ao teu email.',
+                title: isEn ? 'Booking Already Exists' : 'Reserva Já Existente',
+                text: isEn ? 'You already have a confirmed booking for this pilgrimage. We will send you a secure access link to your email.' : 'Já tens uma reserva confirmada para esta peregrinação. Vamos enviar-te um link de acesso seguro ao teu email.',
                 showDirectLink: false,
                 showMagicLinkButton: true,
                 showLogoutButton: false,
@@ -366,22 +383,30 @@ function StepIdentification({ onNext, initialEmail, pilgrimageId }: { onNext: (e
         }
 
         if (user.email === duplicateEmail) {
-            // Scenario 2: Same email - direct access
             return {
                 scenario: 2,
-                title: 'Reserva Encontrada',
-                text: 'Já tens uma reserva confirmada. Clica abaixo para veres os detalhes.',
+                title: isEn ? 'Booking Found' : 'Reserva Encontrada',
+                text: isEn ? 'You already have a confirmed booking. Click below to see the details.' : 'Já tens uma reserva confirmada. Clica abaixo para veres os detalhes.',
                 showDirectLink: true,
                 showMagicLinkButton: false,
                 showLogoutButton: false,
             };
         }
 
-        // Scenario 3: Different email - needs logout
         return {
             scenario: 3,
-            title: 'Atenção',
-            html: `
+            title: isEn ? 'Attention' : 'Atenção',
+            html: isEn ? `
+                <div class="text-left space-y-3">
+                    <p class="text-gray-700">The email <strong>${maskEmail(duplicateEmail)}</strong> already has a booking for this pilgrimage.</p>
+                    <p class="text-gray-600 text-sm">You are logged in with <strong>${user.email}</strong>.</p>
+                    <p class="text-gray-600 text-sm">To access the booking, you need to:</p>
+                    <ol class="text-sm text-gray-600 list-decimal list-inside space-y-1 ml-2">
+                        <li>Sign out of the current session</li>
+                        <li>Request an access link for the booking email</li>
+                    </ol>
+                </div>
+            ` : `
                 <div class="text-left space-y-3">
                     <p class="text-gray-700">O email <strong>${maskEmail(duplicateEmail)}</strong> já tem uma reserva nesta peregrinação.</p>
                     <p class="text-gray-600 text-sm">Estás autenticado com <strong>${user.email}</strong>.</p>
@@ -423,7 +448,7 @@ function StepIdentification({ onNext, initialEmail, pilgrimageId }: { onNext: (e
                     ) : (
                         <>
                             <p className="text-slate-400">
-                                O email <strong className="text-white">{email}</strong> já tem uma reserva ativa nesta peregrinação.
+                                {isEn ? <>The email <strong className="text-white">{email}</strong> already has an active booking for this pilgrimage.</> : <>O email <strong className="text-white">{email}</strong> já tem uma reserva ativa nesta peregrinação.</>}
                             </p>
                             {config.text && <p className="text-sm text-slate-300">{config.text}</p>}
                         </>
@@ -434,10 +459,10 @@ function StepIdentification({ onNext, initialEmail, pilgrimageId }: { onNext: (e
                     {/* Scenario 2: Direct link to booking */}
                     {config.showDirectLink && (
                         <button
-                            onClick={() => router.push('/peregrinacoes/minhas-inscricoes')}
+                            onClick={() => router.push(myRegPath)}
                             className="w-full bg-yellow-500 hover:bg-yellow-400 text-black font-bold py-4 rounded-xl shadow-lg transition-transform active:scale-95"
                         >
-                            Ir Para Minhas Inscrições
+                            {isEn ? 'Go To My Registrations' : 'Ir Para Minhas Inscrições'}
                         </button>
                     )}
 
@@ -448,7 +473,7 @@ function StepIdentification({ onNext, initialEmail, pilgrimageId }: { onNext: (e
                             className="w-full bg-yellow-500 hover:bg-yellow-400 text-black font-bold py-4 rounded-xl shadow-lg transition-transform active:scale-95 flex items-center justify-center gap-2"
                         >
                             <Mail className="w-5 h-5" />
-                            Receber Link de Acesso por Email
+                            {isEn ? 'Receive Access Link by Email' : 'Receber Link de Acesso por Email'}
                         </button>
                     )}
 
@@ -459,10 +484,10 @@ function StepIdentification({ onNext, initialEmail, pilgrimageId }: { onNext: (e
                                 onClick={handleLogoutAndRequestLink}
                                 className="w-full bg-red-600 hover:bg-red-500 text-white font-bold py-4 rounded-xl shadow-lg transition-transform active:scale-95"
                             >
-                                Terminar Sessão e Pedir Link
+                                {isEn ? 'Sign Out and Request Link' : 'Terminar Sessão e Pedir Link'}
                             </button>
                             <p className="text-xs text-slate-500 text-center">
-                                Isto irá terminar a tua sessão atual.
+                                {isEn ? 'This will end your current session.' : 'Isto irá terminar a tua sessão atual.'}
                             </p>
                         </>
                     )}
@@ -472,7 +497,7 @@ function StepIdentification({ onNext, initialEmail, pilgrimageId }: { onNext: (e
                     onClick={() => setDuplicateFound(null)}
                     className="text-slate-500 text-sm hover:text-white underline"
                 >
-                    Tentar com outro email
+                    {isEn ? 'Try another email' : 'Tentar com outro email'}
                 </button>
             </div>
         );
@@ -484,8 +509,8 @@ function StepIdentification({ onNext, initialEmail, pilgrimageId }: { onNext: (e
                 <div className="w-20 h-20 bg-yellow-400/10 rounded-full flex items-center justify-center text-yellow-500 mx-auto mb-6">
                     <User className="w-10 h-10" />
                 </div>
-                <h2 className="text-3xl font-serif font-bold text-white mb-3">Vamos começar!</h2>
-                <p className="text-slate-400 text-lg">Indica os teus contactos.</p>
+                <h2 className="text-3xl font-serif font-bold text-white mb-3">{isEn ? "Let's get started!" : 'Vamos começar!'}</h2>
+                <p className="text-slate-400 text-lg">{isEn ? 'Enter your contact details.' : 'Indica os teus contactos.'}</p>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-6">
@@ -500,13 +525,13 @@ function StepIdentification({ onNext, initialEmail, pilgrimageId }: { onNext: (e
                             onChange={e => setEmail(e.target.value)}
                             disabled={loading || !!user}
                             className="w-full bg-slate-800 border-2 border-slate-700/50 focus:border-yellow-500 rounded-2xl pl-14 pr-6 py-5 text-white placeholder:text-slate-600 focus:outline-none transition-all text-xl shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
-                            placeholder="tu@email.com"
+                            placeholder={isEn ? 'you@email.com' : 'tu@email.com'}
                         />
                     </div>
                     {user && (
                         <div className="mt-2 px-2 flex items-start gap-2 text-sm">
                             <p className="text-slate-400 flex-1">
-                                🔒 A reserva será feita com o email da tua conta.{' '}
+                                🔒 {isEn ? 'The booking will be made with your account email.' : 'A reserva será feita com o email da tua conta.'}{' '}
                                 <button
                                     type="button"
                                     onClick={async () => {
@@ -515,7 +540,7 @@ function StepIdentification({ onNext, initialEmail, pilgrimageId }: { onNext: (e
                                     }}
                                     className="text-yellow-500 hover:text-yellow-400 underline"
                                 >
-                                    Não é você? Termine a sessão
+                                    {isEn ? "Not you? Sign out" : 'Não é você? Termine a sessão'}
                                 </button>
                             </p>
                         </div>
@@ -523,7 +548,7 @@ function StepIdentification({ onNext, initialEmail, pilgrimageId }: { onNext: (e
 
                 </div>
                 <div>
-                    <label className="text-lg uppercase font-bold text-slate-300 mb-2 block pl-2 tracking-wide">WhatsApp / Telemóvel</label>
+                    <label className="text-lg uppercase font-bold text-slate-300 mb-2 block pl-2 tracking-wide">{isEn ? 'WhatsApp / Mobile' : 'WhatsApp / Telemóvel'}</label>
                     <div className="relative">
                         {/* Custom CSS wrapper for React Phone Number Input to match theme */}
                         <div className="phone-input-wrapper text-lg">
@@ -561,11 +586,11 @@ function StepIdentification({ onNext, initialEmail, pilgrimageId }: { onNext: (e
                     disabled={loading}
                     className="w-full bg-yellow-600 hover:bg-yellow-500 text-slate-950 font-bold py-5 rounded-2xl shadow-xl shadow-yellow-900/20 transition-all transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-3 text-lg disabled:opacity-50 disabled:cursor-not-allowed mt-4"
                 >
-                    {loading ? <><Loader2 className="w-6 h-6 animate-spin" /> A verificar...</> : <>Continuar <ChevronRight className="w-6 h-6" /></>}
+                    {loading ? <><Loader2 className="w-6 h-6 animate-spin" /> {isEn ? 'Verifying...' : 'A verificar...'}</> : <>{isEn ? 'Continue' : 'Continuar'} <ChevronRight className="w-6 h-6" /></>}
                 </button>
 
                 <p className="text-xs text-slate-500 text-center px-4 mt-2">
-                    Usamos estes dados para enviar os bilhetes e informações importantes da viagem.
+                    {isEn ? 'We use this data to send your tickets and important travel information.' : 'Usamos estes dados para enviar os bilhetes e informações importantes da viagem.'}
                 </p>
             </form>
         </div>
@@ -574,7 +599,7 @@ function StepIdentification({ onNext, initialEmail, pilgrimageId }: { onNext: (e
 
 // Helper for Pilgrim Card to manage reactivity independently if needed, or straight in map
 // We will use standard map but boost Field Labels
-const PilgrimCard = ({ index, remove, control, register, errors, memberStatus, isLeader, leaderEmail, allEmails }: any) => {
+const PilgrimCard = ({ index, remove, control, register, errors, memberStatus, isLeader, leaderEmail, allEmails, isEn, countries }: any) => {
     // Watch Country for Postal Code Helper
     const country = useWatch({
         control,
@@ -582,31 +607,32 @@ const PilgrimCard = ({ index, remove, control, register, errors, memberStatus, i
         defaultValue: 'Portugal'
     });
 
-    const selectedCountry = COUNTRIES.find(c => c.name === country) || COUNTRIES[0];
+    const countryList = countries || COUNTRIES;
+    const selectedCountry = countryList.find((c: any) => c.name === country) || countryList[0];
     const postalPlaceholder = selectedCountry.postalPlaceholder || '0000-000';
 
     return (
         <div className="bg-slate-950/50 p-6 md:p-8 rounded-3xl border border-white/5 relative group space-y-6">
             <div className="flex justify-between items-center mb-4">
-                <span className="bg-slate-800 text-white text-xs font-bold px-4 py-2 rounded-full uppercase tracking-wider">Pessoa {index + 1}</span>
-                {index > 0 && <button type="button" onClick={() => remove(index)} className="text-red-500 text-sm font-bold opacity-70 hover:opacity-100 transition-opacity p-2">Remover</button>}
+                <span className="bg-slate-800 text-white text-xs font-bold px-4 py-2 rounded-full uppercase tracking-wider">{isEn ? 'Person' : 'Pessoa'} {index + 1}</span>
+                {index > 0 && <button type="button" onClick={() => remove(index)} className="text-red-500 text-sm font-bold opacity-70 hover:opacity-100 transition-opacity p-2">{isEn ? 'Remove' : 'Remover'}</button>}
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 {/* Personal */}
                 <div className="md:col-span-2">
-                    <label className="text-base uppercase font-bold text-yellow-500 mb-2 block tracking-wide">Nome Completo (Conforme Cartão Cidadão)</label>
+                    <label className="text-base uppercase font-bold text-yellow-500 mb-2 block tracking-wide">{isEn ? 'Full Name (as on ID document)' : 'Nome Completo (Conforme Cartão Cidadão)'}</label>
                     <input
                         {...register(`pilgrims.${index}.full_name`)}
                         className={`w-full bg-slate-800 border-2 rounded-xl px-6 py-5 text-white text-xl focus:outline-none focus:ring-0 shadow-inner ${errors.pilgrims?.[index]?.full_name ? 'border-red-500 error-ring' : 'border-slate-700 focus:border-yellow-500'}`}
-                        placeholder="Ex: Maria dos Anjos Silva"
+                        placeholder={isEn ? 'e.g. Mary Smith' : 'Ex: Maria dos Anjos Silva'}
                     />
                     {errors.pilgrims?.[index]?.full_name && <span className="text-red-500 text-base font-bold mt-2 block flex items-center gap-2 animate-pulse"><AlertCircle className="w-5 h-5" /> {errors.pilgrims[index]?.full_name?.message}</span>}
                 </div>
 
                 <div className="md:col-span-2 space-y-2">
                     <label className="text-base uppercase font-bold text-yellow-500 mb-2 block tracking-wide">
-                        Email {isLeader ? <span className="text-slate-500 text-xs normal-case ml-2">(Obrigatório)</span> : <span className="text-slate-500 text-xs normal-case ml-2">(Opcional - Para desconto Membro)</span>}
+                        Email {isLeader ? <span className="text-slate-500 text-xs normal-case ml-2">{isEn ? '(Required)' : '(Obrigatório)'}</span> : <span className="text-slate-500 text-xs normal-case ml-2">{isEn ? '(Optional - For Member discount)' : '(Opcional - Para desconto Membro)'}</span>}
                     </label>
                     <div className="relative">
                         <Controller
@@ -620,7 +646,7 @@ const PilgrimCard = ({ index, remove, control, register, errors, memberStatus, i
                                     type="email"
                                     readOnly={isLeader}
                                     className={`w-full bg-slate-800 border-2 border-slate-700 rounded-xl px-6 py-5 pl-12 text-white text-xl focus:border-yellow-500 focus:outline-none shadow-inner ${isLeader ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                    placeholder="email@exemplo.com"
+                                    placeholder={isEn ? 'email@example.com' : 'email@exemplo.com'}
                                 />
                             )}
                         />
@@ -639,7 +665,7 @@ const PilgrimCard = ({ index, remove, control, register, errors, memberStatus, i
                                 if (isDuplicate) {
                                     return (
                                         <div className="flex items-center gap-2 bg-red-500/20 text-red-400 px-3 py-1 rounded-full border border-red-500/50 text-xs font-bold animate-in slide-in-from-right-2">
-                                            <AlertCircle className="w-3 h-3" /> Email em uso
+                                            <AlertCircle className="w-3 h-3" /> {isEn ? 'Email in use' : 'Email em uso'}
                                         </div>
                                     );
                                 }
@@ -649,14 +675,14 @@ const PilgrimCard = ({ index, remove, control, register, errors, memberStatus, i
                                 if (isMember) {
                                     return (
                                         <div className="flex items-center gap-2 bg-emerald-500/20 text-emerald-400 px-3 py-1 rounded-full border border-emerald-500/50 text-xs font-bold animate-in zoom-in">
-                                            <Check className="w-3 h-3" /> Membro (-50€)
+                                            <Check className="w-3 h-3" /> {isEn ? 'Member (-€50)' : 'Membro (-50€)'}
                                         </div>
                                     );
                                 } else if (emailValue.length > 5) {
                                     // Non-member upsell
                                     return (
                                         <div className="hidden md:flex items-center gap-2 text-yellow-500/80 text-xs font-bold animate-in fade-in">
-                                            💡 Poupava 50€ se fosse membro
+                                            💡 {isEn ? 'You would save €50 as a member' : 'Poupava 50€ se fosse membro'}
                                         </div>
                                     );
                                 }
@@ -667,7 +693,7 @@ const PilgrimCard = ({ index, remove, control, register, errors, memberStatus, i
                 </div>
 
                 <div>
-                    <label className="text-base uppercase font-bold text-yellow-500 mb-2 block tracking-wide">Data Nascimento</label>
+                    <label className="text-base uppercase font-bold text-yellow-500 mb-2 block tracking-wide">{isEn ? 'Birth Date' : 'Data Nascimento'}</label>
                     <Controller
                         control={control}
                         name={`pilgrims.${index}.birth_date`}
@@ -682,18 +708,18 @@ const PilgrimCard = ({ index, remove, control, register, errors, memberStatus, i
                 </div>
 
                 <div>
-                    <label className="text-base uppercase font-bold text-yellow-500 mb-2 block tracking-wide">Sexo</label>
+                    <label className="text-base uppercase font-bold text-yellow-500 mb-2 block tracking-wide">{isEn ? 'Sex' : 'Sexo'}</label>
                     <select
                         {...register(`pilgrims.${index}.sex`)}
                         className={`w-full bg-slate-800 border-2 rounded-xl px-6 py-5 text-white text-xl focus:outline-none shadow-inner ${errors.pilgrims?.[index]?.sex ? 'border-red-500 error-ring' : 'border-slate-700 focus:border-yellow-500'}`}
                     >
-                        <option value="M">Masculino</option>
-                        <option value="F">Feminino</option>
+                        <option value="M">{isEn ? 'Male' : 'Masculino'}</option>
+                        <option value="F">{isEn ? 'Female' : 'Feminino'}</option>
                     </select>
                 </div>
 
                 <div className="md:col-span-2">
-                    <label className="text-base uppercase font-bold text-yellow-500 mb-2 block tracking-wide">NIF / CPF (Opcional)</label>
+                    <label className="text-base uppercase font-bold text-yellow-500 mb-2 block tracking-wide">{isEn ? 'Tax ID / NIF / CPF (Optional)' : 'NIF / CPF (Opcional)'}</label>
                     <input {...register(`pilgrims.${index}.cpf_nif`)} className="w-full bg-slate-800 border-2 border-slate-700 rounded-xl px-6 py-5 text-white text-xl focus:border-yellow-500 focus:outline-none shadow-inner" />
                 </div>
             </div>
@@ -701,37 +727,37 @@ const PilgrimCard = ({ index, remove, control, register, errors, memberStatus, i
             {/* Address */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-6 border-t border-white/5">
                 <div className="md:col-span-2">
-                    <label className="text-base uppercase font-bold text-yellow-500 mb-2 block tracking-wide">Morada Completa</label>
+                    <label className="text-base uppercase font-bold text-yellow-500 mb-2 block tracking-wide">{isEn ? 'Full Address' : 'Morada Completa'}</label>
                     <input
                         {...register(`pilgrims.${index}.address`)}
                         className={`w-full bg-slate-800 border-2 rounded-xl px-6 py-5 text-white text-xl focus:outline-none shadow-inner ${errors.pilgrims?.[index]?.address ? 'border-red-500 error-ring' : 'border-slate-700 focus:border-yellow-500'}`}
-                        placeholder="Rua..."
+                        placeholder={isEn ? 'Street...' : 'Rua...'}
                     />
                     {errors.pilgrims?.[index]?.address && <span className="text-red-500 text-base font-bold mt-2 block flex items-center gap-2 animate-pulse"><AlertCircle className="w-5 h-5" /> {errors.pilgrims[index]?.address?.message}</span>}
                 </div>
 
                 <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-8">
                     <div>
-                        <label className="text-base uppercase font-bold text-yellow-500 mb-2 block tracking-wide">País</label>
+                        <label className="text-base uppercase font-bold text-yellow-500 mb-2 block tracking-wide">{isEn ? 'Country' : 'País'}</label>
                         <select {...register(`pilgrims.${index}.country`)} className="w-full bg-slate-800 border-2 border-slate-700 rounded-xl px-6 py-5 text-white text-xl focus:border-yellow-500 focus:outline-none shadow-inner">
-                            {COUNTRIES.map(c => (
+                            {countryList.map((c: any) => (
                                 <option key={c.code} value={c.name}>{c.name}</option>
                             ))}
                         </select>
                     </div>
                     <div>
-                        <label className="text-base uppercase font-bold text-yellow-500 mb-2 block tracking-wide">Código Postal / CEP</label>
+                        <label className="text-base uppercase font-bold text-yellow-500 mb-2 block tracking-wide">{isEn ? 'Postal Code / ZIP' : 'Código Postal / CEP'}</label>
                         <div className="relative">
                             <input
                                 {...register(`pilgrims.${index}.postal_code`)}
                                 className={`w-full bg-slate-800 border-2 rounded-xl px-6 py-5 text-white text-xl focus:outline-none shadow-inner ${errors.pilgrims?.[index]?.postal_code ? 'border-red-500 error-ring' : 'border-slate-700 focus:border-yellow-500'}`}
                                 placeholder={postalPlaceholder}
                             />
-                            {selectedCountry.code === 'PT' && <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 text-base pointer-events-none font-bold opacity-50">ex: 2495-000</span>}
+                            {selectedCountry.code === 'PT' && <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 text-base pointer-events-none font-bold opacity-50">{isEn ? 'e.g. 2495-000' : 'ex: 2495-000'}</span>}
                         </div>
                     </div>
                     <div className="md:col-span-2">
-                        <label className="text-base uppercase font-bold text-yellow-500 mb-2 block tracking-wide">Cidade</label>
+                        <label className="text-base uppercase font-bold text-yellow-500 mb-2 block tracking-wide">{isEn ? 'City' : 'Cidade'}</label>
                         <input
                             {...register(`pilgrims.${index}.city`)}
                             className={`w-full bg-slate-800 border-2 rounded-xl px-6 py-5 text-white text-xl focus:outline-none shadow-inner ${errors.pilgrims?.[index]?.city ? 'border-red-500 error-ring' : 'border-slate-700 focus:border-yellow-500'}`}
@@ -744,25 +770,25 @@ const PilgrimCard = ({ index, remove, control, register, errors, memberStatus, i
             {/* Flight & Extras */}
             <div className="grid grid-cols-1 gap-8 pt-6 border-t border-white/5">
                 <div>
-                    <label className="text-base uppercase font-bold text-yellow-500 mb-2 block tracking-wide">Opção de Aéreo</label>
+                    <label className="text-base uppercase font-bold text-yellow-500 mb-2 block tracking-wide">{isEn ? 'Flight Option' : 'Opção de Aéreo'}</label>
                     <select
                         {...register(`pilgrims.${index}.flight_option`)}
                         className={`w-full bg-slate-800 border-2 rounded-xl px-6 py-5 text-white text-xl focus:outline-none shadow-inner ${errors.pilgrims?.[index]?.flight_option ? 'border-red-500 error-ring' : 'border-slate-700 focus:border-yellow-500'}`}
                     >
-                        <option value="" disabled>Selecione uma opção...</option>
-                        <option value="none">1. Não preciso (Vivo na Europa/Outro)</option>
-                        <option value="own">2. Eu compro as minhas passagens</option>
-                        <option value="agency">3. Quero comprar pela Agência</option>
+                        <option value="" disabled>{isEn ? 'Select an option...' : 'Selecione uma opção...'}</option>
+                        <option value="none">{isEn ? "1. I don't need it (I live in Europe/Other)" : '1. Não preciso (Vivo na Europa/Outro)'}</option>
+                        <option value="own">{isEn ? '2. I will buy my own tickets' : '2. Eu compro as minhas passagens'}</option>
+                        <option value="agency">{isEn ? '3. I want to buy through the Agency' : '3. Quero comprar pela Agência'}</option>
                     </select>
                     {errors.pilgrims?.[index]?.flight_option && <span className="text-red-500 text-base font-bold mt-2 block flex items-center gap-2 animate-pulse"><AlertCircle className="w-5 h-5" /> {errors.pilgrims[index]?.flight_option?.message}</span>}
                 </div>
                 <div>
-                    <label className="text-base uppercase font-bold text-yellow-500 mb-2 block tracking-wide">Alergias Alimentares?</label>
-                    <input {...register(`pilgrims.${index}.allergies`)} className="w-full bg-slate-800 border-2 border-slate-700 rounded-xl px-6 py-5 text-white text-xl focus:border-yellow-500 focus:outline-none shadow-inner" placeholder="Escreve 'Não' ou descreve a alergia..." />
+                    <label className="text-base uppercase font-bold text-yellow-500 mb-2 block tracking-wide">{isEn ? 'Food Allergies?' : 'Alergias Alimentares?'}</label>
+                    <input {...register(`pilgrims.${index}.allergies`)} className="w-full bg-slate-800 border-2 border-slate-700 rounded-xl px-6 py-5 text-white text-xl focus:border-yellow-500 focus:outline-none shadow-inner" placeholder={isEn ? "Write 'No' or describe the allergy..." : "Escreve 'Não' ou descreve a alergia..."} />
                 </div>
                 <div>
-                    <label className="text-base uppercase font-bold text-yellow-500 mb-2 block tracking-wide">Notas / Observações</label>
-                    <textarea {...register(`pilgrims.${index}.notes`)} className="w-full bg-slate-800 border-2 border-slate-700 rounded-xl px-6 py-5 text-white text-xl focus:border-yellow-500 focus:outline-none h-32 shadow-inner" placeholder="Algo mais que devamos saber?" />
+                    <label className="text-base uppercase font-bold text-yellow-500 mb-2 block tracking-wide">{isEn ? 'Notes / Observations' : 'Notas / Observações'}</label>
+                    <textarea {...register(`pilgrims.${index}.notes`)} className="w-full bg-slate-800 border-2 border-slate-700 rounded-xl px-6 py-5 text-white text-xl focus:border-yellow-500 focus:outline-none h-32 shadow-inner" placeholder={isEn ? 'Anything else we should know?' : 'Algo mais que devamos saber?'} />
                 </div>
             </div>
         </div>
@@ -778,6 +804,12 @@ export default function PilgrimageBookingPage() {
     const params = useParams();
     const router = useRouter();
     const slug = params.slug as string;
+    const { locale } = useLocale();
+    const isEn = locale === 'en';
+    const listPath = isEn ? '/en/pilgrimages' : '/peregrinacoes';
+    const myRegPath = isEn ? '/en/my-registrations' : '/peregrinacoes/minhas-inscricoes';
+    const bookingSchema = useMemo(() => createBookingSchema(isEn), [isEn]);
+    const countriesList = useMemo(() => getCountries(isEn), [isEn]);
 
     // State
     const [step, setStep] = useState(1);
@@ -924,7 +956,7 @@ export default function PilgrimageBookingPage() {
             });
 
             if (!hasAdult) {
-                alert("É necessário pelo menos um adulto (maior de 18 anos) responsável pela inscrição.");
+                alert(isEn ? 'At least one adult (18 or over) responsible for the registration is required.' : 'É necessário pelo menos um adulto (maior de 18 anos) responsável pela inscrição.');
                 return;
             }
         }
@@ -932,8 +964,8 @@ export default function PilgrimageBookingPage() {
             const assignedCount = rooms.reduce((acc, r) => acc + r.occupantIndexes.length, 0);
             if (assignedCount < fields.length) {
                 Swal.fire({
-                    title: 'Quartos por atribuir!',
-                    text: 'Por favor, coloca todos os peregrinos num quarto antes de continuar.',
+                    title: isEn ? 'Rooms not assigned!' : 'Quartos por atribuir!',
+                    text: isEn ? 'Please place all pilgrims in a room before continuing.' : 'Por favor, coloca todos os peregrinos num quarto antes de continuar.',
                     icon: 'warning',
                     confirmButtonColor: '#eab308'
                 });
@@ -947,11 +979,11 @@ export default function PilgrimageBookingPage() {
     const handleValidationErrors = () => {
         // 1. Show Global Alert
         Swal.fire({
-            title: 'Faltam dados obrigatórios!',
-            text: 'Existem campos por preencher ou incorretos. Por favor verifica os campos assinalados a vermelho.',
+            title: isEn ? 'Required data missing!' : 'Faltam dados obrigatórios!',
+            text: isEn ? 'There are empty or incorrect fields. Please check the fields marked in red.' : 'Existem campos por preencher ou incorretos. Por favor verifica os campos assinalados a vermelho.',
             icon: 'error',
             confirmButtonColor: '#d33',
-            confirmButtonText: 'Verificar Campos'
+            confirmButtonText: isEn ? 'Check Fields' : 'Verificar Campos'
         });
 
         // 2. Scroll to first error
@@ -985,11 +1017,11 @@ export default function PilgrimageBookingPage() {
                 // Append Room Details to Notes
                 let extraNotes = '';
                 if (room) {
-                    if (room.bed_type) extraNotes += `\n[Pref. Cama: ${room.bed_type === 'big_bed' ? 'Casal' : 'Twin'}]`;
-                    if (room.sharing_mode) extraNotes += `\n[Modo Partilha: ${room.sharing_mode === 'random' ? 'Aleatório' : 'Com Amigo'}]`;
+                    if (room.bed_type) extraNotes += `\n[${isEn ? 'Bed Pref.' : 'Pref. Cama'}: ${room.bed_type === 'big_bed' ? (isEn ? 'Double' : 'Casal') : 'Twin'}]`;
+                    if (room.sharing_mode) extraNotes += `\n[${isEn ? 'Sharing Mode' : 'Modo Partilha'}: ${room.sharing_mode === 'random' ? (isEn ? 'Random' : 'Aleatório') : (isEn ? 'With Friend' : 'Com Amigo')}]`;
                     if (room.sharing_with_names && room.sharing_with_names.length > 0) {
                         const names = room.sharing_with_names.filter(Boolean).join(', ');
-                        if (names) extraNotes += `\n[Com Quem: ${names}]`;
+                        if (names) extraNotes += `\n[${isEn ? 'With Whom' : 'Com Quem'}: ${names}]`;
                     }
                 }
 
@@ -1023,7 +1055,8 @@ export default function PilgrimageBookingPage() {
                 installment_count: installmentCount || getMaxInstallments(pilgrimage.start_date),
                 payment_plan: paymentPlan ? JSON.stringify(paymentPlan) : undefined,
                 pilgrim_data: pilgrimsPayload,
-                terms_accepted: data.terms_accepted
+                terms_accepted: data.terms_accepted,
+                locale: isEn ? 'en' : 'pt'
             }, setSession);
 
             console.log("✅ [Frontend] handleBookingWithAutoLogin completed");
@@ -1033,8 +1066,20 @@ export default function PilgrimageBookingPage() {
             // [UX IMPROVEMENT] Show Success Modal before redirecting
             // This prevents "disappearing" feeling
             await Swal.fire({
-                title: 'Inscrição Confirmada! 🎉',
-                html: `
+                title: isEn ? 'Registration Confirmed! 🎉' : 'Inscrição Confirmada! 🎉',
+                html: isEn ? `
+                    <div class="space-y-4 text-left">
+                        <p>Your booking was successfully registered.</p>
+                        <div class="bg-yellow-500/10 p-4 rounded-xl border border-yellow-500/20">
+                            <p class="font-bold text-yellow-600 mb-1">What happens next?</p>
+                            <ul class="list-disc list-inside text-sm text-slate-600 space-y-1">
+                                <li>You will choose the payment method on the next page.</li>
+                                <li>If you choose bank transfer, the proof of payment is mandatory to enter validation.</li>
+                                <li>You will be redirected to the payments page.</li>
+                            </ul>
+                        </div>
+                    </div>
+                ` : `
                     <div class="space-y-4 text-left">
                         <p>A sua reserva foi registada com sucesso.</p>
                         <div class="bg-yellow-500/10 p-4 rounded-xl border border-yellow-500/20">
@@ -1048,7 +1093,7 @@ export default function PilgrimageBookingPage() {
                     </div>
                 `,
                 icon: 'success',
-                confirmButtonText: 'Ir para Pagamentos',
+                confirmButtonText: isEn ? 'Go to Payments' : 'Ir para Pagamentos',
                 confirmButtonColor: '#eab308',
                 timer: 5000,
                 timerProgressBar: true,
@@ -1058,7 +1103,8 @@ export default function PilgrimageBookingPage() {
             // Always go directly to the booking payment page.
             // Keep viewToken to guarantee immediate access even without active session.
             const encodedViewToken = encodeURIComponent(result.view_token || '');
-            const redirectUrl = `/peregrinacoes/inscricao/${result.booking_id}?viewToken=${encodedViewToken}&token=${encodedViewToken}${result.new_account ? '&first_time=true' : ''}`;
+            const inscricaoBase = isEn ? '/en/pilgrimages/registration' : '/peregrinacoes/inscricao';
+            const redirectUrl = `${inscricaoBase}/${result.booking_id}?viewToken=${encodedViewToken}&token=${encodedViewToken}${result.new_account ? '&first_time=true' : ''}`;
             console.log("🔄 [Frontend] Redirecting to:", redirectUrl);
             window.location.href = redirectUrl;
 
@@ -1071,8 +1117,12 @@ export default function PilgrimageBookingPage() {
 
                 // 1. Show Friendly Modal
                 const { isConfirmed } = await Swal.fire({
-                    title: 'Já tem conta ativa!',
-                    html: `
+                    title: isEn ? 'You already have an active account!' : 'Já tem conta ativa!',
+                    html: isEn ? `
+                        <p class="mb-4">The email <strong>${userEmail}</strong> is already registered on our platform.</p>
+                        <p class="mb-4 text-sm text-slate-400">For your security, we need you to confirm your identity.</p>
+                        <p class="font-bold text-yellow-500">Would you like to receive a link by email to sign in without a password?</p>
+                    ` : `
                         <p class="mb-4">O email <strong>${userEmail}</strong> já está registado na nossa plataforma.</p>
                         <p class="mb-4 text-sm text-slate-400">Para sua segurança, precisamos que confirme a sua identidade.</p>
                         <p class="font-bold text-yellow-500">Quer receber um link no email para entrar sem password?</p>
@@ -1081,60 +1131,59 @@ export default function PilgrimageBookingPage() {
                     showCancelButton: true,
                     confirmButtonColor: '#eab308',
                     cancelButtonColor: '#334155',
-                    confirmButtonText: 'Sim, enviar Link',
-                    cancelButtonText: 'Não, vou tentar outra vez'
+                    confirmButtonText: isEn ? 'Yes, send Link' : 'Sim, enviar Link',
+                    cancelButtonText: isEn ? "No, I'll try again" : 'Não, vou tentar outra vez'
                 });
 
-                // 2. Send Magic Link if requested
                 if (isConfirmed) {
                     Swal.fire({
-                        title: 'A enviar...',
+                        title: isEn ? 'Sending...' : 'A enviar...',
                         didOpen: () => Swal.showLoading()
                     });
 
                     try {
-                        if (!supabaseBrowser) throw new Error("Cliente Supabase não inicializado");
+                        if (!supabaseBrowser) throw new Error(isEn ? 'Supabase client not initialized' : 'Cliente Supabase não inicializado');
 
+                        const redirectPath = isEn ? `/en/pilgrimages/${slug}/register` : `/peregrinacoes/${slug}/inscrever`;
                         const { error } = await supabaseBrowser.auth.signInWithOtp({
                             email: userEmail,
                             options: {
-                                emailRedirectTo: `${window.location.origin}/auth-callback?next=/peregrinacoes/${slug}/inscrever`,
-                                // Store current form data in localStorage? For now, let's just get them logged in.
+                                emailRedirectTo: `${window.location.origin}/auth-callback?next=${redirectPath}`,
                             }
                         });
 
                         if (error) throw error;
 
                         Swal.fire({
-                            title: 'Verifique o seu email',
-                            text: 'Enviámos um link mágico! Clique nele para entrar e finalizar a inscrição.',
+                            title: isEn ? 'Check your email' : 'Verifique o seu email',
+                            text: isEn ? 'We sent a magic link! Click it to sign in and finish your registration.' : 'Enviámos um link mágico! Clique nele para entrar e finalizar a inscrição.',
                             icon: 'success',
-                            confirmButtonText: 'Entendido'
+                            confirmButtonText: isEn ? 'Got it' : 'Entendido'
                         });
 
                     } catch (magicErr: any) {
-                        Swal.fire('Erro', 'Não foi possível enviar o link: ' + magicErr.message, 'error');
+                        Swal.fire(isEn ? 'Error' : 'Erro', (isEn ? 'Could not send the link: ' : 'Não foi possível enviar o link: ') + magicErr.message, 'error');
                     }
                 }
                 return;
             }
 
             console.error("🚨 [Frontend] Error stack:", err.stack);
-            alert("Erro: " + err.message);
+            alert((isEn ? 'Error: ' : 'Erro: ') + err.message);
             setSubmitting(false);
         }
     };
 
 
     if (loading || authLoading) return <div className="min-h-screen bg-slate-950 flex items-center justify-center"><Loader2 className="animate-spin text-yellow-500 w-10 h-10" /></div>;
-    if (!pilgrimage) return <div className="text-white text-center pt-20">Peregrinação não encontrada.</div>;
+    if (!pilgrimage) return <div className="text-white text-center pt-20">{isEn ? 'Pilgrimage not found.' : 'Peregrinação não encontrada.'}</div>;
 
     return (
         <VIPLayout allowPublic={true}>
             <header className="fixed top-0 left-0 right-0 z-50 bg-slate-950/80 backdrop-blur-md border-b border-white/5 h-20">
                 <div className="container mx-auto px-4 h-full flex items-center justify-between">
                     <span className="font-serif font-bold text-white text-lg tracking-wider">APP GAR</span>
-                    <button onClick={() => window.history.back()} className="text-slate-400 text-sm font-bold hover:text-white transition-colors">Cancelar</button>
+                    <button onClick={() => window.history.back()} className="text-slate-400 text-sm font-bold hover:text-white transition-colors">{isEn ? 'Cancel' : 'Cancelar'}</button>
                 </div>
             </header>
 
@@ -1148,8 +1197,8 @@ export default function PilgrimageBookingPage() {
                     ))}
                 </div>
 
-                <h1 className="text-center text-3xl md:text-4xl font-serif font-bold text-white mb-2">{pilgrimage.title}</h1>
-                <p className="text-center text-slate-400 mb-12">Passo {step}: {step === 1 ? 'Identificação' : step === 2 ? 'Dados das Pessoas' : step === 3 ? 'Alojamento' : 'Doação'}</p>
+                <h1 className="text-center text-3xl md:text-4xl font-serif font-bold text-white mb-2">{(isEn && pilgrimage.title_en) ? pilgrimage.title_en : pilgrimage.title}</h1>
+                <p className="text-center text-slate-400 mb-12">{isEn ? 'Step' : 'Passo'} {step}: {isEn ? (step === 1 ? 'Identification' : step === 2 ? 'People Details' : step === 3 ? 'Accommodation' : 'Donation') : (step === 1 ? 'Identificação' : step === 2 ? 'Dados das Pessoas' : step === 3 ? 'Alojamento' : 'Doação')}</p>
 
                 <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 md:p-12 shadow-2xl relative overflow-hidden min-h-[400px]">
                     {step === 1 && <StepIdentification onNext={handleIdentitySubmit} initialEmail={userEmail} pilgrimageId={pilgrimage.id} />}
@@ -1161,7 +1210,7 @@ export default function PilgrimageBookingPage() {
                                     {step === 2 && (
                                         <div className="space-y-6">
                                             <div className="flex justify-between items-center pb-4 border-b border-white/5">
-                                                <h3 className="text-xl font-bold text-white">Quem vai viajar?</h3>
+                                                <h3 className="text-xl font-bold text-white">{isEn ? 'Who is traveling?' : 'Quem vai viajar?'}</h3>
                                             </div>
                                             {fields.map((field, idx) => (
                                                 <PilgrimCard
@@ -1175,19 +1224,20 @@ export default function PilgrimageBookingPage() {
                                                     isLeader={idx === 0}
                                                     leaderEmail={userEmail}
                                                     allEmails={currentPilgrims.map(p => p.email)}
+                                                    isEn={isEn}
+                                                    countries={countriesList}
                                                 />
                                             ))}
                                             <div className="bg-yellow-500/10 border-2 border-yellow-500/50 rounded-3xl p-6 text-center space-y-4">
                                                 <div className="flex justify-center"><AlertCircle className="w-10 h-10 text-yellow-500" /></div>
                                                 <div className="space-y-1">
-                                                    <h4 className="text-xl font-bold text-white">Adicionar Familiar</h4>
+                                                    <h4 className="text-xl font-bold text-white">{isEn ? 'Add Family Member' : 'Adicionar Familiar'}</h4>
                                                     <p className="text-sm text-yellow-200/80 max-w-lg mx-auto leading-relaxed">
-                                                        ATENÇÃO: Só deves adicionar pessoas do teu <span className="font-bold text-yellow-500 uppercase">Agregado Familiar</span> (Pai, Mãe, Filhos) que vivam contigo.
-                                                        <br />Para amigos ou conhecidos, cada uno deve fazer a sua própria inscrição separadamente.
+                                                        {isEn ? <>ATTENTION: You should only add members of your <span className="font-bold text-yellow-500 uppercase">Household</span> (Father, Mother, Children) who live with you.<br />For friends or acquaintances, each one must make their own separate registration.</> : <>ATENÇÃO: Só deves adicionar pessoas do teu <span className="font-bold text-yellow-500 uppercase">Agregado Familiar</span> (Pai, Mãe, Filhos) que vivam contigo.<br />Para amigos ou conhecidos, cada uno deve fazer a sua própria inscrição separadamente.</>}
                                                     </p>
                                                 </div>
-                                                <button type="button" onClick={() => append({ full_name: '', email: '', phone: '', birth_date: '', sex: 'M', address: '', postal_code: '', city: '', country: 'Portugal', flight_option: '' as any, allergies: 'Não', notes: '', cpf_nif: '' })} className="bg-yellow-500 hover:bg-yellow-400 text-black px-8 py-3 rounded-xl font-bold transition-all shadow-lg shadow-yellow-500/20 active:scale-95">
-                                                    Entendido, adicionar familiar
+                                                <button type="button" onClick={() => append({ full_name: '', email: '', phone: '', birth_date: '', sex: 'M', address: '', postal_code: '', city: '', country: 'Portugal', flight_option: '' as any, allergies: isEn ? 'No' : 'Não', notes: '', cpf_nif: '' })} className="bg-yellow-500 hover:bg-yellow-400 text-black px-8 py-3 rounded-xl font-bold transition-all shadow-lg shadow-yellow-500/20 active:scale-95">
+                                                    {isEn ? 'Understood, add family member' : 'Entendido, adicionar familiar'}
                                                 </button>
                                             </div>
                                             <div className="pt-8">
@@ -1196,7 +1246,7 @@ export default function PilgrimageBookingPage() {
                                                     onClick={nextStep}
                                                     className="w-full bg-yellow-500 hover:bg-yellow-400 text-slate-900 font-bold py-6 rounded-2xl shadow-xl shadow-yellow-500/20 transition-all transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-3 text-xl uppercase tracking-wider"
                                                 >
-                                                    Passo Seguinte <ChevronRight className="w-6 h-6" />
+                                                    {isEn ? 'Next Step' : 'Passo Seguinte'} <ChevronRight className="w-6 h-6" />
                                                 </button>
                                             </div>
                                         </div>
@@ -1204,37 +1254,35 @@ export default function PilgrimageBookingPage() {
 
                                     {step === 3 && (
                                         <div className="space-y-6">
-                                            <div className="flex justify-between items-center pb-4 border-b border-white/5"><h3 className="text-xl font-bold text-white">Distribuição de Quartos</h3></div>
+                                            <div className="flex justify-between items-center pb-4 border-b border-white/5"><h3 className="text-xl font-bold text-white">{isEn ? 'Room Distribution' : 'Distribuição de Quartos'}</h3></div>
                                             <RoomOrganizer
                                                 pilgrims={watch('pilgrims')}
                                                 onUpdate={setRooms}
                                                 pricing={pilgrimage?.pricing_config?.room_supplements}
                                             />
-                                            <div className="flex justify-between pt-8"><button type="button" onClick={() => setStep(2)} className="text-slate-400 font-bold hover:text-white">Voltar</button><button type="button" onClick={nextStep} className="bg-white text-slate-900 px-8 py-3 rounded-xl font-bold hover:bg-slate-200 transition-colors flex items-center gap-2">Rever Doação <ChevronRight className="w-5 h-5" /></button></div>
+                                            <div className="flex justify-between pt-8"><button type="button" onClick={() => setStep(2)} className="text-slate-400 font-bold hover:text-white">{isEn ? 'Back' : 'Voltar'}</button><button type="button" onClick={nextStep} className="bg-white text-slate-900 px-8 py-3 rounded-xl font-bold hover:bg-slate-200 transition-colors flex items-center gap-2">{isEn ? 'Review Donation' : 'Rever Doação'} <ChevronRight className="w-5 h-5" /></button></div>
                                         </div>
                                     )}
 
                                     {step === 4 && (
                                         <div className="space-y-8">
-                                            <div className="text-center"><h2 className="text-3xl font-bold text-white mb-2">Quase lá!</h2><p className="text-slate-400">Verifica o resumo final antes de confirmar.</p></div>
+                                            <div className="text-center"><h2 className="text-3xl font-bold text-white mb-2">{isEn ? 'Almost there!' : 'Quase lá!'}</h2><p className="text-slate-400">{isEn ? 'Check the final summary before confirming.' : 'Verifica o resumo final antes de confirmar.'}</p></div>
 
                                             <div className="bg-slate-950 p-6 rounded-3xl space-y-4 border border-white/5">
                                                 {pricedPilgrims.map(({ pilgrim: f, index: i, price: pPrice }) => {
                                                     return (
                                                         <div key={i} className="flex justify-between items-center text-sm border-b border-white/5 pb-3 last:border-0 last:pb-0">
                                                             <div>
-                                                                <p className="font-bold text-white">{f.full_name || 'Pessoa ' + (i + 1)}</p>
+                                                                <p className="font-bold text-white">{f.full_name || (isEn ? 'Person ' : 'Pessoa ') + (i + 1)}</p>
                                                                 <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">
-                                                                    {pPrice.roomType === 'single' ? 'Quarto Individual' :
-                                                                        pPrice.roomType === 'double' ? 'Quarto Duplo (Partilhado)' :
-                                                                            pPrice.roomType === 'triple' ? 'Quarto Triplo' : 'Quarto Familiar'}
+                                                                    {isEn ? (pPrice.roomType === 'single' ? 'Single Room' : pPrice.roomType === 'double' ? 'Double Room (Shared)' : pPrice.roomType === 'triple' ? 'Triple Room' : 'Family Room') : (pPrice.roomType === 'single' ? 'Quarto Individual' : pPrice.roomType === 'double' ? 'Quarto Duplo (Partilhado)' : pPrice.roomType === 'triple' ? 'Quarto Triplo' : 'Quarto Familiar')}
                                                                 </p>
-                                                                {pPrice.isMember && <p className="text-xs text-emerald-400 font-bold uppercase tracking-wider mt-1 flex items-center gap-1"><Check className="w-3 h-3" /> Membro (-50,00€)</p>}
+                                                                {pPrice.isMember && <p className="text-xs text-emerald-400 font-bold uppercase tracking-wider mt-1 flex items-center gap-1"><Check className="w-3 h-3" /> {isEn ? 'Member (-€50.00)' : 'Membro (-50,00€)'}</p>}
                                                             </div>
                                                             <div className="text-right">
                                                                 <p className="text-white font-mono font-bold">{formatMoney(pPrice.finalPrice)}</p>
-                                                                {pPrice.isChild && <p className="text-[10px] text-emerald-400 font-bold">Dsc. Criança (20%)</p>}
-                                                                {pPrice.isInfant && <p className="text-[10px] text-emerald-400 font-bold">Isenção Bebé</p>}
+                                                                {pPrice.isChild && <p className="text-[10px] text-emerald-400 font-bold">{isEn ? 'Child Disc. (20%)' : 'Dsc. Criança (20%)'}</p>}
+                                                                {pPrice.isInfant && <p className="text-[10px] text-emerald-400 font-bold">{isEn ? 'Infant Exemption' : 'Isenção Bebé'}</p>}
                                                             </div>
                                                         </div>
                                                     );
@@ -1242,55 +1290,55 @@ export default function PilgrimageBookingPage() {
 
                                                 <div className="pt-4 space-y-2 border-t border-white/10">
                                                     <div className="flex justify-between text-xs">
-                                                        <span className="text-slate-500">Donativos Base</span>
+                                                        <span className="text-slate-500">{isEn ? 'Base Donations' : 'Donativos Base'}</span>
                                                         <span className="text-slate-300 font-mono">{formatMoney(baseTotal)}</span>
                                                     </div>
                                                     <div className="flex justify-between text-xs">
-                                                        <span className="text-slate-500">Taxas de Inscrição</span>
+                                                        <span className="text-slate-500">{isEn ? 'Registration Fees' : 'Taxas de Inscrição'}</span>
                                                         <span className="text-slate-300 font-mono">{formatMoney(depositTotal)}</span>
                                                     </div>
                                                     {supplementsTotal > 0 && (
                                                         <div className="flex justify-between text-xs">
-                                                            <span className="text-slate-500">Suplementos de Alojamento</span>
+                                                            <span className="text-slate-500">{isEn ? 'Accommodation Supplements' : 'Suplementos de Alojamento'}</span>
                                                             <span className="text-slate-300 font-mono">+{formatMoney(supplementsTotal)}</span>
                                                         </div>
                                                     )}
                                                     {ageDiscountTotal > 0 && (
                                                         <div className="flex justify-between text-xs">
-                                                            <span className="text-slate-500">Desconto Criança/Bebé</span>
+                                                            <span className="text-slate-500">{isEn ? 'Child/Infant Discount' : 'Desconto Criança/Bebé'}</span>
                                                             <span className="text-emerald-400 font-mono">-{formatMoney(ageDiscountTotal)}</span>
                                                         </div>
                                                     )}
                                                     {memberDiscountTotal > 0 && (
                                                         <div className="flex justify-between text-xs">
-                                                            <span className="text-slate-500">Desconto de Membro</span>
+                                                            <span className="text-slate-500">{isEn ? 'Member Discount' : 'Desconto de Membro'}</span>
                                                             <span className="text-emerald-400 font-mono">-{formatMoney(memberDiscountTotal)}</span>
                                                         </div>
                                                     )}
                                                     <div className="flex justify-between items-center pt-2">
-                                                        <span className="text-slate-400 font-bold uppercase tracking-widest text-xs">Total da Reserva</span>
+                                                        <span className="text-slate-400 font-bold uppercase tracking-widest text-xs">{isEn ? 'Booking Total' : 'Total da Reserva'}</span>
                                                         <span className="text-3xl font-bold text-white font-mono">{formatMoney(totalBookingAmount)}</span>
                                                     </div>
                                                 </div>
                                             </div>
 
                                             <div className="space-y-4">
-                                                <p className="text-sm font-bold text-slate-400 uppercase tracking-tight text-center">Escolhe o método de doação</p>
+                                                <p className="text-sm font-bold text-slate-400 uppercase tracking-tight text-center">{isEn ? 'Choose your donation method' : 'Escolhe o método de doação'}</p>
 
                                                 <div className="grid gap-3">
                                                     <label className={`flex items-center gap-4 p-5 rounded-2xl border-2 transition-all cursor-pointer ${watch('payment_method') === 'installments' ? 'bg-yellow-500/10 border-yellow-500 shadow-lg shadow-yellow-500/10' : 'bg-slate-800/50 border-slate-700 hover:border-slate-600'}`}>
                                                         <input type="radio" value="installments" {...methods.register('payment_method')} className="w-6 h-6 text-yellow-500 accent-yellow-500" />
                                                         <div className="flex-1">
-                                                            <div className="font-bold text-white text-lg">Quero fazer doação em várias parcelas mensais</div>
-                                                            <div className="text-sm text-slate-400">Doa o sinal agora (<span className="text-white font-bold">{formatMoney(depositTotal)}</span>) e o resto depois.</div>
+                                                            <div className="font-bold text-white text-lg">{isEn ? 'I want to donate in several monthly installments' : 'Quero fazer doação em várias parcelas mensais'}</div>
+                                                            <div className="text-sm text-slate-400">{isEn ? <>Donate the deposit now (<span className="text-white font-bold">{formatMoney(depositTotal)}</span>) and the rest later.</> : <>Doa o sinal agora (<span className="text-white font-bold">{formatMoney(depositTotal)}</span>) e o resto depois.</>}</div>
                                                         </div>
                                                     </label>
 
                                                     <label className={`flex items-center gap-4 p-5 rounded-2xl border-2 transition-all cursor-pointer ${watch('payment_method') === 'full' ? 'bg-yellow-500/10 border-yellow-500 shadow-lg shadow-yellow-500/10' : 'bg-slate-800/50 border-slate-700 hover:border-slate-600'}`}>
                                                         <input type="radio" value="full" {...methods.register('payment_method')} className="w-6 h-6 text-yellow-500 accent-yellow-500" />
                                                         <div className="flex-1">
-                                                            <div className="font-bold text-white text-lg">Quero fazer doação total</div>
-                                                            <div className="text-sm text-slate-400">Doa já o valor total (<span className="text-white font-bold">{formatMoney(totalBookingAmount)}</span>).</div>
+                                                            <div className="font-bold text-white text-lg">{isEn ? 'I want to donate the full amount' : 'Quero fazer doação total'}</div>
+                                                            <div className="text-sm text-slate-400">{isEn ? <>Donate the full amount now (<span className="text-white font-bold">{formatMoney(totalBookingAmount)}</span>).</> : <>Doa já o valor total (<span className="text-white font-bold">{formatMoney(totalBookingAmount)}</span>).</>}</div>
                                                         </div>
                                                     </label>
                                                 </div>
@@ -1298,8 +1346,8 @@ export default function PilgrimageBookingPage() {
                                                 {watch('payment_method') === 'installments' && (
                                                     <div className="mt-4 bg-slate-900/50 rounded-2xl p-6 border-2 border-yellow-500/20 animate-in fade-in slide-in-from-top-2">
                                                         <div className="text-center mb-6">
-                                                            <p className="text-xs font-bold text-yellow-500 uppercase tracking-widest mb-2">Plano de Doações Personalizado</p>
-                                                            <h4 className="text-white font-bold text-lg">Em quantas prestações quer doar?</h4>
+                                                            <p className="text-xs font-bold text-yellow-500 uppercase tracking-widest mb-2">{isEn ? 'Custom Donation Plan' : 'Plano de Doações Personalizado'}</p>
+                                                            <h4 className="text-white font-bold text-lg">{isEn ? 'In how many installments would you like to donate?' : 'Em quantas prestações quer doar?'}</h4>
                                                         </div>
 
                                                         {getMaxInstallments(pilgrimage.start_date) > 1 ? (
@@ -1321,13 +1369,13 @@ export default function PilgrimageBookingPage() {
                                                             </div>
                                                         ) : (
                                                             <div className="text-center mb-6 py-4 bg-slate-800/50 rounded-xl border border-white/5">
-                                                                <p className="text-sm text-slate-400">Devido à proximidade da data, apenas 1 prestação é possível.</p>
+                                                                <p className="text-sm text-slate-400">{isEn ? 'Due to the proximity of the date, only 1 installment is possible.' : 'Devido à proximidade da data, apenas 1 prestação é possível.'}</p>
                                                             </div>
                                                         )}
 
                                                         <div className="space-y-3">
                                                             <div className="flex justify-between text-sm py-2 border-b border-white/5">
-                                                                <span className="text-slate-400 italic">Hoje (Inscrição)</span>
+                                                                <span className="text-slate-400 italic">{isEn ? 'Today (Registration)' : 'Hoje (Inscrição)'}</span>
                                                                 <span className="text-white font-bold">{formatMoney(depositTotal)}</span>
                                                             </div>
                                                             {calculateInstallments(
@@ -1337,15 +1385,17 @@ export default function PilgrimageBookingPage() {
                                                             ).map((inst, idx) => (
                                                                 <div key={idx} className="flex justify-between text-sm py-2 border-b border-white/5 last:border-0">
                                                                     <span className="text-slate-300">
-                                                                        Mensalidade {idx + 1} - {inst.date.toLocaleDateString('pt-PT', { month: 'long', year: 'numeric' })}
+                                                                        {isEn ? 'Installment' : 'Mensalidade'} {idx + 1} - {inst.date.toLocaleDateString(isEn ? 'en-US' : 'pt-PT', { month: 'long', year: 'numeric' })}
                                                                     </span>
                                                                     <span className="text-white font-bold">{formatMoney(inst.amount)}</span>
                                                                 </div>
                                                             ))}
                                                         </div>
                                                         <p className="text-[10px] text-slate-500 mt-6 leading-relaxed italic text-center px-4">
-                                                            * O valor em falta de {formatMoney(totalBookingAmount - depositTotal)} será dividido em {installmentCount || getMaxInstallments(pilgrimage.start_date)} mensalidades pagas via Transferência Bancária ou MBWAY.
-                                                            Enviaremos os lembretes por WhatsApp/Email todos os meses.
+                                                            {isEn
+                                                                ? `* The remaining amount of ${formatMoney(totalBookingAmount - depositTotal)} will be divided into ${installmentCount || getMaxInstallments(pilgrimage.start_date)} installments paid by Bank Transfer or MBWAY. We will send reminders via WhatsApp/Email every month.`
+                                                                : `* O valor em falta de ${formatMoney(totalBookingAmount - depositTotal)} será dividido em ${installmentCount || getMaxInstallments(pilgrimage.start_date)} mensalidades pagas via Transferência Bancária ou MBWAY. Enviaremos os lembretes por WhatsApp/Email todos os meses.`
+                                                            }
                                                         </p>
                                                     </div>
                                                 )}
@@ -1357,20 +1407,20 @@ export default function PilgrimageBookingPage() {
                                                         <input type="checkbox" {...methods.register('terms_accepted')} className="w-5 h-5 text-yellow-500 rounded border-slate-700 bg-slate-800 focus:ring-yellow-500" />
                                                     </div>
                                                     <span className="text-sm text-slate-400 group-hover:text-slate-300 transition-colors">
-                                                        Confirmo que li e aceito os <a href="/termos#peregrinacoes" target="_blank" className="underline font-bold text-slate-200">Termos e Condições</a> e a política de cancelamento das peregrinações.
+                                                        {isEn ? <>I confirm that I have read and accept the <a href={isEn ? '/en/terms#pilgrimages' : '/termos#peregrinacoes'} target="_blank" className="underline font-bold text-slate-200">Terms and Conditions</a> and the pilgrimage cancellation policy.</> : <>Confirmo que li e aceito os <a href="/termos#peregrinacoes" target="_blank" className="underline font-bold text-slate-200">Termos e Condições</a> e a política de cancelamento das peregrinações.</>}
                                                     </span>
                                                 </label>
                                                 {errors.terms_accepted && <p className="text-red-500 text-xs font-bold animate-bounce tracking-wide">{errors.terms_accepted.message}</p>}
                                             </div>
 
                                             <div className="flex justify-between items-center pt-4">
-                                                <button type="button" onClick={() => setStep(3)} className="text-slate-500 font-bold hover:text-white transition-colors">Voltar</button>
+                                                <button type="button" onClick={() => setStep(3)} className="text-slate-500 font-bold hover:text-white transition-colors">{isEn ? 'Back' : 'Voltar'}</button>
                                                 <button
                                                     type="submit"
                                                     disabled={submitting}
                                                     className="bg-yellow-500 hover:bg-yellow-400 text-slate-900 px-10 py-5 rounded-2xl font-bold transition-all shadow-xl shadow-yellow-500/20 active:scale-95 disabled:opacity-50 flex items-center gap-3 text-lg"
                                                 >
-                                                    {submitting ? <><Loader2 className="animate-spin" /> A processar inscrição...</> : 'Confirmar Inscrição'}
+                                                    {submitting ? <><Loader2 className="animate-spin" /> {isEn ? 'Processing registration...' : 'A processar inscrição...'}</> : (isEn ? 'Confirm Registration' : 'Confirmar Inscrição')}
                                                 </button>
                                             </div>
                                         </div>
@@ -1381,6 +1431,7 @@ export default function PilgrimageBookingPage() {
                     )}
                 </div>
             </main>
+            <ChatWidget pilgrimageSlug={slug} pilgrimageTitle={pilgrimage?.title} context="registration-form" />
         </VIPLayout>
     );
 }

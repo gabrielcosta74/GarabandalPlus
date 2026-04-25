@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { supabaseServer } from '../../../../../lib/supabase';
 import { inferIsDigitalProduct } from '../../../../../lib/product-kind';
+import { inferRequestLocale } from '../../../../../lib/locale-routing';
+import { getStoreProductTypeText, localizeStoreProductText } from '../../../../../lib/store-i18n';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -11,6 +13,8 @@ export async function GET(
 ) {
     const { id } = await params;
     const rawId = decodeURIComponent(id);
+    const { searchParams } = new URL(request.url);
+    const locale = searchParams.get('locale') === 'en' ? 'en' : inferRequestLocale(request);
 
     if (!supabaseServer) {
         return NextResponse.json({ error: 'Database not available' }, { status: 500 });
@@ -32,7 +36,7 @@ export async function GET(
         const { data: products, error } = await supabaseServer
             .from('store_products')
             .select(
-                'product_id, name, description, category_id, category, price, currency, stock, is_active, is_physical, type_id, metadata, image_url, digital_url, allowed_countries, tax_rate, specifications, variants:product_variants(*), category_info:categories(name)'
+                'product_id, name, name_en, description, description_en, category_id, category, price, currency, stock, is_active, is_physical, type_id, metadata, image_url, digital_url, allowed_countries, tax_rate, specifications, variants:product_variants(*), category_info:categories(name)'
             )
             .in('product_id', candidateList)
             .eq('is_active', true);
@@ -59,18 +63,21 @@ export async function GET(
             digitalUrl: productData.digital_url,
         });
         const isPhysical = !isDigital;
+        const localizedProduct = localizeStoreProductText(productData, locale);
+        const localizedCategory = localizeStoreProductText({ category, type_id: productData.type_id }, locale).category;
+        const typeText = getStoreProductTypeText(isPhysical, locale);
 
         const mappedProduct = {
             id: productData.product_id,
-            name: productData.name || 'Produto',
-            description: productData.description || '',
-            category,
+            name: localizedProduct.name,
+            description: localizedProduct.description,
+            category: localizedCategory,
             categoryId: productData.category_id || null,
             price: Number(productData.price ?? 0),
             currency: productData.currency || 'EUR',
             image: productData.image_url || '/images/produto-placeholder.jpg',
-            tag: isPhysical ? 'Fisico' : 'Digital',
-            format: isPhysical ? 'Produto físico' : 'PDF digital',
+            tag: typeText.tag,
+            format: typeText.format,
             isPhysical,
             digitalUrl: productData.digital_url || null,
             stock: isPhysical && typeof productData.stock === 'number' ? productData.stock : null,

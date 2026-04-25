@@ -4,6 +4,7 @@ import React, { createContext, useContext, useEffect, useState, ReactNode } from
 import { supabaseBrowser } from '../lib/supabase-browser';
 import { Session } from '@supabase/supabase-js';
 import { isActiveMember } from '../lib/store-discounts';
+import { identifyAnalyticsUser, resetAnalyticsUser } from '../lib/analytics';
 
 type User = {
     id: string;
@@ -79,6 +80,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setSessionState(currentSession);
             const sessionUser = currentSession?.user;
             setUser(sessionUser ? { id: sessionUser.id, email: sessionUser.email } : null);
+
+            if (sessionUser?.id) {
+                identifyAnalyticsUser(sessionUser.id);
+            }
 
             try {
                 if (sessionUser?.id) {
@@ -195,6 +200,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const signOut = async () => {
         if (!supabaseBrowser) return;
 
+        resetAnalyticsUser();
         await supabaseBrowser.auth.signOut();
         setSessionState(null);
         setUser(null);

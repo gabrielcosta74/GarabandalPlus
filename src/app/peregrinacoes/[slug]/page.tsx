@@ -28,14 +28,17 @@ import { useLocale } from '../../../contexts/LocaleContext';
 // Lazy load heavy map component
 const SpiritMap = dynamic(() => import('../../../components/pilgrimage/SpiritMap'), {
     ssr: false,
-    loading: () => (
-        <div className="rounded-3xl overflow-hidden shadow-2xl border border-slate-800 bg-slate-950 flex items-center justify-center" style={{ height: 500 }}>
-            <div className="text-center">
-                <div className="w-16 h-16 border-4 border-yellow-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-                <p className="text-slate-400 text-sm">A carregar mapa...</p>
+    loading: () => {
+        const isEnLoad = typeof window !== 'undefined' && window.location.pathname.startsWith('/en');
+        return (
+            <div className="rounded-3xl overflow-hidden shadow-2xl border border-slate-800 bg-slate-950 flex items-center justify-center" style={{ height: 500 }}>
+                <div className="text-center">
+                    <div className="w-16 h-16 border-4 border-yellow-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                    <p className="text-slate-400 text-sm">{isEnLoad ? 'Loading map...' : 'A carregar mapa...'}</p>
+                </div>
             </div>
-        </div>
-    )
+        );
+    }
 });
 import UniversalStickyBar from '../../../components/pilgrimage/UniversalStickyBar';
 // import ExitIntentPopup from '../../../components/pilgrimage/ExitIntentPopup'; // Removed
@@ -169,6 +172,8 @@ export default function PilgrimageDetailPage() {
     const params = useParams();
     const { formatPrice, currency } = useCurrency();
     const { locale } = useLocale();
+    const isEn = locale === 'en';
+    const listPath = isEn ? '/en/pilgrimages' : '/peregrinacoes';
     const slug = params.slug as string;
     const [pilgrimage, setPilgrimage] = useState<Pilgrimage | null>(null);
     const [globalLogistics, setGlobalLogistics] = useState<GlobalLogistics | null>(null);
@@ -280,8 +285,8 @@ export default function PilgrimageDetailPage() {
         return (
             <VIPLayout allowPublic={true}>
                 <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center text-center p-8">
-                    <h1 className="text-2xl font-bold text-slate-900 mb-2">Viagem não encontrada</h1>
-                    <Link href="/peregrinacoes" className="text-yellow-600 hover:underline">voltar à lista</Link>
+                    <h1 className="text-2xl font-bold text-slate-900 mb-2">{isEn ? 'Trip not found' : 'Viagem não encontrada'}</h1>
+                    <Link href={listPath} className="text-yellow-600 hover:underline">{isEn ? 'back to list' : 'voltar à lista'}</Link>
                 </div>
             </VIPLayout>
         );
@@ -289,8 +294,11 @@ export default function PilgrimageDetailPage() {
 
     const startDate = parseCivilDate(pilgrimage.start_date);
     const endDate = parseCivilDate(pilgrimage.end_date);
-    const isEn = locale === 'en';
     const dateLocale = isEn ? enUS : pt;
+    const longDateFmt = isEn ? "MMMM d" : "d 'de' MMMM";
+    const longDateWithYearFmt = isEn ? "MMMM d, yyyy" : "d 'de' MMMM, yyyy";
+    const shortDateFmt = isEn ? "MMM d" : "d MMM";
+    const dateRangeSep = isEn ? 'to' : 'a';
     const isClosed = pilgrimage.status === 'closed';
     const confirmedPax = (pilgrimage as any).confirmed_pax || 0;
     const remainingSpots = Number.isFinite(Number((pilgrimage as any).effective_vacancies))
@@ -326,8 +334,8 @@ export default function PilgrimageDetailPage() {
         meetingEndTextToShow
     );
     const registrationLink = existingBooking
-        ? `/peregrinacoes/inscricao/${existingBooking}`
-        : `/peregrinacoes/${pilgrimage.slug}/inscrever`;
+        ? (isEn ? `/en/pilgrimages/registration/${existingBooking}` : `/peregrinacoes/inscricao/${existingBooking}`)
+        : (isEn ? `/en/pilgrimages/${pilgrimage.slug}/register` : `/peregrinacoes/${pilgrimage.slug}/inscrever`);
     const shouldWarnBeforeRegistration = !isClosed && !existingBooking && !isWaitlist;
 
     const accommodationRatingToShow = pilgrimage.accommodation_rating || globalLogistics?.accommodation_rating || '';
@@ -355,12 +363,12 @@ export default function PilgrimageDetailPage() {
                         />
                     )}
                     <div className="absolute inset-0 z-20 container mx-auto px-6 h-full flex flex-col justify-end pb-12">
-                        <Link href="/peregrinacoes" className="inline-flex items-center text-white/80 hover:text-white mb-6 transition-colors">
-                            <ArrowLeft className="w-5 h-5 mr-2" /> Voltar à lista
+                        <Link href={listPath} className="inline-flex items-center text-white/80 hover:text-white mb-6 transition-colors">
+                            <ArrowLeft className="w-5 h-5 mr-2" /> {isEn ? 'Back to list' : 'Voltar à lista'}
                         </Link>
                         <div className="flex items-center gap-3 text-yellow-300 font-bold uppercase tracking-wider text-sm mb-3">
                             <Plane className="w-5 h-5" />
-                            Peregrinação Oficial
+                            {isEn ? 'Official Pilgrimage' : 'Peregrinação Oficial'}
                         </div>
                         <h1 className="text-4xl md:text-6xl font-serif font-bold text-white mb-4 leading-tight shadow-sm">
                             {pilgrimageTitle}
@@ -369,7 +377,7 @@ export default function PilgrimageDetailPage() {
                             <div className="flex wrap items-center gap-6 text-white/90 font-medium text-lg">
                                 <div className="flex items-center gap-2">
                                     <Calendar className="w-5 h-5 text-yellow-400" />
-                                    {format(startDate, "d 'de' MMMM", { locale: dateLocale })} a {format(endDate, "d 'de' MMMM, yyyy", { locale: dateLocale })}
+                                    {format(startDate, longDateFmt, { locale: dateLocale })} {dateRangeSep} {format(endDate, longDateWithYearFmt, { locale: dateLocale })}
                                 </div>
                             </div>
                         </div>
@@ -382,7 +390,7 @@ export default function PilgrimageDetailPage() {
                         {/* Column Left */}
                         <div className="lg:col-span-2 space-y-12">
                             <div className="bg-white rounded-3xl p-8 shadow-xl border border-slate-100">
-                                <h2 className="text-2xl font-serif font-bold text-slate-900 mb-4">Sobre esta peregrinação</h2>
+                                <h2 className="text-2xl font-serif font-bold text-slate-900 mb-4">{isEn ? 'About this pilgrimage' : 'Sobre esta peregrinação'}</h2>
                                 <p className="text-slate-600 text-lg leading-relaxed whitespace-pre-line">{pilgrimageDescription}</p>
                             </div>
 
@@ -390,7 +398,7 @@ export default function PilgrimageDetailPage() {
                             {teamMembers.length > 0 && (
                                 <div>
                                     <h2 className="text-2xl font-serif font-bold text-slate-900 mb-6 flex items-center gap-2">
-                                        <Users className="w-6 h-6 text-yellow-600" /> Equipa da Peregrinação
+                                        <Users className="w-6 h-6 text-yellow-600" /> {isEn ? 'Pilgrimage Team' : 'Equipa da Peregrinação'}
                                     </h2>
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                                         {teamMembers.map((member) => (
@@ -408,7 +416,7 @@ export default function PilgrimageDetailPage() {
                                                     <div className="flex items-start justify-between gap-2 mb-1">
                                                         <h3 className="font-bold text-slate-900 text-base leading-tight">{member.name}</h3>
                                                         {member.is_special_guest && (
-                                                            <span className="px-2 py-0.5 bg-yellow-100 text-yellow-800 text-[10px] font-bold uppercase tracking-wider rounded-full shrink-0">Convidado</span>
+                                                            <span className="px-2 py-0.5 bg-yellow-100 text-yellow-800 text-[10px] font-bold uppercase tracking-wider rounded-full shrink-0">{isEn ? 'Guest' : 'Convidado'}</span>
                                                         )}
                                                     </div>
                                                     <p className="text-sm font-medium text-yellow-600 mb-2">{(isEn ? member.role_en || member.role : member.role)} • {member.country}</p>
@@ -424,7 +432,7 @@ export default function PilgrimageDetailPage() {
 
                             {/* Itinerary */}
                             <div>
-                                <h2 className="text-2xl font-serif font-bold text-slate-900 mb-6 flex items-center gap-2"><Clock className="w-6 h-6 text-yellow-600" /> Roteiro Espiritual</h2>
+                                <h2 className="text-2xl font-serif font-bold text-slate-900 mb-6 flex items-center gap-2"><Clock className="w-6 h-6 text-yellow-600" /> {isEn ? 'Spiritual Itinerary' : 'Roteiro Espiritual'}</h2>
                                 {stages.length > 0 && <div className="mb-8"><SpiritMap stages={stages} height={500} /></div>}
                                 <div className="space-y-6">
                                     {itineraryItems.length > 0 ? itineraryItems.map((item) => (
@@ -439,7 +447,7 @@ export default function PilgrimageDetailPage() {
                                                 {item.image_url && <div className="mt-4 rounded-xl overflow-hidden h-48 w-full"><img src={item.image_url} alt={isEn ? item.title_en || item.title : item.title} className="w-full h-full object-cover" /></div>}
                                             </div>
                                         </div>
-                                    )) : <p className="text-slate-500 italic">Roteiro detalhado em breve.</p>}
+                                    )) : <p className="text-slate-500 italic">{isEn ? 'Detailed itinerary coming soon.' : 'Roteiro detalhado em breve.'}</p>}
                                 </div>
                             </div>
 
@@ -460,19 +468,19 @@ export default function PilgrimageDetailPage() {
                                         <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-yellow-400 to-yellow-600" />
                                         <div className="mb-5 space-y-3">
                                             <div className="px-3">
-                                                <p className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-1">Valor do terrestre (sem voo)</p>
+                                                <p className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-1">{isEn ? 'Land package price (flights not included)' : 'Valor do terrestre (sem voo)'}</p>
                                                 <div className="flex items-end gap-1">
                                                     <span className="text-4xl font-bold text-slate-900">{formatPrice((pilgrimage.base_price || 0) + (pilgrimage.deposit_value || 0))}</span>
-                                                    <span className="text-slate-500 font-medium mb-1">/ pessoa</span>
+                                                    <span className="text-slate-500 font-medium mb-1">{isEn ? '/ person' : '/ pessoa'}</span>
                                                 </div>
                                                 <p className="text-xs font-bold text-emerald-600 mt-1 uppercase tracking-wider">
-                                                    Parcelamento até 8x
+                                                    {isEn ? 'Up to 8 instalments' : 'Parcelamento até 8x'}
                                                 </p>
                                                 {currency === 'BRL' && (
-                                                    <p className="text-[10px] text-yellow-600 font-bold mt-2 italic">* Câmbio automático para Reais</p>
+                                                    <p className="text-[10px] text-yellow-600 font-bold mt-2 italic">{isEn ? '* Automatic conversion to Brazilian Reais' : '* Câmbio automático para Reais'}</p>
                                                 )}
                                                 <p className="mt-2 text-xs leading-relaxed text-slate-500">
-                                                    Antes de avançar, veja exatamente o que está incluído e como funcionam os voos.
+                                                    {isEn ? 'Before continuing, see exactly what is included and how the flights work.' : 'Antes de avançar, veja exatamente o que está incluído e como funcionam os voos.'}
                                                 </p>
                                             </div>
                                         </div>
@@ -485,8 +493,8 @@ export default function PilgrimageDetailPage() {
                                                         className="flex w-full items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-left transition-colors hover:border-yellow-300 hover:bg-yellow-50"
                                                     >
                                                         <div>
-                                                            <p className="text-sm font-bold text-slate-900">Ver o que está incluído no terrestre</p>
-                                                            <p className="text-xs text-slate-500">Incluído e não incluído no valor acima.</p>
+                                                            <p className="text-sm font-bold text-slate-900">{isEn ? "See what's included in the land package" : 'Ver o que está incluído no terrestre'}</p>
+                                                            <p className="text-xs text-slate-500">{isEn ? 'What is and is not included in the price above.' : 'Incluído e não incluído no valor acima.'}</p>
                                                         </div>
                                                         <ArrowRight className="h-4 w-4 text-slate-400" />
                                                     </button>
@@ -498,8 +506,8 @@ export default function PilgrimageDetailPage() {
                                                         className="flex w-full items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-left transition-colors hover:border-yellow-300 hover:bg-yellow-50"
                                                     >
                                                         <div>
-                                                            <p className="text-sm font-bold text-slate-900">Ver opções de voo</p>
-                                                            <p className="text-xs text-slate-500">Saiba o que é pago à parte e as opções disponíveis.</p>
+                                                            <p className="text-sm font-bold text-slate-900">{isEn ? 'See flight options' : 'Ver opções de voo'}</p>
+                                                            <p className="text-xs text-slate-500">{isEn ? 'Learn what is paid separately and which options are available.' : 'Saiba o que é pago à parte e as opções disponíveis.'}</p>
                                                         </div>
                                                         <ArrowRight className="h-4 w-4 text-slate-400" />
                                                     </button>
@@ -507,36 +515,36 @@ export default function PilgrimageDetailPage() {
                                             </div>
                                         )}
                                         <div className="space-y-3 mb-6">
-                                            <div className="flex justify-between py-2.5 border-b text-slate-600 font-medium"><span className="flex items-center gap-2"><Calendar className="w-4 h-4" /> Partida</span><span className="text-slate-900 font-bold">{format(startDate, "d MMM", { locale: dateLocale })}</span></div>
+                                            <div className="flex justify-between py-2.5 border-b text-slate-600 font-medium"><span className="flex items-center gap-2"><Calendar className="w-4 h-4" /> {isEn ? 'Departure' : 'Partida'}</span><span className="text-slate-900 font-bold">{format(startDate, shortDateFmt, { locale: dateLocale })}</span></div>
                                             {pilgrimage.registration_deadline && (
                                                 <div className="flex justify-between py-2.5 border-b text-slate-600 font-medium">
-                                                    <span className="flex items-center gap-2 text-red-500 font-bold"><Clock className="w-4 h-4" /> Inscrições até</span>
-                                                    <span className="text-red-600 font-bold">{format(parseCivilDate(pilgrimage.registration_deadline), "d MMM", { locale: dateLocale })}</span>
+                                                    <span className="flex items-center gap-2 text-red-500 font-bold"><Clock className="w-4 h-4" /> {isEn ? 'Registrations until' : 'Inscrições até'}</span>
+                                                    <span className="text-red-600 font-bold">{format(parseCivilDate(pilgrimage.registration_deadline), shortDateFmt, { locale: dateLocale })}</span>
                                                 </div>
                                             )}
                                             {/* Vacancy Logic for UI */}
                                             <div className="flex justify-between py-2.5 border-b text-slate-600 font-medium">
-                                                <span className="flex items-center gap-2"><Users className="w-4 h-4" /> Vagas Disponíveis</span>
+                                                <span className="flex items-center gap-2"><Users className="w-4 h-4" /> {isEn ? 'Available Spots' : 'Vagas Disponíveis'}</span>
                                                 <span className="text-slate-900 font-bold">
-                                                    {isClosed ? 'Encerradas' : isWaitlist ? 'Lista de Espera' : getPublicAvailabilityLabel(remainingSpots)}
+                                                    {isClosed ? (isEn ? 'Closed' : 'Encerradas') : isWaitlist ? (isEn ? 'Waiting List' : 'Lista de Espera') : getPublicAvailabilityLabel(remainingSpots)}
                                                 </span>
                                             </div>
                                         </div>
                                         {isClosed ? (
-                                            <button disabled className="w-full bg-slate-100 text-slate-400 font-bold py-4 rounded-xl cursor-not-allowed">Encerradas</button>
+                                            <button disabled className="w-full bg-slate-100 text-slate-400 font-bold py-4 rounded-xl cursor-not-allowed">{isEn ? 'Closed' : 'Encerradas'}</button>
                                         ) : existingBooking ? (
-                                            <Link href={registrationLink} className="w-full bg-green-600 text-white font-bold py-4 rounded-xl flex items-center justify-center gap-2 shadow-lg"><CheckCircle2 className="w-5 h-5" /> Gerir Inscrição</Link>
+                                            <Link href={registrationLink} className="w-full bg-green-600 text-white font-bold py-4 rounded-xl flex items-center justify-center gap-2 shadow-lg"><CheckCircle2 className="w-5 h-5" /> {isEn ? 'Manage Registration' : 'Gerir Inscrição'}</Link>
                                         ) : shouldWarnBeforeRegistration ? (
                                             <button
                                                 type="button"
                                                 onClick={() => setIsPaymentWarningOpen(true)}
                                                 className="w-full bg-yellow-500 hover:bg-yellow-600 text-slate-900 font-bold py-4 rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-yellow-200 transition-all active:scale-[0.98]"
                                             >
-                                                Iniciar Inscrição <ArrowRight className="w-5 h-5" />
+                                                {isEn ? 'Start Registration' : 'Iniciar Inscrição'} <ArrowRight className="w-5 h-5" />
                                             </button>
                                         ) : (
                                             <Link href={registrationLink} className="w-full bg-yellow-500 hover:bg-yellow-600 text-slate-900 font-bold py-4 rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-yellow-200 transition-all active:scale-[0.98]">
-                                                Iniciar Inscrição <ArrowRight className="w-5 h-5" />
+                                                {isEn ? 'Start Registration' : 'Iniciar Inscrição'} <ArrowRight className="w-5 h-5" />
                                             </Link>
                                         )}
                                     </div>
@@ -554,7 +562,7 @@ export default function PilgrimageDetailPage() {
                             isClosed={isClosed || isWaitlist}
                             pilgrimageId={pilgrimage.id}
                             slug={pilgrimage.slug}
-                            buttonText={existingBooking ? 'Gerir Inscrição' : (isWaitlist ? 'Lista de Espera' : 'Iniciar Inscrição')}
+                            buttonText={existingBooking ? (isEn ? 'Manage Registration' : 'Gerir Inscrição') : (isWaitlist ? (isEn ? 'Waiting List' : 'Lista de Espera') : (isEn ? 'Start Registration' : 'Iniciar Inscrição'))}
                             depositValue={pilgrimage.deposit_value || 0}
                             showIncludedButton={hasIncludedInfo}
                             showFlightsButton={hasFlightInfo}
@@ -594,7 +602,13 @@ export default function PilgrimageDetailPage() {
                 continueLink={registrationLink}
             />
             {/* ExitIntentPopup Removed */}
-            <ChatWidget pilgrimageSlug={pilgrimage.slug} pilgrimageTitle={pilgrimageTitle} />
+            <ChatWidget
+                pilgrimageSlug={pilgrimage.slug}
+                pilgrimageTitle={pilgrimageTitle}
+                remainingSpots={remainingSpots}
+                registrationLink={registrationLink}
+                isWaitlist={isWaitlist}
+            />
         </VIPLayout >
     );
 }

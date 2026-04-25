@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { supabaseServer } from '../../../../lib/supabase';
 import { inferIsDigitalProduct } from '../../../../lib/product-kind';
+import { inferRequestLocale } from '../../../../lib/locale-routing';
+import { getStoreProductTypeText, localizeStoreProductText } from '../../../../lib/store-i18n';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -18,6 +20,7 @@ export async function GET(request: Request) {
     const rawLimit = Number(searchParams.get('limit') ?? DEFAULT_LIMIT);
     const rawOffset = Number(searchParams.get('offset') ?? 0);
     const includeVariants = searchParams.get('includeVariants') !== '0';
+    const locale = searchParams.get('locale') === 'en' ? 'en' : inferRequestLocale(request);
 
     const limit = Number.isFinite(rawLimit) && rawLimit > 0
       ? Math.min(rawLimit, MAX_LIMIT)
@@ -27,7 +30,9 @@ export async function GET(request: Request) {
     const selectFields = [
       'product_id',
       'name',
+      'name_en',
       'description',
+      'description_en',
       'category_id',
       'category',
       'price',
@@ -78,17 +83,20 @@ export async function GET(request: Request) {
       });
       const isPhysical = !isDigital;
 
+      const localizedProduct = localizeStoreProductText(productData, locale);
+      const typeText = getStoreProductTypeText(isPhysical, locale);
+
       return {
         id: productData.product_id,
-        name: productData.name || 'Produto',
-        description: productData.description || '',
-        category,
+        name: localizedProduct.name,
+        description: localizedProduct.description,
+        category: localizeStoreProductText({ category, type_id: productData.type_id }, locale).category,
         categoryId: productData.category_id || null,
         price: Number(productData.price ?? 0),
         currency: productData.currency || 'EUR',
         image: productData.image_url || '/images/produto-placeholder.jpg',
-        tag: isPhysical ? 'Fisico' : 'Digital',
-        format: isPhysical ? 'Produto físico' : 'PDF digital',
+        tag: typeText.tag,
+        format: typeText.format,
         isPhysical,
         digitalUrl: productData.digital_url || null,
         stock: isPhysical && typeof productData.stock === 'number' ? productData.stock : null,

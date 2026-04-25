@@ -7,6 +7,8 @@ import { Product } from '../../app/loja-online/data';
 import { useRouter } from 'next/navigation';
 import { useCurrency } from '../providers/CurrencyProvider';
 import { buildProductPath } from '../../lib/slug';
+import { useLocale } from '../../contexts/LocaleContext';
+import { getStoreCheckoutPath } from '../../lib/store-i18n';
 
 interface AddToCartModalProps {
     isOpen: boolean;
@@ -25,6 +27,8 @@ export default function AddToCartModal({
 }: AddToCartModalProps) {
     const router = useRouter();
     const { formatPrice } = useCurrency();
+    const { locale } = useLocale();
+    const isEn = locale === 'en';
 
     if (!isOpen) return null;
 
@@ -63,8 +67,8 @@ export default function AddToCartModal({
                                         </motion.div>
                                     </div>
                                     <div>
-                                        <h2 className="text-lg font-bold text-emerald-900">Adicionado ao carrinho!</h2>
-                                        <p className="text-emerald-700 text-sm">O artigo foi adicionado com sucesso.</p>
+                                        <h2 className="text-lg font-bold text-emerald-900">{isEn ? 'Added to cart!' : 'Adicionado ao carrinho!'}</h2>
+                                        <p className="text-emerald-700 text-sm">{isEn ? 'The item was added successfully.' : 'O artigo foi adicionado com sucesso.'}</p>
                                     </div>
                                 </div>
                                 <button
@@ -85,7 +89,7 @@ export default function AddToCartModal({
                                         <h3 className="font-serif font-bold text-slate-900 text-lg">{product.name}</h3>
                                         {variantName && (
                                             <p className="text-sm font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded w-fit mt-1">
-                                                Opção: <span className="text-slate-900 font-bold">{variantName}</span>
+                                                {isEn ? 'Option' : 'Opção'}: <span className="text-slate-900 font-bold">{variantName}</span>
                                             </p>
                                         )}
                                         <p className="text-lg font-light text-slate-900 mt-1">{formatPrice(product.price)}</p>
@@ -97,18 +101,18 @@ export default function AddToCartModal({
                                     <button
                                         onClick={() => {
                                             onClose();
-                                            router.push('/loja-online/checkout');
+                                            router.push(getStoreCheckoutPath(locale));
                                         }}
                                         className="flex-1 bg-slate-900 text-white py-3.5 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-slate-800 transition-all shadow-lg shadow-slate-900/10 hover:shadow-xl hover:-translate-y-0.5 active:scale-95"
                                     >
                                         <ShoppingBag className="w-5 h-5" />
-                                        Finalizar Compra
+                                        {isEn ? 'Checkout' : 'Finalizar Compra'}
                                     </button>
                                     <button
                                         onClick={onClose}
                                         className="flex-1 bg-white border-2 border-slate-100 text-slate-600 py-3.5 rounded-xl font-bold hover:bg-slate-50 hover:border-slate-200 transition-all active:scale-95"
                                     >
-                                        Continuar a Comprar
+                                        {isEn ? 'Continue Shopping' : 'Continuar a Comprar'}
                                     </button>
                                 </div>
 
@@ -117,7 +121,7 @@ export default function AddToCartModal({
                                     <div className="mt-8 p-6 bg-slate-50 border-t border-slate-100">
                                         <h4 className="font-bold text-slate-900 text-sm uppercase tracking-wider mb-4 flex items-center gap-2">
                                             <ArrowRight className="w-4 h-4 text-amber-500" />
-                                            Frequentemente comprados juntos
+                                            {isEn ? 'Frequently bought together' : 'Frequentemente comprados juntos'}
                                         </h4>
                                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                             {relatedProducts.slice(0, 2).map(rp => (
@@ -125,7 +129,7 @@ export default function AddToCartModal({
                                                     key={rp.id}
                                                     onClick={() => {
                                                         onClose();
-                                                        router.push(buildProductPath(rp.id, rp.name));
+                                                        router.push(buildProductPath(rp.id, rp.name, locale));
                                                     }}
                                                     className="group bg-white p-3 rounded-xl border border-slate-100 hover:border-amber-200 hover:shadow-md transition-all cursor-pointer flex gap-3 items-center"
                                                 >
@@ -135,7 +139,7 @@ export default function AddToCartModal({
                                                     <div className="flex-1 min-w-0">
                                                         <p className="font-bold text-sm text-slate-900 truncate group-hover:text-amber-600 transition-colors">{rp.name}</p>
                                                         <p className="text-xs text-slate-500 mt-0.5">{formatPrice(rp.price)}</p>
-                                                        <span className="text-[10px] font-bold text-amber-600 uppercase tracking-wide mt-1 block">Ver Detalhes</span>
+                                                        <span className="text-[10px] font-bold text-amber-600 uppercase tracking-wide mt-1 block">{isEn ? 'View Details' : 'Ver Detalhes'}</span>
                                                     </div>
                                                 </div>
                                             ))}

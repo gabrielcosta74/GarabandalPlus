@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import Link from 'next/link';
 import { CheckCircle2, Plane, Users, X, MapPin, ShieldCheck, ArrowRight } from 'lucide-react';
 import { useCurrency } from '../providers/CurrencyProvider';
+import { useLocale } from '../../contexts/LocaleContext';
 
 type PilgrimageInfoModalProps = {
     mode: 'included' | 'flights';
@@ -53,6 +54,8 @@ export default function PilgrimageInfoModal({
     transportImage
 }: PilgrimageInfoModalProps) {
     const { formatPrice } = useCurrency();
+    const { locale } = useLocale();
+    const isEn = locale === 'en';
 
     useEffect(() => {
         if (!isOpen) {
@@ -86,7 +89,7 @@ export default function PilgrimageInfoModal({
         <div className="fixed inset-0 z-[100000000]">
             <button
                 type="button"
-                aria-label="Fechar"
+                aria-label={isEn ? 'Close' : 'Fechar'}
                 onClick={onClose}
                 className="absolute inset-0 bg-slate-950/70 backdrop-blur-sm"
             />
@@ -98,15 +101,15 @@ export default function PilgrimageInfoModal({
                         <div className="mb-3 flex items-start justify-between gap-4 md:mb-4">
                             <div>
                                 <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.24em] text-yellow-700">
-                                    Informação Importante
+                                    {isEn ? 'Important Information' : 'Informação Importante'}
                                 </p>
                                 <h2 className="text-2xl font-bold text-slate-900 md:text-3xl">
-                                    {isIncludedMode ? 'Incluído no valor de terrestre' : 'Opções de voo'}
+                                    {isIncludedMode ? (isEn ? 'Included in the land package' : 'Incluído no valor de terrestre') : (isEn ? 'Flight options' : 'Opções de voo')}
                                 </h2>
                                 <p className="mt-2 text-sm leading-relaxed text-slate-500">
                                     {isIncludedMode
-                                        ? 'Veja exatamente o que está incluído no valor apresentado antes de avançar.'
-                                        : 'Veja como funcionam os voos e o que é pago à parte.'}
+                                        ? (isEn ? 'See exactly what is included in the advertised price before you continue.' : 'Veja exatamente o que está incluído no valor apresentado antes de avançar.')
+                                        : (isEn ? 'See how the flights work and what is paid separately.' : 'Veja como funcionam os voos e o que é pago à parte.')}
                                 </p>
                             </div>
                             <button
@@ -121,18 +124,18 @@ export default function PilgrimageInfoModal({
                         <div className="grid gap-2 md:gap-3 md:grid-cols-2">
                             <div className="rounded-2xl border border-yellow-200 bg-yellow-50 p-4">
                                 <p className="mb-1 text-xs font-bold uppercase tracking-wider text-yellow-800">
-                                    Para evitar dúvidas
+                                    {isEn ? 'To avoid doubts' : 'Para evitar dúvidas'}
                                 </p>
                                 <p className="text-sm font-medium leading-relaxed text-yellow-900">
-                                    O valor principal desta peregrinação é o valor do terrestre. O voo não está incluído nesse valor base.
+                                    {isEn ? 'The main price of this pilgrimage is the land package. Flights are not included in this base price.' : 'O valor principal desta peregrinação é o valor do terrestre. O voo não está incluído nesse valor base.'}
                                 </p>
                             </div>
                             <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                                 <p className="mb-1 text-xs font-bold uppercase tracking-wider text-slate-600">
-                                    Antes de pagar
+                                    {isEn ? 'Before paying' : 'Antes de pagar'}
                                 </p>
                                 <p className="text-sm font-medium leading-relaxed text-slate-700">
-                                    Confirme primeiro estes detalhes. Assim sabe exatamente o que está a contratar e o que é tratado à parte.
+                                    {isEn ? 'Please confirm these details first. That way you know exactly what you are booking and what is handled separately.' : 'Confirme primeiro estes detalhes. Assim sabe exatamente o que está a contratar e o que é tratado à parte.'}
                                 </p>
                             </div>
                         </div>
@@ -145,19 +148,19 @@ export default function PilgrimageInfoModal({
                                     <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5 mb-6">
                                         <h4 className="font-bold text-slate-800 mb-3 text-sm uppercase tracking-wider flex items-center gap-2">
                                             <span className="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
-                                            Cálculo do Valor Terrestre
+                                            {isEn ? 'Land Package Breakdown' : 'Cálculo do Valor Terrestre'}
                                         </h4>
                                         <div className="flex flex-col gap-3 text-sm text-slate-600">
                                             <div className="flex justify-between items-center">
-                                                <span>Valor base:</span>
+                                                <span>{isEn ? 'Base price:' : 'Valor base:'}</span>
                                                 <span className="font-semibold text-slate-800">{formatPrice(basePrice)}</span>
                                             </div>
                                             <div className="flex justify-between items-center">
-                                                <span>Taxa de inscrição:</span>
+                                                <span>{isEn ? 'Registration fee:' : 'Taxa de inscrição:'}</span>
                                                 <span className="font-semibold text-slate-800">{formatPrice(depositValue)}</span>
                                             </div>
                                             <div className="pt-3 mt-1 border-t border-slate-200 flex justify-between items-center font-bold text-slate-900 text-lg">
-                                                <span>Valor Total do Terrestre:</span>
+                                                <span>{isEn ? 'Total Land Package:' : 'Valor Total do Terrestre:'}</span>
                                                 <span>{formatPrice(basePrice + depositValue)}</span>
                                             </div>
                                         </div>
@@ -170,12 +173,12 @@ export default function PilgrimageInfoModal({
                                             <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm overflow-hidden flex flex-col">
                                                 {accommodationImage && (
                                                     <div className="w-full h-32 -mt-5 -mx-5 border-b border-slate-200 bg-slate-100 relative mb-4">
-                                                        <img src={accommodationImage} alt="Alojamento" className="w-full h-full object-cover" />
+                                                        <img src={accommodationImage} alt={isEn ? 'Accommodation' : 'Alojamento'} className="w-full h-full object-cover" />
                                                     </div>
                                                 )}
                                                 <div className="flex items-center gap-2 mb-3 text-slate-800">
                                                     <h4 className="font-bold text-base flex items-center gap-2">
-                                                        Alojamento
+                                                        {isEn ? 'Accommodation' : 'Alojamento'}
                                                         {accommodationRating && (
                                                             <span className="text-xs bg-slate-100 px-2 py-0.5 rounded-full text-slate-600 font-medium">
                                                                 {accommodationRating}
@@ -184,7 +187,7 @@ export default function PilgrimageInfoModal({
                                                     </h4>
                                                 </div>
                                                 <p className="text-sm text-slate-600 leading-relaxed whitespace-pre-line flex-1">
-                                                    {accommodationDescription || 'Detalhes de alojamento não especificados.'}
+                                                    {accommodationDescription || (isEn ? 'Accommodation details not specified.' : 'Detalhes de alojamento não especificados.')}
                                                 </p>
                                             </div>
                                         )}
@@ -192,12 +195,12 @@ export default function PilgrimageInfoModal({
                                             <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm overflow-hidden flex flex-col">
                                                 {transportImage && (
                                                     <div className="w-full h-32 -mt-5 -mx-5 border-b border-slate-200 bg-slate-100 relative mb-4">
-                                                        <img src={transportImage} alt="Transporte" className="w-full h-full object-cover" />
+                                                        <img src={transportImage} alt={isEn ? 'Transport' : 'Transporte'} className="w-full h-full object-cover" />
                                                     </div>
                                                 )}
                                                 <div className="flex items-center gap-2 mb-3 text-slate-800">
                                                     <h4 className="font-bold text-base flex items-center gap-2">
-                                                        Transporte
+                                                        {isEn ? 'Transport' : 'Transporte'}
                                                         {transportType && (
                                                             <span className="text-xs bg-slate-100 px-2 py-0.5 rounded-full text-slate-600 font-medium">
                                                                 {transportType}
@@ -206,7 +209,7 @@ export default function PilgrimageInfoModal({
                                                     </h4>
                                                 </div>
                                                 <p className="text-sm text-slate-600 leading-relaxed whitespace-pre-line flex-1">
-                                                    {transportDescription || 'Detalhes de transporte não especificados.'}
+                                                    {transportDescription || (isEn ? 'Transport details not specified.' : 'Detalhes de transporte não especificados.')}
                                                 </p>
                                             </div>
                                         )}
@@ -217,7 +220,7 @@ export default function PilgrimageInfoModal({
                                     <div className="rounded-3xl border border-emerald-100 bg-emerald-50 p-6">
                                         <div className="mb-4 flex items-center gap-2 text-emerald-700">
                                             <CheckCircle2 className="h-5 w-5" />
-                                            <h3 className="text-lg font-bold">Incluído no valor</h3>
+                                            <h3 className="text-lg font-bold">{isEn ? 'Included in the price' : 'Incluído no valor'}</h3>
                                         </div>
                                         <ul className="space-y-3">
                                             {includedItems.length > 0 ? includedItems.map((item, index) => (
@@ -226,7 +229,7 @@ export default function PilgrimageInfoModal({
                                                     <span>{item}</span>
                                                 </li>
                                             )) : (
-                                                <li className="text-sm italic text-slate-500">Sem detalhes adicionais.</li>
+                                                <li className="text-sm italic text-slate-500">{isEn ? 'No additional details.' : 'Sem detalhes adicionais.'}</li>
                                             )}
                                         </ul>
                                     </div>
@@ -234,7 +237,7 @@ export default function PilgrimageInfoModal({
                                     <div className="rounded-3xl border border-slate-200 bg-white p-6">
                                         <div className="mb-4 flex items-center gap-2 text-slate-700">
                                             <ShieldCheck className="h-5 w-5" />
-                                            <h3 className="text-lg font-bold">Não incluído</h3>
+                                            <h3 className="text-lg font-bold">{isEn ? 'Not included' : 'Não incluído'}</h3>
                                         </div>
                                         <ul className="space-y-3">
                                             {notIncludedItems.length > 0 ? notIncludedItems.map((item, index) => (
@@ -243,7 +246,7 @@ export default function PilgrimageInfoModal({
                                                     <span>{item}</span>
                                                 </li>
                                             )) : (
-                                                <li className="text-sm italic text-slate-500">Nada de relevante a assinalar fora do pacote base.</li>
+                                                <li className="text-sm italic text-slate-500">{isEn ? 'Nothing relevant outside of the base package.' : 'Nada de relevante a assinalar fora do pacote base.'}</li>
                                             )}
                                         </ul>
                                     </div>
@@ -253,12 +256,12 @@ export default function PilgrimageInfoModal({
                                 {(paymentPlanText || cancellationPolicyText) && (
                                     <div className="space-y-6 mt-8 border-t border-slate-100 pt-8">
                                         <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-                                            <ShieldCheck className="w-5 h-5 text-yellow-600" /> Condições e formas de pagamento / doação
+                                            <ShieldCheck className="w-5 h-5 text-yellow-600" /> {isEn ? 'Conditions and payment / donation methods' : 'Condições e formas de pagamento / doação'}
                                         </h3>
                                         
                                         <div className="bg-slate-50 border border-slate-200 p-6 rounded-2xl flex flex-col items-center gap-4 w-full">
                                             <p className="text-xs md:text-sm font-bold uppercase tracking-[0.2em] text-slate-500">
-                                                Pagamentos 100% Seguros
+                                                {isEn ? '100% Secure Payments' : 'Pagamentos 100% Seguros'}
                                             </p>
                                             <div className="flex flex-wrap items-center justify-center gap-4 md:gap-6">
                                                 {/* MULTIBANCO */}
@@ -296,7 +299,7 @@ export default function PilgrimageInfoModal({
                                                             <CheckCircle2 className="w-5 h-5" />
                                                         </div>
                                                         <div>
-                                                            <h4 className="font-bold text-indigo-900 mb-2">Facilidades de Doação</h4>
+                                                            <h4 className="font-bold text-indigo-900 mb-2">{isEn ? 'Donation Options' : 'Facilidades de Doação'}</h4>
                                                             <p className="text-indigo-800/80 leading-relaxed whitespace-pre-line text-sm">{paymentPlanText}</p>
                                                         </div>
                                                     </div>
@@ -309,7 +312,7 @@ export default function PilgrimageInfoModal({
                                                         <summary className="flex items-center justify-between p-6 cursor-pointer hover:bg-slate-50 transition-colors">
                                                             <div className="flex items-center gap-3 font-bold text-slate-700">
                                                                 <ShieldCheck className="w-5 h-5 text-slate-400" />
-                                                                Política de Cancelamento
+                                                                {isEn ? 'Cancellation Policy' : 'Política de Cancelamento'}
                                                             </div>
                                                             <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 group-open:rotate-180 transition-transform">
                                                                 <ArrowRight className="w-4 h-4 rotate-90" />
@@ -331,25 +334,25 @@ export default function PilgrimageInfoModal({
                                     <div className="rounded-3xl border border-slate-200 bg-slate-50 p-6">
                                         <div className="mb-4 flex items-center gap-2 text-slate-800">
                                             <Plane className="h-5 w-5" />
-                                            <h3 className="text-lg font-bold">Voo próprio</h3>
+                                            <h3 className="text-lg font-bold">{isEn ? 'Own flight' : 'Voo próprio'}</h3>
                                         </div>
                                         <p className="mb-3 text-xs font-bold uppercase tracking-wider text-slate-500">
-                                            Flexibilidade
+                                            {isEn ? 'Flexibility' : 'Flexibilidade'}
                                         </p>
                                         <p className="text-sm leading-relaxed text-slate-700 whitespace-pre-line">
-                                            {flightInfoText || 'Pode tratar do seu voo diretamente e encontrar-se com o grupo no ponto indicado pela organização.'}
+                                            {flightInfoText || (isEn ? 'You can arrange your own flight and meet the group at the point indicated by the organisation.' : 'Pode tratar do seu voo diretamente e encontrar-se com o grupo no ponto indicado pela organização.')}
                                         </p>
                                     </div>
 
                                     <div className="rounded-3xl border border-indigo-100 bg-indigo-50 p-6">
                                         <div className="mb-4 flex items-center gap-2 text-indigo-800">
                                             <Users className="h-5 w-5" />
-                                            <h3 className="text-lg font-bold">Voo de grupo</h3>
+                                            <h3 className="text-lg font-bold">{isEn ? 'Group flight' : 'Voo de grupo'}</h3>
                                         </div>
                                         {flightPriceFrom ? (
                                             <>
                                                 <p className="mb-4 text-sm leading-relaxed text-indigo-900">
-                                                    Se preferir, pode seguir no voo organizado pela agência. Este valor é separado do terrestre.
+                                                    {isEn ? 'If you prefer, you can travel on the flight organised by the agency. This price is separate from the land package.' : 'Se preferir, pode seguir no voo organizado pela agência. Este valor é separado do terrestre.'}
                                                 </p>
                                                 {groupFlightDetails && (
                                                     <div className="mb-4 rounded-2xl border border-indigo-100 bg-white/80 p-4 text-sm leading-relaxed text-indigo-900 whitespace-pre-line">
@@ -358,19 +361,19 @@ export default function PilgrimageInfoModal({
                                                 )}
                                                 <div className="rounded-2xl bg-white p-4 shadow-sm">
                                                     <p className="mb-1 text-xs font-bold uppercase tracking-wider text-indigo-500">
-                                                        Valor de referência
+                                                        {isEn ? 'Reference price' : 'Valor de referência'}
                                                     </p>
                                                     <p className="text-3xl font-black text-indigo-700">
                                                         {formatPrice(flightPriceFrom)}
                                                     </p>
                                                     <p className="mt-2 text-xs leading-relaxed text-indigo-500">
-                                                        Este pagamento é tratado diretamente com a agência parceira.
+                                                        {isEn ? 'This payment is handled directly with the partner agency.' : 'Este pagamento é tratado diretamente com a agência parceira.'}
                                                     </p>
                                                 </div>
                                             </>
                                         ) : (
                                             <p className="text-sm leading-relaxed text-slate-600">
-                                                Nesta peregrinação não há neste momento uma opção de voo de grupo publicada.
+                                                {isEn ? 'There is currently no group flight option published for this pilgrimage.' : 'Nesta peregrinação não há neste momento uma opção de voo de grupo publicada.'}
                                             </p>
                                         )}
                                     </div>
@@ -380,18 +383,18 @@ export default function PilgrimageInfoModal({
                                     <div className="rounded-3xl border border-slate-200 bg-white p-6">
                                         <div className="mb-4 flex items-center gap-2 text-slate-800">
                                             <MapPin className="h-5 w-5" />
-                                            <h3 className="text-lg font-bold">Encontro e regresso</h3>
+                                            <h3 className="text-lg font-bold">{isEn ? 'Meeting point & return' : 'Encontro e regresso'}</h3>
                                         </div>
                                         <div className="grid gap-4 md:grid-cols-2">
                                             {meetingPointText && (
                                                 <div className="rounded-2xl bg-slate-50 p-4">
-                                                    <p className="mb-2 text-xs font-bold uppercase tracking-wider text-emerald-600">Ponto de encontro</p>
+                                                    <p className="mb-2 text-xs font-bold uppercase tracking-wider text-emerald-600">{isEn ? 'Meeting point' : 'Ponto de encontro'}</p>
                                                     <p className="text-sm leading-relaxed text-slate-700 whitespace-pre-line">{meetingPointText}</p>
                                                 </div>
                                             )}
                                             {meetingEndText && (
                                                 <div className="rounded-2xl bg-slate-50 p-4">
-                                                    <p className="mb-2 text-xs font-bold uppercase tracking-wider text-rose-500">Fim da viagem</p>
+                                                    <p className="mb-2 text-xs font-bold uppercase tracking-wider text-rose-500">{isEn ? 'End of trip' : 'Fim da viagem'}</p>
                                                     <p className="text-sm leading-relaxed text-slate-700 whitespace-pre-line">{meetingEndText}</p>
                                                 </div>
                                             )}
@@ -406,8 +409,8 @@ export default function PilgrimageInfoModal({
                         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                             <p className="text-sm leading-relaxed text-slate-500">
                                 {isIncludedMode
-                                    ? 'Se ficou claro, volte ao formulário e avance com a inscrição.'
-                                    : 'Primeiro confirme a opção de voo. Depois avance com a inscrição.'}
+                                    ? (isEn ? 'If it is clear, return to the form and continue with the registration.' : 'Se ficou claro, volte ao formulário e avance com a inscrição.')
+                                    : (isEn ? 'First confirm the flight option. Then continue with the registration.' : 'Primeiro confirme a opção de voo. Depois avance com a inscrição.')}
                             </p>
                             <div className="flex flex-col gap-2 md:flex-row">
                                 <button
@@ -415,14 +418,14 @@ export default function PilgrimageInfoModal({
                                     onClick={onClose}
                                     className="inline-flex items-center justify-center rounded-xl border border-slate-200 px-4 py-3 text-sm font-bold text-slate-700 transition-colors hover:bg-slate-50"
                                 >
-                                    Fechar
+                                    {isEn ? 'Close' : 'Fechar'}
                                 </button>
                                 <Link
                                     href={registrationLink}
                                     onClick={onClose}
                                     className="inline-flex items-center justify-center gap-2 rounded-xl bg-yellow-400 px-4 py-3 text-sm font-black text-slate-950 transition-colors hover:bg-yellow-500"
                                 >
-                                    Quero inscrever-me
+                                    {isEn ? 'I want to register' : 'Quero inscrever-me'}
                                     <ArrowRight className="h-4 w-4" />
                                 </Link>
                             </div>

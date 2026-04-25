@@ -44,7 +44,9 @@ export function PilgrimageCard({ pilgrimage, index }: PilgrimageCardProps) {
     const isWaitlist = !isClosed && pilgrimage.status === 'waitlist';
     const isLastSpots = !isClosed && !isWaitlist && remainingSpots > 0 && remainingSpots <= 5;
     const safeSlug = (pilgrimage.slug || '').trim() || toSlug(pilgrimage.title);
-    const detailHref = safeSlug ? `/peregrinacoes/${safeSlug}` : '/peregrinacoes';
+    const isEn = locale === 'en';
+    const listHref = isEn ? '/en/pilgrimages' : '/peregrinacoes';
+    const detailHref = safeSlug ? `${listHref}/${safeSlug}` : listHref;
 
     // Status Logic & Styles
     let cardStyle = "bg-white border-slate-100 hover:border-yellow-500/30 hover:shadow-[0_20px_50px_-12px_rgba(37,99,235,0.1)]";
@@ -148,7 +150,7 @@ export function PilgrimageCard({ pilgrimage, index }: PilgrimageCardProps) {
                     <div className="flex items-center gap-3 text-yellow-600 text-xs font-bold uppercase tracking-wider mb-3">
                         <Calendar className="w-4 h-4" />
                         <span>
-                            {format(startDate, "d MMM", { locale: dateLocale })} — {format(endDate, "d MMM, yyyy", { locale: dateLocale })}
+                            {isEn ? `${format(startDate, "MMM d", { locale: dateLocale })} — ${format(endDate, "MMM d, yyyy", { locale: dateLocale })}` : `${format(startDate, "d MMM", { locale: dateLocale })} — ${format(endDate, "d MMM, yyyy", { locale: dateLocale })}`}
                         </span>
                     </div>
 

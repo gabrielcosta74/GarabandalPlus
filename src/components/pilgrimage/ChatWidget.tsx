@@ -1,7 +1,10 @@
 "use client";
 
 import { useState, useRef, useEffect, useMemo } from 'react';
-import { MessageCircle, X, Send, Bot, User, Sparkles } from 'lucide-react';
+import Link from 'next/link';
+import { MessageCircle, X, Send, Bot, User, Sparkles, Phone, Users, ArrowRight } from 'lucide-react';
+import { buildWhatsAppLink, ESCALATION_MARKER, CONTACT_EMAIL } from '../../lib/chat-config';
+import { useLocale } from '../../contexts/LocaleContext';
 
 type Message = {
     id: string;
@@ -13,9 +16,21 @@ type Message = {
 type Props = {
     pilgrimageSlug?: string;
     pilgrimageTitle?: string;
+    /** Where the widget is mounted. Sent to the API so the bot can adapt. */
+    context?: 'pilgrimage-page' | 'registration-form';
+    /** Remaining spots to surface urgency + CTA inside the chat. Only used on pilgrimage-page. */
+    remainingSpots?: number;
+    /** Destination for the "Iniciar Inscrição" CTA. Omitted -> CTA hidden. */
+    registrationLink?: string;
+    /** If true, replace the CTA with a subtle "Lista de espera" note. */
+    isWaitlist?: boolean;
 };
 
-const DEFAULT_CHIPS = [
+// Keyed by pilgrimage slug so different peregrinações keep separate sessions.
+const storageKey = (slug?: string) => `chat:session:${slug || 'generic'}`;
+const messagesKey = (slug?: string) => `chat:messages:${slug || 'generic'}`;
+
+const CHIPS_PAGE_PT = [
     'Como me inscrevo?',
     'Quanto custa?',
     'Posso pagar em prestações?',
@@ -23,39 +38,121 @@ const DEFAULT_CHIPS = [
     'Que documentos preciso?',
     'E se tiver de cancelar?',
 ];
+const CHIPS_PAGE_EN = [
+    'How do I register?',
+    'How much does it cost?',
+    'Can I pay in installments?',
+    'Is the flight included?',
+    'What documents do I need?',
+    'What if I need to cancel?',
+];
 
-function useSessionId() {
+const CHIPS_FORM_PT = [
+    'Que tipo de quarto escolher?',
+    'Como funciona o pagamento em prestações?',
+    'Que documentos tenho de enviar?',
+    'Posso inscrever familiares agora?',
+    'Qual é o valor da entrada?',
+    'Tenho alergias alimentares, o que indico?',
+];
+const CHIPS_FORM_EN = [
+    'Which room type should I choose?',
+    'How do installment payments work?',
+    'What documents must I send?',
+    'Can I register family members now?',
+    'What is the deposit amount?',
+    'I have food allergies, what do I put?',
+];
+
+function useSessionId(slug?: string) {
     const ref = useRef<string>('');
     if (!ref.current) {
-        ref.current = typeof crypto !== 'undefined'
-            ? crypto.randomUUID()
-            : Math.random().toString(36).slice(2);
+        const key = storageKey(slug);
+        if (typeof window !== 'undefined') {
+            const stored = window.sessionStorage.getItem(key);
+            if (stored) {
+                ref.current = stored;
+            } else {
+                ref.current = typeof crypto !== 'undefined'
+                    ? crypto.randomUUID()
+                    : Math.random().toString(36).slice(2);
+                window.sessionStorage.setItem(key, ref.current);
+            }
+        } else {
+            ref.current = Math.random().toString(36).slice(2);
+        }
     }
     return ref.current;
 }
 
-export default function ChatWidget({ pilgrimageSlug, pilgrimageTitle }: Props) {
+export default function ChatWidget({
+    pilgrimageSlug,
+    pilgrimageTitle,
+    context = 'pilgrimage-page',
+    remainingSpots,
+    registrationLink,
+    isWaitlist,
+}: Props) {
+    const { locale } = useLocale();
+    const isEn = locale === 'en';
+    const CHIPS_PAGE = isEn ? CHIPS_PAGE_EN : CHIPS_PAGE_PT;
+    const CHIPS_FORM = isEn ? CHIPS_FORM_EN : CHIPS_FORM_PT;
     const [isOpen, setIsOpen] = useState(false);
     const [showTooltip, setShowTooltip] = useState(true);
     const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const abortRef = useRef<AbortController | null>(null);
-    const sessionId = useSessionId();
+    const sessionId = useSessionId(pilgrimageSlug);
+
+    const leadCapturedKey = `chat:lead:${pilgrimageSlug || 'generic'}`;
+    const [leadCaptured, setLeadCaptured] = useState(() =>
+        typeof window !== 'undefined' && window.sessionStorage.getItem(leadCapturedKey) === '1'
+    );
+    const [leadEmail, setLeadEmail] = useState('');
+    const [leadSubmitting, setLeadSubmitting] = useState(false);
+    const [leadDone, setLeadDone] = useState(leadCaptured);
 
     const initialGreeting = useMemo<Message>(() => ({
         id: 'greeting',
         role: 'assistant',
-        content: pilgrimageTitle
-            ? `Olá! 🙏 Sou o assistente do Apostolado de Garabandal. Estou aqui para ajudar com todas as suas dúvidas sobre a **${pilgrimageTitle}** — inscrição, preços, itinerário, pagamentos. Como posso ajudar?`
-            : 'Olá! 🙏 Sou o assistente do Apostolado de Garabandal. Como posso ajudar com a sua peregrinação?',
-    }), [pilgrimageTitle]);
+        content: context === 'registration-form'
+            ? (isEn
+                ? `Hello! 🙏 I'm here while you fill out the form. If you have questions about rooms, documents, payments, or any step of the **${pilgrimageTitle || 'pilgrimage'}** registration, feel free to ask.`
+                : `Olá! 🙏 Estou aqui enquanto preenche o formulário. Se tiver dúvidas sobre quartos, documentos, pagamentos ou qualquer passo da inscrição da **${pilgrimageTitle || 'peregrinação'}**, pergunte à vontade.`)
+            : pilgrimageTitle
+                ? (isEn
+                    ? `Hello! 🙏 I'm the Apostolate of Garabandal assistant. I'm here to help with any questions about the **${pilgrimageTitle}** — registration, prices, itinerary, payments. How can I help?`
+                    : `Olá! 🙏 Sou o assistente do Apostolado de Garabandal. Estou aqui para ajudar com todas as suas dúvidas sobre a **${pilgrimageTitle}** — inscrição, preços, itinerário, pagamentos. Como posso ajudar?`)
+                : (isEn
+                    ? 'Hello! 🙏 I am the Apostolate of Garabandal assistant. How can I help with your pilgrimage?'
+                    : 'Olá! 🙏 Sou o assistente do Apostolado de Garabandal. Como posso ajudar com a sua peregrinação?'),
+    }), [pilgrimageTitle, context, isEn]);
 
-    const [messages, setMessages] = useState<Message[]>([initialGreeting]);
+    const [messages, setMessages] = useState<Message[]>(() => {
+        if (typeof window === 'undefined') return [initialGreeting];
+        try {
+            const stored = window.sessionStorage.getItem(messagesKey(pilgrimageSlug));
+            if (stored) {
+                const parsed = JSON.parse(stored) as Message[];
+                if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+            }
+        } catch { /* ignore corrupted storage */ }
+        return [initialGreeting];
+    });
 
     useEffect(() => {
         setMessages(prev => prev.length <= 1 ? [initialGreeting] : prev);
     }, [initialGreeting]);
+
+    // Persist messages across navigations within the same tab.
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        try {
+            const serializable = messages.map(({ streaming: _s, ...m }) => m);
+            window.sessionStorage.setItem(messagesKey(pilgrimageSlug), JSON.stringify(serializable));
+        } catch { /* ignore quota errors */ }
+    }, [messages, pilgrimageSlug]);
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -97,6 +194,7 @@ export default function ChatWidget({ pilgrimageSlug, pilgrimageTitle }: Props) {
                     pilgrimageSlug,
                     pilgrimageTitle,
                     sessionId,
+                    context,
                 }),
             });
 
@@ -107,7 +205,7 @@ export default function ChatWidget({ pilgrimageSlug, pilgrimageTitle }: Props) {
             // Fallback: API returned JSON (error case) — show content directly
             if (contentType.includes('application/json')) {
                 const data = await response.json().catch(() => ({}));
-                const content = data?.content || 'Desculpe, ocorreu um erro inesperado. Por favor tente novamente ou escreva para apoio@garabandalplus.com.';
+                const content = data?.content || (isEn ? 'Sorry, an unexpected error occurred. Please try again or write to geral@apostoladodegarabandal.com.' : 'Desculpe, ocorreu um erro inesperado. Por favor tente novamente ou escreva para geral@apostoladodegarabandal.com.');
                 setMessages(prev => prev.map(m =>
                     m.id === assistantId ? { ...m, content, streaming: false } : m
                 ));
@@ -155,7 +253,7 @@ export default function ChatWidget({ pilgrimageSlug, pilgrimageTitle }: Props) {
             console.error('[ChatWidget] Error:', err);
             setMessages(prev => prev.map(m =>
                 m.id === assistantId
-                    ? { ...m, content: 'Desculpe, ocorreu um erro de ligação. Por favor tente novamente ou escreva para apoio@garabandalplus.com.', streaming: false }
+                    ? { ...m, content: (isEn ? 'Sorry, a connection error occurred. Please try again or write to geral@apostoladodegarabandal.com.' : 'Desculpe, ocorreu um erro de ligação. Por favor tente novamente ou escreva para geral@apostoladodegarabandal.com.'), streaming: false }
                     : m
             ));
         } finally {
@@ -166,6 +264,36 @@ export default function ChatWidget({ pilgrimageSlug, pilgrimageTitle }: Props) {
     const handleSend = (e?: React.FormEvent) => {
         e?.preventDefault();
         sendMessage(input);
+    };
+
+    // Show lead capture card after 2nd user message, only on pilgrimage page, once per session.
+    const userMessageCount = messages.filter(m => m.role === 'user').length;
+    const showLeadCapture = context === 'pilgrimage-page' && userMessageCount >= 2 && !leadDone;
+
+    const submitLead = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!leadEmail.trim() || leadSubmitting) return;
+        setLeadSubmitting(true);
+        try {
+            await fetch('/api/leads/capture', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    email: leadEmail.trim(),
+                    type: 'chat_lead',
+                    channel_preference: 'email',
+                    step: 'chat_interest',
+                    data: { pilgrimageTitle, sessionId },
+                }),
+            });
+        } catch { /* non-critical */ } finally {
+            setLeadSubmitting(false);
+            setLeadDone(true);
+            setLeadCaptured(true);
+            if (typeof window !== 'undefined') {
+                window.sessionStorage.setItem(leadCapturedKey, '1');
+            }
+        }
     };
 
     const showChips = messages.length <= 1 && !isLoading;
@@ -193,54 +321,134 @@ export default function ChatWidget({ pilgrimageSlug, pilgrimageTitle }: Props) {
                                 <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-yellow-400 rounded-full"></span>
                             </div>
                             <div>
-                                <h3 className="font-bold text-sm leading-tight">Assistente Apostolado de Garabandal</h3>
+                                <h3 className="font-bold text-sm leading-tight">{isEn ? 'Apostolate of Garabandal Assistant' : 'Assistente Apostolado de Garabandal'}</h3>
                                 <p className="text-[11px] text-yellow-900 font-medium opacity-80">
-                                    {pilgrimageTitle ? 'Sobre esta peregrinação' : 'Sempre online'}
+                                    {pilgrimageTitle ? (isEn ? 'About this pilgrimage' : 'Sobre esta peregrinação') : (isEn ? 'Always online' : 'Sempre online')}
                                 </p>
                             </div>
                         </div>
-                        <button onClick={toggleChat} className="p-2 hover:bg-yellow-600/50 rounded-full transition-colors" aria-label="Fechar chat">
-                            <X className="w-5 h-5" />
-                        </button>
+                        <div className="flex items-center gap-1">
+                            <a
+                                href={buildWhatsAppLink(pilgrimageTitle)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="p-2 hover:bg-yellow-600/50 rounded-full transition-colors"
+                                aria-label={isEn ? 'Talk on WhatsApp' : 'Falar no WhatsApp'}
+                                title={isEn ? 'Talk on WhatsApp' : 'Falar no WhatsApp'}
+                            >
+                                <Phone className="w-4 h-4" />
+                            </a>
+                            <button onClick={toggleChat} className="p-2 hover:bg-yellow-600/50 rounded-full transition-colors" aria-label={isEn ? 'Close chat' : 'Fechar chat'}>
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
                     </div>
+
+                    {/* Contextual CTA (vacancies + Reservar) -- only on pilgrimage page */}
+                    {registrationLink && (
+                        isWaitlist ? (
+                            <div className="bg-gradient-to-r from-amber-50 to-orange-50 border-b border-amber-200/60 px-4 py-3 flex items-center justify-between gap-3 shadow-sm">
+                                <div className="flex items-center gap-2 text-[11px] md:text-xs text-amber-800 leading-tight">
+                                    <Users className="w-3.5 h-3.5 shrink-0" />
+                                    <span>
+                                        <span className="font-bold">{isEn ? 'Sold out' : 'Vagas esgotadas'}</span>
+                                        <span className="text-amber-700/80 hidden sm:inline"> {isEn ? '— join the waiting list' : '— entre na lista de espera'}</span>
+                                    </span>
+                                </div>
+                                <Link href={registrationLink} className="inline-flex items-center gap-1.5 text-[11px] md:text-xs font-black bg-amber-100 hover:bg-amber-200 text-amber-900 px-3 py-1.5 md:py-2 rounded-xl transition-colors shrink-0">
+                                    {isEn ? 'Waiting List' : 'Lista de Espera'} <ArrowRight className="w-3 h-3" />
+                                </Link>
+                            </div>
+                        ) : (
+                            <div className={`border-b px-4 py-3 flex items-center justify-between gap-3 shadow-sm ${
+                                typeof remainingSpots === 'number' && remainingSpots <= 5
+                                    ? 'bg-gradient-to-r from-red-50 to-rose-50 border-red-200/60'
+                                    : 'bg-gradient-to-r from-yellow-50/80 to-amber-50/80 border-yellow-200/60'
+                            }`}>
+                                <div className={`flex items-center gap-2 text-[11px] md:text-xs leading-tight ${
+                                    typeof remainingSpots === 'number' && remainingSpots <= 5 ? 'text-red-800' : 'text-slate-700'
+                                }`}>
+                                    <Users className="w-3.5 h-3.5 shrink-0" />
+                                    {typeof remainingSpots === 'number' && remainingSpots <= 5 ? (
+                                        <span><span className="font-bold">{isEn ? `Last ${remainingSpots} spots` : `Últimas ${remainingSpots} vagas`}</span><span className="hidden sm:inline"> {isEn ? '— sign up now' : '— inscreva-se já'}</span></span>
+                                    ) : (
+                                        <span><span className="font-bold text-slate-900">{isEn ? 'Limited Spots' : 'Vagas limitadas'}</span><span className="hidden sm:inline text-slate-600"> {isEn ? '— places still available' : '— lugares a preencher'}</span></span>
+                                    )}
+                                </div>
+                                <Link
+                                    href={registrationLink}
+                                    className="inline-flex items-center gap-1.5 text-[11px] md:text-xs font-black bg-gradient-to-r from-yellow-400 to-amber-500 hover:from-yellow-500 hover:to-amber-600 text-slate-900 px-3 py-1.5 md:py-2 rounded-xl shadow-[0_2px_10px_rgba(245,158,11,0.2)] hover:shadow-[0_4px_15px_rgba(245,158,11,0.3)] transition-all shrink-0"
+                                >
+                                    {isEn ? 'Start Registration' : 'Iniciar Inscrição'} <ArrowRight className="w-3.5 h-3.5" />
+                                </Link>
+                            </div>
+                        )
+                    )}
 
                     {/* Messages */}
                     <div className="flex-1 overflow-y-auto p-4 bg-slate-50/50 space-y-4">
-                        {messages.map((msg) => (
-                            <div key={msg.id} className={`flex gap-2 max-w-[88%] ${msg.role === 'user' ? 'ml-auto flex-row-reverse' : ''}`}>
-                                <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 mt-auto shadow-sm ${msg.role === 'user' ? 'bg-yellow-500' : 'bg-white border border-slate-100'}`}>
-                                    {msg.role === 'user' ? <User className="w-4 h-4 text-slate-900" /> : <Bot className="w-4 h-4 text-slate-600" />}
-                                </div>
-                                <div className={`p-3.5 text-sm shadow-sm leading-relaxed whitespace-pre-wrap ${
-                                    msg.role === 'user'
-                                        ? 'bg-yellow-500 text-slate-900 rounded-2xl rounded-br-sm'
-                                        : 'bg-white text-slate-700 border border-slate-100 rounded-2xl rounded-bl-sm'
-                                }`}>
-                                    {msg.content
-                                        ? renderContent(msg.content)
-                                        : msg.streaming && (
-                                            <span className="inline-flex gap-1 items-center h-4">
-                                                <span className="w-1.5 h-1.5 bg-slate-300 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
-                                                <span className="w-1.5 h-1.5 bg-slate-300 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
-                                                <span className="w-1.5 h-1.5 bg-slate-300 rounded-full animate-bounce"></span>
-                                            </span>
-                                        )
-                                    }
-                                    {msg.streaming && msg.content && (
-                                        <span className="inline-block w-0.5 h-3.5 bg-slate-400 animate-pulse ml-0.5 align-middle" />
+                        {messages.map((msg) => {
+                            const needsEscalation =
+                                msg.role === 'assistant' &&
+                                !msg.streaming &&
+                                msg.content.includes(ESCALATION_MARKER);
+                            return (
+                                <div key={msg.id} className="space-y-2">
+                                    <div className={`flex gap-2 max-w-[88%] ${msg.role === 'user' ? 'ml-auto flex-row-reverse' : ''}`}>
+                                        <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 mt-auto shadow-sm ${msg.role === 'user' ? 'bg-yellow-500' : 'bg-white border border-slate-100'}`}>
+                                            {msg.role === 'user' ? <User className="w-4 h-4 text-slate-900" /> : <Bot className="w-4 h-4 text-slate-600" />}
+                                        </div>
+                                        <div className={`p-3.5 text-sm shadow-sm leading-relaxed whitespace-pre-wrap ${
+                                            msg.role === 'user'
+                                                ? 'bg-yellow-500 text-slate-900 rounded-2xl rounded-br-sm'
+                                                : 'bg-white text-slate-700 border border-slate-100 rounded-2xl rounded-bl-sm'
+                                        }`}>
+                                            {msg.content
+                                                ? renderContent(msg.content)
+                                                : msg.streaming && (
+                                                    <span className="inline-flex gap-1 items-center h-4">
+                                                        <span className="w-1.5 h-1.5 bg-slate-300 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
+                                                        <span className="w-1.5 h-1.5 bg-slate-300 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
+                                                        <span className="w-1.5 h-1.5 bg-slate-300 rounded-full animate-bounce"></span>
+                                                    </span>
+                                                )
+                                            }
+                                            {msg.streaming && msg.content && (
+                                                <span className="inline-block w-0.5 h-3.5 bg-slate-400 animate-pulse ml-0.5 align-middle" />
+                                            )}
+                                        </div>
+                                    </div>
+                                    {needsEscalation && (
+                                        <div className="ml-9 flex flex-wrap gap-2">
+                                            <a
+                                                href={buildWhatsAppLink(pilgrimageTitle)}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="inline-flex items-center gap-1.5 text-xs font-semibold bg-[#25D366] hover:bg-[#1fb858] text-white px-3 py-2 rounded-full shadow-sm transition-colors"
+                                            >
+                                                <Phone className="w-3.5 h-3.5" />
+                                                {isEn ? 'Talk on WhatsApp' : 'Falar no WhatsApp'}
+                                            </a>
+                                            <a
+                                                href={`mailto:${CONTACT_EMAIL}`}
+                                                className="inline-flex items-center gap-1.5 text-xs font-semibold bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 px-3 py-2 rounded-full shadow-sm transition-colors"
+                                            >
+                                                {isEn ? 'Send email' : 'Enviar email'}
+                                            </a>
+                                        </div>
                                     )}
                                 </div>
-                            </div>
-                        ))}
+                            );
+                        })}
 
                         {showChips && (
                             <div className="pt-2">
                                 <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-2">
                                     <Sparkles className="w-3 h-3" />
-                                    Perguntas rápidas
+                                    {isEn ? 'Quick questions' : 'Perguntas rápidas'}
                                 </div>
                                 <div className="flex flex-wrap gap-2">
-                                    {DEFAULT_CHIPS.map((chip) => (
+                                    {(context === 'registration-form' ? CHIPS_FORM : CHIPS_PAGE).map((chip: string) => (
                                         <button
                                             key={chip}
                                             onClick={() => sendMessage(chip)}
@@ -249,6 +457,43 @@ export default function ChatWidget({ pilgrimageSlug, pilgrimageTitle }: Props) {
                                             {chip}
                                         </button>
                                     ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Inline lead capture — appears after 2nd user message, once per session */}
+                        {showLeadCapture && (
+                            <div className="flex gap-2 max-w-[88%]">
+                                <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 mt-auto shadow-sm bg-white border border-slate-100">
+                                    <Bot className="w-4 h-4 text-slate-600" />
+                                </div>
+                                <div className="bg-white border border-yellow-200 rounded-2xl rounded-bl-sm p-3.5 shadow-sm flex-1">
+                                    {leadDone ? (
+                                        <p className="text-sm text-green-700 font-semibold">{isEn ? '✓ Thank you! We will be in touch shortly. 🙏' : '✓ Obrigado! Entraremos em contacto brevemente. 🙏'}</p>
+                                    ) : (
+                                        <>
+                                            <p className="text-sm text-slate-700 mb-3">
+                                                {isEn ? <>Would you like to receive the <strong>itinerary and detailed information</strong> about this pilgrimage by email?</> : <>Quer receber o <strong>itinerário e informações detalhadas</strong> desta peregrinação por email?</>}
+                                            </p>
+                                            <form onSubmit={submitLead} className="flex gap-2">
+                                                <input
+                                                    type="email"
+                                                    value={leadEmail}
+                                                    onChange={e => setLeadEmail(e.target.value)}
+                                                    placeholder={isEn ? 'your@email.com' : 'o-seu@email.com'}
+                                                    required
+                                                    className="flex-1 min-w-0 text-xs bg-slate-50 border border-slate-200 focus:border-yellow-400 focus:ring-1 focus:ring-yellow-400/30 rounded-lg px-3 py-2 outline-none"
+                                                />
+                                                <button
+                                                    type="submit"
+                                                    disabled={leadSubmitting || !leadEmail.trim()}
+                                                    className="shrink-0 text-xs font-bold bg-yellow-400 hover:bg-yellow-500 disabled:opacity-50 text-slate-900 px-3 py-2 rounded-lg transition-colors"
+                                                >
+                                                    {leadSubmitting ? '...' : (isEn ? 'Send' : 'Enviar')}
+                                                </button>
+                                            </form>
+                                        </>
+                                    )}
                                 </div>
                             </div>
                         )}
@@ -263,7 +508,7 @@ export default function ChatWidget({ pilgrimageSlug, pilgrimageTitle }: Props) {
                                 type="text"
                                 value={input}
                                 onChange={(e) => setInput(e.target.value)}
-                                placeholder="Escreva a sua dúvida..."
+                                placeholder={isEn ? 'Type your question...' : 'Escreva a sua dúvida...'}
                                 disabled={isLoading}
                                 className="flex-1 bg-slate-100/80 border border-slate-200 focus:border-yellow-400 focus:bg-white focus:ring-2 focus:ring-yellow-400/20 text-sm rounded-full px-5 py-3 transition-all outline-none disabled:opacity-60"
                             />
@@ -271,14 +516,14 @@ export default function ChatWidget({ pilgrimageSlug, pilgrimageTitle }: Props) {
                                 type="submit"
                                 disabled={!input.trim() || isLoading}
                                 className="bg-slate-900 hover:bg-slate-800 text-white disabled:opacity-50 disabled:cursor-not-allowed w-11 h-11 rounded-full shadow-md transition-all flex items-center justify-center shrink-0 group"
-                                aria-label="Enviar"
+                                aria-label={isEn ? 'Send' : 'Enviar'}
                             >
                                 <Send className="w-4 h-4 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
                             </button>
                         </form>
                     </div>
                     <div className="bg-slate-50/80 text-[9px] text-slate-400 text-center py-2 border-t border-slate-100">
-                        IA do Apostolado • Para confirmação oficial: apoio@garabandalplus.com
+                        {isEn ? 'Apostolate AI • For official confirmation: ' : 'IA do Apostolado • Para confirmação oficial: '}geral@apostoladodegarabandal.com
                     </div>
                 </div>
             )}
@@ -287,13 +532,13 @@ export default function ChatWidget({ pilgrimageSlug, pilgrimageTitle }: Props) {
             <div className="relative pointer-events-auto flex items-center gap-4">
                 {!isOpen && showTooltip && (
                     <div className="hidden sm:flex items-center bg-white px-4 py-2.5 rounded-2xl shadow-lg border border-slate-100 animate-in fade-in slide-in-from-right-5 duration-500 cursor-pointer" onClick={toggleChat}>
-                        <span className="text-sm font-bold text-slate-700">Tem dúvidas? Pergunte à IA 🙏</span>
+                        <span className="text-sm font-bold text-slate-700">{isEn ? 'Got questions? Ask the AI 🙏' : 'Tem dúvidas? Pergunte à IA 🙏'}</span>
                         <div className="absolute right-[-6px] top-1/2 -translate-y-1/2 w-3 h-3 bg-white border-r border-t border-slate-100 transform rotate-45"></div>
                     </div>
                 )}
                 <button
                     onClick={toggleChat}
-                    aria-label={isOpen ? 'Fechar chat' : 'Abrir chat'}
+                    aria-label={isOpen ? (isEn ? 'Close chat' : 'Fechar chat') : (isEn ? 'Open chat' : 'Abrir chat')}
                     className={`relative flex items-center justify-center w-16 h-16 rounded-full shadow-[0_10px_40px_rgba(0,0,0,0.3)] transition-all duration-300 ${
                         isOpen
                             ? 'bg-slate-900 text-white hover:bg-slate-800 rotate-90 scale-90'

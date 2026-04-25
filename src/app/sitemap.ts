@@ -2,8 +2,40 @@ import type { MetadataRoute } from 'next';
 import { APP_URL } from '../lib/config';
 import { supabaseServer } from '../lib/supabase';
 import { buildProductPath } from '../lib/slug';
+import { localizeStoreProductText } from '../lib/store-i18n';
+import { type StoreProductSitemapRecord } from '../lib/store-products';
 
 export const revalidate = 3600;
+
+const getSitemapDate = (value?: string | null, fallback = new Date()) => {
+  if (!value) return fallback;
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? fallback : parsed;
+};
+
+const getAbsoluteImageUrl = (image?: string | null) => {
+  if (!image) return undefined;
+  if (image.startsWith('http://') || image.startsWith('https://')) return image;
+  return `${APP_URL}${image.startsWith('/') ? image : `/${image}`}`;
+};
+
+async function fetchSitemapProducts(): Promise<StoreProductSitemapRecord[]> {
+  if (!supabaseServer) return [];
+
+  const withDates = await supabaseServer
+    .from('store_products')
+    .select('product_id, name, name_en, image_url, updated_at, created_at')
+    .eq('is_active', true);
+
+  if (!withDates.error) return (withDates.data || []) as StoreProductSitemapRecord[];
+
+  const fallback = await supabaseServer
+    .from('store_products')
+    .select('product_id, name, name_en, image_url')
+    .eq('is_active', true);
+
+  return (fallback.data || []) as StoreProductSitemapRecord[];
+}
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const now = new Date();
@@ -123,18 +155,44 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const dynamicRoutes: MetadataRoute.Sitemap = [];
 
   try {
-    const { data: products } = await supabaseServer
-      .from('store_products')
-      .select('product_id, name')
-      .eq('is_active', true);
+    const products = await fetchSitemapProducts();
 
-    (products || []).forEach((product: any) => {
+    (products || []).forEach((product) => {
       if (product?.product_id) {
+        const englishName = localizeStoreProductText(product, 'en').name;
+        const ptUrl = `${APP_URL}${buildProductPath(product.product_id, product.name, 'pt')}`;
+        const enUrl = `${APP_URL}${buildProductPath(product.product_id, englishName, 'en')}`;
+        const lastModified = getSitemapDate(product.updated_at || product.created_at, now);
+        const imageUrl = getAbsoluteImageUrl(product.image_url);
+        const shared = {
+          lastModified,
+          changeFrequency: 'weekly' as const,
+          images: imageUrl ? [imageUrl] : undefined,
+        };
+
         dynamicRoutes.push({
-          url: `${APP_URL}${buildProductPath(product.product_id, product.name)}`,
-          lastModified: now,
-          changeFrequency: 'weekly',
-          priority: 0.75,
+          url: ptUrl,
+          ...shared,
+          priority: 0.8,
+          alternates: {
+            languages: {
+              'pt-BR': ptUrl,
+              'pt-PT': ptUrl,
+              en: enUrl,
+            },
+          },
+        });
+        dynamicRoutes.push({
+          url: enUrl,
+          ...shared,
+          priority: 0.7,
+          alternates: {
+            languages: {
+              en: enUrl,
+              'pt-BR': ptUrl,
+              'pt-PT': ptUrl,
+            },
+          },
         });
       }
     });

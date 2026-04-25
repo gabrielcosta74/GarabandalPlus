@@ -9,9 +9,10 @@ export const slugify = (value: string): string => {
     .replace(/-{2,}/g, '-');
 };
 
-export const buildProductPath = (id: string, name?: string | null): string => {
+export const buildProductPath = (id: string, name?: string | null, locale: 'pt' | 'en' = 'pt'): string => {
   const slug = name ? slugify(name) : '';
-  return `/loja/${id}${slug ? `-${slug}` : ''}`;
+  const basePath = locale === 'en' ? '/en/store' : '/loja';
+  return `${basePath}/${id}${slug ? `-${slug}` : ''}`;
 };
 
 export const extractProductId = (param: string): string => {

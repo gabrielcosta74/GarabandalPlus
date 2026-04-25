@@ -13,6 +13,10 @@
       "schedule": "0 * * * *"
     },
     {
+      "path": "/api/cron/marketing-automations",
+      "schedule": "*/15 * * * *"
+    },
+    {
       "path": "/api/cron/membership-rules",
       "schedule": "0 9 * * *"
     },

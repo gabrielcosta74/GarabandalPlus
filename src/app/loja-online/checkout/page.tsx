@@ -21,6 +21,8 @@ import { getShippingCost, getShippingLabel, getShippingOrigin, isPhysicalShippin
 import { motion, AnimatePresence } from 'framer-motion';
 import { Check, ChevronRight, CreditCard, User, ShoppingBag, MapPin, ArrowLeft, ShieldCheck, Loader2, QrCode, Wallet } from 'lucide-react';
 import { useLocale } from '../../../contexts/LocaleContext';
+import { getStoreHomePath } from '../../../lib/store-i18n';
+import { captureStoreEvent } from '../../../lib/analytics';
 
 const getVatRate = (product: Product) => (product.isPhysical ? 0.06 : 0.23);
 
@@ -59,7 +61,6 @@ type SavedProfile = {
   store_credits?: number | null;
 };
 
-const countryOptions = listCountryOptions();
 const ADDRESS_AUTOCOMPLETE_ENABLED = process.env.NEXT_PUBLIC_ADDRESS_AUTOCOMPLETE === '1';
 const PHOTON_ENDPOINT = 'https://photon.komoot.io/api';
 
@@ -82,6 +83,7 @@ export default function CheckoutPage() {
   const { locale } = useLocale();
   const isEn = locale === 'en';
   const { formatPrice } = useCurrency();
+  const countryOptions = useMemo(() => listCountryOptions(isEn ? 'en' : 'pt-PT'), [isEn]);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
@@ -121,6 +123,7 @@ export default function CheckoutPage() {
   const [isMemberActive, setIsMemberActive] = useState(false);
   const [selectedPaymentId, setSelectedPaymentId] = useState(UNIFIED_ONLINE_PAYMENT_OPTIONS[0].id);
   const [ownedDigitalProductIds, setOwnedDigitalProductIds] = useState<Set<string>>(new Set());
+  const [checkoutStartedTracked, setCheckoutStartedTracked] = useState(false);
 
   // Store Credits Gamification
   const [applyCredits, setApplyCredits] = useState(false);
@@ -138,6 +141,23 @@ export default function CheckoutPage() {
     () => UNIFIED_ONLINE_PAYMENT_OPTIONS.find((option) => option.id === selectedPaymentId) ?? UNIFIED_ONLINE_PAYMENT_OPTIONS[0],
     [selectedPaymentId],
   );
+  const localizedPaymentOptions = useMemo(() => UNIFIED_ONLINE_PAYMENT_OPTIONS.map((option) => ({
+    ...option,
+    label: isEn
+      ? ({
+        'Cartão de Crédito': 'Credit Card',
+      } as Record<string, string>)[option.label] || option.label
+      : option.label,
+    description: isEn
+      ? ({
+        'Pagamento instantâneo': 'Instant payment',
+        'Pagamento de serviços': 'Service payment',
+      } as Record<string, string>)[option.description] || option.description
+      : option.description,
+    iconAlt: option.iconAlt && isEn
+      ? ({ 'Cartão de Crédito': 'Credit Card' } as Record<string, string>)[option.iconAlt] || option.iconAlt
+      : option.iconAlt,
+  })), [isEn]);
   const nifLabel = shipping.country === 'BR'
     ? (isEn ? 'CPF (optional)' : 'CPF (opcional)')
     : (isEn ? 'TIN / CPF (optional)' : 'NIF / CPF (opcional)');
@@ -211,6 +231,17 @@ export default function CheckoutPage() {
   }, [applyCredits, storeCreditsBalance, rawTotalWithShipping]);
 
   const totalToPay = useMemo(() => Math.max(0, rawTotalWithShipping - appliedCreditsValue), [rawTotalWithShipping, appliedCreditsValue]);
+  const checkoutAnalyticsBase = useMemo(() => ({
+    step,
+    item_count: cartEntries.reduce((sum, item) => sum + item.qty, 0),
+    unique_items: cartEntries.length,
+    cart_total: Number(rawTotalWithShipping.toFixed(2)),
+    total_to_pay: Number(totalToPay.toFixed(2)),
+    has_physical: hasPhysical,
+    has_member_discount: isMemberActive && discountValue > 0,
+    uses_store_credits: applyCredits && appliedCreditsValue > 0,
+    locale,
+  }), [appliedCreditsValue, applyCredits, cartEntries, discountValue, hasPhysical, isMemberActive, locale, rawTotalWithShipping, step, totalToPay]);
 
   // Load Data Effects
   useEffect(() => {
@@ -275,7 +306,7 @@ export default function CheckoutPage() {
     const loadProducts = async () => {
       setLoadingProducts(true);
       try {
-        const res = await fetch('/api/store/products?includeVariants=0');
+        const res = await fetch(`/api/store/products?includeVariants=0&locale=${locale}`);
         if (!res.ok) return;
         const data = await res.json();
         setProducts(data.products || []);
@@ -286,7 +317,18 @@ export default function CheckoutPage() {
       }
     };
     loadProducts();
-  }, []);
+  }, [locale]);
+
+  useEffect(() => {
+    if (!cartEntries.length || checkoutStartedTracked) return;
+    captureStoreEvent('store_checkout_started', checkoutAnalyticsBase);
+    setCheckoutStartedTracked(true);
+  }, [cartEntries.length, checkoutAnalyticsBase, checkoutStartedTracked]);
+
+  useEffect(() => {
+    if (!cartEntries.length) return;
+    captureStoreEvent('store_checkout_step_viewed', checkoutAnalyticsBase);
+  }, [cartEntries.length, checkoutAnalyticsBase]);
 
   useEffect(() => {
     const loadOwnedDigitalProducts = async () => {
@@ -341,7 +383,7 @@ export default function CheckoutPage() {
             ? countryOptions.find((option) => option.code === shipping.country)?.label
             : '';
           const queryText = countryLabel ? `${query}, ${countryLabel}` : query;
-          const params = new URLSearchParams({ q: queryText, limit: '5', lang: 'pt' });
+          const params = new URLSearchParams({ q: queryText, limit: '5', lang: isEn ? 'en' : 'pt' });
           const url = `${PHOTON_ENDPOINT}?${params.toString()}`;
           const res = await fetch(url, { signal: controller.signal });
           if (!res.ok) { setAddressSuggestions([]); return; }
@@ -371,7 +413,7 @@ export default function CheckoutPage() {
       clearTimeout(timeout);
       controller.abort();
     };
-  }, [shipping.address1, shipping.country]);
+  }, [shipping.address1, shipping.country, countryOptions, isEn]);
 
   const applySavedAddress = (profile: SavedProfile) => {
     setShipping((prev) => ({
@@ -393,25 +435,65 @@ export default function CheckoutPage() {
   const nextStep = () => {
     setError(null);
     if (step === 1) {
-      if (!cartEntries.length) { setError(isEn ? 'Add items to your cart.' : 'Adiciona artigos ao carrinho.'); return; }
+      if (!cartEntries.length) {
+        setError(isEn ? 'Add items to your cart.' : 'Adiciona artigos ao carrinho.');
+        captureStoreEvent('store_checkout_validation_failed', { ...checkoutAnalyticsBase, reason: 'empty_cart' });
+        return;
+      }
       setStep(2);
       return;
     }
     if (step === 2) {
-      if (!buyer.fullName || !buyer.email) { setError(isEn ? "Enter the buyer's name and email." : 'Indica o nome e o email do comprador.'); return; }
-      if (!isValidNif(buyer.nif, shipping.country)) { setError(shipping.country === 'BR' ? (isEn ? 'Invalid CPF.' : 'CPF inválido.') : (isEn ? 'Invalid tax number.' : 'NIF inválido.')); return; }
+      if (!buyer.fullName || !buyer.email) {
+        setError(isEn ? "Enter the buyer's name and email." : 'Indica o nome e o email do comprador.');
+        captureStoreEvent('store_checkout_validation_failed', { ...checkoutAnalyticsBase, reason: 'buyer_missing' });
+        return;
+      }
+      if (!isValidNif(buyer.nif, shipping.country)) {
+        setError(shipping.country === 'BR' ? (isEn ? 'Invalid CPF.' : 'CPF inválido.') : (isEn ? 'Invalid tax number.' : 'NIF inválido.'));
+        captureStoreEvent('store_checkout_validation_failed', { ...checkoutAnalyticsBase, reason: 'tax_number_invalid', country: shipping.country || null });
+        return;
+      }
 
       if (hasPhysical) {
-        if (!shipping.address1 || !shipping.doorNumber || !shipping.city || !shipping.postalCode) { setError(isEn ? 'Enter the full shipping address.' : 'Indica a morada de envio completa.'); return; }
-        if (!shipping.country) { setError(isEn ? 'Select the shipping country.' : 'Seleciona o país de envio.'); return; }
-        if (!isPhysicalShippingAllowed(shipping.country)) { setError(isEn ? 'Physical shipping is not available for this country.' : 'Envio físico não disponível para este país.'); return; }
-        if (!validatePostalCode(shipping.country, shipping.postalCode)) { setError(getPostalInvalidMessage(shipping.country)); return; }
+        if (!shipping.address1 || !shipping.doorNumber || !shipping.city || !shipping.postalCode) {
+          setError(isEn ? 'Enter the full shipping address.' : 'Indica a morada de envio completa.');
+          captureStoreEvent('store_checkout_validation_failed', { ...checkoutAnalyticsBase, reason: 'shipping_missing', country: shipping.country || null });
+          return;
+        }
+        if (!shipping.country) {
+          setError(isEn ? 'Select the shipping country.' : 'Seleciona o país de envio.');
+          captureStoreEvent('store_checkout_validation_failed', { ...checkoutAnalyticsBase, reason: 'shipping_country_missing' });
+          return;
+        }
+        if (!isPhysicalShippingAllowed(shipping.country)) {
+          setError(isEn ? 'Physical shipping is not available for this country.' : 'Envio físico não disponível para este país.');
+          captureStoreEvent('store_checkout_validation_failed', { ...checkoutAnalyticsBase, reason: 'shipping_country_blocked', country: shipping.country });
+          return;
+        }
+        if (!validatePostalCode(shipping.country, shipping.postalCode)) {
+          setError(getPostalInvalidMessage(shipping.country, isEn ? 'en' : 'pt-PT'));
+          captureStoreEvent('store_checkout_validation_failed', { ...checkoutAnalyticsBase, reason: 'shipping_postal_invalid', country: shipping.country });
+          return;
+        }
       }
 
       if (!billingSameAsShipping) {
-        if (!billing.address1 || !billing.city || !billing.postalCode) { setError(isEn ? 'Enter the full billing address.' : 'Indica a morada de faturação completa.'); return; }
-        if (!billing.country) { setError(isEn ? 'Select the billing country.' : 'Seleciona o país de faturação.'); return; }
-        if (!validatePostalCode(billing.country, billing.postalCode)) { setError(isEn ? `Invalid billing postal code (${billing.country}).` : `Código postal de faturação inválido (${billing.country}).`); return; }
+        if (!billing.address1 || !billing.city || !billing.postalCode) {
+          setError(isEn ? 'Enter the full billing address.' : 'Indica a morada de faturação completa.');
+          captureStoreEvent('store_checkout_validation_failed', { ...checkoutAnalyticsBase, reason: 'billing_missing', country: billing.country || null });
+          return;
+        }
+        if (!billing.country) {
+          setError(isEn ? 'Select the billing country.' : 'Seleciona o país de faturação.');
+          captureStoreEvent('store_checkout_validation_failed', { ...checkoutAnalyticsBase, reason: 'billing_country_missing' });
+          return;
+        }
+        if (!validatePostalCode(billing.country, billing.postalCode)) {
+          setError(isEn ? `Invalid billing postal code (${billing.country}).` : `Código postal de faturação inválido (${billing.country}).`);
+          captureStoreEvent('store_checkout_validation_failed', { ...checkoutAnalyticsBase, reason: 'billing_postal_invalid', country: billing.country });
+          return;
+        }
       }
 
       setStep(3);
@@ -427,6 +509,12 @@ export default function CheckoutPage() {
     if (!cartEntries.length) return;
     setLoading(true);
     setError(null);
+    captureStoreEvent('store_checkout_payment_submitted', {
+      ...checkoutAnalyticsBase,
+      payment_provider: totalToPay === 0 ? 'wallet' : selectedPayment.provider,
+      shipping_country: hasPhysical ? shipping.country : null,
+      billing_country: billingSameAsShipping ? shipping.country : billing.country,
+    });
     try {
       if (saveAddress && supabaseBrowser && sessionUserId) {
         await supabaseBrowser.from('membros').update({
@@ -451,6 +539,7 @@ export default function CheckoutPage() {
         headers,
         body: JSON.stringify({
           items: cartEntries.map((item) => ({ id: item.id, name: item.name, price: item.price, qty: item.qty })),
+          locale,
           total: Number(rawTotalWithShipping.toFixed(2)),
           finalTotalToPay: Number(totalToPay.toFixed(2)),
           applyStoreCredits: applyCredits && storeCreditsBalance > 0,
@@ -465,11 +554,21 @@ export default function CheckoutPage() {
         const body = await res.json().catch(() => ({}));
         throw new Error(body?.message || (isEn ? 'Could not start the payment.' : 'Não foi possível iniciar o pagamento.'));
       }
-      const { url } = await res.json();
+      const { url, orderRef } = await res.json();
       if (!url) throw new Error(isEn ? 'Server error.' : 'Erro no servidor.');
+      captureStoreEvent('store_payment_started', {
+        ...checkoutAnalyticsBase,
+        payment_provider: totalToPay === 0 ? 'wallet' : selectedPayment.provider,
+        order_ref: orderRef || null,
+      });
       window.location.href = url;
     } catch (err: any) {
       setError(err?.message || (isEn ? 'Error starting payment.' : 'Erro ao iniciar pagamento.'));
+      captureStoreEvent('store_checkout_payment_failed', {
+        ...checkoutAnalyticsBase,
+        payment_provider: totalToPay === 0 ? 'wallet' : selectedPayment.provider,
+        reason: err?.message ? String(err.message).slice(0, 120) : 'unknown',
+      });
     } finally {
       setLoading(false);
     }
@@ -492,7 +591,7 @@ export default function CheckoutPage() {
       {/* Checkout Header */}
       <header className="bg-white border-b border-gray-100 sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <Link href="/loja" className="flex items-center gap-2 text-sm font-medium text-gray-500 hover:text-garabandal-dark transition-colors">
+          <Link href={getStoreHomePath(locale)} className="flex items-center gap-2 text-sm font-medium text-gray-500 hover:text-garabandal-dark transition-colors">
             <ArrowLeft className="w-4 h-4" />
             {isEn ? 'Back to Store' : 'Voltar à Loja'}
           </Link>
@@ -555,7 +654,7 @@ export default function CheckoutPage() {
                       <div className="text-center py-12">
                         <ShoppingBag className="w-12 h-12 text-gray-300 mx-auto mb-4" />
                         <p className="text-gray-500">{isEn ? 'Your cart is empty.' : 'O carrinho está vazio.'}</p>
-                        <Link href={isEn ? '/en/store' : '/loja'} className="mt-4 inline-block text-garabandal-gold font-bold hover:underline">
+                        <Link href={getStoreHomePath(locale)} className="mt-4 inline-block text-garabandal-gold font-bold hover:underline">
                           {isEn ? 'Go to store' : 'Ir para a loja'}
                         </Link>
                       </div>
@@ -779,13 +878,20 @@ export default function CheckoutPage() {
                   <div className="space-y-6">
                     <h2 className="font-serif text-2xl font-bold text-garabandal-dark">{isEn ? 'Payment' : 'Pagamento'}</h2>
                     <div className="space-y-3">
-                      {UNIFIED_ONLINE_PAYMENT_OPTIONS.map((option) => {
+                      {localizedPaymentOptions.map((option) => {
                         const active = selectedPaymentId === option.id;
                         return (
                           <button
                             key={option.id}
                             type="button"
-                            onClick={() => setSelectedPaymentId(option.id)}
+                            onClick={() => {
+                              setSelectedPaymentId(option.id);
+                              captureStoreEvent('store_payment_method_selected', {
+                                ...checkoutAnalyticsBase,
+                                payment_provider: option.provider,
+                                payment_method: option.id,
+                              });
+                            }}
                             className={`w-full text-left rounded-2xl p-4 border transition-all relative overflow-hidden ${active
                               ? 'border-garabandal-gold bg-garabandal-gold/5 shadow-sm'
                               : 'border-gray-200 bg-gray-50 hover:bg-white'
@@ -977,7 +1083,7 @@ export default function CheckoutPage() {
                 </div>
 
                 <div className="bg-gray-50 px-6 py-4 border-t border-gray-100 flex items-center justify-center gap-4 opacity-60 grayscale hover:grayscale-0 transition-all">
-                  {UNIFIED_ONLINE_PAYMENT_OPTIONS.map(opt => (
+                  {localizedPaymentOptions.map(opt => (
                     <div key={opt.id} title={opt.label}>
                       {opt.iconSrc ? (
                         <img src={opt.iconSrc} className="h-6 w-auto" alt={opt.label} />
@@ -990,7 +1096,7 @@ export default function CheckoutPage() {
               </div>
 
               <p className="text-center text-xs text-gray-400 px-4">
-                {isEn ? <>By confirming the order, you agree to our{" "}<Link href="/termos" className="underline hover:text-gray-600">Terms and Conditions</Link>,{" "}<Link href="/privacidade" className="underline hover:text-gray-600">Privacy Policy</Link>{" "}and{" "}<Link href="/cookies" className="underline hover:text-gray-600">Cookie Policy</Link>.</> : <>Ao confirmar a encomenda, concordas com os nossos{" "}<Link href="/termos" className="underline hover:text-gray-600">Termos e Condições</Link>,{" "}<Link href="/privacidade" className="underline hover:text-gray-600">Política de Privacidade</Link>{" "}e{" "}<Link href="/cookies" className="underline hover:text-gray-600">Política de Cookies</Link>.</>}
+                {isEn ? <>By confirming the order, you agree to our{" "}<Link href="/en/terms" className="underline hover:text-gray-600">Terms and Conditions</Link>,{" "}<Link href="/en/privacy" className="underline hover:text-gray-600">Privacy Policy</Link>{" "}and{" "}<Link href="/en/cookies" className="underline hover:text-gray-600">Cookie Policy</Link>.</> : <>Ao confirmar a encomenda, concordas com os nossos{" "}<Link href="/termos" className="underline hover:text-gray-600">Termos e Condições</Link>,{" "}<Link href="/privacidade" className="underline hover:text-gray-600">Política de Privacidade</Link>{" "}e{" "}<Link href="/cookies" className="underline hover:text-gray-600">Política de Cookies</Link>.</>}
               </p>
             </div>
           </div>

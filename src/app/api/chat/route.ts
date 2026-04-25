@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { loadGeneralKb, buildPilgrimageContext } from '../../../lib/chat-kb';
+import { WHATSAPP_NUMBER, CONTACT_EMAIL, ESCALATION_MARKER } from '../../../lib/chat-config';
 
 export const runtime = 'nodejs';
 
@@ -98,16 +99,24 @@ async function fetchPilgrimageContext(slug?: string) {
 }
 
 // --- System prompt ---
-function buildSystemPrompt(pilgrimageContext: string, generalKb: string): string {
+function buildSystemPrompt(pilgrimageContext: string, generalKb: string, context?: string): string {
+    const whatsappDisplay = `+${WHATSAPP_NUMBER.slice(0, 3)} ${WHATSAPP_NUMBER.slice(3, 6)} ${WHATSAPP_NUMBER.slice(6, 9)} ${WHATSAPP_NUMBER.slice(9)}`;
+    const locationHint = context === 'registration-form'
+        ? `A pessoa está AGORA a preencher o **formulário de inscrição** desta peregrinação. Já clicou em "Iniciar Inscrição" e está nos passos do formulário (dados pessoais, quartos, pagamento). NÃO lhe digas para clicar em "Iniciar Inscrição" -- ela já está lá. Ajuda com dúvidas sobre os campos, opções de quarto, documentos a enviar, plano de pagamento, e tranquiliza se estiver com hesitação.`
+        : `A pessoa está na página pública desta peregrinação (ainda não iniciou a inscrição). Quando perguntarem "como me inscrevo", diz para clicar no botão amarelo **"Iniciar Inscrição"** visível na página.`;
     return `És o **Assistente do Apostolado de Garabandal**, integrado diretamente na página desta peregrinação específica.
 
 -----------------------------------------------------------
-CONTEXTO DE LOCALIZAÇÃO -- MUITO IMPORTANTE
+CONTEXTO DA PÁGINA ATUAL
 -----------------------------------------------------------
-A pessoa que está a falar contigo JÁ ESTÁ na página desta peregrinação. Portanto:
-- NUNCA digas "vá a /peregrinacoes escolher uma peregrinação" -- ela já escolheu, já está aqui.
-- NUNCA sugiras navegar para a página de peregrinações para escolher -- essa etapa já foi feita.
-- Quando perguntarem "como me inscrevo", o primeiro passo é simplesmente: "clique no botão amarelo **'Iniciar Inscrição'** (ou 'Inscrever-me') que está visível nesta página."
+${locationHint}
+
+
+-----------------------------------------------------------
+REGRAS DE LOCALIZAÇÃO
+-----------------------------------------------------------
+A pessoa JÁ ESTÁ na página desta peregrinação específica. Portanto:
+- NUNCA sugiras navegar para "/peregrinacoes" -- ela já escolheu.
 - Refere-te sempre a "esta peregrinação" em vez de pedir para procurar outra.
 - Se perguntarem sobre OUTRA peregrinação diferente, aí sim podes indicar "/peregrinacoes" para verem as restantes opções.
 
@@ -125,7 +134,7 @@ IDENTIDADE E TOM
 REGRAS ABSOLUTAS -- ANTI-ALUCINAÇÃO (OBRIGATÓRIAS)
 -----------------------------------------------------------
 1. Responde APENAS com informação presente no CONTEXTO abaixo. Não inventes NADA -- nem datas, nem preços, nem locais, nem vagas, nem itinerário, nem políticas.
-2. Se a informação NÃO está no contexto, responde: "Essa informação específica não tenho aqui no chat. Por favor envie-nos um email para **apoio@garabandalplus.com** e teremos todo o gosto em ajudar."
+2. Se a informação NÃO está no contexto, começa SEMPRE a resposta com a frase exata: "${ESCALATION_MARKER}" e depois convida a pessoa a falar diretamente com a equipa via **WhatsApp ${whatsappDisplay}** (resposta mais rápida) ou email **${CONTACT_EMAIL}**. Esta frase exata é um sinal técnico -- não a alteres.
 3. Nunca cites números, datas ou preços que não estejam literalmente no contexto. Se tiveres dúvida, não digas.
 4. Se o utilizador perguntar sobre OUTRA peregrinação que não a atual, diz que tens dados detalhados apenas sobre a peregrinação atual e convida-o a visitar "/peregrinacoes" para ver outras opções.
 5. Nunca prometas reembolsos, descontos especiais ou regalias que não estejam explícitos no contexto.
@@ -154,7 +163,7 @@ ${generalKb}
 -----------------------------------------------------------
 LEMBRETE FINAL
 -----------------------------------------------------------
-Tudo o que NÃO está nos dois contextos acima -> respondes que não tens essa informação e direcionas para apoio@garabandalplus.com. Fidelidade à verdade é mais importante que parecer saber tudo.`;
+Tudo o que NÃO está nos dois contextos acima -> começa a resposta com a frase "${ESCALATION_MARKER}" e direciona para WhatsApp ${whatsappDisplay} ou ${CONTACT_EMAIL}. Fidelidade à verdade é mais importante que parecer saber tudo.`;
 }
 
 // --- Main handler ---
@@ -167,12 +176,12 @@ export async function POST(req: Request) {
         if (!checkRateLimit(ip)) {
             return NextResponse.json({
                 role: 'assistant',
-                content: 'Recebemos muitas mensagens deste dispositivo num curto espaço de tempo. Por favor aguarde alguns minutos. Para dúvidas urgentes: apoio@garabandalplus.com.'
+                content: 'Recebemos muitas mensagens deste dispositivo num curto espaço de tempo. Por favor aguarde alguns minutos. Para dúvidas urgentes: geral@apostoladodegarabandal.com.'
             }, { status: 429 });
         }
 
         const body = await req.json();
-        const { messages, pilgrimageSlug, pilgrimageTitle, sessionId } = body || {};
+        const { messages, pilgrimageSlug, pilgrimageTitle, sessionId, context } = body || {};
 
         if (!messages || !Array.isArray(messages) || messages.length === 0) {
             return NextResponse.json({ error: 'Formato de mensagens inválido' }, { status: 400 });
@@ -194,14 +203,14 @@ export async function POST(req: Request) {
         if (!OPENAI_API_KEY) {
             return NextResponse.json({
                 role: 'assistant',
-                content: 'O assistente está temporariamente indisponível. Por favor envie a sua dúvida para apoio@garabandalplus.com.'
+                content: 'O assistente está temporariamente indisponível. Por favor envie a sua dúvida para geral@apostoladodegarabandal.com.'
             });
         }
 
         const { pilgrimage, itinerary } = await fetchPilgrimageContext(pilgrimageSlug);
         const pilgrimageContext = buildPilgrimageContext(pilgrimage, itinerary);
         const generalKb = loadGeneralKb();
-        const systemPrompt = buildSystemPrompt(pilgrimageContext, generalKb);
+        const systemPrompt = buildSystemPrompt(pilgrimageContext, generalKb, context);
 
         const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
             method: 'POST',
@@ -223,7 +232,7 @@ export async function POST(req: Request) {
             console.error('[chat] OpenAI error:', openaiResponse.status, err);
             return NextResponse.json({
                 role: 'assistant',
-                content: 'Desculpe, tive um problema técnico. Por favor tente novamente ou escreva para apoio@garabandalplus.com.'
+                content: 'Desculpe, tive um problema técnico. Por favor tente novamente ou escreva para geral@apostoladodegarabandal.com.'
             }, { status: 200 });
         }
 
@@ -290,7 +299,7 @@ export async function POST(req: Request) {
         console.error('[chat] Handler error:', error);
         return NextResponse.json({
             role: 'assistant',
-            content: 'Desculpe, ocorreu um erro inesperado. Por favor tente novamente ou escreva para apoio@garabandalplus.com.'
+            content: 'Desculpe, ocorreu um erro inesperado. Por favor tente novamente ou escreva para geral@apostoladodegarabandal.com.'
         }, { status: 200 });
     }
 }

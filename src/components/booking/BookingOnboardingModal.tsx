@@ -3,6 +3,7 @@
 import { X, Package, ArrowUpRight, CheckCircle2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useLocale } from '../../contexts/LocaleContext';
 
 interface BookingOnboardingModalProps {
     isOpen: boolean;
@@ -10,6 +11,8 @@ interface BookingOnboardingModalProps {
 }
 
 export default function BookingOnboardingModal({ isOpen, onClose }: BookingOnboardingModalProps) {
+    const { locale } = useLocale();
+    const isEn = locale === 'en';
     // Prevent hydration mismatch
     const [mounted, setMounted] = useState(false);
     useEffect(() => setMounted(true), []);
@@ -54,8 +57,8 @@ export default function BookingOnboardingModal({ isOpen, onClose }: BookingOnboa
 
                             <div className="p-8 text-center space-y-6">
                                 <div className="space-y-2">
-                                    <h2 className="text-2xl font-bold text-slate-900">Tudo pronto!</h2>
-                                    <p className="text-slate-500 text-lg">A tua conta foi criada automaticamente e já estás logado.</p>
+                                    <h2 className="text-2xl font-bold text-slate-900">{isEn ? 'All set!' : 'Tudo pronto!'}</h2>
+                                    <p className="text-slate-500 text-lg">{isEn ? 'Your account was created automatically and you are already logged in.' : 'A tua conta foi criada automaticamente e já estás logado.'}</p>
                                 </div>
 
                                 {/* The Lesson */}
@@ -64,11 +67,11 @@ export default function BookingOnboardingModal({ isOpen, onClose }: BookingOnboa
                                         <div className="bg-blue-100 p-1.5 rounded-lg text-blue-600">
                                             <Package className="w-5 h-5" />
                                         </div>
-                                        Onde estão os meus bilhetes?
+                                        {isEn ? 'Where are my tickets?' : 'Onde estão os meus bilhetes?'}
                                     </h3>
 
                                     <p className="text-sm text-slate-600 leading-relaxed">
-                                        Sempre que voltares ao site, basta clicares no menu <strong className="text-slate-900">"Minhas Inscrições"</strong> (no topo da página ou no menu do telemóvel) para veres esta página.
+                                        {isEn ? <>Whenever you come back to the site, just click the <strong className="text-slate-900">"My Registrations"</strong> menu (at the top of the page or in the mobile menu) to see this page.</> : <>Sempre que voltares ao site, basta clicares no menu <strong className="text-slate-900">"Minhas Inscrições"</strong> (no topo da página ou no menu do telemóvel) para veres esta página.</>}
                                     </p>
 
                                     {/* Visual Cue - Arrow pointing (Desktop/Mobile simplified) */}
@@ -85,10 +88,10 @@ export default function BookingOnboardingModal({ isOpen, onClose }: BookingOnboa
                                         onClick={onClose}
                                         className="w-full bg-yellow-500 hover:bg-yellow-400 text-slate-900 font-bold py-4 rounded-xl shadow-xl shadow-yellow-500/20 transition-all transform hover:scale-[1.02] active:scale-[0.98] text-lg"
                                     >
-                                        Entendido, ver a minha inscrição
+                                        {isEn ? 'Got it, view my registration' : 'Entendido, ver a minha inscrição'}
                                     </button>
                                     <p className="text-xs text-slate-400">
-                                        Enviámos também um email com o link direito para aqui.
+                                        {isEn ? 'We also sent you an email with a direct link to this page.' : 'Enviámos também um email com o link direito para aqui.'}
                                     </p>
                                 </div>
                             </div>

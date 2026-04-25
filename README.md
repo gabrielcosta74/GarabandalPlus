@@ -9,6 +9,7 @@ Mini web app para mover os pagamentos (quotas e donativos) para fora da app mobi
    - `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` para chamadas públicas (se necessário).
    - `SUPABASE_SERVICE_ROLE_KEY` para gravar pagamentos no Supabase (só usado em rotas server, nunca no browser).
    - `RESEND_API_KEY`, `NOTIFY_EMAIL_TO`, `NOTIFY_EMAIL_FROM` e `STORE_OWNER_EMAIL` para emails automáticos.
+   - `NEXT_PUBLIC_POSTHOG_KEY` para analytics públicos da loja/site. Opcional: `NEXT_PUBLIC_POSTHOG_HOST=https://us.i.posthog.com`.
 2) Instala deps: `cd payments-web && npm install`.
 3) Dev: `npm run dev` (abre em http://localhost:3000). Build: `npm run build && npm run start`.
 4) Configura webhook Stripe para `POST {SITE_URL}/api/webhook` e subscreve `checkout.session.completed` (e opcionalmente `payment_intent.payment_failed`).
@@ -17,6 +18,11 @@ Mini web app para mover os pagamentos (quotas e donativos) para fora da app mobi
 - `/api/checkout`: cria uma sessão do Stripe Checkout para quota (25€) ou donativo livre.
 - Frontend: `page.tsx` (landing), `membership/page.tsx` (quota) e `donations/page.tsx` (doação livre) chamam a rota e redirecionam para o Stripe.
 - `/api/webhook`: recebe evento de sucesso e grava no Supabase (`donations` e `pagamentos_quotas`).
+
+## Analytics público
+- A integração usa PostHog quando `NEXT_PUBLIC_POSTHOG_KEY` está configurado.
+- Rotas privadas/admin como `/admin`, `/member`, `/account`, `/biblioteca` e `/encomendas` não enviam eventos.
+- A loja envia eventos de funil sem dados pessoais: vista de produto, adicionar ao carrinho, passos do checkout, método de pagamento, retorno do pagamento e compra concluída/falhada.
 
 ## Email notifications (membros)
 Criar a tabela para deduplicar envios:

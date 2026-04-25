@@ -7,6 +7,7 @@ import { ArrowRight, Download, Info, Plane } from 'lucide-react';
 // import { BrochureDownloadModal } from './BrochureDownloadModal';
 import { cn } from '../../lib/utils';
 import { useCurrency } from '../providers/CurrencyProvider';
+import { useLocale } from '../../contexts/LocaleContext';
 
 type UniversalStickyBarProps = {
     price: number;
@@ -29,7 +30,7 @@ export default function UniversalStickyBar({
     deposit,
     link,
     isClosed,
-    buttonText = "Iniciar Inscrição",
+    buttonText,
     showIncludedButton = false,
     showFlightsButton = false,
     onOpenIncluded,
@@ -38,6 +39,9 @@ export default function UniversalStickyBar({
 }: UniversalStickyBarProps) {
     const [mounted, setMounted] = useState(false);
     const { formatPrice } = useCurrency();
+    const { locale } = useLocale();
+    const isEn = locale === 'en';
+    const resolvedButtonText = buttonText ?? (isEn ? 'Start Registration' : 'Iniciar Inscrição');
 
     useEffect(() => {
         setMounted(true);
@@ -64,15 +68,15 @@ export default function UniversalStickyBar({
                     {/* Top Row: Price and Small Info */}
                     <div className="flex items-center justify-between border-b border-slate-50 pb-2">
                         <div className="flex flex-col">
-                            <span className="text-[11px] uppercase font-bold text-slate-400 tracking-widest">Terrestre (sem voo)</span>
+                            <span className="text-[11px] uppercase font-bold text-slate-400 tracking-widest">{isEn ? 'Land package (no flight)' : 'Terrestre (sem voo)'}</span>
                             <div className="flex items-baseline gap-1">
                                 <span className="text-2xl font-black text-slate-900 leading-none">{formatPrice((price || 0) + (deposit || 0))}</span>
-                                <span className="text-[10px] text-slate-500 font-bold leading-tight">/ pess. <br/><span className="text-emerald-600 uppercase">Ate 8x Parcelamento</span></span>
+                                <span className="text-[10px] text-slate-500 font-bold leading-tight">{isEn ? '/ person' : '/ pess.'} <br/><span className="text-emerald-600 uppercase">{isEn ? 'Up to 8 instalments' : 'Ate 8x Parcelamento'}</span></span>
                             </div>
                         </div>
                         <div className="text-right">
                             <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-50 text-green-700 rounded-md text-[10px] font-bold uppercase tracking-tight border border-green-100">
-                                <Download className="w-3 h-3" /> Programa Disponível
+                                <Download className="w-3 h-3" /> {isEn ? 'Programme Available' : 'Programa Disponível'}
                             </span>
                         </div>
                     </div>
@@ -86,7 +90,7 @@ export default function UniversalStickyBar({
                                     className="flex h-11 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 text-xs font-bold text-slate-700 transition-colors"
                                 >
                                     <Info className="h-4 w-4" />
-                                    Incluído no terrestre
+                                    {isEn ? 'Included in land package' : 'Incluído no terrestre'}
                                 </button>
                             )}
                             {showFlightsButton && (
@@ -96,7 +100,7 @@ export default function UniversalStickyBar({
                                     className="flex h-11 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 text-xs font-bold text-slate-700 transition-colors"
                                 >
                                     <Plane className="h-4 w-4" />
-                                    Voos
+                                    {isEn ? 'Flights' : 'Voos'}
                                 </button>
                             )}
                         </div>
@@ -112,7 +116,7 @@ export default function UniversalStickyBar({
                                     onClick={onPrimaryClick}
                                     className="flex items-center justify-center gap-2 h-14 bg-yellow-400 text-slate-950 rounded-2xl font-black text-sm uppercase tracking-tight shadow-xl shadow-yellow-500/20 active:scale-95 transition-all w-full border-b-4 border-yellow-600"
                                 >
-                                    <span>{buttonText}</span>
+                                    <span>{resolvedButtonText}</span>
                                     <ArrowRight className="w-4 h-4" />
                                 </button>
                             ) : (
@@ -120,7 +124,7 @@ export default function UniversalStickyBar({
                                     href={link}
                                     className="flex items-center justify-center gap-2 h-14 bg-yellow-400 text-slate-950 rounded-2xl font-black text-sm uppercase tracking-tight shadow-xl shadow-yellow-500/20 active:scale-95 transition-all w-full border-b-4 border-yellow-600"
                                 >
-                                    <span>{buttonText}</span>
+                                    <span>{resolvedButtonText}</span>
                                     <ArrowRight className="w-4 h-4" />
                                 </Link>
                             )}

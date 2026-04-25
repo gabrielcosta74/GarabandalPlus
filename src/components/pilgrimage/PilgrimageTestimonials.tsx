@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Star, CheckCircle2 } from 'lucide-react';
 import { supabaseBrowser } from '../../lib/supabase-browser';
+import { useLocale } from '../../contexts/LocaleContext';
 
 type Testimonial = {
     id: string;
@@ -15,6 +16,7 @@ type Testimonial = {
 };
 
 export function PilgrimageTestimonials() {
+    const { t: tr } = useLocale();
     const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -47,7 +49,7 @@ export function PilgrimageTestimonials() {
         <section className="mb-8 overflow-hidden relative">
             {/* Section Header */}
             <div className="mb-6 px-6 max-w-7xl mx-auto">
-                <h2 className="text-2xl font-serif font-bold text-slate-900">Testemunhos de Peregrinos</h2>
+                <h2 className="text-2xl font-serif font-bold text-slate-900">{tr.pilgrimages.testimonials}</h2>
             </div>
 
             {/* Marquee Container */}

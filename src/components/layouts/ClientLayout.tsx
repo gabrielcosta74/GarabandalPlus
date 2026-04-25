@@ -10,6 +10,7 @@ import { AuctionWinnerBanner } from '../auction/AuctionWinnerBanner';
 import { LocaleProvider } from '../../contexts/LocaleContext';
 import type { LocaleCode } from '../../i18n';
 import AuthLandingGuard from '../auth/AuthLandingGuard';
+import PublicAnalytics from '../analytics/PublicAnalytics';
 
 export default function ClientLayout({
     children,
@@ -29,6 +30,7 @@ export default function ClientLayout({
         <LocaleProvider locale={resolvedLocale}>
             <AuthProvider>
                 <AuthLandingGuard />
+                <PublicAnalytics />
                 <CurrencyProvider>
                     {!hideHeader && <SiteHeader />}
                     {!hideHeader && <AuctionWinnerBanner />}

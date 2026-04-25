@@ -109,7 +109,9 @@ export async function POST(req: Request) {
                 product_id: crypto.randomUUID(),
                 sku: body.sku, // Editable reference
                 name: body.name,
+                name_en: body.name_en || null,
                 description: body.description,
+                description_en: body.description_en || null,
                 category_id: body.category_id,
                 price,
                 is_active: body.is_active,

@@ -31,6 +31,7 @@ export interface BookingFormData {
     idempotency_key?: string;
     installment_count?: number;
     terms_accepted?: boolean;
+    locale?: 'pt' | 'en';
 }
 
 /**

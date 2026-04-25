@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Loader2, Send, CheckCircle2, AlertCircle } from 'lucide-react';
+import { useLocale } from '../../contexts/LocaleContext';
 
 interface SpecificWaitlistFormProps {
     pilgrimageId: string;
@@ -9,6 +10,8 @@ interface SpecificWaitlistFormProps {
 }
 
 export function SpecificWaitlistForm({ pilgrimageId, pilgrimageTitle }: SpecificWaitlistFormProps) {
+    const { locale } = useLocale();
+    const isEn = locale === 'en';
     const [formData, setFormData] = useState({
         full_name: '',
         email: '',
@@ -46,12 +49,12 @@ export function SpecificWaitlistForm({ pilgrimageId, pilgrimageTitle }: Specific
                 <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center text-amber-600 mx-auto mb-4">
                     <CheckCircle2 className="w-8 h-8" />
                 </div>
-                <h3 className="text-2xl font-bold text-amber-900 mb-2">Está na Lista de Espera!</h3>
+                <h3 className="text-2xl font-bold text-amber-900 mb-2">{isEn ? "You're on the Waiting List!" : 'Está na Lista de Espera!'}</h3>
                 <p className="text-amber-800/80 mb-6">
-                    Se surgir uma vaga para <strong>{pilgrimageTitle}</strong>, entraremos em contacto consigo imediatamente.
+                    {isEn ? <>If a spot opens for <strong>{pilgrimageTitle}</strong>, we will contact you immediately.</> : <>Se surgir uma vaga para <strong>{pilgrimageTitle}</strong>, entraremos em contacto consigo imediatamente.</>}
                 </p>
                 <div className="text-sm text-amber-600 font-medium bg-amber-100/50 py-2 px-4 rounded-lg inline-block">
-                    Manteremos os seus dados seguros.
+                    {isEn ? 'We will keep your data safe.' : 'Manteremos os seus dados seguros.'}
                 </div>
             </div>
         );
@@ -61,21 +64,21 @@ export function SpecificWaitlistForm({ pilgrimageId, pilgrimageTitle }: Specific
         <div className="bg-white rounded-3xl p-6 md:p-8 shadow-xl border border-slate-100">
             <div className="text-center mb-8">
                 <h3 className="text-xl md:text-2xl font-bold text-slate-900 mb-2">
-                    Esgotado: Entre na Lista de Espera
+                    {isEn ? 'Sold Out: Join the Waiting List' : 'Esgotado: Entre na Lista de Espera'}
                 </h3>
                 <p className="text-slate-500">
-                    Deixe os seus dados. Se houver alguma desistência, será o primeiro a saber.
+                    {isEn ? 'Leave your details. If there is a cancellation, you will be the first to know.' : 'Deixe os seus dados. Se houver alguma desistência, será o primeiro a saber.'}
                 </p>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="space-y-1">
-                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Nome Completo</label>
+                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">{isEn ? 'Full Name' : 'Nome Completo'}</label>
                     <input
                         type="text"
                         required
                         className="w-full px-4 py-3 rounded-xl bg-slate-50 border-2 border-slate-100 focus:border-amber-400 focus:ring-0 outline-none transition-all font-medium text-slate-900"
-                        placeholder="Ex: Maria Santos"
+                        placeholder={isEn ? 'e.g. Mary Smith' : 'Ex: Maria Santos'}
                         value={formData.full_name}
                         onChange={e => setFormData({ ...formData, full_name: e.target.value })}
                     />
@@ -88,18 +91,18 @@ export function SpecificWaitlistForm({ pilgrimageId, pilgrimageTitle }: Specific
                             type="email"
                             required
                             className="w-full px-4 py-3 rounded-xl bg-slate-50 border-2 border-slate-100 focus:border-amber-400 focus:ring-0 outline-none transition-all font-medium text-slate-900"
-                            placeholder="email@exemplo.com"
+                            placeholder={isEn ? 'email@example.com' : 'email@exemplo.com'}
                             value={formData.email}
                             onChange={e => setFormData({ ...formData, email: e.target.value })}
                         />
                     </div>
                     <div className="space-y-1">
-                        <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Telemóvel (com indicativo)</label>
+                        <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">{isEn ? 'Phone (with country code)' : 'Telemóvel (com indicativo)'}</label>
                         <input
                             type="text"
                             required
                             className="w-full px-4 py-3 rounded-xl bg-slate-50 border-2 border-slate-100 focus:border-amber-400 focus:ring-0 outline-none transition-all font-medium text-slate-900"
-                            placeholder="Ex: +351 912 345 678 ou +55 11 91234-5678"
+                            placeholder={isEn ? 'e.g. +351 912 345 678 or +55 11 91234-5678' : 'Ex: +351 912 345 678 ou +55 11 91234-5678'}
                             value={formData.phone}
                             onChange={e => setFormData({ ...formData, phone: e.target.value })}
                         />
@@ -107,10 +110,10 @@ export function SpecificWaitlistForm({ pilgrimageId, pilgrimageTitle }: Specific
                 </div>
 
                 <div className="space-y-1">
-                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Notas (Opcional)</label>
+                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">{isEn ? 'Notes (Optional)' : 'Notas (Opcional)'}</label>
                     <textarea
                         className="w-full px-4 py-3 rounded-xl bg-slate-50 border-2 border-slate-100 focus:border-amber-400 focus:ring-0 outline-none transition-all font-medium text-slate-900 min-h-[80px]"
-                        placeholder="Ex: Tenho preferência por quarto duplo..."
+                        placeholder={isEn ? 'e.g. I prefer a double room...' : 'Ex: Tenho preferência por quarto duplo...'}
                         value={formData.notes}
                         onChange={e => setFormData({ ...formData, notes: e.target.value })}
                     />
@@ -125,7 +128,7 @@ export function SpecificWaitlistForm({ pilgrimageId, pilgrimageTitle }: Specific
                         <Loader2 className="w-5 h-5 animate-spin" />
                     ) : (
                         <>
-                            <span>Entrar na Lista de Espera</span>
+                            <span>{isEn ? 'Join the Waiting List' : 'Entrar na Lista de Espera'}</span>
                             <Send className="w-5 h-5" />
                         </>
                     )}
@@ -134,7 +137,7 @@ export function SpecificWaitlistForm({ pilgrimageId, pilgrimageTitle }: Specific
                 {status === 'error' && (
                     <div className="flex items-center gap-2 text-red-500 bg-red-50 p-3 rounded-lg text-sm font-medium justify-center">
                         <AlertCircle className="w-4 h-4" />
-                        Ocorreu um erro. Tente novamente.
+                        {isEn ? 'An error occurred. Please try again.' : 'Ocorreu um erro. Tente novamente.'}
                     </div>
                 )}
             </form>

@@ -7,6 +7,7 @@ import { Check, Download, Home, ArrowRight, Loader2, CreditCard, ShoppingBag, Sh
 import { supabaseBrowser } from '../../lib/supabase-browser';
 import { useAuth } from '../../contexts/AuthContext';
 import { useLocale } from '../../contexts/LocaleContext';
+import { captureStoreEvent } from '../../lib/analytics';
 
 export default function ThankYouPage() {
   const { refreshMemberData } = useAuth();
@@ -66,6 +67,20 @@ export default function ThankYouPage() {
   }, [type]);
 
   useEffect(() => {
+    if (!ready || type !== 'store') return;
+    const key = `analytics:store:return:${provider || ''}:${sessionIdParam || orderRefParam || statusParam || ''}`;
+    if (sessionStorage.getItem(key)) return;
+    sessionStorage.setItem(key, '1');
+    captureStoreEvent('store_payment_returned', {
+      provider: provider || null,
+      status: statusParam || null,
+      canceled: canceledParam === 'true',
+      amount: amount ? Number(amount) : null,
+      locale,
+    });
+  }, [amount, canceledParam, locale, orderRefParam, provider, ready, sessionIdParam, statusParam, type]);
+
+  useEffect(() => {
     if (!ready) return;
     if (type !== 'store' || provider !== 'stripe') return;
     if (!sessionIdParam || confirmStatus !== 'idle') return;
@@ -92,6 +107,21 @@ export default function ThankYouPage() {
     };
     confirmPayment();
   }, [confirmStatus, provider, ready, sessionIdParam, type]);
+
+  useEffect(() => {
+    if (!ready || type !== 'store' || provider !== 'stripe') return;
+    if (confirmStatus !== 'done' && confirmStatus !== 'failed') return;
+    const key = `analytics:store:stripe:${confirmStatus}:${sessionIdParam || ''}`;
+    if (sessionStorage.getItem(key)) return;
+    sessionStorage.setItem(key, '1');
+    captureStoreEvent(confirmStatus === 'done' ? 'store_purchase_completed' : 'store_purchase_failed', {
+      provider: 'stripe',
+      amount: amount ? Number(amount) : null,
+      has_digital: hasDigital,
+      has_physical: hasPhysical,
+      locale,
+    });
+  }, [amount, confirmStatus, hasDigital, hasPhysical, locale, provider, ready, sessionIdParam, type]);
 
   useEffect(() => {
     if (!ready) return;
@@ -129,6 +159,24 @@ export default function ThankYouPage() {
 
     confirmReduniq();
   }, [orderRefParam, provider, ready, reduniqConfirmStatus, tokenParam]);
+
+  useEffect(() => {
+    if (!ready || type !== 'store' || provider !== 'reduniq') return;
+    if (reduniqConfirmStatus !== 'done' && reduniqConfirmStatus !== 'failed') return;
+    const transactionStatus = reduniqConfirm?.transactionStatus ? String(reduniqConfirm.transactionStatus) : null;
+    const isSuccess = reduniqConfirmStatus === 'done' && transactionStatus === '4';
+    const key = `analytics:store:reduniq:${reduniqConfirmStatus}:${transactionStatus || ''}:${orderRefParam || tokenParam || ''}`;
+    if (sessionStorage.getItem(key)) return;
+    sessionStorage.setItem(key, '1');
+    captureStoreEvent(isSuccess ? 'store_purchase_completed' : 'store_purchase_failed', {
+      provider: 'reduniq',
+      amount: amount ? Number(amount) : null,
+      transaction_status: transactionStatus,
+      has_digital: hasDigital,
+      has_physical: hasPhysical,
+      locale,
+    });
+  }, [amount, hasDigital, hasPhysical, locale, orderRefParam, provider, ready, reduniqConfirm, reduniqConfirmStatus, tokenParam, type]);
 
   useEffect(() => {
     if (!ready || type !== 'membership') return;

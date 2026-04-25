@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { supabaseBrowser } from '../../lib/supabase-browser';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Loader2, X, ZoomIn } from 'lucide-react';
+import { useLocale } from '../../contexts/LocaleContext';
 
 interface GalleryImage {
     id: string;
@@ -11,6 +12,7 @@ interface GalleryImage {
 }
 
 export function PastPilgrimagesGallery() {
+    const { t } = useLocale();
     const [images, setImages] = useState<GalleryImage[]>([]);
     const [loading, setLoading] = useState(true);
     const [selectedImage, setSelectedImage] = useState<GalleryImage | null>(null);
@@ -71,8 +73,8 @@ export function PastPilgrimagesGallery() {
             `}</style>
 
             <div className="max-w-7xl mx-auto px-6 mb-8">
-                <h2 className="text-3xl font-serif font-bold text-slate-900">Momentos Eternos</h2>
-                <p className="text-slate-500 mt-1">Memórias das nossas peregrinações anteriores de 2008 a 2025.</p>
+                <h2 className="text-3xl font-serif font-bold text-slate-900">{t.pilgrimages.gallery.title}</h2>
+                <p className="text-slate-500 mt-1">{t.pilgrimages.gallery.subtitle}</p>
             </div>
 
             <div className="relative w-full">

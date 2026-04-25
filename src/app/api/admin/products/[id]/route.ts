@@ -87,8 +87,10 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
             .from('store_products')
             .update({
                 name: body.name,
+                name_en: body.name_en || null,
                 sku: body.sku, // Allow updating SKU
                 description: body.description,
+                description_en: body.description_en || null,
                 category_id: body.category_id,
                 price,
                 is_active: body.is_active,
