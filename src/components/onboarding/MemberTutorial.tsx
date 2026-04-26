@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState, useLayoutEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { X, ChevronRight, Check, Play } from "lucide-react";
+import { motion } from "framer-motion";
+import { X, ChevronRight, Check } from "lucide-react";
 import { createPortal } from "react-dom";
+import { useLocale } from "../../contexts/LocaleContext";
 
 type Step = {
     targetId: string;
@@ -12,7 +13,7 @@ type Step = {
     position: "top" | "bottom" | "left" | "right" | "center";
 };
 
-const TUTORIAL_STEPS: Step[] = [
+const TUTORIAL_STEPS_PT: Step[] = [
     {
         targetId: "tut-hero",
         title: "Bem-vindo ao teu Espaço",
@@ -75,7 +76,73 @@ const TUTORIAL_STEPS: Step[] = [
     },
 ];
 
+const TUTORIAL_STEPS_EN: Step[] = [
+    {
+        targetId: "tut-hero",
+        title: "Welcome to Your Space",
+        description: "This is your exclusive dashboard. Here you can find a summary of your activity and quick access to every member feature.",
+        position: "bottom",
+    },
+    {
+        targetId: "tut-about",
+        title: "The Story of Garabandal",
+        description: "Explore the apparitions in depth. Access historical documents, original messages, and prophetic warnings.",
+        position: "right",
+    },
+    {
+        targetId: "tut-intentions",
+        title: "Send Your Intentions",
+        description: "Light a virtual candle. Your intentions are presented to Our Lady in the parish church.",
+        position: "left",
+    },
+    {
+        targetId: "tut-academy",
+        title: "Academy and Courses",
+        description: "Access exclusive documentaries and formation courses. Learn at your own pace with multimedia content.",
+        position: "right",
+    },
+    {
+        targetId: "tut-novenas",
+        title: "Guided Novenas",
+        description: "Begin a 9-day prayer journey. We help you keep consistency and devotion.",
+        position: "left",
+    },
+    {
+        targetId: "tut-live",
+        title: "Garabandal Live",
+        description: "Watch Masses and celebrations directly from the parish church. We are connected 24/7.",
+        position: "right",
+    },
+    {
+        targetId: "tut-prayers",
+        title: "Prayers and Devotion",
+        description: "Find peace with our collection of official prayers and the meditated rosary.",
+        position: "left",
+    },
+    {
+        targetId: "tut-quota",
+        title: "Member Management",
+        description: "Check your fee status, regularize payments, and view your member number.",
+        position: "top",
+    },
+    {
+        targetId: "tut-history",
+        title: "Your History",
+        description: "Review all your donations, store purchases, and previous interactions.",
+        position: "top",
+    },
+    {
+        targetId: "tut-card",
+        title: "Rights and Duties",
+        description: "Review the rights and duties of members so you clearly understand the rules, responsibilities, and benefits of your participation.",
+        position: "top",
+    },
+];
+
 export default function MemberTutorial() {
+    const { locale } = useLocale();
+    const isEn = locale === "en";
+    const tutorialSteps = isEn ? TUTORIAL_STEPS_EN : TUTORIAL_STEPS_PT;
     const [activeStepIndex, setActiveStepIndex] = useState(0);
     const [isOpen, setIsOpen] = useState(false);
     // Separate state for rect to force re-render on resize
@@ -95,7 +162,7 @@ export default function MemberTutorial() {
         if (!isOpen) return;
 
         const updateRect = () => {
-            const step = TUTORIAL_STEPS[activeStepIndex];
+            const step = tutorialSteps[activeStepIndex];
             const el = document.getElementById(step.targetId);
             if (el) {
                 setTargetRect(el.getBoundingClientRect());
@@ -115,10 +182,10 @@ export default function MemberTutorial() {
             window.removeEventListener("resize", updateRect);
             window.removeEventListener("scroll", updateRect);
         };
-    }, [activeStepIndex, isOpen]);
+    }, [activeStepIndex, isOpen, tutorialSteps]);
 
     const handleNext = () => {
-        if (activeStepIndex < TUTORIAL_STEPS.length - 1) {
+        if (activeStepIndex < tutorialSteps.length - 1) {
             setActiveStepIndex((prev) => prev + 1);
         } else {
             handleComplete();
@@ -136,8 +203,8 @@ export default function MemberTutorial() {
 
     if (!isOpen) return null;
 
-    const step = TUTORIAL_STEPS[activeStepIndex];
-    const isLast = activeStepIndex === TUTORIAL_STEPS.length - 1;
+    const step = tutorialSteps[activeStepIndex];
+    const isLast = activeStepIndex === tutorialSteps.length - 1;
 
     // We use a portal to ensure it's above everything
     return createPortal(
@@ -225,14 +292,14 @@ export default function MemberTutorial() {
                         <div className="h-1 bg-slate-800 w-full">
                             <motion.div
                                 className="h-full bg-gradient-to-r from-yellow-500 to-yellow-600"
-                                animate={{ width: `${((activeStepIndex + 1) / TUTORIAL_STEPS.length) * 100}%` }}
+                                animate={{ width: `${((activeStepIndex + 1) / tutorialSteps.length) * 100}%` }}
                             />
                         </div>
 
                         <div className="p-6">
                             <div className="flex items-center justify-between mb-2">
                                 <span className="text-[10px] font-bold uppercase tracking-widest text-yellow-500">
-                                    Passo {activeStepIndex + 1} de {TUTORIAL_STEPS.length}
+                                    {isEn ? 'Step' : 'Passo'} {activeStepIndex + 1} {isEn ? 'of' : 'de'} {tutorialSteps.length}
                                 </span>
                                 <button onClick={handleSkip} className="text-slate-500 hover:text-white transition-colors">
                                     <X size={16} />
@@ -252,9 +319,9 @@ export default function MemberTutorial() {
                                     className="flex-1 bg-yellow-600 hover:bg-yellow-500 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-yellow-900/20"
                                 >
                                     {isLast ? (
-                                        <>Começar <Check size={18} /></>
+                                        <>{isEn ? 'Start' : 'Começar'} <Check size={18} /></>
                                     ) : (
-                                        <>Seguinte <ChevronRight size={18} /></>
+                                        <>{isEn ? 'Next' : 'Seguinte'} <ChevronRight size={18} /></>
                                     )}
                                 </button>
                             </div>

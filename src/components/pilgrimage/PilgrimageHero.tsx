@@ -14,6 +14,7 @@ import { getPublicAvailabilityLabel, parseCivilDate } from '../../lib/utils';
 interface FeaturedPilgrimage {
     id: string;
     title: string;
+    title_en?: string | null;
     slug: string;
     start_date: string;
     end_date: string;
@@ -148,7 +149,7 @@ export function PilgrimageHero({ featuredPilgrimage }: { featuredPilgrimage?: Fe
                                 <div className="space-y-2 relative">
                                     <span className="text-xs font-bold uppercase tracking-widest text-blue-400">{isEn ? 'Next Departure' : 'Próxima Partida'}</span>
                                     <h3 className="text-3xl font-serif font-bold text-white leading-none">
-                                        {featuredPilgrimage.title}
+                                        {isEn ? featuredPilgrimage.title_en || featuredPilgrimage.title : featuredPilgrimage.title}
                                     </h3>
                                     <div className="flex items-center gap-2 text-slate-300 text-sm font-medium pt-2">
                                         <Calendar className="w-4 h-4 text-yellow-500" />
@@ -168,7 +169,7 @@ export function PilgrimageHero({ featuredPilgrimage }: { featuredPilgrimage?: Fe
                                         <span className="text-[10px] uppercase tracking-widest text-slate-500 font-bold block mb-1">{isEn ? 'Availability' : 'Disponibilidade'}</span>
                                         <span className="text-sm font-bold text-green-400 flex items-center justify-start gap-1">
                                             <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-                                            {getPublicAvailabilityLabel(remainingSpots)}
+                                            {getPublicAvailabilityLabel(remainingSpots, locale)}
                                         </span>
                                     </div>
                                 </div>

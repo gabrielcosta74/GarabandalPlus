@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Flame, X, Loader2, Sparkles, Check, Heart, ArrowDown, Hand, User } from 'lucide-react';
+import { Flame, X, Loader2, Sparkles, Check, ArrowDown, Hand, User } from 'lucide-react';
 import { supabaseBrowser } from '../../lib/supabase-browser';
+import { useLocale } from '../../contexts/LocaleContext';
 
 // --- Types ---
 
@@ -12,9 +13,23 @@ type TutorialStep = {
     text: string;
 };
 
+type PublicHistoryItem = {
+    id: string;
+    created_at?: string | null;
+};
+
+type PrayerIntentionPayload = {
+    intention_text: string;
+    candle_type: 'free';
+    amount: number;
+    status: 'pending';
+    guest_name?: string;
+    user_id?: string;
+};
+
 // --- Components ---
 
-const RealisticCandle = ({ onClick, pulse = true, isTutorialHighlight = false }: { onClick?: () => void, pulse?: boolean, isTutorialHighlight?: boolean }) => {
+const RealisticCandle = ({ onClick, pulse = true, isTutorialHighlight = false, isEn = false }: { onClick?: () => void, pulse?: boolean, isTutorialHighlight?: boolean, isEn?: boolean }) => {
     return (
         <div
             onClick={onClick}
@@ -80,14 +95,14 @@ const RealisticCandle = ({ onClick, pulse = true, isTutorialHighlight = false }:
 
             {onClick && !isTutorialHighlight && (
                 <div className="absolute -bottom-16 left-1/2 -translate-x-1/2 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity text-orange-200/80 text-sm font-medium tracking-widest uppercase">
-                    Tocai para Acender
+                    {isEn ? 'Tap to Light' : 'Toque para Acender'}
                 </div>
             )}
         </div>
     );
 };
 
-const SmallCandle = ({ date }: { date: string }) => (
+const SmallCandle = ({ date, isEn = false }: { date: string, isEn?: boolean }) => (
     <div className="flex flex-col items-center gap-3 group">
         <div className="relative w-8 h-20">
             {/* Flame */}
@@ -103,7 +118,7 @@ const SmallCandle = ({ date }: { date: string }) => (
             </div>
         </div>
         <span className="text-[10px] text-slate-500 font-mono opacity-40 group-hover:opacity-100 transition-opacity">
-            {new Date(date).toLocaleDateString('pt-PT', { day: '2-digit', month: '2-digit' })}
+            {new Date(date).toLocaleDateString(isEn ? 'en-US' : 'pt-PT', { day: '2-digit', month: '2-digit' })}
         </span>
     </div>
 );
@@ -111,24 +126,23 @@ const SmallCandle = ({ date }: { date: string }) => (
 // --- Main Page ---
 
 export default function IntentionsClient() {
+    const { locale } = useLocale();
+    const isEn = locale === 'en';
     const [isModalOpen, setIsModalOpen] = useState(false);
 
     // Tutorial State
     const [tutorialStep, setTutorialStep] = useState<TutorialStep['id'] | null>(null);
-    const [hasSeenTutorial, setHasSeenTutorial] = useState(false);
 
     const [intention, setIntention] = useState("");
     const [guestName, setGuestName] = useState("");
     const [submissionState, setSubmissionState] = useState<'idle' | 'loading' | 'success'>('idle');
     const [user, setUser] = useState<{ id?: string, name?: string, email?: string } | null>(null);
-    const [publicHistory, setPublicHistory] = useState<any[]>([]);
+    const [publicHistory, setPublicHistory] = useState<PublicHistoryItem[]>([]);
 
     useEffect(() => {
         const seen = localStorage.getItem('garabandal_velas_public_v1');
         if (!seen) {
             setTutorialStep('welcome');
-        } else {
-            setHasSeenTutorial(true);
         }
 
         async function loadData() {
@@ -136,7 +150,7 @@ export default function IntentionsClient() {
                 const { data: { user: currentUser } } = await supabaseBrowser.auth.getUser();
                 if (currentUser) {
                     const { data: member } = await supabaseBrowser.from('membros').select('nome').eq('id', currentUser.id).maybeSingle();
-                    setUser({ id: currentUser.id, email: currentUser.email, name: member?.nome || 'Devoto' });
+                    setUser({ id: currentUser.id, email: currentUser.email, name: member?.nome || (isEn ? 'Devotee' : 'Devoto') });
                 }
 
                 // Load some recent content or just user content? 
@@ -154,7 +168,7 @@ export default function IntentionsClient() {
             }
         }
         loadData();
-    }, []);
+    }, [isEn]);
 
     // Tutorial Logic
     const advanceTutorial = () => {
@@ -165,7 +179,6 @@ export default function IntentionsClient() {
         else if (tutorialStep === 'history') {
             setTutorialStep(null);
             localStorage.setItem('garabandal_velas_public_v1', 'true');
-            setHasSeenTutorial(true);
         }
     };
 
@@ -189,13 +202,13 @@ export default function IntentionsClient() {
                 // Let's assume user_id is optional in DB or we pass a specific flag.
 
                 // Construct payload
-                const payload: any = {
+                const payload: PrayerIntentionPayload = {
                     intention_text: intention,
                     candle_type: 'free',
                     amount: 0.00,
                     status: 'pending',
                     // Add guest info if available
-                    guest_name: !user ? (guestName || 'Anónimo') : undefined
+                    guest_name: !user ? (guestName || (isEn ? 'Anonymous' : 'Anónimo')) : undefined
                 };
 
                 if (user?.id) {
@@ -208,7 +221,7 @@ export default function IntentionsClient() {
                     console.error("Submission error:", error);
                     // Fallback visual success if DB fails for RLS reasons (just for UX if needed, but better show error)
                     if (error.code === '42501') { // Permission denied
-                        alert("Não foi possível enviar a intenção. Por favor, tente fazer login."); // Temporary fallback
+                        alert(isEn ? "We couldn't send your intention. Please try signing in." : "Não foi possível enviar a intenção. Por favor, tente fazer login."); // Temporary fallback
                         throw error;
                     }
                     throw error;
@@ -232,11 +245,13 @@ export default function IntentionsClient() {
                 setSubmissionState('success');
             }, 1000);
 
-        } catch (error) {
+        } catch {
             setSubmissionState('idle');
             // alert("Erro ao enviar. Tente novamente.");
         }
     };
+
+    const anonymousName = isEn ? 'Anonymous' : 'Anónimo';
 
     const handleClose = () => {
         setIsModalOpen(false);
@@ -273,10 +288,14 @@ export default function IntentionsClient() {
                                 className="bg-[#1a1a1a] p-8 rounded-2xl border border-white/10 max-w-sm text-center shadow-2xl"
                             >
                                 <Sparkles className="w-12 h-12 text-orange-400 mx-auto mb-4" />
-                                <h3 className="text-xl font-serif text-white mb-2">Pedido de Oração</h3>
-                                <p className="text-white/60 mb-6">Pode enviar as suas intenções a Nossa Senhora, mesmo sem ser membro. Acenda aqui a sua vela.</p>
+                                <h3 className="text-xl font-serif text-white mb-2">{isEn ? 'Prayer Request' : 'Pedido de Oração'}</h3>
+                                <p className="text-white/60 mb-6">
+                                    {isEn
+                                        ? 'You can send your intentions to Our Lady, even if you are not a member. Light your candle here.'
+                                        : 'Pode enviar as suas intenções a Nossa Senhora, mesmo sem ser membro. Acenda aqui a sua vela.'}
+                                </p>
                                 <button onClick={advanceTutorial} className="bg-white text-black px-8 py-3 rounded-full font-bold hover:bg-orange-50 transition-colors">
-                                    Começar
+                                    {isEn ? 'Start' : 'Começar'}
                                 </button>
                             </motion.div>
                         </div>
@@ -293,7 +312,7 @@ export default function IntentionsClient() {
                                     className="mt-72 flex flex-col items-center"
                                 >
                                     <div className="bg-orange-600 text-white px-6 py-2 rounded-full font-bold shadow-lg mb-4 whitespace-nowrap animate-bounce">
-                                        Toque na vela para acender
+                                        {isEn ? 'Tap the candle to light it' : 'Toque na vela para acender'}
                                     </div>
                                     <Hand className="w-12 h-12 text-white fill-white rotate-180 animate-pulse" />
                                 </motion.div>
@@ -312,10 +331,14 @@ export default function IntentionsClient() {
                                 <div className="mx-auto bg-orange-500/20 w-16 h-16 rounded-full flex items-center justify-center mb-4">
                                     <ArrowDown className="w-8 h-8 text-orange-500 animate-bounce" />
                                 </div>
-                                <h3 className="text-xl font-bold text-white mb-2">As Suas Velas</h3>
-                                <p className="text-white/60 mb-6">As suas intenções ficarão visíveis aqui nesta sessão.</p>
+                                <h3 className="text-xl font-bold text-white mb-2">{isEn ? 'Your Candles' : 'As Suas Velas'}</h3>
+                                <p className="text-white/60 mb-6">
+                                    {isEn
+                                        ? 'Your intentions will remain visible here during this session.'
+                                        : 'As suas intenções ficarão visíveis aqui nesta sessão.'}
+                                </p>
                                 <button onClick={advanceTutorial} className="text-white underline hover:text-orange-400">
-                                    Obrigado
+                                    {isEn ? 'Thank you' : 'Obrigado'}
                                 </button>
                             </motion.div>
                         </div>
@@ -337,10 +360,12 @@ export default function IntentionsClient() {
                         className="mb-12"
                     >
                         <h1 className="font-serif text-3xl md:text-5xl lg:text-6xl text-transparent bg-clip-text bg-gradient-to-b from-white to-white/60 mb-6 leading-tight max-w-4xl mx-auto">
-                            Santuário Virtual<br />de Garabandal
+                            {isEn ? <>Garabandal Virtual<br />Sanctuary</> : <>Santuário Virtual<br />de Garabandal</>}
                         </h1>
                         <p className="text-white/60 font-light max-w-lg mx-auto leading-relaxed text-base px-4">
-                            Faça o seu pedido a Nossa Senhora. As suas orações serão apresentadas na Igreja de Garabandal.
+                            {isEn
+                                ? 'Send your request to Our Lady. Your prayers will be presented in the church of Garabandal.'
+                                : 'Faça o seu pedido a Nossa Senhora. As suas orações serão apresentadas na Igreja de Garabandal.'}
                         </p>
                     </motion.div>
 
@@ -352,6 +377,7 @@ export default function IntentionsClient() {
                         <RealisticCandle
                             onClick={handleCandleClick}
                             isTutorialHighlight={tutorialStep === 'candle'}
+                            isEn={isEn}
                         />
                     </motion.div>
 
@@ -364,12 +390,12 @@ export default function IntentionsClient() {
                         >
                             <div className="flex items-center gap-3 mb-6 justify-center text-white/30 text-xs uppercase tracking-widest font-bold">
                                 <Sparkles className="w-3 h-3" />
-                                Velas acesas recentemente por si
+                                {isEn ? 'Candles recently lit by you' : 'Velas acesas recentemente por si'}
                             </div>
 
                             <div className="flex flex-wrap justify-center gap-8 md:gap-12">
                                 {publicHistory.map((item) => (
-                                    <SmallCandle key={item.id} date={item.created_at || new Date().toISOString()} />
+                                    <SmallCandle key={item.id} date={item.created_at || new Date().toISOString()} isEn={isEn} />
                                 ))}
                             </div>
                         </motion.div>
@@ -401,16 +427,20 @@ export default function IntentionsClient() {
                                     <div className="w-20 h-20 rounded-full bg-green-500/10 flex items-center justify-center mb-6 text-green-500 border border-green-500/20 shadow-[0_0_30px_rgba(34,197,94,0.2)]">
                                         <Flame className="w-8 h-8 fill-green-500 animate-pulse" />
                                     </div>
-                                    <h3 className="text-2xl font-serif text-white mb-2">Vela Acesa com Sucesso</h3>
-                                    <p className="text-white/50 mb-8">A sua intenção foi registada e unida às orações do Apostolado.</p>
-                                    <button onClick={handleClose} className="text-sm text-white/40 hover:text-white transition-colors">Fechar</button>
+                                    <h3 className="text-2xl font-serif text-white mb-2">{isEn ? 'Candle Lit Successfully' : 'Vela Acesa com Sucesso'}</h3>
+                                    <p className="text-white/50 mb-8">
+                                        {isEn
+                                            ? 'Your intention has been registered and united with the prayers of the Apostolate.'
+                                            : 'A sua intenção foi registada e unida às orações do Apostolado.'}
+                                    </p>
+                                    <button onClick={handleClose} className="text-sm text-white/40 hover:text-white transition-colors">{isEn ? 'Close' : 'Fechar'}</button>
                                 </div>
                             ) : (
                                 <div className="p-8 md:p-10">
                                     <div className="flex justify-between items-start mb-6">
                                         <div>
-                                            <h2 className="text-2xl font-serif text-white">Nova Intenção</h2>
-                                            <p className="text-white/40 text-sm mt-1">Escreva o que vai no seu coração.</p>
+                                            <h2 className="text-2xl font-serif text-white">{isEn ? 'New Intention' : 'Nova Intenção'}</h2>
+                                            <p className="text-white/40 text-sm mt-1">{isEn ? 'Write what is in your heart.' : 'Escreva o que vai no seu coração.'}</p>
                                         </div>
                                         <button onClick={handleClose} className="rounded-full p-2 bg-white/5 hover:bg-white/10 text-white/50 transition-colors">
                                             <X className="w-5 h-5" />
@@ -418,17 +448,17 @@ export default function IntentionsClient() {
                                     </div>
 
                                     {/* Name Input (Only if guest OR if anonymous is checked) */}
-                                    {(!user || (user && guestName === 'Anónimo')) && (
+                                    {(!user || (user && guestName === anonymousName)) && (
                                         <div className="mb-4">
-                                            <label className="text-xs font-bold text-white/40 uppercase tracking-wider mb-2 block">O seu nome (Opcional)</label>
+                                            <label className="text-xs font-bold text-white/40 uppercase tracking-wider mb-2 block">{isEn ? 'Your name (optional)' : 'O seu nome (Opcional)'}</label>
                                             <div className="relative">
                                                 <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
                                                 <input
                                                     type="text"
-                                                    value={guestName === 'Anónimo' ? '' : guestName}
+                                                    value={guestName === anonymousName ? '' : guestName}
                                                     onChange={(e) => setGuestName(e.target.value)}
-                                                    placeholder="Anónimo"
-                                                    disabled={!!(user && guestName === 'Anónimo')}
+                                                    placeholder={anonymousName}
+                                                    disabled={!!(user && guestName === anonymousName)}
                                                     className="w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-10 pr-4 text-white placeholder:text-white/20 focus:outline-none focus:border-orange-500/50 transition-colors disabled:opacity-50"
                                                 />
                                             </div>
@@ -438,22 +468,24 @@ export default function IntentionsClient() {
                                     {/* Anonymous Toggle for Logged In Users */}
                                     {user && (
                                         <div
-                                            onClick={() => setGuestName(prev => prev === 'Anónimo' ? '' : 'Anónimo')}
+                                            onClick={() => setGuestName(prev => prev === anonymousName ? '' : anonymousName)}
                                             className="flex items-center gap-3 mb-6 cursor-pointer group"
                                         >
-                                            <div className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${guestName === 'Anónimo' ? 'bg-white border-white' : 'border-white/30 group-hover:border-white/50'}`}>
-                                                {guestName === 'Anónimo' && <Check className="w-3 h-3 text-black" />}
+                                            <div className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${guestName === anonymousName ? 'bg-white border-white' : 'border-white/30 group-hover:border-white/50'}`}>
+                                                {guestName === anonymousName && <Check className="w-3 h-3 text-black" />}
                                             </div>
-                                            <span className="text-sm text-white/60 group-hover:text-white transition-colors">Enviar como Anónimo (Não aparecerá no seu histórico)</span>
+                                            <span className="text-sm text-white/60 group-hover:text-white transition-colors">
+                                                {isEn ? 'Send anonymously (it will not appear in your history)' : 'Enviar como Anónimo (Não aparecerá no seu histórico)'}
+                                            </span>
                                         </div>
                                     )}
 
                                     <div className="mb-8">
-                                        <label className="text-xs font-bold text-white/40 uppercase tracking-wider mb-2 block">O seu pedido</label>
+                                        <label className="text-xs font-bold text-white/40 uppercase tracking-wider mb-2 block">{isEn ? 'Your request' : 'O seu pedido'}</label>
                                         <textarea
                                             value={intention}
                                             onChange={(e) => setIntention(e.target.value)}
-                                            placeholder="Nossa Senhora, hoje peço-te por..."
+                                            placeholder={isEn ? 'Our Lady, today I ask you for...' : 'Nossa Senhora, hoje peço-te por...'}
                                             className="w-full bg-white/5 border border-white/10 rounded-xl p-4 h-32 text-white placeholder:text-white/20 focus:outline-none focus:border-orange-500/50 focus:ring-1 focus:ring-orange-500/50 resize-none font-serif leading-relaxed"
                                             autoFocus
                                         />
@@ -466,7 +498,7 @@ export default function IntentionsClient() {
                                         className="w-full py-4 bg-white text-black font-medium rounded-xl hover:bg-slate-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-[0_0_20px_rgba(255,255,255,0.1)] flex items-center justify-center gap-2"
                                     >
                                         {submissionState === 'loading' ? <Loader2 className="w-5 h-5 animate-spin" /> : (
-                                            <>Acender a Vela <Flame className="w-4 h-4" /></>
+                                            <>{isEn ? 'Light the Candle' : 'Acender a Vela'} <Flame className="w-4 h-4" /></>
                                         )}
                                     </button>
                                 </div>

@@ -25,7 +25,9 @@ export default function MemberDocumentosNavigationPage() {
     const [contents, setContents] = useState<MemberContent[]>([]);
     const [loading, setLoading] = useState(true);
     const isEn = locale === 'en';
-    const localePrefix = isEn ? '/en' : '';
+    const manuscriptsPath = isEn ? '/en/member/documents/manuscripts' : '/member/documentos/manuscritos';
+    const testimoniesPath = isEn ? '/en/member/documents/testimonies' : '/member/documentos/testemunhos';
+    const photographsPath = isEn ? '/en/member/documents/photographs' : '/member/documentos/fotografias';
 
     useEffect(() => {
         const fetchContents = async () => {
@@ -84,7 +86,7 @@ export default function MemberDocumentosNavigationPage() {
                 {/* Selection Cards */}
                 <section className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
                     <Link 
-                        href={`${localePrefix}/member/documents/manuscripts`}
+                        href={manuscriptsPath}
                         className="group relative overflow-hidden rounded-3xl p-8 text-left transition-all duration-500 border-2 border-slate-800 bg-slate-900/50 hover:bg-slate-800 hover:border-red-500/50 hover:-translate-y-1 hover:shadow-2xl hover:shadow-red-500/10"
                     >
                         <div className="absolute top-0 right-0 w-32 h-32 bg-red-500/10 rounded-full blur-[50px] opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
@@ -106,7 +108,7 @@ export default function MemberDocumentosNavigationPage() {
                     </Link>
 
                     <Link 
-                        href={`${localePrefix}/member/documents/testimonies`}
+                        href={testimoniesPath}
                         className="group relative overflow-hidden rounded-3xl p-8 text-left transition-all duration-500 border-2 border-slate-800 bg-slate-900/50 hover:bg-slate-800 hover:border-purple-500/50 hover:-translate-y-1 hover:shadow-2xl hover:shadow-purple-500/10"
                     >
                         <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/10 rounded-full blur-[50px] opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
@@ -128,7 +130,7 @@ export default function MemberDocumentosNavigationPage() {
                     </Link>
 
                     <Link 
-                        href={`${localePrefix}/member/documents/photographs`}
+                        href={photographsPath}
                         className="group relative overflow-hidden rounded-3xl p-8 text-left transition-all duration-500 border-2 border-slate-800 bg-slate-900/50 hover:bg-slate-800 hover:border-blue-500/50 hover:-translate-y-1 hover:shadow-2xl hover:shadow-blue-500/10"
                     >
                         <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-full blur-[50px] opacity-0 group-hover:opacity-100 transition-opacity duration-500" />

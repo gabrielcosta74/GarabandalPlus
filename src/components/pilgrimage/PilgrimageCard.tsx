@@ -174,7 +174,7 @@ export function PilgrimageCard({ pilgrimage, index }: PilgrimageCardProps) {
                                 <span className="text-[10px] text-slate-400 uppercase tracking-widest font-bold block mb-1">{p.card.availability}</span>
                                 <div className={`flex items-center justify-start md:justify-end gap-1.5 text-sm font-bold ${isWaitlist ? 'text-amber-600' : isClosed ? 'text-red-600' : 'text-slate-700'}`}>
                                     <Users className="w-4 h-4" />
-                                    {isClosed ? p.card.soldOut : isWaitlist ? p.card.waitlist : getPublicAvailabilityLabel(remainingSpots)}
+                                    {isClosed ? p.card.soldOut : isWaitlist ? p.card.waitlist : getPublicAvailabilityLabel(remainingSpots, locale)}
                                 </div>
                             </div>
 

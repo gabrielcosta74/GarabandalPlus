@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createSupabaseServerClient } from '../../../../lib/auth-utils';
+import { supabaseServer } from '../../../../lib/supabase';
+import { isActiveMember } from '../../../../lib/store-discounts';
 
 export async function GET(req: Request) {
     try {
@@ -12,7 +14,22 @@ export async function GET(req: Request) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        const { data, error } = await supabase
+        if (!supabaseServer) {
+            return NextResponse.json({ error: 'Server configuration error' }, { status: 500 });
+        }
+
+        const { data: member, error: memberError } = await supabaseServer
+            .from('membros')
+            .select('is_membro, estado_quota, tipo_subscricao, proxima_quota')
+            .eq('id', user.id)
+            .maybeSingle();
+
+        if (memberError) throw memberError;
+        if (!isActiveMember(member)) {
+            return NextResponse.json({ error: 'Membership required' }, { status: 403 });
+        }
+
+        const { data, error } = await supabaseServer
             .from('member_contents')
             .select(`
                 *,

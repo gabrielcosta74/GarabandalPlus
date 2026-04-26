@@ -10,13 +10,16 @@ type Testimonial = {
     id: string;
     author_name: string;
     role: string;
+    role_en?: string | null;
     text: string;
+    text_en?: string | null;
     image_url: string;
     display_order: number;
 };
 
 export function PilgrimageTestimonials() {
-    const { t: tr } = useLocale();
+    const { locale, t: tr } = useLocale();
+    const isEn = locale === 'en';
     const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -71,8 +74,12 @@ export function PilgrimageTestimonials() {
                             duration: 40, // Slower, smoother scroll
                         } : {}}
                     >
-                        {displayList.map((t, i) => (
-                            <div
+                        {displayList.map((t, i) => {
+                            const testimonialText = isEn ? t.text_en || t.text : t.text;
+                            const role = isEn ? t.role_en || t.role : t.role;
+
+                            return (
+                                <div
                                 key={`${t.id}-${i}`}
                                 className="w-[320px] bg-white p-5 rounded-2xl border border-slate-100 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] flex-shrink-0 hover:shadow-[0_8px_30px_-4px_rgba(0,0,0,0.08)] hover:-translate-y-1 transition-all duration-300 group"
                             >
@@ -95,10 +102,12 @@ export function PilgrimageTestimonials() {
                                                     <Star key={i} className="w-2.5 h-2.5 text-yellow-400 fill-yellow-400" />
                                                 ))}
                                             </div>
-                                            <span className="text-[10px] items-center gap-1 text-slate-400 font-medium uppercase tracking-wider hidden sm:flex">
-                                                <span className="w-0.5 h-0.5 rounded-full bg-slate-300" />
-                                                {t.role}
-                                            </span>
+                                            {role && (
+                                                <span className="text-[10px] items-center gap-1 text-slate-400 font-medium uppercase tracking-wider hidden sm:flex">
+                                                    <span className="w-0.5 h-0.5 rounded-full bg-slate-300" />
+                                                    {role}
+                                                </span>
+                                            )}
                                         </div>
                                     </div>
                                 </div>
@@ -107,12 +116,13 @@ export function PilgrimageTestimonials() {
                                 <div className="relative">
                                     <p className="text-slate-600 text-[13px] leading-[1.6] line-clamp-4 group-hover:line-clamp-none transition-all duration-300">
                                         <span className="text-indigo-300 font-serif text-lg leading-none mr-1">"</span>
-                                        {t.text}
+                                        {testimonialText}
                                         <span className="text-indigo-300 font-serif text-lg leading-none ml-1">"</span>
                                     </p>
                                 </div>
                             </div>
-                        ))}
+                            );
+                        })}
                     </motion.div>
                 </div>
             </div>

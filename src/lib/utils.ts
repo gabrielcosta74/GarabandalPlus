@@ -52,9 +52,17 @@ export const serializeCivilDateForStorage = (value?: string | null) => {
 export const todayCivilTimestamp = (now: Date = new Date()) =>
     new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12, 0, 0, 0).getTime();
 
-export const getPublicAvailabilityLabel = (remainingSpots: number) => {
+export const getPublicAvailabilityLabel = (remainingSpots: number, locale: 'pt' | 'en' = 'pt') => {
     if (remainingSpots <= 10) {
+        if (locale === 'en') {
+            return `${remainingSpots} ${remainingSpots === 1 ? 'Spot' : 'Spots'}`;
+        }
+
         return `${remainingSpots} ${remainingSpots === 1 ? 'Vaga' : 'Vagas'}`;
+    }
+
+    if (locale === 'en') {
+        return 'Limited Spots';
     }
 
     return 'Vagas Limitadas';

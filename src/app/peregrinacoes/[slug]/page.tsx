@@ -526,7 +526,7 @@ export default function PilgrimageDetailPage() {
                                             <div className="flex justify-between py-2.5 border-b text-slate-600 font-medium">
                                                 <span className="flex items-center gap-2"><Users className="w-4 h-4" /> {isEn ? 'Available Spots' : 'Vagas Disponíveis'}</span>
                                                 <span className="text-slate-900 font-bold">
-                                                    {isClosed ? (isEn ? 'Closed' : 'Encerradas') : isWaitlist ? (isEn ? 'Waiting List' : 'Lista de Espera') : getPublicAvailabilityLabel(remainingSpots)}
+                                                    {isClosed ? (isEn ? 'Closed' : 'Encerradas') : isWaitlist ? (isEn ? 'Waiting List' : 'Lista de Espera') : getPublicAvailabilityLabel(remainingSpots, locale)}
                                                 </span>
                                             </div>
                                         </div>
