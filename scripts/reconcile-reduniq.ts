@@ -209,38 +209,46 @@ function bestFromSearch(search: any): { status: string; transactionId: string | 
         date: n?.transaction?.date || n?.date || null,
     })).filter((n) => n.status);
     if (!normalized.length) return null;
-    const score = (s: string) => (s === '4' ? 4 : s === '2' ? 3 : s === '1' ? 2 : s === '0' ? 1 : 0);
+    const score = (s: string) => (s === '4' ? 4 : s === '3' ? 3 : s === '2' ? 2 : s === '1' ? 1 : 0);
     normalized.sort((a, b) => score(b.status) - score(a.status) || (String(b.date || '')).localeCompare(String(a.date || '')));
     return normalized[0];
 }
 
 async function classify(row: Row): Promise<ReconcileResult> {
     try {
-        const search = await client.searchTransactions({ orderRef: row.order_ref, limit: 25 });
         let gatewayStatus: string | null = null;
         let gatewayTxId: string | null = null;
         let gatewayDate: string | null = null;
         let note: string | undefined;
 
-        if (search.ok) {
-            const best = bestFromSearch(search.data);
-            if (best) {
-                gatewayStatus = best.status;
-                gatewayTxId = best.transactionId;
-                gatewayDate = best.date;
-            }
-        } else {
-            note = `searchTransactions failed: ${search.error || search.status}`;
-        }
-
-        // Fallback: if no conclusive search result, use getResult(token).
-        if (!gatewayStatus && row.token) {
+        // Prefer getResult(token): searchTransactions can lag behind for PIX/non-instant payments.
+        if (row.token) {
             const gs = await client.getOrderStatus(row.token);
             if (gs.success) {
                 gatewayStatus = gs.status === 'success' ? '4' : gs.status === 'failed' ? '3' : gs.status === 'pending' ? '2' : null;
                 gatewayTxId = gs.transactionId || null;
+                gatewayDate = (gs.raw as any)?.transaction?.date || null;
             } else if (!note) {
                 note = `getOrderStatus failed: ${gs.error || ''}`;
+            }
+        }
+
+        // Fallback/improvement: only let searchTransactions override if it finds a terminal status.
+        const hasTerminalTokenStatus = gatewayStatus === '4' || gatewayStatus === '3';
+        if (!hasTerminalTokenStatus) {
+            const search = await client.searchTransactions({ orderRef: row.order_ref, limit: 25 });
+            if (search.ok) {
+                const best = bestFromSearch(search.data);
+                if (best) {
+                    const searchIsTerminal = best.status === '4' || best.status === '3';
+                    if (!gatewayStatus || searchIsTerminal) {
+                        gatewayStatus = best.status;
+                        gatewayTxId = best.transactionId;
+                        gatewayDate = best.date;
+                    }
+                }
+            } else if (!note) {
+                note = `searchTransactions failed: ${search.error || search.status}`;
             }
         }
 
@@ -248,7 +256,7 @@ async function classify(row: Row): Promise<ReconcileResult> {
         if (gatewayStatus === '4') classification = 'CONFIRMED_PAID';
         else if (gatewayStatus === '3') classification = 'FAILED';
         else if (['0', '1', '2'].includes(gatewayStatus || '')) classification = 'PENDING_AT_GATEWAY';
-        else if (note && note.startsWith('searchTransactions failed')) classification = 'REDUNIQ_ERROR';
+        else if (note) classification = 'REDUNIQ_ERROR';
 
         return { row, classification, gatewayStatus, gatewayTxId, gatewayDate, applied: false, note };
     } catch (e: any) {

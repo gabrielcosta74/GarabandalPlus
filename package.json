@@ -9,6 +9,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "cron:reduniq-reconcile": "node scripts/railway-cron-reduniq-reconcile.mjs",
     "lint": "next lint",
     "preprod:check": "bash scripts/preprod-check.sh",
     "preprod:security": "bash scripts/preprod-security.sh",

@@ -132,27 +132,45 @@ function bestFromSearch(search: any): { status: string; transactionId: string | 
         date: n?.transaction?.date || n?.date || null,
     })).filter((n) => n.status);
     if (!normalized.length) return null;
-    const score = (s: string) => (s === '4' ? 4 : s === '2' ? 3 : s === '1' ? 2 : s === '0' ? 1 : 0);
+    const score = (s: string) => (s === '4' ? 4 : s === '3' ? 3 : s === '2' ? 2 : s === '1' ? 1 : 0);
     normalized.sort((a, b) => score(b.status) - score(a.status) || String(b.date || '').localeCompare(String(a.date || '')));
     return normalized[0];
 }
 
 export async function classifyRow(row: ReconcileRow): Promise<ReconcileResult> {
     try {
-        const search = await reduniqClient.searchTransactions({ orderRef: row.order_ref, limit: 25 });
         let gatewayStatus: string | null = null;
         let gatewayTxId: string | null = null;
         let gatewayDate: string | null = null;
+        let reduniqError: string | null = null;
 
-        if (search.ok) {
-            const best = bestFromSearch(search.data);
-            if (best) { gatewayStatus = best.status; gatewayTxId = best.transactionId; gatewayDate = best.date; }
-        }
-        if (!gatewayStatus && row.token) {
+        if (row.token) {
             const gs = await reduniqClient.getOrderStatus(row.token);
             if (gs.success) {
                 gatewayStatus = gs.status === 'success' ? '4' : gs.status === 'failed' ? '3' : gs.status === 'pending' ? '2' : null;
                 gatewayTxId = gs.transactionId || null;
+                gatewayDate = (gs.raw as any)?.transaction?.date || null;
+            } else {
+                reduniqError = gs.error || 'getOrderStatus failed';
+            }
+        }
+
+        const hasTerminalTokenStatus = gatewayStatus === '4' || gatewayStatus === '3';
+        if (!hasTerminalTokenStatus) {
+            const search = await reduniqClient.searchTransactions({ orderRef: row.order_ref, limit: 25 });
+
+            if (search.ok) {
+                const best = bestFromSearch(search.data);
+                if (best) {
+                    const searchIsTerminal = best.status === '4' || best.status === '3';
+                    if (!gatewayStatus || searchIsTerminal) {
+                        gatewayStatus = best.status;
+                        gatewayTxId = best.transactionId;
+                        gatewayDate = best.date;
+                    }
+                }
+            } else if (!reduniqError) {
+                reduniqError = search.error || `searchTransactions failed (${search.status})`;
             }
         }
 
@@ -160,6 +178,7 @@ export async function classifyRow(row: ReconcileRow): Promise<ReconcileResult> {
         if (gatewayStatus === '4') classification = 'CONFIRMED_PAID';
         else if (gatewayStatus === '3') classification = 'FAILED';
         else if (['0', '1', '2'].includes(gatewayStatus || '')) classification = 'PENDING_AT_GATEWAY';
+        else if (reduniqError) classification = 'REDUNIQ_ERROR';
 
         return { row, classification, gatewayStatus, gatewayTxId, gatewayDate, applied: false };
     } catch (e: any) {

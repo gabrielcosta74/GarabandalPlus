@@ -181,9 +181,9 @@ async function findBestStatusByOrderRef(orderRef: string): Promise<SearchTxCandi
 
   const score = (status: string) => {
     if (status === '4') return 4;
-    if (status === '2') return 3;
-    if (status === '1') return 2;
-    if (status === '0') return 1;
+    if (status === '3') return 3;
+    if (status === '2') return 2;
+    if (status === '1') return 1;
     return 0;
   };
 
@@ -248,7 +248,6 @@ export async function POST(request: Request) {
     const shouldTrySearchFallback = Boolean(orderRefParam) && (
       resultCode === '00100007' ||
       resultCode === '10000000999' ||
-      transactionStatus === '3' ||
       !transactionStatus
     );
     if (shouldTrySearchFallback && orderRefParam) {
@@ -256,7 +255,7 @@ export async function POST(request: Request) {
       if (fallback) {
         const fallbackImprovesStatus =
           fallback.status === '4' ||
-          ((fallback.status === '2' || fallback.status === '1' || fallback.status === '0') && transactionStatus !== '4');
+          (!transactionStatus && ['0', '1', '2', '3'].includes(fallback.status));
         if (fallbackImprovesStatus) {
           transactionStatus = fallback.status;
           if (fallback.transactionId) transactionId = fallback.transactionId;

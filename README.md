@@ -43,8 +43,13 @@ on public.email_notifications(type, reference);
 ```
 
 ## Cron de lembretes de quota
-Criar um cron diario no Vercel para `/api/cron/quota-reminders` (ex.: 08:00 UTC).
-Se definires `CRON_SECRET`, configura o cron com header `Authorization: Bearer <CRON_SECRET>`.
+Em Railway, cria um serviço separado para cada tarefa agendada. Para a reconciliação Reduniq, usa:
+
+- Start Command: `npm run cron:reduniq-reconcile`
+- Cron Schedule: `*/30 * * * *`
+- Variáveis: `CRON_SECRET` e `CRON_TARGET_URL=https://<dominio-da-app>`
+
+O comando chama `/api/cron/reduniq-reconcile` com `Authorization: Bearer <CRON_SECRET>` e termina, como o Railway Cron espera.
 
 ## Integração com a app móvel
 - Na app Expo, troca os botões de pagar/renovar/doar para abrir `https://seusite/` com query ou token do utilizador.
