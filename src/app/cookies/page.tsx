@@ -1,6 +1,7 @@
 import { Metadata } from 'next';
 import Link from 'next/link';
 import { APP_URL } from '../../lib/config';
+import CookiePreferencesButton from '../../components/privacy/CookiePreferencesButton';
 
 export const metadata: Metadata = {
   title: 'Política de Cookies',
@@ -26,11 +27,11 @@ export default function CookiesPage() {
             Política de Cookies
           </h1>
           <p className="text-sm text-slate-500">
-            Última atualização: 13 de fevereiro de 2026
+            Última atualização: 28 de abril de 2026
           </p>
           <p className="text-slate-600 leading-relaxed">
-            Esta política explica o uso de cookies e tecnologias semelhantes no website e web app do
-            Apostolado de Garabandal.
+            Esta política explica o uso de cookies, armazenamento local e tecnologias semelhantes no
+            website e web app do Apostolado de Garabandal.
           </p>
         </header>
 
@@ -45,10 +46,11 @@ export default function CookiesPage() {
         <section className="space-y-3">
           <h2 className="text-xl font-semibold text-slate-900">2. Tipos de cookies que podemos utilizar</h2>
           <ul className="list-disc pl-6 text-slate-600 leading-relaxed space-y-2">
-            <li><strong>Estritamente necessários:</strong> autenticação, sessão, segurança e prevenção de abuso.</li>
-            <li><strong>Funcionais:</strong> preferências de interface e melhoria da experiência.</li>
-            <li><strong>Analíticos:</strong> medição agregada de utilização, apenas quando legalmente exigível com consentimento.</li>
-            <li><strong>Terceiros:</strong> serviços de pagamento, proteção e infraestrutura.</li>
+            <li><strong>Estritamente necessários:</strong> autenticação, sessão, carrinho, segurança, prevenção de abuso, checkout, doações, quotas e inscrições. Estes não podem ser desativados no nosso painel porque são necessários para prestar o serviço pedido.</li>
+            <li><strong>Preferências locais:</strong> idioma, moeda, estado do carrinho e a sua escolha de consentimento, quando aplicável.</li>
+            <li><strong>Analíticos:</strong> medição de utilização de páginas públicas e melhoria do website. Estes só são ativados se aceitar cookies analíticos.</li>
+            <li><strong>Marketing:</strong> campanhas, medição de conversões ou comunicações personalizadas. Estes só são ativados se aceitar cookies de marketing.</li>
+            <li><strong>Terceiros essenciais:</strong> serviços de autenticação, alojamento, pagamentos, antifraude e email podem definir identificadores técnicos próprios necessários à execução desses serviços.</li>
           </ul>
         </section>
 
@@ -58,27 +60,42 @@ export default function CookiesPage() {
             <li>Manter sessões autenticadas e proteger contas de utilizador.</li>
             <li>Permitir fluxos de checkout, doações, quotas e inscrições.</li>
             <li>Garantir integridade técnica, deteção de erros e estabilidade da plataforma.</li>
+            <li>Medir desempenho e utilização de páginas públicas, quando houver consentimento.</li>
           </ul>
         </section>
 
         <section className="space-y-3">
           <h2 className="text-xl font-semibold text-slate-900">4. Gestão de preferências</h2>
           <p className="text-slate-600 leading-relaxed">
-            Pode gerir cookies no navegador (bloquear, apagar ou limitar). A desativação de cookies
-            necessários pode impedir autenticação, checkout e outras funcionalidades essenciais.
+            Pode aceitar todos, rejeitar cookies opcionais ou escolher categorias no banner de
+            consentimento. Pode alterar a sua escolha a qualquer momento através do botão abaixo.
+            Também pode gerir cookies no navegador (bloquear, apagar ou limitar). A desativação de
+            cookies necessários pode impedir autenticação, checkout e outras funcionalidades essenciais.
           </p>
+          <CookiePreferencesButton />
         </section>
 
         <section className="space-y-3">
           <h2 className="text-xl font-semibold text-slate-900">5. Cookies de terceiros</h2>
           <p className="text-slate-600 leading-relaxed">
-            Alguns fluxos dependem de serviços terceiros (ex.: pagamentos e autenticação). Estes
-            serviços podem definir identificadores técnicos próprios nos termos das suas políticas.
+            Alguns fluxos dependem de serviços terceiros (ex.: Supabase para autenticação/base de
+            dados, Stripe/Reduniq para pagamentos, PostHog para analytics quando consentido, e
+            fornecedores de email/infraestrutura). Estes serviços podem definir identificadores
+            técnicos próprios nos termos das suas políticas.
           </p>
         </section>
 
         <section className="space-y-3">
-          <h2 className="text-xl font-semibold text-slate-900">6. Contacto</h2>
+          <h2 className="text-xl font-semibold text-slate-900">6. Base legal</h2>
+          <p className="text-slate-600 leading-relaxed">
+            Cookies estritamente necessários são utilizados para execução do serviço solicitado e
+            segurança da plataforma. Cookies analíticos e de marketing são utilizados com base no seu
+            consentimento, que pode retirar a qualquer momento.
+          </p>
+        </section>
+
+        <section className="space-y-3">
+          <h2 className="text-xl font-semibold text-slate-900">7. Contacto</h2>
           <p className="text-slate-600 leading-relaxed">
             Para questões sobre cookies e privacidade, contacte{' '}
             <strong>geral@apostoladodegarabandal.com</strong> ou consulte a{' '}
@@ -98,4 +115,3 @@ export default function CookiesPage() {
     </main>
   );
 }
-

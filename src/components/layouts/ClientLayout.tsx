@@ -11,6 +11,7 @@ import { LocaleProvider } from '../../contexts/LocaleContext';
 import type { LocaleCode } from '../../i18n';
 import AuthLandingGuard from '../auth/AuthLandingGuard';
 import PublicAnalytics from '../analytics/PublicAnalytics';
+import CookieConsentBanner from '../privacy/CookieConsentBanner';
 
 export default function ClientLayout({
     children,
@@ -36,6 +37,7 @@ export default function ClientLayout({
                     {!hideHeader && <AuctionWinnerBanner />}
                     {children}
                     {!hideFooter && <SiteFooter />}
+                    {!isAdmin && !isEmbed && <CookieConsentBanner />}
                 </CurrencyProvider>
             </AuthProvider>
         </LocaleProvider>

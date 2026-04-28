@@ -1,6 +1,7 @@
 "use client";
 
 import posthog from 'posthog-js';
+import { hasAnalyticsConsent } from './cookie-consent';
 
 type AnalyticsProperties = Record<string, string | number | boolean | null | undefined>;
 
@@ -44,9 +45,10 @@ export const isPublicAnalyticsPath = (pathname?: string | null) => {
 };
 
 export const initAnalytics = () => {
-  if (initialized) return true;
   if (typeof window === 'undefined') return false;
   if (hasDoNotTrack()) return false;
+  if (!hasAnalyticsConsent()) return false;
+  if (initialized) return true;
 
   const token = getPostHogToken();
   if (!token) return false;
