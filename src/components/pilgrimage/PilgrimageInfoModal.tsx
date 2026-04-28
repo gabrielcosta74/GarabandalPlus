@@ -3,8 +3,8 @@
 import { useEffect } from 'react';
 import Link from 'next/link';
 import { CheckCircle2, Plane, Users, X, MapPin, ShieldCheck, ArrowRight } from 'lucide-react';
-import { useCurrency } from '../providers/CurrencyProvider';
 import { useLocale } from '../../contexts/LocaleContext';
+import { PilgrimagePrice } from './PilgrimagePrice';
 
 type PilgrimageInfoModalProps = {
     mode: 'included' | 'flights';
@@ -53,7 +53,6 @@ export default function PilgrimageInfoModal({
     transportDescription,
     transportImage
 }: PilgrimageInfoModalProps) {
-    const { formatPrice } = useCurrency();
     const { locale } = useLocale();
     const isEn = locale === 'en';
 
@@ -151,17 +150,17 @@ export default function PilgrimageInfoModal({
                                             {isEn ? 'Land Package Breakdown' : 'Cálculo do Valor Terrestre'}
                                         </h4>
                                         <div className="flex flex-col gap-3 text-sm text-slate-600">
-                                            <div className="flex justify-between items-center">
+                                            <div className="flex justify-between items-start gap-3">
                                                 <span>{isEn ? 'Base price:' : 'Valor base:'}</span>
-                                                <span className="font-semibold text-slate-800">{formatPrice(basePrice)}</span>
+                                                <PilgrimagePrice amountInEur={basePrice} layout="compact" primaryClassName="text-sm font-semibold text-slate-800" secondaryClassName="text-[10px] text-slate-500" showLabels={false} />
                                             </div>
-                                            <div className="flex justify-between items-center">
+                                            <div className="flex justify-between items-start gap-3">
                                                 <span>{isEn ? 'Registration fee:' : 'Taxa de inscrição:'}</span>
-                                                <span className="font-semibold text-slate-800">{formatPrice(depositValue)}</span>
+                                                <PilgrimagePrice amountInEur={depositValue} layout="compact" primaryClassName="text-sm font-semibold text-slate-800" secondaryClassName="text-[10px] text-slate-500" showLabels={false} />
                                             </div>
-                                            <div className="pt-3 mt-1 border-t border-slate-200 flex justify-between items-center font-bold text-slate-900 text-lg">
-                                                <span>{isEn ? 'Total Land Package:' : 'Valor Total do Terrestre:'}</span>
-                                                <span>{formatPrice(basePrice + depositValue)}</span>
+                                            <div className="pt-3 mt-1 border-t border-slate-200 flex justify-between items-start gap-3 text-slate-900">
+                                                <span className="font-bold text-lg">{isEn ? 'Total Land Package:' : 'Valor Total do Terrestre:'}</span>
+                                                <PilgrimagePrice amountInEur={basePrice + depositValue} layout="stacked" primaryClassName="text-lg font-bold text-slate-900" secondaryClassName="text-xs font-semibold text-slate-600" />
                                             </div>
                                         </div>
                                     </div>
@@ -363,9 +362,12 @@ export default function PilgrimageInfoModal({
                                                     <p className="mb-1 text-xs font-bold uppercase tracking-wider text-indigo-500">
                                                         {isEn ? 'Reference price' : 'Valor de referência'}
                                                     </p>
-                                                    <p className="text-3xl font-black text-indigo-700">
-                                                        {formatPrice(flightPriceFrom)}
-                                                    </p>
+                                                    <PilgrimagePrice
+                                                        amountInEur={flightPriceFrom}
+                                                        layout="stacked"
+                                                        primaryClassName="text-3xl font-black text-indigo-700"
+                                                        secondaryClassName="text-sm font-semibold text-indigo-500"
+                                                    />
                                                     <p className="mt-2 text-xs leading-relaxed text-indigo-500">
                                                         {isEn ? 'This payment is handled directly with the partner agency.' : 'Este pagamento é tratado diretamente com a agência parceira.'}
                                                     </p>

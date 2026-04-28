@@ -4,6 +4,7 @@ import { ArrowRight, FileText } from 'lucide-react';
 import { BrochureDownloadModal } from './BrochureDownloadModal';
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { PilgrimagePrice } from './PilgrimagePrice';
 
 type MobileBookingBarProps = {
     price: number;
@@ -29,7 +30,13 @@ export default function MobileBookingBar({ price, deposit, link, isClosed, butto
                 <div className="flex-1 min-w-0">
                     <p className="text-[10px] text-slate-500 uppercase font-bold tracking-wider mb-0.5 truncate">Total c/ Voos</p>
                     <div className="flex items-baseline gap-1">
-                        <span className="text-xl font-black text-slate-900 leading-none">{price + deposit}€</span>
+                        <PilgrimagePrice
+                            amountInEur={price + deposit}
+                            layout="compact"
+                            primaryClassName="text-xl font-black text-slate-900 leading-none"
+                            secondaryClassName="text-[9px] font-semibold text-slate-500"
+                            showLabels={false}
+                        />
                         <span className="text-[10px] text-slate-500 font-bold uppercase">/ pax</span>
                     </div>
                 </div>

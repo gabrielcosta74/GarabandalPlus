@@ -37,6 +37,7 @@ import {
 } from '../../../../lib/bank-transfer-details';
 import { calculatePilgrimageReduniqCharge } from '../../../../lib/pilgrimage-reduniq-fees';
 import { useLocale } from '../../../../contexts/LocaleContext';
+import { PilgrimagePrice } from '../../../../components/pilgrimage/PilgrimagePrice';
 
 /* -------------------------------------------------------------------------- */
 /*                                    Types                                   */
@@ -733,7 +734,12 @@ export default function BookingDashboardPage() {
                                         </div>
                                         <div className="text-right shrink-0 bg-slate-50 px-4 py-3 rounded-2xl border border-slate-100 hidden sm:block">
                                             <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-1">{isEn ? 'Total' : 'Total'}</p>
-                                            <p className="text-xl md:text-2xl font-serif font-bold text-slate-900">{formatPrice(totalAmount)}</p>
+                                            <PilgrimagePrice
+                                                amountInEur={totalAmount}
+                                                layout="stacked"
+                                                primaryClassName="text-xl md:text-2xl font-serif font-bold text-slate-900"
+                                                secondaryClassName="text-sm font-semibold text-slate-600"
+                                            />
                                         </div>
                                     </div>
 

@@ -4,11 +4,13 @@ import React, { useRef } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { motion, useScroll, useTransform } from 'framer-motion';
-import { ArrowRight, MapPin, ChevronRight } from 'lucide-react';
+import { ArrowRight, MapPin, ChevronRight, Lock, Clock } from 'lucide-react';
 import { format } from 'date-fns';
 import { enUS, pt } from 'date-fns/locale';
 import { parseCivilDate } from '../../lib/utils';
 import { useLocale } from '../../contexts/LocaleContext';
+import { useCurrency } from '../providers/CurrencyProvider';
+import { PilgrimagePrice } from '../pilgrimage/PilgrimagePrice';
 
 interface Pilgrimage {
     id: string;
@@ -36,6 +38,7 @@ const PilgrimageShowcase: React.FC<PilgrimageShowcaseProps> = ({ pilgrimages }) 
     const { t, locale } = useLocale();
     const isEn = locale === 'en';
     const dateLocale = isEn ? enUS : pt;
+    const { currency, formatEUR } = useCurrency();
 
     const { scrollYProgress } = useScroll({
         target: containerRef,
@@ -252,10 +255,20 @@ const PilgrimageShowcase: React.FC<PilgrimageShowcaseProps> = ({ pilgrimages }) 
 
                                         <div className="flex items-center justify-between mt-auto">
                                             <div className="flex flex-col">
-                                                <span className="text-[10px] text-slate-400 uppercase tracking-wider">
+                                                <span className="text-[10px] text-slate-400 uppercase tracking-wider mb-1">
                                                     {isEn ? 'From' : 'A partir de'}
                                                 </span>
-                                                <span className="text-xl font-bold text-white">€{pilgrimage.base_price}</span>
+                                                {currency === 'EUR' ? (
+                                                    <span className="text-xl font-bold text-white">
+                                                        {formatEUR(pilgrimage.base_price)}
+                                                    </span>
+                                                ) : (
+                                                    <PilgrimagePrice
+                                                        amountInEur={pilgrimage.base_price}
+                                                        layout="showcase"
+                                                        secondaryClassName="text-xl"
+                                                    />
+                                                )}
                                             </div>
 
                                             <div className={`w-10 h-10 rounded-full bg-white/10 flex items-center justify-center border transition-all duration-300

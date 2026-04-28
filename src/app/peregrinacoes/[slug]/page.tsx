@@ -44,6 +44,7 @@ import UniversalStickyBar from '../../../components/pilgrimage/UniversalStickyBa
 // import ExitIntentPopup from '../../../components/pilgrimage/ExitIntentPopup'; // Removed
 import { SpecificWaitlistForm } from '../../../components/pilgrimage/SpecificWaitlistForm';
 import { useCurrency } from '../../../components/providers/CurrencyProvider';
+import { PilgrimagePrice } from '../../../components/pilgrimage/PilgrimagePrice';
 import ChatWidget from '../../../components/pilgrimage/ChatWidget';
 
 type Pilgrimage = {
@@ -170,7 +171,7 @@ const MOCK_FAQS = [
 
 export default function PilgrimageDetailPage() {
     const params = useParams();
-    const { formatPrice, currency } = useCurrency();
+    const { currency } = useCurrency();
     const { locale } = useLocale();
     const isEn = locale === 'en';
     const listPath = isEn ? '/en/pilgrimages' : '/peregrinacoes';
@@ -464,26 +465,37 @@ export default function PilgrimageDetailPage() {
                                         pilgrimageTitle={pilgrimageTitle}
                                     />
                                 ) : (
-                                    <div className="bg-white rounded-3xl p-5 shadow-2xl border border-yellow-500/10 relative overflow-hidden">
+                                    <div className="bg-white rounded-3xl shadow-2xl border border-yellow-500/10 relative overflow-hidden">
                                         <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-yellow-400 to-yellow-600" />
-                                        <div className="mb-5 space-y-3">
-                                            <div className="px-3">
-                                                <p className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-1">{isEn ? 'Land package price (flights not included)' : 'Valor do terrestre (sem voo)'}</p>
-                                                <div className="flex items-end gap-1">
-                                                    <span className="text-4xl font-bold text-slate-900">{formatPrice((pilgrimage.base_price || 0) + (pilgrimage.deposit_value || 0))}</span>
-                                                    <span className="text-slate-500 font-medium mb-1">{isEn ? '/ person' : '/ pessoa'}</span>
-                                                </div>
-                                                <p className="text-xs font-bold text-emerald-600 mt-1 uppercase tracking-wider">
-                                                    {isEn ? 'Up to 8 instalments' : 'Parcelamento até 8x'}
-                                                </p>
-                                                {currency === 'BRL' && (
-                                                    <p className="text-[10px] text-yellow-600 font-bold mt-2 italic">{isEn ? '* Automatic conversion to Brazilian Reais' : '* Câmbio automático para Reais'}</p>
-                                                )}
-                                                <p className="mt-2 text-xs leading-relaxed text-slate-500">
-                                                    {isEn ? 'Before continuing, see exactly what is included and how the flights work.' : 'Antes de avançar, veja exatamente o que está incluído e como funcionam os voos.'}
-                                                </p>
+
+                                        {/* Price block */}
+                                        <div className="px-5 pt-6 pb-4 border-b border-slate-100">
+                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">
+                                                {isEn ? 'Land package · flights not included' : 'Terrestre · voo não incluído'}
+                                            </p>
+                                            <PilgrimagePrice
+                                                amountInEur={(pilgrimage.base_price || 0) + (pilgrimage.deposit_value || 0)}
+                                                layout="stacked"
+                                                primaryClassName="text-4xl font-black"
+                                                secondaryClassName="text-2xl font-black"
+                                                showLabels={true}
+                                            />
+                                            <div className="flex items-center gap-2 mt-3">
+                                                <span className="text-xs text-slate-500 font-medium">/ {isEn ? 'person' : 'pessoa'}</span>
+                                                <span className="h-3 w-px bg-slate-200" />
+                                                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 uppercase tracking-wide">
+                                                    <ShieldCheck className="w-3 h-3" />
+                                                    {isEn ? 'up to 8 instalments' : 'até 8 prestações'}
+                                                </span>
                                             </div>
+                                            {currency !== 'EUR' && (
+                                                <p className="text-[9px] text-amber-600/80 mt-2 font-medium">
+                                                    {isEn ? `* ${currency} is indicative · contract price in EUR` : `* ${currency} indicativo · preço contratual em EUR`}
+                                                </p>
+                                            )}
                                         </div>
+
+                                        <div className="px-5 py-4 space-y-3">
                                         {(hasIncludedInfo || hasFlightInfo) && (
                                             <div className="mb-5 grid gap-2.5">
                                                 {hasIncludedInfo && (
@@ -538,15 +550,16 @@ export default function PilgrimageDetailPage() {
                                             <button
                                                 type="button"
                                                 onClick={() => setIsPaymentWarningOpen(true)}
-                                                className="w-full bg-yellow-500 hover:bg-yellow-600 text-slate-900 font-bold py-4 rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-yellow-200 transition-all active:scale-[0.98]"
+                                                className="w-full bg-yellow-500 hover:bg-yellow-600 text-slate-900 font-black text-base py-4 rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-yellow-200 transition-all active:scale-[0.98]"
                                             >
                                                 {isEn ? 'Start Registration' : 'Iniciar Inscrição'} <ArrowRight className="w-5 h-5" />
                                             </button>
                                         ) : (
-                                            <Link href={registrationLink} className="w-full bg-yellow-500 hover:bg-yellow-600 text-slate-900 font-bold py-4 rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-yellow-200 transition-all active:scale-[0.98]">
+                                            <Link href={registrationLink} className="w-full bg-yellow-500 hover:bg-yellow-600 text-slate-900 font-black text-base py-4 rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-yellow-200 transition-all active:scale-[0.98]">
                                                 {isEn ? 'Start Registration' : 'Iniciar Inscrição'} <ArrowRight className="w-5 h-5" />
                                             </Link>
                                         )}
+                                        </div>
                                     </div>
                                 )}
                                 {/* AI Chat Widget replaces WhatsApp */}                            </div>

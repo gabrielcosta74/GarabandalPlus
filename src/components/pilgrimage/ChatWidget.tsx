@@ -308,7 +308,7 @@ export default function ChatWidget({
     };
 
     return (
-        <div className="fixed bottom-32 right-4 md:bottom-8 md:right-12 z-[2147483647] flex flex-col items-end pointer-events-none">
+        <div className="fixed bottom-44 right-4 md:bottom-8 md:right-12 z-[2147483647] flex flex-col items-end pointer-events-none">
             {isOpen && (
                 <div className="mb-4 w-[calc(100vw-32px)] sm:w-[380px] h-[540px] max-h-[calc(100vh-140px)] bg-white/95 backdrop-blur-xl rounded-3xl shadow-[0_30px_60px_rgba(0,0,0,0.15)] border border-white/50 flex flex-col overflow-hidden pointer-events-auto animate-in slide-in-from-bottom-10 fade-in duration-300 origin-bottom-right">
                     {/* Header */}

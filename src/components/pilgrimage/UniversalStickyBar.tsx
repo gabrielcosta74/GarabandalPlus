@@ -3,11 +3,11 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
-import { ArrowRight, Download, Info, Plane } from 'lucide-react';
+import { ArrowRight, Info, Plane } from 'lucide-react';
 // import { BrochureDownloadModal } from './BrochureDownloadModal';
 import { cn } from '../../lib/utils';
-import { useCurrency } from '../providers/CurrencyProvider';
 import { useLocale } from '../../contexts/LocaleContext';
+import { PilgrimagePrice } from './PilgrimagePrice';
 
 type UniversalStickyBarProps = {
     price: number;
@@ -38,7 +38,6 @@ export default function UniversalStickyBar({
     onPrimaryClick
 }: UniversalStickyBarProps) {
     const [mounted, setMounted] = useState(false);
-    const { formatPrice } = useCurrency();
     const { locale } = useLocale();
     const isEn = locale === 'en';
     const resolvedButtonText = buttonText ?? (isEn ? 'Start Registration' : 'Iniciar Inscrição');
@@ -69,15 +68,16 @@ export default function UniversalStickyBar({
                     <div className="flex items-center justify-between border-b border-slate-50 pb-2">
                         <div className="flex flex-col">
                             <span className="text-[11px] uppercase font-bold text-slate-400 tracking-widest">{isEn ? 'Land package (no flight)' : 'Terrestre (sem voo)'}</span>
-                            <div className="flex items-baseline gap-1">
-                                <span className="text-2xl font-black text-slate-900 leading-none">{formatPrice((price || 0) + (deposit || 0))}</span>
+                            <div className="flex items-baseline gap-2">
+                                <PilgrimagePrice
+                                    amountInEur={(price || 0) + (deposit || 0)}
+                                    layout="compact"
+                                    primaryClassName="text-2xl font-black text-slate-900 leading-none"
+                                    secondaryClassName="text-base font-bold text-slate-500"
+                                    showLabels={false}
+                                />
                                 <span className="text-[10px] text-slate-500 font-bold leading-tight">{isEn ? '/ person' : '/ pess.'} <br/><span className="text-emerald-600 uppercase">{isEn ? 'Up to 8 instalments' : 'Ate 8x Parcelamento'}</span></span>
                             </div>
-                        </div>
-                        <div className="text-right">
-                            <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-50 text-green-700 rounded-md text-[10px] font-bold uppercase tracking-tight border border-green-100">
-                                <Download className="w-3 h-3" /> {isEn ? 'Programme Available' : 'Programa Disponível'}
-                            </span>
                         </div>
                     </div>
 
@@ -114,7 +114,7 @@ export default function UniversalStickyBar({
                                 <button
                                     type="button"
                                     onClick={onPrimaryClick}
-                                    className="flex items-center justify-center gap-2 h-14 bg-yellow-400 text-slate-950 rounded-2xl font-black text-sm uppercase tracking-tight shadow-xl shadow-yellow-500/20 active:scale-95 transition-all w-full border-b-4 border-yellow-600"
+                                    className="flex items-center justify-center gap-2 h-14 bg-yellow-400 text-slate-950 rounded-2xl font-black text-base uppercase tracking-tight shadow-xl shadow-yellow-500/20 active:scale-95 transition-all w-full border-b-4 border-yellow-600"
                                 >
                                     <span>{resolvedButtonText}</span>
                                     <ArrowRight className="w-4 h-4" />
@@ -122,7 +122,7 @@ export default function UniversalStickyBar({
                             ) : (
                                 <Link
                                     href={link}
-                                    className="flex items-center justify-center gap-2 h-14 bg-yellow-400 text-slate-950 rounded-2xl font-black text-sm uppercase tracking-tight shadow-xl shadow-yellow-500/20 active:scale-95 transition-all w-full border-b-4 border-yellow-600"
+                                    className="flex items-center justify-center gap-2 h-14 bg-yellow-400 text-slate-950 rounded-2xl font-black text-base uppercase tracking-tight shadow-xl shadow-yellow-500/20 active:scale-95 transition-all w-full border-b-4 border-yellow-600"
                                 >
                                     <span>{resolvedButtonText}</span>
                                     <ArrowRight className="w-4 h-4" />
