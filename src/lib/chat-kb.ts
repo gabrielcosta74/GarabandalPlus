@@ -33,8 +33,16 @@ export function buildPilgrimageContext(p: Pilgrimage | null, itinerary: Itinerar
     const money = (v: any) => (v === null || v === undefined) ? 'N/D' : `${Number(v).toFixed(2)}€`;
     const list = (arr: any) => Array.isArray(arr) && arr.length ? arr.map((x: any) => `- ${typeof x === 'string' ? x : JSON.stringify(x)}`).join('\n') : '(nenhum)';
 
-    const vacanciesLeft = typeof p.current_vacancies === 'number' ? p.current_vacancies : 'N/D';
-    const totalVacancies = typeof p.total_vacancies === 'number' ? p.total_vacancies : 'N/D';
+    const vacanciesRaw = typeof p.effective_vacancies === 'number'
+        ? p.effective_vacancies
+        : typeof p.current_vacancies === 'number'
+            ? p.current_vacancies
+            : null;
+    const availabilityLabel = p.status === 'waitlist' || p.status === 'closed' || vacanciesRaw === 0
+        ? 'Lista de espera / esgotado'
+        : typeof vacanciesRaw === 'number' && vacanciesRaw <= 5
+            ? 'Últimas vagas'
+            : 'Lugares limitados';
 
     const itineraryBlock = itinerary.length
         ? itinerary
@@ -65,7 +73,8 @@ PREÇOS:
 ${supplementsText}
 
 VAGAS:
-- Vagas restantes: ${vacanciesLeft} de ${totalVacancies} total
+- Disponibilidade pública: ${availabilityLabel}
+- Não indicar números exatos de vagas; usar apenas "lugares limitados", "últimas vagas" ou "lista de espera/esgotado".
 
 PONTO DE ENCONTRO: ${p.meeting_point_text || 'N/D'}
 FIM DA PEREGRINAÇÃO: ${p.meeting_end_text || 'N/D'}

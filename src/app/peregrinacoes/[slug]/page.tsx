@@ -7,15 +7,14 @@ import { supabaseBrowser } from '../../../lib/supabase-browser';
 import { useParams } from 'next/navigation';
 import {
     Calendar,
-    MapPin,
     Users,
     CheckCircle2,
     ArrowLeft,
     Clock,
     ShieldCheck,
     Plane,
-    FileText,
-    ArrowRight
+    ArrowRight,
+    Star
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { enUS, pt } from 'date-fns/locale';
@@ -58,6 +57,7 @@ type Pilgrimage = {
     total_vacancies: number;
     current_vacancies: number;
     effective_vacancies?: number;
+    confirmed_pax?: number;
     base_price: number;
     status: string;
     flight_departure_time?: string;
@@ -105,13 +105,19 @@ type Pilgrimage = {
 
 type GlobalLogistics = {
     transport_title: string;
+    transport_title_en?: string | null;
     transport_description: string;
+    transport_description_en?: string | null;
     transport_image: string;
     accommodation_rating: string;
+    accommodation_rating_en?: string | null;
     accommodation_description: string;
+    accommodation_description_en?: string | null;
     accommodation_image: string;
     included_items: string[];
+    included_items_en?: string[] | null;
     not_included_items?: string[];
+    not_included_items_en?: string[] | null;
 };
 
 type Stage = {
@@ -131,14 +137,6 @@ type ItineraryItem = {
     title_en?: string | null;
     description: string;
     description_en?: string | null;
-    image_url: string;
-};
-
-type Testimonial = {
-    id: string;
-    author_name: string;
-    role: string;
-    text: string;
     image_url: string;
 };
 
@@ -163,12 +161,6 @@ const toSlug = (value?: string | null) =>
         .replace(/[^a-z0-9]+/g, '-')
         .replace(/(^-|-$)/g, '');
 
-const MOCK_FAQS = [
-    { q: 'É preciso passaporte?', a: 'Para cidadãos da UE, apenas Cartão de Cidadão válido is suficiente.' },
-    { q: 'O caminho é difícil?', a: 'A subida aos Pinheiros é íngreme, mas faz-se com calma. Existem acessos para quem tem mobilidade reduzida.' },
-    { q: 'Como funcionam os quartos?', a: 'O preço base é para quarto partilhado (duplo). Quarto individual tem suplemento mediante disponibilidade.' }
-];
-
 export default function PilgrimageDetailPage() {
     const params = useParams();
     const { currency } = useCurrency();
@@ -178,12 +170,10 @@ export default function PilgrimageDetailPage() {
     const slug = params.slug as string;
     const [pilgrimage, setPilgrimage] = useState<Pilgrimage | null>(null);
     const [globalLogistics, setGlobalLogistics] = useState<GlobalLogistics | null>(null);
-    const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
     const [stages, setStages] = useState<Stage[]>([]);
     const [itineraryItems, setItineraryItems] = useState<ItineraryItem[]>([]);
     const [existingBooking, setExistingBooking] = useState<string | null>(null);
     const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
-    const [user, setUser] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [activeInfoModal, setActiveInfoModal] = useState<'included' | 'flights' | null>(null);
     const [isPaymentWarningOpen, setIsPaymentWarningOpen] = useState(false);
@@ -194,10 +184,10 @@ export default function PilgrimageDetailPage() {
 
             const { data: rpcData, error: pError } = await supabaseBrowser
                 .rpc('get_pilgrimage_list', { p_slug: slug })
-                .maybeSingle() as any;
+                .maybeSingle() as { data: Pilgrimage | null; error: { message?: string } | null };
 
             if (pError) console.error("❌ [RPC Error]", pError);
-            let pData = rpcData;
+            let pData: Pilgrimage | null = rpcData;
 
             if (!pData) {
                 const { data: fallbackRows, error: fallbackError } = await supabaseBrowser
@@ -208,7 +198,7 @@ export default function PilgrimageDetailPage() {
                 if (fallbackError) {
                     console.error("❌ [Fallback Query Error]", fallbackError);
                 } else if (fallbackRows?.length) {
-                    pData = fallbackRows.find((row: any) => {
+                    pData = (fallbackRows as Pilgrimage[]).find((row) => {
                         const dbSlug = String(row?.slug || '').trim();
                         if (dbSlug && dbSlug === slug) return true;
                         // Backward compatibility: old links generated from title slug
@@ -223,7 +213,6 @@ export default function PilgrimageDetailPage() {
                 setPilgrimage(pData);
                 const { data: { user } } = await supabaseBrowser.auth.getUser();
                 if (user) {
-                    setUser(user);
                     const { data: bData } = await supabaseBrowser
                         .from('bookings')
                         .select('id')
@@ -239,12 +228,6 @@ export default function PilgrimageDetailPage() {
                     .eq('key', 'logistics_global')
                     .single();
                 if (cData) setGlobalLogistics(cData.content);
-
-                const { data: tData } = await supabaseBrowser
-                    .from('testimonials')
-                    .select('*')
-                    .order('display_order');
-                if (tData) setTestimonials(tData);
 
                 const { data: sData } = await supabaseBrowser
                     .from('pilgrimage_stages')
@@ -301,9 +284,9 @@ export default function PilgrimageDetailPage() {
     const shortDateFmt = isEn ? "MMM d" : "d MMM";
     const dateRangeSep = isEn ? 'to' : 'a';
     const isClosed = pilgrimage.status === 'closed';
-    const confirmedPax = (pilgrimage as any).confirmed_pax || 0;
-    const remainingSpots = Number.isFinite(Number((pilgrimage as any).effective_vacancies))
-        ? Math.max(0, Number((pilgrimage as any).effective_vacancies))
+    const confirmedPax = pilgrimage.confirmed_pax || 0;
+    const remainingSpots = Number.isFinite(Number(pilgrimage.effective_vacancies))
+        ? Math.max(0, Number(pilgrimage.effective_vacancies))
         : Number.isFinite(Number(pilgrimage.current_vacancies))
             ? Math.max(0, Number(pilgrimage.current_vacancies))
             : Math.max(0, pilgrimage.total_vacancies - confirmedPax);
@@ -313,12 +296,16 @@ export default function PilgrimageDetailPage() {
             ? (pilgrimage.included_items_en || [])
             : (pilgrimage.included_items?.length || 0) > 0
                 ? (pilgrimage.included_items || [])
+            : isEn && (globalLogistics?.included_items_en?.length || 0) > 0
+                ? (globalLogistics?.included_items_en || [])
             : (globalLogistics?.included_items || []);
     const notIncludedItemsToShow =
         isEn && (pilgrimage.not_included_items_en?.length || 0) > 0
             ? (pilgrimage.not_included_items_en || [])
             : (pilgrimage.not_included_items?.length || 0) > 0
                 ? (pilgrimage.not_included_items || [])
+            : isEn && (globalLogistics?.not_included_items_en?.length || 0) > 0
+                ? (globalLogistics?.not_included_items_en || [])
             : (globalLogistics?.not_included_items || []);
     const hasIncludedInfo = includedItemsToShow.length > 0 || notIncludedItemsToShow.length > 0;
     const flightInfoTextToShow = isEn ? pilgrimage.flight_info_text_en || pilgrimage.flight_info_text : pilgrimage.flight_info_text;
@@ -339,23 +326,23 @@ export default function PilgrimageDetailPage() {
         : (isEn ? `/en/pilgrimages/${pilgrimage.slug}/register` : `/peregrinacoes/${pilgrimage.slug}/inscrever`);
     const shouldWarnBeforeRegistration = !isClosed && !existingBooking && !isWaitlist;
 
-    const accommodationRatingToShow = pilgrimage.accommodation_rating || globalLogistics?.accommodation_rating || '';
+    const accommodationRatingToShow = pilgrimage.accommodation_rating || (isEn ? globalLogistics?.accommodation_rating_en || globalLogistics?.accommodation_rating : globalLogistics?.accommodation_rating) || '';
     const accommodationDescriptionToShow = isEn
-        ? pilgrimage.accommodation_description_en || pilgrimage.accommodation_description || globalLogistics?.accommodation_description || ''
+        ? pilgrimage.accommodation_description_en || pilgrimage.accommodation_description || globalLogistics?.accommodation_description_en || globalLogistics?.accommodation_description || ''
         : pilgrimage.accommodation_description || globalLogistics?.accommodation_description || '';
-    const transportTypeToShow = pilgrimage.transport_type || globalLogistics?.transport_title || '';
+    const transportTypeToShow = pilgrimage.transport_type || (isEn ? globalLogistics?.transport_title_en || globalLogistics?.transport_title : globalLogistics?.transport_title) || '';
     const transportDescriptionToShow = isEn
-        ? pilgrimage.transport_description_en || pilgrimage.transport_description || globalLogistics?.transport_description || ''
+        ? pilgrimage.transport_description_en || pilgrimage.transport_description || globalLogistics?.transport_description_en || globalLogistics?.transport_description || ''
         : pilgrimage.transport_description || globalLogistics?.transport_description || '';
     const pilgrimageTitle = isEn ? pilgrimage.title_en || pilgrimage.title : pilgrimage.title;
     const pilgrimageDescription = isEn ? pilgrimage.description_en || pilgrimage.description : pilgrimage.description;
 
     return (
         <VIPLayout allowPublic={true}>
-            <div className="bg-slate-50 min-h-screen relative pb-20">
+            <div className="-mx-4 bg-slate-50 min-h-screen relative pb-20 md:mx-0">
                 {/* Hero Header */}
-                <div className="relative h-[60vh] w-full overflow-hidden">
-                    <div className="absolute inset-0 bg-slate-900/40 z-10" />
+                <div className="relative min-h-[560px] w-full overflow-hidden md:h-[68vh] md:min-h-[620px]">
+                    <div className="absolute inset-0 bg-slate-950/35 z-10" />
                     {pilgrimage.cover_image && (
                         <img
                             src={pilgrimage.cover_image}
@@ -363,47 +350,58 @@ export default function PilgrimageDetailPage() {
                             className="absolute inset-0 w-full h-full object-cover"
                         />
                     )}
-                    <div className="absolute inset-0 z-20 container mx-auto px-6 h-full flex flex-col justify-end pb-12">
-                        <Link href={listPath} className="inline-flex items-center text-white/80 hover:text-white mb-6 transition-colors">
-                            <ArrowLeft className="w-5 h-5 mr-2" /> {isEn ? 'Back to list' : 'Voltar à lista'}
+                    <div className="absolute inset-0 z-10 bg-gradient-to-t from-slate-950 via-slate-950/55 to-slate-950/10" />
+                    <div className="absolute inset-0 z-10 bg-gradient-to-r from-slate-950/75 via-slate-950/25 to-transparent" />
+                    <div className="absolute inset-0 z-20 container mx-auto px-4 md:px-6 h-full flex flex-col justify-end pb-8 md:pb-12">
+                        <Link href={listPath} className="mb-5 inline-flex w-fit items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm font-bold text-white shadow-lg backdrop-blur-md transition-colors hover:bg-white/20">
+                            <ArrowLeft className="w-4 h-4" /> {isEn ? 'Back to list' : 'Voltar à lista'}
                         </Link>
-                        <div className="flex items-center gap-3 text-yellow-300 font-bold uppercase tracking-wider text-sm mb-3">
-                            <Plane className="w-5 h-5" />
+                        <div className="mb-4 flex w-fit items-center gap-2 rounded-full bg-yellow-300 px-3 py-1.5 text-xs font-black uppercase tracking-widest text-slate-950 shadow-lg">
+                            <Plane className="w-4 h-4" />
+                            <Star className="w-3.5 h-3.5 fill-slate-950" />
                             {isEn ? 'Official Pilgrimage' : 'Peregrinação Oficial'}
                         </div>
-                        <h1 className="text-4xl md:text-6xl font-serif font-bold text-white mb-4 leading-tight shadow-sm">
-                            {pilgrimageTitle}
-                        </h1>
-                        <div className="flex flex-col md:flex-row md:items-center gap-6">
-                            <div className="flex wrap items-center gap-6 text-white/90 font-medium text-lg">
-                                <div className="flex items-center gap-2">
-                                    <Calendar className="w-5 h-5 text-yellow-400" />
-                                    {format(startDate, longDateFmt, { locale: dateLocale })} {dateRangeSep} {format(endDate, longDateWithYearFmt, { locale: dateLocale })}
-                                </div>
+                        <div className="max-w-4xl rounded-3xl border border-white/10 bg-slate-950/30 p-4 shadow-2xl backdrop-blur-sm md:bg-transparent md:p-0 md:shadow-none md:backdrop-blur-0 md:border-0">
+                            <h1 className="text-3xl sm:text-4xl md:text-6xl font-serif font-bold text-white mb-4 leading-tight drop-shadow-xl">
+                                {pilgrimageTitle}
+                            </h1>
+                            <div className="flex flex-wrap items-center gap-3 text-white font-semibold text-base md:text-lg">
+                                <span className="inline-flex items-center gap-2 rounded-full bg-white/12 px-3 py-2 backdrop-blur-md">
+                                    <Calendar className="w-5 h-5 text-yellow-300" />
+                                    <span>{format(startDate, longDateFmt, { locale: dateLocale })} {dateRangeSep} {format(endDate, longDateWithYearFmt, { locale: dateLocale })}</span>
+                                </span>
+                                <span className="inline-flex items-center gap-2 rounded-full bg-emerald-400/95 px-3 py-2 text-sm font-black uppercase tracking-wide text-emerald-950">
+                                    <Users className="h-4 w-4" />
+                                    {isClosed ? (isEn ? 'Closed' : 'Encerradas') : isWaitlist ? (isEn ? 'Waiting List' : 'Lista de Espera') : getPublicAvailabilityLabel(remainingSpots, locale)}
+                                </span>
                             </div>
                         </div>
                     </div>
                 </div>
 
                 {/* Main Content Area */}
-                <div className="container mx-auto px-6 -mt-10 relative z-30">
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
+                <div className="container mx-auto px-0 md:px-6 -mt-8 md:-mt-10 relative z-30">
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-10 lg:gap-12">
                         {/* Column Left */}
-                        <div className="lg:col-span-2 space-y-12">
-                            <div className="bg-white rounded-3xl p-8 shadow-xl border border-slate-100">
-                                <h2 className="text-2xl font-serif font-bold text-slate-900 mb-4">{isEn ? 'About this pilgrimage' : 'Sobre esta peregrinação'}</h2>
-                                <p className="text-slate-600 text-lg leading-relaxed whitespace-pre-line">{pilgrimageDescription}</p>
+                        <div className="lg:col-span-2 space-y-10 md:space-y-12">
+                            <div className="bg-white rounded-none p-5 shadow-xl border-y border-slate-100 md:rounded-3xl md:border md:p-8">
+                                <div className="mb-4 flex items-center gap-2 text-xs font-black uppercase tracking-widest text-yellow-700">
+                                    <ShieldCheck className="h-4 w-4" />
+                                    {isEn ? 'Programme and mission' : 'Programa e missão'}
+                                </div>
+                                <h2 className="text-2xl md:text-3xl font-serif font-bold text-slate-900 mb-4">{isEn ? 'About this pilgrimage' : 'Sobre esta peregrinação'}</h2>
+                                <p className="text-slate-700 text-base md:text-lg leading-8 whitespace-pre-line">{pilgrimageDescription}</p>
                             </div>
 
                             {/* Equipa da Peregrinação */}
                             {teamMembers.length > 0 && (
                                 <div>
-                                    <h2 className="text-2xl font-serif font-bold text-slate-900 mb-6 flex items-center gap-2">
+                                    <h2 className="px-5 text-2xl font-serif font-bold text-slate-900 mb-6 flex items-center gap-2 md:px-0">
                                         <Users className="w-6 h-6 text-yellow-600" /> {isEn ? 'Pilgrimage Team' : 'Equipa da Peregrinação'}
                                     </h2>
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-0 md:gap-6">
                                         {teamMembers.map((member) => (
-                                            <div key={member.id} className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 flex gap-4 items-start hover:shadow-md transition-shadow">
+                                            <div key={member.id} className="bg-white rounded-none p-5 shadow-sm border-y border-slate-100 flex gap-4 items-start hover:shadow-md transition-shadow md:rounded-2xl md:border">
                                                 <div className="w-16 h-16 rounded-full overflow-hidden shrink-0 bg-slate-100 border-2 border-yellow-100">
                                                     {member.image_url ? (
                                                         <img src={member.image_url} alt={member.name} className="w-full h-full object-cover" />
@@ -432,20 +430,46 @@ export default function PilgrimageDetailPage() {
                             )}
 
                             {/* Itinerary */}
-                            <div>
-                                <h2 className="text-2xl font-serif font-bold text-slate-900 mb-6 flex items-center gap-2"><Clock className="w-6 h-6 text-yellow-600" /> {isEn ? 'Spiritual Itinerary' : 'Roteiro Espiritual'}</h2>
-                                {stages.length > 0 && <div className="mb-8"><SpiritMap stages={stages} height={500} /></div>}
-                                <div className="space-y-6">
+                            <div className="rounded-none bg-white p-5 shadow-xl border-y border-slate-100 md:rounded-[2rem] md:border md:p-8">
+                                <div className="mb-6">
+                                    <div className="mb-2 flex items-center gap-2 text-xs font-black uppercase tracking-widest text-yellow-700">
+                                        <Clock className="w-4 h-4" />
+                                        {isEn ? 'Day by day' : 'Dia a dia'}
+                                    </div>
+                                    <h2 className="text-2xl md:text-3xl font-serif font-bold text-slate-900">{isEn ? 'Spiritual Itinerary' : 'Roteiro Espiritual'}</h2>
+                                    <p className="mt-2 text-sm md:text-base leading-relaxed text-slate-500">
+                                        {isEn ? 'A simple view of the journey, organised for quick reading on mobile.' : 'Uma leitura simples do caminho, organizada para ser fácil de acompanhar no telemóvel.'}
+                                    </p>
+                                </div>
+                                {stages.length > 0 && <div className="mb-8 overflow-hidden rounded-2xl"><SpiritMap stages={stages} height={360} /></div>}
+                                <div className="space-y-4 md:space-y-5">
                                     {itineraryItems.length > 0 ? itineraryItems.map((item) => (
-                                        <div key={item.id} className="flex gap-4 group">
-                                            <div className="flex flex-col items-center">
-                                                <div className="w-10 h-10 rounded-full bg-yellow-100 text-yellow-700 font-bold flex items-center justify-center border-4 border-white shadow-md group-hover:scale-110 transition-transform">{item.day_number}</div>
-                                                <div className="w-0.5 bg-slate-200 flex-1 my-2 group-last:hidden" />
-                                            </div>
-                                            <div className="bg-white p-6 rounded-2xl flex-1 shadow-sm border border-slate-100 hover:shadow-md transition-shadow">
-                                                <h3 className="font-bold text-slate-900 text-lg mb-2">{isEn ? item.title_en || item.title : item.title}</h3>
-                                                <p className="text-slate-600 whitespace-pre-line">{isEn ? item.description_en || item.description : item.description}</p>
-                                                {item.image_url && <div className="mt-4 rounded-xl overflow-hidden h-48 w-full"><img src={item.image_url} alt={isEn ? item.title_en || item.title : item.title} className="w-full h-full object-cover" /></div>}
+                                        <div key={item.id} className="group overflow-hidden rounded-2xl border border-slate-100 bg-slate-50/70 shadow-sm transition-all hover:border-yellow-200 hover:bg-white hover:shadow-md">
+                                            {item.image_url && (
+                                                <div className="relative aspect-[4/3] w-full overflow-hidden bg-slate-100 md:hidden">
+                                                    <img src={item.image_url} alt={isEn ? item.title_en || item.title : item.title} className="h-full w-full object-contain transition-transform duration-700 group-hover:scale-[1.02]" />
+                                                    <div className="absolute left-4 top-4 rounded-full bg-yellow-300 px-3 py-1 text-xs font-black uppercase tracking-wide text-slate-950">
+                                                        {isEn ? `Day ${item.day_number}` : `Dia ${item.day_number}`}
+                                                    </div>
+                                                </div>
+                                            )}
+                                            <div className="flex gap-4 p-4 md:p-5">
+                                                <div className="hidden md:flex flex-col items-center">
+                                                    <div className="w-11 h-11 rounded-2xl bg-yellow-100 text-yellow-800 font-black flex items-center justify-center border border-yellow-200 shadow-sm group-hover:scale-105 transition-transform">{item.day_number}</div>
+                                                    <div className="w-0.5 bg-slate-200 flex-1 my-2 group-last:hidden" />
+                                                </div>
+                                                <div className="min-w-0 flex-1">
+                                                    {!item.image_url && (
+                                                        <div className="mb-2 flex items-center gap-2 md:hidden">
+                                                        <span className="rounded-full bg-yellow-100 px-2.5 py-1 text-[11px] font-black uppercase tracking-wide text-yellow-800">
+                                                            {isEn ? `Day ${item.day_number}` : `Dia ${item.day_number}`}
+                                                        </span>
+                                                        </div>
+                                                    )}
+                                                    <h3 className="font-serif font-bold text-slate-950 text-xl leading-tight mb-2">{isEn ? item.title_en || item.title : item.title}</h3>
+                                                    <p className="text-slate-600 text-base leading-7 whitespace-pre-line">{isEn ? item.description_en || item.description : item.description}</p>
+                                                    {item.image_url && <div className="mt-4 hidden md:block rounded-xl overflow-hidden aspect-[16/9] w-full bg-slate-100"><img src={item.image_url} alt={isEn ? item.title_en || item.title : item.title} className="w-full h-full object-contain transition-transform duration-700 group-hover:scale-[1.02]" /></div>}
+                                                </div>
                                             </div>
                                         </div>
                                     )) : <p className="text-slate-500 italic">{isEn ? 'Detailed itinerary coming soon.' : 'Roteiro detalhado em breve.'}</p>}
@@ -456,7 +480,7 @@ export default function PilgrimageDetailPage() {
                         </div>
 
                         {/* Column Right (Sidebar) */}
-                        <div className="lg:col-span-1">
+                        <div className="md:px-0 lg:col-span-1">
                             <div className="sticky top-24 space-y-6">
                                 {/* Waitlist OR Booking Card */}
                                 {isWaitlist ? (
@@ -465,7 +489,7 @@ export default function PilgrimageDetailPage() {
                                         pilgrimageTitle={pilgrimageTitle}
                                     />
                                 ) : (
-                                    <div className="bg-white rounded-3xl shadow-2xl border border-yellow-500/10 relative overflow-hidden">
+                                    <div className="bg-white rounded-none shadow-2xl border-y border-yellow-500/10 relative overflow-hidden md:rounded-3xl md:border">
                                         <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-yellow-400 to-yellow-600" />
 
                                         {/* Price block */}
@@ -550,13 +574,19 @@ export default function PilgrimageDetailPage() {
                                             <button
                                                 type="button"
                                                 onClick={() => setIsPaymentWarningOpen(true)}
-                                                className="w-full bg-yellow-500 hover:bg-yellow-600 text-slate-900 font-black text-base py-4 rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-yellow-200 transition-all active:scale-[0.98]"
+                                                className="group w-full bg-slate-950 hover:bg-slate-900 text-white py-4 rounded-2xl flex items-center justify-center gap-3 shadow-xl shadow-slate-900/20 transition-all active:scale-[0.98] ring-2 ring-yellow-300/70"
                                             >
-                                                {isEn ? 'Start Registration' : 'Iniciar Inscrição'} <ArrowRight className="w-5 h-5" />
+                                                <span className="text-[15px] font-black uppercase tracking-[0.12em]">{isEn ? 'Start Registration' : 'Começar Inscrição'}</span>
+                                                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-yellow-300 text-slate-950 transition-transform group-hover:translate-x-0.5">
+                                                    <ArrowRight className="w-4 h-4" />
+                                                </span>
                                             </button>
                                         ) : (
-                                            <Link href={registrationLink} className="w-full bg-yellow-500 hover:bg-yellow-600 text-slate-900 font-black text-base py-4 rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-yellow-200 transition-all active:scale-[0.98]">
-                                                {isEn ? 'Start Registration' : 'Iniciar Inscrição'} <ArrowRight className="w-5 h-5" />
+                                            <Link href={registrationLink} className="group w-full bg-slate-950 hover:bg-slate-900 text-white py-4 rounded-2xl flex items-center justify-center gap-3 shadow-xl shadow-slate-900/20 transition-all active:scale-[0.98] ring-2 ring-yellow-300/70">
+                                                <span className="text-[15px] font-black uppercase tracking-[0.12em]">{isEn ? 'Start Registration' : 'Começar Inscrição'}</span>
+                                                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-yellow-300 text-slate-950 transition-transform group-hover:translate-x-0.5">
+                                                    <ArrowRight className="w-4 h-4" />
+                                                </span>
                                             </Link>
                                         )}
                                         </div>

@@ -58,25 +58,25 @@ export default function UniversalStickyBar({
     const barContent = (
         <div
             id="UNIVERSAL_STICKY_BAR_FINAL"
-            className="fixed bottom-0 left-0 w-full z-[99999999] bg-white border-t border-slate-200 shadow-[0_-10px_40px_rgba(0,0,0,0.15)] safe-area-bottom pb-6 xl:hidden"
+            className="fixed bottom-0 left-0 w-full z-[99999999] bg-white/95 border-t border-slate-200 shadow-[0_-10px_40px_rgba(0,0,0,0.14)] safe-area-bottom pb-3 lg:hidden backdrop-blur-xl"
             style={{ pointerEvents: 'auto' }}
         >
-            <div className="container mx-auto px-4 py-4">
-                <div className="flex flex-col gap-3">
+            <div className="container mx-auto px-3 py-2.5">
+                <div className="flex flex-col gap-2">
 
                     {/* Top Row: Price and Small Info */}
-                    <div className="flex items-center justify-between border-b border-slate-50 pb-2">
+                    <div className="flex items-center justify-between gap-3 border-b border-slate-100 pb-1.5">
                         <div className="flex flex-col">
-                            <span className="text-[11px] uppercase font-bold text-slate-400 tracking-widest">{isEn ? 'Land package (no flight)' : 'Terrestre (sem voo)'}</span>
+                            <span className="text-[9px] uppercase font-bold text-slate-400 tracking-widest">{isEn ? 'Land package (no flight)' : 'Terrestre (sem voo)'}</span>
                             <div className="flex items-baseline gap-2">
                                 <PilgrimagePrice
                                     amountInEur={(price || 0) + (deposit || 0)}
                                     layout="compact"
-                                    primaryClassName="text-2xl font-black text-slate-900 leading-none"
-                                    secondaryClassName="text-base font-bold text-slate-500"
+                                    primaryClassName="text-xl font-black text-slate-900 leading-none"
+                                    secondaryClassName="text-sm font-bold text-slate-500"
                                     showLabels={false}
                                 />
-                                <span className="text-[10px] text-slate-500 font-bold leading-tight">{isEn ? '/ person' : '/ pess.'} <br/><span className="text-emerald-600 uppercase">{isEn ? 'Up to 8 instalments' : 'Ate 8x Parcelamento'}</span></span>
+                                <span className="text-[9px] text-slate-500 font-bold leading-tight">{isEn ? '/ person' : '/ pess.'} <br/><span className="text-emerald-600 uppercase">{isEn ? 'Up to 8 instalments' : 'Ate 8x Parcelamento'}</span></span>
                             </div>
                         </div>
                     </div>
@@ -87,20 +87,20 @@ export default function UniversalStickyBar({
                                 <button
                                     type="button"
                                     onClick={onOpenIncluded}
-                                    className="flex h-11 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 text-xs font-bold text-slate-700 transition-colors"
+                                    className="flex h-9 items-center justify-center gap-1.5 rounded-xl border border-yellow-200 bg-yellow-50 px-2 text-[11px] font-black text-slate-800 shadow-sm transition-colors hover:bg-yellow-100"
                                 >
-                                    <Info className="h-4 w-4" />
-                                    {isEn ? 'Included in land package' : 'Incluído no terrestre'}
+                                    <Info className="h-3.5 w-3.5 shrink-0" />
+                                    {isEn ? 'See land included' : 'Ver incluído do terrestre'}
                                 </button>
                             )}
                             {showFlightsButton && (
                                 <button
                                     type="button"
                                     onClick={onOpenFlights}
-                                    className="flex h-11 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 text-xs font-bold text-slate-700 transition-colors"
+                                    className="flex h-9 items-center justify-center gap-1.5 rounded-xl border border-yellow-200 bg-yellow-50 px-2 text-[11px] font-black text-slate-800 shadow-sm transition-colors hover:bg-yellow-100"
                                 >
-                                    <Plane className="h-4 w-4" />
-                                    {isEn ? 'Flights' : 'Voos'}
+                                    <Plane className="h-3.5 w-3.5 shrink-0" />
+                                    {isEn ? 'See flights' : 'Ver voos'}
                                 </button>
                             )}
                         </div>
@@ -114,18 +114,22 @@ export default function UniversalStickyBar({
                                 <button
                                     type="button"
                                     onClick={onPrimaryClick}
-                                    className="flex items-center justify-center gap-2 h-14 bg-yellow-400 text-slate-950 rounded-2xl font-black text-base uppercase tracking-tight shadow-xl shadow-yellow-500/20 active:scale-95 transition-all w-full border-b-4 border-yellow-600"
+                                    className="group flex min-h-[46px] items-center justify-center gap-2 bg-slate-950 text-white rounded-xl font-black uppercase tracking-wide shadow-lg shadow-slate-900/20 active:scale-95 transition-all w-full ring-1 ring-yellow-300/70"
                                 >
-                                    <span>{resolvedButtonText}</span>
-                                    <ArrowRight className="w-4 h-4" />
+                                    <span className="text-sm leading-none">{isEn ? resolvedButtonText : 'Começar Inscrição'}</span>
+                                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-yellow-300 text-slate-950 transition-transform group-hover:translate-x-0.5">
+                                        <ArrowRight className="w-3.5 h-3.5" />
+                                    </span>
                                 </button>
                             ) : (
                                 <Link
                                     href={link}
-                                    className="flex items-center justify-center gap-2 h-14 bg-yellow-400 text-slate-950 rounded-2xl font-black text-base uppercase tracking-tight shadow-xl shadow-yellow-500/20 active:scale-95 transition-all w-full border-b-4 border-yellow-600"
+                                    className="group flex min-h-[46px] items-center justify-center gap-2 bg-slate-950 text-white rounded-xl font-black uppercase tracking-wide shadow-lg shadow-slate-900/20 active:scale-95 transition-all w-full ring-1 ring-yellow-300/70"
                                 >
-                                    <span>{resolvedButtonText}</span>
-                                    <ArrowRight className="w-4 h-4" />
+                                    <span className="text-sm leading-none">{isEn ? resolvedButtonText : 'Começar Inscrição'}</span>
+                                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-yellow-300 text-slate-950 transition-transform group-hover:translate-x-0.5">
+                                        <ArrowRight className="w-3.5 h-3.5" />
+                                    </span>
                                 </Link>
                             )}
                         </div>

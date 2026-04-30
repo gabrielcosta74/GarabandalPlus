@@ -3,6 +3,10 @@
 import { useEffect, useState } from 'react';
 import { supabaseBrowser } from '../../../lib/supabase-browser';
 import AdminLayout from '../../../components/admin/AdminLayout';
+import BilingualField, {
+    BilingualListField,
+    TranslateAllButton,
+} from '../../../components/admin/BilingualField';
 import ImageUpload from '../../../components/admin/ImageUpload';
 import { Toaster, toast } from 'sonner';
 import {
@@ -30,22 +34,47 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 type GlobalLogistics = {
     transport_title: string;
+    transport_title_en?: string;
     transport_description: string;
+    transport_description_en?: string;
     transport_image: string;
     accommodation_rating: string;
+    accommodation_rating_en?: string;
     accommodation_description: string;
+    accommodation_description_en?: string;
     accommodation_image: string;
     included_items: string[];
+    included_items_en?: string[];
     not_included_items: string[];
+    not_included_items_en?: string[];
 };
 
 type Testimonial = {
     id?: string;
     author_name: string;
     role: string;
+    role_en?: string | null;
     text: string;
+    text_en?: string | null;
     image_url: string;
     display_order: number;
+};
+
+const DEFAULT_LOGISTICS: GlobalLogistics = {
+    transport_title: '',
+    transport_title_en: '',
+    transport_description: '',
+    transport_description_en: '',
+    transport_image: '',
+    accommodation_rating: '',
+    accommodation_rating_en: '',
+    accommodation_description: '',
+    accommodation_description_en: '',
+    accommodation_image: '',
+    included_items: [],
+    included_items_en: [],
+    not_included_items: [],
+    not_included_items_en: []
 };
 
 export default function GlobalContentPage() {
@@ -54,16 +83,7 @@ export default function GlobalContentPage() {
     const [saving, setSaving] = useState(false);
 
     // Logistics State
-    const [logistics, setLogistics] = useState<GlobalLogistics>({
-        transport_title: '',
-        transport_description: '',
-        transport_image: '',
-        accommodation_rating: '',
-        accommodation_description: '',
-        accommodation_image: '',
-        included_items: [],
-        not_included_items: []
-    });
+    const [logistics, setLogistics] = useState<GlobalLogistics>(DEFAULT_LOGISTICS);
     const [bankDetails, setBankDetails] = useState<BankTransferDetails>(DEFAULT_BANK_TRANSFER_DETAILS);
 
     // Testimonials State
@@ -98,7 +118,7 @@ export default function GlobalContentPage() {
             const logisticsRow = cData.find((row: any) => row.key === 'logistics_global');
             const bankDetailsRow = cData.find((row: any) => row.key === BANK_TRANSFER_SITE_CONTENT_KEY);
 
-            if (logisticsRow?.content) setLogistics(logisticsRow.content);
+            if (logisticsRow?.content) setLogistics({ ...DEFAULT_LOGISTICS, ...logisticsRow.content });
             if (bankDetailsRow?.content) setBankDetails(normalizeBankTransferDetails(bankDetailsRow.content));
         }
 
@@ -206,7 +226,9 @@ export default function GlobalContentPage() {
         setEditingTestimonial({
             author_name: '',
             role: '',
+            role_en: '',
             text: '',
+            text_en: '',
             image_url: '',
             display_order: testimonials.length + 1
         });
@@ -361,14 +383,38 @@ export default function GlobalContentPage() {
                         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
                             <div className="flex justify-between items-center mb-4">
                                 <h2 className="text-2xl font-bold font-serif text-slate-900">Logística Global</h2>
-                                <button
-                                    onClick={saveLogistics}
-                                    disabled={saving}
-                                    className="bg-green-600 hover:bg-green-700 text-white px-6 py-2.5 rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-green-900/10 disabled:opacity-50 transition-all"
-                                >
-                                    {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                                    Guardar Alterações
-                                </button>
+                                <div className="flex items-center gap-3">
+                                    <TranslateAllButton
+                                        fields={[
+                                            { ptValue: logistics.transport_title, onChangeEn: v => setLogistics(current => ({ ...current, transport_title_en: v })) },
+                                            { ptValue: logistics.transport_description, onChangeEn: v => setLogistics(current => ({ ...current, transport_description_en: v })) },
+                                            { ptValue: logistics.accommodation_rating, onChangeEn: v => setLogistics(current => ({ ...current, accommodation_rating_en: v })) },
+                                            { ptValue: logistics.accommodation_description, onChangeEn: v => setLogistics(current => ({ ...current, accommodation_description_en: v })) },
+                                            {
+                                                ptValue: (logistics.included_items || []).join('\n'),
+                                                onChangeEn: v => setLogistics(current => ({
+                                                    ...current,
+                                                    included_items_en: v.split('\n').map(item => item.trim()).filter(Boolean)
+                                                }))
+                                            },
+                                            {
+                                                ptValue: (logistics.not_included_items || []).join('\n'),
+                                                onChangeEn: v => setLogistics(current => ({
+                                                    ...current,
+                                                    not_included_items_en: v.split('\n').map(item => item.trim()).filter(Boolean)
+                                                }))
+                                            }
+                                        ]}
+                                    />
+                                    <button
+                                        onClick={saveLogistics}
+                                        disabled={saving}
+                                        className="bg-green-600 hover:bg-green-700 text-white px-6 py-2.5 rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-green-900/10 disabled:opacity-50 transition-all"
+                                    >
+                                        {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                                        Guardar Alterações
+                                    </button>
+                                </div>
                             </div>
 
                             {/* Transport Card */}
@@ -379,24 +425,26 @@ export default function GlobalContentPage() {
                                 </h3>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                                     <div className="space-y-4">
-                                        <div>
-                                            <label className="block text-sm font-bold text-slate-700 mb-2">Título</label>
-                                            <input
-                                                type="text"
-                                                className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 outline-none"
-                                                value={logistics.transport_title}
-                                                onChange={e => setLogistics({ ...logistics, transport_title: e.target.value })}
-                                                placeholder="Ex: Autocarro de Turismo"
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm font-bold text-slate-700 mb-2">Descrição</label>
-                                            <textarea
-                                                className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl h-32 resize-none focus:ring-2 focus:ring-slate-900 outline-none"
-                                                value={logistics.transport_description}
-                                                onChange={e => setLogistics({ ...logistics, transport_description: e.target.value })}
-                                            />
-                                        </div>
+                                        <BilingualField
+                                            label="Título"
+                                            ptValue={logistics.transport_title}
+                                            enValue={logistics.transport_title_en || ''}
+                                            onChangePt={value => setLogistics({ ...logistics, transport_title: value })}
+                                            onChangeEn={value => setLogistics({ ...logistics, transport_title_en: value })}
+                                            placeholder="Ex: Autocarro de Turismo"
+                                            placeholderEn="Ex: Coach Transport"
+                                        />
+                                        <BilingualField
+                                            label="Descrição"
+                                            ptValue={logistics.transport_description}
+                                            enValue={logistics.transport_description_en || ''}
+                                            onChangePt={value => setLogistics({ ...logistics, transport_description: value })}
+                                            onChangeEn={value => setLogistics({ ...logistics, transport_description_en: value })}
+                                            type="textarea"
+                                            rows={4}
+                                            placeholder="Detalhes sobre o transporte..."
+                                            placeholderEn="Transport details..."
+                                        />
                                     </div>
                                     <div>
                                         <ImageUpload
@@ -418,24 +466,26 @@ export default function GlobalContentPage() {
                                 </h3>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                                     <div className="space-y-4">
-                                        <div>
-                                            <label className="block text-sm font-bold text-slate-700 mb-2">Classificação</label>
-                                            <input
-                                                type="text"
-                                                className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 outline-none"
-                                                value={logistics.accommodation_rating}
-                                                onChange={e => setLogistics({ ...logistics, accommodation_rating: e.target.value })}
-                                                placeholder="Ex: Hotéis 4 Estrelas"
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm font-bold text-slate-700 mb-2">Descrição</label>
-                                            <textarea
-                                                className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl h-32 resize-none focus:ring-2 focus:ring-slate-900 outline-none"
-                                                value={logistics.accommodation_description}
-                                                onChange={e => setLogistics({ ...logistics, accommodation_description: e.target.value })}
-                                            />
-                                        </div>
+                                        <BilingualField
+                                            label="Classificação"
+                                            ptValue={logistics.accommodation_rating}
+                                            enValue={logistics.accommodation_rating_en || ''}
+                                            onChangePt={value => setLogistics({ ...logistics, accommodation_rating: value })}
+                                            onChangeEn={value => setLogistics({ ...logistics, accommodation_rating_en: value })}
+                                            placeholder="Ex: Hotéis 4 Estrelas"
+                                            placeholderEn="Ex: 4-Star Hotels"
+                                        />
+                                        <BilingualField
+                                            label="Descrição"
+                                            ptValue={logistics.accommodation_description}
+                                            enValue={logistics.accommodation_description_en || ''}
+                                            onChangePt={value => setLogistics({ ...logistics, accommodation_description: value })}
+                                            onChangeEn={value => setLogistics({ ...logistics, accommodation_description_en: value })}
+                                            type="textarea"
+                                            rows={4}
+                                            placeholder="Detalhes sobre o alojamento..."
+                                            placeholderEn="Accommodation details..."
+                                        />
                                     </div>
                                     <div>
                                         <ImageUpload
@@ -455,41 +505,16 @@ export default function GlobalContentPage() {
                                     <List className="w-5 h-5 text-green-500" />
                                     O que está incluído? (Lista Padrão)
                                 </h3>
-                                <div className="space-y-3">
-                                    {logistics.included_items?.map((item, idx) => (
-                                        <div key={idx} className="flex gap-2">
-                                            <span className="w-8 h-8 flex items-center justify-center bg-slate-100 rounded-full text-xs font-bold text-slate-500 flex-shrink-0">
-                                                {idx + 1}
-                                            </span>
-                                            <input
-                                                type="text"
-                                                className="flex-1 p-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-900 outline-none"
-                                                value={item}
-                                                onChange={(e) => {
-                                                    const newItems = [...(logistics.included_items || [])];
-                                                    newItems[idx] = e.target.value;
-                                                    setLogistics({ ...logistics, included_items: newItems });
-                                                }}
-                                            />
-                                            <button
-                                                onClick={() => {
-                                                    const newItems = [...(logistics.included_items || [])];
-                                                    newItems.splice(idx, 1);
-                                                    setLogistics({ ...logistics, included_items: newItems });
-                                                }}
-                                                className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                            >
-                                                <Trash2 className="w-4 h-4" />
-                                            </button>
-                                        </div>
-                                    ))}
-                                    <button
-                                        onClick={() => setLogistics({ ...logistics, included_items: [...(logistics.included_items || []), ''] })}
-                                        className="mt-4 text-sm font-bold text-white bg-slate-900 hover:bg-slate-800 px-4 py-2 rounded-lg flex items-center gap-2 w-fit transition-all"
-                                    >
-                                        <Plus className="w-4 h-4" /> Adicionar Item
-                                    </button>
-                                </div>
+                                <BilingualListField
+                                    label="Incluído no Valor"
+                                    ptValues={logistics.included_items || []}
+                                    enValues={logistics.included_items_en || []}
+                                    onChangePt={values => setLogistics({ ...logistics, included_items: values })}
+                                    onChangeEn={values => setLogistics({ ...logistics, included_items_en: values })}
+                                    rows={7}
+                                    placeholder="Um item por linha&#10;Ex: Alojamento&#10;Transfers"
+                                    placeholderEn="One item per line&#10;Ex: Accommodation&#10;Transfers"
+                                />
                             </div>
 
                             {/* Exclusions Card */}
@@ -498,41 +523,16 @@ export default function GlobalContentPage() {
                                     <List className="w-5 h-5 text-red-500" />
                                     O que NÃO está incluído? (Lista Padrão)
                                 </h3>
-                                <div className="space-y-3">
-                                    {logistics.not_included_items?.map((item, idx) => (
-                                        <div key={idx} className="flex gap-2">
-                                            <span className="w-8 h-8 flex items-center justify-center bg-slate-100 rounded-full text-xs font-bold text-slate-500 flex-shrink-0">
-                                                {idx + 1}
-                                            </span>
-                                            <input
-                                                type="text"
-                                                className="flex-1 p-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-900 outline-none"
-                                                value={item}
-                                                onChange={(e) => {
-                                                    const newItems = [...(logistics.not_included_items || [])];
-                                                    newItems[idx] = e.target.value;
-                                                    setLogistics({ ...logistics, not_included_items: newItems });
-                                                }}
-                                            />
-                                            <button
-                                                onClick={() => {
-                                                    const newItems = [...(logistics.not_included_items || [])];
-                                                    newItems.splice(idx, 1);
-                                                    setLogistics({ ...logistics, not_included_items: newItems });
-                                                }}
-                                                className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                            >
-                                                <Trash2 className="w-4 h-4" />
-                                            </button>
-                                        </div>
-                                    ))}
-                                    <button
-                                        onClick={() => setLogistics({ ...logistics, not_included_items: [...(logistics.not_included_items || []), ''] })}
-                                        className="mt-4 text-sm font-bold text-white bg-slate-900 hover:bg-slate-800 px-4 py-2 rounded-lg flex items-center gap-2 w-fit transition-all"
-                                    >
-                                        <Plus className="w-4 h-4" /> Adicionar Item
-                                    </button>
-                                </div>
+                                <BilingualListField
+                                    label="Não Incluído"
+                                    ptValues={logistics.not_included_items || []}
+                                    enValues={logistics.not_included_items_en || []}
+                                    onChangePt={values => setLogistics({ ...logistics, not_included_items: values })}
+                                    onChangeEn={values => setLogistics({ ...logistics, not_included_items_en: values })}
+                                    rows={7}
+                                    placeholder="Um item por linha&#10;Ex: Voos&#10;Seguros"
+                                    placeholderEn="One item per line&#10;Ex: Flights&#10;Insurance"
+                                />
                             </div>
 
 
@@ -841,22 +841,27 @@ export default function GlobalContentPage() {
                                         />
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-bold text-slate-700 mb-2">Cargo / Função</label>
-                                        <input
-                                            type="text"
-                                            className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 outline-none"
-                                            value={editingTestimonial.role}
-                                            onChange={e => setEditingTestimonial({ ...editingTestimonial, role: e.target.value })}
+                                        <BilingualField
+                                            label="Cargo / Função"
+                                            ptValue={editingTestimonial.role}
+                                            enValue={editingTestimonial.role_en || ''}
+                                            onChangePt={value => setEditingTestimonial({ ...editingTestimonial, role: value })}
+                                            onChangeEn={value => setEditingTestimonial({ ...editingTestimonial, role_en: value })}
                                             placeholder="Ex: Peregrina 2024"
+                                            placeholderEn="Ex: Pilgrim 2024"
                                         />
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-bold text-slate-700 mb-2">Testemunho</label>
-                                        <textarea
-                                            className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl h-40 resize-none focus:ring-2 focus:ring-slate-900 outline-none"
-                                            value={editingTestimonial.text}
-                                            onChange={e => setEditingTestimonial({ ...editingTestimonial, text: e.target.value })}
+                                        <BilingualField
+                                            label="Testemunho"
+                                            ptValue={editingTestimonial.text}
+                                            enValue={editingTestimonial.text_en || ''}
+                                            onChangePt={value => setEditingTestimonial({ ...editingTestimonial, text: value })}
+                                            onChangeEn={value => setEditingTestimonial({ ...editingTestimonial, text_en: value })}
+                                            type="textarea"
+                                            rows={8}
                                             placeholder="Escreva aqui o testemunho..."
+                                            placeholderEn="Write the testimonial here..."
                                         />
                                     </div>
 

@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import VIPLayout from '../../components/member/VIPLayout';
 import Link from 'next/link';
 import { supabaseBrowser } from '../../lib/supabase-browser';
-import { MapPin, Calendar, Users, ChevronRight, Info, ShieldCheck } from 'lucide-react';
+import { MapPin, Calendar, Users, ShieldCheck, Heart, ArrowRight } from 'lucide-react';
 import { PilgrimageHero } from '../../components/pilgrimage/PilgrimageHero';
 import { useLocale } from '../../contexts/LocaleContext';
 import { PilgrimageCard } from '../../components/pilgrimage/PilgrimageCard';
@@ -23,6 +23,7 @@ type Pilgrimage = {
     end_date: string;
     base_price: number;
     total_vacancies: number;
+    current_vacancies?: number;
     confirmed_pax: number;
     effective_vacancies: number;
     status: string;
@@ -35,7 +36,7 @@ type Pilgrimage = {
 };
 
 export default function PilgrimagesPage() {
-    const { t } = useLocale();
+    const { locale, t } = useLocale();
     const p = t.pilgrimages;
     const [pilgrimages, setPilgrimages] = useState<Pilgrimage[]>([]);
     const [loading, setLoading] = useState(true);
@@ -49,7 +50,7 @@ export default function PilgrimagesPage() {
                 const actionResult = await getPilgrimagesAction();
                 if (!mounted) return;
                 if (actionResult?.data) {
-                    setPilgrimages(actionResult.data as any);
+                    setPilgrimages(actionResult.data as Pilgrimage[]);
                     return;
                 }
                 console.warn("⚠️ [Peregrinacoes] Server action failed:", actionResult?.error);
@@ -70,7 +71,7 @@ export default function PilgrimagesPage() {
                         .from('pilgrimages')
                         .select('*')
                         .order('start_date', { ascending: true });
-                    if (fallbackData && mounted) setPilgrimages(fallbackData as any);
+                    if (fallbackData && mounted) setPilgrimages(fallbackData as Pilgrimage[]);
                 } else {
                     console.log("✅ [Peregrinacoes] Fetched:", data?.length);
                     if (data && mounted) setPilgrimages(data);
@@ -89,26 +90,50 @@ export default function PilgrimagesPage() {
     }, []);
 
     const getRemainingSpots = (pilgrimage: Pilgrimage) => {
-        const effectiveRaw = Number((pilgrimage as any).effective_vacancies);
-        const currentRaw = Number((pilgrimage as any).current_vacancies);
-        const confirmedRaw = Number((pilgrimage as any).confirmed_pax || 0);
-        const totalRaw = Number((pilgrimage as any).total_vacancies || 0);
+        const effectiveRaw = Number(pilgrimage.effective_vacancies);
+        const currentRaw = Number(pilgrimage.current_vacancies);
+        const confirmedRaw = Number(pilgrimage.confirmed_pax || 0);
+        const totalRaw = Number(pilgrimage.total_vacancies || 0);
 
         if (Number.isFinite(effectiveRaw)) return Math.max(0, effectiveRaw);
         if (Number.isFinite(currentRaw)) return Math.max(0, currentRaw);
         return Math.max(0, totalRaw - confirmedRaw);
     };
 
-    const todayTs = todayCivilTimestamp();
-    const nextPilgrimageWithVacancies = pilgrimages.find((pilgrimage) => {
+    const isNovemberCampaignPilgrimage = (pilgrimage: Pilgrimage) => {
+        const searchable = `${pilgrimage.slug || ''} ${pilgrimage.title || ''}`.toLowerCase();
+        return searchable.includes('novembro-2026')
+            || searchable.includes('november-2026')
+            || pilgrimage.start_date?.startsWith('2026-11');
+    };
+
+    const isBookable = (pilgrimage: Pilgrimage) => {
         const remaining = getRemainingSpots(pilgrimage);
         const startsAt = getCivilDateTimestamp(pilgrimage.start_date);
         const isFuture = Number.isFinite(startsAt) && startsAt >= todayTs;
         const isAvailableStatus = pilgrimage.status !== 'closed' && pilgrimage.status !== 'waitlist';
         return isFuture && isAvailableStatus && remaining > 0;
-    })
+    };
+
+    const todayTs = todayCivilTimestamp();
+    const sortedPilgrimages = [...pilgrimages].sort((a, b) => {
+        const aCampaign = isNovemberCampaignPilgrimage(a);
+        const bCampaign = isNovemberCampaignPilgrimage(b);
+        if (aCampaign !== bCampaign) return aCampaign ? -1 : 1;
+
+        const aDate = getCivilDateTimestamp(a.start_date);
+        const bDate = getCivilDateTimestamp(b.start_date);
+        return (Number.isFinite(aDate) ? aDate : 0) - (Number.isFinite(bDate) ? bDate : 0);
+    });
+    const novemberPilgrimage = sortedPilgrimages.find((pilgrimage) => isNovemberCampaignPilgrimage(pilgrimage) && isBookable(pilgrimage))
+        || sortedPilgrimages.find(isNovemberCampaignPilgrimage);
+    const nextPilgrimageWithVacancies = novemberPilgrimage
+        || sortedPilgrimages.find(isBookable)
         || pilgrimages.find((pilgrimage) => getRemainingSpots(pilgrimage) > 0)
         || pilgrimages[0];
+    const basePilgrimagePath = locale === 'en' ? '/en/pilgrimages' : '/peregrinacoes';
+    const donationsPath = locale === 'en' ? '/en/donations' : '/donations';
+    const novemberHref = novemberPilgrimage ? `${basePilgrimagePath}/${novemberPilgrimage.slug}` : basePilgrimagePath;
 
     return (
         <VIPLayout allowPublic={true}>
@@ -117,6 +142,67 @@ export default function PilgrimagesPage() {
                 <PilgrimageHero featuredPilgrimage={nextPilgrimageWithVacancies} />
 
                 <div className="relative z-10 max-w-6xl mx-auto px-4 md:px-0">
+                    {/* Testimonials Section - Strategic Position: Social Proof before Product */}
+                    <div className="-mx-4 md:mx-0">
+                        <PilgrimageTestimonials />
+                    </div>
+
+                    {/* Gallery Section */}
+                    <div className="mb-8 md:mb-12 -mx-4 md:mx-0">
+                        <PastPilgrimagesGallery />
+                    </div>
+
+                    {novemberPilgrimage && (
+                        <section className="mb-10 md:mb-14 overflow-hidden rounded-3xl border border-yellow-200/80 bg-white shadow-[0_18px_60px_-32px_rgba(15,23,42,0.35)]">
+                            <div className="grid gap-0 md:grid-cols-[1fr,0.72fr]">
+                                <div className="p-6 md:p-10">
+                                    <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-yellow-100 px-3 py-1 text-[11px] font-black uppercase tracking-widest text-yellow-800">
+                                        <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                                        {locale === 'en' ? 'November still open' : 'Novembro ainda disponível'}
+                                    </div>
+                                    <h2 className="font-serif text-3xl font-bold leading-tight text-slate-950 md:text-4xl">
+                                        {locale === 'en' ? 'The available date is November. It usually fills quickly.' : 'A data disponível é novembro. Normalmente esgota rapidamente.'}
+                                    </h2>
+                                    <p className="mt-4 max-w-2xl text-base leading-relaxed text-slate-600 md:text-lg">
+                                        {locale === 'en'
+                                            ? 'First see the full programme, flights, price and spiritual rhythm. Each pilgrimage also supports the House of the Apostolate and the mission of spreading Garabandal.'
+                                            : 'Veja primeiro o programa completo, voos, preço e ritmo espiritual. Cada peregrinação ajuda também a erguer a Casa do Apostolado e a missão de dar a conhecer Garabandal.'}
+                                    </p>
+                                    <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+                                        <Link
+                                            href={novemberHref}
+                                            className="inline-flex min-h-14 items-center justify-center gap-2 rounded-2xl bg-yellow-400 px-6 py-4 text-sm font-black uppercase tracking-wide text-slate-950 shadow-lg shadow-yellow-700/20 ring-1 ring-yellow-200 transition-colors hover:bg-yellow-300"
+                                        >
+                                            {locale === 'en' ? 'View November pilgrimage' : 'Ver peregrinação de novembro'}
+                                            <ArrowRight className="h-4 w-4" />
+                                        </Link>
+                                        <Link
+                                            href={donationsPath}
+                                            className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-6 py-4 text-sm font-bold text-slate-800 transition-colors hover:bg-slate-50"
+                                        >
+                                            <Heart className="h-4 w-4 text-red-500" />
+                                            {locale === 'en' ? 'Know the mission' : 'Conhecer a missão'}
+                                        </Link>
+                                    </div>
+                                </div>
+                                <div className="border-t border-yellow-100 bg-yellow-50/80 p-6 md:border-l md:border-t-0 md:p-8">
+                                    <div className="space-y-5">
+                                        <div>
+                                            <p className="text-xs font-black uppercase tracking-widest text-yellow-800">{locale === 'en' ? 'Why now' : 'Porque agora'}</p>
+                                            <p className="mt-2 text-sm leading-relaxed text-slate-700 md:text-base">
+                                                {locale === 'en' ? 'Other departures have already reached capacity or waitlist. This is the date to discern calmly before registration.' : 'As outras partidas já chegaram a esgotado ou lista de espera. Esta é a data para discernir com calma antes da inscrição.'}
+                                            </p>
+                                        </div>
+                                        <div>
+                                            <p className="text-xs font-black uppercase tracking-widest text-yellow-800">{locale === 'en' ? 'Availability' : 'Disponibilidade'}</p>
+                                            <p className="mt-2 text-lg font-black text-slate-950">{getRemainingSpots(novemberPilgrimage) <= 5 ? (locale === 'en' ? 'Last spots' : 'Últimas vagas') : (locale === 'en' ? 'Limited spots' : 'Lugares limitados')}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
+                    )}
+
                     {/* Trust Indicators / Value Prop */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-16">
                         <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] flex items-start gap-4 hover:transform hover:-translate-y-1 transition-all duration-300">
@@ -149,16 +235,6 @@ export default function PilgrimagesPage() {
                     </div>
 
 
-                    {/* Testimonials Section - Strategic Position: Social Proof before Product */}
-                    <div className="-mx-4 md:mx-0">
-                        <PilgrimageTestimonials />
-                    </div>
-
-                    {/* Gallery Section */}
-                    <div className="mb-16 -mx-4 md:mx-0">
-                        <PastPilgrimagesGallery />
-                    </div>
-
                     {/* Listings Header */}
                     <div className="flex items-end justify-between mb-8 px-2">
                         <div>
@@ -183,7 +259,7 @@ export default function PilgrimagesPage() {
                         </div>
                     ) : (
                         <div className="grid grid-cols-1 gap-8">
-                            {pilgrimages.map((pilgrimage, idx) => (
+                            {sortedPilgrimages.map((pilgrimage, idx) => (
                                 <PilgrimageCard key={pilgrimage.id} pilgrimage={pilgrimage} index={idx} />
                             ))}
                         </div>
@@ -259,7 +335,7 @@ function GeneralWaitlistForm() {
             } else {
                 setStatus('error');
             }
-        } catch (error) {
+        } catch {
             setStatus('error');
         } finally {
             setLoading(false);

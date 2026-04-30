@@ -53,19 +53,11 @@ export const todayCivilTimestamp = (now: Date = new Date()) =>
     new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12, 0, 0, 0).getTime();
 
 export const getPublicAvailabilityLabel = (remainingSpots: number, locale: 'pt' | 'en' = 'pt') => {
-    if (remainingSpots <= 10) {
-        if (locale === 'en') {
-            return `${remainingSpots} ${remainingSpots === 1 ? 'Spot' : 'Spots'}`;
-        }
-
-        return `${remainingSpots} ${remainingSpots === 1 ? 'Vaga' : 'Vagas'}`;
+    if (remainingSpots <= 5) {
+        return locale === 'en' ? 'Last spots' : 'Últimas vagas';
     }
 
-    if (locale === 'en') {
-        return 'Limited Spots';
-    }
-
-    return 'Vagas Limitadas';
+    return locale === 'en' ? 'Limited spots' : 'Lugares limitados';
 };
 
 export const parseRoomInfo = (notes?: string) => {

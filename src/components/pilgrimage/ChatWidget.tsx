@@ -248,8 +248,8 @@ export default function ChatWidget({
             setMessages(prev => prev.map(m =>
                 m.id === assistantId ? { ...m, streaming: false } : m
             ));
-        } catch (err: any) {
-            if (err?.name === 'AbortError') return;
+        } catch (err: unknown) {
+            if (err instanceof DOMException && err.name === 'AbortError') return;
             console.error('[ChatWidget] Error:', err);
             setMessages(prev => prev.map(m =>
                 m.id === assistantId
@@ -370,7 +370,7 @@ export default function ChatWidget({
                                 }`}>
                                     <Users className="w-3.5 h-3.5 shrink-0" />
                                     {typeof remainingSpots === 'number' && remainingSpots <= 5 ? (
-                                        <span><span className="font-bold">{isEn ? `Last ${remainingSpots} spots` : `Últimas ${remainingSpots} vagas`}</span><span className="hidden sm:inline"> {isEn ? '— sign up now' : '— inscreva-se já'}</span></span>
+                                        <span><span className="font-bold">{isEn ? 'Last spots' : 'Últimas vagas'}</span><span className="hidden sm:inline"> {isEn ? '— sign up now' : '— inscreva-se já'}</span></span>
                                     ) : (
                                         <span><span className="font-bold text-slate-900">{isEn ? 'Limited Spots' : 'Vagas limitadas'}</span><span className="hidden sm:inline text-slate-600"> {isEn ? '— places still available' : '— lugares a preencher'}</span></span>
                                     )}
