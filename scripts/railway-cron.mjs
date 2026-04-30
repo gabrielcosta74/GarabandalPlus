@@ -24,11 +24,17 @@ function sanitizeBody(body) {
   return {
     ok: body.ok,
     success: body.success,
+    skipped: body.skipped,
+    reason: body.reason,
     dryRun: body.dryRun,
     asOf: body.asOf,
     processed: body.processed,
     activeFunnels: body.activeFunnels,
     enrolled: body.enrolled,
+    sentLast24h: body.sentLast24h,
+    remainingDailyCapacity: body.remainingDailyCapacity,
+    dueEnrollments: body.dueEnrollments,
+    wouldProcess: body.wouldProcess,
     summary: body.summary,
     detailsCount: details?.length,
     failedDetails: details

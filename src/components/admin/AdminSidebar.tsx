@@ -79,7 +79,7 @@ export default function AdminSidebar({ onLogout, className }: { onLogout: () => 
         {
             label: 'Marketing & Growth',
             items: [
-                { label: 'Marketing Platform', icon: Megaphone, href: '/admin/marketing' },
+                { label: 'Marketing Platform', icon: Megaphone, href: '/admin/marketing', target: '_blank' },
             ]
         },
         {
@@ -148,12 +148,13 @@ export default function AdminSidebar({ onLogout, className }: { onLogout: () => 
                                         transition={{ duration: 0.2, ease: "easeInOut" }}
                                         className="space-y-1 overflow-hidden"
                                     >
-                                        {group.items.map((item) => {
+                                        {group.items.map((item: any) => {
                                             const isActive = pathname === item.href;
                                             return (
                                                 <Link
                                                     key={item.href}
                                                     href={item.href}
+                                                    target={item.target || '_self'}
                                                     className={`
                                                         flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group
                                                         ${isActive

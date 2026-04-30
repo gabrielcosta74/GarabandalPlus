@@ -1,6 +1,10 @@
 import { sendMarketingEmail } from './marketing-email';
 import { isContactInSegment } from './marketing-core';
 import { buildMarketingContacts, persistMarketingContacts } from './marketing-data';
+import {
+  countMarketingSendsForContact,
+  getMarketingEmailLimits,
+} from './marketing-limits';
 
 export const addMarketingHours = (date: Date, hours: number) =>
   new Date(date.getTime() + hours * 60 * 60 * 1000);
@@ -41,6 +45,7 @@ export const evaluateMarketingEnrollment = (enrollment: any, counts?: { day?: nu
   const { step } = getMarketingEnrollmentStep(enrollment);
   const nextRunAt = enrollment?.next_run_at ? new Date(enrollment.next_run_at) : null;
   const now = new Date();
+  const limits = getMarketingEmailLimits();
 
   if (enrollment?.status === 'paused') {
     return { bucket: 'paused', label: 'Pausado', reason: 'Pausado pelo admin.', tone: 'slate' };
@@ -70,10 +75,10 @@ export const evaluateMarketingEnrollment = (enrollment: any, counts?: { day?: nu
     return { bucket: 'blocked', label: 'Condição falhou', reason: `Condição não cumprida: ${step.condition}.`, tone: 'amber' };
   }
   if ((counts?.day || 0) >= 1) {
-    return { bucket: 'blocked', label: 'Limite diário', reason: 'Já recebeu um email de marketing nas últimas 24h.', tone: 'amber' };
+    return { bucket: 'blocked', label: 'Limite de cadência', reason: `Já recebeu um email de marketing nas últimas ${limits.minHoursBetweenEmails}h.`, tone: 'amber' };
   }
-  if ((counts?.week || 0) >= 3) {
-    return { bucket: 'blocked', label: 'Limite semanal', reason: 'Já recebeu três emails de marketing nos últimos 7 dias.', tone: 'amber' };
+  if ((counts?.week || 0) >= limits.maxEmailsPer7Days) {
+    return { bucket: 'blocked', label: 'Limite semanal', reason: `Já recebeu ${limits.maxEmailsPer7Days} emails de marketing nos últimos 7 dias.`, tone: 'amber' };
   }
   if (!nextRunAt) {
     return { bucket: 'blocked', label: 'Sem data', reason: 'Não há próximo envio definido.', tone: 'amber' };
@@ -177,6 +182,7 @@ export const processMarketingEnrollment = async (supabase: any, enrollment: any)
   const contact = enrollment.contact;
   const { steps, step } = getMarketingEnrollmentStep(enrollment);
   const nowIso = new Date().toISOString();
+  const limits = getMarketingEmailLimits();
 
   if (!step || !contact?.normalized_email || contact.consent_state === 'suppressed' || contact.consent_state === 'unsubscribed') {
     await supabase
@@ -221,39 +227,35 @@ export const processMarketingEnrollment = async (supabase: any, enrollment: any)
     return { enrollment: enrollment.id, status: 'skipped', reason: 'condition_failed' };
   }
 
-  const sentToday = await supabase
-    .from('marketing_message_logs')
-    .select('id', { count: 'exact', head: true })
-    .eq('contact_id', contact.id)
-    .eq('status', 'sent')
-    .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString());
+  if (step.channel !== 'task') {
+    const sendCounts = await countMarketingSendsForContact(supabase, contact.id, new Date(), limits);
 
-  const sentThisWeek = await supabase
-    .from('marketing_message_logs')
-    .select('id', { count: 'exact', head: true })
-    .eq('contact_id', contact.id)
-    .eq('status', 'sent')
-    .gte('created_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString());
-
-  if ((sentToday.count || 0) >= 1 || (sentThisWeek.count || 0) >= 3) {
-    const retryAt = addMarketingHours(new Date(), 24).toISOString();
-    await supabase
-      .from('marketing_enrollments')
-      .update({ next_run_at: retryAt, updated_at: nowIso })
-      .eq('id', enrollment.id);
-    await supabase.from('marketing_message_logs').insert({
-      contact_id: contact.id,
-      funnel_id: funnel.id,
-      enrollment_id: enrollment.id,
-      channel: step.channel || 'email',
-      to_email: contact.normalized_email,
-      subject: funnel.name,
-      template_key: step.template_key || null,
-      status: 'skipped',
-      error_message: 'Limite de frequência atingido. Reagendado +24h.',
-      metadata: { step, reason: 'rate_limited', retry_at: retryAt },
-    });
-    return { enrollment: enrollment.id, status: 'rate_limited', retryAt };
+    if (sendCounts.recent >= 1 || sendCounts.week >= limits.maxEmailsPer7Days) {
+      const retryAt = addMarketingHours(new Date(), limits.minHoursBetweenEmails).toISOString();
+      await supabase
+        .from('marketing_enrollments')
+        .update({ next_run_at: retryAt, updated_at: nowIso })
+        .eq('id', enrollment.id);
+      await supabase.from('marketing_message_logs').insert({
+        contact_id: contact.id,
+        funnel_id: funnel.id,
+        enrollment_id: enrollment.id,
+        channel: step.channel || 'email',
+        to_email: contact.normalized_email,
+        subject: funnel.name,
+        template_key: step.template_key || null,
+        status: 'skipped',
+        error_message: `Limite de frequência atingido. Reagendado +${limits.minHoursBetweenEmails}h.`,
+        metadata: {
+          step,
+          reason: 'rate_limited',
+          retry_at: retryAt,
+          limits,
+          sendCounts,
+        },
+      });
+      return { enrollment: enrollment.id, status: 'rate_limited', retryAt, limits, sendCounts };
+    }
   }
 
   if (step.channel === 'task') {

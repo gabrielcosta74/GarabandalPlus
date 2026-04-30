@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { jsonError, requireMarketingAdmin } from '../../../../../lib/marketing-api';
 import { evaluateMarketingEnrollment } from '../../../../../lib/marketing-automation-engine';
+import { getMarketingEmailLimits, getMarketingWindowStarts } from '../../../../../lib/marketing-limits';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,15 +23,15 @@ export async function GET(req: Request) {
     if (error) throw error;
 
     const contactIds = Array.from(new Set((data || []).map((row: any) => row.contact_id).filter(Boolean)));
-    const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-    const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const limits = getMarketingEmailLimits();
+    const windows = getMarketingWindowStarts(new Date(), limits);
     const { data: recentLogs, error: logsError } = contactIds.length
       ? await auth.supabase
           .from('marketing_message_logs')
           .select('contact_id,created_at,status')
           .in('contact_id', contactIds)
           .eq('status', 'sent')
-          .gte('created_at', weekAgo)
+          .gte('created_at', windows.week)
       : { data: [], error: null };
     if (logsError) throw logsError;
 
@@ -38,7 +39,7 @@ export async function GET(req: Request) {
       if (!log.contact_id) return acc;
       acc[log.contact_id] ||= { day: 0, week: 0 };
       acc[log.contact_id].week += 1;
-      if (log.created_at >= dayAgo) acc[log.contact_id].day += 1;
+      if (log.created_at >= windows.recent) acc[log.contact_id].day += 1;
       return acc;
     }, {});
 
@@ -60,7 +61,7 @@ export async function GET(req: Request) {
     }, { total: 0 });
     const scheduled = allScheduled.filter((enrollment: any) => bucket === 'all' || enrollment.evaluation.bucket === bucket);
 
-    return NextResponse.json({ scheduled, stats });
+    return NextResponse.json({ scheduled, stats, limits });
   } catch (error) {
     return jsonError(error, 'Não foi possível carregar envios agendados.');
   }

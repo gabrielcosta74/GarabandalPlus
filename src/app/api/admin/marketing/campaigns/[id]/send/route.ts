@@ -3,6 +3,7 @@ import { isContactInSegment } from '../../../../../../../lib/marketing-core';
 import { buildMarketingContacts } from '../../../../../../../lib/marketing-data';
 import { sendMarketingEmail } from '../../../../../../../lib/marketing-email';
 import { jsonError, requireMarketingAdmin } from '../../../../../../../lib/marketing-api';
+import { countMarketingSendsForContact, getMarketingEmailLimits } from '../../../../../../../lib/marketing-limits';
 
 export const dynamic = 'force-dynamic';
 
@@ -40,6 +41,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const { id } = await params;
     const body = await req.json().catch(() => ({}));
     const dryRun = body?.dryRun !== false;
+    const limits = getMarketingEmailLimits();
 
     const { data: campaign, error } = await auth.supabase
       .from('marketing_campaigns')
@@ -53,11 +55,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const contacts = (await buildMarketingContacts(auth.supabase))
       .filter((contact) => isContactInSegment(contact, campaign.segment_slug))
       .filter((contact) => contact.normalized_email && contact.consent_state !== 'suppressed')
-      .slice(0, 200);
+      .slice(0, limits.campaignAudienceLimit);
 
     if (dryRun) {
       return NextResponse.json({
         dryRun: true,
+        limits,
         eligible: contacts.length,
         sample: contacts.slice(0, 10).map((contact) => ({
           id: contact.id,
@@ -71,15 +74,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const results = [];
     for (const contact of contacts) {
       const contactId = await persistContactForLog(auth.supabase, contact);
-      const sentToday = contactId
-        ? await auth.supabase
-            .from('marketing_message_logs')
-            .select('id', { count: 'exact', head: true })
-            .eq('contact_id', contactId)
-            .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
-        : { count: 0 };
+      const sendCounts = await countMarketingSendsForContact(auth.supabase, contactId, new Date(), limits);
 
-      if ((sentToday.count || 0) >= 2) {
+      if (sendCounts.recent >= 1 || sendCounts.week >= limits.maxEmailsPer7Days) {
         await auth.supabase.from('marketing_message_logs').insert({
           contact_id: contactId,
           campaign_id: campaign.id,
@@ -87,9 +84,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
           subject: campaign.subject,
           template_key: campaign.template_key || 'marketing_generic',
           status: 'skipped',
-          error_message: 'Daily marketing limit reached.',
+          error_message: `Limite de frequência atingido (${limits.minHoursBetweenEmails}h / ${limits.maxEmailsPer7Days} por 7 dias).`,
+          metadata: { reason: 'rate_limited', limits, sendCounts },
         });
-        results.push({ email: contact.normalized_email, sent: false, skipped: true });
+        results.push({ email: contact.normalized_email, sent: false, skipped: true, reason: 'rate_limited' });
         continue;
       }
 

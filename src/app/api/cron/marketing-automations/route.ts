@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prepareMarketingFunnelEnrollments, processMarketingEnrollment } from '../../../../lib/marketing-automation-engine';
+import { countMarketingSendsSince, getMarketingEmailLimits, getMarketingWindowStarts } from '../../../../lib/marketing-limits';
 import { supabaseServer } from '../../../../lib/supabase';
 
 export const runtime = 'nodejs';
@@ -21,6 +22,11 @@ export async function GET(req: Request) {
   try {
     const requestUrl = new URL(req.url);
     const dryRun = requestUrl.searchParams.get('dryRun') === '1';
+    const limits = getMarketingEmailLimits();
+    const windows = getMarketingWindowStarts(new Date(), limits);
+    const sentLast24h = await countMarketingSendsSince(supabaseServer, windows.day);
+    const remainingDailyCapacity = Math.max(0, limits.cronDailySendCap - sentLast24h);
+    const batchLimit = Math.min(limits.cronBatchLimit, remainingDailyCapacity);
 
     const { data: funnels, error: funnelsError } = await supabaseServer
       .from('marketing_funnels')
@@ -35,15 +41,18 @@ export async function GET(req: Request) {
         .eq('status', 'active')
         .lte('next_run_at', new Date().toISOString())
         .order('next_run_at', { ascending: true })
-        .limit(25);
+        .limit(Math.max(1, limits.cronBatchLimit));
       if (enrollmentError) throw enrollmentError;
 
       return NextResponse.json({
         success: true,
         dryRun: true,
+        limits,
+        sentLast24h,
+        remainingDailyCapacity,
         activeFunnels: (funnels || []).length,
         dueEnrollments: count || 0,
-        wouldProcess: (dueEnrollments || []).length,
+        wouldProcess: Math.min((dueEnrollments || []).length, batchLimit),
         processed: [],
         candidates: (dueEnrollments || []).map((enrollment: any) => ({
           enrollment: enrollment.id,
@@ -56,9 +65,22 @@ export async function GET(req: Request) {
       });
     }
 
+    if (batchLimit <= 0) {
+      return NextResponse.json({
+        success: true,
+        skipped: true,
+        reason: 'daily_marketing_cap_reached',
+        limits,
+        sentLast24h,
+        activeFunnels: (funnels || []).length,
+        enrolled: 0,
+        processed: [],
+      });
+    }
+
     let enrolled = 0;
     for (const funnel of funnels || []) {
-      const result = await prepareMarketingFunnelEnrollments(supabaseServer, funnel, { limit: 100 });
+      const result = await prepareMarketingFunnelEnrollments(supabaseServer, funnel, { limit: limits.enrollmentPrepareLimit });
       enrolled += result.enrolled;
     }
 
@@ -68,7 +90,7 @@ export async function GET(req: Request) {
       .eq('status', 'active')
       .lte('next_run_at', new Date().toISOString())
       .order('next_run_at', { ascending: true })
-      .limit(25);
+      .limit(batchLimit);
     if (enrollmentError) throw enrollmentError;
 
     const processed: any[] = [];
@@ -78,6 +100,9 @@ export async function GET(req: Request) {
 
     return NextResponse.json({
       success: true,
+      limits,
+      sentLast24h,
+      remainingDailyCapacity,
       activeFunnels: (funnels || []).length,
       enrolled,
       processed,
