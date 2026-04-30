@@ -335,28 +335,28 @@ export default function PortalPage() {
     const selectedPendingCount = selectedIntentions.filter(i => i.status === 'pending').length;
 
     return (
-        <div className="flex flex-col gap-6 pb-36 max-w-6xl mx-auto">
+        <div className="flex flex-col gap-4 pb-28 sm:gap-6 md:pb-32 max-w-6xl mx-auto">
             {/* Top bar */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mt-2">
-                <div>
-                    <h1 className="text-2xl font-black text-slate-900 tracking-tight">Portal de Orações</h1>
-                    {userEmail && <p className="text-sm text-slate-500 font-medium">{userEmail}</p>}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mt-1 sm:mt-2">
+                <div className="min-w-0">
+                    <h1 className="text-xl font-black text-slate-900 tracking-tight sm:text-2xl">Portal de Orações</h1>
+                    {userEmail && <p className="truncate text-sm text-slate-500 font-medium">{userEmail}</p>}
                 </div>
-                <button onClick={handleSignOut} className="flex items-center gap-2 text-sm font-bold text-slate-400 hover:text-red-600 hover:bg-red-50 px-4 py-2 rounded-xl transition-all">
+                <button onClick={handleSignOut} className="flex w-full items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-bold text-slate-500 transition-all hover:bg-red-50 hover:text-red-600 sm:w-auto sm:justify-start">
                     <LogOut className="w-5 h-5" />
                     Sair da conta
                 </button>
             </div>
 
             {/* Dashboard / Month Selector */}
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 lg:p-6 flex flex-col xl:flex-row gap-6 justify-between items-start xl:items-center">
+            <div className="bg-white rounded-xl sm:rounded-2xl border border-slate-200 shadow-sm p-3 sm:p-4 lg:p-6 flex flex-col xl:flex-row gap-4 sm:gap-6 justify-between items-start xl:items-center">
                 <div className="w-full xl:w-auto flex flex-col gap-2">
                     <label className="text-xs font-black text-slate-400 uppercase tracking-widest block">Período de Análise</label>
-                    <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+                    <div className="flex flex-col md:flex-row gap-3 items-stretch md:items-center">
                         <select
                             value={periodType}
                             onChange={(e) => setPeriodType(e.target.value as any)}
-                            className="w-full sm:w-auto px-3 py-2 bg-slate-100 border-2 border-slate-200 rounded-lg outline-none text-sm font-bold text-slate-800 focus:border-yellow-500 focus:ring-2 focus:ring-yellow-500/20 transition-all cursor-pointer"
+                            className="w-full md:w-auto px-3 py-2 bg-slate-100 border-2 border-slate-200 rounded-lg outline-none text-sm font-bold text-slate-800 focus:border-yellow-500 focus:ring-2 focus:ring-yellow-500/20 transition-all cursor-pointer"
                         >
                             <option value="month">Mês Específico</option>
                             <option value="custom">Período Personalizado</option>
@@ -364,31 +364,31 @@ export default function PortalPage() {
                         </select>
 
                         {periodType === 'month' && (
-                            <div className="relative w-full sm:w-auto">
+                            <div className="relative w-full md:w-auto">
                                 <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-yellow-600" />
                                 <input
                                     type="month"
                                     value={selectedMonth}
                                     onChange={e => setSelectedMonth(e.target.value)}
-                                    className="w-full sm:w-auto pl-9 pr-3 py-2 bg-white border-2 border-slate-200 rounded-lg focus:border-yellow-500 focus:ring-2 focus:ring-yellow-500/20 outline-none text-sm font-bold text-slate-900 transition-all cursor-pointer shadow-sm"
+                                    className="w-full md:w-auto pl-9 pr-3 py-2 bg-white border-2 border-slate-200 rounded-lg focus:border-yellow-500 focus:ring-2 focus:ring-yellow-500/20 outline-none text-sm font-bold text-slate-900 transition-all cursor-pointer shadow-sm"
                                 />
                             </div>
                         )}
 
                         {periodType === 'custom' && (
-                            <div className="flex flex-col sm:flex-row items-center gap-2 w-full sm:w-auto">
+                            <div className="grid grid-cols-1 gap-2 w-full sm:grid-cols-[1fr_auto_1fr] md:w-auto md:items-center">
                                 <input
                                     type="date"
                                     value={startDate}
                                     onChange={e => setStartDate(e.target.value)}
-                                    className="w-full sm:w-auto px-3 py-2 bg-white border-2 border-slate-200 rounded-lg focus:border-yellow-500 outline-none text-sm font-bold text-slate-900 shadow-sm"
+                                    className="w-full md:w-auto px-3 py-2 bg-white border-2 border-slate-200 rounded-lg focus:border-yellow-500 outline-none text-sm font-bold text-slate-900 shadow-sm"
                                 />
-                                <span className="text-slate-400 font-bold text-xs">até</span>
+                                <span className="text-center text-slate-400 font-bold text-xs sm:self-center">até</span>
                                 <input
                                     type="date"
                                     value={endDate}
                                     onChange={e => setEndDate(e.target.value)}
-                                    className="w-full sm:w-auto px-3 py-2 bg-white border-2 border-slate-200 rounded-lg focus:border-yellow-500 outline-none text-sm font-bold text-slate-900 shadow-sm"
+                                    className="w-full md:w-auto px-3 py-2 bg-white border-2 border-slate-200 rounded-lg focus:border-yellow-500 outline-none text-sm font-bold text-slate-900 shadow-sm"
                                 />
                             </div>
                         )}
@@ -396,15 +396,15 @@ export default function PortalPage() {
                 </div>
 
                 {/* Stats Grid */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 w-full xl:w-auto">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 w-full xl:w-auto">
                     {[
                         { label: 'Total', value: stats.total, color: 'text-slate-800', bg: 'bg-slate-50' },
                         { label: 'Pendentes', value: stats.pending, color: 'text-amber-600', bg: 'bg-amber-50' },
                         { label: 'Apresentadas', value: stats.presented, color: 'text-green-600', bg: 'bg-green-50' },
                         { label: 'Donativos', value: stats.donations, color: 'text-orange-600', bg: 'bg-orange-50' },
                     ].map(s => (
-                        <div key={s.label} className={`flex flex-col p-3 rounded-xl border border-slate-100 ${s.bg}`}>
-                            <span className={`text-2xl font-black ${s.color}`}>{s.value}</span>
+                        <div key={s.label} className={`flex min-w-0 flex-col rounded-xl border border-slate-100 p-3 ${s.bg}`}>
+                            <span className={`text-xl font-black sm:text-2xl ${s.color}`}>{s.value}</span>
                             <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mt-0.5">{s.label}</span>
                         </div>
                     ))}
@@ -426,12 +426,12 @@ export default function PortalPage() {
                 </div>
 
                 {/* Status Tabs */}
-                <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 overflow-x-auto">
+                <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 overflow-x-auto sm:overflow-visible">
                     {(['all', 'pending', 'presented'] as StatusFilter[]).map(f => (
                         <button
                             key={f}
                             onClick={() => setStatusFilter(f)}
-                            className={`flex-1 min-w-[100px] px-4 py-2 rounded-lg text-sm font-bold transition-all ${statusFilter === f ? 'bg-white shadow-sm text-slate-900 border border-slate-200/50' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'}`}
+                            className={`flex-1 min-w-[8.5rem] whitespace-nowrap px-3 py-2 rounded-lg text-xs font-bold transition-all sm:min-w-[100px] sm:px-4 sm:text-sm ${statusFilter === f ? 'bg-white shadow-sm text-slate-900 border border-slate-200/50' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'}`}
                         >
                             {f === 'all' ? 'Ver Todas' : f === 'pending' ? 'Só Pendentes' : 'Só Apresentadas'}
                         </button>
@@ -447,22 +447,22 @@ export default function PortalPage() {
             )}
 
             {/* Main List Area */}
-            <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+            <div className="bg-white border border-slate-200 rounded-xl sm:rounded-2xl overflow-hidden shadow-sm">
                 
                 {/* List Header & Quick Actions */}
                 {!loading && filtered.length > 0 && (
-                    <div className="p-4 border-b-2 border-slate-100 bg-slate-50 flex flex-col md:flex-row items-center justify-between gap-4">
+                    <div className="p-3 sm:p-4 border-b-2 border-slate-100 bg-slate-50 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 sm:gap-4">
                         <div className="flex items-center gap-3 w-full md:w-auto">
                             <button 
                                 onClick={toggleAllVisible} 
-                                className="flex items-center justify-center gap-2 w-full md:w-auto px-4 py-2 bg-white border-2 border-slate-200 rounded-lg font-bold text-slate-700 text-sm hover:border-yellow-400 hover:bg-yellow-50 transition-all active:scale-95"
+                                className="flex items-center justify-center gap-2 w-full md:w-auto px-3 sm:px-4 py-2 bg-white border-2 border-slate-200 rounded-lg font-bold text-slate-700 text-sm hover:border-yellow-400 hover:bg-yellow-50 transition-all active:scale-95"
                             >
                                 {allVisibleSelected ? <CheckSquare className="w-5 h-5 text-amber-500" /> : <Square className="w-5 h-5 text-slate-400" />}
                                 {allVisibleSelected ? 'Desmarcar Lista' : 'Selecionar Esta Lista'}
                             </button>
                         </div>
                         
-                        <div className="text-right w-full md:w-auto">
+                        <div className="text-left md:text-right w-full md:w-auto">
                             {someSelected ? (
                                 <span className="text-sm font-black text-amber-600 bg-amber-100 px-3 py-1.5 rounded-lg border border-amber-200">
                                     {selected.size} selecionadas
@@ -478,12 +478,12 @@ export default function PortalPage() {
 
                 {/* The List */}
                 {loading ? (
-                    <div className="p-20 text-center text-slate-400 flex flex-col items-center justify-center gap-4">
+                    <div className="px-6 py-14 sm:p-20 text-center text-slate-400 flex flex-col items-center justify-center gap-4">
                         <Loader2 className="w-10 h-10 animate-spin text-yellow-500" />
                         <span className="text-lg font-medium">A carregar intenções...</span>
                     </div>
                 ) : filtered.length === 0 ? (
-                    <div className="p-20 text-center text-slate-400 flex flex-col items-center gap-4">
+                    <div className="px-6 py-14 sm:p-20 text-center text-slate-400 flex flex-col items-center gap-4">
                         <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center">
                             <Flame className="w-10 h-10 text-slate-300" />
                         </div>
@@ -502,9 +502,9 @@ export default function PortalPage() {
                                 <div
                                     key={intention.id}
                                     onClick={() => toggleOne(intention.id)}
-                                    className={`p-4 md:p-6 cursor-pointer transition-all duration-200 ${isSelected ? 'bg-amber-50/50' : 'hover:bg-slate-50'}`}
+                                    className={`p-3 sm:p-4 md:p-6 cursor-pointer transition-all duration-200 ${isSelected ? 'bg-amber-50/50' : 'hover:bg-slate-50'}`}
                                 >
-                                    <div className="flex items-start gap-4">
+                                    <div className="flex items-start gap-3 sm:gap-4">
                                         
                                         {/* Big Checkbox */}
                                         <div className="mt-0.5 shrink-0">
@@ -515,37 +515,37 @@ export default function PortalPage() {
 
                                         {/* Content */}
                                         <div className="flex-1 min-w-0">
-                                            <div className="flex flex-wrap items-center gap-3 mb-2">
-                                                <span className="text-xs font-black text-slate-300 w-5">#{idx + 1}</span>
-                                                <span className="text-base font-black text-slate-900 flex items-center gap-1.5">
-                                                    <User className="w-4 h-4 text-slate-400" />
-                                                    {intention.user_name || 'Anónimo'}
+                                            <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-2">
+                                                <span className="text-xs font-black text-slate-300 w-5 shrink-0">#{idx + 1}</span>
+                                                <span className="min-w-0 max-w-full text-sm font-black text-slate-900 flex items-center gap-1.5 sm:text-base">
+                                                    <User className="w-4 h-4 shrink-0 text-slate-400" />
+                                                    <span className="min-w-0 break-words">{intention.user_name || 'Anónimo'}</span>
                                                 </span>
                                                 {intention.candle_type === 'donation' && (
                                                     <span className="bg-orange-100 text-orange-800 text-[10px] font-black px-2 py-0.5 rounded-full border border-orange-200 uppercase tracking-widest shadow-sm">
                                                         Donativo
                                                     </span>
                                                 )}
-                                                <span className={`text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest shadow-sm ml-auto ${isPending ? 'bg-yellow-100 text-yellow-800 border border-yellow-200' : 'bg-green-100 text-green-800 border border-green-200'}`}>
+                                                <span className={`text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest shadow-sm sm:ml-auto ${isPending ? 'bg-yellow-100 text-yellow-800 border border-yellow-200' : 'bg-green-100 text-green-800 border border-green-200'}`}>
                                                     {isPending ? 'Pendente' : 'Apresentada'}
                                                 </span>
                                             </div>
 
                                             {/* Intention Text - Huge and Readable */}
-                                            <p className="text-base md:text-lg text-slate-800 leading-relaxed font-serif italic py-3 pl-4 border-l-4 border-slate-200 mb-2 bg-white/50 rounded-r-xl">
+                                            <p className="break-words text-sm sm:text-base md:text-lg text-slate-800 leading-relaxed font-serif italic py-3 pl-3 sm:pl-4 border-l-4 border-slate-200 mb-2 bg-white/50 rounded-r-xl">
                                                 "{intention.intention_text}"
                                             </p>
 
-                                            <div className="flex flex-wrap items-center gap-4 mt-2">
+                                            <div className="flex flex-col gap-2 mt-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-4">
                                                 {intention.user_email && (
-                                                    <div className="text-sm font-medium text-slate-500 flex items-center gap-1.5 bg-slate-100 px-3 py-1.5 rounded-lg">
-                                                        <Mail className="w-4 h-4" />
-                                                        {intention.user_email}
+                                                    <div className="min-w-0 text-sm font-medium text-slate-500 flex items-center gap-1.5 bg-slate-100 px-3 py-1.5 rounded-lg">
+                                                        <Mail className="w-4 h-4 shrink-0" />
+                                                        <span className="min-w-0 truncate">{intention.user_email}</span>
                                                     </div>
                                                 )}
-                                                <div className="text-sm font-medium text-slate-400 flex items-center gap-1.5 bg-slate-100 px-3 py-1.5 rounded-lg">
-                                                    <Calendar className="w-4 h-4" />
-                                                    {new Date(intention.created_at).toLocaleDateString('pt-PT', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                                <div className="min-w-0 text-sm font-medium text-slate-400 flex items-center gap-1.5 bg-slate-100 px-3 py-1.5 rounded-lg">
+                                                    <Calendar className="w-4 h-4 shrink-0" />
+                                                    <span className="min-w-0 truncate">{new Date(intention.created_at).toLocaleDateString('pt-PT', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
                                                 </div>
                                             </div>
                                         </div>
@@ -558,10 +558,10 @@ export default function PortalPage() {
             </div>
 
             {/* Floating Action Bar */}
-            <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 shadow-[0_-10px_40px_rgba(0,0,0,0.08)] z-50 px-4 py-3 md:py-4 safe-area-bottom">
-                <div className="max-w-6xl mx-auto flex flex-col lg:flex-row items-center justify-between gap-4">
+            <div className="fixed inset-x-0 bottom-0 z-[2147483647] bg-white/95 backdrop-blur border-t border-slate-200 shadow-[0_-10px_40px_rgba(0,0,0,0.08)] px-3 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))] sm:px-4 md:py-4">
+                <div className="max-w-6xl mx-auto flex flex-row items-center justify-between gap-3 lg:gap-4">
                     
-                    <div className="hidden lg:block text-sm text-slate-600 font-medium">
+                    <div className="hidden min-w-0 flex-1 md:block text-sm text-slate-600 font-medium">
                         {someSelected ? (
                             <span>
                                 Tens <strong className="text-amber-600 font-black">{selected.size}</strong> intenções selecionadas.
@@ -574,23 +574,23 @@ export default function PortalPage() {
                         )}
                     </div>
 
-                    <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
+                    <div className="grid grid-cols-2 gap-2 w-full md:w-auto md:flex md:gap-3">
                         <button
                             onClick={() => handlePrintPDF(someSelected ? selectedIntentions : filtered)}
                             disabled={generatingPdf || (someSelected ? selected.size === 0 : filtered.length === 0)}
-                            className="flex-1 lg:flex-none flex items-center justify-center gap-2 px-6 h-12 bg-slate-900 text-white font-bold text-sm rounded-xl hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-slate-900/10 active:scale-95"
+                            className="flex min-w-0 items-center justify-center gap-1.5 px-3 sm:px-5 lg:px-6 h-11 sm:h-12 bg-slate-900 text-white font-bold text-xs sm:text-sm rounded-xl hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-slate-900/10 active:scale-95"
                         >
-                            {generatingPdf ? <Loader2 className="w-5 h-5 animate-spin" /> : <Printer className="w-5 h-5" />}
-                            Exportar PDF ({someSelected ? selected.size : filtered.length})
+                            {generatingPdf ? <Loader2 className="w-5 h-5 shrink-0 animate-spin" /> : <Printer className="w-5 h-5 shrink-0" />}
+                            <span className="truncate">Exportar PDF ({someSelected ? selected.size : filtered.length})</span>
                         </button>
                         
                         <button
                             onClick={handleMarkPresented}
                             disabled={markingDone || (someSelected ? selectedPendingCount === 0 : stats.pending === 0)}
-                            className="flex-1 lg:flex-none flex items-center justify-center gap-2 px-6 h-12 bg-green-500 text-white font-bold text-sm rounded-xl hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-green-500/10 active:scale-95"
+                            className="flex min-w-0 items-center justify-center gap-1.5 px-3 sm:px-5 lg:px-6 h-11 sm:h-12 bg-green-500 text-white font-bold text-xs sm:text-sm rounded-xl hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-green-500/10 active:scale-95"
                         >
-                            {markingDone ? <Loader2 className="w-5 h-5 animate-spin" /> : <CheckCircle className="w-5 h-5" />}
-                            Marcar Apresentadas ({someSelected ? selectedPendingCount : stats.pending})
+                            {markingDone ? <Loader2 className="w-5 h-5 shrink-0 animate-spin" /> : <CheckCircle className="w-5 h-5 shrink-0" />}
+                            <span className="truncate">Marcar Apresentadas ({someSelected ? selectedPendingCount : stats.pending})</span>
                         </button>
                     </div>
                 </div>

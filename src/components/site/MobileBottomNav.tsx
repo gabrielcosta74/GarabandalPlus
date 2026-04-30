@@ -32,6 +32,7 @@ export default function MobileBottomNav({
         const isConflictRoute =
             (pathname?.startsWith('/peregrinacoes/') && pathname.split('/').length > 2 && !pathname.includes('/minhas-inscricoes')) ||
             (pathname?.startsWith('/en/pilgrimages/') && pathname.split('/').length > 3 && !pathname.includes('/my-registrations')) ||
+            pathname?.includes('/portal-oracoes') ||
             pathname?.includes('/tornar-membro') ||
             pathname?.includes('/become-member') ||
             pathname?.includes('/donations');
