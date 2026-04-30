@@ -171,7 +171,7 @@ export async function GET(request: Request) {
         continue;
       }
 
-      await sendPilgrimagePaymentReminderEmail({
+      const sent = await sendPilgrimagePaymentReminderEmail({
         toEmail: candidate.email,
         recipientName: candidate.recipientName,
         pilgrimageName: candidate.pilgrimageName,
@@ -182,6 +182,15 @@ export async function GET(request: Request) {
         bookingUrl: candidate.bookingUrl,
         stage: candidate.stage.kind,
       });
+
+      if (!sent) {
+        results.push({
+          bookingId: candidate.bookingId,
+          action: `email_not_sent_${candidate.stage.notificationType}`,
+          success: false,
+        });
+        continue;
+      }
 
       await markNotificationSent(supabaseServer, notification.recordId);
       results.push({ bookingId: candidate.bookingId, action: `notify_${candidate.stage.notificationType}`, success: true });

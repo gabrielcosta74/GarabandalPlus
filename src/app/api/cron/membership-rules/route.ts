@@ -106,22 +106,16 @@ export async function GET(request: Request) {
         }
 
         try {
+            let sent = false;
+
             if (notificationType === 'membership_revoked') {
-                // Send specific revoked email
-                // Assuming sendMembershipRevokedEmail exists, otherwise fallback or create it
-                // For now, if it doesn't exist, I'll comment it out or implement it. 
-                // Implementation plan mentioned "Revocation Notice", so I'll assume I need to ensure it exists.
-                if (typeof sendMembershipRevokedEmail === 'function') {
-                    await sendMembershipRevokedEmail({
-                        email: member.email,
-                        name: member.nome || 'Membro',
-                        payLink: buildMembershipUrl(),
-                    });
-                } else {
-                    console.warn("sendMembershipRevokedEmail not implemented");
-                }
+                sent = await sendMembershipRevokedEmail({
+                    email: member.email,
+                    name: member.nome || 'Membro',
+                    payLink: buildMembershipUrl(),
+                });
             } else {
-                await sendQuotaReminderEmail({
+                sent = await sendQuotaReminderEmail({
                     toEmail: member.email,
                     memberName: member.nome ?? null,
                     memberNumber: member.numero_socio ?? null,
@@ -129,6 +123,11 @@ export async function GET(request: Request) {
                     membershipUrl: buildMembershipUrl(),
                     ...reminderPayload,
                 });
+            }
+
+            if (!sent) {
+                results.push({ userId: member.id, action: `email_not_sent_${notificationType}`, success: false });
+                continue;
             }
 
             await markNotificationSent(supabaseServer, notification.recordId);

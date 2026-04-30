@@ -19,11 +19,42 @@ export async function GET(req: Request) {
   }
 
   try {
+    const requestUrl = new URL(req.url);
+    const dryRun = requestUrl.searchParams.get('dryRun') === '1';
+
     const { data: funnels, error: funnelsError } = await supabaseServer
       .from('marketing_funnels')
       .select('*')
       .eq('status', 'active');
     if (funnelsError) throw funnelsError;
+
+    if (dryRun) {
+      const { data: dueEnrollments, error: enrollmentError, count } = await supabaseServer
+        .from('marketing_enrollments')
+        .select('id,current_step,next_run_at,contact:marketing_contacts(id,language,consent_state),funnel:marketing_funnels(id,name,slug,status)', { count: 'exact' })
+        .eq('status', 'active')
+        .lte('next_run_at', new Date().toISOString())
+        .order('next_run_at', { ascending: true })
+        .limit(25);
+      if (enrollmentError) throw enrollmentError;
+
+      return NextResponse.json({
+        success: true,
+        dryRun: true,
+        activeFunnels: (funnels || []).length,
+        dueEnrollments: count || 0,
+        wouldProcess: (dueEnrollments || []).length,
+        processed: [],
+        candidates: (dueEnrollments || []).map((enrollment: any) => ({
+          enrollment: enrollment.id,
+          currentStep: enrollment.current_step,
+          nextRunAt: enrollment.next_run_at,
+          language: enrollment.contact?.language || null,
+          consentState: enrollment.contact?.consent_state || null,
+          funnel: enrollment.funnel?.slug || enrollment.funnel?.name || null,
+        })),
+      });
+    }
 
     let enrolled = 0;
     for (const funnel of funnels || []) {
@@ -36,6 +67,7 @@ export async function GET(req: Request) {
       .select('*, contact:marketing_contacts(*), funnel:marketing_funnels(*)')
       .eq('status', 'active')
       .lte('next_run_at', new Date().toISOString())
+      .order('next_run_at', { ascending: true })
       .limit(25);
     if (enrollmentError) throw enrollmentError;
 

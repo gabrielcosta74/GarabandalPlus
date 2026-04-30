@@ -42,12 +42,23 @@ create unique index if not exists email_notifications_type_reference_key
 on public.email_notifications(type, reference);
 ```
 
-## Cron de lembretes de quota
-Em Railway, cria um serviço separado para cada tarefa agendada. Para a reconciliação Reduniq, usa:
+## Cron jobs em Railway
+Em Railway, cria um serviço separado para cada tarefa agendada. Todos precisam de `CRON_SECRET` e `CRON_TARGET_URL=https://app.apostoladodegarabandal.com`.
+
+Os horários abaixo estão em UTC, porque Railway avalia cron em UTC. Como a maior parte dos contactos está no Brasil, os envios de email ficam centrados em Brasília/BRT (UTC-3).
+
+Jobs principais:
+
+- Lembretes/regras de quotas: Start Command `npm run cron:membership-rules`, Cron Schedule `0 12 * * *`
+- Lembretes de pagamentos de peregrinações: Start Command `npm run cron:pilgrimage-payment-reminders`, Cron Schedule `30 12 * * *`
+- Recuperação de leads: Start Command `npm run cron:recover-leads`, Cron Schedule `0 12-23 * * *`
+- Automações marketing: Start Command `npm run cron:marketing-automations`, Cron Schedule `*/15 13-21 * * *`
+- Relatórios mensais: Start Command `npm run cron:monthly-reports`, Cron Schedule `0 7 1 * *`
+
+Para a reconciliação Reduniq, usa:
 
 - Start Command: `npm run cron:reduniq-reconcile`
 - Cron Schedule: `*/30 * * * *`
-- Variáveis: `CRON_SECRET` e `CRON_TARGET_URL=https://<dominio-da-app>`
 
 O comando chama `/api/cron/reduniq-reconcile` com `Authorization: Bearer <CRON_SECRET>` e termina, como o Railway Cron espera.
 

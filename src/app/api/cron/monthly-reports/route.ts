@@ -7,13 +7,13 @@ export const dynamic = 'force-dynamic';
 
 const getPreviousMonth = () => {
   const now = new Date();
-  const year = now.getUTCFullYear();
-  const month = now.getUTCMonth(); // previous month index
-  const start = new Date(Date.UTC(year, month, 1));
-  const end = new Date(Date.UTC(year, month + 1, 1));
+  const currentYear = now.getUTCFullYear();
+  const currentMonthIndex = now.getUTCMonth();
+  const start = new Date(Date.UTC(currentYear, currentMonthIndex - 1, 1));
+  const end = new Date(Date.UTC(currentYear, currentMonthIndex, 1));
   return {
-    year,
-    month: month + 1,
+    year: start.getUTCFullYear(),
+    month: start.getUTCMonth() + 1,
     start,
     end,
   };
