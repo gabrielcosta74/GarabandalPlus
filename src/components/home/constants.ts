@@ -9,7 +9,7 @@ export const MEMBER_IMAGE_URL = "/images/associacao.webp"; // Community/Candles
 
 export const NAVIGATION_LINKS = [
     { name: 'Ser Membro', href: '/tornar-membro' }, // Changed to internal route
-    { name: 'Loja Online', href: '/loja-online' }, // Changed to internal route
+    { name: 'Loja Online', href: '/loja' },
     { name: 'Peregrinações', href: '/peregrinacoes' },
     { name: 'Doações', href: '/donations' }, // Changed to internal route
 ];

@@ -39,7 +39,7 @@ export default function FeaturedStore({ products }: { products: FeaturedProduct[
                     </p>
                     <div className="pt-2">
                         <Link
-                            href="/loja-online"
+                            href="/loja"
                             className="inline-flex items-center gap-2 text-yellow-500 hover:text-yellow-400 font-bold uppercase tracking-widest text-sm transition-colors group"
                         >
                             Ver Loja Completa

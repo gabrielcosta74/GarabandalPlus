@@ -10,7 +10,7 @@ import {
   WEBSITE_ID,
 } from '../../lib/seo';
 
-const title = 'Peregrinações Marianas Católicas a Garabandal | Apostolado';
+const title = 'Peregrinações Marianas Católicas';
 const description = 'Peregrinações marianas católicas a Garabandal, Fátima e santuários ibéricos, com programa espiritual, guia do Apostolado e vagas para Brasil e Portugal.';
 const url = `${APP_URL}/peregrinacoes`;
 

@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { APP_URL } from '../../../../lib/config';
 import { buildProductPath } from '../../../../lib/slug';
 import { fetchProductForPage } from '../../../loja/[id]/page';
+import { buildMerchantReturnPolicy, getPriceValidUntil } from '../../../../lib/product-schema';
 
 type Props = {
   params: Promise<{ id: string }>;
@@ -73,14 +74,19 @@ export default async function EnglishStoreProductLayout({ children, params }: Pr
     typeof product.stock === 'number' && product.stock <= 0
       ? 'https://schema.org/OutOfStock'
       : 'https://schema.org/InStock';
+  const isBook = product.type_id?.includes('book');
+  const isDigital = !product.isPhysical;
 
   const productSchema = {
     '@context': 'https://schema.org',
-    '@type': product.type_id?.includes('book') ? ['Product', 'Book'] : 'Product',
+    '@type': 'Product',
+    '@id': `${productUrl}#product`,
+    ...(isBook ? { additionalType: 'https://schema.org/Book' } : {}),
     name: product.name,
     description: product.description || undefined,
     image: product.image ? [getAbsoluteImageUrl(product.image)] : undefined,
     sku: product.sku || product.id,
+    productID: product.id,
     url: productUrl,
     inLanguage: 'en',
     brand: {
@@ -94,6 +100,8 @@ export default async function EnglishStoreProductLayout({ children, params }: Pr
       price: Number(product.price || 0).toFixed(2),
       availability,
       itemCondition: 'https://schema.org/NewCondition',
+      priceValidUntil: getPriceValidUntil(),
+      hasMerchantReturnPolicy: buildMerchantReturnPolicy(isDigital),
     },
   };
 

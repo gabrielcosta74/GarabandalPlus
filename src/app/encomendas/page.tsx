@@ -195,7 +195,7 @@ export default function EncomendasPage() {
           </div>
           <h2 className="font-serif text-2xl font-bold text-garabandal-dark mb-2">{isEn ? 'No recent orders' : 'Sem encomendas recentes'}</h2>
           <p className="text-gray-500 max-w-md mx-auto mb-8">{isEn ? 'You have not made any purchases in our store yet.' : 'Ainda não fizeste nenhuma compra na nossa loja.'}</p>
-          <Link href={isEn ? '/en/store' : '/loja-online'} className="px-6 py-3 bg-garabandal-gold text-garabandal-dark font-bold rounded-xl hover:bg-yellow-400 transition-all shadow-lg hover:shadow-xl inline-flex items-center gap-2">
+          <Link href={isEn ? '/en/store' : '/loja'} className="px-6 py-3 bg-garabandal-gold text-garabandal-dark font-bold rounded-xl hover:bg-yellow-400 transition-all shadow-lg hover:shadow-xl inline-flex items-center gap-2">
             <ShoppingBag className="w-4 h-4" />
             {isEn ? 'Explore Online Store' : 'Explorar Loja Online'}
           </Link>

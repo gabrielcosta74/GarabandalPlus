@@ -2,6 +2,7 @@ import { APP_URL } from '../../lib/config';
 import { type AppLocale } from '../../lib/locale-routing';
 import { buildProductPath } from '../../lib/slug';
 import { fetchStoreProductsForPage } from '../../lib/store-products';
+import { buildMerchantReturnPolicy, getPriceValidUntil } from '../../lib/product-schema';
 import StorePageClient from './StorePageClient';
 
 export const revalidate = 3600;
@@ -34,19 +35,25 @@ export async function StorePageServer({ locale }: StorePageServerProps) {
         position: index + 1,
         url: `${APP_URL}${productPath}`,
         item: {
-          '@type': product.type_id?.includes('book') ? ['Product', 'Book'] : 'Product',
+          '@type': 'Product',
+          ...(product.type_id?.includes('book') ? { additionalType: 'https://schema.org/Book' } : {}),
           name: product.name,
           description: product.description,
           image: getAbsoluteImageUrl(product.image),
+          productID: product.id,
           url: `${APP_URL}${productPath}`,
           offers: {
             '@type': 'Offer',
+            url: `${APP_URL}${productPath}`,
             price: Number(product.price || 0).toFixed(2),
             priceCurrency: product.currency || 'EUR',
             availability:
               product.isPhysical && typeof product.stock === 'number' && product.stock <= 0
                 ? 'https://schema.org/OutOfStock'
                 : 'https://schema.org/InStock',
+            itemCondition: 'https://schema.org/NewCondition',
+            priceValidUntil: getPriceValidUntil(),
+            hasMerchantReturnPolicy: buildMerchantReturnPolicy(!product.isPhysical),
           },
         },
       };

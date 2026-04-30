@@ -15,7 +15,7 @@ const Sustain: React.FC = () => {
     // Locale-aware paths
     const becomeMemberHref = t.urls.becomeMember;
     const memberHref = t.urls.member;
-    const storeHref = isEn ? '/en/store' : '/loja-online';
+    const storeHref = isEn ? '/en/store' : '/loja';
     const donationsHref = t.urls.donations;
 
     return (

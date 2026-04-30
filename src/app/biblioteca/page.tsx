@@ -124,7 +124,7 @@ export default function BibliotecaPage() {
           </div>
           <h2 className="font-serif text-2xl font-bold text-garabandal-dark mb-2">{isEn ? 'Your shelf is empty' : 'A tua estante está vazia'}</h2>
           <p className="text-gray-500 max-w-md mx-auto mb-8">{isEn ? 'When you buy a PDF or digital book in our store, it will appear here automatically.' : 'Quando comprares um PDF ou livro digital na nossa loja, ele aparecerá aqui automaticamente.'}</p>
-          <Link href={isEn ? '/en/store' : '/loja-online'} className="px-6 py-3 bg-garabandal-gold text-garabandal-dark font-bold rounded-xl hover:bg-yellow-400 transition-all shadow-lg hover:shadow-xl inline-flex items-center gap-2">
+          <Link href={isEn ? '/en/store' : '/loja'} className="px-6 py-3 bg-garabandal-gold text-garabandal-dark font-bold rounded-xl hover:bg-yellow-400 transition-all shadow-lg hover:shadow-xl inline-flex items-center gap-2">
             <BookOpen className="w-4 h-4" />
             {isEn ? 'Explore Online Store' : 'Explorar Loja Online'}
           </Link>

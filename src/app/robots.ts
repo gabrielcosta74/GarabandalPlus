@@ -34,7 +34,6 @@ export default function robots(): MetadataRoute.Robots {
           '/encomendas',
           '/peregrinacoes/*/inscrever',
           '/peregrinacoes/inscricao',
-          '/loja-online',
           '/loja-online/checkout',
           '/loja-online/claim',
           '/thank-you'

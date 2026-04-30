@@ -32,7 +32,7 @@ async function fetchSitemapProducts(): Promise<StoreProductSitemapRecord[]> {
 
   const fallback = await supabaseServer
     .from('store_products')
-    .select('product_id, name, name_en, image_url')
+    .select('product_id, name, name_en, image_url, created_at')
     .eq('is_active', true);
 
   return (fallback.data || []) as StoreProductSitemapRecord[];

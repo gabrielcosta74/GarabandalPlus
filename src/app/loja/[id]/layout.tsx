@@ -4,6 +4,7 @@ import { supabaseServer } from '../../../lib/supabase';
 import { buildProductPath } from '../../../lib/slug';
 import { inferIsDigitalProduct } from '../../../lib/product-kind';
 import { getPortugueseProductDescriptionFallback, localizeStoreProductText } from '../../../lib/store-i18n';
+import { buildMerchantReturnPolicy, getPriceValidUntil } from '../../../lib/product-schema';
 
 type Props = {
   params: Promise<{ id: string }>;
@@ -238,9 +239,6 @@ export default async function LojaProdutoLayout({ children, params }: Props) {
 
   const authorSchema = isBook ? getAuthorSchema(meta.author) : null;
 
-  // book_digital → ['Product','Book'], book_physical → ['Product','Book'], other → 'Product'
-  const schemaType = isBook ? ['Product', 'Book'] : 'Product';
-
   // bookFormat for Book schema (capa dura / capa mole / digital)
   const bookFormat = isBook
     ? isDigital
@@ -252,11 +250,15 @@ export default async function LojaProdutoLayout({ children, params }: Props) {
 
   const productSchema: Record<string, unknown> = {
     '@context': 'https://schema.org',
-    '@type': schemaType,
+    '@type': 'Product',
+    '@id': `${productUrl}#product`,
+    ...(isBook ? { additionalType: 'https://schema.org/Book' } : {}),
     name: product.name || 'Produto',
     description: product.description || getPortugueseProductDescriptionFallback(product.name) || undefined,
     image: product.image_url ? [getAbsoluteImageUrl(product.image_url)] : undefined,
     sku: product.sku || undefined,
+    productID: product.product_id || product.sku || undefined,
+    url: productUrl,
     category: product.category || undefined,
     inLanguage: 'pt-BR',
     brand: {
@@ -277,22 +279,18 @@ export default async function LojaProdutoLayout({ children, params }: Props) {
     ...(bookFormat ? { bookFormat } : {}),
     offers: {
       '@type': 'Offer',
-      price: product.price ?? 0,
+      url: productUrl,
+      price: Number(product.price ?? 0).toFixed(2),
       priceCurrency: product.currency || 'EUR',
       availability,
-      url: productUrl,
+      itemCondition: 'https://schema.org/NewCondition',
+      priceValidUntil: getPriceValidUntil(),
+      hasMerchantReturnPolicy: buildMerchantReturnPolicy(isDigital),
       seller: {
         '@type': ['Organization', 'NGO'],
         name: 'Apostolado de Garabandal',
         url: APP_URL,
       },
-      ...(!isDigital ? { shippingDetails: {
-        '@type': 'OfferShippingDetails',
-        shippingDestination: [
-          { '@type': 'DefinedRegion', addressCountry: 'BR' },
-          { '@type': 'DefinedRegion', addressCountry: 'PT' },
-        ],
-      } } : {}),
     },
   };
 

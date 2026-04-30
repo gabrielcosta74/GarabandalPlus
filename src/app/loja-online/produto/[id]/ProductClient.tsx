@@ -12,6 +12,7 @@ import { useCurrency } from "../../../../components/providers/CurrencyProvider";
 import { listCountryOptions } from "../../../../lib/country-utils";
 import { inferIsDigitalProduct } from "../../../../lib/product-kind";
 import { useLocale } from "../../../../contexts/LocaleContext";
+import { buildProductPath } from "../../../../lib/slug";
 
 const getVatRate = (product: Product) => (product.isPhysical ? 0.06 : 0.23);
 
@@ -66,7 +67,7 @@ export default function ProductClient({ product, relatedProducts }: ProductClien
                     <p className="text-gray-500 mb-8">
                         {isEn ? 'The product you are looking for is not available.' : 'O produto que procuras não está disponível.'}
                     </p>
-                    <Link className="inline-flex items-center gap-2 text-garabandal-gold font-bold hover:underline" href={isEn ? '/en/store' : '/loja-online'}>
+                    <Link className="inline-flex items-center gap-2 text-garabandal-gold font-bold hover:underline" href={isEn ? '/en/store' : '/loja'}>
                         <ArrowLeft size={16} />
                         {isEn ? 'Back to store' : 'Voltar à loja'}
                     </Link>
@@ -99,7 +100,7 @@ export default function ProductClient({ product, relatedProducts }: ProductClien
     return (
         <StoreLayoutWrapper>
             <div className="container mx-auto px-6 py-8 md:py-12 max-w-7xl">
-                <Link href={isEn ? '/en/store' : '/loja-online'} className="inline-flex items-center text-gray-400 hover:text-garabandal-gold transition-colors mb-8 text-xs font-bold uppercase tracking-widest">
+                <Link href={isEn ? '/en/store' : '/loja'} className="inline-flex items-center text-gray-400 hover:text-garabandal-gold transition-colors mb-8 text-xs font-bold uppercase tracking-widest">
                     <ArrowLeft size={14} className="mr-2" />
                     {isEn ? 'Back to store' : 'Voltar à loja'}
                 </Link>
@@ -294,7 +295,7 @@ export default function ProductClient({ product, relatedProducts }: ProductClien
                     <section>
                         <div className="flex items-end justify-between mb-10 border-b border-gray-100 pb-6">
                             <h2 className="font-serif text-3xl text-garabandal-dark">{isEn ? 'You might also like' : 'Também pode gostar'}</h2>
-                            <Link href={isEn ? '/en/store' : '/loja-online'} className="text-xs font-bold uppercase tracking-widest text-gray-400 hover:text-garabandal-gold transition-colors">{isEn ? 'View all' : 'Ver todos'}</Link>
+                            <Link href={isEn ? '/en/store' : '/loja'} className="text-xs font-bold uppercase tracking-widest text-gray-400 hover:text-garabandal-gold transition-colors">{isEn ? 'View all' : 'Ver todos'}</Link>
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-8">
@@ -302,7 +303,7 @@ export default function ProductClient({ product, relatedProducts }: ProductClien
                                 <ProductCard
                                     key={item.id}
                                     product={item}
-                                    onClick={() => router.push(`/loja-online/produto/${item.id}`)}
+                                    onClick={() => router.push(buildProductPath(item.id, item.name, isEn ? 'en' : 'pt'))}
                                     onAddToCart={(e) => {
                                         e.stopPropagation();
                                         addToCart(item.id);

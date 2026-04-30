@@ -4,8 +4,12 @@
  */
 
 // Primary application URL (for magic links, redirects, etc.)
+const normalizeUrl = (value?: string | null) => value?.replace(/\/+$/, '');
+
 export const APP_URL =
-    process.env.NEXT_PUBLIC_APP_URL ||
+    normalizeUrl(process.env.APP_URL) ||
+    normalizeUrl(process.env.NEXT_PUBLIC_APP_URL) ||
+    normalizeUrl(process.env.NEXT_PUBLIC_SITE_URL) ||
     (process.env.NODE_ENV === 'production'
         ? 'https://app.apostoladodegarabandal.com'
         : process.env.VERCEL_URL
@@ -16,5 +20,5 @@ export const APP_URL =
 export const ASSETS_URL = process.env.NEXT_PUBLIC_ASSETS_URL || 'https://apostoladodegarabandal.com';
 
 // Helper to ensure no trailing slash
-export const getAppUrl = () => APP_URL.replace(/\/$/, '');
+export const getAppUrl = () => APP_URL;
 export const getAssetsUrl = () => ASSETS_URL.replace(/\/$/, '');

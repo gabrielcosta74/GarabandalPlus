@@ -5,7 +5,7 @@ export const pt = {
     home: '/',
     pilgrimages: '/peregrinacoes',
     donations: '/donations',
-    store: '/loja-online',
+    store: '/loja',
     checkout: '/loja-online/checkout',
     myRegistrations: '/peregrinacoes/minhas-inscricoes',
     becomeMember: '/tornar-membro',
