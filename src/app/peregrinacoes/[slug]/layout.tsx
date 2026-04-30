@@ -1,6 +1,14 @@
 import type { Metadata } from 'next';
 import { APP_URL } from '../../../lib/config';
 import { supabaseServer } from '../../../lib/supabase';
+import {
+  BRAND_NAME,
+  DEFAULT_OG_IMAGE,
+  getPilgrimageSeoImages,
+  ORGANIZATION_ID,
+  truncateMetaDescription,
+  WEBSITE_ID,
+} from '../../../lib/seo';
 
 type Props = {
   params: Promise<{ slug: string }>;
@@ -16,7 +24,7 @@ const fetchPilgrimage = async (slug: string) => {
   if (!supabaseServer) return null;
   const { data } = await supabaseServer
     .from('pilgrimages')
-    .select('title, description, cover_image, start_date, end_date, base_price')
+    .select('title, description, cover_image, start_date, end_date, base_price, status, registration_deadline, meeting_point_text, meeting_end_text, itinerary_summary')
     .eq('slug', slug)
     .maybeSingle();
   return data || null;
@@ -25,8 +33,8 @@ const fetchPilgrimage = async (slug: string) => {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const url = `${APP_URL}/peregrinacoes/${slug}`;
-  const fallbackTitle = `Peregrinação ${slugToTitle(slug)} | Garabandal +`;
-  const fallbackDescription = 'Peregrinação mariana organizada pelo Apostolado de Garabandal. Junte-se a nós nesta viagem espiritual.';
+  const fallbackTitle = `Peregrinação Mariana Católica ${slugToTitle(slug)} | Garabandal`;
+  const fallbackDescription = 'Peregrinação mariana católica organizada pelo Apostolado de Garabandal, com programa espiritual, acompanhamento e inscrição online.';
 
   if (!supabaseServer) {
     return {
@@ -39,32 +47,48 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   try {
     const data = await fetchPilgrimage(slug);
 
-    const title = data?.title ? `${data.title} | Apostolado de Garabandal` : fallbackTitle;
-    const description = data?.description
-      ? `${data.description.slice(0, 155)}…`
-      : fallbackDescription;
+    const title = data?.title
+      ? `${data.title} | Peregrinação Mariana Católica`
+      : fallbackTitle;
+    const description = truncateMetaDescription(
+      data?.description,
+      fallbackDescription,
+      158,
+    );
 
-    const ogImages = data?.cover_image
-      ? [{ url: data.cover_image, width: 1200, height: 630, alt: data.title || 'Peregrinação Mariana' }]
-      : [{ url: `${APP_URL}/opengraph-image`, width: 1200, height: 630, alt: title }];
+    const seoImages = getPilgrimageSeoImages(data?.cover_image);
+    const ogImages = seoImages.slice(0, 3).map((imageUrl) => ({
+      url: imageUrl,
+      width: 1200,
+      height: 630,
+      alt: data?.title
+        ? `${data.title} - peregrinação mariana católica`
+        : 'Peregrinação mariana católica a Garabandal',
+    }));
 
     return {
       title,
       description,
       keywords: [
         data?.title || 'peregrinação mariana',
+        'peregrinação mariana católica',
+        'peregrinações marianas católicas',
         'peregrinação Garabandal',
         'peregrinação mariana Brasil',
+        'peregrinação mariana Portugal',
+        'peregrinação ibérica católica',
         'peregrinação católica organizada',
         'Apostolado de Garabandal',
         'Nossa Senhora de Garabandal',
         'tour espiritual católico',
+        'santuários católicos Portugal Espanha',
       ],
       alternates: {
         canonical: url,
         languages: {
           'pt-BR': url,
           'pt-PT': url,
+          'en': `${APP_URL}/en/pilgrimages/${slug}`,
         },
       },
       openGraph: {
@@ -73,7 +97,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
         description,
         type: 'website',
         locale: 'pt_BR',
-        siteName: 'Garabandal +',
+        siteName: BRAND_NAME,
         images: ogImages,
       },
       twitter: {
@@ -87,7 +111,21 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     return {
       title: fallbackTitle,
       description: fallbackDescription,
-      alternates: { canonical: url },
+      alternates: {
+        canonical: url,
+        languages: {
+          'pt-BR': url,
+          'pt-PT': url,
+          'en': `${APP_URL}/en/pilgrimages/${slug}`,
+        },
+      },
+      openGraph: {
+        url,
+        title: fallbackTitle,
+        description: fallbackDescription,
+        siteName: BRAND_NAME,
+        images: [{ url: DEFAULT_OG_IMAGE, width: 1200, height: 630, alt: fallbackTitle }],
+      },
     };
   }
 }
@@ -100,19 +138,31 @@ export default async function PeregrinacaoLayout({ children, params }: Props) {
     return children;
   }
 
+  const pageUrl = `${APP_URL}/peregrinacoes/${slug}`;
+  const images = getPilgrimageSeoImages(pilgrimage.cover_image);
+  const availability = pilgrimage.status === 'waitlist'
+    ? 'https://schema.org/LimitedAvailability'
+    : pilgrimage.status === 'closed'
+      ? 'https://schema.org/SoldOut'
+      : 'https://schema.org/InStock';
+
   const eventSchema = {
     '@context': 'https://schema.org',
-    '@type': ['Event', 'TouristTrip'],
+    '@type': 'Event',
+    '@id': `${pageUrl}#event`,
     name: pilgrimage.title || 'Peregrinação Mariana',
-    description: pilgrimage.description || 'Peregrinação mariana organizada pelo Apostolado de Garabandal.',
+    alternateName: pilgrimage.title
+      ? `${pilgrimage.title} - Peregrinação Mariana Católica`
+      : 'Peregrinação Mariana Católica a Garabandal',
+    description: pilgrimage.description || 'Peregrinação mariana católica organizada pelo Apostolado de Garabandal.',
+    url: pageUrl,
     startDate: pilgrimage.start_date || undefined,
     endDate: pilgrimage.end_date || undefined,
     eventAttendanceMode: 'https://schema.org/OfflineEventAttendanceMode',
     eventStatus: 'https://schema.org/EventScheduled',
     inLanguage: 'pt-BR',
-    image: pilgrimage.cover_image
-      ? [pilgrimage.cover_image]
-      : [`${APP_URL}/opengraph-image`],
+    image: images,
+    isPartOf: { '@id': WEBSITE_ID },
     location: {
       '@type': 'Place',
       name: 'San Sebastián de Garabandal',
@@ -124,25 +174,48 @@ export default async function PeregrinacaoLayout({ children, params }: Props) {
       },
     },
     organizer: {
-      '@type': 'Organization',
-      name: 'Apostolado de Garabandal',
-      url: APP_URL,
+      '@id': ORGANIZATION_ID,
+    },
+    performer: {
+      '@id': ORGANIZATION_ID,
     },
     audience: {
       '@type': 'Audience',
-      audienceType: 'Católicos devotos de Nossa Senhora de Garabandal',
+      audienceType: 'Peregrinos católicos e devotos de Nossa Senhora de Garabandal',
     },
-    keywords: 'peregrinação mariana, Garabandal, Nossa Senhora, apostolado, Brasil, Portugal',
+    keywords: 'peregrinação mariana católica, Garabandal, Nossa Senhora, Fátima, apostolado, Brasil, Portugal',
+    about: [
+      'Nossa Senhora de Garabandal',
+      'Peregrinações marianas católicas',
+      'Santuários católicos ibéricos',
+      'Vida espiritual católica',
+    ],
     offers: pilgrimage.base_price
       ? {
         '@type': 'Offer',
         price: pilgrimage.base_price,
         priceCurrency: 'EUR',
-        url: `${APP_URL}/peregrinacoes/${slug}`,
-        availability: 'https://schema.org/InStock',
-        validFrom: new Date().toISOString(),
+        url: pageUrl,
+        availability,
+        seller: { '@id': ORGANIZATION_ID },
+        validThrough: pilgrimage.registration_deadline || undefined,
       }
       : undefined,
+  };
+
+  const tripSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'TouristTrip',
+    '@id': `${pageUrl}#trip`,
+    name: pilgrimage.title || 'Peregrinação Mariana Católica',
+    description: pilgrimage.description || 'Viagem espiritual mariana organizada pelo Apostolado de Garabandal.',
+    image: images,
+    url: pageUrl,
+    provider: { '@id': ORGANIZATION_ID },
+    touristType: 'Peregrinos católicos',
+    itinerary: pilgrimage.itinerary_summary || undefined,
+    departureTime: pilgrimage.start_date || undefined,
+    arrivalTime: pilgrimage.end_date || undefined,
   };
 
   const breadcrumbSchema = {
@@ -165,7 +238,7 @@ export default async function PeregrinacaoLayout({ children, params }: Props) {
         '@type': 'ListItem',
         position: 3,
         name: pilgrimage.title || 'Peregrinação',
-        item: `${APP_URL}/peregrinacoes/${slug}`,
+        item: pageUrl,
       },
     ],
   };
@@ -176,6 +249,11 @@ export default async function PeregrinacaoLayout({ children, params }: Props) {
         type="application/ld+json"
         // eslint-disable-next-line react/no-danger
         dangerouslySetInnerHTML={{ __html: JSON.stringify(eventSchema) }}
+      />
+      <script
+        type="application/ld+json"
+        // eslint-disable-next-line react/no-danger
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(tripSchema) }}
       />
       <script
         type="application/ld+json"

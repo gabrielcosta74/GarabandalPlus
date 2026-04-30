@@ -391,6 +391,28 @@ export default function PilgrimageDetailPage() {
                                 </div>
                                 <h2 className="text-2xl md:text-3xl font-serif font-bold text-slate-900 mb-4">{isEn ? 'About this pilgrimage' : 'Sobre esta peregrinação'}</h2>
                                 <p className="text-slate-700 text-base md:text-lg leading-8 whitespace-pre-line">{pilgrimageDescription}</p>
+                                <div className="mt-8 border-t border-slate-100 pt-6">
+                                    <h3 className="font-serif text-xl font-bold text-slate-950">
+                                        {isEn ? 'A Catholic Marian pilgrimage with spiritual guidance' : 'Uma peregrinação mariana católica com acompanhamento espiritual'}
+                                    </h3>
+                                    <p className="mt-3 text-base leading-7 text-slate-600">
+                                        {isEn
+                                            ? 'This programme is prepared for pilgrims who want to live Garabandal, Fatima and the Catholic shrines of the Iberian route with prayer, community and clear organisation before registration.'
+                                            : 'Este programa é preparado para peregrinos que desejam viver Garabandal, Fátima e os santuários católicos do percurso ibérico com oração, comunidade e organização clara antes da inscrição.'}
+                                    </p>
+                                    <div className="mt-5 grid gap-3 sm:grid-cols-3">
+                                        {[
+                                            isEn ? 'Marian devotion' : 'Devoção mariana',
+                                            isEn ? 'Catholic itinerary' : 'Roteiro católico',
+                                            isEn ? 'Organised registration' : 'Inscrição organizada',
+                                        ].map((item) => (
+                                            <div key={item} className="flex items-center gap-2 rounded-2xl bg-slate-50 px-4 py-3 text-sm font-bold text-slate-700">
+                                                <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                                                {item}
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
                             </div>
 
                             {/* Equipa da Peregrinação */}

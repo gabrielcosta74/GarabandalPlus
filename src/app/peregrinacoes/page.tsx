@@ -234,6 +234,44 @@ export default function PilgrimagesPage() {
                         </div>
                     </div>
 
+                    <section className="mb-14 md:mb-16 px-2">
+                        <div className="max-w-3xl">
+                            <p className="text-xs font-black uppercase tracking-widest text-yellow-700">
+                                {locale === 'en' ? 'Catholic Marian pilgrimages' : 'Peregrinações marianas católicas'}
+                            </p>
+                            <h2 className="mt-3 font-serif text-3xl font-bold leading-tight text-slate-950 md:text-4xl">
+                                {locale === 'en'
+                                    ? 'Pilgrimages to Garabandal, Fatima and Iberian Catholic shrines'
+                                    : 'Peregrinações a Garabandal, Fátima e santuários católicos ibéricos'}
+                            </h2>
+                            <p className="mt-5 text-base leading-8 text-slate-600 md:text-lg">
+                                {locale === 'en'
+                                    ? 'The Apostolate of Garabandal organises Catholic Marian pilgrimages for pilgrims from Portugal, Brazil and the Portuguese-speaking world, combining prayer, Mass, spiritual guidance, community and clear travel logistics.'
+                                    : 'O Apostolado de Garabandal organiza peregrinações marianas católicas para peregrinos de Portugal, do Brasil e do mundo lusófono, unindo oração, Santa Missa, acompanhamento espiritual, vida em comunidade e logística clara de viagem.'}
+                            </p>
+                        </div>
+                        <div className="mt-8 grid gap-4 md:grid-cols-3">
+                            {[
+                                {
+                                    title: locale === 'en' ? 'Spiritual programme' : 'Programa espiritual',
+                                    text: locale === 'en' ? 'Prayer, Mass and Marian devotion throughout the journey.' : 'Oração, Santa Missa e devoção mariana ao longo de toda a viagem.',
+                                },
+                                {
+                                    title: locale === 'en' ? 'Organised logistics' : 'Logística organizada',
+                                    text: locale === 'en' ? 'Dates, meeting points, accommodation and registration in one place.' : 'Datas, pontos de encontro, alojamento e inscrição reunidos num só lugar.',
+                                },
+                                {
+                                    title: locale === 'en' ? 'Garabandal mission' : 'Missão Garabandal',
+                                    text: locale === 'en' ? 'A journey connected to the mission of spreading Our Lady of Garabandal.' : 'Uma viagem ligada à missão de divulgar Nossa Senhora de Garabandal.',
+                                },
+                            ].map((item) => (
+                                <div key={item.title} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                                    <h3 className="font-bold text-slate-950">{item.title}</h3>
+                                    <p className="mt-2 text-sm leading-6 text-slate-600">{item.text}</p>
+                                </div>
+                            ))}
+                        </div>
+                    </section>
 
                     {/* Listings Header */}
                     <div className="flex items-end justify-between mb-8 px-2">

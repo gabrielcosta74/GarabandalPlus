@@ -133,10 +133,10 @@ export function PilgrimageHero({ featuredPilgrimage }: { featuredPilgrimage?: Fe
                             {isEn ? 'Supporting the Construction' : 'Apoio à Construção'}
                         </div>
                         <h1 className="font-serif text-4xl sm:text-5xl md:text-7xl font-bold leading-[0.98] mb-5 md:mb-8 lg:tracking-tight">
-                            {isEn ? <>Where Heaven <br /><span className="text-transparent bg-clip-text bg-gradient-to-r from-yellow-200 to-amber-500">Touches Earth</span></> : <>Onde o Céu <br /><span className="text-transparent bg-clip-text bg-gradient-to-r from-yellow-200 to-amber-500">Toca a Terra</span></>}
+                            {isEn ? <>Catholic Marian <br /><span className="text-transparent bg-clip-text bg-gradient-to-r from-yellow-200 to-amber-500">Pilgrimages</span></> : <>Peregrinações Marianas <br /><span className="text-transparent bg-clip-text bg-gradient-to-r from-yellow-200 to-amber-500">Católicas</span></>}
                         </h1>
                         <p className="text-base sm:text-lg md:text-xl text-slate-100 leading-relaxed font-medium border-l-0 lg:border-l-2 border-yellow-400/60 pl-0 lg:pl-6 text-center lg:text-left mx-auto lg:mx-0 max-w-lg drop-shadow">
-                            {isEn ? <>Every step of this journey helps raise the <strong className="text-white font-serif">House of the Apostolate</strong>. Pilgrimaging with us means living the faith and building the future of the mission.</> : <>Cada passo seu nesta jornada ajuda a erguer a <strong className="text-white font-serif">Casa do Apostolado</strong>. Peregrinar connosco é viver a fé e construir o futuro da missão.</>}
+                            {isEn ? <>Organised spiritual journeys to Garabandal, Fatima and Iberian Catholic shrines with the <strong className="text-white font-serif">Apostolate of Garabandal</strong>. Every step helps build the future of the mission.</> : <>Viagens espirituais organizadas a Garabandal, Fátima e santuários católicos ibéricos com o <strong className="text-white font-serif">Apostolado de Garabandal</strong>. Cada passo ajuda a construir o futuro da missão.</>}
                         </p>
                     </motion.div>
 

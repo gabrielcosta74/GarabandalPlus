@@ -2,6 +2,7 @@ import type { MetadataRoute } from 'next';
 import { APP_URL } from '../lib/config';
 import { supabaseServer } from '../lib/supabase';
 import { buildProductPath } from '../lib/slug';
+import { getPilgrimageSeoImages } from '../lib/seo';
 import { localizeStoreProductText } from '../lib/store-i18n';
 import { type StoreProductSitemapRecord } from '../lib/store-products';
 
@@ -204,7 +205,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
     let pilgrimagesQuery = supabaseServer
       .from('pilgrimages')
-      .select('slug, status')
+      .select('slug, status, cover_image, updated_at, created_at')
       .order('start_date', { ascending: true });
 
     if (statusFilter.length > 0) {
@@ -215,11 +216,21 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
     (pilgrimages || []).forEach((pilgrimage: any) => {
       if (pilgrimage?.slug) {
+        const ptUrl = `${APP_URL}/peregrinacoes/${pilgrimage.slug}`;
+        const enUrl = `${APP_URL}/en/pilgrimages/${pilgrimage.slug}`;
         dynamicRoutes.push({
-          url: `${APP_URL}/peregrinacoes/${pilgrimage.slug}`,
-          lastModified: now,
+          url: ptUrl,
+          lastModified: getSitemapDate(pilgrimage.updated_at || pilgrimage.created_at, now),
           changeFrequency: 'weekly',
           priority: 0.9,
+          images: getPilgrimageSeoImages(pilgrimage.cover_image),
+          alternates: {
+            languages: {
+              'pt-BR': ptUrl,
+              'pt-PT': ptUrl,
+              en: enUrl,
+            },
+          },
         });
       }
     });
