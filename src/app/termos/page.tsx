@@ -8,6 +8,11 @@ export const metadata: Metadata = {
     'Termos e Condições de utilização do website e web app do Apostolado de Garabandal.',
   alternates: {
     canonical: `${APP_URL}/termos`,
+    languages: {
+      'pt-BR': `${APP_URL}/termos`,
+      'pt-PT': `${APP_URL}/termos`,
+      en: `${APP_URL}/en/terms`,
+    },
   },
   openGraph: {
     url: `${APP_URL}/termos`,

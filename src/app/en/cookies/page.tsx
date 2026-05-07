@@ -9,6 +9,16 @@ export const metadata: Metadata = {
     'Cookie Policy of the Garabandal Apostolate covering cookies, local storage and similar technologies.',
   alternates: {
     canonical: `${APP_URL}/en/cookies`,
+    languages: {
+      en: `${APP_URL}/en/cookies`,
+      'pt-BR': `${APP_URL}/cookies`,
+      'pt-PT': `${APP_URL}/cookies`,
+    },
+  },
+  openGraph: {
+    url: `${APP_URL}/en/cookies`,
+    title: 'Cookie Policy | Garabandal Apostolate',
+    description: 'Cookie Policy of the Garabandal Apostolate.',
   },
 };
 

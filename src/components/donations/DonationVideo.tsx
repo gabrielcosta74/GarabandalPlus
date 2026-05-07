@@ -8,13 +8,17 @@ export default function DonationVideo() {
     const videoRef = useRef<HTMLVideoElement>(null);
     const [isPlaying, setIsPlaying] = useState(false);
     const [isMuted, setIsMuted] = useState(false);
+    const [hasInteracted, setHasInteracted] = useState(false);
 
-    // Placeholder for now - User needs to upload the real 157MB file to Supabase
-    // We use a portrait placeholder video or just the poster until then
     const videoSrc = "https://pntzzuxzjnzksubbjfvj.supabase.co/storage/v1/object/public/site-content/Obra%20Urgente%20em%20Garabandal_%20Ajude-nos%20a%20Construir!-2-2-2.mp4";
-    const posterSrc = "/video_poster_portrait.png"; // We will need to move the generated image here
+    const posterSrc = "/video_poster_portrait.png";
 
     const togglePlay = () => {
+        // Lazy-load src only on first interaction to save 47MB of egress on page loads
+        // where the user never clicks play.
+        if (!hasInteracted) {
+            setHasInteracted(true);
+        }
         if (!videoRef.current) return;
 
         if (isPlaying) {
@@ -56,11 +60,12 @@ export default function DonationVideo() {
                         >
                             <video
                                 ref={videoRef}
-                                src={videoSrc}
+                                src={hasInteracted ? videoSrc : undefined}
+                                poster={posterSrc}
+                                preload="none"
                                 className="w-full h-full object-cover"
                                 loop
                                 playsInline
-                                // poster={posterSrc} // Uncomment when image is moved
                                 onClick={(e) => {
                                     if (isPlaying) {
                                         e.stopPropagation();

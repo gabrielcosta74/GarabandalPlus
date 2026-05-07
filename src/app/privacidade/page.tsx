@@ -8,6 +8,11 @@ export const metadata: Metadata = {
     'Política de Privacidade do Apostolado de Garabandal para utilização da plataforma, peregrinações, doações e loja online.',
   alternates: {
     canonical: `${APP_URL}/privacidade`,
+    languages: {
+      'pt-BR': `${APP_URL}/privacidade`,
+      'pt-PT': `${APP_URL}/privacidade`,
+      en: `${APP_URL}/en/privacy`,
+    },
   },
   openGraph: {
     url: `${APP_URL}/privacidade`,

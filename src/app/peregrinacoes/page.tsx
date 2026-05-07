@@ -66,10 +66,10 @@ export default function PilgrimagesPage() {
 
                 if (error) {
                     console.error("❌ [Peregrinacoes] Fetch error:", error);
-                    // Fallback to direct table access
+                    // Fallback to direct table access — only the columns the page renders.
                     const { data: fallbackData } = await supabaseBrowser
                         .from('pilgrimages')
-                        .select('*')
+                        .select('id,title,slug,description,cover_image,start_date,end_date,base_price,total_vacancies,current_vacancies,confirmed_pax,effective_vacancies,status,meeting_point_text,meeting_end_text,flight_info_text,payment_plan_text,cancellation_policy_text,not_included_items')
                         .order('start_date', { ascending: true });
                     if (fallbackData && mounted) setPilgrimages(fallbackData as Pilgrimage[]);
                 } else {

@@ -4,15 +4,16 @@ import { APP_URL } from '../../lib/config';
 import { MEMBERSHIP_FAQS } from '../../components/membership/faq-content';
 
 export const metadata: Metadata = {
-  title: 'Torne-se Sócio do Apostolado de Garabandal',
-  description: 'Faça parte do Apostolado de Garabandal. Como sócio, apoia a missão mariana, recebe conteúdos exclusivos, acesso a peregrinações e o diploma de membro.',
+  title: 'Torne-se Membro do Apostolado de Garabandal',
+  description: 'Faça parte do Apostolado de Garabandal. Como membro, apoia a missão mariana, recebe conteúdos exclusivos, acesso a peregrinações e o diploma de membro.',
   keywords: [
-    'sócio apostolado Garabandal',
-    'associar apostolado católico Brasil',
+    'membro apostolado Garabandal',
+    'tornar-se membro apostolado católico',
     'membro associação mariana',
     'associação católica sem fins lucrativos',
     'apoiar apostolado Nossa Senhora',
     'quota membro apostolado Garabandal',
+    'membro apostolado Brasil Portugal',
   ],
   alternates: {
     canonical: `${APP_URL}/tornar-membro`,
@@ -24,12 +25,12 @@ export const metadata: Metadata = {
   },
   openGraph: {
     url: `${APP_URL}/tornar-membro`,
-    title: 'Torne-se Sócio do Apostolado de Garabandal',
-    description: 'Junte-se à missão mariana. Apoie peregrinações, evangelização e receba conteúdos exclusivos como sócio do Apostolado.',
+    title: 'Torne-se Membro do Apostolado de Garabandal',
+    description: 'Junte-se à missão mariana. Apoie peregrinações, evangelização e receba conteúdos exclusivos como membro do Apostolado.',
     type: 'website',
     locale: 'pt_BR',
     siteName: 'Garabandal +',
-    images: [{ url: `${APP_URL}/opengraph-image`, width: 1200, height: 630, alt: 'Torne-se Sócio — Apostolado de Garabandal' }],
+    images: [{ url: `${APP_URL}/opengraph-image`, width: 1200, height: 630, alt: 'Torne-se Membro — Apostolado de Garabandal' }],
   },
 };
 

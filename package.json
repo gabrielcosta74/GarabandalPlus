@@ -8,7 +8,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start",
+    "start": "node --max-old-space-size=384 node_modules/next/dist/bin/next start",
     "cron:membership-rules": "CRON_PATH=/api/cron/membership-rules CRON_JOB_NAME=membership-rules node scripts/railway-cron.mjs",
     "cron:pilgrimage-payment-reminders": "CRON_PATH=/api/cron/pilgrimage-payment-reminders CRON_JOB_NAME=pilgrimage-payment-reminders node scripts/railway-cron.mjs",
     "cron:recover-leads": "CRON_PATH=/api/cron/recover-leads CRON_JOB_NAME=recover-leads node scripts/railway-cron.mjs",

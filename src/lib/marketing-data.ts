@@ -475,97 +475,133 @@ export const filterMarketingContacts = (
   });
 };
 
+const BATCH_SIZE_CONTACTS = 100;
+const BATCH_SIZE_LINKS = 200;
+const BATCH_SIZE_EVENTS = 200;
+
+
 export async function persistMarketingContacts(supabase: SupabaseLike, contacts: MarketingContact[]) {
   let persistedContacts = 0;
   let persistedLinks = 0;
   let persistedEvents = 0;
   let createdTasks = 0;
 
-  for (const contact of contacts) {
-    if (!contact.normalized_email) continue;
+  const now = new Date().toISOString();
+
+  // 1. Batch-upsert all contacts and collect their DB ids
+  const eligible = contacts.filter((c) => !!c.normalized_email);
+  const emailToId = new Map<string, string>();
+
+  for (let i = 0; i < eligible.length; i += BATCH_SIZE_CONTACTS) {
+    const chunk = eligible.slice(i, i + BATCH_SIZE_CONTACTS);
+    const rows = chunk.map((contact) => ({
+      normalized_email: contact.normalized_email,
+      normalized_phone: contact.normalized_phone,
+      display_name: contact.display_name,
+      country: contact.country,
+      language: contact.language,
+      consent_state: contact.consent_state,
+      source_summary: contact.source_summary,
+      latest_activity_at: contact.latest_activity_at,
+      lead_score: contact.lead_score,
+      lifecycle_stage: contact.lifecycle_stage,
+      recommendation: contact.recommendation,
+      updated_at: now,
+    }));
 
     const { data: upserted, error: upsertError } = await supabase
       .from('marketing_contacts')
-      .upsert(
-        {
-          normalized_email: contact.normalized_email,
-          normalized_phone: contact.normalized_phone,
-          display_name: contact.display_name,
-          country: contact.country,
-          language: contact.language,
-          consent_state: contact.consent_state,
-          source_summary: contact.source_summary,
-          latest_activity_at: contact.latest_activity_at,
-          lead_score: contact.lead_score,
-          lifecycle_stage: contact.lifecycle_stage,
-          recommendation: contact.recommendation,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: 'normalized_email' },
-      )
-      .select('id')
-      .single();
+      .upsert(rows, { onConflict: 'normalized_email' })
+      .select('id,normalized_email');
 
-    if (upsertError || !upserted?.id) {
-      console.warn('[Marketing] Contact upsert failed:', upsertError?.message || upsertError);
+    if (upsertError || !upserted) {
+      console.warn('[Marketing] Contact batch upsert failed:', upsertError?.message || upsertError);
       continue;
     }
 
-    persistedContacts += 1;
-    const contactId = upserted.id;
+    for (const row of upserted) {
+      if (row.id && row.normalized_email) emailToId.set(row.normalized_email, row.id);
+    }
+    persistedContacts += upserted.length;
+  }
+
+  // 2. Batch-upsert links and events for all contacts that got an id
+  const allLinkRows: object[] = [];
+  const allEventRows: object[] = [];
+  const hotLeadContacts: { contactId: string; contact: MarketingContact }[] = [];
+
+  for (const contact of eligible) {
+    const contactId = contact.normalized_email ? emailToId.get(contact.normalized_email) : undefined;
+    if (!contactId) continue;
 
     for (const link of contact.links) {
-      const { error } = await supabase.from('marketing_contact_links').upsert(
-        {
-          contact_id: contactId,
-          source_table: link.source_table,
-          source_id: link.source_id,
-          source_label: link.source_label || null,
-          metadata: link.metadata || {},
-        },
-        { onConflict: 'contact_id,source_table,source_id' },
-      );
-      if (!error) persistedLinks += 1;
+      allLinkRows.push({
+        contact_id: contactId,
+        source_table: link.source_table,
+        source_id: link.source_id,
+        source_label: link.source_label || null,
+        metadata: link.metadata || {},
+      });
     }
 
     for (const event of contact.events.slice(0, 50)) {
-      const { error } = await supabase.from('marketing_events').upsert(
-        {
-          contact_id: contactId,
-          event_type: event.event_type,
-          source_table: event.source_table,
-          source_id: event.source_id,
-          title: event.title,
-          occurred_at: event.occurred_at,
-          metadata: event.metadata || {},
-        },
-        { onConflict: 'contact_id,event_type,source_table,source_id' },
-      );
-      if (!error) persistedEvents += 1;
+      allEventRows.push({
+        contact_id: contactId,
+        event_type: event.event_type,
+        source_table: event.source_table,
+        source_id: event.source_id,
+        title: event.title,
+        occurred_at: event.occurred_at,
+        metadata: event.metadata || {},
+      });
     }
 
     if (contact.segments.includes('hot-pilgrimage-leads')) {
-      const { data: existing } = await supabase
-        .from('marketing_tasks')
-        .select('id')
-        .eq('contact_id', contactId)
-        .eq('source', 'hot-pilgrimage-leads')
-        .in('status', ['open', 'in_progress'])
-        .limit(1)
-        .maybeSingle();
+      hotLeadContacts.push({ contactId, contact });
+    }
+  }
 
-      if (!existing?.id) {
-        const { error } = await supabase.from('marketing_tasks').insert({
-          contact_id: contactId,
-          title: `Follow up with ${contact.display_name}`,
-          description: contact.recommendation,
-          task_type: 'follow_up',
-          priority: contact.lead_score >= 90 ? 'high' : 'medium',
-          source: 'hot-pilgrimage-leads',
-          metadata: { score: contact.lead_score, email: contact.normalized_email },
-        });
-        if (!error) createdTasks += 1;
-      }
+  // Batch the links and events
+  for (let i = 0; i < allLinkRows.length; i += BATCH_SIZE_LINKS) {
+    const chunk = allLinkRows.slice(i, i + BATCH_SIZE_LINKS);
+    const { error } = await supabase
+      .from('marketing_contact_links')
+      .upsert(chunk, { onConflict: 'contact_id,source_table,source_id' });
+    if (!error) persistedLinks += chunk.length;
+    else console.warn('[Marketing] Link batch upsert failed:', error.message || error);
+  }
+
+  for (let i = 0; i < allEventRows.length; i += BATCH_SIZE_EVENTS) {
+    const chunk = allEventRows.slice(i, i + BATCH_SIZE_EVENTS);
+    const { error } = await supabase
+      .from('marketing_events')
+      .upsert(chunk, { onConflict: 'contact_id,event_type,source_table,source_id' });
+    if (!error) persistedEvents += chunk.length;
+    else console.warn('[Marketing] Event batch upsert failed:', error.message || error);
+  }
+
+  // 3. Hot-lead tasks — still per-contact (low volume, needs check before insert)
+  for (const { contactId, contact } of hotLeadContacts) {
+    const { data: existing } = await supabase
+      .from('marketing_tasks')
+      .select('id')
+      .eq('contact_id', contactId)
+      .eq('source', 'hot-pilgrimage-leads')
+      .in('status', ['open', 'in_progress'])
+      .limit(1)
+      .maybeSingle();
+
+    if (!existing?.id) {
+      const { error } = await supabase.from('marketing_tasks').insert({
+        contact_id: contactId,
+        title: `Follow up with ${contact.display_name}`,
+        description: contact.recommendation,
+        task_type: 'follow_up',
+        priority: contact.lead_score >= 90 ? 'high' : 'medium',
+        source: 'hot-pilgrimage-leads',
+        metadata: { score: contact.lead_score, email: contact.normalized_email },
+      });
+      if (!error) createdTasks += 1;
     }
   }
 

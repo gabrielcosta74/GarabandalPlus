@@ -1,23 +1,25 @@
 import type { Metadata } from 'next';
 import { APP_URL } from '../../lib/config';
 
-const title = 'Loja Católica Online | Artigos Religiosos — Apostolado de Garabandal';
-const description = 'Loja oficial do Apostolado de Garabandal. Livros católicos, terços, artigos religiosos e materiais de formação espiritual. Entrega para o Brasil e Portugal.';
+const title = 'Livros sobre Garabandal | Loja do Apostolado de Garabandal';
+const description = 'Loja oficial do Apostolado de Garabandal. Livros sobre as aparições de Nossa Senhora de Garabandal, Conchita, Mari Loli, Jacinta e Mari Cruz, e a mensagem de Garabandal. Entrega para Brasil e Portugal.';
 const url = `${APP_URL}/loja`;
 
 export const metadata: Metadata = {
   title,
   description,
   keywords: [
-    'loja católica online Brasil',
-    'artigos religiosos católicos',
-    'livros católicos online',
-    'terço Nossa Senhora Garabandal',
-    'produtos religiosos Brasil',
-    'artigos religiosos Nossa Senhora',
-    'loja apostolado Garabandal',
-    'materiais espirituais católicos',
-    'formação espiritual católica',
+    'livros sobre Garabandal',
+    'livros aparições de Garabandal',
+    'livro Conchita Garabandal',
+    'livros Nossa Senhora de Garabandal',
+    'livros marianos católicos',
+    'livro mensagem de Garabandal',
+    'livros aparições marianas',
+    'livro o aviso Garabandal',
+    'livraria católica online Brasil',
+    'livros católicos Apostolado de Garabandal',
+    'livros videntes de Garabandal',
   ],
   alternates: {
     canonical: url,

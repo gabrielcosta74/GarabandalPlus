@@ -21,11 +21,14 @@ export async function GET(req: Request) {
         const receiptStatus = url.searchParams.get('receipt_status');
         const method = url.searchParams.get('method');
         const onlyWithProof = url.searchParams.get('with_proof') === 'true';
+        const limit = Math.min(Math.max(parseInt(url.searchParams.get('limit') || '200', 10) || 200, 1), 500);
+        const offset = Math.max(parseInt(url.searchParams.get('offset') || '0', 10) || 0, 0);
 
         let query = supabaseServer
             .from('donations')
             .select('*')
-            .order('created_at', { ascending: false });
+            .order('created_at', { ascending: false })
+            .range(offset, offset + limit - 1);
 
         if (status && status !== 'all') {
             query = query.eq('status', status);

@@ -111,9 +111,9 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ products }, {
       headers: {
-        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
-        Pragma: 'no-cache',
-        Expires: '0',
+        // Public list of active products. Short cache + SWR keeps egress down
+        // while keeping admin edits visible within ~1 minute.
+        'Cache-Control': 'public, max-age=60, s-maxage=60, stale-while-revalidate=300',
       },
     });
   } catch (err) {

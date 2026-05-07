@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { headers } from 'next/headers';
 import { Inter, Playfair_Display } from 'next/font/google';
 import ClientLayout from '../components/layouts/ClientLayout';
 import './globals.css';
@@ -76,13 +77,16 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const hdrs = await headers();
+  const pathname = hdrs.get('x-pathname') || '';
+  const htmlLang = pathname.startsWith('/en') ? 'en' : 'pt-BR';
   return (
-    <html lang="pt-BR">
+    <html lang={htmlLang}>
       <head />
       <body className={`${inter.variable} ${playfair.variable} ${inter.className}`}>
         <script

@@ -44,6 +44,10 @@ export async function GET(req: Request) {
     }
 
     try {
+        const url = new URL(req.url);
+        const limit = Math.min(Math.max(parseInt(url.searchParams.get('limit') || '200', 10) || 200, 1), 500);
+        const offset = Math.max(parseInt(url.searchParams.get('offset') || '0', 10) || 0, 0);
+
         const { data: products, error } = await supabaseServer
             .from('store_products')
             .select(`
@@ -51,7 +55,8 @@ export async function GET(req: Request) {
                 category:categories(name, slug),
                 variants:product_variants(*)
             `)
-            .order('name', { ascending: true });
+            .order('name', { ascending: true })
+            .range(offset, offset + limit - 1);
 
         if (error) throw error;
 
