@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { MessageCircle, X, Send, Bot, User, Sparkles, Phone, Users, ArrowRight } from 'lucide-react';
 import { buildWhatsAppLink, ESCALATION_MARKER, CONTACT_EMAIL } from '../../lib/chat-config';
 import { useLocale } from '../../contexts/LocaleContext';
+import { isNovemberCampaignPilgrimage } from '../../lib/utils';
 
 type Message = {
     id: string;
@@ -104,6 +105,10 @@ export default function ChatWidget({
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const abortRef = useRef<AbortController | null>(null);
     const sessionId = useSessionId(pilgrimageSlug);
+    const isNovemberCampaign = isNovemberCampaignPilgrimage({
+        slug: pilgrimageSlug,
+        title: pilgrimageTitle,
+    });
 
     const leadCapturedKey = `chat:lead:${pilgrimageSlug || 'generic'}`;
     const [leadCaptured, setLeadCaptured] = useState(() =>
@@ -361,15 +366,17 @@ export default function ChatWidget({
                             </div>
                         ) : (
                             <div className={`border-b px-4 py-3 flex items-center justify-between gap-3 shadow-sm ${
-                                typeof remainingSpots === 'number' && remainingSpots <= 5
+                                isNovemberCampaign || (typeof remainingSpots === 'number' && remainingSpots <= 5)
                                     ? 'bg-gradient-to-r from-red-50 to-rose-50 border-red-200/60'
                                     : 'bg-gradient-to-r from-yellow-50/80 to-amber-50/80 border-yellow-200/60'
                             }`}>
                                 <div className={`flex items-center gap-2 text-[11px] md:text-xs leading-tight ${
-                                    typeof remainingSpots === 'number' && remainingSpots <= 5 ? 'text-red-800' : 'text-slate-700'
+                                    isNovemberCampaign || (typeof remainingSpots === 'number' && remainingSpots <= 5) ? 'text-red-800' : 'text-slate-700'
                                 }`}>
                                     <Users className="w-3.5 h-3.5 shrink-0" />
-                                    {typeof remainingSpots === 'number' && remainingSpots <= 5 ? (
+                                    {isNovemberCampaign ? (
+                                        <span><span className="font-bold">{isEn ? 'Only 10 spots left' : 'Restam apenas 10 vagas'}</span><span className="hidden sm:inline"> {isEn ? '— sign up now' : '— inscreva-se já'}</span></span>
+                                    ) : typeof remainingSpots === 'number' && remainingSpots <= 5 ? (
                                         <span><span className="font-bold">{isEn ? 'Last spots' : 'Últimas vagas'}</span><span className="hidden sm:inline"> {isEn ? '— sign up now' : '— inscreva-se já'}</span></span>
                                     ) : (
                                         <span><span className="font-bold text-slate-900">{isEn ? 'Limited Spots' : 'Vagas limitadas'}</span><span className="hidden sm:inline text-slate-600"> {isEn ? '— places still available' : '— lugares a preencher'}</span></span>

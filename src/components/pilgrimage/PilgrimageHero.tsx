@@ -1,14 +1,14 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowRight, Star, Heart, Calendar } from "lucide-react";
+import { ArrowRight, Star, Heart, Calendar, AlertTriangle } from "lucide-react";
 import { useEffect, useState } from "react";
 import Link from 'next/link';
 import Image from 'next/image';
 import { format } from 'date-fns';
 import { enUS, pt } from 'date-fns/locale';
 import { useLocale } from '../../contexts/LocaleContext';
-import { getPublicAvailabilityLabel, parseCivilDate } from '../../lib/utils';
+import { getAvailabilityHighlightLabel, parseCivilDate } from '../../lib/utils';
 import { supabaseBrowser } from '../../lib/supabase-browser';
 
 interface FeaturedPilgrimage {
@@ -192,8 +192,9 @@ export function PilgrimageHero({ featuredPilgrimage }: { featuredPilgrimage?: Fe
                                         <span className="rounded-full bg-yellow-300 px-3 py-1.5 text-[11px] font-black uppercase tracking-widest text-slate-950 shadow-sm">
                                             {isEn ? 'November still available' : 'Novembro ainda disponível'}
                                         </span>
-                                        <span className="rounded-full bg-emerald-400/95 px-3 py-1.5 text-[11px] font-black uppercase tracking-widest text-emerald-950 shadow-sm">
-                                            {getPublicAvailabilityLabel(remainingSpots, locale)}
+                                        <span className="inline-flex items-center gap-1.5 rounded-full bg-red-600 px-3 py-1.5 text-[11px] font-black uppercase tracking-widest text-white shadow-lg shadow-red-950/30 ring-2 ring-white/80">
+                                            <AlertTriangle className="h-3.5 w-3.5" />
+                                            {getAvailabilityHighlightLabel(remainingSpots, locale, featuredPilgrimage)}
                                         </span>
                                     </div>
 
