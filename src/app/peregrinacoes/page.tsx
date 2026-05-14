@@ -4,14 +4,14 @@ import { useEffect, useState } from 'react';
 import VIPLayout from '../../components/member/VIPLayout';
 import Link from 'next/link';
 import { supabaseBrowser } from '../../lib/supabase-browser';
-import { MapPin, Calendar, Users, ShieldCheck, Heart, ArrowRight } from 'lucide-react';
+import { MapPin, Calendar, Users, ShieldCheck, Heart, ArrowRight, AlertTriangle } from 'lucide-react';
 import { PilgrimageHero } from '../../components/pilgrimage/PilgrimageHero';
 import { useLocale } from '../../contexts/LocaleContext';
 import { PilgrimageCard } from '../../components/pilgrimage/PilgrimageCard';
 import { PastPilgrimagesGallery } from '../../components/pilgrimage/PastPilgrimagesGallery';
 import { PilgrimageTestimonials } from '../../components/pilgrimage/PilgrimageTestimonials';
 import { getPilgrimagesAction } from './actions';
-import { getCivilDateTimestamp, todayCivilTimestamp } from '../../lib/utils';
+import { getCivilDateTimestamp, getAvailabilityHighlightLabel, isNovemberCampaignPilgrimage, todayCivilTimestamp } from '../../lib/utils';
 
 type Pilgrimage = {
     id: string;
@@ -100,13 +100,6 @@ export default function PilgrimagesPage() {
         return Math.max(0, totalRaw - confirmedRaw);
     };
 
-    const isNovemberCampaignPilgrimage = (pilgrimage: Pilgrimage) => {
-        const searchable = `${pilgrimage.slug || ''} ${pilgrimage.title || ''}`.toLowerCase();
-        return searchable.includes('novembro-2026')
-            || searchable.includes('november-2026')
-            || pilgrimage.start_date?.startsWith('2026-11');
-    };
-
     const isBookable = (pilgrimage: Pilgrimage) => {
         const remaining = getRemainingSpots(pilgrimage);
         const startsAt = getCivilDateTimestamp(pilgrimage.start_date);
@@ -156,13 +149,24 @@ export default function PilgrimagesPage() {
                         <section className="mb-10 md:mb-14 overflow-hidden rounded-3xl border border-yellow-200/80 bg-white shadow-[0_18px_60px_-32px_rgba(15,23,42,0.35)]">
                             <div className="grid gap-0 md:grid-cols-[1fr,0.72fr]">
                                 <div className="p-6 md:p-10">
-                                    <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-yellow-100 px-3 py-1 text-[11px] font-black uppercase tracking-widest text-yellow-800">
-                                        <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                                        {locale === 'en' ? 'November still open' : 'Novembro ainda disponível'}
+                                    <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-red-600 px-4 py-2 text-xs font-black uppercase tracking-widest text-white shadow-lg shadow-red-900/20 ring-2 ring-red-100">
+                                        <AlertTriangle className="h-4 w-4" />
+                                        {getAvailabilityHighlightLabel(getRemainingSpots(novemberPilgrimage), locale, novemberPilgrimage)}
                                     </div>
                                     <h2 className="font-serif text-3xl font-bold leading-tight text-slate-950 md:text-4xl">
                                         {locale === 'en' ? 'The available date is November. It usually fills quickly.' : 'A data disponível é novembro. Normalmente esgota rapidamente.'}
                                     </h2>
+                                    <div className="mt-5 rounded-2xl border-2 border-red-200 bg-red-50 px-5 py-4 text-red-900 shadow-sm">
+                                        <p className="flex items-center gap-2 text-sm font-black uppercase tracking-wide">
+                                            <AlertTriangle className="h-4 w-4 shrink-0" />
+                                            {locale === 'en' ? 'Availability warning' : 'Aviso de disponibilidade'}
+                                        </p>
+                                        <p className="mt-2 text-base font-bold leading-relaxed">
+                                            {locale === 'en'
+                                                ? 'Only 10 places remain for the November pilgrimage. Registration may close as soon as these places are filled.'
+                                                : 'Restam apenas 10 vagas para a peregrinação de novembro. A inscrição pode fechar assim que estas vagas forem preenchidas.'}
+                                        </p>
+                                    </div>
                                     <p className="mt-4 max-w-2xl text-base leading-relaxed text-slate-600 md:text-lg">
                                         {locale === 'en'
                                             ? 'First see the full programme, flights, price and spiritual rhythm. Each pilgrimage also supports the House of the Apostolate and the mission of spreading Garabandal.'
@@ -195,7 +199,7 @@ export default function PilgrimagesPage() {
                                         </div>
                                         <div>
                                             <p className="text-xs font-black uppercase tracking-widest text-yellow-800">{locale === 'en' ? 'Availability' : 'Disponibilidade'}</p>
-                                            <p className="mt-2 text-lg font-black text-slate-950">{getRemainingSpots(novemberPilgrimage) <= 5 ? (locale === 'en' ? 'Last spots' : 'Últimas vagas') : (locale === 'en' ? 'Limited spots' : 'Lugares limitados')}</p>
+                                            <p className="mt-2 text-lg font-black text-slate-950">{getAvailabilityHighlightLabel(getRemainingSpots(novemberPilgrimage), locale, novemberPilgrimage)}</p>
                                         </div>
                                     </div>
                                 </div>

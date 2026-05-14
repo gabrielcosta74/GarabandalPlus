@@ -3,11 +3,11 @@
 import { motion } from "framer-motion";
 import Link from 'next/link';
 import Image from 'next/image';
-import { Calendar, Users, ChevronRight, Clock } from 'lucide-react';
+import { AlertTriangle, Calendar, Users, ChevronRight, Clock } from 'lucide-react';
 import { format } from 'date-fns';
 import { pt as ptLocale, enUS } from 'date-fns/locale';
 import { useCurrency } from "../providers/CurrencyProvider";
-import { getPublicAvailabilityLabel, parseCivilDate } from '../../lib/utils';
+import { getAvailabilityHighlightLabel, isNovemberCampaignPilgrimage, parseCivilDate } from '../../lib/utils';
 import { useLocale } from '../../contexts/LocaleContext';
 
 
@@ -47,6 +47,7 @@ export function PilgrimageCard({ pilgrimage, index }: PilgrimageCardProps) {
     const isEn = locale === 'en';
     const listHref = isEn ? '/en/pilgrimages' : '/peregrinacoes';
     const detailHref = safeSlug ? `${listHref}/${safeSlug}` : listHref;
+    const isNovemberCampaign = isNovemberCampaignPilgrimage(pilgrimage);
 
     // Status Logic & Styles
     let cardStyle = "bg-white border-slate-100 hover:border-yellow-500/30 hover:shadow-[0_20px_50px_-12px_rgba(37,99,235,0.1)]";
@@ -96,7 +97,11 @@ export function PilgrimageCard({ pilgrimage, index }: PilgrimageCardProps) {
             </div>
         );
     } else {
-        statusBadge = (
+        statusBadge = isNovemberCampaign ? (
+            <span className="bg-red-600 text-white text-xs font-black px-4 py-2 rounded-full uppercase tracking-wider shadow-xl shadow-red-950/25 ring-2 ring-white flex items-center gap-2 w-fit animate-pulse">
+                <AlertTriangle className="w-3.5 h-3.5" /> {getAvailabilityHighlightLabel(remainingSpots, locale, pilgrimage)}
+            </span>
+        ) : (
             <span className="bg-white/95 backdrop-blur-md text-green-700 text-xs font-bold px-4 py-2 rounded-full uppercase tracking-wider shadow-lg flex items-center gap-2">
                 <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
                 {p.card.open}
@@ -174,7 +179,7 @@ export function PilgrimageCard({ pilgrimage, index }: PilgrimageCardProps) {
                                 <span className="text-[10px] text-slate-400 uppercase tracking-widest font-bold block mb-1">{p.card.availability}</span>
                                 <div className={`flex items-center justify-start md:justify-end gap-1.5 text-sm font-bold ${isWaitlist ? 'text-amber-600' : isClosed ? 'text-red-600' : 'text-slate-700'}`}>
                                     <Users className="w-4 h-4" />
-                                    {isClosed ? p.card.soldOut : isWaitlist ? p.card.waitlist : getPublicAvailabilityLabel(remainingSpots, locale)}
+                                    {isClosed ? p.card.soldOut : isWaitlist ? p.card.waitlist : getAvailabilityHighlightLabel(remainingSpots, locale, pilgrimage)}
                                 </div>
                             </div>
 

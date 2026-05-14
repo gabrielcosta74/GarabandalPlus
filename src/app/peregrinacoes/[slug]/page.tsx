@@ -14,12 +14,13 @@ import {
     ShieldCheck,
     Plane,
     ArrowRight,
-    Star
+    Star,
+    AlertTriangle
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { enUS, pt } from 'date-fns/locale';
 import dynamic from 'next/dynamic';
-import { getPublicAvailabilityLabel, parseCivilDate } from '../../../lib/utils';
+import { getAvailabilityHighlightLabel, isNovemberCampaignPilgrimage, parseCivilDate } from '../../../lib/utils';
 import PilgrimageInfoModal from '../../../components/pilgrimage/PilgrimageInfoModal';
 import PilgrimagePaymentWarningModal from '../../../components/pilgrimage/PilgrimagePaymentWarningModal';
 import { useLocale } from '../../../contexts/LocaleContext';
@@ -336,6 +337,7 @@ export default function PilgrimageDetailPage() {
         : pilgrimage.transport_description || globalLogistics?.transport_description || '';
     const pilgrimageTitle = isEn ? pilgrimage.title_en || pilgrimage.title : pilgrimage.title;
     const pilgrimageDescription = isEn ? pilgrimage.description_en || pilgrimage.description : pilgrimage.description;
+    const isNovemberCampaign = isNovemberCampaignPilgrimage(pilgrimage);
 
     return (
         <VIPLayout allowPublic={true}>
@@ -370,9 +372,14 @@ export default function PilgrimageDetailPage() {
                                     <Calendar className="w-5 h-5 text-yellow-300" />
                                     <span>{format(startDate, longDateFmt, { locale: dateLocale })} {dateRangeSep} {format(endDate, longDateWithYearFmt, { locale: dateLocale })}</span>
                                 </span>
-                                <span className="inline-flex items-center gap-2 rounded-full bg-emerald-400/95 px-3 py-2 text-sm font-black uppercase tracking-wide text-emerald-950">
+                                <span className={`inline-flex items-center gap-2 rounded-full px-3 py-2 text-sm font-black uppercase tracking-wide ${
+                                    isNovemberCampaign
+                                        ? 'bg-red-600 text-white shadow-lg shadow-red-950/25 ring-2 ring-white/80'
+                                        : 'bg-emerald-400/95 text-emerald-950'
+                                }`}>
+                                    {isNovemberCampaign ? <AlertTriangle className="h-4 w-4" /> : null}
                                     <Users className="h-4 w-4" />
-                                    {isClosed ? (isEn ? 'Closed' : 'Encerradas') : isWaitlist ? (isEn ? 'Waiting List' : 'Lista de Espera') : getPublicAvailabilityLabel(remainingSpots, locale)}
+                                    {isClosed ? (isEn ? 'Closed' : 'Encerradas') : isWaitlist ? (isEn ? 'Waiting List' : 'Lista de Espera') : getAvailabilityHighlightLabel(remainingSpots, locale, pilgrimage)}
                                 </span>
                             </div>
                         </div>
@@ -542,6 +549,19 @@ export default function PilgrimageDetailPage() {
                                         </div>
 
                                         <div className="px-5 py-4 space-y-3">
+                                        {isNovemberCampaign && !isClosed && !isWaitlist && (
+                                            <div className="mb-5 rounded-2xl border-2 border-red-200 bg-red-50 px-4 py-3 text-red-900 shadow-sm">
+                                                <p className="flex items-center gap-2 text-xs font-black uppercase tracking-wide">
+                                                    <AlertTriangle className="h-4 w-4 shrink-0" />
+                                                    {isEn ? 'Availability warning' : 'Aviso de disponibilidade'}
+                                                </p>
+                                                <p className="mt-2 text-sm font-bold leading-relaxed">
+                                                    {isEn
+                                                        ? 'Only 10 places remain for November. Registration may close when these places are filled.'
+                                                        : 'Restam apenas 10 vagas para novembro. A inscrição pode fechar quando estas vagas forem preenchidas.'}
+                                                </p>
+                                            </div>
+                                        )}
                                         {(hasIncludedInfo || hasFlightInfo) && (
                                             <div className="mb-5 grid gap-2.5">
                                                 {hasIncludedInfo && (
@@ -584,7 +604,7 @@ export default function PilgrimageDetailPage() {
                                             <div className="flex justify-between py-2.5 border-b text-slate-600 font-medium">
                                                 <span className="flex items-center gap-2"><Users className="w-4 h-4" /> {isEn ? 'Available Spots' : 'Vagas Disponíveis'}</span>
                                                 <span className="text-slate-900 font-bold">
-                                                    {isClosed ? (isEn ? 'Closed' : 'Encerradas') : isWaitlist ? (isEn ? 'Waiting List' : 'Lista de Espera') : getPublicAvailabilityLabel(remainingSpots, locale)}
+                                                    {isClosed ? (isEn ? 'Closed' : 'Encerradas') : isWaitlist ? (isEn ? 'Waiting List' : 'Lista de Espera') : getAvailabilityHighlightLabel(remainingSpots, locale, pilgrimage)}
                                                 </span>
                                             </div>
                                         </div>

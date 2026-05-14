@@ -60,6 +60,31 @@ export const getPublicAvailabilityLabel = (remainingSpots: number, locale: 'pt' 
     return locale === 'en' ? 'Limited spots' : 'Lugares limitados';
 };
 
+type CampaignPilgrimage = {
+    slug?: string | null;
+    title?: string | null;
+    start_date?: string | null;
+};
+
+export const isNovemberCampaignPilgrimage = (pilgrimage: CampaignPilgrimage) => {
+    const searchable = `${pilgrimage.slug || ''} ${pilgrimage.title || ''}`.toLowerCase();
+    return searchable.includes('novembro-2026')
+        || searchable.includes('november-2026')
+        || pilgrimage.start_date?.startsWith('2026-11');
+};
+
+export const getAvailabilityHighlightLabel = (
+    remainingSpots: number,
+    locale: 'pt' | 'en' = 'pt',
+    pilgrimage?: CampaignPilgrimage,
+) => {
+    if (pilgrimage && isNovemberCampaignPilgrimage(pilgrimage) && remainingSpots > 0) {
+        return locale === 'en' ? 'Only 10 spots left' : 'Restam apenas 10 vagas';
+    }
+
+    return getPublicAvailabilityLabel(remainingSpots, locale);
+};
+
 export const parseRoomInfo = (notes?: string) => {
     if (!notes) return { bedType: null, sharingMode: null, roommates: null, cleanNotes: '' };
 
