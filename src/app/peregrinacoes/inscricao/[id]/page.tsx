@@ -12,23 +12,19 @@ import {
     CheckCircle2,
     Clock,
     AlertCircle,
-    FileText,
-    ChevronDown,
-    ChevronUp,
     ChevronRight,
-    MapPin,
-    Calendar,
     Users,
     Check,
     Loader2,
     Package,
-    Landmark
+    Landmark,
+    X
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { enUS, pt } from 'date-fns/locale';
-import InstallmentTracker from '../../../../components/booking/InstallmentTracker';
 import BookingOnboardingModal from '../../../../components/booking/BookingOnboardingModal';
 import BankTransferModal from '../../../../components/booking/BankTransferModal'; // Imported BankTransferModal
+import CustomPaymentAmount from '../../../../components/booking/CustomPaymentAmount';
 import { UNIFIED_ONLINE_PAYMENT_OPTIONS } from '../../../../lib/payment-options';
 import {
     BANK_TRANSFER_SITE_CONTENT_KEY,
@@ -37,7 +33,6 @@ import {
 } from '../../../../lib/bank-transfer-details';
 import { calculatePilgrimageReduniqCharge } from '../../../../lib/pilgrimage-reduniq-fees';
 import { useLocale } from '../../../../contexts/LocaleContext';
-import { PilgrimagePrice } from '../../../../components/pilgrimage/PilgrimagePrice';
 
 /* -------------------------------------------------------------------------- */
 /*                                    Types                                   */
@@ -270,6 +265,8 @@ export default function BookingDashboardPage() {
     const [showOnboarding, setShowOnboarding] = useState(false);
     const [showBankModal, setShowBankModal] = useState(false); // New State for Bank Modal
     const [bankTransferDetails, setBankTransferDetails] = useState(DEFAULT_BANK_TRANSFER_DETAILS);
+    const [customAmount, setCustomAmount] = useState<number | null>(null);
+    const [showMobilePaySheet, setShowMobilePaySheet] = useState(false);
 
     useEffect(() => {
         const params = new URLSearchParams(window.location.search);
@@ -377,9 +374,35 @@ export default function BookingDashboardPage() {
     }
 
     const amountToPay = nextAmountToPay;
+
+    // Gate for the custom payment amount UI: only show when on an installment plan,
+    // the registration deposit is already settled, the booking is not fully paid,
+    // and there is no receipt currently under review.
+    const totalRemaining = Math.max(0, parseFloat((totalAmount - paidAmount).toFixed(2)));
+    const customMinAmount = parseFloat(Math.min(amountToPay, totalRemaining).toFixed(2));
+    const canUseCustomAmount =
+        !isFullPaymentFlow &&
+        hasPlan &&
+        isDepositPaid &&
+        !isFullyPaid &&
+        !isVerifying &&
+        totalRemaining > 0 &&
+        customMinAmount > 0;
+
+    const useCustomAmount =
+        canUseCustomAmount &&
+        customAmount != null &&
+        customAmount >= customMinAmount - 0.009 &&
+        customAmount <= totalRemaining + 0.009;
+
+    const effectiveAmountToPay = useCustomAmount ? (customAmount as number) : amountToPay;
+    const effectiveLabel = useCustomAmount
+        ? (isEn ? 'Custom Payment' : 'Pagamento Personalizado')
+        : nextLabel;
+
     const selectedPaymentOption = paymentOptions.find((opt) => opt.id === selectedPaymentId) || paymentOptions[0];
-    const reduniqChargePreview = calculatePilgrimageReduniqCharge(amountToPay);
-    const showReduniqFeePreview = selectedPaymentOption?.provider === 'reduniq' && amountToPay > 0;
+    const reduniqChargePreview = calculatePilgrimageReduniqCharge(effectiveAmountToPay);
+    const showReduniqFeePreview = selectedPaymentOption?.provider === 'reduniq' && effectiveAmountToPay > 0;
 
 
     // Fetch Booking Data - Extracted for reuse
@@ -564,7 +587,7 @@ export default function BookingDashboardPage() {
                     bookingId: id,
                     priceType: paymentMode,
                     provider: selectedOption.provider,
-                    amountToPay,
+                    amountToPay: effectiveAmountToPay,
                 }),
             });
             const data = await res.json();
@@ -650,8 +673,8 @@ export default function BookingDashboardPage() {
                         fileData: base64Content,
                         fileName: file.name,
                         fileType: file.type,
-                        installmentLabel: nextLabel,
-                        installmentAmount: amountToPay,
+                        installmentLabel: effectiveLabel,
+                        installmentAmount: effectiveAmountToPay,
                         token: viewToken // Send token for authentication if present
                     })
                 });
@@ -672,10 +695,189 @@ export default function BookingDashboardPage() {
         }
     };
 
+    // Reusable payment panel (used both in desktop sticky aside and in the mobile inline view).
+    const paymentPanel = (
+        <div className="bg-gradient-to-b from-slate-900 to-slate-950 rounded-[2rem] p-6 md:p-8 shadow-2xl border border-white/10 ring-1 ring-white/5 relative overflow-hidden">
+            {uploadSuccess && (
+                <div className="absolute inset-0 bg-green-600 flex flex-col items-center justify-center p-6 text-white z-10 animate-in fade-in zoom-in duration-300">
+                    <CheckCircle2 className="w-16 h-16 mb-4 animate-bounce" />
+                    <h3 className="text-2xl font-bold">{isEn ? 'Uploaded!' : 'Enviado!'}</h3>
+                    <p className="text-green-100 text-base mt-2 text-center max-w-xs">{isEn ? 'Your receipt was received. We will validate it shortly.' : 'Comprovativo recebido. Vamos validar em breve.'}</p>
+                    <button onClick={() => window.location.reload()} className="mt-6 px-6 py-3 bg-white text-green-700 font-bold rounded-xl shadow-lg text-sm hover:bg-green-50 transition-colors">{isEn ? 'Understood' : 'Entendido'}</button>
+                </div>
+            )}
+
+            {/* Heading */}
+            <div className="text-center mb-6">
+                <p className="text-yellow-400 font-bold uppercase tracking-widest text-[11px] md:text-xs mb-1">
+                    {isEn ? 'Pay Now' : 'Pagar Agora'} · {effectiveLabel}
+                </p>
+                {isConverted && exchangeRate && (
+                    <p className="text-white/50 text-[11px] mt-1 font-medium">
+                        {isEn ? 'Approx.' : 'Aprox.'} {effectiveAmountToPay} € · {isEn ? 'Rate' : 'Taxa'} {exchangeRate}
+                    </p>
+                )}
+            </div>
+
+            {/* Custom amount: input + chips (always visible when applicable) */}
+            {canUseCustomAmount ? (
+                <div className="mb-6">
+                    <CustomPaymentAmount
+                        suggestedAmount={amountToPay}
+                        minAmount={customMinAmount}
+                        maxAmount={totalRemaining}
+                        minLabel={nextLabel}
+                        paymentPlan={paymentPlan}
+                        depositValue={depositValue}
+                        paidAmount={paidAmount}
+                        formatPrice={formatPrice}
+                        active={useCustomAmount}
+                        customAmount={customAmount}
+                        onChange={setCustomAmount}
+                    />
+                </div>
+            ) : (
+                <div className="text-center mb-8">
+                    <p className="text-4xl md:text-5xl font-black text-white tracking-tight break-words drop-shadow-sm" title={formatPrice(effectiveAmountToPay)}>
+                        {formatPrice(effectiveAmountToPay)}
+                    </p>
+                </div>
+            )}
+
+            {/* Reduniq fee preview */}
+            {showReduniqFeePreview && (
+                <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 mb-6 space-y-2 text-left shadow-inner">
+                    <div className="flex items-center justify-between text-xs text-amber-50/80">
+                        <span>{isEn ? 'Pilgrimage amount' : 'Valor peregrinação'}</span>
+                        <span className="font-bold">{formatPrice(reduniqChargePreview.baseAmount)}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-xs text-amber-50/80">
+                        <span>{isEn ? 'Reduniq fee' : 'Taxa Reduniq'}</span>
+                        <span className="font-bold">{formatPrice(reduniqChargePreview.feeAmount)}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm text-white pt-2 border-t border-white/10">
+                        <span className="font-semibold">{isEn ? 'Total at terminal' : 'Total no terminal'}</span>
+                        <span className="font-black text-base">{formatPrice(reduniqChargePreview.chargedAmount)}</span>
+                    </div>
+                </div>
+            )}
+
+            {/* Primary CTA */}
+            <button
+                onClick={() => handleOnlinePayment(paymentOptions[0].id)}
+                disabled={processing}
+                className="w-full bg-gradient-to-r from-yellow-400 to-yellow-500 hover:from-yellow-300 hover:to-yellow-400 text-slate-900 font-black text-lg md:text-xl py-4 md:py-5 rounded-2xl shadow-xl shadow-yellow-500/20 flex items-center justify-center gap-3 transition-all disabled:opacity-50 hover:scale-[1.02] active:scale-[0.98]"
+            >
+                {processing ? (
+                    <>
+                        <Loader2 className="w-6 h-6 animate-spin" />
+                        <span>{isEn ? 'Opening…' : 'A abrir…'}</span>
+                    </>
+                ) : (
+                    <>
+                        <CreditCard className="w-6 h-6" />
+                        <span>{isEn ? `Pay Online` : `Pagar Online`}</span>
+                    </>
+                )}
+            </button>
+
+            {/* Accepted methods (bigger logos) */}
+            <div className="mt-6">
+                <p className="text-[11px] uppercase tracking-widest text-white/50 font-semibold text-center mb-3">
+                    {isEn ? 'Accepted methods' : 'Métodos aceites'}
+                </p>
+                <div className="flex items-center justify-center gap-3 flex-wrap">
+                    {paymentOptions.map((opt) => (
+                        <div
+                            key={opt.id}
+                            title={opt.label}
+                            className="h-14 w-20 md:h-16 md:w-24 rounded-xl bg-white flex items-center justify-center p-2.5 shadow-md hover:shadow-lg transition-shadow"
+                        >
+                            {opt.iconSrc ? (
+                                <img
+                                    src={opt.iconSrc}
+                                    alt={opt.iconAlt || opt.label}
+                                    className="max-h-full max-w-full object-contain"
+                                    onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                                />
+                            ) : (
+                                <CreditCard className="w-6 h-6 text-slate-700" />
+                            )}
+                        </div>
+                    ))}
+                </div>
+            </div>
+
+            {/* Reduniq feedback */}
+            {(reduniqConfirming || reduniqFeedback) && (
+                <div className={`mt-6 rounded-xl border px-4 py-3 text-sm shadow-inner ${reduniqConfirming
+                    ? 'border-blue-500/40 bg-blue-500/15 text-blue-100'
+                    : reduniqFeedback?.kind === 'success'
+                        ? 'border-green-500/40 bg-green-500/15 text-green-100'
+                        : reduniqFeedback?.kind === 'info'
+                            ? 'border-amber-500/40 bg-amber-500/15 text-amber-100'
+                            : 'border-red-500/40 bg-red-500/15 text-red-100'
+                    }`}>
+                    <p className="font-bold flex items-center gap-2">
+                        {reduniqConfirming && <Loader2 className="w-4 h-4 animate-spin" />}
+                        {reduniqConfirming ? (isEn ? 'Confirming…' : 'A confirmar…') : reduniqFeedback?.title}
+                    </p>
+                    <p className="text-[12px] mt-1 opacity-90 leading-relaxed">
+                        {reduniqConfirming ? (isEn ? 'Please wait while we verify your payment.' : 'Aguarde enquanto verificamos o pagamento.') : reduniqFeedback?.message}
+                    </p>
+                </div>
+            )}
+
+            {/* Divider */}
+            <div className="relative my-6">
+                <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-white/10" /></div>
+                <div className="relative flex justify-center">
+                    <span className="bg-slate-950 px-4 text-[11px] text-white/40 uppercase tracking-widest font-bold">
+                        {isEn ? 'or pay by' : 'ou pagar por'}
+                    </span>
+                </div>
+            </div>
+
+            {/* Bank transfer — mais destacado */}
+            {isVerifying ? (
+                <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-2xl text-amber-300 text-sm font-semibold flex items-center justify-center gap-2 shadow-inner">
+                    <Clock className="w-5 h-5 animate-pulse" />
+                    <span>{isEn ? 'Receipt under review' : 'Comprovativo em análise'}</span>
+                </div>
+            ) : (
+                <button
+                    onClick={() => { setShowMobilePaySheet(false); setShowBankModal(true); }}
+                    className="w-full rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 transition-all p-4 md:p-5 flex items-center gap-4 text-left group"
+                >
+                    <div className="w-12 h-12 md:w-14 md:h-14 rounded-xl bg-white/10 flex items-center justify-center shrink-0 text-white shadow-sm group-hover:scale-105 transition-transform">
+                        <Landmark className="w-6 h-6 md:w-7 md:h-7" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                        <p className="font-bold text-base md:text-lg text-white">
+                            {isEn ? 'Bank Transfer' : 'Transferência Bancária'}
+                        </p>
+                        <p className="text-[12px] text-white/55 mt-0.5 font-medium">
+                            {isEn ? 'IBAN + upload receipt for validation' : 'IBAN + envio de comprovativo'}
+                        </p>
+                    </div>
+                    <ChevronRight className="w-5 h-5 text-white/30 group-hover:text-white transition-colors shrink-0" />
+                </button>
+            )}
+
+            {/* Hidden file input */}
+            <input
+                id="receipt-upload"
+                type="file"
+                accept="image/*,.pdf"
+                className="hidden"
+                onChange={handleReceiptUpload}
+            />
+        </div>
+    );
 
     return (
         <VIPLayout allowPublic={true}>
-            <div className="max-w-4xl mx-auto px-4 py-8 space-y-10 animate-in fade-in duration-700">
+            <div className="max-w-6xl mx-auto px-4 py-8 space-y-8 animate-in fade-in duration-700">
 
                 {/* --- 0. ERROR/EMPTY STATE --- */}
                 {totalAmount === 0 && !loading && (
@@ -712,408 +914,187 @@ export default function BookingDashboardPage() {
                             </div>
                         </div>
 
-                        {/* --- 2. THE BIG STATUS --- */}
-                        <div className="bg-white rounded-[40px] p-8 md:p-12 shadow-2xl border border-slate-100 relative overflow-hidden">
+                        {/* --- 2. MAIN GRID: Payment panel + Schedule --- */}
+                        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
 
-                            <div className="absolute top-0 left-0 w-2 h-full bg-indigo-500" />
-                            <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-start">
+                            {/* ============== LEFT: SCHEDULE & PROGRESS ============== */}
+                            <section className="lg:col-span-7 order-2 lg:order-1 space-y-6">
 
-                                <div className="lg:col-span-7 space-y-8 order-2 lg:order-1">
-                                    <div className="flex justify-between items-start gap-4">
-                                        <div className="space-y-2">
-                                            <h3 className="text-3xl font-bold text-slate-900">
-                                                {isFullyPaid ? (isEn ? 'TRIP CONFIRMED!' : 'VIAGEM CONFIRMADA!') : (isEn ? '1 STEP LEFT: PAYMENT' : 'FALTA 1 PASSO: PAGAMENTO')}
-                                            </h3>
-                                            <p className="text-slate-500 text-xl leading-relaxed">
-                                                {isFullyPaid
-                                                    ? (isEn ? 'We have already received your full payment. You are ready to go!' : 'Já recebemos o seu pagamento total. Está pronto para partir!')
-                                                    : paymentMode === 'full'
-                                                        ? (isEn ? 'Your registration is waiting for full payment to secure the place.' : 'A sua inscrição aguarda o pagamento total para garantir o lugar.')
-                                                        : (isEn ? 'You must complete the deposit payment/donation within 5 business days to confirm and secure your registration.' : 'Terá que efetuar num prazo máximo de 5 dias úteis o pagamento/doação do valor do sinal para confirmar e garantir a sua inscrição.')}
-                                            </p>
-                                        </div>
-                                        <div className="text-right shrink-0 bg-slate-50 px-4 py-3 rounded-2xl border border-slate-100 hidden sm:block">
-                                            <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-1">{isEn ? 'Total' : 'Total'}</p>
-                                            <PilgrimagePrice
-                                                amountInEur={totalAmount}
-                                                layout="stacked"
-                                                primaryClassName="text-xl md:text-2xl font-serif font-bold text-slate-900"
-                                                secondaryClassName="text-sm font-semibold text-slate-600"
-                                            />
-                                        </div>
-                                    </div>
-
-                                    {/* Payment Roadmap for Seniors */}
-                                    <div className="space-y-6 pt-4">
-                                        <p className="font-bold text-slate-400 uppercase tracking-widest text-xs">{isEn ? 'Your Travel Plan' : 'O Seu Plano de Viagem'}</p>
-
-                                        <div className="space-y-4">
-                                            {isFullPaymentFlow ? (
-                                                <>
-                                                    <div className="flex items-center gap-6 group">
-                                                        <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 shadow-lg border-2 transition-all ${isFullyPaid ? 'bg-green-500 border-green-400 text-white' : (isVerifying ? 'bg-amber-500 border-amber-400 text-white' : 'bg-red-50 border-red-200 text-red-600 animate-pulse')}`}>
-                                                            {isFullyPaid ? <Check className="w-8 h-8" /> : (isVerifying ? <Clock className="w-8 h-8" /> : <CreditCard className="w-8 h-8" />)}
-                                                        </div>
-                                                        <div>
-                                                            <p className={`font-bold text-xl ${isFullyPaid ? 'text-slate-900' : (isVerifying ? 'text-amber-600' : 'text-red-600')}`}>
-                                                                {isEn ? '1. Full Payment' : '1. Pagamento Total'} ({formatPrice(totalAmount)})
-                                                            </p>
-                                                            <p className="text-slate-500">
-                                                                {isFullyPaid
-                                                                    ? (isEn ? 'PAID AND CONFIRMED' : 'PAGO E CONFIRMADO')
-                                                                    : isVerifying
-                                                                        ? (isEn ? 'WAITING FOR VALIDATION...' : 'A AGUARDAR VALIDAÇÃO...')
-                                                                        : paidAmount > 0
-                                                                            ? (isEn ? `PAID ${formatPrice(paidAmount)} of ${formatPrice(totalAmount)}` : `PAGO ${formatPrice(paidAmount)} de ${formatPrice(totalAmount)}`)
-                                                                            : (isEn ? 'PENDING - Pay Now' : 'PENDENTE - Pagar Agora')}
-                                                            </p>
-                                                        </div>
-                                                    </div>
-                                                    <div className="ml-7 w-0.5 h-8 bg-slate-100" />
-                                                    <div className="flex items-center gap-6">
-                                                        <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 shadow-lg border-2 transition-all ${isFullyPaid ? 'bg-indigo-600 border-indigo-400 text-white' : 'bg-slate-50 border-slate-100 text-slate-200'}`}>
-                                                            <MapPin className="w-8 h-8" />
-                                                        </div>
-                                                        <div>
-                                                            <p className="font-bold text-xl text-slate-900">{isEn ? '2. Pilgrimage' : '2. Peregrinação'}</p>
-                                                            <p className="text-slate-400">{isFullyPaid ? (isEn ? 'We wish you an excellent trip!' : 'Desejamos-lhe uma excelente viagem!') : (isEn ? 'Waiting for payment completion' : 'Aguardamos pela conclusão do pagamento')}</p>
-                                                        </div>
-                                                    </div>
-                                                </>
-                                            ) : (
-                                                <>
-                                                    {/* Passo 1 */}
-                                                    <div className="flex items-center gap-6 group">
-                                                        <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 shadow-lg border-2 transition-all ${isDepositPaid ? 'bg-green-500 border-green-400 text-white' : (isVerifying ? 'bg-amber-500 border-amber-400 text-white' : 'bg-red-50 border-red-200 text-red-600 animate-pulse')}`}>
-                                                            {isDepositPaid ? <Check className="w-8 h-8" /> : (isVerifying ? <Clock className="w-8 h-8" /> : <CreditCard className="w-8 h-8" />)}
-                                                        </div>
-                                                        <div>
-                                                            <p className={`font-bold text-xl ${isDepositPaid ? 'text-slate-900' : (isVerifying ? 'text-amber-600' : 'text-red-600')}`}>{isEn ? '1. Deposit Payment' : '1. Pagamento do Sinal'} ({formatPrice(depositValue)})</p>
-                                                            <p className="text-slate-500">
-                                                                {isDepositPaid ? (isEn ? 'PAID AND CONFIRMED' : 'PAGO E CONFIRMADO') : (isVerifying ? (isEn ? 'WAITING FOR VALIDATION...' : 'A AGUARDAR VALIDAÇÃO...') : (isEn ? 'PENDING - Pay Now' : 'PENDENTE - Pagar Agora'))}
-                                                            </p>
-                                                        </div>
-                                                    </div>
-
-                                                    {/* Passos das Prestações Dinâmicas */}
-                                                    {hasPlan ? (
-                                                        paymentPlan.map((step: any, idx: number) => {
-                                                            const state = getInstallmentState(idx, Number(step.amount));
-                                                            return (
-                                                                <div key={idx} className="space-y-4">
-                                                                    <div className="ml-7 w-0.5 h-8 bg-slate-100" />
-                                                                    <div className="flex items-center gap-6">
-                                                                        <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 shadow-lg border-2 transition-all 
-                                                                            ${state === 'paid' ? 'bg-green-500 border-green-400 text-white' :
-                                                                                state === 'verifying' ? 'bg-amber-500 border-amber-400 text-white' :
-                                                                                    'bg-slate-50 border-slate-200 text-slate-400 opacity-50'}`}>
-                                                                            {state === 'paid' ? <Check className="w-8 h-8" /> :
-                                                                                state === 'verifying' ? <Clock className="w-8 h-8" /> :
-                                                                                    <CreditCard className="w-8 h-8" />}
-                                                                        </div>
-                                                                        <div>
-                                                                            <p className="font-bold text-xl text-slate-900">{isEn ? 'Installment' : 'Prestação'} {idx + 1} ({formatPrice(Number(step.amount))})</p>
-                                                                            <p className="text-slate-400">
-                                                                                {state === 'paid' ? (isEn ? 'PAID' : 'PAGO') :
-                                                                                    state === 'verifying' ? (isEn ? 'WAITING FOR VALIDATION...' : 'A AGUARDAR VALIDAÇÃO...') :
-                                                                                        (isEn ? `Due on ${format(new Date(step.date), 'dd MMMM', { locale: dateLocale })}` : `Vence a ${format(new Date(step.date), "dd 'de' MMMM", { locale: dateLocale })}`)}
-                                                                            </p>
-                                                                        </div>
-                                                                    </div>
-                                                                </div>
-                                                            );
-                                                        })
-                                                    ) : (
-                                                        <>
-                                                            <div className="ml-7 w-0.5 h-8 bg-slate-100" />
-                                                            <div className="flex items-center gap-6">
-                                                                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 shadow-lg border-2 transition-all ${isFullyPaid ? 'bg-green-500 border-green-400 text-white' : 'bg-slate-50 border-slate-200 text-slate-400 opacity-50'}`}>
-                                                                    {isFullyPaid ? <Check className="w-8 h-8" /> : <Clock className="w-8 h-8" />}
-                                                                </div>
-                                                                <div>
-                                                                    <p className="font-bold text-xl text-slate-900">{isEn ? '2. Installments / Remaining Balance' : '2. Mensalidades / Restante'}</p>
-                                                                    <p className="text-slate-400">
-                                                                        {isFullyPaid
-                                                                            ? (isEn ? 'FULLY PAID' : 'TUDO PAGO')
-                                                                            : (isEn ? `Registration fee ${formatPrice(depositValue)} + remaining ${formatPrice(Math.max(0, totalAmount - depositValue))}` : `Taxa de inscrição ${formatPrice(depositValue)} + restante ${formatPrice(Math.max(0, totalAmount - depositValue))}`)}
-                                                                    </p>
-                                                                </div>
-                                                            </div>
-                                                        </>
-                                                    )}
-
-                                                    {/* Linha Conectora Final */}
-                                                    <div className="ml-7 w-0.5 h-8 bg-slate-100" />
-
-                                                    {/* Passo Final */}
-                                                    <div className="flex items-center gap-6">
-                                                        <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 shadow-lg border-2 transition-all ${isFullyPaid ? 'bg-indigo-600 border-indigo-400 text-white' : 'bg-slate-50 border-slate-100 text-slate-200'}`}>
-                                                            <MapPin className="w-8 h-8" />
-                                                        </div>
-                                                        <div>
-                                                            <p className="font-bold text-xl text-slate-900">{hasPlan ? (paymentPlan.length + 2) : 3}. {isEn ? 'Pilgrimage' : 'Peregrinação'}</p>
-                                                            <p className="text-slate-400">{isFullyPaid ? (isEn ? 'We wish you an excellent trip!' : 'Desejamos-lhe uma excelente viagem!') : (isEn ? 'Waiting for payment completion' : 'Aguardamos pela conclusão dos pagamentos')}</p>
-                                                        </div>
-                                                    </div>
-                                                </>
+                                {/* Summary chips */}
+                                <div className="bg-white rounded-3xl p-5 md:p-6 shadow-sm border border-slate-100">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <h2 className="text-lg md:text-xl font-bold text-slate-900">
+                                            {isFullyPaid
+                                                ? (isEn ? 'Trip Confirmed' : 'Viagem Confirmada')
+                                                : (isEn ? 'Payment Progress' : 'Estado dos Pagamentos')}
+                                        </h2>
+                                        <button
+                                            onClick={() => fetchBooking(true)}
+                                            disabled={refreshing}
+                                            className="flex items-center gap-1.5 text-xs font-semibold text-indigo-600 hover:text-indigo-800 disabled:text-slate-400 transition-colors"
+                                            aria-label={isEn ? 'Refresh payments' : 'Atualizar pagamentos'}
+                                        >
+                                            {refreshing ? <Loader2 className="w-4 h-4 animate-spin" /> : (
+                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                                </svg>
                                             )}
+                                            <span>{refreshing ? (isEn ? 'Updating' : 'A atualizar') : (isEn ? 'Refresh' : 'Atualizar')}</span>
+                                        </button>
+                                    </div>
+
+                                    {/* Progress bar */}
+                                    <div className="mb-4">
+                                        <div className="flex items-center justify-between text-xs font-semibold text-slate-500 mb-1.5">
+                                            <span>{isEn ? 'Paid' : 'Pago'} {formatPrice(paidAmount)}</span>
+                                            <span>{percentPaid.toFixed(0)}%</span>
+                                        </div>
+                                        <div className="h-2.5 bg-slate-100 rounded-full overflow-hidden">
+                                            <div
+                                                className={`h-full rounded-full transition-all duration-500 ${isFullyPaid ? 'bg-green-500' : 'bg-indigo-500'}`}
+                                                style={{ width: `${Math.min(100, percentPaid)}%` }}
+                                            />
                                         </div>
                                     </div>
 
-                                    {/* New Graphical Installment Tracker MOVED HERE to be part of the LEFT column flow */}
-                                    <div className="mt-8">
-                                        {/* Refresh Button */}
-                                        <div className="flex justify-end mb-4">
-                                            <button
-                                                onClick={() => fetchBooking(true)}
-                                                disabled={refreshing}
-                                                className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white rounded-xl font-medium text-sm transition-all shadow-sm"
-                                            >
-                                                {refreshing ? (
-                                                    <>
-                                                        <Loader2 className="w-4 h-4 animate-spin" />
-                                                        <span>{isEn ? 'Updating...' : 'A atualizar...'}</span>
-                                                    </>
-                                                ) : (
-                                                    <>
-                                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                                                        </svg>
-                                                        <span>{isEn ? 'Refresh Payments' : 'Atualizar Pagamentos'}</span>
-                                                    </>
-                                                )}
-                                            </button>
+                                    {/* Three chips */}
+                                    <div className="grid grid-cols-3 gap-2 md:gap-3">
+                                        <div className="rounded-xl bg-slate-50 border border-slate-100 p-3 text-center">
+                                            <p className="text-[10px] md:text-xs font-bold uppercase tracking-wider text-slate-400 mb-0.5">{isEn ? 'Total' : 'Total'}</p>
+                                            <p className="text-sm md:text-base font-bold text-slate-900 break-words">{formatPrice(totalAmount)}</p>
                                         </div>
-
-                                        {isFullPaymentFlow ? (
-                                            <div className="rounded-3xl border border-slate-200 bg-slate-50 p-6">
-                                                <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-3">{isEn ? 'Full Payment Summary' : 'Resumo do Pagamento Total'}</p>
-                                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
-                                                    <div className="rounded-xl bg-white border border-slate-200 p-4">
-                                                        <p className="text-slate-500 text-xs uppercase tracking-widest mb-1">{isEn ? 'Total' : 'Total'}</p>
-                                                        <p className="text-lg font-bold text-slate-900">{formatPrice(totalAmount)}</p>
-                                                    </div>
-                                                    <div className="rounded-xl bg-white border border-slate-200 p-4">
-                                                        <p className="text-slate-500 text-xs uppercase tracking-widest mb-1">{isEn ? 'Paid' : 'Pago'}</p>
-                                                        <p className="text-lg font-bold text-green-700">{formatPrice(paidAmount)}</p>
-                                                    </div>
-                                                    <div className="rounded-xl bg-white border border-slate-200 p-4">
-                                                        <p className="text-slate-500 text-xs uppercase tracking-widest mb-1">{isEn ? 'Outstanding' : 'Em Falta'}</p>
-                                                        <p className="text-lg font-bold text-amber-700">{formatPrice(Math.max(0, totalAmount - paidAmount))}</p>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        ) : (
-                                            <InstallmentTracker
-                                                totalAmount={totalAmount}
-                                                paidAmount={paidAmount}
-                                                depositValue={depositValue}
-                                                paymentPlan={paymentPlan}
-                                                payments={booking.payments || []}
-                                                formatPrice={formatPrice}
-                                                useDonationCopy={false}
-                                            />
-                                        )}
+                                        <div className="rounded-xl bg-green-50 border border-green-100 p-3 text-center">
+                                            <p className="text-[10px] md:text-xs font-bold uppercase tracking-wider text-green-600 mb-0.5">{isEn ? 'Paid' : 'Pago'}</p>
+                                            <p className="text-sm md:text-base font-bold text-green-700 break-words">{formatPrice(paidAmount)}</p>
+                                        </div>
+                                        <div className="rounded-xl bg-amber-50 border border-amber-100 p-3 text-center">
+                                            <p className="text-[10px] md:text-xs font-bold uppercase tracking-wider text-amber-600 mb-0.5">{isEn ? 'Outstanding' : 'Em Falta'}</p>
+                                            <p className="text-sm md:text-base font-bold text-amber-700 break-words">{formatPrice(Math.max(0, totalAmount - paidAmount))}</p>
+                                        </div>
                                     </div>
                                 </div>
 
-                                {/* ACÇÕES DE DOAÇÃO (Direita) - UI OTIMIZADA PARA SENIORES */}
-                                <div className="lg:col-span-5 space-y-6 self-start sticky top-8 order-1 lg:order-2">
-                                    {!isFullyPaid && (
-                                        <div className="bg-slate-950 rounded-[32px] p-6 md:p-8 text-center space-y-8 shadow-2xl border border-white/10 ring-8 ring-slate-100/50 relative overflow-hidden">
-                                            {uploadSuccess && (
-                                                <div className="absolute inset-0 bg-green-600 flex flex-col items-center justify-center p-6 text-white z-10 animate-in fade-in zoom-in duration-300">
-                                                    <CheckCircle2 className="w-16 h-16 mb-4 animate-bounce" />
-                                                    <h3 className="text-2xl font-bold">{isEn ? 'Uploaded!' : 'Enviado!'}</h3>
-                                                    <p className="text-green-100 text-sm mt-2">{isEn ? 'Your receipt was received. We will validate it and update your booking status shortly.' : 'O seu comprovativo foi recebido. Vamos validar e atualizar o estado da sua reserva em breve.'}</p>
-                                                    <button onClick={() => window.location.reload()} className="mt-6 px-6 py-3 bg-white text-green-700 font-bold rounded-xl shadow-lg">{isEn ? 'Understood' : 'Entendido'}</button>
+                                {/* Schedule list (single source of truth) */}
+                                {!isFullPaymentFlow && (
+                                    <div className="bg-white rounded-3xl p-5 md:p-6 shadow-sm border border-slate-100">
+                                        <h2 className="text-lg md:text-xl font-bold text-slate-900 mb-4">
+                                            {isEn ? 'Payment Schedule' : 'Calendário de Pagamentos'}
+                                        </h2>
+                                        <ul className="divide-y divide-slate-100">
+                                            {/* Deposit row */}
+                                            <li className="flex items-center gap-3 md:gap-4 py-3 md:py-4">
+                                                <div className={`w-10 h-10 md:w-11 md:h-11 rounded-xl flex items-center justify-center shrink-0 ${isDepositPaid ? 'bg-green-100 text-green-700' : (isVerifying ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-500')}`}>
+                                                    {isDepositPaid ? <Check className="w-5 h-5" /> : (isVerifying ? <Clock className="w-5 h-5" /> : <CreditCard className="w-5 h-5" />)}
                                                 </div>
-                                            )}
-
-                                            <div className="space-y-1">
-                                                <p className="text-yellow-500 font-bold uppercase tracking-widest text-xs">{isEn ? 'Amount to Pay Now' : 'Valor a Pagar Agora'}: {nextLabel}</p>
-                                                <p className="text-3xl md:text-5xl font-bold text-white tracking-tight break-words" title={formatPrice(amountToPay)}>
-                                                    {formatPrice(amountToPay)}
-                                                </p>
-                                                {isConverted && exchangeRate && <p className="text-white/50 text-xs">{isEn ? 'Approx.' : 'Aprox.'} {amountToPay} € ({isEn ? 'Rate' : 'Taxa'}: {exchangeRate})</p>}
-                                            </div>
-
-                                            {showReduniqFeePreview && (
-                                                <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-left space-y-2">
-                                                    <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-amber-300">
-                                                        {isEn ? 'Online Payments via Reduniq' : 'Pagamentos Online via Reduniq'}
-                                                    </p>
-                                                    <div className="flex items-center justify-between text-sm text-amber-50">
-                                                        <span>{isEn ? 'Pilgrimage amount' : 'Valor da peregrinação'}</span>
-                                                        <span className="font-bold">{formatPrice(reduniqChargePreview.baseAmount)}</span>
-                                                    </div>
-                                                    <div className="flex items-center justify-between text-sm text-amber-50">
-                                                        <span>{isEn ? 'Additional Reduniq fee' : 'Taxa adicional Reduniq'}</span>
-                                                        <span className="font-bold">{formatPrice(reduniqChargePreview.feeAmount)}</span>
-                                                    </div>
-                                                    <div className="flex items-center justify-between text-base text-white pt-2 border-t border-white/10">
-                                                        <span className="font-semibold">{isEn ? 'Total shown in the terminal' : 'Total apresentado no terminal'}</span>
-                                                        <span className="font-extrabold">{formatPrice(reduniqChargePreview.chargedAmount)}</span>
-                                                    </div>
-                                                    <p className="text-[11px] leading-relaxed text-amber-100/80">
-                                                        {isEn ? 'Card, MB WAY, PIX, and Multibanco all go through the general Reduniq terminal. The additional fee is shown separately there.' : 'Cartão, MB WAY, PIX e Multibanco seguem todos para o terminal geral da Reduniq. A taxa adicional é apresentada separadamente nesse terminal.'}
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="font-bold text-base text-slate-900">{isEn ? 'Registration Deposit' : 'Sinal de Inscrição'}</p>
+                                                    <p className="text-xs md:text-sm text-slate-500">
+                                                        {isDepositPaid
+                                                            ? (isEn ? 'Paid' : 'Pago')
+                                                            : (isVerifying ? (isEn ? 'Awaiting validation' : 'A aguardar validação') : (isEn ? 'Pending' : 'Pendente'))}
                                                     </p>
                                                 </div>
-                                            )}
-
-                                            {/* LISTA UNIFICADA DE PAGAMENTOS (Direct Action) */}
-                                            <div className="space-y-3 animate-in fade-in slide-in-from-bottom-4 duration-500">
-
-                                                {/* 1. OPÇÕES ONLINE (Imediato) */}
-                                                {paymentOptions.map((option) => (
-                                                    <button
-                                                        key={option.id}
-                                                        onClick={() => handleOnlinePayment(option.id)}
-                                                        onMouseEnter={() => setSelectedPaymentId(option.id)}
-                                                        onFocus={() => setSelectedPaymentId(option.id)}
-                                                        disabled={processing}
-                                                        className="w-full relative group overflow-hidden rounded-2xl border-2 border-white/10 bg-white/5 hover:bg-white/10 hover:border-yellow-500/50 transition-all p-4 flex items-center gap-4 text-left disabled:opacity-50 disabled:cursor-not-allowed"
-                                                    >
-                                                        <div className="w-12 h-12 rounded-xl bg-white flex items-center justify-center shrink-0 shadow-lg group-hover:scale-110 transition-transform duration-300">
-                                                            {option.iconSrc ? (
-                                                                <img
-                                                                    src={option.iconSrc}
-                                                                    alt={option.label}
-                                                                    className="h-7 w-auto object-contain"
-                                                                    onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                                                                />
-                                                            ) : (
-                                                                <CreditCard className="w-6 h-6 text-slate-900" />
-                                                            )}
+                                                <p className="text-base md:text-lg font-bold text-slate-900 shrink-0">{formatPrice(depositValue)}</p>
+                                            </li>
+                                            {/* Installment rows */}
+                                            {paymentPlan.map((step: any, idx: number) => {
+                                                const state = getInstallmentState(idx, Number(step.amount));
+                                                return (
+                                                    <li key={idx} className="flex items-center gap-3 md:gap-4 py-3 md:py-4">
+                                                        <div className={`w-10 h-10 md:w-11 md:h-11 rounded-xl flex items-center justify-center shrink-0
+                                                            ${state === 'paid' ? 'bg-green-100 text-green-700' :
+                                                                state === 'verifying' ? 'bg-amber-100 text-amber-700' :
+                                                                    'bg-slate-100 text-slate-500'}`}>
+                                                            {state === 'paid' ? <Check className="w-5 h-5" /> :
+                                                                state === 'verifying' ? <Clock className="w-5 h-5" /> :
+                                                                    <CreditCard className="w-5 h-5" />}
                                                         </div>
-                                                        <div className="flex-1">
-                                                            <p className="font-bold text-lg text-white group-hover:text-yellow-400 transition-colors">
-                                                                {isEn ? 'Pay with' : 'Pagar com'} {option.label.replace(' / ', '/')}
+                                                        <div className="flex-1 min-w-0">
+                                                            <p className="font-bold text-base text-slate-900">{isEn ? 'Installment' : 'Prestação'} {idx + 1}</p>
+                                                            <p className="text-xs md:text-sm text-slate-500">
+                                                                {state === 'paid' ? (isEn ? 'Paid' : 'Pago') :
+                                                                    state === 'verifying' ? (isEn ? 'Awaiting validation' : 'A aguardar validação') :
+                                                                        (isEn
+                                                                            ? `Due ${format(new Date(step.date), 'dd MMM yyyy', { locale: dateLocale })}`
+                                                                            : `Vence ${format(new Date(step.date), "dd 'de' MMM yyyy", { locale: dateLocale })}`)}
                                                             </p>
-                                                            <p className="text-xs text-white/50">{option.description}</p>
                                                         </div>
-                                                        <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center group-hover:bg-yellow-500 group-hover:text-slate-900 transition-all">
-                                                            <ChevronRight className="w-5 h-5" />
-                                                        </div>
-                                                    </button>
-                                                ))}
-
-                                                {/* Feedback Reduniq */}
-                                                {(reduniqConfirming || reduniqFeedback) && (
-                                                    <div className={`rounded-xl border px-4 py-3 text-sm ${reduniqConfirming
-                                                        ? 'border-blue-500/40 bg-blue-500/15 text-blue-100'
-                                                        : reduniqFeedback?.kind === 'success'
-                                                            ? 'border-green-500/40 bg-green-500/15 text-green-100'
-                                                            : reduniqFeedback?.kind === 'info'
-                                                                ? 'border-amber-500/40 bg-amber-500/15 text-amber-100'
-                                                                : 'border-red-500/40 bg-red-500/15 text-red-100'
-                                                        }`}>
-                                                        <p className="font-bold">
-                                                            {reduniqConfirming ? (isEn ? 'Confirming payment...' : 'A confirmar pagamento...') : reduniqFeedback?.title}
-                                                        </p>
-                                                        <p className="text-xs mt-1 opacity-90">
-                                                            {reduniqConfirming ? (isEn ? 'Please wait a moment.' : 'Aguarde um momento.') : reduniqFeedback?.message}
-                                                        </p>
-                                                    </div>
-                                                )}
-
-                                                {/* SEPARATOR */}
-                                                <div className="relative py-2">
-                                                    <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-white/10"></div></div>
-                                                    <div className="relative flex justify-center"><span className="bg-slate-950 px-4 text-[10px] text-white/50 uppercase tracking-widest font-bold">{isEn ? 'OR' : 'OU'}</span></div>
-                                                </div>
-
-                                                {/* 2. TRANSFERÊNCIA BANCÁRIA (Manual) */}
-                                                {isVerifying ? (
-                                                    <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl text-amber-500 text-sm font-bold flex flex-col items-center gap-2">
-                                                        <Clock className="w-6 h-6" />
-                                                        <p>{isEn ? 'Receipt under review' : 'Comprovativo em análise'}</p>
-                                                        <p className="text-[10px] font-medium opacity-70">{isEn ? 'Please wait for validation by our team.' : 'Aguarde a validação da nossa equipa.'}</p>
-                                                    </div>
-                                                ) : (
-                                                    <button
-                                                        onClick={() => setShowBankModal(true)}
-                                                        className="w-full rounded-2xl border-2 border-dashed border-white/20 hover:border-white/40 hover:bg-white/5 transition-all p-4 flex items-center gap-4 text-left group"
-                                                    >
-                                                        <div className="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center shrink-0 text-white group-hover:scale-110 transition-transform">
-                                                            <Landmark className="w-6 h-6" />
-                                                        </div>
-                                                        <div className="flex-1">
-                                                            <p className="font-bold text-lg text-white group-hover:text-amber-300 transition-colors">
-                                                                {isEn ? 'Bank Transfer' : 'Transferência Bancária'}
-                                                            </p>
-                                                            <p className="text-xs text-white/50">{isEn ? 'Receipt upload required for validation' : 'Obrigatório enviar comprovativo para validação'}</p>
-                                                        </div>
-                                                        <ChevronRight className="w-5 h-5 text-white/30 group-hover:text-white transition-colors" />
-                                                    </button>
-                                                )}
-
-                                            </div>
-
-                                            {/* Hidden File Input for Modal Callback */}
-                                            <input
-                                                id="receipt-upload"
-                                                type="file"
-                                                accept="image/*,.pdf"
-                                                className="hidden"
-                                                onChange={handleReceiptUpload}
-                                            />
-                                        </div>
-                                    )}
-
-                                    {isFullyPaid && (
-                                        <div className="bg-green-50 rounded-[32px] p-10 text-center border-4 border-green-200 border-dashed animate-in zoom-in duration-500">
-                                            <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center text-green-600 mx-auto mb-6 shadow-sm">
-                                                <CheckCircle2 className="w-10 h-10" />
-                                            </div>
-                                            <h4 className="text-2xl font-bold text-green-900">{isEn ? 'Registration Confirmed!' : 'Inscrição Confirmada!'}</h4>
-                                            <p className="text-green-700 mt-2 font-medium">{isEn ? 'Your payment was received successfully.' : 'O seu pagamento foi recebido com sucesso.'}</p>
-                                            <div className="mt-6 p-4 bg-white/50 rounded-xl text-sm text-green-800">
-                                                <p>{isEn ? 'We wish you an excellent pilgrimage.' : 'Desejamos-lhe uma excelente peregrinação.'}</p>
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* --- 3. PLANO DE MENSALIDADES (Se aplicável) --- */}
-                        {booking.payment_plan && booking.payment_plan.length > 0 && !isFullyPaid && (
-                            <div className="bg-slate-50 rounded-4xl p-10 border border-slate-200">
-                                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
-                                    <div>
-                                        <h3 className="text-2xl font-bold text-slate-900">{isEn ? 'Selected Donation Plan' : 'Plano de Doações Selecionado'}</h3>
-                                        <p className="text-slate-500">{isEn ? 'Schedule of your upcoming installments (10th day of each month)' : 'Agendamento das suas próximas mensalidades (Dia 10 de cada mês)'}</p>
+                                                        <p className="text-base md:text-lg font-bold text-slate-900 shrink-0">{formatPrice(Number(step.amount))}</p>
+                                                    </li>
+                                                );
+                                            })}
+                                        </ul>
                                     </div>
-                                    <div className="bg-indigo-100 text-indigo-700 px-4 py-2 rounded-xl font-bold">
-                                        {isEn ? 'Remaining Total' : 'Total Restante'}: {formatPrice(totalAmount - paidAmount)}
+                                )}
+
+                                {/* Full payment summary (when not on installments) */}
+                                {isFullPaymentFlow && (
+                                    <div className="bg-white rounded-3xl p-5 md:p-6 shadow-sm border border-slate-100">
+                                        <h2 className="text-lg md:text-xl font-bold text-slate-900 mb-4">
+                                            {isEn ? 'Full Payment' : 'Pagamento Total'}
+                                        </h2>
+                                        <ul className="divide-y divide-slate-100">
+                                            <li className="flex items-center gap-3 md:gap-4 py-3 md:py-4">
+                                                <div className={`w-10 h-10 md:w-11 md:h-11 rounded-xl flex items-center justify-center shrink-0 ${isFullyPaid ? 'bg-green-100 text-green-700' : (isVerifying ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-500')}`}>
+                                                    {isFullyPaid ? <Check className="w-5 h-5" /> : (isVerifying ? <Clock className="w-5 h-5" /> : <CreditCard className="w-5 h-5" />)}
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="font-bold text-base text-slate-900">{isEn ? 'Total amount' : 'Valor total'}</p>
+                                                    <p className="text-xs md:text-sm text-slate-500">
+                                                        {isFullyPaid
+                                                            ? (isEn ? 'Paid in full' : 'Totalmente pago')
+                                                            : (isVerifying ? (isEn ? 'Awaiting validation' : 'A aguardar validação') :
+                                                                paidAmount > 0
+                                                                    ? (isEn ? `Paid ${formatPrice(paidAmount)} of ${formatPrice(totalAmount)}` : `Pago ${formatPrice(paidAmount)} de ${formatPrice(totalAmount)}`)
+                                                                    : (isEn ? 'Pending' : 'Pendente'))}
+                                                    </p>
+                                                </div>
+                                                <p className="text-base md:text-lg font-bold text-slate-900 shrink-0">{formatPrice(totalAmount)}</p>
+                                            </li>
+                                        </ul>
                                     </div>
-                                </div>
+                                )}
 
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                    {paymentPlan.map((inst: any, idx: number) => (
-                                        <div key={idx} className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex justify-between items-center group hover:border-indigo-200 transition-all">
-                                            <div className="flex items-center gap-4">
-                                                <div className="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center font-bold text-slate-400 group-hover:bg-indigo-50 group-hover:text-indigo-500 transition-colors">
-                                                    {idx + 1}ª
-                                                </div>
-                                                <div>
-                                                    <p className="font-bold text-slate-900 capitalize">{format(new Date(inst.date), "MMMM yyyy", { locale: dateLocale })}</p>
-                                                    <p className="text-xs text-slate-400">{isEn ? 'Due: Day 10' : 'Vencimento: Dia 10'}</p>
-                                                </div>
-                                            </div>
-                                            <p className="text-2xl font-bold text-slate-900">{formatPrice(Number(inst.amount))}</p>
+                                {/* Print button */}
+                                <div className="text-center pt-2 pb-4">
+                                    <button onClick={() => window.print()} className="text-slate-400 hover:text-slate-600 font-semibold text-sm flex items-center justify-center gap-2 mx-auto transition-colors">
+                                        <Upload className="w-4 h-4 rotate-180" /> {isEn ? 'Download / Print Summary' : 'Descarregar / Imprimir Resumo'}
+                                    </button>
+                                </div>
+                            </section>
+
+                            {/* ============== RIGHT: PAY NOW — desktop sticky aside ============== */}
+                            <aside className="lg:col-span-5 order-1 lg:order-2 hidden lg:block lg:sticky lg:top-6 self-start">
+                                {!isFullyPaid && paymentPanel}
+
+                                {isFullyPaid && (
+                                    <div className="bg-green-50 rounded-3xl p-6 md:p-8 text-center border-2 border-green-200 border-dashed">
+                                        <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center text-green-600 mx-auto mb-4 shadow-sm">
+                                            <CheckCircle2 className="w-8 h-8" />
                                         </div>
-                                    ))}
+                                        <h4 className="text-xl font-bold text-green-900">{isEn ? 'Registration Confirmed!' : 'Inscrição Confirmada!'}</h4>
+                                        <p className="text-green-700 mt-1 font-medium text-sm">{isEn ? 'Your payment was received successfully.' : 'O seu pagamento foi recebido com sucesso.'}</p>
+                                        <p className="text-green-800 mt-3 text-sm">{isEn ? 'We wish you an excellent pilgrimage.' : 'Desejamos-lhe uma excelente peregrinação.'}</p>
+                                    </div>
+                                )}
+                            </aside>
+
+                            {/* ============== MOBILE: PAY NOW & banners ============== */}
+                            {!isFullyPaid && (
+                                <div className="lg:hidden col-span-1 order-1 mb-2">
+                                    {paymentPanel}
                                 </div>
-                            </div>
-                        )}
+                            )}
 
-
-                        <div className="text-center pb-12">
-                            <button onClick={() => window.print()} className="text-slate-400 hover:text-slate-600 font-bold flex items-center justify-center gap-2 mx-auto transition-colors">
-                                <Upload className="w-4 h-4 rotate-180" /> {isEn ? 'Download / Print Summary' : 'Descarregar / Imprimir Resumo'}
-                            </button>
+                            {isFullyPaid && (
+                                <div className="lg:hidden col-span-1 order-1 bg-green-50 rounded-3xl p-6 text-center border-2 border-green-200 border-dashed">
+                                    <div className="w-14 h-14 bg-green-100 rounded-full flex items-center justify-center text-green-600 mx-auto mb-3 shadow-sm">
+                                        <CheckCircle2 className="w-7 h-7" />
+                                    </div>
+                                    <h4 className="text-lg font-bold text-green-900">{isEn ? 'Registration Confirmed!' : 'Inscrição Confirmada!'}</h4>
+                                    <p className="text-green-700 mt-1 font-medium text-sm">{isEn ? 'Payment received.' : 'Pagamento recebido.'}</p>
+                                </div>
+                            )}
                         </div>
                     </>
                 )}
@@ -1126,8 +1107,8 @@ export default function BookingDashboardPage() {
             <BankTransferModal
                 isOpen={showBankModal}
                 onClose={() => setShowBankModal(false)}
-                totalAmount={amountToPay}
-                formattedTotal={formatPrice(amountToPay)}
+                totalAmount={effectiveAmountToPay}
+                formattedTotal={formatPrice(effectiveAmountToPay)}
                 iban={bankTransferDetails.iban}
                 beneficiaryName={bankTransferDetails.beneficiary_name}
                 bankName={bankTransferDetails.bank_name}
