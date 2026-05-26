@@ -557,8 +557,8 @@ export default function PilgrimageDetailPage() {
                                                 </p>
                                                 <p className="mt-2 text-sm font-bold leading-relaxed">
                                                     {isEn
-                                                        ? 'Only 10 places remain for November. Registration may close when these places are filled.'
-                                                        : 'Restam apenas 10 vagas para novembro. A inscrição pode fechar quando estas vagas forem preenchidas.'}
+                                                        ? 'Only 2 places remain for November. Registration may close when these places are filled.'
+                                                        : 'Restam apenas 2 vagas para novembro. A inscrição pode fechar quando estas vagas forem preenchidas.'}
                                                 </p>
                                             </div>
                                         )}

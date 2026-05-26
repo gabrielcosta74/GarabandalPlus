@@ -163,8 +163,8 @@ export default function PilgrimagesPage() {
                                         </p>
                                         <p className="mt-2 text-base font-bold leading-relaxed">
                                             {locale === 'en'
-                                                ? 'Only 10 places remain for the November pilgrimage. Registration may close as soon as these places are filled.'
-                                                : 'Restam apenas 10 vagas para a peregrinação de novembro. A inscrição pode fechar assim que estas vagas forem preenchidas.'}
+                                                ? 'Only 2 places remain for the November pilgrimage. Registration may close as soon as these places are filled.'
+                                                : 'Restam apenas 2 vagas para a peregrinação de novembro. A inscrição pode fechar assim que estas vagas forem preenchidas.'}
                                         </p>
                                     </div>
                                     <p className="mt-4 max-w-2xl text-base leading-relaxed text-slate-600 md:text-lg">

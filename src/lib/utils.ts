@@ -79,7 +79,7 @@ export const getAvailabilityHighlightLabel = (
     pilgrimage?: CampaignPilgrimage,
 ) => {
     if (pilgrimage && isNovemberCampaignPilgrimage(pilgrimage) && remainingSpots > 0) {
-        return locale === 'en' ? 'Only 10 spots left' : 'Restam apenas 10 vagas';
+        return locale === 'en' ? 'Only 2 spots left' : 'Restam apenas 2 vagas';
     }
 
     return getPublicAvailabilityLabel(remainingSpots, locale);

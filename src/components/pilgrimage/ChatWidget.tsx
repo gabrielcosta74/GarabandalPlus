@@ -375,7 +375,7 @@ export default function ChatWidget({
                                 }`}>
                                     <Users className="w-3.5 h-3.5 shrink-0" />
                                     {isNovemberCampaign ? (
-                                        <span><span className="font-bold">{isEn ? 'Only 10 spots left' : 'Restam apenas 10 vagas'}</span><span className="hidden sm:inline"> {isEn ? '— sign up now' : '— inscreva-se já'}</span></span>
+                                        <span><span className="font-bold">{isEn ? 'Only 2 spots left' : 'Restam apenas 2 vagas'}</span><span className="hidden sm:inline"> {isEn ? '— sign up now' : '— inscreva-se já'}</span></span>
                                     ) : typeof remainingSpots === 'number' && remainingSpots <= 5 ? (
                                         <span><span className="font-bold">{isEn ? 'Last spots' : 'Últimas vagas'}</span><span className="hidden sm:inline"> {isEn ? '— sign up now' : '— inscreva-se já'}</span></span>
                                     ) : (
