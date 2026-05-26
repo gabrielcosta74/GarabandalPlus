@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import AdminShell from '../AdminShell';
 import { supabaseBrowser } from '../../../lib/supabase-browser';
 import { KpiCard, RevenueDistWidget, RevenueTrendWidget, LowStockList, RevenueTrendData, RevenueDistData, RevenueStackedBarChart, TopItemsList } from '../../../components/admin/DashboardWidgets';
-import { ShoppingCart, Heart, Activity, AlertTriangle, Bell, Check, ChevronRight, ChevronDown, Calendar, Filter } from 'lucide-react';
+import { ShoppingCart, Heart, Activity, AlertTriangle, Bell, Check, ChevronRight, ChevronDown, Calendar, Filter, Award } from 'lucide-react';
 import { useAdminNotifications } from '../../../context/AdminNotificationContext';
 import Link from 'next/link';
 import { format, subDays, startOfMonth, endOfMonth, startOfYear } from 'date-fns';
@@ -306,11 +306,13 @@ export default function AdminDashboardPage() {
                   <div className="flex items-center gap-4">
                     <div className={`w-10 h-10 rounded-full flex items-center justify-center ${tx.type === 'shop' ? 'bg-blue-50 text-blue-600' :
                       tx.type === 'donation' ? 'bg-rose-50 text-rose-600' :
-                        'bg-amber-50 text-amber-600'
+                        tx.type === 'quota' ? 'bg-violet-50 text-violet-600' :
+                          'bg-amber-50 text-amber-600'
                       }`}>
                       {tx.type === 'shop' && <ShoppingCart size={18} />}
                       {tx.type === 'donation' && <Heart size={18} />}
                       {tx.type === 'booking' && <Activity size={18} />}
+                      {tx.type === 'quota' && <Award size={18} />}
                     </div>
                     <div>
                       <p className="text-sm font-bold text-slate-900">{tx.customer_name || 'Desconhecido'}</p>

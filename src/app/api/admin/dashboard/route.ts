@@ -72,23 +72,26 @@ export async function GET(req: Request) {
         }
 
         const [donationsRaw, pilgrimPaymentsRaw, quotasRaw, lowStockRaw] = await Promise.all([
-            // Donations
+            // Donations — `donation_status` is an enum that only allows: pending,
+            // processing, succeeded, failed, canceled, pending_verification.
+            // Passing values outside the enum invalidates the whole query, which is
+            // why donations used to show as €0 on the chart.
             supabaseServer.from('donations')
-                .select('amount_cents, created_at, status')
-                .in('status', ['succeeded', 'pago', 'verified'])
+                .select('amount_cents, created_at, status, donor_name, donor_email, user_id')
+                .eq('status', 'succeeded')
                 .gte('created_at', fetchStart.toISOString())
                 .lte('created_at', fetchEnd.toISOString()),
 
-            // Pilgrimages
+            // Pilgrimages — include 'manual' (admin-recorded payments) so the chart is complete.
             supabaseServer.from('pilgrimage_payments')
-                .select('amount, created_at, status, booking:bookings(pilgrimage:pilgrimages(title))')
-                .in('status', ['succeeded', 'verified', 'paid'])
+                .select('amount, created_at, status, user_id, booking_id, booking:bookings(id, user_id, pilgrims(full_name), pilgrimage:pilgrimages(title))')
+                .in('status', ['succeeded', 'verified', 'paid', 'manual'])
                 .gte('created_at', fetchStart.toISOString())
                 .lte('created_at', fetchEnd.toISOString()),
 
-            // Quotas
+            // Quotas — fetch raw rows; we'll join names via an in-memory member lookup below.
             supabaseServer.from('pagamentos_quotas')
-                .select('valor, data_pagamento, estado')
+                .select('valor, data_pagamento, estado, user_id')
                 .in('estado', ['pago', 'paid'])
                 .gte('data_pagamento', fetchStart.toISOString())
                 .lte('data_pagamento', fetchEnd.toISOString()),
@@ -105,6 +108,61 @@ export async function GET(req: Request) {
         const pilgrimPayments = pilgrimPaymentsRaw.data || [];
         const quotas = quotasRaw.data || [];
         const lowStock = lowStockRaw.data || [];
+
+        // Build a single member lookup keyed by user_id so we can resolve names
+        // for donations, pilgrimage payments and quotas without ambiguous PostgREST joins.
+        const memberUserIds = new Set<string>();
+        for (const d of donations) if (d?.user_id) memberUserIds.add(String(d.user_id));
+        for (const p of pilgrimPayments) {
+            if (p?.user_id) memberUserIds.add(String(p.user_id));
+            const bookingUser = (p as any)?.booking?.user_id;
+            if (bookingUser) memberUserIds.add(String(bookingUser));
+        }
+        for (const q of quotas) if (q?.user_id) memberUserIds.add(String(q.user_id));
+
+        const memberById = new Map<string, { nome: string | null; email: string | null }>();
+        if (memberUserIds.size > 0) {
+            const { data: membersData } = await supabaseServer
+                .from('membros')
+                .select('id, nome, email')
+                .in('id', Array.from(memberUserIds));
+            for (const m of (membersData || []) as Array<{ id: string; nome: string | null; email: string | null }>) {
+                memberById.set(String(m.id), { nome: m.nome, email: m.email });
+            }
+        }
+
+        const resolveDonationName = (d: any): string => {
+            const name = String(d?.donor_name || '').trim();
+            if (name) return name;
+            const memberMatch = d?.user_id ? memberById.get(String(d.user_id)) : null;
+            if (memberMatch?.nome) return memberMatch.nome;
+            if (memberMatch?.email) return memberMatch.email;
+            return String(d?.donor_email || '').trim() || 'Doador anónimo';
+        };
+
+        const resolvePilgrimName = (p: any): string => {
+            // 1. Try the first pilgrim's full_name on the booking
+            const pilgrims = p?.booking?.pilgrims;
+            if (Array.isArray(pilgrims)) {
+                const firstName = pilgrims
+                    .map((x: any) => String(x?.full_name || '').trim())
+                    .find(Boolean);
+                if (firstName) return firstName;
+            }
+            // 2. Fall back to the booking owner / payer's member name
+            const ownerId = p?.user_id || p?.booking?.user_id;
+            const memberMatch = ownerId ? memberById.get(String(ownerId)) : null;
+            if (memberMatch?.nome) return memberMatch.nome;
+            if (memberMatch?.email) return memberMatch.email;
+            return 'Peregrino';
+        };
+
+        const resolveQuotaName = (q: any): string => {
+            const memberMatch = q?.user_id ? memberById.get(String(q.user_id)) : null;
+            if (memberMatch?.nome) return memberMatch.nome;
+            if (memberMatch?.email) return memberMatch.email;
+            return 'Membro';
+        };
 
         // --- 3. HELPER FUNCTIONS ---
         const parseDate = (item: any) => {
@@ -251,11 +309,50 @@ export async function GET(req: Request) {
             .sort((a, b) => b.rev - a.rev)
             .slice(0, 5);
 
-        // Recent Transactions
+        // Recent Transactions — the frontend expects `customer_name`, so resolve real
+        // names for each source via the in-memory member lookup. Quotas are also
+        // included now so the activity feed reflects every revenue stream.
         const recentMerged = [
-            ...orders.filter((i: any) => isInPeriod(parseDate(i), currentStart, currentEnd)).map((i: any) => ({ ...i, type: 'shop', amount: getRevenue(i, 'order'), label: 'Loja', customer: i.buyer_name, date: parseDate(i) })),
-            ...donations.filter((i: any) => isInPeriod(parseDate(i), currentStart, currentEnd)).map((i: any) => ({ ...i, type: 'donation', amount: getRevenue(i, 'donation'), label: 'Doação', customer: 'Doador', date: parseDate(i) })),
-            ...pilgrimPayments.filter((i: any) => isInPeriod(parseDate(i), currentStart, currentEnd)).map((i: any) => ({ ...i, type: 'booking', amount: getRevenue(i, 'pilgrimage'), label: 'Peregrinação', customer: 'Peregrino', date: parseDate(i) })),
+            ...orders
+                .filter((i: any) => isInPeriod(parseDate(i), currentStart, currentEnd))
+                .map((i: any) => ({
+                    type: 'shop',
+                    amount: getRevenue(i, 'order'),
+                    label: 'Loja',
+                    customer_name: String(i.buyer_name || '').trim() || 'Cliente sem nome',
+                    status: i.status,
+                    date: parseDate(i),
+                })),
+            ...donations
+                .filter((i: any) => isInPeriod(parseDate(i), currentStart, currentEnd))
+                .map((i: any) => ({
+                    type: 'donation',
+                    amount: getRevenue(i, 'donation'),
+                    label: 'Doação',
+                    customer_name: resolveDonationName(i),
+                    status: i.status,
+                    date: parseDate(i),
+                })),
+            ...pilgrimPayments
+                .filter((i: any) => isInPeriod(parseDate(i), currentStart, currentEnd))
+                .map((i: any) => ({
+                    type: 'booking',
+                    amount: getRevenue(i, 'pilgrimage'),
+                    label: 'Peregrinação',
+                    customer_name: resolvePilgrimName(i),
+                    status: i.status,
+                    date: parseDate(i),
+                })),
+            ...quotas
+                .filter((i: any) => isInPeriod(parseDate(i), currentStart, currentEnd))
+                .map((i: any) => ({
+                    type: 'quota',
+                    amount: getRevenue(i, 'quota'),
+                    label: 'Anuidade',
+                    customer_name: resolveQuotaName(i),
+                    status: i.estado,
+                    date: parseDate(i),
+                })),
         ].sort((a, b) => b.date.getTime() - a.date.getTime()).slice(0, 10);
 
         return NextResponse.json({
