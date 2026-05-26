@@ -224,7 +224,6 @@ const EMAIL_TEMPLATES = {
         render: () =>
             renderMembershipRevokedEmail({
                 name: 'Maria Silva',
-                email: 'maria@exemplo.com',
                 payLink: MOCK_QUOTA_LINK,
             }),
     },

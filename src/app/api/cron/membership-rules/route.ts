@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { supabaseServer } from '../../../../lib/supabase';
 import { sendQuotaReminderEmail, sendMembershipRevokedEmail } from '../../../../lib/email';
+import { inferLanguage } from '../../../../lib/marketing-core';
 import { ensureNotificationRecord, markNotificationSent } from '../../../../lib/email-notifications';
 import { getAppUrl } from '../../../../lib/config';
 
@@ -34,7 +35,7 @@ export async function GET(request: Request) {
 
     const { data: membros, error } = await supabaseServer
         .from('membros')
-        .select('id, nome, email, numero_socio, proxima_quota, estado_quota, tipo_subscricao, is_membro')
+        .select('id, nome, email, numero_socio, proxima_quota, estado_quota, tipo_subscricao, is_membro, country')
         .not('proxima_quota', 'is', null);
 
     if (error) {
@@ -108,11 +109,14 @@ export async function GET(request: Request) {
         try {
             let sent = false;
 
+            const memberLocale = inferLanguage(member.country ?? null);
+
             if (notificationType === 'membership_revoked') {
                 sent = await sendMembershipRevokedEmail({
                     email: member.email,
-                    name: member.nome || 'Membro',
+                    name: member.nome || '',
                     payLink: buildMembershipUrl(),
+                    locale: memberLocale,
                 });
             } else {
                 sent = await sendQuotaReminderEmail({
@@ -121,6 +125,7 @@ export async function GET(request: Request) {
                     memberNumber: member.numero_socio ?? null,
                     nextQuotaDate: member.proxima_quota,
                     membershipUrl: buildMembershipUrl(),
+                    locale: memberLocale,
                     ...reminderPayload,
                 });
             }

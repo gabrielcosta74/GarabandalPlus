@@ -481,7 +481,7 @@ export const sendQuotaOverdueEmail = async (payload: { name: string; email: stri
   return true;
 };
 
-export const sendMembershipRevokedEmail = async (payload: { name: string; email: string; payLink: string }) => {
+export const sendMembershipRevokedEmail = async (payload: { name: string; email: string; payLink: string; locale?: 'pt' | 'en' }) => {
   if (!resendClient) return false;
   const content = renderMembershipRevokedEmail(payload);
   await resendClient.emails.send({ from: notifyFrom, to: [payload.email], subject: content.subject, html: content.html });

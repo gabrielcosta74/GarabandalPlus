@@ -39,6 +39,12 @@ const resolveRecipientName = (booking: ReminderBooking) =>
         .find(Boolean) || null
     : null;
 
+const resolveBookingLocale = (booking: ReminderBooking): 'pt' | 'en' => {
+  const notes = String(booking.notes || '');
+  if (/\[locale:en\]/i.test(notes)) return 'en';
+  return 'pt';
+};
+
 const getExistingNotification = async (type: string, reference: string) => {
   const { data, error } = await supabaseServer!
     .from('email_notifications')
@@ -87,6 +93,7 @@ export async function GET(request: Request) {
       paid_amount,
       status,
       view_token,
+      notes,
       payment_plan,
       pilgrimage:pilgrimages (
         title,
@@ -181,6 +188,7 @@ export async function GET(request: Request) {
         totalRemaining: candidate.totalRemaining,
         bookingUrl: candidate.bookingUrl,
         stage: candidate.stage.kind,
+        locale: resolveBookingLocale(booking),
       });
 
       if (!sent) {

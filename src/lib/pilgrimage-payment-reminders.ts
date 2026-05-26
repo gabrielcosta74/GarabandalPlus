@@ -75,6 +75,7 @@ export type ReminderBooking = {
   paid_amount?: number | string | null;
   status?: string | null;
   view_token?: string | null;
+  notes?: string | null;
   payment_plan?: unknown;
   pilgrimage?: {
     title?: string | null;

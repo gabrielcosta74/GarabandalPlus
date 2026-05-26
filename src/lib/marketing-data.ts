@@ -47,7 +47,7 @@ const getSourceKey = (input: { email?: unknown; phone?: unknown; fallback: strin
 const mergeName = (current: string, next?: unknown) => {
   const value = normalizeText(next);
   if (!value) return current;
-  if (!current || current === 'Contacto') return value;
+  if (!current) return value;
   return current.length >= value.length ? current : value;
 };
 
@@ -86,7 +86,7 @@ const ensureContact = (
     source_key: input.key,
     normalized_email: normalizedEmail,
     normalized_phone: normalizedPhone,
-    display_name: mergeName('Contacto', input.name),
+    display_name: mergeName('', input.name),
     country: normalizedCountry,
     language: inferLanguage(normalizedCountry, locale),
     consent_state: 'assumed',

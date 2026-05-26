@@ -88,6 +88,7 @@ export type QuotaReminderInput = {
   daysOverdue?: number | null;
   nextQuotaDate?: string | null;
   membershipUrl?: string | null;
+  locale?: EmailLocale;
 };
 
 export type PilgrimagePaymentReminderInput = {
@@ -109,6 +110,7 @@ export type PilgrimagePaymentReminderInput = {
     | 'overdue_5d'
     | 'overdue_3d'
     | 'overdue_10d';
+  locale?: EmailLocale;
 };
 
 export type GeneralLeadInput = {
@@ -317,7 +319,8 @@ const Text = (text: string, style = "") => `
 /* -------------------------------------------------------------------------- */
 
 export const renderMembershipEmail = (payload: MembershipNotificationInput) => {
-  const memberLabel = payload.memberName || payload.memberEmail || "Membro";
+  // Admin-facing label (subject), so a neutral fallback is fine.
+  const memberLabel = payload.memberName || payload.memberEmail || 'novo membro';
   const amountText = formatCurrency(payload.amount, payload.currency || "EUR");
   const isRenewal = payload.kind === "renewal";
 
@@ -506,44 +509,59 @@ export const renderBookingConfirmationEmail = (payload: {
 };
 
 export const renderQuotaReminderEmail = (payload: QuotaReminderInput) => {
+  const locale: EmailLocale = payload.locale === 'en' ? 'en' : 'pt';
+  const isEn = locale === 'en';
   const isOverdue = (payload.daysOverdue || 0) > 0;
   const daysText = isOverdue
-    ? `${payload.daysOverdue} dias em atraso`
-    : `${payload.daysUntilDue} dias para vencer`;
+    ? isEn
+      ? `${payload.daysOverdue} days overdue`
+      : `${payload.daysOverdue} dias em atraso`
+    : isEn
+      ? `${payload.daysUntilDue} days until due`
+      : `${payload.daysUntilDue} dias para vencer`;
+
+  const greetingName = payload.memberName
+    || (isEn ? 'Apostolate member' : 'membro(a) do Apostolado');
+  const greetingPrefix = isEn ? 'Dear' : 'Estimado(a)';
 
   return {
     subject: isOverdue
-      ? `Ação necessária: anuidade em atraso`
-      : `Lembrete: renovação da anuidade`,
+      ? isEn ? 'Action required: membership annuity overdue' : 'Ação necessária: anuidade em atraso'
+      : isEn ? 'Reminder: membership annuity renewal' : 'Lembrete: renovação da anuidade',
     html: Layout({
-      title: "Estado da Anuidade",
+      title: isEn ? 'Membership Annuity Status' : 'Estado da Anuidade',
+      locale,
       children: `
                 ${Header({
         title: isOverdue
-          ? "Anuidade em Atraso"
-          : "Renovação de Anuidade",
+          ? isEn ? 'Annuity Overdue' : 'Anuidade em Atraso'
+          : isEn ? 'Annuity Renewal' : 'Renovação de Anuidade',
         subtitle: isOverdue
-          ? "Regularize a sua situação"
-          : "Mantenha os seus benefícios ativos",
+          ? isEn ? 'Please regularise your status' : 'Regularize a sua situação'
+          : isEn ? 'Keep your benefits active' : 'Mantenha os seus benefícios ativos',
       })}
                 ${Section({
         children: `
-                        ${Text(`Olá <strong>${payload.memberName || "Membro"}</strong>,`)}
+                        ${Text(`${isEn ? 'Hello' : 'Olá'} <strong>${greetingPrefix} ${greetingName}</strong>,`)}
                         ${Text(
           isOverdue
-            ? "A sua anuidade encontra-se pendente. Para manter o acesso ativo, pedimos a regularização do pagamento."
-            : "Este é um lembrete amigável de que a sua anuidade anual vence em breve.",
+            ? isEn
+              ? 'Your annuity is pending. To keep your access active, we kindly ask you to regularise the payment.'
+              : 'A sua anuidade encontra-se pendente. Para manter o acesso ativo, pedimos a regularização do pagamento.'
+            : isEn
+              ? 'This is a friendly reminder that your annual membership is due soon.'
+              : 'Este é um lembrete amigável de que a sua anuidade anual vence em breve.',
         )}
-                        
+
                         ${Card({
           children: `
-                                ${InfoRow({ label: "Nº Associado", value: payload.memberNumber || "-" })}
-                                ${InfoRow({ label: "Vencimento", value: formatDate(payload.nextQuotaDate) })}
-                                ${InfoRow({ label: "Status", value: `<span style="color:${isOverdue ? COLORS.error : COLORS.primary};font-weight:bold;">${daysText}</span>`, isLast: true })}
+                                ${InfoRow({ label: isEn ? 'Member No.' : 'Nº Associado', value: payload.memberNumber || '-' })}
+                                ${InfoRow({ label: isEn ? 'Due date' : 'Vencimento', value: formatDate(payload.nextQuotaDate, locale) })}
+                                ${InfoRow({ label: 'Status', value: `<span style="color:${isOverdue ? COLORS.error : COLORS.primary};font-weight:bold;">${daysText}</span>`, isLast: true })}
                             `,
         })}
 
-                        ${Button({ label: "Renovar Agora", url: payload.membershipUrl || `${APP_URL}/member` })}
+                        ${Button({ label: isEn ? 'Renew Now' : 'Renovar Agora', url: payload.membershipUrl || `${APP_URL}/member` })}
                     `,
       })}
             `,
@@ -554,43 +572,79 @@ export const renderQuotaReminderEmail = (payload: QuotaReminderInput) => {
 export const renderPilgrimagePaymentReminderEmail = (
   payload: PilgrimagePaymentReminderInput,
 ) => {
+  const locale: EmailLocale = payload.locale === 'en' ? 'en' : 'pt';
+  const isEn = locale === 'en';
   const isShortDeadline =
     payload.stage === 'upcoming_3d' ||
     payload.stage === 'upcoming_1d' ||
     payload.stage === 'overdue_2d' ||
     payload.stage === 'overdue_5d';
-  const subtitleMap: Record<PilgrimagePaymentReminderInput['stage'], string> = {
-    upcoming_3d: 'Faltam 3 dias para pagar o sinal de inscrição',
-    upcoming_1d: 'Falta 1 dia para pagar o sinal de inscrição',
-    upcoming_7d: 'Faltam 7 dias para o vencimento',
-    upcoming_2d: 'Faltam 2 dias para o vencimento',
-    due_today: 'O pagamento vence hoje',
-    overdue_2d: 'O sinal de inscrição está em atraso',
-    overdue_5d: 'O sinal de inscrição continua por regularizar',
-    overdue_3d: 'O pagamento está em atraso',
-    overdue_10d: 'Continua pendente regularizar este valor',
-  };
 
-  const introMap: Record<PilgrimagePaymentReminderInput['stage'], string> = {
-    upcoming_3d:
-      'O sinal de inscrição tem prazo de 5 dias após a reserva. Faltam 3 dias para o vencimento.',
-    upcoming_1d:
-      'O prazo do sinal de inscrição termina amanhã. Se ainda não regularizou, recomendamos concluir hoje.',
-    upcoming_7d:
-      'Queremos lembrar com antecedência para que consiga organizar o pagamento sem pressão de última hora.',
-    upcoming_2d:
-      'O vencimento está muito próximo. Se ainda não regularizou, este é um bom momento para concluir o pagamento.',
-    due_today:
-      'Passamos só para recordar que este pagamento vence hoje e continua pendente.',
-    overdue_2d:
-      'O prazo de 5 dias para pagamento do sinal já passou. Se já efetuou a transferência, pode enviar o comprovativo na sua inscrição.',
-    overdue_5d:
-      'O sinal de inscrição continua pendente após o prazo inicial. Pedimos, por favor, que regularize este valor para não comprometer a sua vaga.',
-    overdue_3d:
-      'Verificámos que este valor ainda não foi registado. Se já efetuou o pagamento, pode entrar na sua inscrição e enviar o comprovativo.',
-    overdue_10d:
-      'Este valor continua em aberto. Pedimos, por favor, que regularize a situação assim que possível para manter a sua inscrição sem pendências.',
-  };
+  const subtitleMap: Record<PilgrimagePaymentReminderInput['stage'], string> = isEn
+    ? {
+        upcoming_3d: '3 days left to pay the registration deposit',
+        upcoming_1d: '1 day left to pay the registration deposit',
+        upcoming_7d: '7 days until the due date',
+        upcoming_2d: '2 days until the due date',
+        due_today: 'Payment is due today',
+        overdue_2d: 'The registration deposit is overdue',
+        overdue_5d: 'The registration deposit is still pending',
+        overdue_3d: 'The payment is overdue',
+        overdue_10d: 'This amount remains pending',
+      }
+    : {
+        upcoming_3d: 'Faltam 3 dias para pagar o sinal de inscrição',
+        upcoming_1d: 'Falta 1 dia para pagar o sinal de inscrição',
+        upcoming_7d: 'Faltam 7 dias para o vencimento',
+        upcoming_2d: 'Faltam 2 dias para o vencimento',
+        due_today: 'O pagamento vence hoje',
+        overdue_2d: 'O sinal de inscrição está em atraso',
+        overdue_5d: 'O sinal de inscrição continua por regularizar',
+        overdue_3d: 'O pagamento está em atraso',
+        overdue_10d: 'Continua pendente regularizar este valor',
+      };
+
+  const introMap: Record<PilgrimagePaymentReminderInput['stage'], string> = isEn
+    ? {
+        upcoming_3d:
+          'The registration deposit has a 5-day deadline after booking. 3 days remain until the due date.',
+        upcoming_1d:
+          'The deadline for the registration deposit ends tomorrow. If you have not yet regularised it, we recommend completing it today.',
+        upcoming_7d:
+          'We are sending an early reminder so you can organise the payment without last-minute pressure.',
+        upcoming_2d:
+          'The due date is very close. If you have not yet regularised, this is a good moment to complete the payment.',
+        due_today:
+          'Just a reminder that this payment is due today and remains pending.',
+        overdue_2d:
+          'The 5-day deadline for the registration deposit has passed. If you have already made the transfer, you can upload the receipt in your booking.',
+        overdue_5d:
+          'The registration deposit remains pending after the initial deadline. Please regularise this amount so your spot is not compromised.',
+        overdue_3d:
+          'We have noticed that this amount has not yet been recorded. If you have already paid, you can access your booking and upload the receipt.',
+        overdue_10d:
+          'This amount remains open. Please regularise it as soon as possible to keep your booking in good standing.',
+      }
+    : {
+        upcoming_3d:
+          'O sinal de inscrição tem prazo de 5 dias após a reserva. Faltam 3 dias para o vencimento.',
+        upcoming_1d:
+          'O prazo do sinal de inscrição termina amanhã. Se ainda não regularizou, recomendamos concluir hoje.',
+        upcoming_7d:
+          'Queremos lembrar com antecedência para que consiga organizar o pagamento sem pressão de última hora.',
+        upcoming_2d:
+          'O vencimento está muito próximo. Se ainda não regularizou, este é um bom momento para concluir o pagamento.',
+        due_today:
+          'Passamos só para recordar que este pagamento vence hoje e continua pendente.',
+        overdue_2d:
+          'O prazo de 5 dias para pagamento do sinal já passou. Se já efetuou a transferência, pode enviar o comprovativo na sua inscrição.',
+        overdue_5d:
+          'O sinal de inscrição continua pendente após o prazo inicial. Pedimos, por favor, que regularize este valor para não comprometer a sua vaga.',
+        overdue_3d:
+          'Verificámos que este valor ainda não foi registado. Se já efetuou o pagamento, pode entrar na sua inscrição e enviar o comprovativo.',
+        overdue_10d:
+          'Este valor continua em aberto. Pedimos, por favor, que regularize a situação assim que possível para manter a sua inscrição sem pendências.',
+      };
 
   const overdueStages: PilgrimagePaymentReminderInput['stage'][] = [
     'overdue_2d',
@@ -599,14 +653,25 @@ export const renderPilgrimagePaymentReminderEmail = (
     'overdue_10d',
   ];
   const effectiveIsOverdue = overdueStages.includes(payload.stage);
-  const heading = effectiveIsOverdue ? 'Pagamento em Falta' : 'Lembrete de Pagamento';
+  const heading = effectiveIsOverdue
+    ? isEn ? 'Outstanding Payment' : 'Pagamento em Falta'
+    : isEn ? 'Payment Reminder' : 'Lembrete de Pagamento';
+
+  const greetingName = payload.recipientName
+    || (isEn ? 'pilgrim' : 'peregrino(a)');
+  const greetingPrefix = isEn ? 'Dear' : 'Estimado(a)';
 
   return {
     subject: effectiveIsOverdue
-      ? `Pagamento pendente da peregrinação: ${payload.pilgrimageName}`
-      : `Lembrete de pagamento da peregrinação: ${payload.pilgrimageName}`,
+      ? isEn
+        ? `Pilgrimage payment pending: ${payload.pilgrimageName}`
+        : `Pagamento pendente da peregrinação: ${payload.pilgrimageName}`
+      : isEn
+        ? `Pilgrimage payment reminder: ${payload.pilgrimageName}`
+        : `Lembrete de pagamento da peregrinação: ${payload.pilgrimageName}`,
     html: Layout({
       title: heading,
+      locale,
       children: `
                 ${Header({
         title: heading,
@@ -614,14 +679,14 @@ export const renderPilgrimagePaymentReminderEmail = (
       })}
                 ${Section({
         children: `
-                        ${Text(`Olá <strong>${payload.recipientName || 'Peregrino'}</strong>,`)}
+                        ${Text(`${isEn ? 'Hello' : 'Olá'} <strong>${greetingPrefix} ${greetingName}</strong>,`)}
                         ${Text(introMap[payload.stage])}
                         ${Card({
           children: `
-                                ${InfoRow({ label: 'Referente a', value: payload.obligationLabel })}
-                                ${InfoRow({ label: 'Vencimento', value: formatDate(payload.dueDate) })}
-                                ${InfoRow({ label: 'Valor desta fase', value: formatCurrency(payload.amountDue) })}
-                                ${InfoRow({ label: 'Total ainda em falta', value: formatCurrency(payload.totalRemaining), isLast: true })}
+                                ${InfoRow({ label: isEn ? 'Concerning' : 'Referente a', value: payload.obligationLabel })}
+                                ${InfoRow({ label: isEn ? 'Due date' : 'Vencimento', value: formatDate(payload.dueDate, locale) })}
+                                ${InfoRow({ label: isEn ? 'Amount for this stage' : 'Valor desta fase', value: formatCurrency(payload.amountDue, 'EUR', locale) })}
+                                ${InfoRow({ label: isEn ? 'Total still outstanding' : 'Total ainda em falta', value: formatCurrency(payload.totalRemaining, 'EUR', locale), isLast: true })}
                             `,
         })}
                         ${Card({
@@ -630,15 +695,21 @@ export const renderPilgrimagePaymentReminderEmail = (
                                     ${subtitleMap[payload.stage]}
                                 </p>
                                 <p style="margin:12px 0 0;color:${COLORS.textLight};">
-                                    Pode entrar na sua inscrição para pagar agora ou enviar o comprovativo, caso já tenha feito a transferência.
+                                    ${isEn
+                                      ? 'You can access your booking to pay now, or upload the receipt if you have already made the transfer.'
+                                      : 'Pode entrar na sua inscrição para pagar agora ou enviar o comprovativo, caso já tenha feito a transferência.'}
                                 </p>
                             `,
         })}
-                        ${Button({ label: 'Gerir Inscrição', url: payload.bookingUrl })}
+                        ${Button({ label: isEn ? 'Manage Booking' : 'Gerir Inscrição', url: payload.bookingUrl })}
                         ${Text(
                           isShortDeadline
-                            ? 'Este aviso refere-se ao prazo curto do sinal de inscrição. Se já regularizou este valor recentemente, pode desconsiderar este email.'
-                            : 'Se já regularizou este valor recentemente, pode desconsiderar este aviso.',
+                            ? isEn
+                              ? 'This notice refers to the short deadline of the registration deposit. If you have recently regularised this amount, you may disregard this email.'
+                              : 'Este aviso refere-se ao prazo curto do sinal de inscrição. Se já regularizou este valor recentemente, pode desconsiderar este email.'
+                            : isEn
+                              ? 'If you have recently regularised this amount, you may disregard this notice.'
+                              : 'Se já regularizou este valor recentemente, pode desconsiderar este aviso.',
                         )}
                     `,
       })}
@@ -716,7 +787,9 @@ export const renderDonationReceiptEmail = (payload: DonationReceiptInput) => {
 export const renderGeneralLeadEmail = (payload: GeneralLeadInput) => {
   const locale = payload.locale === 'en' ? 'en' : 'pt';
   const isEn = locale === 'en';
-  const firstName = (payload.name || '').split(' ')[0] || (isEn ? 'friend' : 'amigo/a');
+  const trimmedName = (payload.name || '').trim();
+  const firstName = trimmedName.split(' ')[0] || (isEn ? 'friend' : 'amigo(a)');
+  const greetingPrefix = trimmedName ? '' : (isEn ? 'Dear ' : 'Estimado(a) ');
   return {
     subject: isEn ? `${firstName}, we received your interest — we are watching` : `${firstName}, recebemos o seu interesse — ficamos atentos`,
     html: Layout({
@@ -727,7 +800,7 @@ export const renderGeneralLeadEmail = (payload: GeneralLeadInput) => {
                 ${Header({ title: isEn ? "Your interest has been noted" : "O seu interesse foi registado", subtitle: "Apostolado de Garabandal" })}
                 ${Section({
         children: `
-                        ${Text(isEn ? `Hello <strong>${firstName}</strong>,` : `Olá <strong>${firstName}</strong>,`)}
+                        ${Text(isEn ? `Hello <strong>${greetingPrefix}${firstName}</strong>,` : `Olá <strong>${greetingPrefix}${firstName}</strong>,`)}
                         ${Text(isEn
           ? "Your contact has been registered. When there are new dates, places or relevant opportunities, we will reach out to you directly — before the public announcement."
           : "O seu contacto foi registado. Quando existirem novas datas, vagas ou oportunidades relevantes, entraremos diretamente em contacto consigo — antes de anunciarmos ao público."
@@ -1144,11 +1217,21 @@ const localizeMarketingUrl = (url: string, locale: EmailLocale) => {
 
 const fillMarketingVariables = (value: string, payload: MarketingTemplatePayload) => {
   const locale = payload.language === 'en' ? 'en' : 'pt';
-  const fallbackName = locale === 'en' ? 'friend' : 'amigo/a';
-  const firstName = (payload.name || '').trim().split(/\s+/)[0] || payload.name || fallbackName;
+  // When there is no real name, fall back to a respectful generic form.
+  // `greeting` is the full salutation (e.g. "Olá João" / "Estimado(a) amigo(a)")
+  // and is what templates use in the body. `first_name` is still used in
+  // subjects but takes a graceful fallback like "amigo(a)" / "friend".
+  const fallbackFirstName = locale === 'en' ? 'friend' : 'amigo(a)';
+  const fallbackFullName = locale === 'en' ? 'friend of Garabandal' : 'amigo(a) de Garabandal';
+  const trimmedName = (payload.name || '').trim();
+  const firstName = trimmedName.split(/\s+/)[0] || fallbackFirstName;
+  const greeting = trimmedName
+    ? (locale === 'en' ? `Hello ${firstName}` : `Olá ${firstName}`)
+    : (locale === 'en' ? `Dear ${fallbackFirstName}` : `Estimado(a) ${fallbackFirstName}`);
   const variables: Record<string, string> = {
-    name: payload.name || fallbackName,
-    first_name: firstName,
+    name: trimmedName || fallbackFullName,
+    first_name: trimmedName ? firstName : fallbackFirstName,
+    greeting,
     pilgrimage_name: payload.pilgrimageName || 'Garabandal',
     pilgrimage_url: payload.pilgrimageUrl || marketingUrl('/peregrinacoes', payload),
     booking_resume_url: payload.bookingResumeUrl || payload.pilgrimageUrl || marketingUrl('/peregrinacoes', payload),
@@ -1177,7 +1260,7 @@ export const MARKETING_EMAIL_TEMPLATES: Record<MarketingTemplateKey, MarketingTe
     subtitle: '{{pilgrimage_name}} — próximas datas',
     requiredVariables: ['name', 'pilgrimage_name', 'pilgrimage_url'],
     paragraphs: [
-      'Olá <strong>{{first_name}}</strong>,',
+      '<strong>{{greeting}}</strong>,',
       'Pediu o roteiro de <strong>{{pilgrimage_name}}</strong> — e isso já diz algo. Muitas das pessoas que hoje viajam connosco começaram exatamente assim, com uma simples curiosidade que foi crescendo.',
       'As vagas são limitadas e acompanhadas pela nossa equipa para garantir uma experiência com espírito de oração, grupo e fé. Se sentiu que este pode ser o momento, ver as datas e disponibilidade é o passo mais natural agora.',
       'Se tiver alguma dúvida antes de decidir — sobre o programa, os valores, o alojamento, ou simplesmente se este caminho é para si — basta responder a este email. Estamos aqui.',
@@ -1196,7 +1279,7 @@ export const MARKETING_EMAIL_TEMPLATES: Record<MarketingTemplateKey, MarketingTe
     subtitle: 'O que dizem quem foi a Garabandal',
     requiredVariables: ['name', 'pilgrimage_url'],
     paragraphs: [
-      'Olá <strong>{{first_name}}</strong>,',
+      '<strong>{{greeting}}</strong>,',
       '"Cheguei com o coração pesado. Regressei com uma paz que não consigo explicar." — é assim que muitos descrevem o regresso de Garabandal.',
       'As pessoas chegam com perguntas que nem conseguem formular. Encontram silêncio, oração, partilha entre irmãos na fé — e uma presença que muitos descrevem como inconfundível. A mensagem de Nossa Senhora neste lugar pequeno e escondido tocou milhões de almas.',
       'Se sentiu que este caminho pode ser para si, veja o programa com calma. E se precisar de perceber melhor como tudo funciona antes de decidir, basta responder a este email.',
@@ -1215,7 +1298,7 @@ export const MARKETING_EMAIL_TEMPLATES: Record<MarketingTemplateKey, MarketingTe
     subtitle: '{{pilgrimage_name}}',
     requiredVariables: ['name', 'pilgrimage_name', 'pilgrimage_url'],
     paragraphs: [
-      'Olá <strong>{{first_name}}</strong>,',
+      '<strong>{{greeting}}</strong>,',
       '"Gostava muito de ir, mas não sei se consigo..." — reconhece este pensamento? É completamente normal querer ter tudo claro antes de avançar.',
       'As dúvidas mais frequentes — valor total, quartos individuais ou partilhados, viagem incluída, pagamento em prestações, cancelamento, quem acompanha o grupo — têm resposta na página da peregrinação.',
       'Se algo continuar em aberto, responda diretamente a este email. Queremos que decida com clareza, confiança e paz. Sem pressão de nenhum tipo.',
@@ -1234,7 +1317,7 @@ export const MARKETING_EMAIL_TEMPLATES: Record<MarketingTemplateKey, MarketingTe
     subtitle: '{{pilgrimage_name}}',
     requiredVariables: ['name', 'booking_resume_url'],
     paragraphs: [
-      'Olá <strong>{{first_name}}</strong>,',
+      '<strong>{{greeting}}</strong>,',
       'Iniciou a inscrição para <strong>{{pilgrimage_name}}</strong>, mas o processo ficou por concluir. As vagas são limitadas — e a sua pode ainda ser garantida.',
       'Se foi uma simples interrupção, pode retomar exatamente onde ficou com um clique. Se encontrou alguma dificuldade com o pagamento, os dados ou a disponibilidade, responda a este email e ajudamos a resolver.',
     ],
@@ -1252,7 +1335,7 @@ export const MARKETING_EMAIL_TEMPLATES: Record<MarketingTemplateKey, MarketingTe
     subtitle: 'Estamos aqui para ajudar',
     requiredVariables: ['name', 'booking_resume_url'],
     paragraphs: [
-      'Olá <strong>{{first_name}}</strong>,',
+      '<strong>{{greeting}}</strong>,',
       'Quando uma inscrição fica a meio, quase sempre é por uma dúvida concreta: como pagar em prestações, quarto individual ou partilhado, viajar sozinho ou acompanhado, ou simplesmente dados em falta.',
       'Não precisa de resolver tudo sozinho. Pode responder diretamente a este email com a sua questão — temos toda a disponibilidade para ajudar. Se já está pronto para continuar, o botão abaixo leva-o de volta ao processo em segundos.',
     ],
@@ -1270,7 +1353,7 @@ export const MARKETING_EMAIL_TEMPLATES: Record<MarketingTemplateKey, MarketingTe
     subtitle: '{{pilgrimage_name}}',
     requiredVariables: ['name', 'booking_resume_url'],
     paragraphs: [
-      'Olá <strong>{{first_name}}</strong>,',
+      '<strong>{{greeting}}</strong>,',
       'Este é o último email que enviamos sobre a inscrição em <strong>{{pilgrimage_name}}</strong>. Se decidiu não avançar, tudo bem — entendemos completamente e não voltaremos ao assunto.',
       'Mas se este caminho ainda lhe faz sentido — e muitas vezes é quando menos esperamos que estas portas abrem — pode concluir a inscrição com um clique. As vagas são limitadas e a equipa aguarda a sua confirmação.',
     ],
@@ -1288,7 +1371,7 @@ export const MARKETING_EMAIL_TEMPLATES: Record<MarketingTemplateKey, MarketingTe
     subtitle: 'Apostolado de Garabandal',
     requiredVariables: ['name'],
     paragraphs: [
-      'Olá <strong>{{first_name}}</strong>,',
+      '<strong>{{greeting}}</strong>,',
       'Confirmamos que o seu interesse ficou registado. Quando existirem novas datas, vagas ou peregrinações relacionadas, entraremos diretamente em contacto consigo — antes de anunciarmos ao público em geral.',
       'Entretanto, pode ver as peregrinações que estão abertas. E se tiver questões antes de qualquer vaga abrir, basta responder a este email.',
     ],
@@ -1306,7 +1389,7 @@ export const MARKETING_EMAIL_TEMPLATES: Record<MarketingTemplateKey, MarketingTe
     subtitle: '{{pilgrimage_name}} — disponibilidade limitada',
     requiredVariables: ['name', 'pilgrimage_url'],
     paragraphs: [
-      'Olá <strong>{{first_name}}</strong>,',
+      '<strong>{{greeting}}</strong>,',
       'Estamos a contactá-lo porque demonstrou interesse em peregrinações do Apostolado — e abriu agora uma vaga em <strong>{{pilgrimage_name}}</strong>.',
       'As vagas são poucas e preenchem rapidamente. Se esta data faz sentido para si, recomendamos ver os detalhes agora e avançar com a inscrição. Ficamos à sua disposição para qualquer ajuda necessária.',
     ],
@@ -1324,7 +1407,7 @@ export const MARKETING_EMAIL_TEMPLATES: Record<MarketingTemplateKey, MarketingTe
     subtitle: '{{pilgrimage_name}}',
     requiredVariables: ['name', 'booking_resume_url'],
     paragraphs: [
-      'Olá <strong>{{first_name}}</strong>,',
+      '<strong>{{greeting}}</strong>,',
       'Estamos a acompanhar a sua inscrição e notámos que ainda pode existir um pagamento ou comprovativo por registar. Não queremos que perca a vaga por uma questão técnica.',
       'Pode gerir tudo pela sua inscrição com um clique. Se já fez a transferência bancária, basta enviar o comprovativo e a equipa trata do resto. Se tiver qualquer dificuldade, responda diretamente a este email.',
     ],
@@ -1342,7 +1425,7 @@ export const MARKETING_EMAIL_TEMPLATES: Record<MarketingTemplateKey, MarketingTe
     subtitle: 'Apostolado de Garabandal',
     requiredVariables: ['name'],
     paragraphs: [
-      'Olá <strong>{{first_name}}</strong>,',
+      '<strong>{{greeting}}</strong>,',
       'A sua doação foi recebida — e queremos que saiba que não é apenas um número numa conta. É o que torna possível manter este apostolado ativo: peregrinações a Garabandal, conteúdos espirituais, acolhimento e a presença viva da mensagem de Nossa Senhora na língua portuguesa.',
       'Rezamos para que Nossa Senhora de Garabandal interceda por si e pela sua família. O seu gesto é um ato de fé concreto — e faz parte desta missão.',
     ],
@@ -1360,7 +1443,7 @@ export const MARKETING_EMAIL_TEMPLATES: Record<MarketingTemplateKey, MarketingTe
     subtitle: 'Obrigado por caminhar connosco',
     requiredVariables: ['name', 'donation_url'],
     paragraphs: [
-      'Olá <strong>{{first_name}}</strong>,',
+      '<strong>{{greeting}}</strong>,',
       'O seu apoio ajuda a sustentar o que muitas vezes não se vê: a preparação de peregrinações, a criação de conteúdo espiritual, o acompanhamento de novos peregrinos e a manutenção desta presença digital ao serviço da mensagem de Garabandal.',
       'Se desejar continuar a apoiar esta missão — sabendo que cada contribuição tem um impacto real e concreto — deixamos abaixo uma forma simples e segura de o fazer. Deus lhe pague.',
     ],
@@ -1378,7 +1461,7 @@ export const MARKETING_EMAIL_TEMPLATES: Record<MarketingTemplateKey, MarketingTe
     subtitle: 'Convite especial para membro',
     requiredVariables: ['name', 'member_url'],
     paragraphs: [
-      'Olá <strong>{{first_name}}</strong>,',
+      '<strong>{{greeting}}</strong>,',
       'Já demonstrou generosidade para com o Apostolado — e isso significa muito para toda a nossa comunidade. Gostaríamos de lhe apresentar um caminho ainda mais próximo: tornar-se membro.',
       'Como membro, a sua ligação à missão torna-se estável e regular, com acesso a conteúdos exclusivos e ao acompanhamento espiritual do Apostolado. É uma forma concreta de dizer "estou aqui" — não uma vez, mas continuamente, ao lado de todos os que partilham este amor por Garabandal.',
     ],
@@ -1396,7 +1479,7 @@ export const MARKETING_EMAIL_TEMPLATES: Record<MarketingTemplateKey, MarketingTe
     subtitle: 'Apostolado de Garabandal',
     requiredVariables: ['name', 'member_url'],
     paragraphs: [
-      'Olá <strong>{{first_name}}</strong>,',
+      '<strong>{{greeting}}</strong>,',
       'Queremos convidá-lo a tornar-se membro do Apostolado — não apenas apoiar pontualmente, mas fazer parte de forma contínua desta missão ao serviço da mensagem de Garabandal.',
       'Como membro, recebe o diploma digital, acesso a conteúdos exclusivos e a satisfação de saber que a sua contribuição sustenta concretamente este trabalho. Pode ver como funciona com calma. Se tiver dúvidas, basta responder a este email.',
     ],
@@ -1414,7 +1497,7 @@ export const MARKETING_EMAIL_TEMPLATES: Record<MarketingTemplateKey, MarketingTe
     subtitle: 'Área de membro',
     requiredVariables: ['name', 'member_url'],
     paragraphs: [
-      'Olá <strong>{{first_name}}</strong>,',
+      '<strong>{{greeting}}</strong>,',
       'A sua anuidade de membro encontra-se pendente ou prestes a vencer. Para manter o seu vínculo ativo e continuar a apoiar esta missão, basta aceder à área de membro e renovar.',
       'É um gesto simples que diz muito: "continuo aqui, continuo a apoiar". Se já regularizou ou se tiver qualquer dificuldade, responda a este email.',
     ],
@@ -1432,7 +1515,7 @@ export const MARKETING_EMAIL_TEMPLATES: Record<MarketingTemplateKey, MarketingTe
     subtitle: 'Apostolado em missão',
     requiredVariables: ['name', 'referral_url'],
     paragraphs: [
-      'Olá <strong>{{first_name}}</strong>,',
+      '<strong>{{greeting}}</strong>,',
       'Uma das formas mais bonitas de evangelizar é com simplicidade: apresentar a alguém o que nos transformou. Se há uma pessoa na sua vida — familiar, amigo, colega de trabalho — que poderia beneficiar do Apostolado ou da mensagem de Garabandal, tem agora um convite para partilhar.',
       'Use o seu convite de membro para fazer chegar esta missão a mais uma pessoa. Cada convite aceite fortalece o apostolado — e pode mudar uma vida.',
     ],
@@ -1450,7 +1533,7 @@ export const MARKETING_EMAIL_TEMPLATES: Record<MarketingTemplateKey, MarketingTe
     subtitle: 'Levar Garabandal a mais pessoas',
     requiredVariables: ['name', 'referral_url'],
     paragraphs: [
-      'Olá <strong>{{first_name}}</strong>,',
+      '<strong>{{greeting}}</strong>,',
       'Se conhece alguém que esteja à procura de algo mais profundo — paz, fé, esperança, um caminho espiritual — a mensagem de Garabandal pode ser exatamente o que essa pessoa precisa de encontrar.',
       'Tem um convite simples e pessoal para partilhar. Não é necessário explicar tudo — basta partilhar o link e deixar que a missão fale por si.',
     ],
@@ -1468,7 +1551,7 @@ export const MARKETING_EMAIL_TEMPLATES: Record<MarketingTemplateKey, MarketingTe
     subtitle: 'Obrigado por caminhar connosco',
     requiredVariables: ['name', 'referral_url'],
     paragraphs: [
-      'Olá <strong>{{first_name}}</strong>,',
+      '<strong>{{greeting}}</strong>,',
       'Obrigado por partilhar o Apostolado. Muitas pessoas chegam ao Garabandal porque alguém — como você — teve a generosidade e a coragem de dizer "isto pode ser para ti".',
       'Se sentir novamente vontade de partilhar, o seu convite continua ativo. Cada partilha é um ato de apostolado concreto — com um valor que vai muito além do que podemos medir.',
     ],
@@ -1768,19 +1851,33 @@ export const renderQuotaOverdueEmail = (payload: any) => ({
   }),
 });
 
-export const renderMembershipRevokedEmail = (payload: any) => ({
-  subject: "Estado de membro suspenso",
-  html: Layout({
-    title: "Suspensão de Membro",
-    children: Section({
-      children: `
-                ${Text(`Olá <strong>${payload.name || "membro"}</strong>,`)}
-                ${Text("O seu estado de membro foi suspenso por falta de pagamento da anuidade. Pode reativar o acesso assim que regularizar o valor em dívida.")}
-                ${payload.payLink ? Button({ label: "Reativar Membro", url: payload.payLink }) : ""}
+export const renderMembershipRevokedEmail = (payload: { name?: string | null; payLink?: string | null; locale?: EmailLocale }) => {
+  const locale: EmailLocale = payload.locale === 'en' ? 'en' : 'pt';
+  const isEn = locale === 'en';
+  const greetingName = payload.name && payload.name.trim()
+    ? payload.name.trim()
+    : isEn ? 'Apostolate member' : 'membro(a) do Apostolado';
+  const greetingPrefix = isEn ? 'Dear' : 'Estimado(a)';
+
+  return {
+    subject: isEn ? 'Membership status suspended' : 'Estado de membro suspenso',
+    html: Layout({
+      title: isEn ? 'Membership Suspended' : 'Suspensão de Membro',
+      locale,
+      children: Section({
+        children: `
+                ${Text(`${isEn ? 'Hello' : 'Olá'} <strong>${greetingPrefix} ${greetingName}</strong>,`)}
+                ${Text(
+                  isEn
+                    ? 'Your membership status has been suspended due to a missing annual fee. You can reactivate access as soon as the outstanding amount is regularised.'
+                    : 'O seu estado de membro foi suspenso por falta de pagamento da anuidade. Pode reativar o acesso assim que regularizar o valor em dívida.'
+                )}
+                ${payload.payLink ? Button({ label: isEn ? 'Reactivate Membership' : 'Reativar Membro', url: payload.payLink }) : ''}
 `,
+      }),
     }),
-  }),
-});
+  };
+};
 
 export const renderMemberDiplomaEmail = (payload: MemberDiplomaInput) => {
   const locale = payload.locale === "en" ? "en" : "pt";
