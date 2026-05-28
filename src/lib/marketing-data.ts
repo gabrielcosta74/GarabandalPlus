@@ -167,6 +167,7 @@ export async function buildMarketingContacts(supabase: SupabaseLike): Promise<Ma
     contact.source_summary.is_member = Boolean(member.is_membro || member.numero_socio || member.estado_quota);
     contact.source_summary.member_status = normalizeQuotaStatus(member.estado_quota);
     contact.source_summary.member_type = normalizeText(member.tipo_subscricao) || null;
+    contact.source_summary.member_since = member.data_adesao || null;
     contact.source_summary.has_referral_code = Boolean(normalizeText(member.referral_code));
     contact.source_summary.referrals_count = toNumber(member.referrals_count);
     contact.source_summary.referred_by_code = normalizeText(member.referred_by_code) || null;

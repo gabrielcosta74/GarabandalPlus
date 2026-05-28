@@ -5,6 +5,14 @@ import {
   type MarketingTemplatePayload,
 } from './email-renderer';
 import type { MarketingContact } from './marketing-core';
+import { APP_URL } from './config';
+import { createUnsubscribeToken } from './unsubscribe-token';
+
+const buildUnsubscribeUrl = (email: string, language?: string | null) => {
+  const { e, t } = createUnsubscribeToken(email);
+  const path = language === 'en' ? '/en/unsubscribe' : '/cancelar-subscricao';
+  return `${APP_URL}${path}?e=${encodeURIComponent(e)}&t=${encodeURIComponent(t)}`;
+};
 
 const resendApiKey = process.env.RESEND_API_KEY;
 const resendClient = resendApiKey ? new Resend(resendApiKey) : null;
@@ -50,6 +58,9 @@ export const buildMarketingTemplatePayload = (input: MarketingEmailInput): Marke
   recommendation: input.contact.recommendation,
   subjectOverride: input.subject || null,
   bodyOverride: input.body || null,
+  unsubscribeUrl: input.contact.normalized_email
+    ? buildUnsubscribeUrl(input.contact.normalized_email, input.contact.language)
+    : null,
   ...input.context,
 });
 
@@ -65,11 +76,18 @@ export const sendMarketingEmail = async (input: MarketingEmailInput) => {
   }
 
   const rendered = renderMarketingEmail(input);
+  const { e, t } = createUnsubscribeToken(input.contact.normalized_email);
+  const oneClickUrl = `${APP_URL}/api/marketing/unsubscribe?e=${encodeURIComponent(e)}&t=${encodeURIComponent(t)}`;
   const result = await resendClient.emails.send({
     from: notifyFrom,
     to: [input.contact.normalized_email],
     subject: rendered.subject,
     html: rendered.html,
+    headers: {
+      // RFC 8058 one-click unsubscribe — improves deliverability (Gmail/Outlook).
+      'List-Unsubscribe': `<${oneClickUrl}>`,
+      'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+    },
   });
 
   const providerError =

@@ -202,11 +202,13 @@ const Layout = ({
   preview,
   children,
   locale = "pt",
+  unsubscribeUrl,
 }: {
   title: string;
   preview?: string;
   children: string;
   locale?: EmailLocale;
+  unsubscribeUrl?: string | null;
 }) => `
 <!DOCTYPE html>
 <html lang="${locale === "en" ? "en" : "pt-BR"}">
@@ -226,6 +228,7 @@ const Layout = ({
         <p style="margin:0 0 12px;">${title} • Apostolado de Garabandal</p>
         <p style="margin:0;font-weight:600;color:${COLORS.heading};">${locale === "en" ? "Uniting FAITH and HOPE." : "Unindo FÉ e ESPERANÇA."}</p>
         <p style="margin:12px 0 0;font-size:11px;opacity:0.7;">${locale === "en" ? "If you need help, simply reply to this email." : "Se precisar de ajuda, basta responder a este email."}</p>
+        ${unsubscribeUrl ? `<p style="margin:16px 0 0;font-size:11px;opacity:0.7;">${locale === "en" ? `If you no longer wish to receive these emails, you can <a href="${unsubscribeUrl}" style="color:${COLORS.textLight};text-decoration:underline;">unsubscribe here</a>.` : `Se já não deseja receber estes emails, pode <a href="${unsubscribeUrl}" style="color:${COLORS.textLight};text-decoration:underline;">cancelar a subscrição aqui</a>.`}</p>` : ""}
       </div>
     </div>
   </div>
@@ -1150,7 +1153,11 @@ export type MarketingTemplateKey =
   | 'membership_renewal'
   | 'member_referral_activation'
   | 'referral_activation'
-  | 'share_mission';
+  | 'share_mission'
+  | 'member_welcome'
+  | 'member_pray_intentions'
+  | 'member_novena_invite'
+  | 'member_learn_garabandal';
 
 export type MarketingTemplatePayload = {
   templateKey: string;
@@ -1167,12 +1174,13 @@ export type MarketingTemplatePayload = {
   recommendation?: string | null;
   subjectOverride?: string | null;
   bodyOverride?: string | null;
+  unsubscribeUrl?: string | null;
 };
 
 type MarketingTemplateDefinition = {
   key: MarketingTemplateKey;
   name: string;
-  category: 'Peregrinações' | 'Doações' | 'Membros' | 'Partilha';
+  category: 'Peregrinações' | 'Doações' | 'Membros' | 'Partilha' | 'Vida Espiritual';
   goal: string;
   defaultSubject: string;
   previewText: string;
@@ -1198,6 +1206,10 @@ const localizeMarketingPath = (path: string, locale: EmailLocale) => {
     '/donations': '/en/donations',
     '/member': '/en/member',
     '/member/quota': '/en/member/quota',
+    '/member/velas': '/en/member/candles',
+    '/member/novenas': '/en/member/novenas',
+    '/member/live': '/en/member/live',
+    '/member/academy': '/en/member/academy',
   };
   return map[path] || (path.startsWith('/en/') ? path : path);
 };
@@ -1239,6 +1251,11 @@ const fillMarketingVariables = (value: string, payload: MarketingTemplatePayload
     member_url: payload.memberUrl || marketingUrl('/tornar-membro', payload),
     donation_url: payload.donationUrl || marketingUrl('/donations', payload),
     referral_url: payload.referralUrl || marketingUrl('/member', payload),
+    member_area_url: marketingUrl('/member', payload),
+    candles_url: marketingUrl('/member/velas', payload),
+    novenas_url: marketingUrl('/member/novenas', payload),
+    live_url: marketingUrl('/member/live', payload),
+    learn_url: marketingUrl('/member/academy', payload),
     recommendation: payload.recommendation || '',
     app_url: APP_URL,
   };
@@ -1507,8 +1524,8 @@ export const MARKETING_EMAIL_TEMPLATES: Record<MarketingTemplateKey, MarketingTe
     name: 'Ativar partilha de membro',
     category: 'Partilha',
     goal: 'Estimular membros a convidar amigos.',
-    defaultSubject: '{{first_name}}, tem um convite para dar a alguém especial',
-    previewText: 'Apresente o Apostolado a alguém próximo que possa beneficiar desta missão.',
+    defaultSubject: '{{first_name}}, partilhe a missão — e ganham ambos €2,50',
+    previewText: 'Por cada amigo que se torne membro pelo seu convite, recebem ambos €2,50 de saldo.',
     ctaLabel: 'Partilhar o Meu Convite',
     ctaUrl: (payload) => payload.referralUrl || marketingUrl('/member', payload),
     title: 'O seu convite pode transformar alguém',
@@ -1517,7 +1534,8 @@ export const MARKETING_EMAIL_TEMPLATES: Record<MarketingTemplateKey, MarketingTe
     paragraphs: [
       '<strong>{{greeting}}</strong>,',
       'Uma das formas mais bonitas de evangelizar é com simplicidade: apresentar a alguém o que nos transformou. Se há uma pessoa na sua vida — familiar, amigo, colega de trabalho — que poderia beneficiar do Apostolado ou da mensagem de Garabandal, tem agora um convite para partilhar.',
-      'Use o seu convite de membro para fazer chegar esta missão a mais uma pessoa. Cada convite aceite fortalece o apostolado — e pode mudar uma vida.',
+      'E há um sinal de gratidão concreto: <strong>por cada amigo que se torne membro através do seu convite, recebem ambos €2,50 de saldo</strong> para usar na nossa Loja Online — em livros, artigos ou doações. Pode acumular saldo consoante o número de pessoas que convidar.',
+      'O seu código de convite já está pronto na sua área de membro. Partilhá-lo leva poucos segundos — e cada convite aceite fortalece o apostolado e pode mudar uma vida.',
     ],
   },
   referral_activation: {
@@ -1525,17 +1543,18 @@ export const MARKETING_EMAIL_TEMPLATES: Record<MarketingTemplateKey, MarketingTe
     name: 'Ativar convites',
     category: 'Partilha',
     goal: 'Estimular partilha através de convite.',
-    defaultSubject: '{{first_name}}, tem um convite que pode aproximar alguém da fé',
-    previewText: 'Uma partilha simples pode mudar muito na vida de alguém.',
+    defaultSubject: '{{first_name}}, convide um amigo e ganham ambos €2,50',
+    previewText: 'Uma partilha simples aproxima alguém da fé — e dá saldo aos dois.',
     ctaLabel: 'Abrir e Partilhar o Convite',
     ctaUrl: (payload) => payload.referralUrl || marketingUrl('/member', payload),
-    title: 'Um convite simples',
+    title: 'Um convite simples — com um presente para os dois',
     subtitle: 'Levar Garabandal a mais pessoas',
     requiredVariables: ['name', 'referral_url'],
     paragraphs: [
       '<strong>{{greeting}}</strong>,',
       'Se conhece alguém que esteja à procura de algo mais profundo — paz, fé, esperança, um caminho espiritual — a mensagem de Garabandal pode ser exatamente o que essa pessoa precisa de encontrar.',
-      'Tem um convite simples e pessoal para partilhar. Não é necessário explicar tudo — basta partilhar o link e deixar que a missão fale por si.',
+      'Quando essa pessoa se torna membro através do seu convite, <strong>recebem ambos €2,50 de saldo</strong> para a Loja Online. É a nossa forma de agradecer a quem ajuda a missão a crescer — e quanto mais convidar, mais saldo acumula.',
+      'Não é necessário explicar tudo — basta partilhar o seu link de convite e deixar que a missão fale por si.',
     ],
   },
   share_mission: {
@@ -1543,8 +1562,8 @@ export const MARKETING_EMAIL_TEMPLATES: Record<MarketingTemplateKey, MarketingTe
     name: 'Partilhar missão',
     category: 'Partilha',
     goal: 'Reforçar partilha depois do primeiro convite.',
-    defaultSubject: 'Obrigado, {{first_name}} — a sua partilha importa',
-    previewText: 'A missão cresce porque pessoas como você dizem "sim".',
+    defaultSubject: 'Obrigado, {{first_name}} — continue a convidar e a ganhar saldo',
+    previewText: 'Cada amigo que se torna membro dá €2,50 de saldo a ambos.',
     ctaLabel: 'Partilhar Novamente',
     ctaUrl: (payload) => payload.referralUrl || marketingUrl('/member', payload),
     title: 'A missão cresce porque partilhou',
@@ -1553,7 +1572,84 @@ export const MARKETING_EMAIL_TEMPLATES: Record<MarketingTemplateKey, MarketingTe
     paragraphs: [
       '<strong>{{greeting}}</strong>,',
       'Obrigado por partilhar o Apostolado. Muitas pessoas chegam ao Garabandal porque alguém — como você — teve a generosidade e a coragem de dizer "isto pode ser para ti".',
-      'Se sentir novamente vontade de partilhar, o seu convite continua ativo. Cada partilha é um ato de apostolado concreto — com um valor que vai muito além do que podemos medir.',
+      'O seu convite continua ativo: por <strong>cada amigo que se torne membro, recebem ambos €2,50 de saldo</strong> para a Loja Online. O saldo acumula a cada convite aceite — e pode ser trocado por livros, artigos ou doações.',
+      'Se sentir novamente vontade de partilhar, o seu código está à espera na área de membro. Cada partilha é um ato de apostolado concreto — com um valor que vai muito além do que podemos medir.',
+    ],
+  },
+  member_welcome: {
+    key: 'member_welcome',
+    name: 'Acolhimento de novo membro',
+    category: 'Vida Espiritual',
+    goal: 'Acolher o novo membro e apresentar a área como lugar de oração.',
+    defaultSubject: '{{first_name}}, seja bem-vindo a esta missão de oração',
+    previewText: 'O seu lugar de oração e recolhimento já está pronto.',
+    ctaLabel: 'Entrar na Minha Área',
+    ctaUrl: (payload) => marketingUrl('/member', payload),
+    title: 'Bem-vindo ao Apostolado de Garabandal',
+    subtitle: 'A sua área de membro está pronta',
+    requiredVariables: ['name', 'member_area_url'],
+    paragraphs: [
+      '<strong>{{greeting}}</strong>,',
+      'É com alegria que o acolhemos no Apostolado de Garabandal. A partir de hoje, faz parte de uma comunidade unida pela oração e pela mensagem de Nossa Senhora.',
+      'Na sua área de membro encontra um lugar de recolhimento: para rezar, entregar as suas intenções e aprofundar a sua fé — incluindo a Santa Missa transmitida ao vivo da igreja de Garabandal.',
+      'Que Nossa Senhora de Garabandal o acompanhe neste caminho. Estamos aqui para o que precisar — basta responder a este email.',
+    ],
+  },
+  member_pray_intentions: {
+    key: 'member_pray_intentions',
+    name: 'Entregar intenções',
+    category: 'Vida Espiritual',
+    goal: 'Convidar o membro a rezar e entregar as suas intenções.',
+    defaultSubject: 'Entregue as suas intenções a Nossa Senhora',
+    previewText: 'Acenda uma vela e reze pelas suas intenções, a partir da sua área.',
+    ctaLabel: 'Acender uma Vela e Rezar',
+    ctaUrl: (payload) => marketingUrl('/member/velas', payload),
+    title: 'As suas intenções nas mãos de Nossa Senhora',
+    subtitle: 'Um momento de oração',
+    requiredVariables: ['name', 'candles_url'],
+    paragraphs: [
+      '<strong>{{greeting}}</strong>,',
+      'Todos carregamos intenções no coração — por quem amamos, por uma graça, por uma cura. Em Garabandal, Nossa Senhora pediu-nos que rezássemos com confiança.',
+      'Na sua área de membro pode <strong>acender uma vela</strong> que fica a arder pelas suas intenções, e rezar com as orações que ali encontra. É um gesto simples, mas cheio de fé.',
+      'Reserve um momento de silêncio e entregue a Nossa Senhora aquilo que traz no coração.',
+    ],
+  },
+  member_novena_invite: {
+    key: 'member_novena_invite',
+    name: 'Convite a novena',
+    category: 'Vida Espiritual',
+    goal: 'Convidar o membro a começar uma novena.',
+    defaultSubject: '{{first_name}}, reze uma novena pelas suas intenções',
+    previewText: 'Nove dias de oração para confiar as suas intenções a Nossa Senhora.',
+    ctaLabel: 'Começar uma Novena',
+    ctaUrl: (payload) => marketingUrl('/member/novenas', payload),
+    title: 'Nove dias de oração perseverante',
+    subtitle: 'Comece uma novena',
+    requiredVariables: ['name', 'novenas_url'],
+    paragraphs: [
+      '<strong>{{greeting}}</strong>,',
+      'Uma novena são nove dias de oração perseverante — um caminho simples e poderoso para confiar as suas intenções a Nossa Senhora de Garabandal.',
+      'Pode começar hoje, ao seu ritmo, a partir da sua área de membro. Cada dia, uma oração; cada dia, um passo mais perto.',
+      'Deixe que estes nove dias sejam um tempo de paz e de entrega. Nossa Senhora escuta sempre.',
+    ],
+  },
+  member_learn_garabandal: {
+    key: 'member_learn_garabandal',
+    name: 'Conhecer Garabandal',
+    category: 'Vida Espiritual',
+    goal: 'Convidar o membro a aprofundar a mensagem e, se quiser, partilhar.',
+    defaultSubject: 'Venha conhecer Garabandal mais de perto',
+    previewText: 'Vídeos, cursos e a história das aparições, na sua área de membro.',
+    ctaLabel: 'Aprender sobre Garabandal',
+    ctaUrl: (payload) => marketingUrl('/member/academy', payload),
+    title: 'A mensagem de Garabandal, mais perto de si',
+    subtitle: 'Aprofunde a sua fé',
+    requiredVariables: ['name', 'learn_url'],
+    paragraphs: [
+      '<strong>{{greeting}}</strong>,',
+      'A mensagem de Garabandal é profunda e ainda pouco conhecida. Na sua área de membro tem <strong>vídeos, cursos e a história das aparições</strong> para aprofundar tudo o que Nossa Senhora veio dizer.',
+      'E se esta missão lhe tem feito bem, pode levá-la a alguém: por cada amigo que se torne membro através do seu convite, <strong>recebem ambos €2,50 de saldo</strong> para a Loja Online. O seu código de convite está na sua área.',
+      'Que cada passo o aproxime mais do coração da mensagem — e de Nossa Senhora.',
     ],
   },
 };
@@ -1746,41 +1842,100 @@ const MARKETING_EMAIL_TEMPLATE_EN: Record<MarketingTemplateKey, MarketingTemplat
   },
   member_referral_activation: {
     goal: 'Encourage members to invite friends.',
-    defaultSubject: '{{first_name}}, you have an invitation to give to someone special',
-    previewText: 'Introduce the Apostolate to someone who may benefit from this mission.',
+    defaultSubject: '{{first_name}}, share the mission — you both get €2.50',
+    previewText: 'For every friend who becomes a member through your invite, you both receive €2.50 in credit.',
     ctaLabel: 'Share My Invitation',
     title: 'Your invitation can transform someone',
     subtitle: 'Mission shared',
     paragraphs: [
-      'Hello <strong>{{first_name}}</strong>,',
+      '<strong>{{greeting}}</strong>,',
       'One of the most beautiful ways to evangelise is through simplicity: sharing with someone what has transformed us. If there is a person in your life — a family member, friend, or colleague — who could benefit from the Apostolate or the message of Garabandal, you now have an invitation to share.',
-      'Use your member invitation to bring this mission to one more person. Every accepted invitation strengthens the apostolate — and may change a life.',
+      'And there is a concrete token of gratitude: <strong>for every friend who becomes a member through your invitation, you both receive €2.50 in store credit</strong> to use in our Online Store — on books, items or donations. You can build up credit with each person you invite.',
+      'Your invite code is ready in your member area. Sharing it takes only seconds — and every accepted invitation strengthens the apostolate and may change a life.',
     ],
   },
   referral_activation: {
     goal: 'Encourage sharing through an invitation.',
-    defaultSubject: '{{first_name}}, you have an invitation that can bring someone closer to faith',
-    previewText: 'A simple share can change much in someone\'s life.',
+    defaultSubject: '{{first_name}}, invite a friend and you both get €2.50',
+    previewText: 'A simple share brings someone closer to faith — and rewards you both.',
     ctaLabel: 'Open and Share the Invitation',
-    title: 'A simple invitation',
+    title: 'A simple invitation — with a gift for both',
     subtitle: 'Bringing Garabandal to more people',
     paragraphs: [
-      'Hello <strong>{{first_name}}</strong>,',
+      '<strong>{{greeting}}</strong>,',
       'If you know someone searching for something deeper — peace, faith, hope, a spiritual path — the message of Garabandal may be exactly what they need to find.',
-      'You have a simple and personal invitation to share. There is no need to explain everything — just share the link and let the mission speak for itself.',
+      'When that person becomes a member through your invitation, <strong>you both receive €2.50 in store credit</strong> for the Online Store. It is our way of thanking those who help the mission grow — and the more you invite, the more credit you build up.',
+      'There is no need to explain everything — just share your invite link and let the mission speak for itself.',
     ],
   },
   share_mission: {
     goal: 'Reinforce sharing after the first invitation.',
-    defaultSubject: 'Thank you, {{first_name}} — your sharing matters',
-    previewText: 'The mission grows because people like you say "yes".',
+    defaultSubject: 'Thank you, {{first_name}} — keep inviting and earning credit',
+    previewText: 'Every friend who becomes a member gives €2.50 in credit to both of you.',
     ctaLabel: 'Share Again',
     title: 'The mission grows because you shared',
     subtitle: 'Thank you for walking with us',
     paragraphs: [
-      'Hello <strong>{{first_name}}</strong>,',
+      '<strong>{{greeting}}</strong>,',
       'Thank you for sharing the Apostolate. Many people arrive at Garabandal because someone — like you — had the generosity and courage to say "this might be for you".',
-      'If you feel moved to share again, your invitation remains active. Each share is a concrete act of apostolate — with a value that reaches far beyond what we can measure.',
+      'Your invitation remains active: for <strong>every friend who becomes a member, you both receive €2.50 in store credit</strong> for the Online Store. The credit adds up with each accepted invite — and can be exchanged for books, items or donations.',
+      'If you feel moved to share again, your code is waiting in your member area. Each share is a concrete act of apostolate — with a value that reaches far beyond what we can measure.',
+    ],
+  },
+  member_welcome: {
+    goal: 'Welcome the new member and present the area as a place of prayer.',
+    defaultSubject: '{{first_name}}, welcome to this mission of prayer',
+    previewText: 'Your place of prayer and recollection is ready.',
+    ctaLabel: 'Enter My Area',
+    title: 'Welcome to the Apostolate of Garabandal',
+    subtitle: 'Your member area is ready',
+    paragraphs: [
+      '<strong>{{greeting}}</strong>,',
+      'It is with joy that we welcome you to the Apostolate of Garabandal. From today, you are part of a community united in prayer and in the message of Our Lady.',
+      'In your member area you will find a place of recollection: to pray, to offer your intentions and to deepen your faith — including the Holy Mass streamed live from the church of Garabandal.',
+      'May Our Lady of Garabandal accompany you on this path. We are here for whatever you need — simply reply to this email.',
+    ],
+  },
+  member_pray_intentions: {
+    goal: 'Invite the member to pray and offer their intentions.',
+    defaultSubject: 'Offer your intentions to Our Lady',
+    previewText: 'Light a candle and pray for your intentions, from your area.',
+    ctaLabel: 'Light a Candle and Pray',
+    title: 'Your intentions in the hands of Our Lady',
+    subtitle: 'A moment of prayer',
+    paragraphs: [
+      '<strong>{{greeting}}</strong>,',
+      'We all carry intentions in our hearts — for those we love, for a grace, for a healing. At Garabandal, Our Lady asked us to pray with confidence.',
+      'In your member area you can <strong>light a candle</strong> that burns for your intentions, and pray with the prayers you find there. It is a simple gesture, yet full of faith.',
+      'Set aside a quiet moment and entrust to Our Lady what you carry in your heart.',
+    ],
+  },
+  member_novena_invite: {
+    goal: 'Invite the member to begin a novena.',
+    defaultSubject: '{{first_name}}, pray a novena for your intentions',
+    previewText: 'Nine days of prayer to entrust your intentions to Our Lady.',
+    ctaLabel: 'Begin a Novena',
+    title: 'Nine days of persevering prayer',
+    subtitle: 'Begin a novena',
+    paragraphs: [
+      '<strong>{{greeting}}</strong>,',
+      'A novena is nine days of persevering prayer — a simple and powerful way to entrust your intentions to Our Lady of Garabandal.',
+      'You can begin today, at your own pace, from your member area. Each day, a prayer; each day, a step closer.',
+      'Let these nine days be a time of peace and surrender. Our Lady always listens.',
+    ],
+  },
+  member_learn_garabandal: {
+    goal: 'Invite the member to go deeper and, if they wish, to share.',
+    defaultSubject: 'Come to know Garabandal more closely',
+    previewText: 'Videos, courses and the history of the apparitions, in your area.',
+    ctaLabel: 'Learn about Garabandal',
+    title: 'The message of Garabandal, closer to you',
+    subtitle: 'Deepen your faith',
+    paragraphs: [
+      '<strong>{{greeting}}</strong>,',
+      'The message of Garabandal is profound and still little known. In your member area you have <strong>videos, courses and the history of the apparitions</strong> to deepen everything Our Lady came to say.',
+      'And if this mission has done you good, you can bring it to someone: for every friend who becomes a member through your invitation, <strong>you both receive €2.50 in store credit</strong> for the Online Store. Your invite code is in your area.',
+      'May each step bring you closer to the heart of the message — and to Our Lady.',
     ],
   },
 };
@@ -1806,6 +1961,7 @@ export const renderMarketingTemplateEmail = (payload: MarketingTemplatePayload) 
       title: fillMarketingVariables(template.title, payload),
       preview: fillMarketingVariables(template.previewText, payload),
       locale,
+      unsubscribeUrl: payload.unsubscribeUrl || null,
       children: `
         ${Header({
           title: fillMarketingVariables(template.title, payload),
@@ -1906,7 +2062,9 @@ export type AuctionOutbidInput = {
   itemTitle: string;
   yourBid: number;
   newBid: number;
+  minIncrement: number;
   itemUrl: string;
+  locale?: EmailLocale;
 };
 
 export type AuctionWinnerInput = {
@@ -1934,45 +2092,150 @@ export type AuctionPaymentConfirmedInput = {
   paidAt?: string | null;
 };
 
-export const renderAuctionOutbidEmail = (payload: AuctionOutbidInput) => ({
-  subject: `Leilão Solidário: o seu lance foi ultrapassado — "${payload.itemTitle}"`,
-  html: Layout({
-    title: "Lance Ultrapassado",
-    preview: `O seu lance de ${formatCurrency(payload.yourBid)} foi superado.`,
-    children: `
-            ${Header({
-      title: "⚡ O seu lance foi ultrapassado",
-      subtitle: payload.itemTitle,
-    })}
-            ${Section({
+export type AuctionAnnouncementInput = {
+  recipientName?: string | null;
+  itemTitle: string;
+  itemDescription?: string | null;
+  imageUrl?: string | null;
+  currentBid?: number | null; // cents
+  startingPrice: number; // cents
+  endsAt: string;
+  itemUrl: string;
+  locale?: EmailLocale;
+};
+
+export const renderAuctionAnnouncementEmail = (payload: AuctionAnnouncementInput) => {
+  const isEn = payload.locale === "en";
+  const cur: EmailLocale = isEn ? "en" : "pt";
+  const priceCents = payload.currentBid || payload.startingPrice;
+  const endsLabel = formatDate(payload.endsAt, cur);
+  const t = isEn
+    ? {
+        subject: `New charity auction: "${payload.itemTitle}"`,
+        title: "A new piece is up for auction",
+        preview: `Bid on "${payload.itemTitle}" and support the Apostolate.`,
+        greeting: payload.recipientName ? `Hello ${payload.recipientName},` : "Hello,",
+        intro: "A new piece is now available in our charity auction. Every bid supports the building of the Apostolate House of Garabandal.",
+        startsAt: payload.currentBid ? "Current bid" : "Starting price",
+        ends: "Auction ends",
+        cta: "View &amp; Bid",
+        footer: "If you do not wish to receive these announcements, you can unsubscribe at any time.",
+      }
+    : {
+        subject: `Novo leilão solidário: "${payload.itemTitle}"`,
+        title: "Uma nova peça está em leilão",
+        preview: `Licite em "${payload.itemTitle}" e apoie o Apostolado.`,
+        greeting: payload.recipientName ? `Olá ${payload.recipientName},` : "Olá,",
+        intro: "Está disponível uma nova peça no nosso leilão solidário. Cada lance contribui para a construção da Casa do Apostolado de Garabandal.",
+        startsAt: payload.currentBid ? "Lance atual" : "Valor mínimo",
+        ends: "O leilão termina a",
+        cta: "Ver e Licitar",
+        footer: "Se não quiser receber estes anúncios, pode cancelar a subscrição a qualquer momento.",
+      };
+
+  return {
+    subject: t.subject,
+    html: Layout({
+      title: t.title,
+      preview: t.preview,
+      locale: cur,
       children: `
-                    ${Text("Alguém fez um lance mais alto no leilão solidário.")}
-                    ${Card({
-        icon: "🏷️",
+            ${Header({ title: t.title, subtitle: payload.itemTitle })}
+            ${Section({
         children: `
-                            ${InfoRow({ label: "Peça", value: payload.itemTitle })}
-                            ${InfoRow({ label: "O seu lance", value: formatCurrency(payload.yourBid) })}
-                            ${InfoRow({ label: "Novo lance mais alto", value: `<span style="color:${COLORS.error};font-weight:bold;">${formatCurrency(payload.newBid)}</span>` })}
-                            ${InfoRow({ label: "Lance mínimo agora", value: formatCurrency(payload.newBid + 1), isLast: true })}
+                    ${Text(t.greeting)}
+                    ${Text(t.intro)}
+                    ${payload.imageUrl
+            ? `<div style="margin:0 0 24px;border-radius:12px;overflow:hidden;border:1px solid ${COLORS.border};"><img src="${payload.imageUrl}" alt="${payload.itemTitle}" style="display:block;width:100%;height:auto;" /></div>`
+            : ""}
+                    ${Card({
+          children: `
+                            ${InfoRow({ label: isEn ? "Piece" : "Peça", value: payload.itemTitle })}
+                            ${InfoRow({ label: t.startsAt, value: `<span style="color:${COLORS.primary};font-weight:bold;">${formatCurrency(priceCents / 100, "EUR", cur)}</span>` })}
+                            ${InfoRow({ label: t.ends, value: endsLabel, isLast: true })}
                         `,
-      })}
-                    ${Text("Ainda vai a tempo de voltar a licitar e garantir esta peça!")}
-                    ${Button({ label: "Licitar Novamente", url: payload.itemUrl })}
-                    ${Text("O leilão solidário reverte integralmente para a missão do Apostolado.", `text-align:center;font-size:13px;color:${COLORS.textLight};font-style:italic;`)}
+        })}
+                    ${Button({ label: t.cta, url: payload.itemUrl })}
+                    ${Text(t.footer, `text-align:center;font-size:12px;color:${COLORS.textLight};font-style:italic;`)}
                 `,
-    })}
+      })}
 `,
-  }),
-});
+    }),
+  };
+};
+
+export const renderAuctionOutbidEmail = (payload: AuctionOutbidInput) => {
+  const isEn = payload.locale === "en";
+  const minNext = payload.newBid + payload.minIncrement;
+  const t = isEn
+    ? {
+        subject: `Charity Auction: your bid was outbid — "${payload.itemTitle}"`,
+        title: "Your bid was outbid",
+        preview: `Your bid of ${formatCurrency(payload.yourBid, "EUR", "en")} has been beaten.`,
+        intro: "Someone has placed a higher bid in the charity auction.",
+        item: "Item",
+        yourBid: "Your bid",
+        newHigh: "New highest bid",
+        minNow: "Minimum bid now",
+        cta: "Bid Again",
+        encourage: "There's still time to bid again and secure this piece.",
+        footer: "The charity auction goes entirely to the mission of the Apostolate.",
+      }
+    : {
+        subject: `Leilão Solidário: o seu lance foi ultrapassado — "${payload.itemTitle}"`,
+        title: "O seu lance foi ultrapassado",
+        preview: `O seu lance de ${formatCurrency(payload.yourBid)} foi superado.`,
+        intro: "Alguém fez um lance mais alto no leilão solidário.",
+        item: "Peça",
+        yourBid: "O seu lance",
+        newHigh: "Novo lance mais alto",
+        minNow: "Lance mínimo agora",
+        cta: "Licitar Novamente",
+        encourage: "Ainda vai a tempo de voltar a licitar e garantir esta peça!",
+        footer: "O leilão solidário reverte integralmente para a missão do Apostolado.",
+      };
+  const cur = isEn ? "en" : "pt";
+
+  return {
+    subject: t.subject,
+    html: Layout({
+      title: t.title,
+      preview: t.preview,
+      locale: cur,
+      children: `
+            ${Header({
+        title: t.title,
+        subtitle: payload.itemTitle,
+      })}
+            ${Section({
+        children: `
+                    ${Text(t.intro)}
+                    ${Card({
+          children: `
+                            ${InfoRow({ label: t.item, value: payload.itemTitle })}
+                            ${InfoRow({ label: t.yourBid, value: formatCurrency(payload.yourBid, "EUR", cur) })}
+                            ${InfoRow({ label: t.newHigh, value: `<span style="color:${COLORS.error};font-weight:bold;">${formatCurrency(payload.newBid, "EUR", cur)}</span>` })}
+                            ${InfoRow({ label: t.minNow, value: formatCurrency(minNext, "EUR", cur), isLast: true })}
+                        `,
+        })}
+                    ${Text(t.encourage)}
+                    ${Button({ label: t.cta, url: payload.itemUrl })}
+                    ${Text(t.footer, `text-align:center;font-size:13px;color:${COLORS.textLight};font-style:italic;`)}
+                `,
+      })}
+`,
+    }),
+  };
+};
 
 export const renderAuctionWinnerEmail = (payload: AuctionWinnerInput) => ({
-  subject: `🏆 Parabéns! Ganhou o leilão — "${payload.itemTitle}"`,
+  subject: `Parabéns! Ganhou o leilão — "${payload.itemTitle}"`,
   html: Layout({
     title: "Leilão Vencido",
     preview: `Ganhou "${payload.itemTitle}" por ${formatCurrency(payload.winningBid / 100)}.`,
     children: `
             ${Header({
-      title: "🏆 Parabéns, ganhou o leilão!",
+      title: "Parabéns, ganhou o leilão!",
       subtitle: payload.itemTitle,
     })}
             ${Section({
@@ -1980,7 +2243,6 @@ export const renderAuctionWinnerEmail = (payload: AuctionWinnerInput) => ({
                     ${Text(`Olá <strong>${payload.winnerName || "vencedor"}</strong>,`)}
                     ${Text(`O seu lance foi o vencedor no <strong>Leilão Solidário</strong>! A peça <strong>"${payload.itemTitle}"</strong> é sua.`)}
                     ${Card({
-        icon: "🎉",
         children: `
                             ${InfoRow({ label: "Peça", value: payload.itemTitle })}
                             ${InfoRow({ label: "Lance vencedor", value: `<span style="color:${COLORS.success};font-weight:bold;">${formatCurrency(payload.winningBid / 100)}</span>` })}
@@ -1988,7 +2250,7 @@ export const renderAuctionWinnerEmail = (payload: AuctionWinnerInput) => ({
                         `,
       })}
                     <div style="background:${COLORS.primaryLight};border:1px solid ${COLORS.primary};border-radius:12px;padding:16px;margin-bottom:24px;">
-                        <strong style="color:${COLORS.primary};display:block;margin-bottom:4px;">⏰ Importante</strong>
+                        <strong style="color:${COLORS.primary};display:block;margin-bottom:4px;">Importante</strong>
                         <span style="font-size:14px;color:${COLORS.text};">Tem <strong>${payload.paymentDeadlineHours} horas</strong> para completar o pagamento. Aceda à página do leilão para escolher o método de pagamento e fornecer a morada de envio.</span>
                     </div>
                     ${Button({ label: "Pagar Agora", url: payload.itemUrl })}
@@ -2037,7 +2299,7 @@ export const renderAuctionPaymentConfirmedEmail = (
     preview: `Recebemos o pagamento de ${formatCurrency(payload.winningBid / 100)} referente à peça "${payload.itemTitle}".`,
     children: `
             ${Header({
-      title: "✅ Pagamento Confirmado",
+      title: "Pagamento Confirmado",
       subtitle: payload.itemTitle,
     })}
             ${Section({
@@ -2045,7 +2307,6 @@ export const renderAuctionPaymentConfirmedEmail = (
                     ${Text(`Olá <strong>${payload.winnerName || "vencedor"}</strong>,`)}
                     ${Text(`Confirmamos a receção do seu pagamento para o <strong>Leilão Solidário</strong> da peça <strong>"${payload.itemTitle}"</strong>. O seu envio será preparado em breve.`)}
                     ${Card({
-        icon: "🧾",
         children: `
                             ${InfoRow({ label: "Referência", value: payload.itemTitle })}
                             ${InfoRow({ label: "Valor Pago", value: `<span style="color:${COLORS.success};font-weight:bold;">${formatCurrency(payload.winningBid / 100)}</span>` })}

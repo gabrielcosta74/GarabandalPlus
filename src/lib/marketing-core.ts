@@ -65,6 +65,7 @@ export type MarketingSourceSummary = {
   is_member: boolean;
   member_status: string | null;
   member_type: string | null;
+  member_since: string | null;
   has_referral_code: boolean;
   referrals_count: number;
   referred_by_code: string | null;
@@ -107,6 +108,11 @@ export const DEFAULT_MARKETING_SEGMENTS: MarketingSegment[] = [
     name: 'Donors not members',
     slug: 'donors-not-members',
     description: 'Succeeded donors without active or historical membership.',
+  },
+  {
+    name: 'New members',
+    slug: 'new-members',
+    description: 'Members who joined within the last 14 days (onboarding).',
   },
   {
     name: 'Members without referrals',
@@ -214,6 +220,7 @@ export const emptySourceSummary = (): MarketingSourceSummary => ({
   is_member: false,
   member_status: null,
   member_type: null,
+  member_since: null,
   has_referral_code: false,
   referrals_count: 0,
   referred_by_code: null,
@@ -229,6 +236,12 @@ export const evaluateMarketingSegments = (contact: Pick<MarketingContact, 'sourc
   if (s.waitlists > 0) segments.push('waitlist-contacts');
   if (s.pilgrims > 0 || s.bookings > 0) segments.push('past-pilgrims');
   if (s.succeeded_donations > 0 && !s.is_member) segments.push('donors-not-members');
+  if (s.is_member && s.member_since) {
+    const joinedAt = new Date(s.member_since).getTime();
+    if (!Number.isNaN(joinedAt) && (Date.now() - joinedAt) <= 14 * 24 * 60 * 60 * 1000) {
+      segments.push('new-members');
+    }
+  }
   if (s.is_member && s.referrals_count === 0) segments.push('members-without-referrals');
   if (['expirado', 'pendente', 'revogado'].includes(s.member_status || '')) segments.push('expired-pending-members');
   if ((s.donation_value + s.quota_value + s.store_value + s.pilgrimage_payment_value) >= 100) segments.push('high-value-supporters');

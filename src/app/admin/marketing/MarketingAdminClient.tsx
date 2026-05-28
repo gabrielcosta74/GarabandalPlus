@@ -170,14 +170,45 @@ const platformNav: Array<{ view: View; label: string; href: string; icon: any }>
 ];
 
 const campaignTemplateOptions = [
-  { key: 'brochure_followup_1', label: 'Brochura - follow-up inicial' },
-  { key: 'pilgrimage_testimony', label: 'Peregrinação - testemunho' },
-  { key: 'abandoned_registration_1', label: 'Inscrição abandonada - recuperação' },
-  { key: 'waitlist_open_spot', label: 'Waitlist - vaga disponível' },
+  { key: 'brochure_followup_1', label: 'Brochura — follow-up inicial' },
+  { key: 'pilgrimage_testimony', label: 'Peregrinação — testemunho' },
+  { key: 'pilgrimage_faq_objections', label: 'Peregrinação — dúvidas comuns' },
+  { key: 'abandoned_registration_1', label: 'Inscrição abandonada — recuperação' },
+  { key: 'abandoned_registration_faq', label: 'Inscrição abandonada — esclarecimento' },
+  { key: 'abandoned_registration_final', label: 'Inscrição abandonada — último aviso' },
+  { key: 'waitlist_welcome', label: 'Lista de espera — boas-vindas' },
+  { key: 'waitlist_open_spot', label: 'Lista de espera — vaga disponível' },
+  { key: 'payment_support', label: 'Peregrinação — apoio ao pagamento' },
+  { key: 'donation_thank_you', label: 'Doação — agradecimento' },
+  { key: 'donation_thank_you_story', label: 'Doação — impacto' },
   { key: 'donor_to_member', label: 'Doador para membro' },
+  { key: 'member_invitation', label: 'Convite para membro' },
   { key: 'membership_renewal', label: 'Renovação de membro' },
-  { key: 'member_referral_activation', label: 'Membro - ativar partilha' },
+  { key: 'member_referral_activation', label: 'Membro — ativar partilha' },
+  { key: 'referral_activation', label: 'Convites — ativar partilha' },
   { key: 'share_mission', label: 'Partilhar missão' },
+  { key: 'member_welcome', label: 'Membro — acolhimento' },
+  { key: 'member_pray_intentions', label: 'Membro — entregar intenções' },
+  { key: 'member_novena_invite', label: 'Membro — convite a novena' },
+  { key: 'member_learn_garabandal', label: 'Membro — conhecer Garabandal' },
+];
+
+// Friendly Portuguese names for funnel step display (avoids showing raw keys like "member_welcome").
+const templateLabelByKey: Record<string, string> = Object.fromEntries(
+  campaignTemplateOptions.map((t) => [t.key, t.label]),
+);
+
+const segmentOptions = [
+  { slug: 'hot-pilgrimage-leads', label: 'Leads quentes de peregrinação' },
+  { slug: 'abandoned-registration', label: 'Inscrição abandonada' },
+  { slug: 'brochure-requested-not-booked', label: 'Pediu brochura mas não reservou' },
+  { slug: 'waitlist-contacts', label: 'Lista de espera' },
+  { slug: 'past-pilgrims', label: 'Já peregrinaram' },
+  { slug: 'donors-not-members', label: 'Doadores que não são membros' },
+  { slug: 'new-members', label: 'Novos membros' },
+  { slug: 'members-without-referrals', label: 'Membros sem convites' },
+  { slug: 'expired-pending-members', label: 'Membros expirados/pendentes' },
+  { slug: 'high-value-supporters', label: 'Apoiantes de alto valor' },
 ];
 
 export default function MarketingAdminClient({ view: initialView }: MarketingAdminClientProps) {
@@ -201,6 +232,7 @@ export default function MarketingAdminClient({ view: initialView }: MarketingAdm
   const [previewTemplate, setPreviewTemplate] = useState<any>(null);
   const [previewLanguage, setPreviewLanguage] = useState<'pt' | 'en'>('pt');
   const [previewLoading, setPreviewLoading] = useState(false);
+  const [templateCategory, setTemplateCategory] = useState<string>('all');
 
   // Client-side routing interceptor for blazing fast UX
   const navigateTo = (newView: View, href: string) => {
@@ -482,8 +514,8 @@ export default function MarketingAdminClient({ view: initialView }: MarketingAdm
                 <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
                   <StatCard label="Total CRM" value={data.stats.total_contacts} icon={Users} color="blue" trend="+12 hoje" />
                   <StatCard label="Inscritos Mailing" value={data.stats.marketable_contacts} icon={Mail} color="purple" />
-                  <StatCard label="Hot Leads" value={data.stats.hot_pilgrimage_leads} icon={Zap} color="emerald" trend="Alta conversão" />
-                  <StatCard label="Pipeline Total" value={formatCurrency(data.stats.total_value)} icon={BarChart2} color="amber" />
+                  <StatCard label="Leads Quentes" value={data.stats.hot_pilgrimage_leads} icon={Zap} color="emerald" trend="Alta conversão" />
+                  <StatCard label="Valor Total" value={formatCurrency(data.stats.total_value)} icon={BarChart2} color="amber" />
                 </div>
 
                 <div className="grid gap-8 xl:grid-cols-3">
@@ -491,7 +523,7 @@ export default function MarketingAdminClient({ view: initialView }: MarketingAdm
                     {/* Hot Leads Bento Box */}
                     <section className="rounded-3xl border border-slate-200/60 bg-white p-8 shadow-sm">
                       <div className="mb-6 flex items-center justify-between">
-                        <h2 className="text-xl font-black text-slate-900">Leads Focados (High Priority)</h2>
+                        <h2 className="text-xl font-black text-slate-900">Leads Focados (Alta Prioridade)</h2>
                         <button onClick={() => navigateTo('contacts', '/admin/marketing/contacts')} className="text-sm font-bold text-blue-600 hover:text-blue-700">Ver todos</button>
                       </div>
                       <div className="grid gap-4 md:grid-cols-2">
@@ -571,7 +603,7 @@ export default function MarketingAdminClient({ view: initialView }: MarketingAdm
                     <thead className="bg-slate-50/50 text-[10px] font-black uppercase tracking-widest text-slate-400">
                       <tr>
                         <th className="p-5">Contacto</th>
-                        <th className="p-5">Stage</th>
+                        <th className="p-5">Fase</th>
                         <th className="p-5">Score</th>
                         <th className="p-5">Valor</th>
                         <th className="p-5">Próximo Passo</th>
@@ -678,7 +710,7 @@ export default function MarketingAdminClient({ view: initialView }: MarketingAdm
 
                     {/* Pipeline Steps */}
                     <div className="p-8 pb-4">
-                      <h4 className="mb-6 text-xs font-black uppercase tracking-widest text-slate-400">Pipeline Sequence</h4>
+                      <h4 className="mb-6 text-xs font-black uppercase tracking-widest text-slate-400">Sequência do Funil</h4>
                       <div className="relative before:absolute before:inset-y-0 before:left-5 before:w-0.5 before:bg-slate-100">
                         {(funnel.steps || []).map((step: any, idx: number) => (
                           <div key={idx} className="relative mb-8 flex items-start gap-6 last:mb-0">
@@ -686,7 +718,7 @@ export default function MarketingAdminClient({ view: initialView }: MarketingAdm
                               {idx + 1}
                             </div>
                             <div className="min-w-0 flex-1 pt-1">
-                              <p className="text-lg font-black text-slate-900">{step.template_key || step.task_type || 'Passo Genérico'}</p>
+                              <p className="text-lg font-black text-slate-900">{templateLabelByKey[step.template_key] || step.template_key || step.task_type || 'Passo Genérico'}</p>
                               <div className="mt-2 flex flex-wrap gap-2">
                                 <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-600">
                                   <Calendar className="h-3.5 w-3.5" /> +{step.delay_hours || 0}h
@@ -698,8 +730,8 @@ export default function MarketingAdminClient({ view: initialView }: MarketingAdm
                               </div>
                               {(step.condition || step.stop_if) && (
                                 <div className="mt-3 rounded-xl border border-slate-100 bg-slate-50 p-3 text-xs font-medium text-slate-600">
-                                  {step.condition && <p>If: <span className="text-slate-900">{step.condition}</span></p>}
-                                  {step.stop_if && <p className="mt-1">Stop if: <span className="text-slate-900">{step.stop_if.join(', ')}</span></p>}
+                                  {step.condition && <p>Se: <span className="text-slate-900">{step.condition}</span></p>}
+                                  {step.stop_if && <p className="mt-1">Parar se: <span className="text-slate-900">{step.stop_if.join(', ')}</span></p>}
                                 </div>
                               )}
                             </div>
@@ -758,11 +790,9 @@ export default function MarketingAdminClient({ view: initialView }: MarketingAdm
                     <div>
                       <label className="mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-500">Público Alvo</label>
                       <select value={campaignForm.segment_slug} onChange={(e) => setCampaignForm({ ...campaignForm, segment_slug: e.target.value })} className="w-full appearance-none rounded-xl bg-slate-50 border-transparent focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/20 px-4 py-3 text-sm font-bold text-slate-700 transition-all outline-none">
-                        <option value="hot-pilgrimage-leads">Hot pilgrimage leads</option>
-                        <option value="abandoned-registration">Abandoned registration</option>
-                        <option value="waitlist-contacts">Waitlist contacts</option>
-                        <option value="donors-not-members">Donors not members</option>
-                        <option value="members-without-referrals">Members without referrals</option>
+                        {segmentOptions.map((seg) => (
+                          <option key={seg.slug} value={seg.slug}>{seg.label}</option>
+                        ))}
                       </select>
                     </div>
                     <div>
@@ -774,7 +804,7 @@ export default function MarketingAdminClient({ view: initialView }: MarketingAdm
                       </select>
                     </div>
                     <div>
-                      <label className="mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-500">Assunto (Overrides template)</label>
+                      <label className="mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-500">Assunto (substitui o do template)</label>
                       <input value={campaignForm.subject} onChange={(e) => setCampaignForm({ ...campaignForm, subject: e.target.value })} placeholder="Opcional" className="w-full rounded-xl bg-slate-50 border-transparent focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/20 px-4 py-3 text-sm font-medium transition-all outline-none" />
                     </div>
                     <div>
@@ -1069,8 +1099,33 @@ export default function MarketingAdminClient({ view: initialView }: MarketingAdm
                 transition={{ duration: 0.3 }}
                 className="grid gap-8 lg:grid-cols-[1fr_500px]"
               >
-                <div className="grid gap-6 md:grid-cols-2 h-fit">
-                  {(data.templates || []).map((template: any) => (
+                <div className="h-fit">
+                  <div className="mb-6 flex flex-wrap gap-2">
+                    {(() => {
+                      const cats: string[] = Array.from(
+                        new Set((data.templates || []).map((t: any) => String(t.category || '')).filter(Boolean))
+                      );
+                      return ['all', ...cats].map((cat) => {
+                        const isActive = templateCategory === cat;
+                        const count = cat === 'all'
+                          ? (data.templates || []).length
+                          : (data.templates || []).filter((t: any) => t.category === cat).length;
+                        return (
+                          <button
+                            key={cat}
+                            onClick={() => setTemplateCategory(cat)}
+                            className={`rounded-full px-3.5 py-1.5 text-xs font-bold transition-colors ${isActive ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                          >
+                            {cat === 'all' ? 'Todos' : cat} ({count})
+                          </button>
+                        );
+                      });
+                    })()}
+                  </div>
+                  <div className="grid gap-6 md:grid-cols-2">
+                  {(data.templates || [])
+                    .filter((template: any) => templateCategory === 'all' || template.category === templateCategory)
+                    .map((template: any) => (
                     <section key={template.key} className="group flex flex-col rounded-[2rem] border border-slate-200/60 bg-white p-6 shadow-sm transition-all hover:-translate-y-1 hover:border-slate-300 hover:shadow-md">
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex items-center gap-2">
@@ -1096,12 +1151,13 @@ export default function MarketingAdminClient({ view: initialView }: MarketingAdm
                       </button>
                     </section>
                   ))}
+                  </div>
                 </div>
 
                 <aside className="sticky top-6 h-fit rounded-[2rem] border border-slate-200/60 bg-white p-6 shadow-xl shadow-slate-200/40">
                   <div className="flex items-start justify-between gap-4 border-b border-slate-100 pb-4">
                     <div>
-                      <h3 className="text-xl font-black text-slate-900">Live Preview</h3>
+                      <h3 className="text-xl font-black text-slate-900">Pré-visualização</h3>
                       <p className="mt-1 text-sm font-medium text-slate-500">Usa o renderer do backend React Email.</p>
                     </div>
                     <select value={previewLanguage} onChange={(e) => setPreviewLanguage(e.target.value === 'en' ? 'en' : 'pt')} className="appearance-none rounded-xl border-transparent bg-slate-50 px-4 py-2 text-xs font-bold text-slate-700 outline-none transition-all focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/20">
