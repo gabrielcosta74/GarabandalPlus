@@ -3,7 +3,9 @@ import { supabaseServer } from '../../../../lib/supabase';
 
 /**
  * POST /api/auction/winner
- * Winner submits shipping details and/or receipt.
+ * Winner submits shipping details and/or receipt URL.
+ * Body: { item_id, shipping_name?, shipping_address?, shipping_city?,
+ *         shipping_postal?, shipping_phone?, receipt_url?, receipt_file? (base64) }
  */
 export async function POST(req: Request) {
     if (!supabaseServer) {
@@ -39,7 +41,7 @@ export async function POST(req: Request) {
     // Verify this user is the winner
     const { data: item, error: itemError } = await supabaseServer
         .from('auction_items')
-        .select('id, winner_id, status')
+        .select('id, winner_id, status, shipping_info')
         .eq('id', item_id)
         .single();
 
@@ -53,23 +55,23 @@ export async function POST(req: Request) {
 
     const updates: Record<string, any> = { updated_at: new Date().toISOString() };
 
-    // Handle shipping details
-    if (body.shipping_name) {
-        const shippingData = JSON.stringify({
-            name: body.shipping_name,
-            address: body.shipping_address,
-            city: body.shipping_city,
-            postal: body.shipping_postal,
-            phone: body.shipping_phone || null,
-        });
-
-        // Store in description field temporarily (or a new JSONB column if preferred)
-        // For v1, we append to the item record. Admin sees it.
-        updates.winner_email = `${authData.user.email} | Morada: ${body.shipping_name}, ${body.shipping_address}, ${body.shipping_postal} ${body.shipping_city}${body.shipping_phone ? ` | Tel: ${body.shipping_phone}` : ''}`;
+    // Shipping info → store in dedicated jsonb column (merge with existing)
+    if (body.shipping_name && body.shipping_address && body.shipping_city && body.shipping_postal) {
+        updates.shipping_info = {
+            ...(item.shipping_info || {}),
+            name: String(body.shipping_name).slice(0, 200),
+            address: String(body.shipping_address).slice(0, 300),
+            city: String(body.shipping_city).slice(0, 100),
+            postal: String(body.shipping_postal).slice(0, 20),
+            phone: body.shipping_phone ? String(body.shipping_phone).slice(0, 30) : null,
+            submitted_at: new Date().toISOString(),
+        };
     }
 
-    // Handle receipt upload
-    if (body.receipt_file) {
+    // Receipt: client may either upload first and send the URL, or send base64 file
+    if (body.receipt_url && typeof body.receipt_url === 'string') {
+        updates.receipt_url = body.receipt_url.slice(0, 1024);
+    } else if (body.receipt_file) {
         const buffer = Buffer.from(body.receipt_file, 'base64');
         const MAX_SIZE = 10 * 1024 * 1024;
 
@@ -77,7 +79,8 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: 'Ficheiro demasiado grande (máx 10MB).' }, { status: 413 });
         }
 
-        const filePath = `auction-receipts/${userId}/${item_id}/${Date.now()}_${body.receipt_filename || 'receipt'}`;
+        const safeName = String(body.receipt_filename || 'receipt').replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 80);
+        const filePath = `auction-receipts/${userId}/${item_id}/${Date.now()}_${safeName}`;
 
         const { error: uploadError } = await supabaseServer.storage
             .from('receipts')
@@ -91,12 +94,9 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: 'Erro ao enviar ficheiro.' }, { status: 500 });
         }
 
-        // Append receipt path to winner_email field (admin can see it)
-        const currentWinnerEmail = updates.winner_email || item.winner_id;
-        updates.winner_email = `${currentWinnerEmail || authData.user.email} | Comprovativo: ${filePath}`;
+        updates.receipt_url = filePath;
     }
 
-    // Apply updates
     if (Object.keys(updates).length > 1) {
         const { error: updateError } = await supabaseServer
             .from('auction_items')

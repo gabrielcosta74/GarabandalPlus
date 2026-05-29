@@ -3,7 +3,9 @@ import { supabaseServer } from '../../../../../../lib/supabase';
 
 const ADMIN_EMAILS = [
     'geral@apostoladodegarabandal.com',
-    'gabrielcosta2908@gmail.com'
+    'gabrielsanticosta@gmail.com',
+    'gabrielcosta74@gmail.com',
+    ...(process.env.NEXT_PUBLIC_ADMIN_EMAILS ?? '').split(',').map(e => e.trim().toLowerCase()).filter(Boolean),
 ];
 
 async function verifyAdmin(req: Request): Promise<{ isAdmin: boolean; error?: string }> {

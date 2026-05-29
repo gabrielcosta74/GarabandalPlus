@@ -62,6 +62,13 @@ Para a reconciliação Reduniq, usa:
 
 O comando chama `/api/cron/reduniq-reconcile` com `Authorization: Bearer <CRON_SECRET>` e termina, como o Railway Cron espera.
 
+Para fechar leilões expirados e tratar prazos de pagamento (48h):
+
+- Start Command: `npm run cron:auction-close`
+- Cron Schedule: `*/15 * * * *`
+
+Marca o vencedor, envia email + notificação ao admin, e em caso de prazo expirado reatribui ao 2.º licitador ou marca como `defaulted`.
+
 ## Integração com a app móvel
 - Na app Expo, troca os botões de pagar/renovar/doar para abrir `https://seusite/` com query ou token do utilizador.
 - A app só lê estado do Supabase (membro, próximas quotas, histórico); o site mantém a escrita/checkout.

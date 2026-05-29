@@ -519,7 +519,7 @@ export async function handleAuctionSuccess(ctx: PaymentHandlerContext) {
 
     console.log(`[Auction] Marked as paid in handler: ${auctionItemId}`);
 
-    // Try to get winner details to send email
+    // Try to get winner details to send email (membros.id == auth.users.id)
     if (item.winner_id) {
         const { data: membro } = await supabaseServer
             .from('membros')
@@ -542,5 +542,5 @@ export async function handleAuctionSuccess(ctx: PaymentHandlerContext) {
     }
 
     // Create an admin notification
-    await createAdminNotification('auction', 'Pagamento Leilão', `Leilão #${auctionItemId} - ${(amountCents / 100).toFixed(2)}€`, `/admin/leiloes/${auctionItemId}`);
+    await createAdminNotification('auction', 'Pagamento Leilão', `Leilão #${auctionItemId} - ${(amountCents / 100).toFixed(2)}€`, `/admin/leilao`);
 }

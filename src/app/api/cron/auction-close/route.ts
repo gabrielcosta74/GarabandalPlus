@@ -9,10 +9,16 @@ import { getAppUrl } from '../../../../lib/config';
  * 1. Close expired auctions (active → awaiting_payment or ended)
  * 2. Handle payment deadline expiry (awaiting_payment → fallback to 2nd bidder or defaulted)
  */
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
 export async function GET(req: Request) {
-    // Basic cron security: check for a secret header or allow only from known services
-    const cronSecret = req.headers.get('x-cron-secret');
-    if (cronSecret !== process.env.CRON_SECRET && process.env.NODE_ENV !== 'development') {
+    const secret = process.env.CRON_SECRET || '';
+    if (!secret && process.env.NODE_ENV !== 'development') {
+        return NextResponse.json({ error: 'CRON_SECRET não configurado.' }, { status: 500 });
+    }
+    const authHeader = req.headers.get('authorization') || '';
+    if (authHeader !== `Bearer ${secret}` && process.env.NODE_ENV !== 'development') {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -72,7 +78,7 @@ export async function GET(req: Request) {
                             email: winnerEmail,
                             winnerName,
                             itemTitle: item.title || 'Peça de Leilão',
-                            winningBid: item.current_bid / 100,
+                            winningBid: item.current_bid,
                             paymentDeadlineHours: 48,
                             itemUrl: `${appUrl}/leilao/${item.id}`,
                         }).catch(err => console.error('[Auction Cron] Winner email error:', err));
@@ -112,26 +118,32 @@ export async function GET(req: Request) {
         }
 
         for (const item of unpaidItems || []) {
-            // Ban the non-paying user
+            // Ban the non-paying user (membros.id == auth.users.id)
             if (item.winner_id) {
                 await supabaseServer
                     .from('membros')
                     .update({ banned_from_auction: true })
-                    .eq('user_id', item.winner_id);
+                    .eq('id', item.winner_id);
 
                 console.log(`[Auction Cron] Banned user ${item.winner_email} from auctions`);
             }
 
-            // Find the next highest bidder (excluding the current defaulting winner)
-            const { data: nextBids } = await supabaseServer
+            // Find the next highest bidder, skipping any bidder already banned from auctions
+            // (covers chain-defaults: 1st winner ban → 2nd winner ban → must skip both).
+            const { data: bannedRows } = await supabaseServer
+                .from('membros')
+                .select('id')
+                .eq('banned_from_auction', true);
+            const bannedIds = new Set((bannedRows || []).map(r => r.id));
+            if (item.winner_id) bannedIds.add(item.winner_id);
+
+            const { data: allBids } = await supabaseServer
                 .from('auction_bids')
                 .select('user_id, user_email, amount')
                 .eq('item_id', item.id)
-                .neq('user_id', item.winner_id || '')
-                .order('amount', { ascending: false })
-                .limit(1);
+                .order('amount', { ascending: false });
 
-            const nextBid = nextBids?.[0];
+            const nextBid = (allBids || []).find(b => b.user_id && !bannedIds.has(b.user_id)) || null;
 
             if (nextBid) {
                 // Reassign to 2nd highest bidder
@@ -157,7 +169,7 @@ export async function GET(req: Request) {
                     sendAuctionWinnerEmail({
                         email: nextBid.user_email,
                         itemTitle: item.title || 'Peça de Leilão',
-                        winningBid: nextBid.amount / 100,
+                        winningBid: nextBid.amount,
                         paymentDeadlineHours: 48,
                         itemUrl: `${appUrl}/leilao/${item.id}`,
                     }).catch(err => console.error('[Auction Cron] Reassign email error:', err));

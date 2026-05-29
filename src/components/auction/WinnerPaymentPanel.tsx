@@ -42,7 +42,7 @@ export function WinnerPaymentPanel({ itemId, itemTitle, winningBid, paymentDeadl
     const [error, setError] = useState<string | null>(null);
     const [processingPayment, setProcessingPayment] = useState(false);
     const [localPaid, setLocalPaid] = useState(false);
-    const [confirmStatus, setConfirmStatus] = useState<'idle' | 'confirming' | 'failed'>('idle');
+    const [confirmStatus, setConfirmStatus] = useState<'idle' | 'confirming' | 'pending' | 'failed'>('idle');
 
     const selectedPayment = UNIFIED_DONATION_PAYMENT_OPTIONS.find(p => p.id === selectedPaymentId) || UNIFIED_DONATION_PAYMENT_OPTIONS[0];
     const isBankTransfer = selectedPaymentId === 'bank_transfer';
@@ -79,35 +79,64 @@ export function WinnerPaymentPanel({ itemId, itemTitle, winningBid, paymentDeadl
         const tokenParam = search.get('token');
         const paymentParam = search.get('payment');
 
-        // Only try to confirm if we have indicators of a return from Reduniq
-        if ((paymentParam === 'success' || tokenParam || orderRefParam) && confirmStatus === 'idle') {
-            const confirmReduniq = async () => {
-                setConfirmStatus('confirming');
-                try {
-                    const res = await fetch('/api/reduniq/confirm', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            ...(orderRefParam ? { orderRef: orderRefParam } : {}),
-                            ...(tokenParam ? { token: tokenParam } : {}),
-                        }),
-                    });
+        const isReturn = paymentParam === 'success' || paymentParam === 'failed' || !!tokenParam || !!orderRefParam;
+        if (!isReturn || confirmStatus !== 'idle') return;
 
-                    const data = await res.json();
-                    if (res.ok && data?.success) {
-                        setLocalPaid(true);
-                    } else {
-                        setConfirmStatus('failed');
-                        setError('Aguardando confirmação do banco. Se pagou, verifique mais tarde.');
-                    }
-                } catch (err) {
-                    console.warn('[Auction] Failed to verify payment:', err);
-                    setConfirmStatus('failed');
+        // The user explicitly cancelled at Reduniq → don't show any success.
+        // Reduniq sends us back to the cancel URL (?payment=failed) without a
+        // completed transaction, so there's nothing to verify.
+        const userCancelled = paymentParam === 'failed';
+
+        const confirmReduniq = async () => {
+            setConfirmStatus('confirming');
+            setError(null);
+            try {
+                const res = await fetch('/api/reduniq/confirm', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        ...(orderRefParam ? { orderRef: orderRefParam } : {}),
+                        ...(tokenParam ? { token: tokenParam } : {}),
+                    }),
+                });
+
+                const data = await res.json();
+
+                // IMPORTANT: `data.success` only means the confirm call ran — NOT that
+                // the payment succeeded. The real outcome is in transactionStatus:
+                //   '4' = paid · '0'/'1'/'2' = pending · '3'/other = failed/declined.
+                const status = String(data?.transactionStatus || '');
+
+                if ((res.ok && data?.success) && status === '4') {
+                    setLocalPaid(true);
+                    setConfirmStatus('idle');
+                    return;
                 }
-            };
 
-            confirmReduniq();
-        }
+                if (!userCancelled && (status === '0' || status === '1' || status === '2')) {
+                    setConfirmStatus('pending');
+                    setError(null);
+                    return;
+                }
+
+                // Cancelled, declined, or could not validate → back to payment flow.
+                setConfirmStatus('failed');
+                if (userCancelled) {
+                    setError('Pagamento cancelado. A peça continua reservada para si — pode tentar novamente abaixo.');
+                } else {
+                    const parts = [data?.resultMessage, data?.statusLabel ? `Estado: ${data.statusLabel}` : null].filter(Boolean);
+                    setError(parts.length ? parts.join(' • ') : 'O pagamento não foi concluído. Pode tentar novamente.');
+                }
+            } catch (err) {
+                console.warn('[Auction] Failed to verify payment:', err);
+                setConfirmStatus('failed');
+                setError(userCancelled
+                    ? 'Pagamento cancelado. A peça continua reservada — pode tentar novamente abaixo.'
+                    : 'Erro de rede ao validar o pagamento. Tente novamente.');
+            }
+        };
+
+        confirmReduniq();
     }, [isPaid, localPaid, confirmStatus]);
 
     // ── Shipping ──
@@ -240,6 +269,25 @@ export function WinnerPaymentPanel({ itemId, itemTitle, winningBid, paymentDeadl
                 <Loader2 className="w-10 h-10 animate-spin text-yellow-500 mb-4" />
                 <h3 className="font-bold text-slate-900 text-lg mb-2">A verificar o seu pagamento...</h3>
                 <p className="text-slate-500 text-sm">Por favor aguarde um momento enquanto comunicamos com a entidade bancária.</p>
+            </div>
+        );
+    }
+
+    if (confirmStatus === 'pending') {
+        return (
+            <div className="bg-blue-50 rounded-2xl border border-blue-200 p-8 shadow-sm flex flex-col items-center justify-center text-center">
+                <Loader2 className="w-9 h-9 text-blue-500 mb-4" />
+                <h3 className="font-bold text-blue-900 text-lg mb-2">Pagamento em processamento</h3>
+                <p className="text-blue-700 text-sm mb-4">
+                    O banco ainda está a processar a transação. Não foi cobrado nada em duplicado.
+                    Atualize esta página dentro de alguns minutos para ver o estado final.
+                </p>
+                <button
+                    onClick={() => { setConfirmStatus('idle'); setError(null); }}
+                    className="px-5 py-2.5 bg-white border border-blue-200 text-blue-700 rounded-xl font-bold text-sm hover:bg-blue-100 transition-colors"
+                >
+                    Voltar às opções de pagamento
+                </button>
             </div>
         );
     }

@@ -20,6 +20,7 @@ import {
   renderMembershipRevokedEmail,
   renderWelcomeEmail,
   renderAuctionOutbidEmail,
+  renderAuctionAnnouncementEmail,
   renderAuctionWinnerEmail,
   renderAuctionAdminNotificationEmail,
   renderAuctionPaymentConfirmedEmail,
@@ -37,6 +38,7 @@ import {
   DonationNotificationInput,
   BrochureEmailInput,
   AuctionOutbidInput,
+  AuctionAnnouncementInput,
   AuctionWinnerInput,
   AuctionAdminNotificationInput,
   AuctionPaymentConfirmedInput,
@@ -57,6 +59,7 @@ export type {
   AbandonmentRecoveryInput,
   DonationNotificationInput,
   AuctionOutbidInput,
+  AuctionAnnouncementInput,
   AuctionWinnerInput,
   AuctionAdminNotificationInput,
   AuctionPaymentConfirmedInput,
@@ -604,6 +607,35 @@ export const sendAuctionOutbidEmail = async (payload: AuctionOutbidInput) => {
   } catch (error) {
     console.error('[Auction Email] Failed to send outbid email:', error);
     return false;
+  }
+};
+
+/**
+ * Sends a single auction-announcement email. Returns provider id / error so the
+ * caller (broadcast endpoint) can log each send to marketing_message_logs.
+ */
+export const sendAuctionAnnouncementEmail = async (
+  payload: AuctionAnnouncementInput & { toEmail: string },
+): Promise<{ sent: boolean; providerId?: string | null; error?: string }> => {
+  if (!resendClient) {
+    return { sent: false, error: 'RESEND_API_KEY não configurada.' };
+  }
+
+  const content = renderAuctionAnnouncementEmail(payload);
+  try {
+    const result = await resendClient.emails.send({
+      from: notifyFrom,
+      to: [payload.toEmail],
+      subject: content.subject,
+      html: content.html,
+    });
+    const error = (result as any)?.error;
+    if (error) {
+      return { sent: false, error: String(error?.message || error) };
+    }
+    return { sent: true, providerId: (result as any)?.data?.id || null };
+  } catch (error: any) {
+    return { sent: false, error: error?.message || 'Erro ao enviar email.' };
   }
 };
 

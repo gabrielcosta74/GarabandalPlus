@@ -25,7 +25,8 @@ import {
   CreditCard,
   LayoutDashboard,
   Settings,
-  Ticket
+  Ticket,
+  Gavel,
 } from 'lucide-react';
 import MobileBottomNav from './MobileBottomNav';
 
@@ -248,6 +249,7 @@ export default function SiteHeader() {
               { href: t.urls.home, label: t.nav.home },
               { href: t.urls.pilgrimages, label: t.nav.pilgrimages },
               { href: t.urls.donations, label: t.nav.donations },
+              { href: t.urls.auction, label: t.nav.auction },
               { href: t.urls.store, label: t.nav.store },
               ...(user ? [{ href: t.urls.myRegistrations, label: t.nav.myRegistrations }] : []),
             ].map(link => (
@@ -637,6 +639,7 @@ export default function SiteHeader() {
                   <NavLink href={t.urls.home} icon={Home} label={t.nav.home} onClick={() => setIsMobileOpen(false)} />
                   <NavLink href={t.urls.pilgrimages} icon={MapPin} label={t.nav.pilgrimages} onClick={() => setIsMobileOpen(false)} />
                   <NavLink href={t.urls.donations} icon={Heart} label={t.nav.donations} onClick={() => setIsMobileOpen(false)} />
+                  <NavLink href={t.urls.auction} icon={Gavel} label={t.nav.auction} onClick={() => setIsMobileOpen(false)} />
                   <NavLink href={t.urls.becomeMember} icon={CreditCard} label={t.nav.becomeMember} onClick={() => setIsMobileOpen(false)} />
                   <NavLink href={t.urls.store} icon={Store} label={t.nav.store} onClick={() => setIsMobileOpen(false)} />
 

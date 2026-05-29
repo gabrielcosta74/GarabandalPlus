@@ -4,7 +4,9 @@ import { sendAuctionWinnerEmail } from '../../../../../../lib/email';
 
 const ADMIN_EMAILS = [
     'geral@apostoladodegarabandal.com',
-    'gabrielcosta2908@gmail.com'
+    'gabrielsanticosta@gmail.com',
+    'gabrielcosta74@gmail.com',
+    ...(process.env.NEXT_PUBLIC_ADMIN_EMAILS ?? '').split(',').map(e => e.trim().toLowerCase()).filter(Boolean),
 ];
 
 async function verifyAdmin(req: Request): Promise<{ isAdmin: boolean; error?: string }> {
@@ -79,12 +81,12 @@ export async function POST(
 
     const winnerEmail = winnerBid?.user_email || 'unknown';
 
-    // Fetch the winner name from the members table if possible
+    // Fetch the winner name from the members table if possible (membros.id == auth.users.id)
     const { data: memberData } = await supabaseServer!
         .from('membros')
         .select('nome')
-        .eq('user_id', item.current_bidder_id)
-        .single();
+        .eq('id', item.current_bidder_id)
+        .maybeSingle();
 
     const winnerName = memberData?.nome || null;
 

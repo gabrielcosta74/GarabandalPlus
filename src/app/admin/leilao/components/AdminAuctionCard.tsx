@@ -1,4 +1,4 @@
-import { Eye, Pencil, Trash2, CheckCircle2, Truck, Clock, AlertCircle } from 'lucide-react';
+import { Eye, Pencil, Trash2, CheckCircle2, Truck, Clock, AlertCircle, MapPin, FileText, Megaphone } from 'lucide-react';
 
 export const STATUS_CONFIG: Record<string, { label: string; color: string; badge: string }> = {
     draft: { label: 'Rascunho', color: 'bg-slate-50 border-slate-200', badge: 'bg-slate-100 text-slate-600 border-slate-200' },
@@ -15,6 +15,7 @@ type AuctionItem = {
     title: string;
     description: string | null;
     images: string[];
+    videos: string[];
     artisan_name: string;
     starting_price: number;
     min_increment: number;
@@ -25,19 +26,29 @@ type AuctionItem = {
     winner_email: string | null;
     payment_deadline: string | null;
     created_at: string;
+    shipping_info?: {
+        name?: string;
+        address?: string;
+        city?: string;
+        postal?: string;
+        phone?: string | null;
+        submitted_at?: string;
+    } | null;
+    receipt_url?: string | null;
 };
 
 interface AdminAuctionCardProps {
-    item: AuctionItem;
+    item: AuctionItem & { announced_at?: string | null };
     onStatusChange: (id: string, newStatus: string) => void;
     onEdit: (item: AuctionItem) => void;
     onDelete: (id: string) => void;
     onShowBids: (id: string, title: string) => void;
     onProcessWinner?: (id: string) => void;
+    onAnnounce?: (id: string) => void;
 }
 
 export default function AdminAuctionCard({
-    item, onStatusChange, onEdit, onDelete, onShowBids, onProcessWinner
+    item, onStatusChange, onEdit, onDelete, onShowBids, onProcessWinner, onAnnounce
 }: AdminAuctionCardProps) {
     const statusInfo = STATUS_CONFIG[item.status] || STATUS_CONFIG['draft'];
     const isOverdue = item.status === 'awaiting_payment' && item.payment_deadline && new Date(item.payment_deadline) < new Date();
@@ -107,6 +118,33 @@ export default function AdminAuctionCard({
                             </div>
                         </div>
 
+                        {/* Shipping info from winner */}
+                        {item.shipping_info?.address && (
+                            <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 mb-2 text-xs space-y-1">
+                                <div className="flex items-center gap-1.5 font-bold text-slate-600 uppercase tracking-widest text-[10px]">
+                                    <MapPin className="w-3 h-3" /> Morada de envio
+                                </div>
+                                <div className="text-slate-700">
+                                    {item.shipping_info.name} — {item.shipping_info.address}, {item.shipping_info.postal} {item.shipping_info.city}
+                                    {item.shipping_info.phone ? <span className="text-slate-500"> · {item.shipping_info.phone}</span> : null}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Receipt link */}
+                        {item.receipt_url && item.receipt_url.startsWith('http') && (
+                            <div className="mb-2">
+                                <a
+                                    href={item.receipt_url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-1.5 text-xs font-bold text-blue-700 bg-blue-50 border border-blue-200 px-3 py-1.5 rounded-lg hover:bg-blue-100 transition-colors"
+                                >
+                                    <FileText className="w-3.5 h-3.5" /> Ver comprovativo
+                                </a>
+                            </div>
+                        )}
+
                         {/* Winner Info (if any) */}
                         {item.winner_email && (
                             <div className={`
@@ -151,6 +189,18 @@ export default function AdminAuctionCard({
                                     </button>
                                 ) : (
                                     <>
+                                        {onAnnounce && (
+                                            <button
+                                                onClick={() => onAnnounce(item.id)}
+                                                title={item.announced_at ? `Já anunciado em ${new Date(item.announced_at).toLocaleString('pt-PT')}` : 'Enviar anúncio por email aos contactos com consentimento'}
+                                                className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors border ${item.announced_at
+                                                    ? 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100'
+                                                    : 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100'}`}
+                                            >
+                                                <Megaphone className="w-4 h-4" />
+                                                {item.announced_at ? 'Anunciado · Reenviar' : 'Anunciar por Email'}
+                                            </button>
+                                        )}
                                         <button onClick={() => onStatusChange(item.id, 'ended')} className="px-3 py-2 bg-slate-50 text-slate-600 border border-slate-200 rounded-xl text-xs font-bold hover:bg-slate-100 transition-colors flex items-center gap-1.5">
                                             Terminar Agora
                                         </button>

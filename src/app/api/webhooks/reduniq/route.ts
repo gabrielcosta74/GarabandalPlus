@@ -245,9 +245,10 @@ export async function POST(request: Request) {
         const { data: auctionItem } = await auctionItemQuery.maybeSingle();
 
         if (auctionItem) {
+            // current_bid / starting_price are already stored in cents.
             const context: PaymentHandlerContext = {
                 supabaseServer,
-                amountCents: Math.round((auctionItem.current_bid || auctionItem.starting_price) * 100),
+                amountCents: auctionItem.current_bid || auctionItem.starting_price || 0,
                 currency: 'EUR',
                 paymentReference: token,
                 externalReference: auctionItem.id,
@@ -263,11 +264,9 @@ export async function POST(request: Request) {
                 await handleAuctionSuccess(context);
                 console.log(`[Reduniq Webhook] Leilão marcado como pago: ${auctionItem.id}`);
             } else if (isFailed) {
-                await supabaseServer
-                    .from('auction_items')
-                    .update({ status: 'defaulted', updated_at: new Date().toISOString() })
-                    .eq('id', auctionItem.id);
-                console.log(`[Reduniq Webhook] Falha no pagamento do leilão: ${auctionItem.id}`);
+                // Declined payment keeps the item in awaiting_payment so the winner
+                // can retry within the 48h window. The cron defaults it after the deadline.
+                console.log(`[Reduniq Webhook] Pagamento de leilão falhou (mantém awaiting_payment p/ retry): ${auctionItem.id}`);
             }
             return NextResponse.json({ received: true });
         }

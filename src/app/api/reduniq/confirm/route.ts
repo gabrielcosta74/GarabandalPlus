@@ -445,9 +445,10 @@ export async function POST(request: Request) {
         .maybeSingle();
 
       if (auctionItem) {
+        // current_bid / starting_price are already stored in cents.
         const ctx: PaymentHandlerContext = {
           supabaseServer,
-          amountCents: Math.round((auctionItem.current_bid || auctionItem.starting_price) * 100),
+          amountCents: auctionItem.current_bid || auctionItem.starting_price || 0,
           currency: 'EUR',
           paymentReference: tokenToUse,
           externalReference: auctionItem.id,
@@ -461,12 +462,11 @@ export async function POST(request: Request) {
           updated = true;
           console.log(`[Reduniq Confirm] Leilão marcado como pago: ${auctionItem.id}`);
         } else if (isFailed) {
-          await supabaseServer
-            .from('auction_items')
-            .update({ status: 'defaulted', updated_at: new Date().toISOString() })
-            .eq('id', auctionItem.id);
+          // A declined card must NOT forfeit the item. The winner keeps the
+          // 48h window to retry (another card, MB WAY or bank transfer). The
+          // auction-close cron handles real non-payment after the deadline.
           updated = true;
-          console.log(`[Reduniq Confirm] Falha no pagamento do leilão: ${auctionItem.id}`);
+          console.log(`[Reduniq Confirm] Pagamento de leilão falhou (mantém awaiting_payment p/ retry): ${auctionItem.id}`);
         }
       }
     }

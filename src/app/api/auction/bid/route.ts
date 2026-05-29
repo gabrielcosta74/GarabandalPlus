@@ -28,12 +28,12 @@ export async function POST(req: Request) {
 
     const user = authData.user;
 
-    // 2. Check if user is banned from auction
+    // 2. Check if user is banned from auction (membros.id == auth.users.id)
     const { data: memberData } = await supabaseServer
         .from('membros')
         .select('banned_from_auction')
-        .eq('user_id', user.id)
-        .single();
+        .eq('id', user.id)
+        .maybeSingle();
 
     if (memberData?.banned_from_auction) {
         return NextResponse.json({
@@ -138,12 +138,26 @@ export async function POST(req: Request) {
 
         if (prevEmail) {
             const appUrl = getAppUrl() || 'https://apostoladodegarabandal.com';
+
+            // Pick locale from the recipient's country (no stored locale preference).
+            // Portuguese-speaking countries → PT, everyone else → EN.
+            const { data: prevMember } = await supabaseServer
+                .from('membros')
+                .select('country')
+                .eq('id', previousBidderId)
+                .maybeSingle();
+            const ptCountries = ['portugal', 'pt', 'brasil', 'brazil', 'br'];
+            const country = (prevMember?.country || '').trim().toLowerCase();
+            const locale: 'pt' | 'en' = country && !ptCountries.includes(country) ? 'en' : 'pt';
+
             sendAuctionOutbidEmail({
                 email: prevEmail,
                 itemTitle: item.title || 'Peça de Leilão',
                 yourBid: previousBid / 100,
                 newBid: amount / 100,
+                minIncrement: (item.min_increment || 100) / 100,
                 itemUrl: `${appUrl}/leilao/${item_id}`,
+                locale,
             }).catch(err => console.error('[Auction] Outbid email error:', err));
         }
     }

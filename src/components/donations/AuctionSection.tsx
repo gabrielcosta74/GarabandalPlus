@@ -59,8 +59,8 @@ export default function AuctionSection() {
                     </h2>
                     <p className="text-slate-500 max-w-2xl mx-auto">
                         {isEn
-                            ? 'Unique pieces restored with love. Bid and contribute directly to building the House of the Apostolate.'
-                            : 'Peças únicas restauradas com amor. Licite e contribua diretamente para a construção da Casa do Apostolado.'}
+                            ? 'Bid and contribute directly to building the House of the Apostolate.'
+                            : 'Licite e contribua diretamente para a construção da Casa do Apostolado.'}
                     </p>
                 </div>
 

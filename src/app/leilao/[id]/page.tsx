@@ -16,6 +16,7 @@ type AuctionItem = {
     title: string;
     description: string | null;
     images: string[];
+    videos: string[];
     artisan_name: string;
     starting_price: number;
     min_increment: number;
@@ -108,7 +109,7 @@ export default function AuctionDetailPage() {
 
                             {/* Left: Gallery */}
                             <div>
-                                <AuctionGallery images={item.images} title={item.title} />
+                                <AuctionGallery images={item.images} videos={item.videos} title={item.title} />
                             </div>
 
                             {/* Right: Details + Bid */}

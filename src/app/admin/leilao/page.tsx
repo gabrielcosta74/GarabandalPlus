@@ -6,12 +6,14 @@ import { supabaseBrowser } from '../../../lib/supabase-browser';
 import AuctionFilters, { AuctionFiltersState } from './components/AuctionFilters';
 import AdminAuctionCard from './components/AdminAuctionCard';
 import BidHistoryModal from './components/BidHistoryModal';
+import AuctionMediaManager from './components/AuctionMediaManager';
 
 type AuctionItem = {
     id: string;
     title: string;
     description: string | null;
     images: string[];
+    videos: string[];
     artisan_name: string;
     starting_price: number;
     min_increment: number;
@@ -22,6 +24,16 @@ type AuctionItem = {
     winner_email: string | null;
     payment_deadline: string | null;
     created_at: string;
+    shipping_info?: {
+        name?: string;
+        address?: string;
+        city?: string;
+        postal?: string;
+        phone?: string | null;
+        submitted_at?: string;
+    } | null;
+    receipt_url?: string | null;
+    announced_at?: string | null;
 };
 
 export default function AdminAuctionPage() {
@@ -43,7 +55,7 @@ export default function AdminAuctionPage() {
     const [formMinIncrement, setFormMinIncrement] = useState('1');
     const [formEndsAt, setFormEndsAt] = useState('');
     const [formImages, setFormImages] = useState<string[]>([]);
-    const [newImageUrl, setNewImageUrl] = useState('');
+    const [formVideos, setFormVideos] = useState<string[]>([]);
 
     const fetchItems = async () => {
         const session = await supabaseBrowser?.auth.getSession();
@@ -117,6 +129,46 @@ export default function AdminAuctionPage() {
         fetchItems();
     };
 
+    const handleAnnounce = async (id: string) => {
+        const session = await supabaseBrowser?.auth.getSession();
+        const token = session?.data?.session?.access_token;
+        if (!token) return;
+
+        // 1. Dry-run to get the eligible audience count.
+        const previewRes = await fetch(`/api/admin/auction/${id}/announce`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify({ dryRun: true }),
+        });
+        const preview = await previewRes.json();
+        if (!previewRes.ok) {
+            alert(preview?.error || 'Não foi possível preparar o anúncio.');
+            return;
+        }
+
+        const already = preview.alreadyAnnounced
+            ? '\n\n⚠️ Este leilão JÁ foi anunciado antes — isto irá reenviar.'
+            : '';
+        const ok = confirm(
+            `Vai enviar o anúncio deste leilão por email a ${preview.eligible} contacto(s) com consentimento (membros + leads).${already}\n\nContinuar?`
+        );
+        if (!ok) return;
+
+        // 2. Real send.
+        const sendRes = await fetch(`/api/admin/auction/${id}/announce`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify({ dryRun: false, force: true }),
+        });
+        const result = await sendRes.json();
+        if (!sendRes.ok) {
+            alert(result?.error || 'Erro ao enviar o anúncio.');
+            return;
+        }
+        alert(`Anúncio enviado: ${result.sent} enviado(s), ${result.skipped} ignorado(s) por limite, ${result.failed} falhado(s).`);
+        fetchItems();
+    };
+
     const handleDelete = async (id: string) => {
         if (!confirm('Tem a certeza que quer apagar permanentemente este leilão? Esta ação não pode ser revertida e fará com que pagamentos pendentes/bids desapareçam.')) return;
 
@@ -141,6 +193,7 @@ export default function AdminAuctionPage() {
         setFormMinIncrement('1');
         setFormEndsAt('');
         setFormImages([]);
+        setFormVideos([]);
         setEditingItem(null);
         setShowForm(false);
     };
@@ -154,6 +207,7 @@ export default function AdminAuctionPage() {
         setFormMinIncrement(((item.min_increment || 100) / 100).toString());
         setFormEndsAt(new Date(item.ends_at).toISOString().slice(0, 16));
         setFormImages(item.images || []);
+        setFormVideos(item.videos || []);
         setShowForm(true);
     };
 
@@ -172,6 +226,7 @@ export default function AdminAuctionPage() {
             min_increment: Math.round(parseFloat(formMinIncrement || '1') * 100),
             ends_at: new Date(formEndsAt).toISOString(),
             images: formImages,
+            videos: formVideos,
         };
 
         await fetch('/api/admin/auction', {
@@ -183,13 +238,6 @@ export default function AdminAuctionPage() {
         resetForm();
         setSaving(false);
         fetchItems();
-    };
-
-    const addImageUrl = () => {
-        if (newImageUrl.trim()) {
-            setFormImages([...formImages, newImageUrl.trim()]);
-            setNewImageUrl('');
-        }
     };
 
     return (
@@ -231,6 +279,7 @@ export default function AdminAuctionPage() {
                             item={item}
                             onStatusChange={handleStatusChange}
                             onProcessWinner={handleProcessWinner}
+                            onAnnounce={handleAnnounce}
                             onEdit={openEdit}
                             onDelete={handleDelete}
                             onShowBids={(id, title) => setShowBidsFor({ id, title })}
@@ -250,7 +299,7 @@ export default function AdminAuctionPage() {
 
             {showForm && (
                 <div className="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-                    <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto flex flex-col">
+                    <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto flex flex-col">
                         <div className="flex items-center justify-between p-6 border-b border-slate-100 bg-slate-50/50">
                             <h2 className="text-lg font-bold text-slate-900">
                                 {editingItem ? 'Editar Peça' : 'Nova Peça'}
@@ -329,45 +378,15 @@ export default function AdminAuctionPage() {
                                 />
                             </div>
 
-                            {/* Images */}
-                            <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
-                                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-2">Links de Imagens</label>
-                                <div className="flex gap-2 mb-3">
-                                    <input
-                                        value={newImageUrl}
-                                        onChange={e => setNewImageUrl(e.target.value)}
-                                        className="flex-1 px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:border-yellow-500 outline-none transition-colors"
-                                        placeholder="Cole um link https://..."
-                                        onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addImageUrl())}
-                                    />
-                                    <button
-                                        type="button"
-                                        onClick={addImageUrl}
-                                        className="px-4 py-2.5 bg-slate-200 text-slate-700 rounded-xl text-sm font-medium hover:bg-slate-300 transition-colors"
-                                    >
-                                        Adicionar
-                                    </button>
-                                </div>
-                                {formImages.length > 0 ? (
-                                    <div className="flex gap-2 flex-wrap">
-                                        {formImages.map((url, idx) => (
-                                            <div key={idx} className="relative w-16 h-16 rounded-xl overflow-hidden border border-slate-200 group bg-white">
-                                                <img src={url} alt="" className="w-full h-full object-cover" />
-                                                <button
-                                                    onClick={() => setFormImages(formImages.filter((_, i) => i !== idx))}
-                                                    className="absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-sm"
-                                                >
-                                                    <X className="w-5 h-5 text-white drop-shadow" />
-                                                </button>
-                                            </div>
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <div className="text-sm text-slate-400 text-center py-4 border-2 border-dashed border-slate-200/50 rounded-xl">
-                                        Nenhuma imagem adicionada
-                                    </div>
-                                )}
-                            </div>
+                            {/* Media (imagens + vídeos) */}
+                            <AuctionMediaManager
+                                images={formImages}
+                                videos={formVideos}
+                                onChange={({ images, videos }) => {
+                                    setFormImages(images);
+                                    setFormVideos(videos);
+                                }}
+                            />
                         </div>
 
                         <div className="p-6 border-t border-slate-100 bg-slate-50/50 flex justify-end gap-3 shrink-0">

@@ -3,7 +3,9 @@ import { supabaseServer } from '../../../../lib/supabase';
 
 const ADMIN_EMAILS = [
     'geral@apostoladodegarabandal.com',
-    'gabrielcosta2908@gmail.com'
+    'gabrielsanticosta@gmail.com',
+    'gabrielcosta74@gmail.com',
+    ...(process.env.NEXT_PUBLIC_ADMIN_EMAILS ?? '').split(',').map(e => e.trim().toLowerCase()).filter(Boolean),
 ];
 
 async function verifyAdmin(req: Request): Promise<{ isAdmin: boolean; error?: string }> {
@@ -62,7 +64,7 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
     }
 
-    const { title, description, images, artisan_name, starting_price, min_increment, ends_at } = body;
+    const { title, description, images, videos, artisan_name, starting_price, min_increment, ends_at } = body;
 
     if (!title || !starting_price || !ends_at) {
         return NextResponse.json({ error: 'title, starting_price e ends_at são obrigatórios.' }, { status: 400 });
@@ -73,7 +75,8 @@ export async function POST(req: Request) {
         .insert({
             title,
             description: description || null,
-            images: images || [],
+            images: Array.isArray(images) ? images : [],
+            videos: Array.isArray(videos) ? videos : [],
             artisan_name: artisan_name || 'Artesã do Apostolado',
             starting_price,
             min_increment: min_increment || 100,
@@ -113,6 +116,9 @@ export async function PUT(req: Request) {
     if (!id) {
         return NextResponse.json({ error: 'ID is required' }, { status: 400 });
     }
+
+    if ('images' in updates && !Array.isArray(updates.images)) updates.images = [];
+    if ('videos' in updates && !Array.isArray(updates.videos)) updates.videos = [];
 
     // Ensure updated_at is set
     updates.updated_at = new Date().toISOString();
