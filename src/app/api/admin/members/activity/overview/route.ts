@@ -40,6 +40,11 @@ export async function GET(req: Request) {
         .limit(12),
     ]);
 
+    // Surface (but don't fail on) sub-query errors so silent failures can't hide.
+    for (const [name, res] of Object.entries({ overviewRes, dailyRes, featuresRes, topRes, dormantRes })) {
+      if (res.error) console.error(`Member activity overview: ${name} failed:`, res.error);
+    }
+
     return NextResponse.json({
       kpis: overviewRes.data || {},
       daily: dailyRes.data || [],
