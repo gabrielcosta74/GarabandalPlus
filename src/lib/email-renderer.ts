@@ -2065,7 +2065,7 @@ export type AuctionOutbidInput = {
   itemTitle: string;
   yourBid: number;
   newBid: number;
-  minIncrement: number;
+  minIncrement?: number;
   itemUrl: string;
   locale?: EmailLocale;
 };
@@ -2169,7 +2169,7 @@ export const renderAuctionAnnouncementEmail = (payload: AuctionAnnouncementInput
 
 export const renderAuctionOutbidEmail = (payload: AuctionOutbidInput) => {
   const isEn = payload.locale === "en";
-  const minNext = payload.newBid + payload.minIncrement;
+  const minNext = payload.newBid + (payload.minIncrement ?? 0);
   const t = isEn
     ? {
         subject: `Charity Auction: your bid was outbid — "${payload.itemTitle}"`,
