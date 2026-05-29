@@ -31,6 +31,7 @@ import {
     FolderLock,
     Bot,
     Megaphone,
+    Activity,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAdminNotifications } from '../../context/AdminNotificationContext';
@@ -61,6 +62,7 @@ export default function AdminSidebar({ onLogout, className }: { onLogout: () => 
                 { label: 'Peregrinações', icon: Plane, href: '/admin/peregrinacoes', badge: counts.bookings },
                 { label: 'Encomendas', icon: FileText, href: '/admin/encomendas', badge: counts.orders },
                 { label: 'Membros', icon: Users, href: '/admin/membros', badge: counts.members },
+                { label: 'Atividade dos Membros', icon: Activity, href: '/admin/membros/atividade' },
                 { label: 'Loja & Stock', icon: ShoppingBag, href: '/admin/loja' },
                 { label: 'Transações', icon: CreditCard, href: '/admin/transacoes' },
             ]
@@ -80,6 +82,15 @@ export default function AdminSidebar({ onLogout, className }: { onLogout: () => 
             label: 'Marketing & Growth',
             items: [
                 { label: 'Marketing Platform', icon: Megaphone, href: '/admin/marketing', target: '_blank' },
+            ]
+        },
+        {
+            label: 'CMS · Conteúdo do site',
+            items: [
+                { label: 'Dashboard CMS', icon: BookOpen, href: '/admin/cms' },
+                { label: 'Páginas', icon: FileText, href: '/admin/cms/pages' },
+                { label: 'Artigos', icon: FileText, href: '/admin/cms/posts' },
+                { label: 'Categorias', icon: Target, href: '/admin/cms/categories' },
             ]
         },
         {

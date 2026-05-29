@@ -13,6 +13,7 @@ import {
 import Link from 'next/link';
 import { Toaster, toast } from 'sonner';
 import { useLocale } from '../../../../contexts/LocaleContext';
+import { logContentView } from '../../../../lib/member-activity';
 
 type MemberContent = {
     id: string;
@@ -102,6 +103,7 @@ export default function ManuscritosPage() {
                                         href={pdf.file_url || '#'}
                                         target="_blank"
                                         rel="noreferrer"
+                                        onClick={() => logContentView(pdf.id)}
                                         className="group relative overflow-hidden rounded-3xl border border-slate-800 bg-slate-900 hover:border-red-500/50 hover:bg-slate-800/80 transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl hover:shadow-red-900/10"
                                     >
                                         <div className="relative aspect-[5/3] overflow-hidden border-b border-slate-800 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-950">

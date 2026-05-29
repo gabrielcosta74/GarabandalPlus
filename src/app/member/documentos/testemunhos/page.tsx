@@ -11,6 +11,7 @@ import {
 import Link from 'next/link';
 import { Toaster, toast } from 'sonner';
 import { useLocale } from '../../../../contexts/LocaleContext';
+import { logContentView } from '../../../../lib/member-activity';
 
 type MemberContent = {
     id: string;
@@ -89,12 +90,13 @@ export default function TestemunhosPage() {
                                 
                                 {audio.file_url && (
                                     <div className="mt-auto bg-slate-950/50 rounded-2xl p-3 border border-slate-800">
-                                        <audio 
-                                            controls 
+                                        <audio
+                                            controls
                                             controlsList="nodownload"
                                             className="w-full h-11 [&::-webkit-media-controls-panel]:bg-slate-100"
                                             src={audio.file_url}
                                             preload="metadata"
+                                            onPlay={() => logContentView(audio.id)}
                                         />
                                     </div>
                                 )}

@@ -14,6 +14,7 @@ import {
 import Link from 'next/link';
 import { Toaster, toast } from 'sonner';
 import { useLocale } from '../../../../contexts/LocaleContext';
+import { logContentView } from '../../../../lib/member-activity';
 
 type MemberGalleryImage = {
     id: string;
@@ -66,6 +67,7 @@ export default function FotografiasPage() {
         setActiveGallery(content);
         setCurrentImageIndex(0);
         document.body.style.overflow = 'hidden';
+        logContentView(content.id);
     };
 
     const closeGallery = () => {
