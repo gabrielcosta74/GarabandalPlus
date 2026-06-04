@@ -549,19 +549,6 @@ export default function PilgrimageDetailPage() {
                                         </div>
 
                                         <div className="px-5 py-4 space-y-3">
-                                        {isNovemberCampaign && !isClosed && !isWaitlist && (
-                                            <div className="mb-5 rounded-2xl border-2 border-red-200 bg-red-50 px-4 py-3 text-red-900 shadow-sm">
-                                                <p className="flex items-center gap-2 text-xs font-black uppercase tracking-wide">
-                                                    <AlertTriangle className="h-4 w-4 shrink-0" />
-                                                    {isEn ? 'Availability warning' : 'Aviso de disponibilidade'}
-                                                </p>
-                                                <p className="mt-2 text-sm font-bold leading-relaxed">
-                                                    {isEn
-                                                        ? 'Only 2 places remain for November. Registration may close when these places are filled.'
-                                                        : 'Restam apenas 2 vagas para novembro. A inscrição pode fechar quando estas vagas forem preenchidas.'}
-                                                </p>
-                                            </div>
-                                        )}
                                         {(hasIncludedInfo || hasFlightInfo) && (
                                             <div className="mb-5 grid gap-2.5">
                                                 {hasIncludedInfo && (

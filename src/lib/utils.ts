@@ -76,12 +76,8 @@ export const isNovemberCampaignPilgrimage = (pilgrimage: CampaignPilgrimage) => 
 export const getAvailabilityHighlightLabel = (
     remainingSpots: number,
     locale: 'pt' | 'en' = 'pt',
-    pilgrimage?: CampaignPilgrimage,
+    _pilgrimage?: CampaignPilgrimage,
 ) => {
-    if (pilgrimage && isNovemberCampaignPilgrimage(pilgrimage) && remainingSpots > 0) {
-        return locale === 'en' ? 'Only 2 spots left' : 'Restam apenas 2 vagas';
-    }
-
     return getPublicAvailabilityLabel(remainingSpots, locale);
 };
 

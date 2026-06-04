@@ -156,17 +156,6 @@ export default function PilgrimagesPage() {
                                     <h2 className="font-serif text-3xl font-bold leading-tight text-slate-950 md:text-4xl">
                                         {locale === 'en' ? 'The available date is November. It usually fills quickly.' : 'A data disponível é novembro. Normalmente esgota rapidamente.'}
                                     </h2>
-                                    <div className="mt-5 rounded-2xl border-2 border-red-200 bg-red-50 px-5 py-4 text-red-900 shadow-sm">
-                                        <p className="flex items-center gap-2 text-sm font-black uppercase tracking-wide">
-                                            <AlertTriangle className="h-4 w-4 shrink-0" />
-                                            {locale === 'en' ? 'Availability warning' : 'Aviso de disponibilidade'}
-                                        </p>
-                                        <p className="mt-2 text-base font-bold leading-relaxed">
-                                            {locale === 'en'
-                                                ? 'Only 2 places remain for the November pilgrimage. Registration may close as soon as these places are filled.'
-                                                : 'Restam apenas 2 vagas para a peregrinação de novembro. A inscrição pode fechar assim que estas vagas forem preenchidas.'}
-                                        </p>
-                                    </div>
                                     <p className="mt-4 max-w-2xl text-base leading-relaxed text-slate-600 md:text-lg">
                                         {locale === 'en'
                                             ? 'First see the full programme, flights, price and spiritual rhythm. Each pilgrimage also supports the House of the Apostolate and the mission of spreading Garabandal.'
