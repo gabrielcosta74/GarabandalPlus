@@ -13,7 +13,8 @@ import {
     LogOut,
     ShieldCheck,
     LayoutDashboard,
-    Settings
+    Settings,
+    Heart
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useLocale } from '../../contexts/LocaleContext';
@@ -41,6 +42,7 @@ export default function DashboardShell({ title, subtitle, children }: DashboardS
     const becomeMemberPath = isEn ? '/en/become-member' : '/tornar-membro';
     const ordersPath = isEn ? '/en/orders' : '/encomendas';
     const libraryPath = isEn ? '/en/library' : '/biblioteca';
+    const donationsHistoryPath = isEn ? '/en/member/donations' : '/member/donativos';
 
     useEffect(() => {
         if (!loading && !isAuthenticated) {
@@ -74,6 +76,7 @@ export default function DashboardShell({ title, subtitle, children }: DashboardS
         },
         {
             section: isEn ? 'Activity' : 'Atividade', items: [
+                { label: isEn ? 'Donations' : 'Donativos', href: donationsHistoryPath, icon: Heart, hidden: false },
                 { label: isEn ? 'Orders' : 'Encomendas', href: ordersPath, icon: ShoppingBag, hidden: false },
                 { label: isEn ? 'Library' : 'Biblioteca', href: libraryPath, icon: BookOpen, hidden: false },
             ]

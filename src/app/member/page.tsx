@@ -26,6 +26,7 @@ import {
 import EventCard from '../../components/member/EventCard';
 import MemberTutorial from '../../components/onboarding/MemberTutorial';
 import ReferralWidget from '../../components/member/ReferralWidget';
+import ContributionsCard from '../../components/member/ContributionsCard';
 import { useLocale } from '../../contexts/LocaleContext';
 
 type MemberSummary = {
@@ -171,6 +172,11 @@ export default function MemberDashboardPage() {
               </div>
             </div>
           </div>
+        </section>
+
+        {/* Contributions / Gratitude */}
+        <section id="tut-contributions">
+          <ContributionsCard firstName={member?.nome?.split(' ')[0]} />
         </section>
 
         {/* Gamification / Referral Widget */}
