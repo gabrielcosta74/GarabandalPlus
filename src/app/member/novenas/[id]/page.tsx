@@ -3,6 +3,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import VIPLayout from '../../../../components/member/VIPLayout';
+import NovenaPrayerMode, { prayerSummary, PrayerSequence } from '../../../../components/member/NovenaPrayerMode';
+import NovenaDayComplete from '../../../../components/member/NovenaDayComplete';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Calendar, CheckCircle, ChevronRight, Lock, BookOpen, Sparkles, ArrowLeft, X, Home } from 'lucide-react';
 import Link from 'next/link';
@@ -22,12 +24,14 @@ type NovenaFull = {
     prayer_intro_en?: string | null;
     prayer_final: string;
     prayer_final_en?: string | null;
+    prayer_sequence?: PrayerSequence | null;
     days: {
         day_number: number;
         theme: string;
         content: string;
         image_url?: string | null;
         audio_url?: string | null;
+        prayer_sequence?: PrayerSequence | null;
     }[];
 };
 
@@ -69,6 +73,9 @@ export default function NovenaPlayerPage() {
     const [loading, setLoading] = useState(true);
     const [userId, setUserId] = useState<string | null>(null);
     const [completedDayQuote, setCompletedDayQuote] = useState<string | null>(null);
+    const [completedInfo, setCompletedInfo] = useState<{ day: number; isFinal: boolean } | null>(null);
+    const [prayerOpen, setPrayerOpen] = useState(false);
+    const [completing, setCompleting] = useState(false);
     const isEn = locale === 'en';
     const loginPath = isEn ? '/en/login' : '/login';
     const novenasPath = isEn ? '/en/member/novenas' : '/member/novenas';
@@ -151,8 +158,10 @@ export default function NovenaPlayerPage() {
 
     const completeDay = async () => {
         if (!progress || !novena || !userId) return;
+        setCompleting(true);
 
         const isFinalDay = progress.current_day === 9;
+        const dayJustCompleted = progress.current_day;
         const now = new Date().toISOString();
 
         // Quote
@@ -172,7 +181,7 @@ export default function NovenaPlayerPage() {
             confetti({
                 particleCount: 150,
                 spread: 100,
-                colors: ['#FFD700', '#FFFFFF', '#4F46E5'],
+                colors: ['#FFD700', '#FFFFFF', '#D97706'],
                 zIndex: 3000
             });
 
@@ -198,8 +207,11 @@ export default function NovenaPlayerPage() {
 
         if (!error) {
             setProgress(prev => prev ? { ...prev, ...updatePayload } : null);
+            setPrayerOpen(false);
+            setCompletedInfo({ day: dayJustCompleted, isFinal: isFinalDay });
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
+        setCompleting(false);
     };
 
     const resetNovena = async () => {
@@ -219,7 +231,7 @@ export default function NovenaPlayerPage() {
         return (
             <VIPLayout>
                 <div className="flex h-[80vh] items-center justify-center">
-                    <div className="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+                    <div className="w-8 h-8 border-4 border-amber-400 border-t-transparent rounded-full animate-spin" />
                 </div>
             </VIPLayout>
         );
@@ -253,7 +265,7 @@ export default function NovenaPlayerPage() {
                         )}
 
                         <div className="relative z-10 flex flex-col items-center">
-                            <div className="w-24 h-24 mb-6 rounded-2xl overflow-hidden shadow-2xl ring-4 ring-indigo-500/20">
+                            <div className="w-24 h-24 mb-6 rounded-2xl overflow-hidden shadow-2xl ring-4 ring-amber-500/20">
                                 <img src={novena.image_url || '/placeholder-saint.jpg'} className="w-full h-full object-cover" />
                             </div>
                             <h1 className="text-3xl md:text-4xl font-serif text-white mb-4">{novena.title}</h1>
@@ -262,7 +274,7 @@ export default function NovenaPlayerPage() {
                             </p>
                             <button
                                 onClick={startNovena}
-                                className="px-10 py-4 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl transition-all hover:scale-105 shadow-xl shadow-indigo-600/30 flex items-center gap-2 text-lg"
+                                className="px-10 py-4 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold rounded-xl transition-all hover:scale-105 shadow-xl shadow-[0_0_24px_rgba(251,191,36,0.30)] flex items-center gap-2 text-lg"
                             >
                                 <Sparkles className="w-5 h-5" />
                                 {isEn ? 'Start 9-Day Journey' : 'Iniciar Jornada de 9 Dias'}
@@ -271,7 +283,7 @@ export default function NovenaPlayerPage() {
                     </div>
                 ) : progress.is_complete ? (
                     // --- COMPLETED SCREEN ---
-                    <div className="bg-gradient-to-br from-indigo-900/40 to-slate-900 rounded-3xl border border-indigo-500/30 p-12 text-center flex flex-col items-center justify-center min-h-[500px]">
+                    <div className="bg-gradient-to-br from-amber-900/30 to-slate-900 rounded-3xl border border-amber-500/30 p-12 text-center flex flex-col items-center justify-center min-h-[500px]">
                         <motion.div
                             initial={{ scale: 0.8, opacity: 0 }}
                             animate={{ scale: 1, opacity: 1 }}
@@ -301,8 +313,8 @@ export default function NovenaPlayerPage() {
                         <div className="bg-slate-900 rounded-3xl border border-white/10 p-6 md:p-8 relative overflow-hidden">
                             <div className="flex items-start justify-between mb-6 relative z-10">
                                 <div>
-                                    <span className="text-indigo-400 text-xs font-bold uppercase tracking-wider mb-2 block flex items-center gap-2">
-                                        <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse" />
+                                    <span className="text-amber-400 text-xs font-bold uppercase tracking-wider mb-2 block flex items-center gap-2">
+                                        <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
                                         {isEn ? 'In Progress' : 'Em Progresso'}
                                     </span>
                                     <h2 className="text-2xl md:text-3xl font-serif text-white line-clamp-1">{novena.title}</h2>
@@ -319,12 +331,12 @@ export default function NovenaPlayerPage() {
                                     initial={{ width: 0 }}
                                     animate={{ width: `${(progress.current_day / 9) * 100}%` }}
                                     transition={{ duration: 1 }}
-                                    className="bg-indigo-500 h-full rounded-full shadow-[0_0_10px_rgba(99,102,241,0.5)]"
+                                    className="bg-amber-400 h-full rounded-full shadow-[0_0_10px_rgba(251,191,36,0.5)]"
                                 />
                             </div>
                         </div>
 
-                        {/* Content Card */}
+                        {/* Day launcher — opens immersive Prayer Mode */}
                         <div className="bg-slate-950/50 rounded-3xl p-6 md:p-10 border border-white/5 shadow-2xl">
                             {currentDayData ? (
                                 <motion.div
@@ -333,52 +345,33 @@ export default function NovenaPlayerPage() {
                                     animate={{ opacity: 1, y: 0 }}
                                     transition={{ duration: 0.5 }}
                                 >
-                                    <div className="flex items-center gap-4 mb-6">
-                                        <div className="w-12 h-12 rounded-full bg-indigo-500/10 flex items-center justify-center text-indigo-400 font-bold border border-indigo-500/20">
+                                    <div className="flex items-center gap-4 mb-5">
+                                        <div className="w-12 h-12 shrink-0 rounded-full bg-amber-500/10 flex items-center justify-center text-amber-400 font-bold border border-amber-500/20">
                                             {currentDayData.day_number}
                                         </div>
-                                        <h3 className="text-2xl font-serif text-white">{currentDayData.theme}</h3>
-                                    </div>
-
-                                    <div className="space-y-8 text-slate-300 leading-relaxed font-light text-lg">
-                                        {/* Intro Prayer */}
-                                        {novena.prayer_intro && (
-                                            <div className="p-6 bg-indigo-900/10 rounded-2xl border-l-4 border-indigo-500/30 italic text-base text-slate-400">
-                                                <p className="font-bold text-indigo-400 text-xs uppercase mb-2">{isEn ? 'Opening Prayer' : 'Oração Inicial'}</p>
-                                                {novena.prayer_intro}
-                                            </div>
-                                        )}
-
-                                        {/* Daily Content */}
-                                        <div className="prose prose-invert max-w-none">
-                                            <p className="whitespace-pre-line">{currentDayData.content}</p>
-                                        </div>
-
-                                        {/* Final Prayer */}
-                                        {novena.prayer_final && (
-                                            <div className="p-6 bg-slate-900/50 rounded-2xl border border-white/5 italic text-base text-slate-400">
-                                                <p className="font-bold text-slate-500 text-xs uppercase mb-2">{isEn ? 'Closing Prayer' : 'Oração Final'}</p>
-                                                {novena.prayer_final}
-                                            </div>
-                                        )}
-
-                                        <div className="flex items-center justify-center gap-2 text-sm text-slate-500 italic pt-4">
-                                            <span className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
-                                            {isEn ? 'Pray: 1 Our Father, 1 Hail Mary, 1 Glory Be.' : 'Rezar: 1 Pai Nosso, 1 Ave Maria, 1 Glória.'}
+                                        <div>
+                                            <p className="text-amber-400 text-[11px] font-bold uppercase tracking-widest">{isEn ? `Day ${currentDayData.day_number} of 9` : `Dia ${currentDayData.day_number} de 9`}</p>
+                                            <h3 className="text-xl md:text-2xl font-serif text-white leading-tight">{currentDayData.theme}</h3>
                                         </div>
                                     </div>
 
-                                    <div className="h-px bg-white/10 my-8" />
+                                    <p className="text-slate-400 leading-relaxed line-clamp-3 mb-6 text-base">
+                                        {currentDayData.content}
+                                    </p>
+
+                                    <div className="flex items-center gap-2 text-sm text-slate-500 mb-7">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
+                                        {isEn
+                                            ? `Guided: opening prayer, meditation, ${prayerSummary(currentDayData.prayer_sequence ?? novena.prayer_sequence, true)} & closing.`
+                                            : `Guiado: oração inicial, meditação, ${prayerSummary(currentDayData.prayer_sequence ?? novena.prayer_sequence, false)} e oração final.`}
+                                    </div>
 
                                     <button
-                                        onClick={completeDay}
-                                        className="w-full py-5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-2xl transition-all shadow-lg shadow-indigo-900/20 flex items-center justify-center gap-3 text-lg group hover:scale-[1.02]"
+                                        onClick={() => setPrayerOpen(true)}
+                                        className="w-full py-5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold rounded-2xl transition-all shadow-lg shadow-[0_0_24px_rgba(251,191,36,0.25)] flex items-center justify-center gap-3 text-lg group active:scale-[0.99]"
                                     >
-                                        {progress.current_day === 9 ? (
-                                            <>{isEn ? 'Complete Novena' : 'Concluir Novena'} <Sparkles className="w-6 h-6" /></>
-                                        ) : (
-                                            <>{isEn ? `Complete Day ${progress.current_day}` : `Concluir Dia ${progress.current_day}`} <ChevronRight className="w-6 h-6 group-hover:translate-x-1 transition-transform" /></>
-                                        )}
+                                        {isEn ? `Pray Day ${currentDayData.day_number}` : `Rezar Dia ${currentDayData.day_number}`}
+                                        <ChevronRight className="w-6 h-6 group-hover:translate-x-1 transition-transform" />
                                     </button>
 
                                     <div className="mt-6 text-center">
@@ -397,44 +390,32 @@ export default function NovenaPlayerPage() {
                     </div>
                 )}
 
+                {/* Immersive step-by-step Prayer Mode */}
+                <AnimatePresence>
+                    {prayerOpen && progress && !progress.is_complete && currentDayData && (
+                        <NovenaPrayerMode
+                            novena={novena}
+                            dayData={currentDayData}
+                            isEn={isEn}
+                            isFinalDay={progress.current_day === 9}
+                            completing={completing}
+                            onComplete={completeDay}
+                            onClose={() => setPrayerOpen(false)}
+                        />
+                    )}
+                </AnimatePresence>
+
                 {/* Quote Modal */}
                 <AnimatePresence>
-                    {completedDayQuote && (
-                        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                            <motion.div
-                                initial={{ opacity: 0 }}
-                                animate={{ opacity: 1 }}
-                                exit={{ opacity: 0 }}
-                                className="absolute inset-0 bg-black/90 backdrop-blur-md"
-                                onClick={() => setCompletedDayQuote(null)}
-                            />
-                            <motion.div
-                                initial={{ opacity: 0, scale: 0.9, y: 20 }}
-                                animate={{ opacity: 1, scale: 1, y: 0 }}
-                                exit={{ opacity: 0, scale: 0.9, y: 20 }}
-                                className="relative bg-slate-900 border border-white/10 rounded-3xl p-8 md:p-12 max-w-lg w-full text-center shadow-2xl z-50"
-                            >
-                                <button className="absolute top-4 right-4 p-2 text-slate-500 hover:text-white" onClick={() => setCompletedDayQuote(null)}>
-                                    <X className="w-6 h-6" />
-                                </button>
-
-                                <div className="w-20 h-20 bg-indigo-500/10 rounded-full flex items-center justify-center mx-auto mb-8 border border-indigo-500/20">
-                                    <Sparkles className="w-10 h-10 text-indigo-500" />
-                                </div>
-
-                                <h3 className="text-3xl font-serif text-white mb-6">{isEn ? 'Message of Faith' : 'Mensagem de Fé'}</h3>
-                                <blockquote className="text-xl text-slate-300 italic mb-10 leading-relaxed font-light">
-                                    "{completedDayQuote}"
-                                </blockquote>
-
-                                <button
-                                    onClick={() => setCompletedDayQuote(null)}
-                                    className="px-8 py-4 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl transition-colors w-full text-lg"
-                                >
-                                    {isEn ? 'Amen' : 'Amém'} 🙏
-                                </button>
-                            </motion.div>
-                        </div>
+                    {completedInfo && (
+                        <NovenaDayComplete
+                            dayCompleted={completedInfo.day}
+                            isFinalDay={completedInfo.isFinal}
+                            quote={completedDayQuote ?? ''}
+                            isEn={isEn}
+                            onClose={() => { setCompletedInfo(null); setCompletedDayQuote(null); }}
+                            onConfirm={() => { setCompletedInfo(null); setCompletedDayQuote(null); router.push(novenasPath); }}
+                        />
                     )}
                 </AnimatePresence>
             </div>

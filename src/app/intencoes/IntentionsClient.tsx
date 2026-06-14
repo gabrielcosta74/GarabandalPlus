@@ -136,6 +136,7 @@ export default function IntentionsClient() {
     const [intention, setIntention] = useState("");
     const [guestName, setGuestName] = useState("");
     const [submissionState, setSubmissionState] = useState<'idle' | 'loading' | 'success'>('idle');
+    const [submitError, setSubmitError] = useState<string | null>(null);
     const [user, setUser] = useState<{ id?: string, name?: string, email?: string } | null>(null);
     const [publicHistory, setPublicHistory] = useState<PublicHistoryItem[]>([]);
 
@@ -191,63 +192,60 @@ export default function IntentionsClient() {
 
     const handleSubmit = async () => {
         setSubmissionState('loading');
+        setSubmitError(null);
 
         try {
-            if (supabaseBrowser) {
-                // If user is logged in, use their ID. If not, we might need a way to insert as Guest.
-                // Assuming RLS allows inserts for authenticated users. 
-                // For anon users, we might need to handle this.
-                // If the user said "make it public", we assume RLS allows public inserts or we need to fix it.
-                // For now, let's try to insert. If anon, user_id might be null? Or we need a public RPC?
-                // Let's assume user_id is optional in DB or we pass a specific flag.
-
-                // Construct payload
+            if (user?.id) {
+                // Logged-in user: direct insert is allowed by RLS (auth.uid() = user_id).
+                if (!supabaseBrowser) throw new Error('config');
                 const payload: PrayerIntentionPayload = {
                     intention_text: intention,
                     candle_type: 'free',
                     amount: 0.00,
                     status: 'pending',
-                    // Add guest info if available
-                    guest_name: !user ? (guestName || (isEn ? 'Anonymous' : 'Anónimo')) : undefined
                 };
-
-                if (user?.id) {
-                    payload.user_id = user.id;
-                }
+                payload.user_id = user.id;
 
                 const { error } = await supabaseBrowser.from('prayer_intentions').insert(payload);
+                if (error) throw error;
 
-                if (error) {
-                    console.error("Submission error:", error);
-                    // Fallback visual success if DB fails for RLS reasons (just for UX if needed, but better show error)
-                    if (error.code === '42501') { // Permission denied
-                        alert(isEn ? "We couldn't send your intention. Please try signing in." : "Não foi possível enviar a intenção. Por favor, tente fazer login."); // Temporary fallback
-                        throw error;
-                    }
-                    throw error;
+                const { data: history } = await supabaseBrowser
+                    .from('prayer_intentions')
+                    .select('*')
+                    .eq('user_id', user.id)
+                    .order('created_at', { ascending: false });
+                if (history) setPublicHistory(history);
+            } else {
+                // Guest: RLS blocks anonymous inserts, so go through the public API
+                // which inserts using the service role.
+                const res = await fetch('/api/intentions/public', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        intention_text: intention,
+                        guest_name: guestName || (isEn ? 'Anonymous' : 'Anónimo'),
+                    }),
+                });
+
+                if (!res.ok) {
+                    const json = await res.json().catch(() => ({}));
+                    throw new Error(json.error || 'request_failed');
                 }
 
-                // If logged in, refresh history
-                if (user?.id) {
-                    const { data: history } = await supabaseBrowser
-                        .from('prayer_intentions')
-                        .select('*')
-                        .eq('user_id', user.id)
-                        .order('created_at', { ascending: false });
-                    if (history) setPublicHistory(history);
-                } else {
-                    // Start a fake history for guest session or just append visually
-                    setPublicHistory(prev => [{ created_at: new Date().toISOString(), id: 'temp-' + Date.now() }, ...prev]);
-                }
+                // Append visually for this session.
+                setPublicHistory(prev => [{ created_at: new Date().toISOString(), id: 'temp-' + Date.now() }, ...prev]);
             }
 
             setTimeout(() => {
                 setSubmissionState('success');
             }, 1000);
 
-        } catch {
+        } catch (err) {
+            console.error('Submission error:', err);
             setSubmissionState('idle');
-            // alert("Erro ao enviar. Tente novamente.");
+            setSubmitError(isEn
+                ? 'We could not send your intention. Please try again.'
+                : 'Não foi possível enviar a sua intenção. Por favor, tente novamente.');
         }
     };
 
@@ -256,6 +254,7 @@ export default function IntentionsClient() {
     const handleClose = () => {
         setIsModalOpen(false);
         setSubmissionState('idle');
+        setSubmitError(null);
         setIntention("");
         setGuestName("");
     };
@@ -491,6 +490,10 @@ export default function IntentionsClient() {
                                         />
                                     </div>
 
+
+                                    {submitError && (
+                                        <p className="mb-4 text-sm text-red-400 text-center">{submitError}</p>
+                                    )}
 
                                     <button
                                         onClick={handleSubmit}

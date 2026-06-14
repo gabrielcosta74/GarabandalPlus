@@ -27,10 +27,9 @@ interface FeaturedPilgrimage {
 }
 
 const HERO_IMAGES = [
-    "/images/padrerezar.webp",
-    "/images/meninasgarabandal.jpg",
-    "/images/nossasenhoragarabandal.jpg",
-    "/images/igrejagarabandal.webp"
+    "/images/aldeiadacasa.webp", // Landscape
+    "/images/igrejagarabandal.webp", // People/Cross
+    "/images/casaantes1.webp"  // Journey
 ];
 
 export function PilgrimageHero({ featuredPilgrimage }: { featuredPilgrimage?: FeaturedPilgrimage }) {
@@ -189,13 +188,21 @@ export function PilgrimageHero({ featuredPilgrimage }: { featuredPilgrimage?: Fe
 
                                 <div className="relative space-y-5">
                                     <div className="flex flex-wrap items-center gap-2">
-                                        <span className="rounded-full bg-yellow-300 px-3 py-1.5 text-[11px] font-black uppercase tracking-widest text-slate-950 shadow-sm">
-                                            {isEn ? 'November still available' : 'Novembro ainda disponível'}
-                                        </span>
-                                        <span className="inline-flex items-center gap-1.5 rounded-full bg-red-600 px-3 py-1.5 text-[11px] font-black uppercase tracking-widest text-white shadow-lg shadow-red-950/30 ring-2 ring-white/80">
-                                            <AlertTriangle className="h-3.5 w-3.5" />
-                                            {getAvailabilityHighlightLabel(remainingSpots, locale, featuredPilgrimage)}
-                                        </span>
+                                        {remainingSpots > 0 ? (
+                                            <>
+                                                <span className="rounded-full bg-yellow-300 px-3 py-1.5 text-[11px] font-black uppercase tracking-widest text-slate-950 shadow-sm">
+                                                    {isEn ? 'November still available' : 'Novembro ainda disponível'}
+                                                </span>
+                                                <span className="inline-flex items-center gap-1.5 rounded-full bg-red-600 px-3 py-1.5 text-[11px] font-black uppercase tracking-widest text-white shadow-lg shadow-red-950/30 ring-2 ring-white/80">
+                                                    <AlertTriangle className="h-3.5 w-3.5" />
+                                                    {getAvailabilityHighlightLabel(remainingSpots, locale, featuredPilgrimage)}
+                                                </span>
+                                            </>
+                                        ) : (
+                                            <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-700 px-3 py-1.5 text-[11px] font-black uppercase tracking-widest text-white shadow-lg shadow-slate-950/30 ring-2 ring-white/80">
+                                                {isEn ? 'Waiting list' : 'Lista de espera'}
+                                            </span>
+                                        )}
                                     </div>
 
                                     <div className="space-y-3">

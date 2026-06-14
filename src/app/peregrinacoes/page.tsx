@@ -127,6 +127,7 @@ export default function PilgrimagesPage() {
     const basePilgrimagePath = locale === 'en' ? '/en/pilgrimages' : '/peregrinacoes';
     const donationsPath = locale === 'en' ? '/en/donations' : '/donations';
     const novemberHref = novemberPilgrimage ? `${basePilgrimagePath}/${novemberPilgrimage.slug}` : basePilgrimagePath;
+    const novemberSoldOut = novemberPilgrimage ? getRemainingSpots(novemberPilgrimage) <= 0 : false;
 
     return (
         <VIPLayout allowPublic={true}>
@@ -149,12 +150,16 @@ export default function PilgrimagesPage() {
                         <section className="mb-10 md:mb-14 overflow-hidden rounded-3xl border border-yellow-200/80 bg-white shadow-[0_18px_60px_-32px_rgba(15,23,42,0.35)]">
                             <div className="grid gap-0 md:grid-cols-[1fr,0.72fr]">
                                 <div className="p-6 md:p-10">
-                                    <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-red-600 px-4 py-2 text-xs font-black uppercase tracking-widest text-white shadow-lg shadow-red-900/20 ring-2 ring-red-100">
-                                        <AlertTriangle className="h-4 w-4" />
-                                        {getAvailabilityHighlightLabel(getRemainingSpots(novemberPilgrimage), locale, novemberPilgrimage)}
+                                    <div className={`mb-4 inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-black uppercase tracking-widest text-white shadow-lg ${novemberSoldOut ? 'bg-slate-700 shadow-slate-900/20 ring-2 ring-slate-200' : 'bg-red-600 shadow-red-900/20 ring-2 ring-red-100'}`}>
+                                        {!novemberSoldOut && <AlertTriangle className="h-4 w-4" />}
+                                        {novemberSoldOut
+                                            ? (locale === 'en' ? 'Waiting list' : 'Lista de espera')
+                                            : getAvailabilityHighlightLabel(getRemainingSpots(novemberPilgrimage), locale, novemberPilgrimage)}
                                     </div>
                                     <h2 className="font-serif text-3xl font-bold leading-tight text-slate-950 md:text-4xl">
-                                        {locale === 'en' ? 'The available date is November. It usually fills quickly.' : 'A data disponível é novembro. Normalmente esgota rapidamente.'}
+                                        {novemberSoldOut
+                                            ? (locale === 'en' ? 'The November pilgrimage is full. Join the waiting list.' : 'A peregrinação de novembro está esgotada. Entre na lista de espera.')
+                                            : (locale === 'en' ? 'The available date is November. It usually fills quickly.' : 'A data disponível é novembro. Normalmente esgota rapidamente.')}
                                     </h2>
                                     <p className="mt-4 max-w-2xl text-base leading-relaxed text-slate-600 md:text-lg">
                                         {locale === 'en'
@@ -183,12 +188,16 @@ export default function PilgrimagesPage() {
                                         <div>
                                             <p className="text-xs font-black uppercase tracking-widest text-yellow-800">{locale === 'en' ? 'Why now' : 'Porque agora'}</p>
                                             <p className="mt-2 text-sm leading-relaxed text-slate-700 md:text-base">
-                                                {locale === 'en' ? 'Other departures have already reached capacity or waitlist. This is the date to discern calmly before registration.' : 'As outras partidas já chegaram a esgotado ou lista de espera. Esta é a data para discernir com calma antes da inscrição.'}
+                                                {novemberSoldOut
+                                                    ? (locale === 'en' ? 'This departure has reached capacity. Join the waiting list and we will contact you if a place opens or a new date is confirmed.' : 'Esta partida atingiu a lotação. Entre na lista de espera e contactamos se abrir um lugar ou se for confirmada uma nova data.')
+                                                    : (locale === 'en' ? 'Other departures have already reached capacity or waitlist. This is the date to discern calmly before registration.' : 'As outras partidas já chegaram a esgotado ou lista de espera. Esta é a data para discernir com calma antes da inscrição.')}
                                             </p>
                                         </div>
                                         <div>
                                             <p className="text-xs font-black uppercase tracking-widest text-yellow-800">{locale === 'en' ? 'Availability' : 'Disponibilidade'}</p>
-                                            <p className="mt-2 text-lg font-black text-slate-950">{getAvailabilityHighlightLabel(getRemainingSpots(novemberPilgrimage), locale, novemberPilgrimage)}</p>
+                                            <p className="mt-2 text-lg font-black text-slate-950">{novemberSoldOut
+                                                ? (locale === 'en' ? 'Waiting list' : 'Lista de espera')
+                                                : getAvailabilityHighlightLabel(getRemainingSpots(novemberPilgrimage), locale, novemberPilgrimage)}</p>
                                         </div>
                                     </div>
                                 </div>

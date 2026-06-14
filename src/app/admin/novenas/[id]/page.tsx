@@ -7,11 +7,13 @@ import AdminLayout from '../../../../components/admin/AdminLayout';
 import Link from 'next/link';
 import {
     ArrowLeft, Save, Loader2, Image as ImageIcon,
-    BookOpen, Sparkles, X, Plus, Edit3, Trash2, Calendar, CheckCircle2, ChevronRight
+    BookOpen, Sparkles, X, Plus, Edit3, Trash2, Calendar, CheckCircle2, ChevronRight,
+    ChevronUp, ChevronDown, Repeat
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ImageCropper from '../../../../components/admin/ImageCropper';
 import { Toaster, toast } from 'sonner';
+import type { PrayerSequence, PrayerSeqItem, PrayerType } from '../../../../components/member/NovenaPrayerMode';
 
 // --- Types ---
 
@@ -22,6 +24,7 @@ type NovenaDay = {
     content: string;
     image_url?: string | null;
     audio_url?: string | null;
+    prayer_sequence?: PrayerSequence | null;
 };
 
 type NovenaFull = {
@@ -32,9 +35,107 @@ type NovenaFull = {
     image_url: string | null;
     prayer_intro: string;
     prayer_final: string;
+    prayer_sequence?: PrayerSequence | null;
     published: boolean;
     days: NovenaDay[];
 };
+
+// --- Prayer sequence editor (shared: novena default + per-day override) ---
+
+const PRAYER_OPTIONS: { value: PrayerType; label: string }[] = [
+    { value: 'ourFather', label: 'Pai Nosso' },
+    { value: 'hailMary', label: 'Ave Maria' },
+    { value: 'gloryBe', label: 'Glória' },
+];
+
+const STARTER_SEQUENCE: PrayerSequence = [
+    { type: 'ourFather', count: 1 },
+    { type: 'hailMary', count: 1 },
+    { type: 'gloryBe', count: 1 },
+];
+
+function PrayerSequenceEditor({
+    value,
+    onChange,
+    onCommit,
+}: {
+    value: PrayerSequence | null | undefined;
+    onChange: (seq: PrayerSequence | null) => void;
+    onCommit?: (seq: PrayerSequence | null) => void;
+}) {
+    const seq: PrayerSequence = Array.isArray(value) ? value : [];
+
+    const apply = (next: PrayerSequence, commit = true) => {
+        const cleaned = next.length ? next : null;
+        onChange(cleaned);
+        if (commit) onCommit?.(cleaned);
+    };
+
+    const addRow = () => apply([...seq, { type: 'hailMary', count: 1 }]);
+    const removeRow = (i: number) => apply(seq.filter((_, idx) => idx !== i));
+    const setRow = (i: number, patch: Partial<PrayerSeqItem>, commit = true) =>
+        apply(seq.map((it, idx) => (idx === i ? { ...it, ...patch } : it)), commit);
+    const move = (i: number, dir: -1 | 1) => {
+        const j = i + dir;
+        if (j < 0 || j >= seq.length) return;
+        const next = [...seq];
+        [next[i], next[j]] = [next[j], next[i]];
+        apply(next);
+    };
+
+    return (
+        <div className="space-y-3">
+            {seq.length === 0 ? (
+                <p className="text-sm text-slate-400 italic">
+                    Sem sequência definida — usa o padrão (Pai Nosso, Ave Maria, Glória — 1× cada).
+                </p>
+            ) : (
+                <div className="space-y-2">
+                    {seq.map((item, i) => (
+                        <div key={i} className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl p-2">
+                            <select
+                                value={item.type}
+                                onChange={e => setRow(i, { type: e.target.value as PrayerType })}
+                                className="flex-1 px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-700 outline-none focus:border-indigo-300"
+                            >
+                                {PRAYER_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                            </select>
+                            <div className="flex items-center gap-1 shrink-0">
+                                <input
+                                    type="number"
+                                    min={1}
+                                    value={item.count}
+                                    onChange={e => setRow(i, { count: Math.max(1, parseInt(e.target.value, 10) || 1) }, false)}
+                                    onBlur={() => onCommit?.(seq.length ? seq : null)}
+                                    className="w-16 px-2 py-2 bg-white border border-slate-200 rounded-lg text-sm text-center font-bold text-slate-800 outline-none focus:border-indigo-300"
+                                />
+                                <span className="text-slate-400 text-sm font-bold">×</span>
+                            </div>
+                            <div className="flex items-center shrink-0">
+                                <button type="button" onClick={() => move(i, -1)} disabled={i === 0} className="p-1.5 text-slate-400 hover:text-slate-700 disabled:opacity-25 disabled:cursor-not-allowed transition-colors">
+                                    <ChevronUp className="w-4 h-4" />
+                                </button>
+                                <button type="button" onClick={() => move(i, 1)} disabled={i === seq.length - 1} className="p-1.5 text-slate-400 hover:text-slate-700 disabled:opacity-25 disabled:cursor-not-allowed transition-colors">
+                                    <ChevronDown className="w-4 h-4" />
+                                </button>
+                                <button type="button" onClick={() => removeRow(i)} className="p-1.5 text-red-400 hover:text-red-600 transition-colors">
+                                    <Trash2 className="w-4 h-4" />
+                                </button>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
+            <button
+                type="button"
+                onClick={addRow}
+                className="inline-flex items-center gap-1.5 px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm font-bold text-slate-600 hover:text-indigo-600 hover:border-indigo-200 transition-colors"
+            >
+                <Plus className="w-4 h-4" /> Adicionar oração
+            </button>
+        </div>
+    );
+}
 
 // --- Main Page Component ---
 
@@ -340,6 +441,25 @@ export default function EditNovenaPage() {
                                                 />
                                             </div>
                                         </div>
+
+                                        {/* Prayer sequence (repetitions) — novena default */}
+                                        <div className="pt-2 border-t border-slate-100">
+                                            <div className="flex items-center gap-3 text-indigo-900 mb-2">
+                                                <div className="p-2 bg-indigo-50 rounded-xl">
+                                                    <Repeat className="w-5 h-5 text-indigo-600" />
+                                                </div>
+                                                <h3 className="font-bold text-lg">Estrutura de Oração</h3>
+                                            </div>
+                                            <p className="text-sm text-slate-500 mb-5 leading-relaxed">
+                                                Defina quantas vezes cada oração se reza por dia (ex.: Pai Nosso ×1, Ave Maria ×10, Glória ×1).
+                                                Aplica-se a todos os dias, exceto onde o dia tenha a sua própria sequência.
+                                            </p>
+                                            <PrayerSequenceEditor
+                                                value={novena.prayer_sequence}
+                                                onChange={(seq) => setNovena(prev => prev ? { ...prev, prayer_sequence: seq } : null)}
+                                                onCommit={(seq) => saveNovenaDetails({ prayer_sequence: seq })}
+                                            />
+                                        </div>
                                     </div>
                                 </div>
                             )}
@@ -489,7 +609,8 @@ function DayEditorDrawer({ day, novenaId, onClose, onSave }: { day: NovenaDay, n
             theme: formData.theme,
             content: formData.content,
             image_url: formData.image_url,
-            audio_url: formData.audio_url
+            audio_url: formData.audio_url,
+            prayer_sequence: formData.prayer_sequence ?? null
         };
 
         let error;
@@ -574,6 +695,35 @@ function DayEditorDrawer({ day, novenaId, onClose, onSave }: { day: NovenaDay, n
                                 className="w-full px-6 py-6 min-h-[400px] bg-transparent border-none outline-none resize-none leading-relaxed text-slate-700 font-serif text-lg"
                                 placeholder="Escreva a meditação do dia aqui..."
                             />
+                        </div>
+
+                        {/* Per-day prayer sequence override */}
+                        <div className="bg-white rounded-3xl p-5 border border-slate-200 shadow-sm">
+                            <label className="flex items-start gap-3 cursor-pointer select-none">
+                                <input
+                                    type="checkbox"
+                                    checked={formData.prayer_sequence != null}
+                                    onChange={e => setFormData({ ...formData, prayer_sequence: e.target.checked ? STARTER_SEQUENCE : null })}
+                                    className="mt-0.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500/30"
+                                />
+                                <span>
+                                    <span className="flex items-center gap-2 font-bold text-slate-800 text-sm">
+                                        <Repeat className="w-4 h-4 text-indigo-600" />
+                                        Sequência própria neste dia
+                                    </span>
+                                    <span className="block text-xs text-slate-400 mt-0.5">
+                                        Se desligado, usa a estrutura padrão da novena.
+                                    </span>
+                                </span>
+                            </label>
+                            {formData.prayer_sequence != null && (
+                                <div className="mt-4">
+                                    <PrayerSequenceEditor
+                                        value={formData.prayer_sequence}
+                                        onChange={(seq) => setFormData({ ...formData, prayer_sequence: seq })}
+                                    />
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>

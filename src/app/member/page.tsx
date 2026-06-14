@@ -297,7 +297,7 @@ export default function MemberDashboardPage() {
             {/* Card 3: Novenas */}
             <Link href={novenasPath} id="tut-novenas" className="group relative bg-slate-900 rounded-2xl border border-white/5 hover:border-indigo-500/30 overflow-hidden transition-all hover:shadow-2xl hover:shadow-indigo-900/20">
               <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent opacity-80" />
-              <div className="h-64 bg-[url('https://images.unsplash.com/photo-1518173946687-a4c8892bbd9f?q=80&w=2786&auto=format&fit=crop')] bg-cover bg-center opacity-40 group-hover:opacity-60 transition-opacity duration-500" />
+              <div className="h-64 bg-[url('/images/nossasenhoragarabandal.jpg')] bg-cover bg-center opacity-40 group-hover:opacity-60 transition-opacity duration-500" />
               <div className="absolute bottom-0 left-0 right-0 p-8">
                 <div className="w-12 h-12 bg-indigo-600/20 rounded-xl flex items-center justify-center backdrop-blur-sm mb-4 text-indigo-400">
                   <Calendar className="w-6 h-6" />
