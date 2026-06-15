@@ -49,10 +49,11 @@ export default function SiteFooter() {
 
         <div className="border-t border-white/5 pt-8 flex flex-col md:flex-row justify-between items-center text-xs text-white/30 uppercase tracking-widest">
           <p>&copy; {new Date().getFullYear()} {t.footer.rights}</p>
-          <div className="flex space-x-6 mt-4 md:mt-0">
+          <div className="flex flex-wrap justify-center gap-x-6 gap-y-3 mt-4 md:mt-0">
             <Link href={t.urls.privacy} className="hover:text-white transition-colors">{t.footer.privacy}</Link>
             <Link href={t.urls.terms} className="hover:text-white transition-colors">{t.footer.terms}</Link>
             <Link href={t.urls.cookies} className="hover:text-white transition-colors">{t.footer.cookies}</Link>
+            <Link href={t.urls.returnPolicy} className="hover:text-white transition-colors">{t.footer.returnPolicy}</Link>
           </div>
         </div>
       </div>

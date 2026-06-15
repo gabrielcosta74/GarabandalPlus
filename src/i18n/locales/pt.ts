@@ -35,6 +35,7 @@ export const pt = {
     privacy: '/privacidade',
     terms: '/termos',
     cookies: '/cookies',
+    returnPolicy: '/loja/politica-devolucao',
     transparency: '/transparencia',
   },
 
@@ -106,6 +107,7 @@ export const pt = {
     privacy: 'Privacidade',
     terms: 'Termos',
     cookies: 'Cookies',
+    returnPolicy: 'Devoluções',
     rights: 'Apostolado de Garabandal.',
   },
 

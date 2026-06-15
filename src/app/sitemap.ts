@@ -60,6 +60,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       lastModified: now,
       changeFrequency: 'weekly',
       priority: 0.85,
+      alternates: {
+        languages: {
+          'pt-BR': `${APP_URL}/loja`,
+          'pt-PT': `${APP_URL}/loja`,
+          en: `${APP_URL}/en/store`,
+        },
+      },
     },
     {
       url: `${APP_URL}/donations`,
@@ -109,6 +116,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       lastModified: now,
       changeFrequency: 'weekly',
       priority: 0.65,
+      alternates: {
+        languages: {
+          en: `${APP_URL}/en/store`,
+          'pt-BR': `${APP_URL}/loja`,
+          'pt-PT': `${APP_URL}/loja`,
+        },
+      },
     },
     {
       url: `${APP_URL}/en/donations`,
@@ -170,6 +184,32 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       lastModified: now,
       changeFrequency: 'yearly',
       priority: 0.2,
+    },
+    {
+      url: `${APP_URL}/loja/politica-devolucao`,
+      lastModified: now,
+      changeFrequency: 'yearly',
+      priority: 0.3,
+      alternates: {
+        languages: {
+          'pt-BR': `${APP_URL}/loja/politica-devolucao`,
+          'pt-PT': `${APP_URL}/loja/politica-devolucao`,
+          en: `${APP_URL}/en/store/return-policy`,
+        },
+      },
+    },
+    {
+      url: `${APP_URL}/en/store/return-policy`,
+      lastModified: now,
+      changeFrequency: 'yearly',
+      priority: 0.2,
+      alternates: {
+        languages: {
+          en: `${APP_URL}/en/store/return-policy`,
+          'pt-BR': `${APP_URL}/loja/politica-devolucao`,
+          'pt-PT': `${APP_URL}/loja/politica-devolucao`,
+        },
+      },
     },
   ];
 

@@ -35,6 +35,7 @@ export const en = {
     privacy: '/en/privacy',
     terms: '/en/terms',
     cookies: '/en/cookies',
+    returnPolicy: '/en/store/return-policy',
     transparency: '/en/transparency',
   },
 
@@ -106,6 +107,7 @@ export const en = {
     privacy: 'Privacy',
     terms: 'Terms',
     cookies: 'Cookies',
+    returnPolicy: 'Returns',
     rights: 'Garabandal Apostolate.',
   },
 

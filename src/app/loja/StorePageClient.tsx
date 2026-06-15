@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { AnimatePresence } from 'framer-motion';
 import { ShoppingBag, Search, X } from 'lucide-react';
@@ -139,6 +140,13 @@ export default function StorePageClient({ initialProducts = [], initialLocale }:
                                     <span className="text-xs md:text-sm font-black text-white">{isEn ? 'Brazil' : 'Brasil'}</span>
                                 </div>
                             </div>
+
+                            <Link
+                                href={isEn ? '/en/store/return-policy' : '/loja/politica-devolucao'}
+                                className="text-xs font-semibold text-slate-500 underline underline-offset-4 transition-colors hover:text-slate-900"
+                            >
+                                {isEn ? 'Return policy' : 'Política de devolução'}
+                            </Link>
                         </div>
 
                     </div>
