@@ -4,7 +4,7 @@ import { APP_URL } from '../../../../lib/config';
 
 const title = 'Return Policy | Garabandal Apostolate Store';
 const description =
-  'Return, withdrawal and refund policy for items sold through the Garabandal Apostolate online store.';
+  'Restrictive return, legal withdrawal and refund policy for items sold through the Garabandal Apostolate online store.';
 const url = `${APP_URL}/en/store/return-policy`;
 
 export const metadata: Metadata = {
@@ -51,11 +51,28 @@ export default function ReturnPolicyPage() {
           <p className="text-slate-600 leading-relaxed">
             This policy applies to items bought from the Garabandal Apostolate online store,
             including books, religious articles, clothing and digital content.
+            Outside legally mandatory cases, we do not accept returns, exchanges or refunds due to
+            convenience, change of preference or purchase error.
           </p>
         </header>
 
         <section className="space-y-3">
-          <h2 className="text-xl font-semibold text-slate-900">1. Right of withdrawal</h2>
+          <h2 className="text-xl font-semibold text-slate-900">1. Restrictive policy</h2>
+          <p className="text-slate-600 leading-relaxed">
+            The store does not offer a voluntary commercial return or exchange policy. Returns are
+            accepted only where required by law: valid exercise of the legal distance-selling
+            withdrawal right, defective item, transport damage or item different from what was
+            ordered.
+          </p>
+          <p className="text-slate-600 leading-relaxed">
+            Purchases made by companies, professionals or entities acting within their business
+            activity may not benefit from the consumer withdrawal regime, without prejudice to any
+            mandatory rights that apply.
+          </p>
+        </section>
+
+        <section className="space-y-3">
+          <h2 className="text-xl font-semibold text-slate-900">2. Right of withdrawal</h2>
           <p className="text-slate-600 leading-relaxed">
             For distance purchases, consumers may withdraw from the purchase within 14 calendar days
             without giving a reason. For physical goods, this period starts on the day the consumer,
@@ -65,9 +82,10 @@ export default function ReturnPolicyPage() {
         </section>
 
         <section className="space-y-3">
-          <h2 className="text-xl font-semibold text-slate-900">2. How to request a return</h2>
+          <h2 className="text-xl font-semibold text-slate-900">3. How to request a return</h2>
           <p className="text-slate-600 leading-relaxed">
-            To exercise the right of withdrawal or request a return, send a clear statement to{' '}
+            To exercise the legal right of withdrawal or report a defect, damage or order error,
+            send a clear statement to{' '}
             <a href="mailto:geral@apostoladodegarabandal.com" className="underline hover:text-slate-900">
               geral@apostoladodegarabandal.com
             </a>
@@ -76,17 +94,18 @@ export default function ReturnPolicyPage() {
         </section>
 
         <section className="space-y-3">
-          <h2 className="text-xl font-semibold text-slate-900">3. Condition of returned items</h2>
+          <h2 className="text-xl font-semibold text-slate-900">4. Condition of returned items</h2>
           <ul className="list-disc pl-6 text-slate-600 leading-relaxed space-y-2">
             <li>Items should be returned complete, clean and, where possible, in their original packaging.</li>
             <li>Books should not show use beyond normal inspection.</li>
             <li>Clothing should be returned unused, unwashed and free from odours, stains or damage.</li>
             <li>The consumer may be responsible for loss in value caused by handling beyond what is necessary to inspect the item.</li>
+            <li>We do not accept returns of used, incomplete items, items damaged by misuse or items unsuitable for resale, without prejudice to legal rights in case of defect.</li>
           </ul>
         </section>
 
         <section className="space-y-3">
-          <h2 className="text-xl font-semibold text-slate-900">4. Return shipping</h2>
+          <h2 className="text-xl font-semibold text-slate-900">5. Return shipping</h2>
           <p className="text-slate-600 leading-relaxed">
             After notifying us of the return, the consumer should send the items back within 14 days.
             Unless the item is defective, damaged, incorrect or our error caused the return, direct
@@ -95,7 +114,7 @@ export default function ReturnPolicyPage() {
         </section>
 
         <section className="space-y-3">
-          <h2 className="text-xl font-semibold text-slate-900">5. Refunds</h2>
+          <h2 className="text-xl font-semibold text-slate-900">6. Refunds</h2>
           <p className="text-slate-600 leading-relaxed">
             Refunds are made within 14 days of the withdrawal notice, using the same payment method
             used for the purchase unless otherwise agreed. We may withhold the refund until we
@@ -104,16 +123,20 @@ export default function ReturnPolicyPage() {
         </section>
 
         <section className="space-y-3">
-          <h2 className="text-xl font-semibold text-slate-900">6. Digital content</h2>
+          <h2 className="text-xl font-semibold text-slate-900">7. Digital content</h2>
           <p className="text-slate-600 leading-relaxed">
             For digital content supplied by download, immediate access or digital library, the right
             of withdrawal may cease to apply once the consumer has consented to immediate supply and
             acknowledged that this causes the loss of the withdrawal right.
           </p>
+          <p className="text-slate-600 leading-relaxed">
+            Once the file, link, download or digital library access has been made available as
+            described above, we do not accept cancellations, returns or refunds due to change of mind.
+          </p>
         </section>
 
         <section className="space-y-3">
-          <h2 className="text-xl font-semibold text-slate-900">7. Defective, damaged or incorrect items</h2>
+          <h2 className="text-xl font-semibold text-slate-900">8. Defective, damaged or incorrect items</h2>
           <p className="text-slate-600 leading-relaxed">
             If an item arrives damaged, defective or different from what was ordered, contact us as
             soon as possible at{' '}
@@ -126,7 +149,7 @@ export default function ReturnPolicyPage() {
         </section>
 
         <section className="space-y-3">
-          <h2 className="text-xl font-semibold text-slate-900">8. Exceptions</h2>
+          <h2 className="text-xl font-semibold text-slate-900">9. Exceptions</h2>
           <p className="text-slate-600 leading-relaxed">
             In addition to legal exceptions, returns may not be accepted for personalised items,
             sealed items that are unsuitable for return for health or hygiene reasons after opening,

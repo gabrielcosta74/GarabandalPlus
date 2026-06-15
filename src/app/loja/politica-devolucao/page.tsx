@@ -4,7 +4,7 @@ import { APP_URL } from '../../../lib/config';
 
 const title = 'Política de Devolução | Loja do Apostolado de Garabandal';
 const description =
-  'Política de devolução, livre resolução, trocas e reembolsos aplicável aos artigos vendidos na loja online do Apostolado de Garabandal.';
+  'Política restrita de devolução, livre resolução legal, trocas e reembolsos aplicável aos artigos vendidos na loja online do Apostolado de Garabandal.';
 const url = `${APP_URL}/loja/politica-devolucao`;
 
 export const metadata: Metadata = {
@@ -51,11 +51,28 @@ export default function PoliticaDevolucaoPage() {
           <p className="text-slate-600 leading-relaxed">
             Esta política aplica-se aos artigos comprados na loja online do Apostolado de
             Garabandal, incluindo livros, artigos religiosos, vestuário e conteúdos digitais.
+            Fora dos casos legalmente obrigatórios, não aceitamos devoluções, trocas ou reembolsos
+            por mera conveniência, alteração de preferência ou engano na compra.
           </p>
         </header>
 
         <section className="space-y-3">
-          <h2 className="text-xl font-semibold text-slate-900">1. Direito de livre resolução</h2>
+          <h2 className="text-xl font-semibold text-slate-900">1. Política restrita</h2>
+          <p className="text-slate-600 leading-relaxed">
+            A loja não oferece uma política comercial voluntária de devoluções ou trocas. As
+            devoluções são aceites apenas quando a lei o imponha: exercício válido do direito de
+            livre resolução em compras à distância, artigo defeituoso, artigo danificado no
+            transporte ou artigo diferente do encomendado.
+          </p>
+          <p className="text-slate-600 leading-relaxed">
+            Compras efetuadas por empresas, profissionais ou entidades no âmbito da sua atividade
+            podem não beneficiar do regime legal de consumidor, sem prejuízo de direitos imperativos
+            aplicáveis.
+          </p>
+        </section>
+
+        <section className="space-y-3">
+          <h2 className="text-xl font-semibold text-slate-900">2. Direito de livre resolução</h2>
           <p className="text-slate-600 leading-relaxed">
             Nos contratos celebrados à distância, o consumidor pode resolver a compra no prazo de
             14 dias de calendário, sem necessidade de indicar motivo. Para artigos físicos, o prazo
@@ -66,10 +83,10 @@ export default function PoliticaDevolucaoPage() {
         </section>
 
         <section className="space-y-3">
-          <h2 className="text-xl font-semibold text-slate-900">2. Como pedir uma devolução</h2>
+          <h2 className="text-xl font-semibold text-slate-900">3. Como pedir uma devolução</h2>
           <p className="text-slate-600 leading-relaxed">
-            Para exercer o direito de livre resolução ou pedir uma devolução, envie uma declaração
-            inequívoca para{' '}
+            Para exercer o direito legal de livre resolução ou reportar defeito, dano ou erro na
+            encomenda, envie uma declaração inequívoca para{' '}
             <a href="mailto:geral@apostoladodegarabandal.com" className="underline hover:text-slate-900">
               geral@apostoladodegarabandal.com
             </a>
@@ -82,17 +99,18 @@ export default function PoliticaDevolucaoPage() {
         </section>
 
         <section className="space-y-3">
-          <h2 className="text-xl font-semibold text-slate-900">3. Estado dos artigos devolvidos</h2>
+          <h2 className="text-xl font-semibold text-slate-900">4. Estado dos artigos devolvidos</h2>
           <ul className="list-disc pl-6 text-slate-600 leading-relaxed space-y-2">
             <li>Os artigos devem ser devolvidos completos, limpos e, sempre que possível, na embalagem original.</li>
             <li>Livros devem ser devolvidos sem sinais de uso incompatíveis com uma verificação normal.</li>
             <li>Vestuário deve ser devolvido sem uso, lavagem, odores, manchas ou danos.</li>
             <li>O consumidor pode ser responsabilizado pela depreciação resultante de manuseamento além do necessário para verificar a natureza, características e funcionamento do artigo.</li>
+            <li>Não aceitamos devoluções de artigos usados, incompletos, danificados por uso indevido ou sem condições de revenda, sem prejuízo dos direitos legais em caso de defeito.</li>
           </ul>
         </section>
 
         <section className="space-y-3">
-          <h2 className="text-xl font-semibold text-slate-900">4. Prazo e custos de envio da devolução</h2>
+          <h2 className="text-xl font-semibold text-slate-900">5. Prazo e custos de envio da devolução</h2>
           <p className="text-slate-600 leading-relaxed">
             Depois de comunicar a devolução, o consumidor deve enviar os artigos no prazo de 14 dias.
             Salvo erro nosso, artigo defeituoso ou artigo diferente do encomendado, os custos diretos
@@ -105,7 +123,7 @@ export default function PoliticaDevolucaoPage() {
         </section>
 
         <section className="space-y-3">
-          <h2 className="text-xl font-semibold text-slate-900">5. Reembolsos</h2>
+          <h2 className="text-xl font-semibold text-slate-900">6. Reembolsos</h2>
           <p className="text-slate-600 leading-relaxed">
             O reembolso será efetuado no prazo de 14 dias a contar da comunicação de livre resolução,
             através do mesmo meio de pagamento usado na compra, salvo acordo expresso em contrário.
@@ -120,17 +138,21 @@ export default function PoliticaDevolucaoPage() {
         </section>
 
         <section className="space-y-3">
-          <h2 className="text-xl font-semibold text-slate-900">6. Conteúdos digitais</h2>
+          <h2 className="text-xl font-semibold text-slate-900">7. Conteúdos digitais</h2>
           <p className="text-slate-600 leading-relaxed">
             Em conteúdos digitais fornecidos por download, acesso imediato ou biblioteca digital, o
             direito de livre resolução pode deixar de se aplicar quando o consumidor tiver consentido
             no início imediato do fornecimento e reconhecido que, com esse início, perde o direito de
             livre resolução.
           </p>
+          <p className="text-slate-600 leading-relaxed">
+            Depois de disponibilizado o ficheiro, link, download ou acesso à biblioteca digital nos
+            termos acima, não aceitamos cancelamentos, devoluções ou reembolsos por arrependimento.
+          </p>
         </section>
 
         <section className="space-y-3">
-          <h2 className="text-xl font-semibold text-slate-900">7. Artigos defeituosos, danificados ou errados</h2>
+          <h2 className="text-xl font-semibold text-slate-900">8. Artigos defeituosos, danificados ou errados</h2>
           <p className="text-slate-600 leading-relaxed">
             Se receber um artigo danificado, defeituoso ou diferente do encomendado, contacte-nos
             assim que possível para{' '}
@@ -143,7 +165,7 @@ export default function PoliticaDevolucaoPage() {
         </section>
 
         <section className="space-y-3">
-          <h2 className="text-xl font-semibold text-slate-900">8. Exceções</h2>
+          <h2 className="text-xl font-semibold text-slate-900">9. Exceções</h2>
           <p className="text-slate-600 leading-relaxed">
             Além das exceções previstas na lei, podem não ser aceites devoluções de artigos
             personalizados, artigos selados que não possam ser devolvidos por razões de saúde ou
@@ -153,7 +175,7 @@ export default function PoliticaDevolucaoPage() {
         </section>
 
         <section className="space-y-3">
-          <h2 className="text-xl font-semibold text-slate-900">9. Contacto</h2>
+          <h2 className="text-xl font-semibold text-slate-900">10. Contacto</h2>
           <p className="text-slate-600 leading-relaxed">
             Para questões sobre devoluções, trocas ou reembolsos, contacte{' '}
             <a href="mailto:geral@apostoladodegarabandal.com" className="underline hover:text-slate-900">
