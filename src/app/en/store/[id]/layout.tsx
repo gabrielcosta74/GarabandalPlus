@@ -2,7 +2,14 @@ import type { Metadata } from 'next';
 import { APP_URL } from '../../../../lib/config';
 import { buildProductPath } from '../../../../lib/slug';
 import { fetchProductForPage } from '../../../loja/[id]/page';
-import { buildMerchantReturnPolicy, getPriceValidUntil } from '../../../../lib/product-schema';
+import {
+  buildMerchantReturnPolicy,
+  buildOfferShippingDetails,
+  buildProductIdentifierStructuredData,
+  buildProductReviewStructuredData,
+  getPriceValidUntil,
+  getProductSchemaType,
+} from '../../../../lib/product-schema';
 
 type Props = {
   params: Promise<{ id: string }>;
@@ -79,20 +86,19 @@ export default async function EnglishStoreProductLayout({ children, params }: Pr
 
   const productSchema = {
     '@context': 'https://schema.org',
-    '@type': 'Product',
+    '@type': getProductSchemaType(Boolean(isBook)),
     '@id': `${productUrl}#product`,
-    ...(isBook ? { additionalType: 'https://schema.org/Book' } : {}),
     name: product.name,
     description: product.description || undefined,
     image: product.image ? [getAbsoluteImageUrl(product.image)] : undefined,
-    sku: product.sku || product.id,
-    productID: product.id,
+    ...buildProductIdentifierStructuredData(product.metadata, {
+      isBook: Boolean(isBook),
+      sku: product.sku || product.id,
+      productId: product.id,
+    }),
     url: productUrl,
     inLanguage: 'en',
-    brand: {
-      '@type': 'Organization',
-      name: 'Garabandal Apostolate',
-    },
+    ...buildProductReviewStructuredData(product.metadata, product.name),
     offers: {
       '@type': 'Offer',
       url: productUrl,
@@ -101,6 +107,7 @@ export default async function EnglishStoreProductLayout({ children, params }: Pr
       availability,
       itemCondition: 'https://schema.org/NewCondition',
       priceValidUntil: getPriceValidUntil(),
+      shippingDetails: buildOfferShippingDetails(isDigital, product.currency || 'EUR', product.allowedCountries),
       hasMerchantReturnPolicy: buildMerchantReturnPolicy(isDigital),
     },
   };

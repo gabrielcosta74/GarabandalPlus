@@ -5,6 +5,7 @@ import { getStoreProductTypeText, localizeStoreProductText } from './store-i18n'
 
 export type StoreProductView = {
   id: string;
+  sku?: string | null;
   name: string;
   price: number;
   currency: string;
@@ -36,6 +37,7 @@ export type StoreProductSitemapRecord = {
 
 const STORE_PRODUCT_SELECT_FIELDS = [
   'product_id',
+  'sku',
   'name',
   'name_en',
   'description',
@@ -78,6 +80,7 @@ export const mapStoreProductRecord = (
 
   return {
     id: productData.product_id,
+    sku: productData.sku || null,
     name: localizedProduct.name,
     description: localizedProduct.description,
     category: localizedProduct.category,
@@ -115,4 +118,3 @@ export async function fetchStoreProductsForPage(locale: AppLocale): Promise<Stor
 
   return data.map((product) => mapStoreProductRecord(product as Record<string, any>, locale));
 }
-

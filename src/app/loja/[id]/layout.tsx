@@ -4,7 +4,14 @@ import { supabaseServer } from '../../../lib/supabase';
 import { buildProductPath } from '../../../lib/slug';
 import { inferIsDigitalProduct } from '../../../lib/product-kind';
 import { getPortugueseProductDescriptionFallback, localizeStoreProductText } from '../../../lib/store-i18n';
-import { buildMerchantReturnPolicy, getPriceValidUntil } from '../../../lib/product-schema';
+import {
+  buildMerchantReturnPolicy,
+  buildOfferShippingDetails,
+  buildProductIdentifierStructuredData,
+  buildProductReviewStructuredData,
+  getPriceValidUntil,
+  getProductSchemaType,
+} from '../../../lib/product-schema';
 
 type Props = {
   params: Promise<{ id: string }>;
@@ -27,7 +34,7 @@ const fetchProduct = async (param: string) => {
 
   const { data } = await supabaseServer
     .from('store_products')
-    .select('product_id, name, name_en, description, description_en, image_url, price, currency, stock, sku, category, type_id, metadata, specifications, is_active, is_physical, digital_url')
+    .select('product_id, name, name_en, description, description_en, image_url, price, currency, stock, sku, category, type_id, metadata, specifications, is_active, is_physical, digital_url, allowed_countries')
     .in('product_id', Array.from(candidates))
     .eq('is_active', true);
 
@@ -193,7 +200,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
         description,
         type: 'website',
         locale: 'pt_BR',
-        siteName: 'Garabandal +',
+        siteName: 'Apostolado de Garabandal',
         images: ogImages,
       },
       twitter: {
@@ -250,21 +257,20 @@ export default async function LojaProdutoLayout({ children, params }: Props) {
 
   const productSchema: Record<string, unknown> = {
     '@context': 'https://schema.org',
-    '@type': 'Product',
+    '@type': getProductSchemaType(isBook),
     '@id': `${productUrl}#product`,
-    ...(isBook ? { additionalType: 'https://schema.org/Book' } : {}),
     name: product.name || 'Produto',
     description: product.description || getPortugueseProductDescriptionFallback(product.name) || undefined,
     image: product.image_url ? [getAbsoluteImageUrl(product.image_url)] : undefined,
-    sku: product.sku || undefined,
-    productID: product.product_id || product.sku || undefined,
+    ...buildProductIdentifierStructuredData(meta, {
+      isBook,
+      sku: product.sku,
+      productId: product.product_id,
+    }),
     url: productUrl,
     category: product.category || undefined,
     inLanguage: 'pt-BR',
-    brand: {
-      '@type': 'Brand',
-      name: 'Apostolado de Garabandal',
-    },
+    ...buildProductReviewStructuredData(meta, product.name),
     seller: {
       '@type': ['Organization', 'NGO'],
       name: 'Apostolado de Garabandal',
@@ -285,6 +291,7 @@ export default async function LojaProdutoLayout({ children, params }: Props) {
       availability,
       itemCondition: 'https://schema.org/NewCondition',
       priceValidUntil: getPriceValidUntil(),
+      shippingDetails: buildOfferShippingDetails(isDigital, product.currency || 'EUR', product.allowed_countries),
       hasMerchantReturnPolicy: buildMerchantReturnPolicy(isDigital),
       seller: {
         '@type': ['Organization', 'NGO'],

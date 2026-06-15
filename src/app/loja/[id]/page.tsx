@@ -27,7 +27,7 @@ export const fetchProductForPage = async (param: string, locale: AppLocale = 'pt
     const { data } = await supabaseServer
       .from('store_products')
       .select(
-        'product_id, name, name_en, description, description_en, category_id, category, price, currency, stock, is_active, is_physical, type_id, metadata, image_url, digital_url, allowed_countries, tax_rate, specifications, variants:product_variants(*)',
+        'product_id, sku, name, name_en, description, description_en, category_id, category, price, currency, stock, is_active, is_physical, type_id, metadata, image_url, digital_url, allowed_countries, tax_rate, specifications, variants:product_variants(*)',
       )
       .in('product_id', Array.from(candidates))
       .eq('is_active', true);

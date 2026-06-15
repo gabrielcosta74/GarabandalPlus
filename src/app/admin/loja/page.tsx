@@ -683,6 +683,75 @@ export default function AdminLojaPage() {
                           <div className="text-center py-10 text-slate-400 italic">Sem detalhes específicos configurados para este tipo.</div>
                         )}
 
+                        <div className="bg-white p-6 rounded-2xl border border-slate-200">
+                          <div className="mb-4">
+                            <h3 className="font-bold text-slate-900 flex items-center gap-2">
+                              <CheckCircle className="w-4 h-4 text-emerald-500" /> Avaliações para SEO
+                            </h3>
+                            <p className="mt-1 text-xs text-slate-500">
+                              Preenche apenas com avaliações reais e visíveis na página pública. Estes campos alimentam o JSON-LD de Produto usado pelo Google.
+                            </p>
+                          </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <FormInput
+                              label="GTIN / EAN / Código de barras"
+                              value={draft.metadata?.gtin || ''}
+                              onChange={(val: string) => setDraft({ ...draft, metadata: { ...draft.metadata, gtin: val } })}
+                              placeholder="Ex: 5601234567890"
+                            />
+                            <FormInput
+                              label="MPN / Referência do fabricante"
+                              value={draft.metadata?.mpn || ''}
+                              onChange={(val: string) => setDraft({ ...draft, metadata: { ...draft.metadata, mpn: val } })}
+                              placeholder="Ex: GAR-BOOK-001"
+                            />
+                            <FormInput
+                              label="Média das avaliações"
+                              value={draft.metadata?.rating_value || ''}
+                              onChange={(val: string) => setDraft({ ...draft, metadata: { ...draft.metadata, rating_value: val } })}
+                              placeholder="Ex: 4.8"
+                              type="number"
+                            />
+                            <FormInput
+                              label="Nº de avaliações"
+                              value={draft.metadata?.review_count || ''}
+                              onChange={(val: string) => setDraft({ ...draft, metadata: { ...draft.metadata, review_count: val } })}
+                              placeholder="Ex: 12"
+                              type="number"
+                            />
+                            <FormInput
+                              label="Autor da avaliação destacada"
+                              value={draft.metadata?.review_author || ''}
+                              onChange={(val: string) => setDraft({ ...draft, metadata: { ...draft.metadata, review_author: val } })}
+                              placeholder="Ex: Maria Silva"
+                            />
+                            <FormInput
+                              label="Classificação da avaliação"
+                              value={draft.metadata?.review_rating || ''}
+                              onChange={(val: string) => setDraft({ ...draft, metadata: { ...draft.metadata, review_rating: val } })}
+                              placeholder="Ex: 5"
+                              type="number"
+                            />
+                            <FormInput
+                              label="Data da avaliação"
+                              value={draft.metadata?.review_date || ''}
+                              onChange={(val: string) => setDraft({ ...draft, metadata: { ...draft.metadata, review_date: val } })}
+                              placeholder="YYYY-MM-DD"
+                            />
+                            <div className="sm:col-span-2">
+                              <label className="block text-xs font-bold uppercase text-slate-500 mb-1.5">Texto da avaliação destacada</label>
+                              <textarea
+                                value={draft.metadata?.review_body || ''}
+                                onChange={e => setDraft({ ...draft, metadata: { ...draft.metadata, review_body: e.target.value } })}
+                                rows={3}
+                                maxLength={500}
+                                placeholder="Ex: Um livro muito claro e útil para conhecer melhor a mensagem de Garabandal."
+                                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none transition-all"
+                              />
+                            </div>
+                          </div>
+                        </div>
+
                         {/* File Upload for Digital */}
                         {draft.type === 'digital' && (
                           <div className="bg-slate-100 p-6 rounded-2xl border border-slate-200">

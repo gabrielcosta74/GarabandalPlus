@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { ShoppingBag, ArrowLeft, Truck, Package, AlertCircle, ShoppingCart, Check, Download, Globe } from 'lucide-react';
+import { ShoppingBag, ArrowLeft, Truck, Package, AlertCircle, ShoppingCart, Check, Download, Globe, Star } from 'lucide-react';
 import { Product, loadCart, saveCart, CartItem } from '../../loja-online/data';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
@@ -13,6 +13,25 @@ import { listCountryOptions } from '../../../lib/country-utils';
 import { useLocale } from '../../../contexts/LocaleContext';
 import { getStoreHomePath } from '../../../lib/store-i18n';
 import { captureStoreEvent } from '../../../lib/analytics';
+import { buildProductReviewSummary } from '../../../lib/product-schema';
+
+const REVIEW_METADATA_KEYS = new Set([
+    'rating_value',
+    'aggregate_rating',
+    'average_rating',
+    'review_count',
+    'rating_count',
+    'reviews_count',
+    'review_author',
+    'reviewer_name',
+    'review_body',
+    'review_text',
+    'review',
+    'review_rating',
+    'review_rating_value',
+    'review_date',
+    'date_published',
+]);
 
 export default function ProductDetailsClient({ initialProduct }: { initialProduct?: Product | null }) {
     const params = useParams();
@@ -234,6 +253,10 @@ export default function ProductDetailsClient({ initialProduct }: { initialProduc
             const country = countryOptions.find((c) => c.code === code);
             return { code, label: country?.label || code };
         });
+    const reviewSummary = buildProductReviewSummary(product.metadata);
+    const publicMetadataEntries = Object.entries(product.metadata || {}).filter(([key, value]) => {
+        return !REVIEW_METADATA_KEYS.has(key) && Boolean(value);
+    });
 
     return (
         <div className="min-h-screen bg-white pb-20">
@@ -299,19 +322,56 @@ export default function ProductDetailsClient({ initialProduct }: { initialProduc
                                 </p>
                                 {product.taxRate && product.taxRate > 0 && <span className="text-xs text-slate-400 font-medium">{isEn ? 'VAT included' : 'IVA incluído'}</span>}
                             </div>
+                            {(reviewSummary.aggregateRating || reviewSummary.review) && (
+                                <div className="mt-5 rounded-2xl border border-amber-100 bg-amber-50/60 p-4">
+                                    {reviewSummary.aggregateRating && (
+                                        <div className="flex flex-wrap items-center gap-3">
+                                            <div className="flex items-center gap-1 text-amber-500" aria-label={`${reviewSummary.aggregateRating.ratingValue}/5`}>
+                                                {[1, 2, 3, 4, 5].map((star) => (
+                                                    <Star
+                                                        key={star}
+                                                        className={`h-4 w-4 ${star <= Math.round(reviewSummary.aggregateRating!.ratingValue) ? 'fill-current' : ''}`}
+                                                    />
+                                                ))}
+                                            </div>
+                                            <span className="text-sm font-bold text-slate-900">
+                                                {reviewSummary.aggregateRating.ratingValue.toFixed(1)}/5
+                                            </span>
+                                            <span className="text-sm text-slate-600">
+                                                {isEn
+                                                    ? `${reviewSummary.aggregateRating.reviewCount} verified review${reviewSummary.aggregateRating.reviewCount === 1 ? '' : 's'}`
+                                                    : `${reviewSummary.aggregateRating.reviewCount} avaliação${reviewSummary.aggregateRating.reviewCount === 1 ? '' : 'ões'} verificada${reviewSummary.aggregateRating.reviewCount === 1 ? '' : 's'}`}
+                                            </span>
+                                        </div>
+                                    )}
+                                    {reviewSummary.review && (
+                                        <blockquote className={`${reviewSummary.aggregateRating ? 'mt-3 border-t border-amber-100 pt-3' : ''} text-sm text-slate-700`}>
+                                            <p>"{reviewSummary.review.body}"</p>
+                                            <footer className="mt-2 text-xs font-bold uppercase tracking-wide text-slate-500">
+                                                {reviewSummary.review.authorName}
+                                            </footer>
+                                        </blockquote>
+                                    )}
+                                </div>
+                            )}
                         </div>
 
                         {/* TECHNICAL DETAILS (Dynamic Metadata) */}
-                        {product.metadata && Object.keys(product.metadata).length > 0 && (
+                        {publicMetadataEntries.length > 0 && (
                             <div className="flex flex-wrap gap-y-3 gap-x-8 text-sm text-slate-600 mb-8 border-y border-slate-200 py-6">
-                                {Object.entries(product.metadata).map(([key, value]) => {
-                                    if (!value) return null;
+                                {publicMetadataEntries.map(([key, value]) => {
                                     let label = key;
                                     // Map common keys to nicer labels
                                     switch (key) {
                                         case 'author': label = isEn ? 'Author' : 'Autor'; break;
                                         case 'publisher': label = isEn ? 'Publisher' : 'Editora'; break;
                                         case 'isbn': label = 'ISBN'; break;
+                                        case 'gtin': label = 'GTIN'; break;
+                                        case 'gtin8': label = 'GTIN-8'; break;
+                                        case 'gtin12': label = 'GTIN-12'; break;
+                                        case 'gtin13': label = 'GTIN-13'; break;
+                                        case 'gtin14': label = 'GTIN-14'; break;
+                                        case 'mpn': label = 'MPN'; break;
                                         case 'pages': label = isEn ? 'Pages' : 'Páginas'; break;
                                         case 'material': label = 'Material'; break;
                                         case 'gender': label = isEn ? 'Gender' : 'Género'; break;
