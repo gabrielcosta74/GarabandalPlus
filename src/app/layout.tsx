@@ -11,8 +11,8 @@ const playfair = Playfair_Display({ subsets: ['latin'], variable: '--font-playfa
 export const metadata: Metadata = {
   metadataBase: new URL(APP_URL),
   title: {
-    template: '%s | Garabandal +',
-    default: 'Garabandal + | Apostolado de Garabandal',
+    template: '%s | Apostolado de Garabandal',
+    default: 'Apostolado de Garabandal — Aparições, mensagens e peregrinações',
   },
   description: 'Apostolado de Garabandal — associação sem fins lucrativos dedicada à divulgação das aparições de Nossa Senhora de Garabandal, organização de peregrinações marianas e apostolado da fé no Brasil e em Portugal.',
   keywords: [
@@ -37,8 +37,8 @@ export const metadata: Metadata = {
     type: 'website',
     locale: 'pt_BR',
     url: APP_URL,
-    siteName: 'Garabandal +',
-    title: 'Garabandal + | Apostolado de Garabandal',
+    siteName: 'Apostolado de Garabandal',
+    title: 'Apostolado de Garabandal — Aparições, mensagens e peregrinações',
     description: 'Associação sem fins lucrativos. Aparições de Garabandal, peregrinações marianas, apostolado da fé e evangelização no Brasil e em Portugal.',
     images: [
       {
@@ -51,7 +51,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Garabandal + | Apostolado de Garabandal',
+    title: 'Apostolado de Garabandal — Aparições, mensagens e peregrinações',
     description: 'Peregrinações marianas, doações e missão de evangelização. Apostolado de Nossa Senhora de Garabandal.',
     images: [`${APP_URL}/opengraph-image`],
   },
@@ -84,7 +84,12 @@ export default async function RootLayout({
 }) {
   const hdrs = await headers();
   const pathname = hdrs.get('x-pathname') || '';
-  const htmlLang = pathname.startsWith('/en') ? 'en' : 'pt-BR';
+  // The <html lang> reflects the MAIN CONTENT language (for SEO/accessibility),
+  // even though the site chrome stays Portuguese on /es and /fr. Match the first
+  // path segment exactly so PT slugs like /encontro or /frutos aren't misread.
+  const localeSeg = pathname.split('/')[1];
+  const htmlLang = localeSeg === 'en' ? 'en' : localeSeg === 'es' ? 'es' : localeSeg === 'fr' ? 'fr' : localeSeg === 'it' ? 'it' : 'pt-BR';
+  const navV2Enabled = process.env.NEXT_PUBLIC_NAV_V2 === '1';
   return (
     <html lang={htmlLang}>
       <head />
@@ -100,7 +105,6 @@ export default async function RootLayout({
                   '@type': ['Organization', 'NGO', 'ReligiousOrganization'],
                   '@id': `${APP_URL}/#organization`,
                   name: 'Apostolado de Garabandal',
-                  alternateName: 'Garabandal +',
                   url: APP_URL,
                   logo: {
                     '@type': 'ImageObject',
@@ -125,14 +129,14 @@ export default async function RootLayout({
                   ],
                   sameAs: [
                     'https://www.instagram.com/apostoladodegarabandaloficial/',
-                    'https://www.apostoladodegarabandal.com',
+                    'https://apostoladodegarabandal.com',
                   ],
                   nonprofitStatus: 'ReligiousNonprofit',
                 },
                 {
                   '@type': 'WebSite',
                   '@id': `${APP_URL}/#website`,
-                  name: 'Garabandal +',
+                  name: 'Apostolado de Garabandal',
                   url: APP_URL,
                   inLanguage: ['pt-BR', 'pt-PT', 'en'],
                   publisher: { '@id': `${APP_URL}/#organization` },
@@ -149,7 +153,7 @@ export default async function RootLayout({
             })
           }}
         />
-        <ClientLayout>{children}</ClientLayout>
+        <ClientLayout navV2Enabled={navV2Enabled}>{children}</ClientLayout>
       </body>
     </html>
   );

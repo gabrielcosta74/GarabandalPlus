@@ -13,12 +13,22 @@ export default function robots(): MetadataRoute.Robots {
           '/donations',
           '/loja',
           '/loja/*',
+          '/loja-online',
+          '/loja-online/*',
           '/tornar-membro',
           '/sobre-nos',
           '/intencoes',
           '/transparencia',
+          // Migrated devotional content (history, witnesses, teachings, blog).
+          // The disallow list still blocks sensitive areas explicitly.
+          '/l',
+          '/l/*',
           '/en',
           '/en/*',
+          '/es',
+          '/es/*',
+          '/fr',
+          '/fr/*',
         ],
         disallow: [
           '/admin',

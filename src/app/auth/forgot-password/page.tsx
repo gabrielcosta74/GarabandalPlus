@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import AuthLayout, { PremiumInput } from '../../../components/auth/AuthLayout';
 import { supabaseBrowser } from '../../../lib/supabase-browser';
 import { motion } from 'framer-motion';
@@ -9,12 +10,14 @@ import { ArrowRight, Loader2, AlertCircle, CheckCircle2, Mail } from 'lucide-rea
 import { useLocale } from '../../../contexts/LocaleContext';
 
 export default function ForgotPasswordPage() {
+    const router = useRouter();
     const [email, setEmail] = useState('');
     const [success, setSuccess] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
     const { locale, t } = useLocale();
     const isEn = locale === 'en';
+    const updatePasswordPath = isEn ? '/en/auth/update-password' : '/auth/update-password';
 
     const canSubmit = useMemo(() => email.trim().length > 3 && email.includes('@'), [email]);
 
@@ -38,6 +41,9 @@ export default function ForgotPasswordPage() {
             }
 
             setSuccess(true);
+            // Forward to the password page in code-entry mode (immune to email
+            // link scanners). Email is pre-filled; the user just types the code.
+            router.push(`${updatePasswordPath}?mode=code&email=${encodeURIComponent(email.trim())}`);
         } catch (err: any) {
             console.error("🚨 [Recovery] Error:", err);
             setError(err.message || 'Erro ao enviar email de recuperação.');

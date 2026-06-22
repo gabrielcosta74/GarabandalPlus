@@ -4,12 +4,22 @@ import React, { useState } from 'react';
 import Image from 'next/image';
 import Preloader from './Preloader';
 import Hero from './Hero';
+import WhatIsGarabandal from './WhatIsGarabandal';
+import Endorsements from './Endorsements';
+import ContactBar from './ContactBar';
 import SpiritualPillars from './SpiritualPillars';
 import CampaignShowcase from './CampaignShowcase';
 import SupportArea from './SupportArea';
 import PilgrimageShowcase from './PilgrimageShowcase';
 import FeaturedStore from './FeaturedStore';
+import DevotionalGrid from './DevotionalGrid';
+import FeaturedArticles from './FeaturedArticles';
+import LatestNews from './LatestNews';
+import YouTubeLives from './YouTubeLives';
+import InstagramFollow from './InstagramFollow';
 import { DonationMeta } from '../../lib/donations';
+import type { HomeContent } from '../../lib/cms/home';
+import type { YouTubeVideo } from '../../lib/youtube';
 import { useAuth } from '../../contexts/AuthContext';
 import { QuotaWarning } from '../membership/QuotaWarning';
 
@@ -18,41 +28,29 @@ interface HomePageClientProps {
     meta: DonationMeta;
     pilgrimages?: any[];
     featuredProducts?: any[];
+    homeContent?: HomeContent;
+    lives?: YouTubeVideo[];
+    locale?: 'pt' | 'en';
 }
 
-const HomePageClient: React.FC<HomePageClientProps> = ({ meta, pilgrimages = [], featuredProducts = [] }) => {
+const HomePageClient: React.FC<HomePageClientProps> = ({ meta, pilgrimages = [], featuredProducts = [], homeContent, lives = [], locale = 'pt' }) => {
     const [loading, setLoading] = useState(true);
     const { memberData } = useAuth();
 
 
     return (
-        <main className="min-h-screen bg-garabandal-dark text-slate-100 selection:bg-garabandal-gold selection:text-white">
+        <main className="min-h-screen bg-garabandal-mist text-slate-900 selection:bg-garabandal-gold selection:text-white">
             {/* Intro Sequence */}
             <Preloader onComplete={() => setLoading(false)} />
 
             {/* Main Content - revealed after loader */}
             {!loading && (
                 <div className="relative isolate">
-                    {/* Background Overlay */}
-                    {/* Background Overlay */}
-                    <div className="fixed inset-0 z-0 pointer-events-none bg-garabandal-dark flex items-center justify-center">
-                        <div className="relative w-full h-[85vh] max-w-5xl">
-                            <Image
-                                src="/images/nossasenhoragarabandal.jpg"
-                                alt=""
-                                fill
-                                priority
-                                sizes="100vw"
-                                className="object-contain opacity-90 brightness-110"
-                            />
-                            {/* Spotlight Gradient Mask */}
-                            <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_0%,#0f172a_70%)] z-10" />
-                        </div>
-                    </div>
+                    {/* Background Overlay Removed for a cleaner readable look */}
+                    <div className="fixed inset-0 z-0 pointer-events-none bg-garabandal-mist" />
 
                     {/* Content */}
                     <div className="relative z-10">
-                        {/* Member Warning Injection */}
                         {/* Member Warning Injection */}
                         <QuotaWarning
                             memberData={memberData}
@@ -60,11 +58,31 @@ const HomePageClient: React.FC<HomePageClientProps> = ({ meta, pilgrimages = [],
                         />
 
                         <Hero />
+                        {/* Newcomer intro: orients first-time visitors right after the Hero */}
+                        <WhatIsGarabandal />
+                        {/* Devotional content first (self-hides until content is published) */}
+                        {homeContent && <DevotionalGrid categories={homeContent.categories} locale={locale} />}
+                        {/* Latest YouTube lives, right after "Conhecer Garabandal" */}
+                        <YouTubeLives videos={lives} locale={locale} />
+                        {/* Follow on Instagram — right after the lives */}
+                        <InstagramFollow locale={locale} />
+                        {homeContent && <FeaturedArticles articles={homeContent.featured} locale={locale} />}
+                        {/* Renowned endorsements (social proof) */}
+                        <Endorsements />
                         <SpiritualPillars />
                         <CampaignShowcase meta={meta} />
-                        <FeaturedStore products={featuredProducts || []} />
                         {pilgrimages && pilgrimages.length > 0 && <PilgrimageShowcase pilgrimages={pilgrimages} />}
+                        {homeContent && (
+                            <LatestNews
+                                items={homeContent.latestNews}
+                                locale={locale}
+                                allHref={locale === 'pt' ? '/noticias' : '/en/news'}
+                            />
+                        )}
+                        <FeaturedStore products={featuredProducts || []} />
                         <SupportArea />
+                        {/* Contact band just above the footer */}
+                        <ContactBar />
                     </div>
                 </div>
             )}

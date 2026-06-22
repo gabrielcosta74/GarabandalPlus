@@ -23,7 +23,7 @@ const ProductCard = React.forwardRef<HTMLDivElement, ProductCardProps>(({
     onClick,
     onAddToCart,
 }, ref) => {
-    const { formatPrice } = useCurrency();
+    const { formatPrice, formatEUR, currency } = useCurrency();
     const { locale } = useLocale();
     const isEn = locale === 'en';
     const isDigital = inferIsDigitalProduct({
@@ -82,8 +82,13 @@ const ProductCard = React.forwardRef<HTMLDivElement, ProductCardProps>(({
                     <div className="flex items-end justify-between mb-5">
                         <div>
                             <p className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight">
-                                {formatPrice(product.price)}
+                                {formatEUR(product.price)}
                             </p>
+                            {currency !== 'EUR' && (
+                                <p className="text-base text-slate-500 font-semibold mt-0.5">
+                                    ≈ {formatPrice(product.price)}
+                                </p>
+                            )}
                             <div className="flex flex-col gap-1.5 mt-1">
                                 <p className="text-[10px] text-slate-400 uppercase tracking-widest font-bold">
                                     {isEn ? 'VAT included' : 'IVA incluído'}

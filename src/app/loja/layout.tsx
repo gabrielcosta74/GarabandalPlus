@@ -35,7 +35,7 @@ export const metadata: Metadata = {
     description,
     type: 'website',
     locale: 'pt_BR',
-    siteName: 'Garabandal +',
+    siteName: 'Apostolado de Garabandal',
     images: [
       {
         url: `${APP_URL}/opengraph-image`,

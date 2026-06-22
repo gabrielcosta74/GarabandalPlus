@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import Link from "next/link";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { supabaseBrowser } from "../../lib/supabase-browser";
 import {
   Gift,
@@ -14,6 +15,7 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import { useCurrency } from "../providers/CurrencyProvider";
 import { useLocale } from "../../contexts/LocaleContext";
+import { trackMemberEvent, type MemberActivityEventType } from "../../lib/member-activity";
 
 type ReferralWidgetProps = {
   userId: string;
@@ -39,9 +41,23 @@ export default function ReferralWidget({
   const [copiedText, setCopiedText] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
   const [copiedWidgetCode, setCopiedWidgetCode] = useState(false);
+  const hasTrackedWidgetView = useRef(false);
   const { formatPrice } = useCurrency();
   const { locale } = useLocale();
   const isEn = locale === 'en';
+
+  const trackReferralEvent = useCallback((
+    eventType: MemberActivityEventType,
+    metadata: Record<string, string | number | boolean | null | undefined> = {},
+  ) => {
+    if (typeof window === "undefined") return;
+    void trackMemberEvent(userId, eventType, window.location.pathname, {
+      has_referral_code: Boolean(referralCode),
+      referrals_count: referralsCount,
+      store_credits: storeCredits,
+      ...metadata,
+    });
+  }, [userId, referralCode, referralsCount, storeCredits]);
 
   useEffect(() => {
     const ensureReferralCode = async () => {
@@ -81,24 +97,35 @@ export default function ReferralWidget({
     ensureReferralCode();
   }, [initialCode, userId, nome]);
 
+  useEffect(() => {
+    if (isGenerating || !referralCode || hasTrackedWidgetView.current) return;
+    hasTrackedWidgetView.current = true;
+    trackReferralEvent('referral_widget_viewed');
+  }, [isGenerating, referralCode, trackReferralEvent]);
+
+  const encodedReferralCode = referralCode ? encodeURIComponent(referralCode) : "";
   const shareUrl =
     typeof window !== "undefined"
-      ? `${window.location.origin}${isEn ? `/en/invite/${referralCode}` : `/convite/${referralCode}`}`
+      ? `${window.location.origin}${isEn ? `/en/invite/${encodedReferralCode}` : `/convite/${encodedReferralCode}`}`
       : "";
   const shareText = isEn
-    ? `Hello! 👋 I'm part of the *Apostolado de Garabandal* and I invite you to learn about our mission. 🕊️✨\n\nBy registering as a Member through my invite, you help support the mission and works of the new Apostolado's Welcome House. 🙏\n\nAs a thank you, you immediately earn *${formatPrice(2.50)} in welcome credit* to use in our Online Store. 🎁\n\nJoin us here:`
-    : `Olá! 👋 Faço parte do *Apostolado de Garabandal* e convido-te a conhecer a nossa missão. 🕊️✨\n\nAo registares-te como Membro através do meu convite, ajudas a apoiar a missão e as obras da nova Casa de Acolhimento do Apostolado. 🙏\n\nComo agradecimento, ganhas de imediato *${formatPrice(2.50)} de saldo de boas-vindas* para usares na nossa Loja Online. 🎁\n\nJunta-te a nós aqui:`;
+    ? `Hello! I am part of the *Apostolado de Garabandal* and thought of you.\n\nWould you like to walk with us in this mission of prayer, formation, and welcome for pilgrims?\n\nBy becoming a member through my invitation, you help support the Apostolate's Welcome House. As a thank you, you receive *${formatPrice(2.50)} in welcome credit* for the Online Store after your first membership fee is confirmed.\n\nYou can accept here:`
+    : `Olá! Faço parte do *Apostolado de Garabandal* e lembrei-me de ti.\n\nQueres caminhar connosco nesta missão de oração, formação e acolhimento aos peregrinos?\n\nAo tornares-te membro pelo meu convite, ajudas a Casa de Acolhimento do Apostolado. Como agradecimento, recebes *${formatPrice(2.50)} de saldo de boas-vindas* para a Loja Online depois da primeira quota de membro ser confirmada.\n\nPodes aceitar aqui:`;
 
   const handleShare = async () => {
     if (!referralCode) return;
 
-    if (navigator.share) {
+    const hasNativeShare = typeof navigator !== "undefined" && Boolean(navigator.share);
+    trackReferralEvent('referral_share_clicked', { has_native_share: hasNativeShare });
+
+    if (hasNativeShare) {
       try {
         await navigator.share({
           title: "Apostolado de Garabandal",
           text: shareText,
           url: shareUrl,
         });
+        trackReferralEvent('referral_native_share_completed');
         return;
       } catch {
         // User cancelled or share failed, fallback to modal
@@ -107,6 +134,7 @@ export default function ReferralWidget({
 
     // Fallback: Open explicit desktop share modal
     setIsShareModalOpen(true);
+    trackReferralEvent('referral_share_modal_opened', { reason: hasNativeShare ? 'native_cancelled_or_failed' : 'desktop_fallback' });
   };
 
   return (
@@ -126,7 +154,10 @@ export default function ReferralWidget({
                 {isEn ? 'Store Balance' : 'Saldo da Loja'}
               </p>
               <button
-                onClick={() => setIsModalOpen(true)}
+                onClick={() => {
+                  setIsModalOpen(true);
+                  trackReferralEvent('referral_info_opened');
+                }}
                 className="flex items-center gap-1 text-[10px] text-yellow-500 hover:text-yellow-400 transition-colors bg-yellow-500/10 px-1.5 py-0.5 rounded cursor-pointer"
               >
                 <Info className="w-3 h-3" />
@@ -143,6 +174,15 @@ export default function ReferralWidget({
                 </span>
               )}
             </div>
+            {storeCredits > 0 && (
+              <Link
+                href={isEn ? '/en/store' : '/loja'}
+                onClick={() => trackReferralEvent('referral_store_cta_clicked', { source: 'balance' })}
+                className="mt-2 inline-flex items-center gap-1.5 text-xs font-bold text-yellow-400 hover:text-yellow-300 transition-colors"
+              >
+                {isEn ? 'Use balance in store' : 'Usar saldo na loja'}
+              </Link>
+            )}
           </div>
         </div>
 
@@ -152,7 +192,8 @@ export default function ReferralWidget({
             <p className="text-[10px] text-slate-400 uppercase tracking-widest font-bold mb-2">{isEn ? 'Your Code' : 'O Teu Código'}</p>
             <button
               onClick={() => {
-                navigator.clipboard.writeText(referralCode);
+                void navigator.clipboard.writeText(referralCode);
+                trackReferralEvent('referral_code_copied');
                 setCopiedWidgetCode(true);
                 setTimeout(() => setCopiedWidgetCode(false), 3000);
               }}
@@ -229,24 +270,24 @@ export default function ReferralWidget({
                   </div>
                   <div className="flex gap-3">
                     <div className="w-6 h-6 rounded-full bg-yellow-500/20 text-yellow-500 flex items-center justify-center text-xs font-bold shrink-0">2</div>
-                    <p className="text-sm text-slate-300">{isEn ? 'Your friend registers and completes their first donation to support the Mission.' : 'O teu amigo regista-se e finaliza o seu primeiro donativo para apoiar a Missão.'}</p>
+                    <p className="text-sm text-slate-300">{isEn ? 'Your friend becomes a member and their first membership fee is confirmed.' : 'O teu amigo torna-se membro e a primeira quota de membro é confirmada.'}</p>
                   </div>
                   <div className="flex gap-3">
                     <div className="w-6 h-6 rounded-full bg-yellow-500/20 text-yellow-500 flex items-center justify-center text-xs font-bold shrink-0">3</div>
                     <p className="text-sm text-slate-300">
                       {isEn ? (
-                        <><strong>You both get {formatPrice(2.50)}</strong> instantly credited to this virtual wallet!</>
+                        <><strong>You both get {formatPrice(2.50)}</strong> credited to this virtual wallet.</>
                       ) : (
-                        <><strong>Ganham ambos {formatPrice(2.50)}</strong> creditados na hora nesta carteira virtual!</>
+                        <><strong>Ganham ambos {formatPrice(2.50)}</strong> creditados nesta carteira virtual.</>
                       )}
                     </p>
                   </div>
                   <div className="bg-white/5 rounded-lg p-3 border border-white/10 mt-2">
                     <p className="text-xs text-slate-400 leading-relaxed">
                       {isEn ? (
-                        <>You can accumulate balance based on the number of people you invite. The entire amount can (and should) be exchanged for items, books or donations in our <strong>Online Store</strong>.</>
+                        <>You can accumulate balance based on the number of people you invite. The full amount can be exchanged for books, devotional items, and mission materials in our <strong>Online Store</strong>.</>
                       ) : (
-                        <>Podes acumular saldo consoante o número de pessoas que convidares. Todo o valor pode (e deve) ser trocado por artigos, livros ou doações na nossa <strong>Loja Online</strong>.</>
+                        <>Podes acumular saldo consoante o número de pessoas que convidares. Todo o valor pode ser trocado por livros, artigos devocionais e materiais da missão na nossa <strong>Loja Online</strong>.</>
                       )}
                     </p>
                   </div>
@@ -310,6 +351,7 @@ export default function ReferralWidget({
                       navigator.clipboard.writeText(
                         `${shareText}\n\n${shareUrl}`,
                       );
+                      trackReferralEvent('referral_message_copied');
                       setCopiedText(true);
                       setTimeout(() => setCopiedText(false), 3000);
                     }}
@@ -339,7 +381,8 @@ export default function ReferralWidget({
                     />
                     <button
                       onClick={() => {
-                        navigator.clipboard.writeText(shareUrl);
+                        void navigator.clipboard.writeText(shareUrl);
+                        trackReferralEvent('referral_link_copied');
                         setCopiedLink(true);
                         setTimeout(() => setCopiedLink(false), 3000);
                       }}

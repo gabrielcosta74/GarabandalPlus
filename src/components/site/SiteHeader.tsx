@@ -215,72 +215,72 @@ export default function SiteHeader() {
     );
   };
 
-  return (
-    <>
-      {/* 
-        SMART HEADER 
-        - Auto-hides on mobile when scrolling down for better UX
-        - Always Visible on Desktop
-        - Glassmorphism on scroll
-      */}
-      <header
-        className={`fixed top-0 left-0 right-0 z-[100] h-20 flex items-center transition-transform duration-500 bg-black/60 backdrop-blur-md shadow-lg shadow-black/10 border-b border-white/10 ${hidden ? '-translate-y-full lg:translate-y-0' : 'translate-y-0'}`}
-      >
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
-
-          {/* 1. Logo Area */}
-          <Link href="/" className="flex items-center gap-3 group z-50 focus:outline-none">
-            <div className="w-10 h-10 flex items-center justify-center rounded-xl font-serif font-bold text-xl shadow-lg transition-all duration-300 bg-white text-slate-900 shadow-white/10">
-              G
-            </div>
-            <div className="flex flex-col">
-              <span className="font-serif text-xl font-bold tracking-tight leading-tight transition-colors duration-300 text-white drop-shadow-md">
-                Garabandal
-              </span>
-              <span className="text-[10px] font-bold uppercase tracking-[0.2em] transition-colors duration-300 text-white/80 drop-shadow-md">
-                Apostolado
-              </span>
-            </div>
-          </Link>
-
-          {/* 2. Desktop Navigation */}
-          <div className={`hidden lg:flex items-center gap-1 p-1.5 rounded-full transition-all duration-300 ${scrolled ? 'bg-black/20 border border-white/10' : 'bg-white/10 backdrop-blur-sm border border-white/10'}`}>
-            {[
-              { href: t.urls.home, label: t.nav.home },
-              { href: t.urls.pilgrimages, label: t.nav.pilgrimages },
-              { href: t.urls.donations, label: t.nav.donations },
-              { href: t.urls.auction, label: t.nav.auction },
-              { href: t.urls.store, label: t.nav.store },
-              ...(user ? [{ href: t.urls.myRegistrations, label: t.nav.myRegistrations }] : []),
-            ].map(link => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className={`
-                  relative group px-5 py-2 text-[14px] font-bold tracking-wide transition-colors duration-300 rounded-full
-                  ${(pathname === link.href)
-                    ? 'text-slate-900 bg-white shadow-lg shadow-white/20'
-                    : '!text-white/90 hover:!text-white hover:!bg-white/10'
-                  }
-                `}
-              >
-                {link.label}
-              </Link>
-            ))}
-
-            <Link
-              href={membershipHref}
-              className={`
-                  ml-2 px-6 py-2 rounded-full text-[14px] font-bold tracking-wide transition-all duration-300 transform hover:scale-105 active:scale-95
-                  ${hasMembership
-                  ? 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200 shadow-sm'
-                  : 'bg-gradient-to-r from-yellow-500 to-amber-600 text-white shadow-lg shadow-yellow-500/30'
-                }
-                `}
-            >
-              {hasMembership ? t.nav.memberArea : t.nav.becomeMember}
+    return (
+      <>
+        {/* 
+          SMART HEADER 
+          - Auto-hides on mobile when scrolling down for better UX
+          - Always Visible on Desktop
+          - Light Glassmorphism on scroll
+        */}
+        <header
+          className={`fixed top-0 left-0 right-0 z-[100] h-20 hidden lg:flex items-center transition-all duration-300 ${scrolled ? 'bg-white/95 backdrop-blur-md shadow-sm border-b border-slate-200' : 'bg-transparent pt-2'} ${hidden ? '-translate-y-full lg:translate-y-0' : 'translate-y-0'}`}
+        >
+          <div className="container mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
+  
+            {/* 1. Logo Area */}
+            <Link href="/" className="flex items-center gap-3 group z-50 focus:outline-none">
+              <div className="w-10 h-10 flex items-center justify-center rounded-xl font-serif font-bold text-xl shadow-sm transition-all duration-300 bg-garabandal-dark text-white">
+                G
+              </div>
+              <div className="flex flex-col">
+                <span className="font-serif text-xl font-bold tracking-tight leading-tight transition-colors duration-300 text-garabandal-dark">
+                  Garabandal
+                </span>
+                <span className="text-[10px] font-bold uppercase tracking-[0.2em] transition-colors duration-300 text-slate-500">
+                  Apostolado
+                </span>
+              </div>
             </Link>
-          </div>
+  
+            {/* 2. Desktop Navigation */}
+            <div className={`hidden lg:flex items-center gap-1 p-1 rounded-full transition-all duration-300 ${scrolled ? 'bg-transparent' : 'bg-white/50 backdrop-blur-md shadow-sm border border-slate-200/50'}`}>
+              {[
+                { href: t.urls.home, label: t.nav.home },
+                { href: t.urls.pilgrimages, label: t.nav.pilgrimages },
+                { href: t.urls.donations, label: t.nav.donations },
+                { href: t.urls.auction, label: t.nav.auction },
+                { href: t.urls.store, label: t.nav.store },
+                ...(user ? [{ href: t.urls.myRegistrations, label: t.nav.myRegistrations }] : []),
+              ].map(link => (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className={`
+                    relative group px-5 py-2 text-[14px] font-bold tracking-wide transition-all duration-300 rounded-full
+                    ${(pathname === link.href)
+                      ? 'text-garabandal-dark bg-garabandal-gold/20 shadow-sm'
+                      : 'text-slate-600 hover:text-garabandal-dark hover:bg-slate-100/80'
+                    }
+                  `}
+                >
+                  {link.label}
+                </Link>
+              ))}
+  
+              <Link
+                href={membershipHref}
+                className={`
+                    ml-2 px-6 py-2 rounded-full text-[14px] font-bold tracking-wide transition-all duration-300 transform hover:scale-105 active:scale-95
+                    ${hasMembership
+                    ? 'bg-garabandal-gold/20 text-garabandal-dark hover:bg-garabandal-gold/30 shadow-sm'
+                    : 'bg-garabandal-gold text-garabandal-dark shadow-md hover:shadow-lg'
+                  }
+                  `}
+              >
+                {hasMembership ? t.nav.memberArea : t.nav.becomeMember}
+              </Link>
+            </div>
 
           {/* 3. Actions Area (Cart, User, Mobile Toggle) */}
           <div className="flex items-center gap-3">
@@ -297,7 +297,7 @@ export default function SiteHeader() {
                   router.push(ptPath);
                 }
               }}
-              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider transition-all bg-white/10 border border-white/20 hover:bg-white/20 backdrop-blur-md text-white"
+              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider transition-all bg-white/50 border border-slate-200 hover:bg-white backdrop-blur-md text-slate-700 hover:text-garabandal-dark shadow-sm"
               aria-label="Switch language"
             >
               {locale === 'pt' ? '🇬🇧 EN' : '🇵🇹 PT'}
@@ -307,12 +307,12 @@ export default function SiteHeader() {
             <div className="relative group">
               <Link
                 href="/loja-online/checkout"
-                className="relative flex items-center justify-center w-10 h-10 rounded-full transition-all duration-300 bg-white/10 text-white hover:bg-white/20 border border-white/10 backdrop-blur-md"
+                className="relative flex items-center justify-center w-10 h-10 rounded-full transition-all duration-300 bg-white/50 text-slate-700 hover:bg-white hover:text-garabandal-dark border border-slate-200 backdrop-blur-md shadow-sm"
                 aria-label={t.nav.cart.label}
               >
-                <ShoppingBag className="w-5 h-5 text-white" />
+                <ShoppingBag className="w-5 h-5" />
                 {cartCount > 0 && (
-                  <span className="absolute -top-1 -right-1 w-5 h-5 flex items-center justify-center bg-yellow-500 text-white text-[10px] font-bold rounded-full shadow-sm ring-2 ring-white">
+                  <span className="absolute -top-1 -right-1 w-5 h-5 flex items-center justify-center bg-garabandal-gold text-garabandal-dark text-[10px] font-bold rounded-full shadow-sm ring-2 ring-white">
                     {cartCount}
                   </span>
                 )}
@@ -339,7 +339,7 @@ export default function SiteHeader() {
                       ))}
                     </div>
                     <div className="p-3 border-t border-slate-100">
-                      <Link href={t.urls.checkout} className="flex w-full items-center justify-center py-2.5 px-4 bg-yellow-600 text-white text-sm font-bold rounded-xl hover:bg-yellow-700 transition-colors shadow-lg shadow-yellow-900/10">
+                      <Link href={t.urls.checkout} className="flex w-full items-center justify-center py-2.5 px-4 bg-garabandal-gold text-garabandal-dark text-sm font-bold rounded-xl hover:brightness-105 transition-colors shadow-sm">
                         {t.nav.cart.checkout}
                       </Link>
                     </div>
@@ -356,9 +356,9 @@ export default function SiteHeader() {
                     <div className="relative">
                       <button
                         onClick={() => setUserMenuOpen(!userMenuOpen)}
-                        className="flex items-center gap-3 pl-1 pr-4 py-1.5 rounded-full transition-all cursor-pointer group bg-white/10 border border-white/20 hover:bg-white/20 backdrop-blur-md !text-white"
+                        className="flex items-center gap-3 pl-1 pr-4 py-1.5 rounded-full transition-all cursor-pointer group bg-white/50 border border-slate-200 hover:bg-white backdrop-blur-md text-slate-700 shadow-sm"
                       >
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-slate-800 to-slate-900 text-yellow-500 flex items-center justify-center font-serif font-bold text-lg border-2 border-white shadow-sm">
+                        <div className="w-8 h-8 rounded-full bg-slate-100 text-garabandal-dark flex items-center justify-center font-serif font-bold text-sm border border-slate-200">
                           {memberData?.avatar_url ? (
                             <img src={memberData.avatar_url} alt="Profile" className="w-full h-full object-cover rounded-full" />
                           ) : (
@@ -367,7 +367,7 @@ export default function SiteHeader() {
 
                         </div>
                         <div className="flex flex-col items-start">
-                          <span className="text-xs font-bold leading-none text-white">
+                          <span className="text-xs font-bold leading-none text-garabandal-dark">
                             {t.nav.userMenu.myAccount}
                           </span>
                         </div>
@@ -375,7 +375,7 @@ export default function SiteHeader() {
                           animate={{ rotate: userMenuOpen ? 180 : 0 }}
                           transition={{ duration: 0.2 }}
                         >
-                          <ChevronDown className="w-4 h-4 text-white/60 group-hover:text-white" />
+                          <ChevronDown className="w-4 h-4 text-slate-400 group-hover:text-garabandal-dark" />
                         </motion.div>
                       </button>
 
@@ -528,13 +528,12 @@ export default function SiteHeader() {
                     </div>
                   ) : !loading && (
                     <div className="flex items-center gap-3">
-                      <Link href={t.urls.login} className="text-sm font-bold transition-colors !text-white hover:text-white/80">
+                      <Link href={t.urls.login} className="text-[14px] font-bold transition-colors text-slate-600 hover:text-garabandal-dark bg-white/50 border border-slate-200 backdrop-blur-md px-5 py-2.5 rounded-full shadow-sm hover:bg-white">
                         {t.nav.signIn}
                       </Link>
                       <Link
                         href={t.urls.register}
-                        className="px-5 py-2.5 text-white text-sm font-bold rounded-full shadow-lg shadow-yellow-900/20 transition-all hover:scale-105"
-                        style={{ backgroundColor: '#ca8a04' }}
+                        className="px-5 py-2.5 bg-garabandal-gold text-garabandal-dark text-[14px] font-bold rounded-full shadow-md transition-all hover:scale-105 hover:shadow-lg"
                       >
                         {t.nav.createAccount}
                       </Link>
@@ -547,10 +546,10 @@ export default function SiteHeader() {
             {/* Mobile Menu Toggle */}
             <button
               onClick={() => setIsMobileOpen(true)}
-              className="lg:hidden p-2 rounded-xl transition-colors focus:outline-none text-white hover:bg-white/10"
+              className="lg:hidden p-2 rounded-xl transition-colors focus:outline-none text-slate-700 hover:text-garabandal-dark hover:bg-slate-100/80 bg-white/50 backdrop-blur-md border border-slate-200 shadow-sm"
               aria-label={t.nav.openMenu}
             >
-              <Menu className="w-7 h-7" />
+              <Menu className="w-6 h-6" />
             </button>
           </div>
         </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { BookOpen, Users, GraduationCap, ArrowRight, Church, Mic2, Ticket } from "lucide-react";
+import { BookOpen, Users, GraduationCap, ArrowRight, Church, Mic2, Ticket, ScrollText, Sparkles } from "lucide-react";
 import { useLocale } from "../../contexts/LocaleContext";
 
 export default function MembershipBenefits() {
@@ -19,6 +19,31 @@ export default function MembershipBenefits() {
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+                    {/* --- FEATURED: PRIVATE DOCUMENTATION (Golden) --- */}
+                    <div className="lg:col-span-12 relative group rounded-[2.5rem] overflow-hidden shadow-2xl min-h-[340px] flex flex-col justify-center p-10 lg:p-14 bg-gradient-to-br from-[#1a1407] via-[#2a1f0a] to-black ring-1 ring-amber-500/30">
+                        <div className="absolute inset-0 bg-[url('/images/igrejagarabandal.webp')] bg-cover bg-center opacity-15 group-hover:opacity-25 transition-opacity duration-700" />
+                        <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/60 to-transparent" />
+                        <div className="absolute -top-24 -right-24 w-96 h-96 rounded-full bg-amber-500/20 blur-3xl" />
+
+                        <div className="relative z-10 max-w-2xl">
+                            <span className="inline-flex items-center gap-2 mb-6 px-4 py-1.5 rounded-full bg-amber-400/15 border border-amber-400/40 text-amber-300 text-xs font-bold uppercase tracking-widest">
+                                <Sparkles size={14} /> {b.archiveBadge}
+                            </span>
+                            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center mb-6 text-black shadow-lg shadow-amber-500/30">
+                                <ScrollText size={32} />
+                            </div>
+                            <h3 className="text-3xl md:text-4xl font-serif text-white mb-4">
+                                <span className="bg-gradient-to-r from-amber-200 to-amber-400 bg-clip-text text-transparent">{b.archive}</span>
+                            </h3>
+                            <p className="text-gray-200 text-lg leading-relaxed mb-6">
+                                {b.archiveDesc}
+                            </p>
+                            <div className="flex items-center gap-2 text-amber-300 text-sm font-bold uppercase tracking-widest group-hover:text-amber-200 transition-colors">
+                                {b.archiveLink} <ArrowRight size={14} />
+                            </div>
+                        </div>
+                    </div>
 
                     {/* --- ROW 1 (High Priority Multimedia & Books) --- */}
 

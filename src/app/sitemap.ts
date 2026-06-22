@@ -5,6 +5,8 @@ import { buildProductPath } from '../lib/slug';
 import { getPilgrimageSeoImages } from '../lib/seo';
 import { localizeStoreProductText } from '../lib/store-i18n';
 import { type StoreProductSitemapRecord } from '../lib/store-products';
+import { CATEGORIES, PUBLIC_NAV_ORDER, type CategoryKey } from '../lib/cms/categories';
+import { hreflangKey } from '../lib/content/locale-paths';
 
 export const revalidate = 3600;
 
@@ -75,6 +77,19 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.8,
     },
     {
+      url: `${APP_URL}/leilao`,
+      lastModified: now,
+      changeFrequency: 'daily',
+      priority: 0.85,
+      alternates: {
+        languages: {
+          'pt-BR': `${APP_URL}/leilao`,
+          'pt-PT': `${APP_URL}/leilao`,
+          en: `${APP_URL}/en/auction`,
+        },
+      },
+    },
+    {
       url: `${APP_URL}/tornar-membro`,
       lastModified: now,
       changeFrequency: 'monthly',
@@ -131,6 +146,19 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.6,
     },
     {
+      url: `${APP_URL}/en/auction`,
+      lastModified: now,
+      changeFrequency: 'daily',
+      priority: 0.7,
+      alternates: {
+        languages: {
+          en: `${APP_URL}/en/auction`,
+          'pt-BR': `${APP_URL}/leilao`,
+          'pt-PT': `${APP_URL}/leilao`,
+        },
+      },
+    },
+    {
       url: `${APP_URL}/en/become-member`,
       lastModified: now,
       changeFrequency: 'monthly',
@@ -166,6 +194,34 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: 'yearly',
       priority: 0.15,
     },
+    // ── Content category landings (gated until NAV_V2 cutover) ───────
+    // Until Sprint 7, these routes 404 for public crawlers (preview-cookie
+    // gated), so we keep them out of the sitemap. After cutover, flip the
+    // env flag and they'll be advertised automatically.
+    ...(process.env.NEXT_PUBLIC_NAV_V2 === '1'
+      ? [...PUBLIC_NAV_ORDER, 'noticias' as const].flatMap((key: CategoryKey) => {
+          const cfg = CATEGORIES[key];
+          const ptUrl = `${APP_URL}/${cfg.pt.slug}`;
+          const enUrl = `${APP_URL}/en/${cfg.en.slug}`;
+          const langs = { 'pt-BR': ptUrl, en: enUrl };
+          return [
+            {
+              url: ptUrl,
+              lastModified: now,
+              changeFrequency: 'weekly' as const,
+              priority: 0.85,
+              alternates: { languages: langs },
+            },
+            {
+              url: enUrl,
+              lastModified: now,
+              changeFrequency: 'weekly' as const,
+              priority: 0.75,
+              alternates: { languages: langs },
+            },
+          ];
+        })
+      : []),
     // ── Legal ────────────────────────────────────────────────────────
     {
       url: `${APP_URL}/termos`,
@@ -298,6 +354,155 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         });
       }
     });
+
+    // ── Active auction items ────────────────────────────────────────────
+    const { data: auctionItems } = await supabaseServer
+      .from('auction_items')
+      .select('id, updated_at, created_at, images, ends_at')
+      .in('status', ['active', 'awaiting_payment'])
+      .order('ends_at', { ascending: true });
+
+    (auctionItems || []).forEach((it: any) => {
+      if (!it?.id) return;
+      const url = `${APP_URL}/leilao/${it.id}`;
+      const cover = Array.isArray(it.images) && it.images[0] ? getAbsoluteImageUrl(it.images[0]) : undefined;
+      dynamicRoutes.push({
+        url,
+        lastModified: getSitemapDate(it.updated_at || it.created_at, now),
+        changeFrequency: 'hourly',
+        priority: 0.75,
+        images: cover ? [cover] : undefined,
+      });
+    });
+
+    // ── Migrated devotional content (wp_pages + posts) ──────────────────
+    // Only emit when status='published'. Drafts stay invisible to crawlers.
+    const [{ data: pubPages }, { data: pubPosts }] = await Promise.all([
+      supabaseServer
+        .from('wp_pages')
+        .select('slug, locale, updated_at, og_image_url')
+        .eq('status', 'published'),
+      supabaseServer
+        .from('posts')
+        .select('slug, locale, updated_at, published_at, cover_image_url, og_image_url')
+        .eq('status', 'published'),
+    ]);
+
+    // Blog index pages — only emit when there are actually posts to list.
+    if ((pubPosts?.length ?? 0) > 0) {
+      const ptPosts = pubPosts!.filter((p) => p.locale === 'pt');
+      const enPosts = pubPosts!.filter((p) => p.locale === 'en');
+      const esPosts = pubPosts!.filter((p) => p.locale === 'es');
+      const frPosts = pubPosts!.filter((p) => p.locale === 'fr');
+      const itPosts = pubPosts!.filter((p) => p.locale === 'it');
+      const langs: Record<string, string> = {
+        'pt-BR': `${APP_URL}/l`,
+        en: `${APP_URL}/en/l`,
+      };
+      if (esPosts.length > 0) langs.es = `${APP_URL}/es/l`;
+      if (frPosts.length > 0) langs.fr = `${APP_URL}/fr/l`;
+      if (itPosts.length > 0) langs.it = `${APP_URL}/it/l`;
+      if (ptPosts.length > 0) {
+        const latest = ptPosts.reduce((acc, p) => (p.updated_at > acc ? p.updated_at : acc), ptPosts[0].updated_at);
+        dynamicRoutes.push({
+          url: `${APP_URL}/l`,
+          lastModified: getSitemapDate(latest, now),
+          changeFrequency: 'weekly',
+          priority: 0.8,
+          alternates: { languages: langs },
+        });
+      }
+      if (enPosts.length > 0) {
+        const latest = enPosts.reduce((acc, p) => (p.updated_at > acc ? p.updated_at : acc), enPosts[0].updated_at);
+        dynamicRoutes.push({
+          url: `${APP_URL}/en/l`,
+          lastModified: getSitemapDate(latest, now),
+          changeFrequency: 'weekly',
+          priority: 0.7,
+          alternates: { languages: langs },
+        });
+      }
+      if (esPosts.length > 0) {
+        const latest = esPosts.reduce((acc, p) => (p.updated_at > acc ? p.updated_at : acc), esPosts[0].updated_at);
+        dynamicRoutes.push({
+          url: `${APP_URL}/es/l`,
+          lastModified: getSitemapDate(latest, now),
+          changeFrequency: 'weekly',
+          priority: 0.7,
+          alternates: { languages: langs },
+        });
+      }
+      if (frPosts.length > 0) {
+        const latest = frPosts.reduce((acc, p) => (p.updated_at > acc ? p.updated_at : acc), frPosts[0].updated_at);
+        dynamicRoutes.push({
+          url: `${APP_URL}/fr/l`,
+          lastModified: getSitemapDate(latest, now),
+          changeFrequency: 'weekly',
+          priority: 0.7,
+          alternates: { languages: langs },
+        });
+      }
+      if (itPosts.length > 0) {
+        const latest = itPosts.reduce((acc, p) => (p.updated_at > acc ? p.updated_at : acc), itPosts[0].updated_at);
+        dynamicRoutes.push({
+          url: `${APP_URL}/it/l`,
+          lastModified: getSitemapDate(latest, now),
+          changeFrequency: 'weekly',
+          priority: 0.7,
+          alternates: { languages: langs },
+        });
+      }
+    }
+
+    // Group by slug to build hreflang maps cheaply.
+    const pageBySlug = new Map<string, Array<{ slug: string; locale: string; updated_at: string; og_image_url: string | null }>>();
+    for (const r of (pubPages ?? []) as any[]) {
+      const arr = pageBySlug.get(r.slug) ?? [];
+      arr.push(r);
+      pageBySlug.set(r.slug, arr);
+    }
+    for (const [slug, rows] of pageBySlug) {
+      const langs: Record<string, string> = {};
+      for (const r of rows) {
+        langs[hreflangKey(r.locale as 'pt' | 'en' | 'es')] = `${APP_URL}${r.locale === 'pt' ? '' : '/' + r.locale}/${slug}`;
+      }
+      for (const r of rows) {
+        const url = `${APP_URL}${r.locale === 'pt' ? '' : '/' + r.locale}/${slug}`;
+        dynamicRoutes.push({
+          url,
+          lastModified: getSitemapDate(r.updated_at, now),
+          changeFrequency: 'monthly',
+          priority: 0.7,
+          images: r.og_image_url ? [r.og_image_url] : undefined,
+          alternates: { languages: langs },
+        });
+      }
+    }
+
+    const postBySlug = new Map<string, Array<{ slug: string; locale: string; updated_at: string; published_at: string | null; cover_image_url: string | null; og_image_url: string | null }>>();
+    for (const r of (pubPosts ?? []) as any[]) {
+      const arr = postBySlug.get(r.slug) ?? [];
+      arr.push(r);
+      postBySlug.set(r.slug, arr);
+    }
+    for (const [slug, rows] of postBySlug) {
+      const langs: Record<string, string> = {};
+      for (const r of rows) {
+        langs[hreflangKey(r.locale as 'pt' | 'en' | 'es')] = `${APP_URL}${r.locale === 'pt' ? '' : '/' + r.locale}/l/${slug}`;
+      }
+      for (const r of rows) {
+        const url = `${APP_URL}${r.locale === 'pt' ? '' : '/' + r.locale}/l/${slug}`;
+        const cover = r.cover_image_url ?? r.og_image_url;
+        dynamicRoutes.push({
+          url,
+          lastModified: getSitemapDate(r.updated_at, now),
+          changeFrequency: 'weekly',
+          priority: 0.65,
+          images: cover ? [cover] : undefined,
+          alternates: { languages: langs },
+        });
+      }
+    }
   } catch {
     return baseRoutes;
   }

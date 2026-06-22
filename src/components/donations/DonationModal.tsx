@@ -39,7 +39,7 @@ interface DonationModalProps {
 }
 
 export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
-    const { formatPrice } = useCurrency();
+    const { formatPrice, formatEUR, currency } = useCurrency();
     const { locale } = useLocale();
     const isEn = locale === 'en';
     const [step, setStep] = useState(1);
@@ -393,7 +393,10 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
                             <div className="relative z-10 space-y-6">
                                 <div className="bg-white/10 rounded-2xl p-4 backdrop-blur-md">
                                     <span className="text-xs text-garabandal-gold uppercase tracking-wider font-bold">{isEn ? 'Amount' : 'Valor'}</span>
-                                    <div className="text-3xl font-serif mt-1">{formatPrice(amount)}</div>
+                                    <div className="text-3xl font-serif mt-1">{formatEUR(amount)}</div>
+                                    {currency !== 'EUR' && (
+                                        <div className="text-base text-white/60 font-semibold mt-0.5">≈ {formatPrice(amount)}</div>
+                                    )}
                                 </div>
                             </div>
                         </div>
@@ -443,8 +446,11 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
 
                                                     <div>
                                                         <div className="text-xl font-serif font-bold text-garabandal-dark mb-0.5">
-                                                            {formatPrice(option.value)}
+                                                            {formatEUR(option.value)}
                                                         </div>
+                                                        {currency !== 'EUR' && (
+                                                            <div className="text-sm text-gray-500 font-semibold mb-0.5">≈ {formatPrice(option.value)}</div>
+                                                        )}
                                                         <div className="font-bold text-xs text-gray-900 mb-1">{option.label}</div>
                                                         <div className="text-[10px] leading-tight text-gray-500 line-clamp-2">
                                                             {option.impact}
@@ -568,7 +574,10 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
                                         <div className="text-center">
                                             <h2 className="text-2xl font-bold text-garabandal-dark mb-2">{isEn ? 'Bank Transfer Details' : 'Dados da Transferência'}</h2>
                                             <p className="text-gray-500 text-sm">
-                                                {isEn ? <>To complete the donation of <strong>{formatPrice(amount)}</strong>.</> : <>Para concluir a doação de <strong>{formatPrice(amount)}</strong>.</>}
+                                                {isEn
+                                                ? <>To complete the donation of <strong>{formatEUR(amount)}</strong>{currency !== 'EUR' && <> (≈ {formatPrice(amount)})</>}.</>
+                                                : <>Para concluir a doação de <strong>{formatEUR(amount)}</strong>{currency !== 'EUR' && <> (≈ {formatPrice(amount)})</>}.</>
+                                            }
                                             </p>
                                         </div>
 

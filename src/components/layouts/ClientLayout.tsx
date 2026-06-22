@@ -2,7 +2,7 @@
 
 import { ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
-import SiteHeader from '../site/SiteHeader';
+import SiteHeaderSwitch from '../site/SiteHeaderSwitch';
 import SiteFooter from '../site/SiteFooter';
 import { CurrencyProvider } from '../providers/CurrencyProvider';
 import { AuthProvider } from '../../contexts/AuthContext';
@@ -16,9 +16,11 @@ import CookieConsentBanner from '../privacy/CookieConsentBanner';
 export default function ClientLayout({
     children,
     locale,
+    navV2Enabled = false,
 }: {
     children: ReactNode;
     locale?: LocaleCode;
+    navV2Enabled?: boolean;
 }) {
     const pathname = usePathname();
     const resolvedLocale: LocaleCode = locale ?? (pathname?.startsWith('/en') ? 'en' : 'pt');
@@ -33,7 +35,7 @@ export default function ClientLayout({
                 <AuthLandingGuard />
                 <PublicAnalytics />
                 <CurrencyProvider>
-                    {!hideHeader && <SiteHeader />}
+                    {!hideHeader && <SiteHeaderSwitch navV2Enabled={navV2Enabled} />}
                     {!hideHeader && <AuctionWinnerBanner />}
                     {children}
                     {!hideFooter && <SiteFooter />}

@@ -76,8 +76,14 @@ export const isNovemberCampaignPilgrimage = (pilgrimage: CampaignPilgrimage) => 
 export const getAvailabilityHighlightLabel = (
     remainingSpots: number,
     locale: 'pt' | 'en' = 'pt',
-    _pilgrimage?: CampaignPilgrimage,
+    pilgrimage?: CampaignPilgrimage,
 ) => {
+    // A peregrinação de novembro não usa o aviso de "Últimas vagas":
+    // mostra apenas o rótulo neutro de lugares limitados.
+    if (pilgrimage && isNovemberCampaignPilgrimage(pilgrimage)) {
+        return locale === 'en' ? 'Limited spots' : 'Lugares limitados';
+    }
+
     return getPublicAvailabilityLabel(remainingSpots, locale);
 };
 

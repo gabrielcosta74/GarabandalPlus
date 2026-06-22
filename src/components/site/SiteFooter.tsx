@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Facebook, Instagram, Mail } from 'lucide-react';
+import { Youtube, Instagram, Mail } from 'lucide-react';
 import { useLocale } from '../../contexts/LocaleContext';
 
 export default function SiteFooter() {
@@ -36,12 +36,12 @@ export default function SiteFooter() {
                 <span>geral@apostoladodegarabandal.com</span>
               </li>
             </ul>
-            <div className="flex space-x-4 mt-6">
-              <a href="#" className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-garabandal-gold hover:text-white transition-all">
-                <Facebook size={18} />
+            <div className="flex gap-4 mt-6">
+              <a href="https://www.youtube.com/@apostoladodegarabandal" target="_blank" rel="noreferrer" aria-label="YouTube" className="w-12 h-12 rounded-xl bg-white/10 border border-white/20 flex items-center justify-center text-white shadow-lg transition-all hover:-translate-y-1 hover:border-transparent hover:bg-[#ff0000] hover:shadow-[0_10px_30px_-6px_rgba(255,0,0,0.6)]">
+                <Youtube size={22} strokeWidth={2.25} />
               </a>
-              <a href="https://www.instagram.com/apostoladodegarabandaloficial/" target="_blank" rel="noreferrer" className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-garabandal-gold hover:text-white transition-all">
-                <Instagram size={18} />
+              <a href="https://www.instagram.com/apostoladodegarabandaloficial/" target="_blank" rel="noreferrer" aria-label="Instagram" className="w-12 h-12 rounded-xl bg-white/10 border border-white/20 flex items-center justify-center text-white shadow-lg transition-all hover:-translate-y-1 hover:border-transparent hover:bg-gradient-to-br hover:from-[#f58529] hover:via-[#dd2a7b] hover:to-[#8134af] hover:shadow-[0_10px_30px_-6px_rgba(221,42,123,0.6)]">
+                <Instagram size={22} strokeWidth={2.25} />
               </a>
             </div>
           </div>

@@ -2,8 +2,8 @@
 
 import React, { useRef } from 'react';
 import { motion, useScroll, useTransform } from 'framer-motion';
-import { HERO_IMAGE_URL, HERO_CONTENT, OFFICIAL_SITE_URL } from './constants';
-import { ChevronDown, ArrowRight, Globe } from 'lucide-react';
+import { HERO_IMAGE_URL, HERO_CONTENT } from './constants';
+import { ChevronDown, ArrowRight, Heart, HandHeart } from 'lucide-react';
 import Link from 'next/link';
 import { useAuth } from '../../contexts/AuthContext';
 import { useLocale } from '../../contexts/LocaleContext';
@@ -17,56 +17,34 @@ const Hero: React.FC = () => {
         offset: ["start start", "end start"]
     });
 
-    const y = useTransform(scrollYProgress, [0, 1], ["0%", "30%"]);
     const opacity = useTransform(scrollYProgress, [0, 0.8], [1, 0]);
     const textY = useTransform(scrollYProgress, [0, 1], ["0%", "50%"]);
 
     return (
-        <section ref={ref} className="relative h-screen w-full overflow-hidden flex items-center justify-center bg-black">
-            {/* Cinematic Background Layer */}
-            <motion.div
-                style={{ y, opacity }}
-                className="absolute inset-0 z-0"
-            >
-                <div
-                    className="absolute inset-0 bg-cover bg-center bg-no-repeat scale-105"
-                    style={{ backgroundImage: `url(${HERO_IMAGE_URL})` }}
-                />
-
-                {/* Premium Dark Overlay - Disney+ Style Gradient */}
-                {/* Vignette effect + bottom fade + overall darken */}
-                <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black/90 z-10" />
-                <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent z-10" />
-                <div className="absolute inset-0 bg-black/20 z-10" />
-                {/* Radial gradient to focus center */}
-                <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_transparent_0%,_rgba(0,0,0,0.6)_100%)] z-10" />
-            </motion.div>
-
-            {/* Content Layer */}
-            <div className="relative z-20 container mx-auto px-6 h-full flex flex-col justify-center items-center text-center">
+        <section ref={ref} className="relative min-h-screen w-full overflow-hidden flex bg-garabandal-mist">
+            {/* Left Content Half */}
+            <div className="relative z-20 w-full lg:w-[55%] min-h-screen flex flex-col justify-end lg:justify-center px-6 sm:px-12 lg:px-20 xl:px-32 pb-28 pt-32 lg:py-0">
                 <motion.div
                     style={{ y: textY }}
-                    className="max-w-5xl"
+                    className="max-w-2xl"
                 >
-                    {/* Main Title - Premium Cinematic Typography */}
+                    {/* Main Title */}
                     <motion.h1
-                        initial={{ opacity: 0, scale: 0.95, y: 20 }}
-                        animate={{ opacity: 1, scale: 1, y: 0 }}
-                        transition={{ duration: 1.4, ease: [0.16, 1, 0.3, 1], delay: 0.2 }} // Custom ease for cinematic slow feel
-                        className="font-serif text-6xl md:text-8xl lg:text-9xl text-white mb-8 leading-tight tracking-tight drop-shadow-2xl"
+                        initial={{ opacity: 0, x: -30 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ duration: 1.2, ease: "easeOut", delay: 0.2 }}
+                        className="font-serif text-4xl sm:text-5xl md:text-7xl lg:text-[5.5rem] text-white lg:text-garabandal-dark drop-shadow-xl lg:drop-shadow-none mb-5 sm:mb-6 leading-[1.05] tracking-tight"
                     >
-                        <span className="bg-clip-text text-transparent bg-gradient-to-b from-white via-white to-white/70">
-                            {HERO_CONTENT.title}
-                        </span>
+                        {locale === 'en' ? 'Garabandal Apostolate' : HERO_CONTENT.title}
                     </motion.h1>
 
                     <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 1.2, delay: 0.8, ease: "easeOut" }}
-                        className="mt-6 mb-12"
+                        initial={{ opacity: 0, x: -30 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ duration: 1.2, delay: 0.6, ease: "easeOut" }}
+                        className="mb-8 sm:mb-10"
                     >
-                        <p className="text-lg md:text-xl text-white/90 font-sans font-light tracking-wide max-w-2xl mx-auto leading-relaxed drop-shadow-lg">
+                        <p className="text-base sm:text-lg md:text-xl text-white/90 lg:text-slate-600 font-sans font-medium leading-relaxed drop-shadow lg:drop-shadow-none">
                             {locale === 'en'
                                 ? 'The official space of the Garabandal Apostolate Association. A place of faith, prayer and sharing the Message.'
                                 : HERO_CONTENT.subtitle}
@@ -74,61 +52,69 @@ const Hero: React.FC = () => {
                     </motion.div>
 
                     <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 1, delay: 1.2, ease: "easeOut" }}
-                        className="flex flex-col md:flex-row gap-6 justify-center items-center"
+                        initial={{ opacity: 0, x: -30 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ duration: 1, delay: 0.9, ease: "easeOut" }}
+                        className="flex w-full flex-row flex-nowrap items-stretch gap-2.5 sm:gap-3"
                     >
                         {(!loading && isAuthenticated && isMember) ? (
                             <Link
                                 href={t.urls.member}
-                                style={{ color: '#000000' }}
-                                className="group relative z-50 bg-gradient-to-r from-amber-300 via-amber-400 to-amber-500 text-black px-10 py-5 rounded-full text-xs font-black uppercase tracking-[0.2em] hover:scale-105 transition-all duration-300 min-w-[240px] flex items-center justify-center gap-3 shadow-[0_0_40px_-5px_rgba(251,191,36,0.6)] hover:shadow-[0_0_60px_-10px_rgba(251,191,36,0.8)]"
+                                className="group inline-flex min-h-14 flex-[1.5] items-center justify-center gap-2 rounded-2xl bg-garabandal-gold px-2 sm:px-5 py-4 text-center text-sm sm:text-base font-bold tracking-tight text-garabandal-dark ring-1 ring-garabandal-gold/50 shadow-[0_10px_28px_-6px_rgba(212,175,55,0.7)] transition-all duration-300 hover:-translate-y-0.5 hover:bg-[#c9a431] hover:shadow-[0_14px_34px_-8px_rgba(212,175,55,0.85)]"
                             >
-                                <span className="relative z-10 text-black">{locale === 'en' ? 'Go to Member Area' : 'Ir para área de membro'}</span>
-                                <div className="absolute inset-0 bg-white/30 rounded-full blur-md opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                                <ArrowRight size={14} className="relative z-10 stroke-[3px] transition-transform duration-300 group-hover:translate-x-1 text-black" />
+                                <span className="truncate">{locale === 'en' ? 'Member Area' : 'Área de Membro'}</span>
+                                <ArrowRight size={17} className="shrink-0 transition-transform duration-300 group-hover:translate-x-1" />
                             </Link>
 
                         ) : (
                             <Link
                                 href={t.urls.becomeMember}
-                                style={{ color: '#000000' }}
-                                className="group relative z-50 bg-gradient-to-r from-amber-300 via-amber-400 to-amber-500 text-black px-10 py-5 rounded-full text-xs font-black uppercase tracking-[0.2em] hover:scale-105 transition-all duration-300 min-w-[240px] flex items-center justify-center gap-3 shadow-[0_0_40px_-5px_rgba(251,191,36,0.6)] hover:shadow-[0_0_60px_-10px_rgba(251,191,36,0.8)]"
+                                className="group inline-flex min-h-14 flex-[1.5] items-center justify-center gap-2 rounded-2xl bg-garabandal-gold px-2 sm:px-5 py-4 text-center text-sm sm:text-base font-bold tracking-tight text-garabandal-dark ring-1 ring-garabandal-gold/50 shadow-[0_10px_28px_-6px_rgba(212,175,55,0.7)] transition-all duration-300 hover:-translate-y-0.5 hover:bg-[#c9a431] hover:shadow-[0_14px_34px_-8px_rgba(212,175,55,0.85)]"
                             >
-                                <span className="relative z-10 text-black">{locale === 'en' ? 'Become an Official Member' : HERO_CONTENT.cta}</span>
-                                <div className="absolute inset-0 bg-white/30 rounded-full blur-md opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                                <ArrowRight size={14} className="relative z-10 stroke-[3px] transition-transform duration-300 group-hover:translate-x-1 text-black" />
+                                <span className="truncate">{locale === 'en' ? 'Become a Member' : 'Tornar-se Membro'}</span>
+                                <ArrowRight size={17} className="shrink-0 transition-transform duration-300 group-hover:translate-x-1" />
                             </Link>
                         )}
 
                         <Link
                             href={t.urls.donations}
-                            className="group relative px-10 py-5 rounded-full text-xs font-bold uppercase tracking-[0.15em] text-white border border-white/20 hover:bg-white/10 hover:border-white/40 transition-all duration-300 min-w-[200px] backdrop-blur-md flex items-center justify-center overflow-hidden"
+                            className="group inline-flex min-h-14 flex-1 items-center justify-center gap-2 rounded-2xl bg-garabandal-gold px-2 sm:px-5 py-4 text-center text-sm sm:text-base font-semibold tracking-tight text-garabandal-dark shadow-[0_6px_20px_-8px_rgba(212,175,55,0.5)] transition-all duration-300 hover:-translate-y-0.5 hover:bg-[#c9a431] hover:shadow-[0_8px_24px_-8px_rgba(212,175,55,0.55)]"
                         >
-                            <span className="relative z-10">{locale === 'en' ? 'Make a Donation' : 'Fazer Doação'}</span>
-                            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-in-out" />
+                            <Heart size={17} className="shrink-0 transition-transform duration-300 group-hover:scale-110" />
+                            <span className="truncate">{locale === 'en' ? 'Donate' : 'Doar'}</span>
                         </Link>
 
-                        <a
-                            href={OFFICIAL_SITE_URL}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="group px-10 py-4 rounded-md text-xs font-bold uppercase tracking-[0.2em] text-white/60 hover:text-white transition-all duration-500 min-w-[200px] flex items-center justify-center gap-2"
+                        <Link
+                            href={t.urls.intentions}
+                            className="group inline-flex min-h-14 flex-1 items-center justify-center gap-2 rounded-2xl bg-garabandal-gold px-2 sm:px-5 py-4 text-center text-sm sm:text-base font-semibold tracking-tight text-garabandal-dark shadow-[0_6px_20px_-8px_rgba(212,175,55,0.5)] transition-all duration-300 hover:-translate-y-0.5 hover:bg-[#c9a431] hover:shadow-[0_8px_24px_-8px_rgba(212,175,55,0.55)]"
                         >
-                            <Globe size={14} />
-                            {locale === 'en' ? 'Official Website' : 'Site Oficial'}
-                        </a>
+                            <HandHeart size={17} className="shrink-0 transition-transform duration-300 group-hover:scale-110" />
+                            <span className="truncate">{locale === 'en' ? 'Prayer requests' : 'Pedidos de oração'}</span>
+                        </Link>
                     </motion.div>
                 </motion.div>
             </div>
 
+            {/* Image: full-bleed background on mobile, right half on desktop */}
             <motion.div
-                className="absolute bottom-8 left-1/2 -translate-x-1/2 z-20 text-white/20"
-                animate={{ y: [0, 8, 0], opacity: [0.3, 0.8, 0.3] }}
+                style={{ opacity }}
+                className="absolute inset-0 lg:static lg:w-[45%] h-full z-0 lg:z-10"
+            >
+                <div
+                    className="absolute inset-0 bg-cover bg-center bg-no-repeat lg:rounded-bl-[4rem] shadow-2xl"
+                    style={{ backgroundImage: `url(${HERO_IMAGE_URL})` }}
+                />
+                {/* Mobile: dark scrim concentrated at the bottom so the image stays
+                    visible up top while the white text below remains readable */}
+                <div className="absolute inset-0 lg:hidden bg-gradient-to-t from-garabandal-dark/90 via-garabandal-dark/45 to-garabandal-dark/10" />
+            </motion.div>
+
+            <motion.div
+                className="absolute bottom-8 left-1/2 -translate-x-1/2 lg:left-[27.5%] z-20 text-garabandal-gold"
+                animate={{ y: [0, 8, 0], opacity: [0.6, 1, 0.6] }}
                 transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
             >
-                <ChevronDown size={32} strokeWidth={1} />
+                <ChevronDown size={32} strokeWidth={2.5} />
             </motion.div>
         </section>
     );

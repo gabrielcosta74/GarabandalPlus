@@ -3,10 +3,14 @@ import HomePageClient from '../../components/home/HomePageClient';
 import type { Metadata } from 'next';
 import { getPilgrimagesAction } from '../peregrinacoes/actions';
 import { getFeaturedProducts } from '../loja-online/actions';
+import { getHomeContent } from '../../lib/cms/home';
+import { getLatestVideos } from '../../lib/youtube';
+import { getPublicStatuses } from '../../lib/content/preview';
 import { APP_URL } from '../../lib/config';
 import { DEFAULT_OG_IMAGE, SITE_NAME } from '../../lib/seo';
 
-export const revalidate = 300;
+// Dynamic so the homepage is preview-aware (admins see draft content pre-cutover).
+export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
   title: {
@@ -53,7 +57,9 @@ export default async function EnHomePage() {
   const meta = await loadMeta();
   const { data: pilgrimages } = await getPilgrimagesAction();
   const featuredProducts = await getFeaturedProducts();
+  const homeContent = await getHomeContent('en', await getPublicStatuses());
+  const lives = await getLatestVideos(9);
   const upcomingPilgrimages = pilgrimages || [];
 
-  return <HomePageClient meta={meta} pilgrimages={upcomingPilgrimages} featuredProducts={featuredProducts} />;
+  return <HomePageClient meta={meta} pilgrimages={upcomingPilgrimages} featuredProducts={featuredProducts} homeContent={homeContent} lives={lives} locale="en" />;
 }

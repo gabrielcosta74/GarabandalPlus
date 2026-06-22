@@ -28,8 +28,8 @@ export const MemberLoginEmail = ({
     email = "membro@exemplo.com",
     tempPassword = "TEMP_PASSWORD_AQUI",
     memberNumber = 123,
-    loginUrl = "https://app.apostoladodegarabandal.com/login",
-    profileUrl = "https://app.apostoladodegarabandal.com/account/profile",
+    loginUrl = "https://apostoladodegarabandal.com/login",
+    profileUrl = "https://apostoladodegarabandal.com/account/profile",
 }: MemberLoginEmailProps) => {
     const previewText = `Acesso à sua nova Área de Membro do Apostolado de Garabandal.`;
 
@@ -41,7 +41,7 @@ export const MemberLoginEmail = ({
                 <Container style={container}>
                     <Section style={header}>
                         <Img
-                            src="https://app.apostoladodegarabandal.com/images/nossasenhoragarabandal.jpg"
+                            src="https://apostoladodegarabandal.com/images/nossasenhoragarabandal.jpg"
                             width="64"
                             height="64"
                             alt="Apostolado de Garabandal"
@@ -135,7 +135,7 @@ const header = {
     padding: "48px 40px",
     textAlign: "center" as const,
     backgroundColor: "#0F172A",
-    backgroundImage: "linear-gradient(rgba(15,23,42,0.95), rgba(15,23,42,0.95)), url('https://app.apostoladodegarabandal.com/images/nossasenhoragarabandal.jpg')",
+    backgroundImage: "linear-gradient(rgba(15,23,42,0.95), rgba(15,23,42,0.95)), url('https://apostoladodegarabandal.com/images/nossasenhoragarabandal.jpg')",
     backgroundSize: "cover",
     backgroundPosition: "center",
 };

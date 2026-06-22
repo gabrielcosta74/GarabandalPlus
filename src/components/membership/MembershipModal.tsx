@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Check, Lock, ChevronLeft, CreditCard, Eye, EyeOff, QrCode, Gift } from "lucide-react";
 import { supabaseBrowser } from "../../lib/supabase-browser";
+import { captureAnalyticsEvent } from "../../lib/analytics";
 import { useAuth } from "../../contexts/AuthContext";
 import {
     formatPostalCode,
@@ -111,6 +112,7 @@ export default function MembershipModal({ isOpen, onClose, impact, referralCode 
     const termsUrl = t.urls.terms;
     const privacyUrl = t.urls.privacy;
     const membershipAmount = getMembershipAmountClient();
+    const modalOpenTrackedRef = useRef(false);
     const [step, setStep] = useState(1);
     const [slideIndex, setSlideIndex] = useState(0);
 
@@ -154,6 +156,7 @@ export default function MembershipModal({ isOpen, onClose, impact, referralCode 
 
     const selectedPayment = UNIFIED_ONLINE_PAYMENT_OPTIONS.find((o) => o.id === selectedPaymentId) || UNIFIED_ONLINE_PAYMENT_OPTIONS[0];
     const { user: authUser, memberData: authMemberData, refreshMemberData } = useAuth();
+    const hasReferralCode = Boolean(manualReferralCode.trim() || referralCode);
     const getModalReturnPath = (refCode = manualReferralCode.trim()) => {
         const params = new URLSearchParams({ join: "1" });
         if (refCode) params.set("ref", refCode);
@@ -166,6 +169,47 @@ export default function MembershipModal({ isOpen, onClose, impact, referralCode 
         cbUrl.searchParams.set('next', getModalReturnPath(refCode));
         return cbUrl.toString();
     };
+
+    const trackMembershipEvent = (
+        event: string,
+        properties: Record<string, string | number | boolean | null | undefined> = {},
+    ) => {
+        captureAnalyticsEvent(event, {
+            area: 'membership',
+            locale,
+            step,
+            auth_mode: authMode,
+            has_referral_code: hasReferralCode,
+            has_session: Boolean(sessionUserId),
+            ...properties,
+        });
+    };
+
+    useEffect(() => {
+        if (!isOpen) {
+            modalOpenTrackedRef.current = false;
+            return;
+        }
+        if (modalOpenTrackedRef.current) return;
+        modalOpenTrackedRef.current = true;
+        captureAnalyticsEvent('membership_modal_opened', {
+            area: 'membership',
+            locale,
+            has_referral_code: hasReferralCode,
+        });
+    }, [isOpen, locale, hasReferralCode]);
+
+    useEffect(() => {
+        if (!isOpen) return;
+        captureAnalyticsEvent('membership_modal_step_viewed', {
+            area: 'membership',
+            locale,
+            step,
+            auth_mode: authMode,
+            has_referral_code: hasReferralCode,
+            has_session: Boolean(sessionUserId),
+        });
+    }, [isOpen, step, locale, authMode, hasReferralCode, sessionUserId]);
 
     const loadLiveMemberData = async (userId: string) => {
         if (!supabaseBrowser) return null;
@@ -296,6 +340,7 @@ export default function MembershipModal({ isOpen, onClose, impact, referralCode 
         setAuthLoading(true);
         setError(null);
         setResendMessage(null);
+        trackMembershipEvent('membership_auth_submitted', { selected_auth_mode: authMode });
 
         try {
             if (!supabaseBrowser) throw new Error(m.step1.errorUnavailable);
@@ -327,6 +372,7 @@ export default function MembershipModal({ isOpen, onClose, impact, referralCode 
                 if (!data.session) {
                     setPendingConfirmationEmail(email);
                     setResendMessage(m.step1.accountCreatedCheck);
+                    trackMembershipEvent('membership_auth_email_confirmation_required', { selected_auth_mode: 'signup' });
                     setAuthLoading(false);
                     return;
                 }
@@ -334,6 +380,7 @@ export default function MembershipModal({ isOpen, onClose, impact, referralCode 
                 setSessionEmail(data.user.email ?? email);
                 setIsNewAccount(true);
                 setPendingConfirmationEmail(null);
+                trackMembershipEvent('membership_auth_completed', { selected_auth_mode: 'signup' });
                 setStep(2);
             } else {
                 if (!supabaseBrowser) throw new Error(m.step1.errorUnavailable);
@@ -356,9 +403,11 @@ export default function MembershipModal({ isOpen, onClose, impact, referralCode 
                     liveData?.postal_code &&
                     liveData?.country
                 );
+                trackMembershipEvent('membership_auth_completed', { selected_auth_mode: 'login' });
                 setStep(isComplete ? 3 : 2);
             }
         } catch (err) {
+            trackMembershipEvent('membership_auth_failed', { selected_auth_mode: authMode });
             setError(err instanceof Error ? err.message : m.step1.errorGeneric);
         } finally {
             setAuthLoading(false);
@@ -440,11 +489,21 @@ export default function MembershipModal({ isOpen, onClose, impact, referralCode 
             }
             throw new Error(`${m.step2.errorSave}: ${error.message || '—'} `);
         }
+        trackMembershipEvent('membership_profile_saved', {
+            country: countryMeta?.code || null,
+            has_nif: Boolean(formData.nif.trim()),
+        });
     };
 
     const handlePayment = async () => {
         setPaymentError(null);
         setAuthLoading(true);
+        trackMembershipEvent('membership_payment_submitted', {
+            payment_provider: selectedPayment.provider,
+            payment_option_id: selectedPaymentId,
+            membership_amount: membershipAmount,
+            country: countryMeta?.code || null,
+        });
         try {
             if (!sessionUserId) throw new Error(m.step3.errorSession);
             await saveProfile(sessionUserId);
@@ -472,8 +531,17 @@ export default function MembershipModal({ isOpen, onClose, impact, referralCode 
 
             // Stripe Redirect
             setPaymentUrl(data.url);
+            trackMembershipEvent('membership_checkout_created', {
+                payment_provider: selectedPayment.provider,
+                payment_option_id: selectedPaymentId,
+                membership_amount: membershipAmount,
+            });
             setStep(4);
         } catch (err) {
+            trackMembershipEvent('membership_checkout_failed', {
+                payment_provider: selectedPayment.provider,
+                payment_option_id: selectedPaymentId,
+            });
             setPaymentError(err instanceof Error ? err.message : m.step3.errorPayment);
         } finally {
             setAuthLoading(false);

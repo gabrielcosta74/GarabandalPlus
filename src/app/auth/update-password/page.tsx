@@ -6,7 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import AuthLayout, { PremiumInput } from '../../../components/auth/AuthLayout';
 import { supabaseBrowser } from '../../../lib/supabase-browser';
 import { motion } from 'framer-motion';
-import { ArrowRight, Loader2, AlertCircle, CheckCircle2, Lock } from 'lucide-react';
+import { ArrowRight, Loader2, AlertCircle, CheckCircle2, Lock, KeyRound } from 'lucide-react';
 import { detectUpdatePasswordAuthPayload } from '../../../lib/auth-redirects';
 
 export default function UpdatePasswordPage() {
@@ -16,15 +16,39 @@ export default function UpdatePasswordPage() {
     const homePath = isEn ? '/en/member' : '/';
     const loginPath = isEn ? '/en/login' : '/login';
     const updatePath = isEn ? '/en/auth/update-password' : '/auth/update-password';
+
+    // Code-entry mode is driven by the URL query (?mode=code&email=...), set when
+    // the user comes from the "Recover Account" page. It is link-free, so it is
+    // immune to email-client link scanners (e.g. Hotmail/Outlook SafeLinks) that
+    // can consume or break one-time recovery links before the user clicks them.
+    const [codeMode, setCodeMode] = useState<boolean>(() => {
+        if (typeof window === 'undefined') return false;
+        const params = new URLSearchParams(window.location.search);
+        return params.get('mode') === 'code' || !!params.get('email');
+    });
+    const [recoveryEmail, setRecoveryEmail] = useState<string>(() => {
+        if (typeof window === 'undefined') return '';
+        return (new URLSearchParams(window.location.search).get('email') || '').trim().toLowerCase();
+    });
+    const [code, setCode] = useState('');
+
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [success, setSuccess] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
-    const [checkingSession, setCheckingSession] = useState(true);
+    // In code mode there is no link to process, so skip the session-detection spinner.
+    const [checkingSession, setCheckingSession] = useState(() => {
+        if (typeof window === 'undefined') return true;
+        const params = new URLSearchParams(window.location.search);
+        return !(params.get('mode') === 'code' || !!params.get('email'));
+    });
 
-    // Verify if user is authenticated (which happens after auth-callback redirect)
+    // Verify if user is authenticated (which happens after auth-callback redirect).
+    // Only runs for the link-based flow; the code-entry flow handles its own auth.
     useEffect(() => {
+        if (codeMode) return;
+
         let cancelled = false;
         const watchdog = window.setTimeout(() => {
             if (cancelled) return;
@@ -134,12 +158,27 @@ export default function UpdatePasswordPage() {
             window.clearTimeout(watchdog);
             subscription.unsubscribe();
         };
-    }, [router]);
+    }, [router, codeMode]);
 
-    const canSubmit = useMemo(() =>
-        password.trim().length >= 6 &&
-        password === confirmPassword,
+    // Let users who got a broken link (e.g. SafeLinks) switch to entering the
+    // 6-digit code that is also included in the recovery email.
+    const switchToCodeMode = () => {
+        setError(null);
+        setCodeMode(true);
+        setCheckingSession(false);
+    };
+
+    const passwordOk = useMemo(() =>
+        password.trim().length >= 6 && password === confirmPassword,
         [password, confirmPassword]);
+
+    const canSubmit = useMemo(() => {
+        if (!passwordOk) return false;
+        if (codeMode) {
+            return /^\d{6}$/.test(code.trim()) && recoveryEmail.includes('@');
+        }
+        return true;
+    }, [passwordOk, codeMode, code, recoveryEmail]);
 
     const handlePasswordUpdate = async (event: React.FormEvent) => {
         event.preventDefault();
@@ -151,9 +190,26 @@ export default function UpdatePasswordPage() {
         try {
             if (!supabaseBrowser) throw new Error(isEn ? 'Supabase client not initialised.' : 'Cliente Supabase não inicializado.');
 
-            // Double check session
-            const { data: { session } } = await supabaseBrowser.auth.getSession();
-            if (!session) throw new Error(isEn ? 'Session expired. Please reload the page.' : 'Sessão expirada. Recarregue a página.');
+            if (codeMode) {
+                // Establish a recovery session from the 6-digit code (link-free).
+                console.log("🔑 [UpdatePassword] Verifying recovery code...");
+                const { error: verifyError } = await supabaseBrowser.auth.verifyOtp({
+                    email: recoveryEmail.trim().toLowerCase(),
+                    token: code.trim(),
+                    type: 'recovery',
+                });
+
+                if (verifyError) {
+                    console.error("🚨 [UpdatePassword] verifyOtp (code) error:", verifyError);
+                    throw new Error(isEn
+                        ? 'Invalid or expired code. Request a new recovery email.'
+                        : 'Código inválido ou expirado. Peça um novo email de recuperação.');
+                }
+            } else {
+                // Double check session (established via the recovery link).
+                const { data: { session } } = await supabaseBrowser.auth.getSession();
+                if (!session) throw new Error(isEn ? 'Session expired. Please reload the page.' : 'Sessão expirada. Recarregue a página.');
+            }
 
             console.log("🔒 [UpdatePassword] Attempting update...");
 
@@ -228,6 +284,37 @@ export default function UpdatePasswordPage() {
         );
     }
 
+    // Error screen for the link-based flow: offer the code as an escape hatch.
+    if (error && !codeMode) {
+        return (
+            <AuthLayout
+                title={isEn ? 'New Password' : 'Nova Password'}
+                subtitle={isEn ? 'Set a new secure password for your account.' : 'Defina uma nova password segura para a sua conta.'}
+                backgroundImage="https://images.unsplash.com/photo-1516975080664-ed2fc6a32937?q=80&w=3570&auto=format&fit=crop"
+            >
+                <div className="space-y-6">
+                    <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-500 flex items-center gap-3 text-sm font-medium">
+                        <AlertCircle className="w-5 h-5 shrink-0" />
+                        {error}
+                    </div>
+                    <button
+                        type="button"
+                        onClick={switchToCodeMode}
+                        className="w-full py-4 rounded-xl font-bold uppercase tracking-widest text-xs flex items-center justify-center gap-2 bg-garabandal-dark text-white hover:bg-black transition-colors"
+                    >
+                        <KeyRound className="w-4 h-4" />
+                        {isEn ? 'I have a code' : 'Tenho um código'}
+                    </button>
+                    <p className="text-center text-sm text-gray-500">
+                        <Link href={isEn ? '/en/auth/forgot-password' : '/auth/forgot-password'} className="font-bold text-garabandal-dark hover:underline">
+                            {isEn ? 'Request a new recovery email' : 'Pedir novo email de recuperação'}
+                        </Link>
+                    </p>
+                </div>
+            </AuthLayout>
+        );
+    }
+
     return (
         <AuthLayout
             title={isEn ? 'New Password' : 'Nova Password'}
@@ -247,18 +334,53 @@ export default function UpdatePasswordPage() {
                     </motion.div>
                 )}
 
-                <div className="bg-yellow-50 p-4 rounded-xl border border-yellow-100 mb-6">
-                    <div className="flex gap-3">
-                        <Lock className="w-5 h-5 text-yellow-600 shrink-0 mt-0.5" />
-                        <p className="text-sm text-yellow-800 leading-relaxed">
-                            {isEn
-                                ? 'Create a password with at least 6 characters. We recommend using numbers and letters.'
-                                : 'Crie uma password com pelo menos 6 caracteres. Recomendamos usar números e letras.'}
-                        </p>
+                {codeMode ? (
+                    <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 mb-6">
+                        <div className="flex gap-3">
+                            <KeyRound className="w-5 h-5 text-blue-500 shrink-0 mt-0.5" />
+                            <p className="text-sm text-blue-700 leading-relaxed">
+                                {isEn
+                                    ? 'We emailed you a 6-digit code. Enter it below together with your new password.'
+                                    : 'Enviámos um código de 6 dígitos para o seu email. Introduza-o abaixo junto com a sua nova password.'}
+                            </p>
+                        </div>
                     </div>
-                </div>
+                ) : (
+                    <div className="bg-yellow-50 p-4 rounded-xl border border-yellow-100 mb-6">
+                        <div className="flex gap-3">
+                            <Lock className="w-5 h-5 text-yellow-600 shrink-0 mt-0.5" />
+                            <p className="text-sm text-yellow-800 leading-relaxed">
+                                {isEn
+                                    ? 'Create a password with at least 6 characters. We recommend using numbers and letters.'
+                                    : 'Crie uma password com pelo menos 6 caracteres. Recomendamos usar números e letras.'}
+                            </p>
+                        </div>
+                    </div>
+                )}
 
                 <div className="space-y-4">
+                    {codeMode && (
+                        <>
+                            <PremiumInput
+                                label={isEn ? 'Account Email' : 'Email da Conta'}
+                                type="email"
+                                placeholder="example@email.com"
+                                value={recoveryEmail}
+                                onChange={(e) => setRecoveryEmail(e.target.value)}
+                                disabled={loading}
+                            />
+                            <PremiumInput
+                                label={isEn ? '6-digit Code' : 'Código de 6 dígitos'}
+                                type="text"
+                                inputMode="numeric"
+                                placeholder="000000"
+                                value={code}
+                                onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                                disabled={loading}
+                            />
+                        </>
+                    )}
+
                     <PremiumInput
                         label={isEn ? 'New Password' : 'Nova Password'}
                         type="password"
@@ -299,6 +421,14 @@ export default function UpdatePasswordPage() {
                         </>
                     )}
                 </button>
+
+                {codeMode && (
+                    <p className="text-center text-sm text-gray-500">
+                        <Link href={isEn ? '/en/auth/forgot-password' : '/auth/forgot-password'} className="font-bold text-garabandal-dark hover:underline">
+                            {isEn ? 'Resend code' : 'Reenviar código'}
+                        </Link>
+                    </p>
+                )}
             </form>
         </AuthLayout>
     );

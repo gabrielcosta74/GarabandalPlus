@@ -2,19 +2,24 @@
 
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useLocale } from '../../contexts/LocaleContext';
 
 interface PreloaderProps {
     onComplete: () => void;
 }
 
+const WORD = 'GARABANDAL';
+const EASE = [0.22, 1, 0.36, 1] as const;
+
 const Preloader: React.FC<PreloaderProps> = ({ onComplete }) => {
+    const { locale } = useLocale();
     const [isPresent, setIsPresent] = useState(true);
 
     useEffect(() => {
         const timer = setTimeout(() => {
             setIsPresent(false);
-            setTimeout(onComplete, 400); // Allow exit animation to finish
-        }, 800);
+            setTimeout(onComplete, 700); // Allow exit animation to finish
+        }, 1100);
         return () => clearTimeout(timer);
     }, [onComplete]);
 
@@ -22,46 +27,50 @@ const Preloader: React.FC<PreloaderProps> = ({ onComplete }) => {
         <AnimatePresence>
             {isPresent && (
                 <motion.div
-                    className="fixed inset-0 z-50 flex items-center justify-center bg-garabandal-dark"
-                    initial={{ opacity: 1 }}
-                    exit={{ opacity: 0, transition: { duration: 0.4, ease: "easeInOut" } }}
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-garabandal-mist overflow-hidden"
+                    initial={{ clipPath: 'inset(0% 0% 0% 0%)' }}
+                    exit={{
+                        clipPath: 'inset(0% 0% 100% 0%)',
+                        transition: { duration: 0.7, ease: EASE },
+                    }}
                 >
-                    <div className="text-center relative px-8">
-                        <motion.div
-                            initial={{ opacity: 0, scale: 0.9 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            transition={{ duration: 0.5, ease: "easeOut" }}
-                            className="relative z-10 flex flex-col items-center"
+                    <div className="relative flex flex-col items-center px-8">
+                        {/* Eyebrow */}
+                        <motion.span
+                            initial={{ opacity: 0, letterSpacing: '0.2em' }}
+                            animate={{ opacity: 1, letterSpacing: '0.5em' }}
+                            transition={{ delay: 0.15, duration: 0.6, ease: EASE }}
+                            className="mb-5 ml-[0.5em] text-[0.65rem] md:text-xs font-medium uppercase text-garabandal-gold"
                         >
-                            {/* Top: Apostolado */}
-                            <motion.p
-                                initial={{ opacity: 0, y: 10 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                transition={{ delay: 0.1, duration: 0.3 }}
-                                className="text-garabandal-gold/90 mb-4 font-light text-xs md:text-sm tracking-[0.4em] uppercase"
-                            >
-                                Apostolado
-                            </motion.p>
+                            {locale === 'en' ? 'Apostolate' : 'Apostolado'}
+                        </motion.span>
 
-                            {/* Divider */}
-                            <motion.div
-                                className="h-px bg-white/20 mb-6"
-                                initial={{ width: 0 }}
-                                animate={{ width: "80px" }}
-                                transition={{ delay: 0.2, duration: 0.4, ease: "easeInOut" }}
-                            />
+                        {/* Wordmark — letter mask reveal */}
+                        <h1 className="flex font-serif text-4xl md:text-6xl tracking-[0.15em] text-garabandal-dark uppercase">
+                            {WORD.split('').map((char, i) => (
+                                <span key={i} className="inline-block overflow-hidden">
+                                    <motion.span
+                                        className="inline-block"
+                                        initial={{ y: '110%' }}
+                                        animate={{ y: '0%' }}
+                                        transition={{
+                                            delay: 0.25 + i * 0.05,
+                                            duration: 0.7,
+                                            ease: EASE,
+                                        }}
+                                    >
+                                        {char}
+                                    </motion.span>
+                                </span>
+                            ))}
+                        </h1>
 
-                            {/* Bottom: Garabandal */}
-                            <h1 className="font-serif text-4xl md:text-6xl text-white tracking-widest uppercase shadow-black drop-shadow-lg">
-                                Garabandal
-                            </h1>
-                        </motion.div>
-
-                        {/* Ambient Background Glow */}
+                        {/* Hairline that draws across */}
                         <motion.div
-                            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-garabandal-gold/10 rounded-full blur-3xl pointer-events-none"
-                            animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.6, 0.3] }}
-                            transition={{ duration: 4, repeat: Infinity }}
+                            className="mt-6 h-px w-40 origin-center bg-gradient-to-r from-transparent via-garabandal-gold to-transparent"
+                            initial={{ scaleX: 0, opacity: 0 }}
+                            animate={{ scaleX: 1, opacity: 1 }}
+                            transition={{ delay: 0.75, duration: 0.7, ease: EASE }}
                         />
                     </div>
                 </motion.div>

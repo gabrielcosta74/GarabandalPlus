@@ -24,6 +24,21 @@ export type MemberFeature =
   | 'content_view'
   | 'other';
 
+export type MemberActivityEventType =
+  | 'page_view'
+  | 'content_view'
+  | 'referral_widget_viewed'
+  | 'referral_info_opened'
+  | 'referral_share_clicked'
+  | 'referral_native_share_completed'
+  | 'referral_share_modal_opened'
+  | 'referral_code_copied'
+  | 'referral_message_copied'
+  | 'referral_link_copied'
+  | 'referral_store_cta_clicked';
+
+type MemberActivityMetadata = Record<string, string | number | boolean | null | undefined>;
+
 // Maps both PT (/member/...) and EN (/en/member/...) route segments to a feature key.
 const SEGMENT_TO_FEATURE: Record<string, MemberFeature> = {
   novenas: 'novenas',
@@ -76,20 +91,38 @@ function localeFromPath(pathname: string): string {
   return pathname.startsWith('/en') ? 'en' : 'pt';
 }
 
-/** Records a page view in the members area. Never throws. */
-export async function trackPageView(userId: string, pathname: string): Promise<void> {
+function sanitizeMetadata(metadata: MemberActivityMetadata = {}) {
+  return Object.fromEntries(
+    Object.entries(metadata).filter(([, value]) => value !== undefined),
+  );
+}
+
+/** Records a member-area event. Never throws. */
+export async function trackMemberEvent(
+  userId: string,
+  eventType: MemberActivityEventType,
+  pathname: string,
+  metadata: MemberActivityMetadata = {},
+): Promise<void> {
   if (!supabaseBrowser || !userId) return;
   try {
     await supabaseBrowser.from('member_activity').insert({
       user_id: userId,
       path: pathname,
       feature: deriveFeature(pathname),
+      event_type: eventType,
+      metadata: sanitizeMetadata(metadata),
       locale: localeFromPath(pathname),
       session_id: getSessionId(),
     });
   } catch {
     /* telemetry must never break the UI */
   }
+}
+
+/** Records a page view in the members area. Never throws. */
+export async function trackPageView(userId: string, pathname: string): Promise<void> {
+  await trackMemberEvent(userId, 'page_view', pathname);
 }
 
 /** Records a member opening a specific private-content item. Never throws. */
@@ -104,7 +137,9 @@ export async function trackContentView(
       user_id: userId,
       path: pathname,
       feature: 'content_view',
+      event_type: 'content_view',
       content_id: contentId,
+      metadata: {},
       locale: localeFromPath(pathname),
       session_id: getSessionId(),
     });

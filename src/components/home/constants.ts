@@ -16,7 +16,7 @@ export const NAVIGATION_LINKS = [
 
 export const HERO_CONTENT = {
     quote: '"É preciso fazer muitos sacrifícios e muita penitência..."',
-    title: "Garabandal +",
+    title: "Apostolado de Garabandal",
     subtitle: "O espaço oficial da Associação do Apostolado de Garabandal. Um lugar de fé, oração e divulgação da Mensagem.",
     cta: "Tornar-se Membro Oficial"
 };

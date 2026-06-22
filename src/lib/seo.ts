@@ -1,7 +1,7 @@
 import { APP_URL } from './config';
 
 export const SITE_NAME = 'Apostolado de Garabandal';
-export const BRAND_NAME = 'Garabandal +';
+export const BRAND_NAME = 'Apostolado de Garabandal';
 export const ORGANIZATION_ID = `${APP_URL}/#organization`;
 export const WEBSITE_ID = `${APP_URL}/#website`;
 

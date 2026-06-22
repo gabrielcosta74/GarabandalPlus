@@ -28,7 +28,7 @@ export const metadata: Metadata = {
         description: 'A sua doação apoia peregrinações marianas, evangelização e obras de caridade. Aceitamos PIX, cartão, MB WAY e transferência bancária.',
         type: 'website',
         locale: 'pt_BR',
-        siteName: 'Garabandal +',
+        siteName: 'Apostolado de Garabandal',
         images: [{ url: `${APP_URL}/opengraph-image`, width: 1200, height: 630, alt: 'Doações — Apostolado de Garabandal' }],
     },
 };

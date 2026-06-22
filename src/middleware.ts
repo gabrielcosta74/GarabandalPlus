@@ -1,9 +1,34 @@
 import { createServerClient } from "@supabase/ssr"
 import { NextResponse, type NextRequest } from "next/server"
+import { lookupRedirect } from "./lib/redirects-edge"
 
 export async function middleware(request: NextRequest) {
+    const pathname = request.nextUrl.pathname;
+
+    // 1. Public 301s from the migration. Run BEFORE auth so the smallest
+    //    possible amount of work happens for redirected URLs (which are mostly
+    //    crawlers and old backlinks). Internal admin/api paths skip this.
+    if (
+      !pathname.startsWith('/admin') &&
+      !pathname.startsWith('/api') &&
+      !pathname.startsWith('/_next') &&
+      !pathname.startsWith('/auth') &&
+      !pathname.includes('.')
+    ) {
+      try {
+        const hit = await lookupRedirect(pathname);
+        if (hit) {
+          const url = request.nextUrl.clone();
+          url.pathname = hit.destination_path;
+          return NextResponse.redirect(url, hit.status_code);
+        }
+      } catch {
+        // fail open — never block a request if the redirect lookup misbehaves
+      }
+    }
+
     const requestHeaders = new Headers(request.headers);
-    requestHeaders.set('x-pathname', request.nextUrl.pathname);
+    requestHeaders.set('x-pathname', pathname);
     let response = NextResponse.next({
         request: {
             headers: requestHeaders,

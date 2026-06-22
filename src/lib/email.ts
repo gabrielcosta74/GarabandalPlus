@@ -520,11 +520,22 @@ export const sendAuthMagicLinkEmail = async (payload: { email: string; magicLink
   return true;
 };
 
-export const sendAuthRecoveryEmail = async (payload: { email: string; recoveryLink: string }) => {
+export const sendAuthRecoveryEmail = async (payload: { email: string; recoveryLink: string; otpCode?: string | null }) => {
   if (!resendClient) {
     console.warn('Resend nao configurado. Ignorar envio de email.');
     return false;
   }
+
+  // Some email providers (notably Hotmail/Outlook "SafeLinks") pre-open links in
+  // emails, which can consume or break the one-time recovery link before the user
+  // clicks it. We therefore also include a 6-digit code that works link-free.
+  const codeBlock = payload.otpCode
+    ? `
+        <div style="margin: 0 0 24px; padding: 16px 20px; border:1px solid #e2e8f0; border-radius:12px; background:#f8fafc;">
+          <p style="margin: 0 0 8px; color:#475569; font-size:13px;">Se o botão não funcionar, introduza este código na página de recuperação:</p>
+          <p style="margin: 0; font-size:30px; font-weight:800; letter-spacing:8px; color:#0f172a; font-family:'Courier New', monospace;">${payload.otpCode}</p>
+        </div>`
+    : '';
 
   await resendClient.emails.send({
     from: notifyFrom,
@@ -539,6 +550,7 @@ export const sendAuthRecoveryEmail = async (payload: { email: string; recoveryLi
             Definir nova password
           </a>
         </p>
+        ${codeBlock}
         <p style="margin: 0; color: #475569; font-size: 13px;">
           Se não solicitou esta recuperação, pode ignorar este email.
         </p>
@@ -738,7 +750,7 @@ export const sendAdminBankTransferAlert = async (payload: AdminBankTransferAlert
     currency: 'EUR',
   }).format(payload.totalAmount);
 
-  const adminUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://app.apostoladodegarabandal.com'}/admin/peregrinacoes`;
+  const adminUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://apostoladodegarabandal.com'}/admin/peregrinacoes`;
 
   const html = `
     <!DOCTYPE html>
@@ -764,7 +776,7 @@ export const sendAdminBankTransferAlert = async (payload: AdminBankTransferAlert
           <a href="${adminUrl}" style="display:block; background:#b45309; color:#fff; text-align:center; padding:14px 24px; border-radius:10px; font-weight:700; font-size:15px; text-decoration:none;">Ir para o Painel de Admin</a>
         </div>
         <div style="padding:16px 32px; background:#f8fafc; border-top:1px solid #e2e8f0; text-align:center;">
-          <p style="color:#94a3b8; font-size:12px; margin:0;">Apostolado de Garabandal · app.apostoladodegarabandal.com</p>
+          <p style="color:#94a3b8; font-size:12px; margin:0;">Apostolado de Garabandal · apostoladodegarabandal.com</p>
         </div>
       </div>
     </body>

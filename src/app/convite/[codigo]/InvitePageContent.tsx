@@ -1,6 +1,10 @@
+"use client";
+
+import { useEffect } from "react";
 import Link from "next/link";
-import { Gift, Heart, UserPlus } from "lucide-react";
+import { Gift, Heart, UserPlus, Church, HandHeart, BookOpen } from "lucide-react";
 import { DynamicReward } from "../../../components/store/DynamicReward";
+import { captureAnalyticsEvent } from "../../../lib/analytics";
 
 interface InvitePageContentProps {
   firstName: string;
@@ -18,6 +22,23 @@ export default function InvitePageContent({
   const becomeMemberHref = isEn
     ? `/en/become-member?ref=${codigo}`
     : `/tornar-membro?ref=${codigo}`;
+
+  useEffect(() => {
+    captureAnalyticsEvent('invite_landing_viewed', {
+      area: 'referral',
+      locale: isEn ? 'en' : 'pt',
+      has_referral_code: Boolean(codigo),
+      is_valid_invite: true,
+    });
+  }, [codigo, isEn]);
+
+  const handleAcceptInvite = () => {
+    captureAnalyticsEvent('invite_accept_clicked', {
+      area: 'referral',
+      locale: isEn ? 'en' : 'pt',
+      has_referral_code: Boolean(codigo),
+    });
+  };
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col justify-center items-center py-20 px-4">
@@ -55,28 +76,48 @@ export default function InvitePageContent({
             <p className="text-slate-600 text-lg mb-8 leading-relaxed max-w-sm mx-auto">
               {isEn ? (
                 <>
-                  The Garabandal Apostolate welcomes you with great joy. Register
-                  through this invitation and{" "}
-                  <strong>
-                    earn <DynamicReward amount={2.5} /> in immediate Credit
-                  </strong>{" "}
-                  for our Online Store.
+                  The Garabandal Apostolate welcomes you with great joy. Accept
+                  this invitation to join a community that prays, learns, and
+                  helps build the Welcome House for pilgrims.
                 </>
               ) : (
                 <>
                   O Apostolado de Garabandal acolhe-te com muita alegria.
-                  Regista-te através deste convite e{" "}
-                  <strong>
-                    ganha <DynamicReward amount={2.5} /> de Saldo imediato
-                  </strong>{" "}
-                  para a nossa Loja Online.
+                  Aceita este convite para entrares numa comunidade que reza,
+                  se forma e ajuda a levantar a Casa de Acolhimento para
+                  peregrinos.
                 </>
               )}
             </p>
 
+            <div className="grid grid-cols-3 gap-3 mb-8 text-left">
+              {[
+                {
+                  icon: Church,
+                  label: isEn ? 'Prayer' : 'Oração',
+                },
+                {
+                  icon: BookOpen,
+                  label: isEn ? 'Formation' : 'Formação',
+                },
+                {
+                  icon: HandHeart,
+                  label: isEn ? 'Mission' : 'Missão',
+                },
+              ].map(({ icon: Icon, label }) => (
+                <div key={label} className="px-2 py-2 text-center">
+                  <Icon className="w-5 h-5 mx-auto mb-2 text-garabandal-gold" />
+                  <div className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                    {label}
+                  </div>
+                </div>
+              ))}
+            </div>
+
             <div className="space-y-4">
               <Link
                 href={becomeMemberHref}
+                onClick={handleAcceptInvite}
                 className="w-full bg-yellow-500 text-slate-900 font-bold py-4 px-6 rounded-xl hover:bg-yellow-400 transition-colors shadow-lg shadow-yellow-500/20 flex items-center justify-center gap-2 text-lg"
               >
                 <UserPlus className="w-5 h-5" />
@@ -91,13 +132,15 @@ export default function InvitePageContent({
           <div className="bg-slate-50 border-t border-slate-100 py-6 px-8 text-sm text-slate-500">
             {isEn ? (
               <>
-                The <DynamicReward amount={2.5} /> will be available in your
-                account right after your first solidarity subscription ends.
+                As a welcome thank you, <DynamicReward amount={2.5} /> in store
+                credit becomes available after your first membership fee is
+                confirmed.
               </>
             ) : (
               <>
-                Os <DynamicReward amount={2.5} /> ficarão disponíveis na tua
-                conta logo após o término da primeira subscrição solidária.
+                Como agradecimento de boas-vindas, <DynamicReward amount={2.5} /> de
+                saldo para a loja fica disponível depois da primeira quota de
+                membro ser confirmada.
               </>
             )}
           </div>

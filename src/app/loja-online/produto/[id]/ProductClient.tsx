@@ -28,7 +28,7 @@ interface ProductClientProps {
 }
 
 export default function ProductClient({ product, relatedProducts }: ProductClientProps) {
-    const { formatPrice } = useCurrency();
+    const { formatPrice, formatEUR, currency } = useCurrency();
     const { locale } = useLocale();
     const isEn = locale === 'en';
     const router = useRouter();
@@ -155,9 +155,16 @@ export default function ProductClient({ product, relatedProducts }: ProductClien
 
                         {/* Price */}
                         <div className="flex items-baseline gap-4 mb-8">
-                            <span className="text-4xl font-serif text-garabandal-dark">
-                                {formatPrice(product.price)}
-                            </span>
+                            <div className="flex flex-col">
+                                <span className="text-4xl font-serif text-garabandal-dark">
+                                    {formatEUR(product.price)}
+                                </span>
+                                {currency !== 'EUR' && (
+                                    <span className="text-lg text-gray-500 font-semibold mt-0.5">
+                                        ≈ {formatPrice(product.price)}
+                                    </span>
+                                )}
+                            </div>
                             <span className="text-gray-400 text-xs uppercase tracking-wider">
                                 {formatPrice(breakdown.base)} + {formatPrice(breakdown.vat)} {isEn ? 'VAT' : 'IVA'}
                             </span>

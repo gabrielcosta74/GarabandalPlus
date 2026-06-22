@@ -27,7 +27,7 @@ export const metadata: Metadata = {
         description: 'Há mais de 16 anos a divulgar as mensagens de Nossa Senhora de Garabandal no Brasil e em Portugal.',
         type: 'website',
         locale: 'pt_BR',
-        siteName: 'Garabandal +',
+        siteName: 'Apostolado de Garabandal',
         images: [{ url: `${APP_URL}/opengraph-image`, width: 1200, height: 630, alt: 'Sobre o Apostolado de Garabandal' }],
     },
 };

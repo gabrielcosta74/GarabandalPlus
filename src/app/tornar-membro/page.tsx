@@ -29,7 +29,7 @@ export const metadata: Metadata = {
     description: 'Junte-se à missão mariana. Apoie peregrinações, evangelização e receba conteúdos exclusivos como membro do Apostolado.',
     type: 'website',
     locale: 'pt_BR',
-    siteName: 'Garabandal +',
+    siteName: 'Apostolado de Garabandal',
     images: [{ url: `${APP_URL}/opengraph-image`, width: 1200, height: 630, alt: 'Torne-se Membro — Apostolado de Garabandal' }],
   },
 };

@@ -4,7 +4,8 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Home, MapPin, Store, User, Menu } from 'lucide-react';
 import { cn } from '../../lib/utils';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { motion } from 'framer-motion';
 import { useLocale } from '../../contexts/LocaleContext';
 
 interface MobileBottomNavProps {
@@ -24,11 +25,12 @@ export default function MobileBottomNav({
 }: MobileBottomNavProps) {
     const pathname = usePathname();
     const [isVisible, setIsVisible] = useState(true);
+    const [hidden, setHidden] = useState(false);
+    const lastScroll = useRef(0);
     const { t, locale } = useLocale();
 
-    // Smart Visibility Logic
+    // Smart Visibility Logic — hide on routes with their own sticky bottom actions
     useEffect(() => {
-        // Hide on specific routes that have sticky bottom actions
         const isConflictRoute =
             (pathname?.startsWith('/peregrinacoes/') && pathname.split('/').length > 2 && !pathname.includes('/minhas-inscricoes')) ||
             (pathname?.startsWith('/en/pilgrimages/') && pathname.split('/').length > 3 && !pathname.includes('/my-registrations')) ||
@@ -39,6 +41,21 @@ export default function MobileBottomNav({
 
         setIsVisible(!isConflictRoute);
     }, [pathname]);
+
+    // Dynamic hide-on-scroll-down, reveal-on-scroll-up
+    useEffect(() => {
+        const onScroll = () => {
+            const y = window.scrollY;
+            const goingDown = y > lastScroll.current;
+            // Only react to meaningful movement to avoid jitter
+            if (Math.abs(y - lastScroll.current) > 6) {
+                setHidden(goingDown && y > 90);
+                lastScroll.current = y;
+            }
+        };
+        window.addEventListener('scroll', onScroll, { passive: true });
+        return () => window.removeEventListener('scroll', onScroll);
+    }, []);
 
     if (!isVisible) return null;
 
@@ -66,51 +83,57 @@ export default function MobileBottomNav({
         const isActive = isActiveOverride ?? (href ? (pathname === href || (href !== '/' && href !== '/en' && pathname?.startsWith(href))) : false);
 
         const content = (
-            <div className={cn(
-                "flex flex-col items-center justify-center gap-1 transition-all duration-300 ease-out",
-                isActive
-                    ? "text-garabandal-gold drop-shadow-[0_0_8px_rgba(212,175,55,0.4)] transform scale-110"
-                    : "text-slate-500 hover:text-slate-300"
-            )}>
-                <Icon className={cn("w-6 h-6", isActive && "fill-current")} strokeWidth={isActive ? 2 : 1.5} />
+            <motion.div
+                whileTap={{ scale: 0.85 }}
+                transition={{ type: 'spring', stiffness: 500, damping: 22 }}
+                className={cn(
+                    'flex flex-col items-center justify-center gap-1 transition-colors duration-300',
+                    isActive ? 'text-garabandal-gold' : 'text-slate-500'
+                )}
+            >
+                <Icon
+                    className={cn('h-6 w-6', isActive && 'fill-current')}
+                    strokeWidth={isActive ? 2.2 : 1.6}
+                />
                 <span className={cn(
-                    "text-[10px] tracking-tight leading-none",
-                    isActive ? "font-bold text-white drop-shadow-none" : "font-medium"
+                    'text-[10px] leading-none tracking-tight',
+                    isActive ? 'font-bold text-garabandal-dark' : 'font-medium'
                 )}>{label}</span>
-            </div>
+            </motion.div>
         );
 
         if (onClick) {
             return (
-                <button onClick={onClick} className="flex-1 flex items-center justify-center py-2 active:scale-90 transition-transform outline-none touch-manipulation">
+                <button onClick={onClick} className="flex flex-1 items-center justify-center py-2 outline-none touch-manipulation">
                     {content}
                 </button>
             );
         }
 
         return (
-            <Link href={href!} className="flex-1 flex items-center justify-center py-2 active:scale-90 transition-transform outline-none touch-manipulation">
+            <Link href={href!} className="flex flex-1 items-center justify-center py-2 outline-none touch-manipulation">
                 {content}
             </Link>
         );
     };
 
     return (
-        <div className="fixed bottom-0 left-0 right-0 z-[90] bg-[#0B0F19]/85 backdrop-blur-xl border-t border-white/10 shadow-[0_-8px_30px_rgba(0,0,0,0.15)] lg:hidden pb-[env(safe-area-inset-bottom,16px)]">
-            <div className="flex items-center justify-between px-2 h-16 pt-1">
+        <motion.div
+            initial={false}
+            animate={{ y: hidden ? 160 : 0 }}
+            transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
+            className="fixed bottom-0 left-0 right-0 z-[90] border-t border-white/40 bg-white/70 shadow-[0_-8px_30px_rgba(15,23,42,0.08)] backdrop-blur-2xl supports-[backdrop-filter]:bg-white/55 lg:hidden pb-[env(safe-area-inset-bottom,16px)]"
+        >
+            <div className="flex h-16 items-center justify-between px-2 pt-1">
                 <NavItem href={t.urls.home} icon={Home} label={t.mobileNav.home} />
                 <NavItem href={t.urls.pilgrimages} icon={MapPin} label={t.mobileNav.pilgrimages} />
                 <NavItem href={t.urls.store} icon={Store} label={t.mobileNav.store} />
-
-                {/* Member/Profile Tab */}
                 <NavItem
                     href={profileHref}
                     icon={User}
                     label={profileLabel}
                     isActiveOverride={isUserAreaRoute}
                 />
-
-                {/* Menu Tab */}
                 <NavItem
                     icon={Menu}
                     label={t.mobileNav.menu}
@@ -118,6 +141,6 @@ export default function MobileBottomNav({
                     isActiveOverride={isMenuOpen}
                 />
             </div>
-        </div>
+        </motion.div>
     );
 }

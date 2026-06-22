@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '../../lib/utils';
 import {
+    type LucideIcon,
     LayoutDashboard,
     Users,
     CreditCard,
@@ -17,7 +18,6 @@ import {
     BookOpen,
     Flame,
     Sparkles,
-    Calendar,
     Home,
     Plane,
     Target,
@@ -32,9 +32,23 @@ import {
     Bot,
     Megaphone,
     Activity,
+    Search,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAdminNotifications } from '../../context/AdminNotificationContext';
+
+type NavItem = {
+    label: string;
+    icon: LucideIcon;
+    href: string;
+    badge?: number;
+    target?: string;
+};
+
+type NavGroup = {
+    label: string;
+    items: NavItem[];
+};
 
 export default function AdminSidebar({ onLogout, className }: { onLogout: () => void; className?: string }) {
     const pathname = usePathname();
@@ -49,7 +63,7 @@ export default function AdminSidebar({ onLogout, className }: { onLogout: () => 
         );
     };
 
-    const navGroups = [
+    const navGroups: NavGroup[] = [
         {
             label: 'Visão Geral',
             items: [
@@ -82,6 +96,7 @@ export default function AdminSidebar({ onLogout, className }: { onLogout: () => 
             label: 'Marketing & Growth',
             items: [
                 { label: 'Marketing Platform', icon: Megaphone, href: '/admin/marketing', target: '_blank' },
+                { label: 'Search Console', icon: Search, href: '/admin/search-console' },
             ]
         },
         {
@@ -159,8 +174,9 @@ export default function AdminSidebar({ onLogout, className }: { onLogout: () => 
                                         transition={{ duration: 0.2, ease: "easeInOut" }}
                                         className="space-y-1 overflow-hidden"
                                     >
-                                        {group.items.map((item: any) => {
+                                        {group.items.map((item) => {
                                             const isActive = pathname === item.href;
+                                            const badge = item.badge || 0;
                                             return (
                                                 <Link
                                                     key={item.href}
@@ -178,9 +194,9 @@ export default function AdminSidebar({ onLogout, className }: { onLogout: () => 
                                                         className={`w-5 h-5 transition-colors ${isActive ? 'text-garabandal-dark' : 'text-white/50 group-hover:text-white'}`}
                                                     />
                                                     {item.label}
-                                                    {(item as any).badge > 0 && (
+                                                    {badge > 0 && (
                                                         <span className="ml-auto bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full shadow-sm animate-pulse">
-                                                            {(item as any).badge}
+                                                            {badge}
                                                         </span>
                                                     )}
                                                 </Link>

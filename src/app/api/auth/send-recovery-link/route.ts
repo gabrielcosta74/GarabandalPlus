@@ -88,7 +88,11 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, message: 'Link não disponível.' }, { status: 500 });
     }
 
-    const sent = await sendAuthRecoveryEmail({ email, recoveryLink });
+    // The 6-digit code is link-free and immune to email-client link scanners
+    // (e.g. Hotmail/Outlook SafeLinks). Sent alongside the link as a fallback.
+    const otpCode = data?.properties?.email_otp ?? null;
+
+    const sent = await sendAuthRecoveryEmail({ email, recoveryLink, otpCode });
     if (!sent) {
       return NextResponse.json({ success: false, message: 'Serviço de email indisponível.' }, { status: 503 });
     }
