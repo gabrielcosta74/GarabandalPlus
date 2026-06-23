@@ -51,45 +51,49 @@ const Hero: React.FC = () => {
                         </p>
                     </motion.div>
 
+                    {/* Mobile: primary CTA full-width on top, two secondary actions
+                        below in a 2-col grid (avoids the 3-in-a-row overflow).
+                        sm+ restores a single inline row. */}
                     <motion.div
                         initial={{ opacity: 0, x: -30 }}
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ duration: 1, delay: 0.9, ease: "easeOut" }}
-                        className="flex w-full flex-row flex-nowrap items-stretch gap-2.5 sm:gap-3"
+                        className="grid w-full max-w-md grid-cols-2 gap-2.5 sm:max-w-none sm:flex sm:flex-row sm:items-stretch sm:gap-3"
                     >
                         {(!loading && isAuthenticated && isMember) ? (
                             <Link
                                 href={t.urls.member}
-                                className="group inline-flex min-h-14 flex-[1.5] items-center justify-center gap-2 rounded-2xl bg-garabandal-gold px-2 sm:px-5 py-4 text-center text-sm sm:text-base font-bold tracking-tight text-garabandal-dark ring-1 ring-garabandal-gold/50 shadow-[0_10px_28px_-6px_rgba(212,175,55,0.7)] transition-all duration-300 hover:-translate-y-0.5 hover:bg-[#c9a431] hover:shadow-[0_14px_34px_-8px_rgba(212,175,55,0.85)]"
+                                className="group col-span-2 inline-flex min-h-14 items-center justify-center gap-2 rounded-2xl bg-garabandal-gold px-5 py-4 text-center text-base font-bold tracking-tight text-garabandal-dark ring-1 ring-garabandal-gold/50 shadow-[0_10px_28px_-6px_rgba(212,175,55,0.7)] transition-all duration-300 hover:-translate-y-0.5 hover:bg-[#c9a431] hover:shadow-[0_14px_34px_-8px_rgba(212,175,55,0.85)] sm:flex-[1.5]"
                             >
                                 <span className="truncate">{locale === 'en' ? 'Member Area' : 'Área de Membro'}</span>
-                                <ArrowRight size={17} className="shrink-0 transition-transform duration-300 group-hover:translate-x-1" />
+                                <ArrowRight size={18} className="shrink-0 transition-transform duration-300 group-hover:translate-x-1" />
                             </Link>
 
                         ) : (
                             <Link
                                 href={t.urls.becomeMember}
-                                className="group inline-flex min-h-14 flex-[1.5] items-center justify-center gap-2 rounded-2xl bg-garabandal-gold px-2 sm:px-5 py-4 text-center text-sm sm:text-base font-bold tracking-tight text-garabandal-dark ring-1 ring-garabandal-gold/50 shadow-[0_10px_28px_-6px_rgba(212,175,55,0.7)] transition-all duration-300 hover:-translate-y-0.5 hover:bg-[#c9a431] hover:shadow-[0_14px_34px_-8px_rgba(212,175,55,0.85)]"
+                                className="group col-span-2 inline-flex min-h-14 items-center justify-center gap-2 rounded-2xl bg-garabandal-gold px-5 py-4 text-center text-base font-bold tracking-tight text-garabandal-dark ring-1 ring-garabandal-gold/50 shadow-[0_10px_28px_-6px_rgba(212,175,55,0.7)] transition-all duration-300 hover:-translate-y-0.5 hover:bg-[#c9a431] hover:shadow-[0_14px_34px_-8px_rgba(212,175,55,0.85)] sm:flex-[1.5]"
                             >
                                 <span className="truncate">{locale === 'en' ? 'Become a Member' : 'Tornar-se Membro'}</span>
-                                <ArrowRight size={17} className="shrink-0 transition-transform duration-300 group-hover:translate-x-1" />
+                                <ArrowRight size={18} className="shrink-0 transition-transform duration-300 group-hover:translate-x-1" />
                             </Link>
                         )}
 
                         <Link
                             href={t.urls.donations}
-                            className="group inline-flex min-h-14 flex-1 items-center justify-center gap-2 rounded-2xl bg-garabandal-gold px-2 sm:px-5 py-4 text-center text-sm sm:text-base font-semibold tracking-tight text-garabandal-dark shadow-[0_6px_20px_-8px_rgba(212,175,55,0.5)] transition-all duration-300 hover:-translate-y-0.5 hover:bg-[#c9a431] hover:shadow-[0_8px_24px_-8px_rgba(212,175,55,0.55)]"
+                            className="group inline-flex min-h-14 items-center justify-center gap-2 rounded-2xl bg-white/15 px-3 py-4 text-center text-sm font-semibold tracking-tight text-white ring-1 ring-white/30 backdrop-blur-md transition-all duration-300 hover:-translate-y-0.5 hover:bg-white/25 sm:flex-1 sm:bg-white sm:text-garabandal-dark sm:ring-garabandal-gold/30 sm:shadow-[0_6px_20px_-8px_rgba(15,23,42,0.25)] sm:backdrop-blur-none sm:hover:bg-white"
                         >
-                            <Heart size={17} className="shrink-0 transition-transform duration-300 group-hover:scale-110" />
+                            <Heart size={17} className="shrink-0 text-white transition-transform duration-300 group-hover:scale-110 sm:text-garabandal-gold" />
                             <span className="truncate">{locale === 'en' ? 'Donate' : 'Doar'}</span>
                         </Link>
 
                         <Link
                             href={t.urls.intentions}
-                            className="group inline-flex min-h-14 flex-1 items-center justify-center gap-2 rounded-2xl bg-garabandal-gold px-2 sm:px-5 py-4 text-center text-sm sm:text-base font-semibold tracking-tight text-garabandal-dark shadow-[0_6px_20px_-8px_rgba(212,175,55,0.5)] transition-all duration-300 hover:-translate-y-0.5 hover:bg-[#c9a431] hover:shadow-[0_8px_24px_-8px_rgba(212,175,55,0.55)]"
+                            className="group inline-flex min-h-14 items-center justify-center gap-2 rounded-2xl bg-white/15 px-3 py-4 text-center text-sm font-semibold tracking-tight text-white ring-1 ring-white/30 backdrop-blur-md transition-all duration-300 hover:-translate-y-0.5 hover:bg-white/25 sm:flex-1 sm:bg-white sm:text-garabandal-dark sm:ring-garabandal-gold/30 sm:shadow-[0_6px_20px_-8px_rgba(15,23,42,0.25)] sm:backdrop-blur-none sm:hover:bg-white"
                         >
-                            <HandHeart size={17} className="shrink-0 transition-transform duration-300 group-hover:scale-110" />
-                            <span className="truncate">{locale === 'en' ? 'Prayer requests' : 'Pedidos de oração'}</span>
+                            <HandHeart size={17} className="shrink-0 text-white transition-transform duration-300 group-hover:scale-110 sm:text-garabandal-gold" />
+                            <span className="truncate sm:hidden">{locale === 'en' ? 'Prayers' : 'Intenções'}</span>
+                            <span className="hidden truncate sm:inline">{locale === 'en' ? 'Prayer requests' : 'Pedidos de oração'}</span>
                         </Link>
                     </motion.div>
                 </motion.div>

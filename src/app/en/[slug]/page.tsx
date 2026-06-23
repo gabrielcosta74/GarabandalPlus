@@ -2,6 +2,8 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { ArticleHero } from '../../../components/content/ArticleHero';
 import { ArticleBody } from '../../../components/content/ArticleBody';
+import { ShareBar } from '../../../components/content/ShareBar';
+import { ShareCTA } from '../../../components/content/ShareCTA';
 import { LocaleSwitcher } from '../../../components/content/LocaleSwitcher';
 import { getPageBySlug, getTranslationPeers, listAllSlugs } from '../../../lib/content/queries';
 import { getPublicStatuses } from '../../../lib/content/preview';
@@ -89,6 +91,8 @@ export default async function EnMigratedPage({ params }: { params: Promise<Param
         }
       />
       <ArticleBody html={page.content_html} />
+      <ShareBar url={`${APP_URL}/en/${slug}`} title={page.title} locale="en" />
+      <ShareCTA url={`${APP_URL}/en/${slug}`} title={page.title} locale="en" />
     </main>
   );
 }

@@ -55,6 +55,27 @@ export default function YouTubeLives({
         <p className="mx-auto mt-4 max-w-xl text-base text-slate-600">{sub}</p>
       </div>
 
+      {/* Upcoming live announcement */}
+      <div className="mb-8 flex flex-col items-center sm:mb-10">
+        <span className="mb-4 inline-flex items-center gap-2 rounded-full bg-red-600 px-4 py-1.5 text-xs font-bold uppercase tracking-wider text-white shadow-sm">
+          <span className="relative flex h-2 w-2">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white opacity-75" />
+            <span className="relative inline-flex h-2 w-2 rounded-full bg-white" />
+          </span>
+          {locale === 'pt' ? 'Próxima live · 27/06 · 14h' : 'Next live · 27/06 · 2pm'}
+        </span>
+        <div className="overflow-hidden rounded-3xl shadow-2xl ring-1 ring-black/5">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="https://pntzzuxzjnzksubbjfvj.supabase.co/storage/v1/object/public/site-content/lives/livegarabandal27.jpeg"
+            alt={locale === 'pt'
+              ? 'São Padre Pio e as aparições de Garabandal — live dia 27 de junho às 14h'
+              : 'Saint Padre Pio and the Garabandal apparitions — live on June 27 at 2pm'}
+            className="block w-full max-w-[400px]"
+          />
+        </div>
+      </div>
+
       {/* Featured player */}
       <div className="overflow-hidden rounded-3xl bg-garabandal-dark shadow-2xl ring-1 ring-black/5">
         <div className="relative aspect-video w-full">

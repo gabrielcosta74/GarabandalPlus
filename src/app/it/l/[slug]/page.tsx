@@ -4,6 +4,8 @@ import Link from 'next/link';
 import { Calendar, Clock } from 'lucide-react';
 import { ArticleHero } from '../../../../components/content/ArticleHero';
 import { ArticleBody } from '../../../../components/content/ArticleBody';
+import { ShareBar } from '../../../../components/content/ShareBar';
+import { ShareCTA } from '../../../../components/content/ShareCTA';
 import { LocaleSwitcher } from '../../../../components/content/LocaleSwitcher';
 import { BlogCard } from '../../../../components/content/BlogCard';
 import { getPostBySlug, getTranslationPeers, listAllSlugs, listPosts } from '../../../../lib/content/queries';
@@ -145,6 +147,8 @@ export default async function ItPostPage({ params }: { params: Promise<Params> }
         }
       />
       <ArticleBody html={post.content_html} />
+      <ShareBar url={`${APP_URL}/it/l/${slug}`} title={post.title} locale="it" />
+      <ShareCTA url={`${APP_URL}/it/l/${slug}`} title={post.title} locale="it" />
 
       {more.length > 0 && (
         <section

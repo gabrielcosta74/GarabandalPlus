@@ -325,6 +325,32 @@ export async function cmsListCategoryHighlights(
   return [...featured, ...rest].slice(0, limit);
 }
 
+/** Latest items from the `posts` content type (labelled "Artigos" in the CMS;
+ *  served publicly at /l/<slug>), newest first. Powers the homepage "Artigos"
+ *  band. Defaults to published-only; pass getPublicStatuses() so admins
+ *  previewing drafts see the list populated. */
+export async function cmsListLatestPosts(
+  locale: CmsLocale,
+  opts: { limit?: number; statuses?: CmsStatus[] } = {},
+): Promise<NavItem[]> {
+  if (!supabaseServer) return [];
+  const limit = opts.limit ?? 6;
+  const statuses = opts.statuses ?? ['published'];
+  const cols =
+    'id, slug, locale, title, status, featured_in_nav, nav_sort_order, updated_at, og_image_url, cover_image_url, meta_description, excerpt, published_at, tags';
+
+  const { data } = await supabaseServer
+    .from('posts')
+    .select(cols)
+    .eq('locale', locale)
+    .in('status', statuses)
+    .order('published_at', { ascending: false, nullsFirst: false })
+    .order('updated_at', { ascending: false })
+    .limit(limit);
+
+  return ((data ?? []) as Array<Omit<NavItem, 'type'>>).map((r) => ({ ...r, type: 'post' as const }));
+}
+
 /** Public-facing fetch: every published item in a category, paginated. Used by
  *  the category landing page below the curated featured grid.
  *

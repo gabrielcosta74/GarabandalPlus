@@ -49,7 +49,7 @@ export default function MobileBottomNav({
             const goingDown = y > lastScroll.current;
             // Only react to meaningful movement to avoid jitter
             if (Math.abs(y - lastScroll.current) > 6) {
-                setHidden(goingDown && y > 90);
+                setHidden(goingDown && y > 320);
                 lastScroll.current = y;
             }
         };
@@ -88,12 +88,12 @@ export default function MobileBottomNav({
                 transition={{ type: 'spring', stiffness: 500, damping: 22 }}
                 className={cn(
                     'flex flex-col items-center justify-center gap-1 transition-colors duration-300',
-                    isActive ? 'text-garabandal-gold' : 'text-slate-500'
+                    isActive ? 'text-garabandal-gold' : 'text-slate-700'
                 )}
             >
                 <Icon
                     className={cn('h-6 w-6', isActive && 'fill-current')}
-                    strokeWidth={isActive ? 2.2 : 1.6}
+                    strokeWidth={isActive ? 2.2 : 2}
                 />
                 <span className={cn(
                     'text-[10px] leading-none tracking-tight',

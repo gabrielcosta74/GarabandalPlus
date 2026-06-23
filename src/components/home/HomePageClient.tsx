@@ -14,6 +14,7 @@ import PilgrimageShowcase from './PilgrimageShowcase';
 import FeaturedStore from './FeaturedStore';
 import DevotionalGrid from './DevotionalGrid';
 import FeaturedArticles from './FeaturedArticles';
+import LatestArticles from './LatestArticles';
 import LatestNews from './LatestNews';
 import YouTubeLives from './YouTubeLives';
 import InstagramFollow from './InstagramFollow';
@@ -67,6 +68,10 @@ const HomePageClient: React.FC<HomePageClientProps> = ({ meta, pilgrimages = [],
                         {/* Follow on Instagram — right after the lives */}
                         <InstagramFollow locale={locale} />
                         {homeContent && <FeaturedArticles articles={homeContent.featured} locale={locale} />}
+                        {/* "Artigos" — the CMS posts content type (/l/<slug>), latest first */}
+                        {homeContent && homeContent.articles.length > 0 && (
+                            <LatestArticles articles={homeContent.articles} locale={locale} />
+                        )}
                         {/* Renowned endorsements (social proof) */}
                         <Endorsements />
                         <SpiritualPillars />

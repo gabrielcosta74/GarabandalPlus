@@ -42,3 +42,7 @@ reconcile-reduniq-*.json
 *.bak
 modules.bak*
 node_modules.bak*
+
+# Migration scratch (Webnode raw HTML, downloaded media, extracted JSON)
+migration/
+

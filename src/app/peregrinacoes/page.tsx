@@ -131,7 +131,7 @@ export default function PilgrimagesPage() {
 
     return (
         <VIPLayout allowPublic={true}>
-            <div className="bg-[#f8fafc] min-h-screen md:rounded-[2.5rem] p-0 md:p-10 shadow-sm overflow-hidden relative">
+            <div className="bg-[#f8fafc] min-h-screen p-0 md:p-10 shadow-sm overflow-hidden relative -mx-4 -mt-24 md:-mx-8 -mb-12">
 
                 <PilgrimageHero featuredPilgrimage={nextPilgrimageWithVacancies} />
 

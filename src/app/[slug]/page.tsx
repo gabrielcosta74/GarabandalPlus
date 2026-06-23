@@ -2,6 +2,8 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { ArticleHero } from '../../components/content/ArticleHero';
 import { ArticleBody } from '../../components/content/ArticleBody';
+import { ShareBar } from '../../components/content/ShareBar';
+import { ShareCTA } from '../../components/content/ShareCTA';
 import { LocaleSwitcher } from '../../components/content/LocaleSwitcher';
 import { getPageBySlug, getTranslationPeers, listAllSlugs } from '../../lib/content/queries';
 import { getPublicStatuses } from '../../lib/content/preview';
@@ -89,6 +91,8 @@ export default async function MigratedPage({ params }: { params: Promise<Params>
         }
       />
       <ArticleBody html={page.content_html} />
+      <ShareBar url={`${APP_URL}/${slug}`} title={page.title} locale="pt" />
+      <ShareCTA url={`${APP_URL}/${slug}`} title={page.title} locale="pt" />
     </main>
   );
 }

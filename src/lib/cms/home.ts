@@ -1,5 +1,5 @@
 import { PUBLIC_NAV_ORDER, CATEGORIES, type CategoryKey } from './categories';
-import { cmsListCategoryHighlights, type NavItem, type CmsStatus } from './queries';
+import { cmsListCategoryHighlights, cmsListLatestPosts, type NavItem, type CmsStatus } from './queries';
 
 /**
  * Server-side data for the restructured homepage (devotional content first).
@@ -20,12 +20,16 @@ export type HomeArticle = {
   href: string;
   image: string | null;
   excerpt: string | null;
+  /** ISO publish date, when known — used by the "Artigos" band. */
+  date: string | null;
 };
 
 export type HomeContent = {
   categories: HomeCategory[];
   featured: HomeArticle[];
   latestNews: HomeArticle[];
+  /** Latest items from the "Artigos" (posts) content type — served at /l/<slug>. */
+  articles: HomeArticle[];
 };
 
 function toArticle(locale: 'pt' | 'en', item: NavItem): HomeArticle {
@@ -36,6 +40,7 @@ function toArticle(locale: 'pt' | 'en', item: NavItem): HomeArticle {
     href,
     image: item.cover_image_url ?? item.og_image_url ?? null,
     excerpt: item.meta_description ?? item.excerpt ?? null,
+    date: item.published_at ?? null,
   };
 }
 
@@ -78,5 +83,8 @@ export async function getHomeContent(
   const news = await cmsListCategoryHighlights('noticias', locale, { limit: 4, statuses });
   const latestNews = news.map((it) => toArticle(locale, it));
 
-  return { categories, featured, latestNews };
+  const latestPosts = await cmsListLatestPosts(locale, { limit: 6, statuses });
+  const articles = latestPosts.map((it) => toArticle(locale, it));
+
+  return { categories, featured, latestNews, articles };
 }

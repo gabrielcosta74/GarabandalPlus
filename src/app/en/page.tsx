@@ -14,7 +14,7 @@ export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
   title: {
-    absolute: 'Garabandal Apostolate — Official Site for Pilgrimages, Donations & Membership',
+    absolute: 'Garabandal Apostolate — Marian Apparitions & Pilgrimages',
   },
   description: 'Official platform of the Garabandal Apostolate. Book Catholic Marian pilgrimages to Garabandal, support the mission, become a member and shop the Catholic store.',
   keywords: [

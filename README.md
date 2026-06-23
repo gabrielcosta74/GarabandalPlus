@@ -24,6 +24,21 @@ Mini web app para mover os pagamentos (quotas e donativos) para fora da app mobi
 - Rotas privadas/admin como `/admin`, `/member`, `/account`, `/biblioteca` e `/encomendas` não enviam eventos.
 - A loja envia eventos de funil sem dados pessoais: vista de produto, adicionar ao carrinho, passos do checkout, método de pagamento, retorno do pagamento e compra concluída/falhada.
 
+## Google Search Console
+A área `/admin/search-console` usa a Search Console API em server-side com service account.
+
+Variáveis necessárias:
+
+```bash
+GOOGLE_SEARCH_CONSOLE_SITE_URL=sc-domain:apostoladodegarabandal.com
+GOOGLE_SEARCH_CONSOLE_CLIENT_EMAIL=service-account@project.iam.gserviceaccount.com
+GOOGLE_SEARCH_CONSOLE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
+```
+
+Alternativa: guardar o JSON completo em `GOOGLE_SEARCH_CONSOLE_SERVICE_ACCOUNT_JSON`.
+
+No Google Search Console, adiciona o email da service account como utilizador da propriedade configurada em `GOOGLE_SEARCH_CONSOLE_SITE_URL`.
+
 ## Email notifications (membros)
 Criar a tabela para deduplicar envios:
 
