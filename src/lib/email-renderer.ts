@@ -318,6 +318,103 @@ const Text = (text: string, style = "") => `
 `;
 
 /* -------------------------------------------------------------------------- */
+/*           MEMBERSHIP BENEFITS BLOCK (rich, image cards — email-safe)        */
+/* -------------------------------------------------------------------------- */
+
+// Uses .png/.jpg (not .webp) so cards render in Outlook too.
+const BENEFIT_IMG = {
+  archive: `${APP_URL}/images/igrejagarabandal.jpg`,
+  videos: `${APP_URL}/images/multimedia_background.png`,
+  books: `${APP_URL}/images/descontoslivros.png`,
+  masses: `${APP_URL}/images/padrerezar.png`,
+};
+
+const benefitImageCard = ({ img, eyebrow, title, desc }: { img: string; eyebrow: string; title: string; desc: string }) => `
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 16px;border:1px solid ${COLORS.border};border-radius:16px;overflow:hidden;background:${COLORS.white};">
+  <tr><td style="padding:0;line-height:0;"><img src="${img}" width="552" alt="" style="display:block;width:100%;max-width:552px;height:auto;border:0;" /></td></tr>
+  <tr><td style="padding:20px 24px;">
+    <div style="font-size:12px;font-weight:700;color:${COLORS.primary};text-transform:uppercase;letter-spacing:1.2px;margin:0 0 6px;">${eyebrow}</div>
+    <div style="font-size:18px;font-weight:700;color:${COLORS.heading};font-family:${FONTS.serif};margin:0 0 8px;">${title}</div>
+    <div style="font-size:15px;line-height:1.6;color:${COLORS.text};">${desc}</div>
+  </td></tr>
+</table>`;
+
+const benefitFeaturedCard = ({ img, badge, title, desc }: { img: string; badge: string; title: string; desc: string }) => `
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 16px;border:1px solid rgba(202,138,4,0.45);border-radius:16px;overflow:hidden;background:#1a1407;">
+  <tr><td style="padding:0;line-height:0;position:relative;"><img src="${img}" width="552" alt="" style="display:block;width:100%;max-width:552px;height:auto;border:0;opacity:0.55;" /></td></tr>
+  <tr><td style="padding:22px 24px;background:#1a1407;">
+    <div style="display:inline-block;font-size:11px;font-weight:700;color:#fcd34d;text-transform:uppercase;letter-spacing:1.4px;padding:5px 12px;border:1px solid rgba(252,211,77,0.45);border-radius:999px;margin:0 0 12px;">✨ ${badge}</div>
+    <div style="font-size:20px;font-weight:700;color:#fde68a;font-family:${FONTS.serif};margin:0 0 8px;">${title}</div>
+    <div style="font-size:15px;line-height:1.6;color:#e5e7eb;">${desc}</div>
+  </td></tr>
+</table>`;
+
+const benefitChecklist = (title: string, items: string[]) => `
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 16px;border:1px solid ${COLORS.border};border-radius:16px;background:${COLORS.primaryLight};">
+  <tr><td style="padding:22px 24px;">
+    <div style="font-size:16px;font-weight:700;color:${COLORS.heading};font-family:${FONTS.serif};margin:0 0 14px;">${title}</div>
+    ${items.map((item) => `<div style="font-size:15px;line-height:1.5;color:${COLORS.text};padding:6px 0;"><span style="color:${COLORS.primary};font-weight:700;">✓</span>&nbsp; ${item}</div>`).join('')}
+  </td></tr>
+</table>`;
+
+const offerHighlight = ({ eyebrow, title, sub }: { eyebrow: string; title: string; sub: string }) => `
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:8px 0 0;border:2px solid ${COLORS.primary};border-radius:16px;background:#FEFCE8;">
+  <tr><td style="padding:24px;text-align:center;">
+    <div style="font-size:12px;font-weight:700;color:${COLORS.primary};text-transform:uppercase;letter-spacing:1.2px;margin:0 0 8px;">${eyebrow}</div>
+    <div style="font-size:21px;font-weight:800;color:${COLORS.heading};font-family:${FONTS.serif};line-height:1.3;margin:0 0 8px;">${title}</div>
+    <div style="font-size:14px;color:${COLORS.textLight};">${sub}</div>
+  </td></tr>
+</table>`;
+
+const membershipWelcomeContent = (locale: EmailLocale) => {
+  const intro = locale === 'en'
+    ? [
+        '<strong>{{greeting}}</strong>,',
+        'At some point your heart drew close to Garabandal — perhaps through a pilgrimage, a prayer request, a donation, or simply through Our Lady\'s message. We believe it was not by chance.',
+        'Today we would like to invite you to take one step further: to <strong>become a member of the Garabandal Apostolate</strong> — to belong, continuously, to a family that prays and works in the service of this message. Here is some of what awaits you:',
+      ]
+    : [
+        '<strong>{{greeting}}</strong>,',
+        'Em algum momento o seu coração aproximou-se de Garabandal — talvez por uma peregrinação, um pedido de oração, um donativo, ou simplesmente pela mensagem de Nossa Senhora. Acreditamos que não foi por acaso.',
+        'Hoje queremos convidá-lo a dar um passo a mais: <strong>tornar-se membro do Apostolado de Garabandal</strong> — fazer parte, de forma contínua, de uma família que reza e trabalha ao serviço desta mensagem. Eis um pouco do que o espera:',
+      ];
+
+  const cards = locale === 'en'
+    ? benefitFeaturedCard({ img: BENEFIT_IMG.archive, badge: 'Golden Archive', title: 'Access to the Private Documentation', desc: 'Our most precious treasure: reserved access to the private Garabandal archive — documents, testimonies and historical records not shared publicly.' })
+      + benefitImageCard({ img: BENEFIT_IMG.videos, eyebrow: 'Exclusive Content', title: 'Exclusive Videos', desc: 'Unlimited access to video content, documentaries and in-depth study materials on the Apparitions and Marian spirituality.' })
+      + benefitImageCard({ img: BENEFIT_IMG.books, eyebrow: 'Online Store', title: '5% off Books', desc: 'A permanent direct discount across the entire official bookstore, to deepen your faith.' })
+    : benefitFeaturedCard({ img: BENEFIT_IMG.archive, badge: 'Acervo de Ouro', title: 'Acesso à Documentação Privada', desc: 'O nosso tesouro mais precioso: acesso reservado ao arquivo privado de Garabandal — documentos, testemunhos e registos históricos que não são partilhados publicamente.' })
+      + benefitImageCard({ img: BENEFIT_IMG.videos, eyebrow: 'Conteúdo Exclusivo', title: 'Vídeos Exclusivos', desc: 'Acesso ilimitado a vídeos, documentários e materiais de estudo aprofundado sobre as Aparições e a espiritualidade mariana.' })
+      + benefitImageCard({ img: BENEFIT_IMG.books, eyebrow: 'Loja Online', title: '5% nos Livros', desc: 'Desconto direto permanente em toda a livraria oficial, para aprofundar a sua fé.' });
+
+  const checklist = locale === 'en'
+    ? benefitChecklist('And also, as a member:', [
+        '<strong>€50 discount</strong> on the annual pilgrimages',
+        '<strong>Altar of Intentions</strong> — your prayers taken to the sacred site of the Apparitions',
+        '<strong>Annual Masses</strong> celebrated for the intentions of members',
+        '<strong>Community life</strong> — voting rights and a voice in decisions',
+        '5% off the annual conferences and events',
+      ])
+    : benefitChecklist('E ainda, como membro:', [
+        '<strong>Desconto de 50€</strong> nas peregrinações anuais',
+        '<strong>Altar de Intenções</strong> — as suas orações levadas ao local sagrado das Aparições',
+        '<strong>Missas anuais</strong> celebradas pelas intenções dos membros',
+        '<strong>Vida associativa</strong> — direito a voto e voz nas decisões',
+        '5% nas conferências e eventos anuais',
+      ]);
+
+  const offer = locale === 'en'
+    ? offerHighlight({ eyebrow: 'Welcome gift · until 15 July', title: 'Become a member and receive €5 of store credit', sub: 'Annual membership is just €25/year' })
+    : offerHighlight({ eyebrow: 'Oferta de boas-vindas · até 15 de julho', title: 'Torne-se membro e receba 5€ de saldo na Loja', sub: 'Anuidade de apenas 25€/ano' });
+
+  const quote = locale === 'en'
+    ? '<p style="margin:24px 0 0;font-size:15px;font-style:italic;color:#64748B;text-align:center;">"You must pray much, pray with faith and fervour." — Message of Garabandal</p>'
+    : '<p style="margin:24px 0 0;font-size:15px;font-style:italic;color:#64748B;text-align:center;">"É preciso rezar muito, rezar com fé e fervor." — Mensagem de Garabandal</p>';
+
+  return `${intro.map((p) => Text(p)).join('')}${cards}${checklist}${offer}${quote}`;
+};
+
+/* -------------------------------------------------------------------------- */
 /*                              RENDER FUNCTIONS                              */
 /* -------------------------------------------------------------------------- */
 
@@ -1157,7 +1254,9 @@ export type MarketingTemplateKey =
   | 'member_welcome'
   | 'member_pray_intentions'
   | 'member_novena_invite'
-  | 'member_learn_garabandal';
+  | 'member_learn_garabandal'
+  | 'lead_to_member_welcome'
+  | 'lead_to_member_followup';
 
 export type MarketingTemplatePayload = {
   templateKey: string;
@@ -1190,6 +1289,9 @@ type MarketingTemplateDefinition = {
   subtitle: string;
   paragraphs: string[];
   requiredVariables: string[];
+  // Optional rich HTML body (image cards, etc.). When present it replaces the
+  // generic paragraph rendering. Locale-aware via the email's language.
+  contentHtml?: (locale: EmailLocale) => string;
 };
 
 type MarketingTemplateLocalizedContent = Pick<
@@ -1500,6 +1602,49 @@ export const MARKETING_EMAIL_TEMPLATES: Record<MarketingTemplateKey, MarketingTe
       '<strong>{{greeting}}</strong>,',
       'Queremos convidá-lo a tornar-se membro do Apostolado — não apenas apoiar pontualmente, mas fazer parte de forma contínua desta missão ao serviço da mensagem de Garabandal.',
       'Como membro, recebe o diploma digital, acesso a conteúdos exclusivos e a satisfação de saber que a sua contribuição sustenta concretamente este trabalho. Pode ver como funciona com calma. Se tiver dúvidas, basta responder a este email.',
+    ],
+  },
+  lead_to_member_welcome: {
+    key: 'lead_to_member_welcome',
+    name: 'Convite a membro — bónus de boas-vindas (5€)',
+    category: 'Membros',
+    goal: 'Converter leads, peregrinos antigos e doadores em membros, com bónus de 5€.',
+    defaultSubject: '{{first_name}}, há um lugar guardado para si nesta missão',
+    previewText: 'Fazer parte do Apostolado de Garabandal — com um gesto de gratidão até 15 de julho.',
+    ctaLabel: 'Tornar-me Membro',
+    ctaUrl: (payload) => payload.memberUrl || marketingUrl('/tornar-membro', payload),
+    title: 'Há um lugar guardado para si',
+    subtitle: 'Apostolado de Garabandal',
+    requiredVariables: ['name', 'member_url'],
+    contentHtml: (locale) => membershipWelcomeContent(locale),
+    paragraphs: [
+      '<strong>{{greeting}}</strong>,',
+      'Em algum momento o seu coração aproximou-se de Garabandal — talvez por uma peregrinação, um pedido de oração, um donativo, ou simplesmente pela mensagem de Nossa Senhora. Acreditamos que não foi por acaso. Há caminhos que se abrem quando menos esperamos.',
+      'Hoje queremos convidá-lo a dar um passo a mais: <strong>tornar-se membro do Apostolado de Garabandal</strong>. Não é apenas apoiar pontualmente — é fazer parte, de forma contínua, de uma família que reza e trabalha ao serviço desta mensagem.',
+      '<strong>Como membro, passa a ter:</strong><br>🕊️&nbsp; A Santa Missa <strong>ao vivo</strong> desde Garabandal<br>📿&nbsp; As novenas e as <strong>velas acesas pelas suas intenções</strong><br>📖&nbsp; Conteúdos exclusivos e a Academia espiritual<br>🎓&nbsp; O seu diploma digital de membro<br>❤️&nbsp; A certeza de que a sua contribuição sustenta esta missão',
+      'A anuidade é de apenas <strong>25€/ano</strong>. E, como sinal de gratidão, <strong>quem se tornar membro até 15 de julho recebe 5€ de saldo</strong> na nossa Loja Online — para um livro que alimente a sua fé.',
+      '<em>"É preciso rezar muito, rezar com fé e fervor."</em> — Mensagem de Garabandal',
+      'Se tiver qualquer dúvida, basta responder a este email. Estamos aqui — e rezamos por si.',
+    ],
+  },
+  lead_to_member_followup: {
+    key: 'lead_to_member_followup',
+    name: 'Convite a membro — follow-up (intenção + prazo)',
+    category: 'Membros',
+    goal: 'Recuperar leads que não aderiram, com apelo à intenção e ao prazo do bónus.',
+    defaultSubject: '{{first_name}}, pense numa só intenção que gostaria de ver rezada',
+    previewText: 'Faltam poucos dias para o gesto de boas-vindas de 5€.',
+    ctaLabel: 'Fazer Parte Agora',
+    ctaUrl: (payload) => payload.memberUrl || marketingUrl('/tornar-membro', payload),
+    title: 'Pense numa só intenção',
+    subtitle: 'Um convite que fica de pé',
+    requiredVariables: ['name', 'member_url'],
+    paragraphs: [
+      '<strong>{{greeting}}</strong>,',
+      'Há poucos dias convidámo-lo a fazer parte do Apostolado. Talvez o momento não tenha sido o certo — compreendemos perfeitamente.',
+      'Mas deixe-me pedir-lhe apenas isto: <strong>pense numa intenção</strong> que traz no coração — um familiar doente, uma decisão difícil, uma graça que espera. Como membro, essa intenção passa a ser levada às <strong>velas acesas em Garabandal</strong> e às <strong>novenas</strong> rezadas pela nossa comunidade. Não caminha sozinho.',
+      'O gesto de boas-vindas — <strong>5€ de saldo na Loja</strong> ao tornar-se membro — termina a <strong>15 de julho</strong>. Quisemos avisá-lo a tempo.',
+      'Seja qual for a sua decisão, fica na nossa oração.',
     ],
   },
   membership_renewal: {
@@ -1829,6 +1974,38 @@ const MARKETING_EMAIL_TEMPLATE_EN: Record<MarketingTemplateKey, MarketingTemplat
       'As a member, you receive the digital certificate, access to exclusive content, and the knowledge that your regular contribution sustains this work concretely. You can review everything at your own pace. If you have any questions, simply reply to this email.',
     ],
   },
+  lead_to_member_welcome: {
+    goal: 'Convert leads, past pilgrims and donors into members, with a €5 welcome bonus.',
+    defaultSubject: '{{first_name}}, there is a place kept for you in this mission',
+    previewText: 'Become part of the Garabandal Apostolate — with a token of gratitude until 15 July.',
+    ctaLabel: 'Become a Member',
+    title: 'There is a place kept for you',
+    subtitle: 'Garabandal Apostolate',
+    paragraphs: [
+      '<strong>{{greeting}}</strong>,',
+      'At some point your heart drew close to Garabandal — perhaps through a pilgrimage, a prayer request, a donation, or simply through Our Lady\'s message. We believe it was not by chance. Some paths open when we least expect them.',
+      'Today we would like to invite you to take one step further: to <strong>become a member of the Garabandal Apostolate</strong>. It is not only about giving once — it is about belonging, continuously, to a family that prays and works in the service of this message.',
+      '<strong>As a member, you receive:</strong><br>🕊️&nbsp; The <strong>live</strong> Holy Mass from Garabandal<br>📿&nbsp; The novenas and <strong>candles lit for your intentions</strong><br>📖&nbsp; Exclusive content and the spiritual Academy<br>🎓&nbsp; Your digital membership diploma<br>❤️&nbsp; The assurance that your contribution sustains this mission',
+      'Annual membership is just <strong>€25/year</strong>. And as a token of gratitude, <strong>everyone who becomes a member by 15 July receives €5 of store credit</strong> in our Online Store — for a book to nourish your faith.',
+      '<em>"You must pray much, pray with faith and fervour."</em> — Message of Garabandal',
+      'If you have any questions, simply reply to this email. We are here — and we pray for you.',
+    ],
+  },
+  lead_to_member_followup: {
+    goal: 'Recover leads who did not join, appealing to a prayer intention and the bonus deadline.',
+    defaultSubject: '{{first_name}}, think of one intention you would like to see prayed for',
+    previewText: 'Only a few days left for the €5 welcome gift.',
+    ctaLabel: 'Join Now',
+    title: 'Think of one intention',
+    subtitle: 'An invitation that still stands',
+    paragraphs: [
+      '<strong>{{greeting}}</strong>,',
+      'A few days ago we invited you to become part of the Apostolate. Perhaps the timing was not right — we completely understand.',
+      'But let me ask you just this: <strong>think of one intention</strong> you carry in your heart — a sick relative, a difficult decision, a grace you are hoping for. As a member, that intention is brought to the <strong>candles lit in Garabandal</strong> and the <strong>novenas</strong> prayed by our community. You do not walk alone.',
+      'The welcome gift — <strong>€5 store credit</strong> when you become a member — ends on <strong>15 July</strong>. We wanted to let you know in time.',
+      'Whatever you decide, you remain in our prayers.',
+    ],
+  },
   membership_renewal: {
     goal: 'Recover pending or expired members.',
     defaultSubject: '{{first_name}}, just a few days left to keep your place',
@@ -1957,6 +2134,10 @@ export const renderMarketingTemplateEmail = (payload: MarketingTemplatePayload) 
     ? payload.bodyOverride.split('\n').filter(Boolean)
     : template.paragraphs;
   const ctaUrl = localizeMarketingUrl(fillMarketingVariables(baseTemplate.ctaUrl(payload), payload), locale);
+  const richContent =
+    !payload.bodyOverride && baseTemplate.contentHtml
+      ? fillMarketingVariables(baseTemplate.contentHtml(locale), payload)
+      : null;
 
   return {
     subject,
@@ -1972,7 +2153,7 @@ export const renderMarketingTemplateEmail = (payload: MarketingTemplatePayload) 
         })}
         ${Section({
           children: `
-            ${bodyParagraphs.map((paragraph) => Text(fillMarketingVariables(paragraph, payload))).join('')}
+            ${richContent ?? bodyParagraphs.map((paragraph) => Text(fillMarketingVariables(paragraph, payload))).join('')}
             ${Button({ label: template.ctaLabel, url: ctaUrl })}
           `,
         })}

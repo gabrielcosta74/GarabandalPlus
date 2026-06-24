@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import MobileBottomNav from './MobileBottomNav';
 import { CATEGORIES, PUBLIC_NAV_ORDER, type CategoryKey } from '../../lib/cms/categories';
+import { isAdminEmail } from '../../lib/admin-emails';
 
 /**
  * SiteHeaderV2 — two-tier navigation for the merged content + transactional
@@ -472,6 +473,11 @@ function UserPill({
               {isMember && (
                 <Link href={t.urls.member} onClick={() => setOpen(false)} className="flex items-center gap-3 px-4 py-2.5 rounded-2xl text-sm font-semibold text-slate-600 hover:bg-slate-50 hover:text-garabandal-dark transition-colors mt-1">
                   <LayoutDashboard size={16} className="opacity-70" /> {t.nav.memberArea}
+                </Link>
+              )}
+              {isAdminEmail(user.email) && (
+                <Link href="/admin" onClick={() => setOpen(false)} className="flex items-center gap-3 px-4 py-2.5 rounded-2xl text-sm font-bold text-red-600 bg-red-50 hover:bg-red-100 transition-colors mt-1">
+                  <ShieldCheck size={16} className="opacity-80" /> {t.nav.userMenu.adminPanel}
                 </Link>
               )}
               <div className="border-t border-slate-100 my-2" />

@@ -1,12 +1,21 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { headers } from 'next/headers';
 import { Inter, Playfair_Display } from 'next/font/google';
+import Script from 'next/script';
 import ClientLayout from '../components/layouts/ClientLayout';
 import './globals.css';
 import { APP_URL } from '../lib/config';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 const playfair = Playfair_Display({ subsets: ['latin'], variable: '--font-playfair' });
+
+// Force a single light appearance for everyone. This tells mobile browsers
+// (Chrome auto-dark theme, Samsung Internet, etc.) that the site only supports
+// light, so they won't auto-darken / invert our design on phones set to dark mode.
+export const viewport: Viewport = {
+  colorScheme: 'light',
+  themeColor: '#ffffff',
+};
 
 export const metadata: Metadata = {
   metadataBase: new URL(APP_URL),
@@ -92,7 +101,27 @@ export default async function RootLayout({
   const navV2Enabled = process.env.NEXT_PUBLIC_NAV_V2 === '1';
   return (
     <html lang={htmlLang}>
-      <head />
+      <head>
+        {/* Sender.net — universal tracking/forms snippet (loaded once for the whole site) */}
+        <Script id="sender-universal" strategy="afterInteractive">
+          {`(function (s, e, n, d, er) {
+            s['Sender'] = er;
+            s[er] = s[er] || function () {
+              (s[er].q = s[er].q || []).push(arguments)
+            }, s[er].l = 1 * new Date();
+            s[er].on = function(event, callback) {
+              s[er].listeners = s[er].listeners || {};
+              (s[er].listeners[event] = s[er].listeners[event] || []).push(callback);
+            };
+            var a = e.createElement(n),
+                m = e.getElementsByTagName(n)[0];
+            a.async = 1;
+            a.src = d;
+            m.parentNode.insertBefore(a, m)
+          })(window, document, 'script', 'https://cdn.sender.net/accounts_resources/universal.js', 'sender');
+          sender('0c380a08998972')`}
+        </Script>
+      </head>
       <body className={`${inter.variable} ${playfair.variable} ${inter.className}`}>
         <script
           type="application/ld+json"

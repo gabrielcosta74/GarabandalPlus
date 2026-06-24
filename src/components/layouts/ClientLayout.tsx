@@ -12,6 +12,7 @@ import type { LocaleCode } from '../../i18n';
 import AuthLandingGuard from '../auth/AuthLandingGuard';
 import PublicAnalytics from '../analytics/PublicAnalytics';
 import CookieConsentBanner from '../privacy/CookieConsentBanner';
+import WhatsAppFloatingButton from '../site/WhatsAppFloatingButton';
 
 export default function ClientLayout({
     children,
@@ -40,6 +41,7 @@ export default function ClientLayout({
                     {children}
                     {!hideFooter && <SiteFooter />}
                     {!isAdmin && !isEmbed && <CookieConsentBanner />}
+                    {!isAdmin && !isEmbed && <WhatsAppFloatingButton />}
                 </CurrencyProvider>
             </AuthProvider>
         </LocaleProvider>

@@ -52,9 +52,9 @@ export default function DonationHero({ progress, onDonateClick }: DonationHeroPr
                     </div>
 
                     <h1 className="text-4xl sm:text-5xl lg:text-7xl font-serif leading-tight">
-                        {isEn ? 'The House of' : 'A Casa de'} <br />
+                        {isEn ? 'The House of' : 'Casa de'} <br />
                         <span className="text-transparent bg-clip-text bg-gradient-to-r from-garabandal-gold to-yellow-200">
-                            {isEn ? 'Welcome' : 'Acolher'}
+                            {isEn ? 'Welcome' : 'Acolhimento'}
                         </span>
                     </h1>
 

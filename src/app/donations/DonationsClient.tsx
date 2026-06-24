@@ -211,7 +211,7 @@ export default function DonationsClient() {
             </section>
 
             <DonationModal isOpen={modalOpen} onClose={() => setModalOpen(false)} />
-            <MobileDonationCTA onDonate={() => setModalOpen(true)} />
+            <MobileDonationCTA onDonate={() => setModalOpen(true)} hidden={modalOpen} />
         </main>
     );
 }

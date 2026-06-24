@@ -1,6 +1,7 @@
 import { createServerClient } from '@supabase/ssr';
 import { cookies, headers } from 'next/headers';
 import type { CookieOptions } from '@supabase/ssr';
+import { isAdminEmail } from './admin-emails';
 
 /**
  * Create a Supabase client for server-side operations with user context
@@ -48,18 +49,11 @@ export async function requireAuth() {
     return { user, supabase };
 }
 
-// SECURITY: Strict Admin List
-const ADMIN_EMAILS = [
-    'gabrielcosta74@gmail.com', // Replace/Add actual admin emails
-    'geral@apostoladodegarabandal.com',
-
-];
-
 export async function verifyAdmin() {
     const { user } = await requireAuth();
 
-    // Check Email Allowlist
-    if (!user.email || !ADMIN_EMAILS.includes(user.email.toLowerCase())) {
+    // Check Email Allowlist (single source of truth in lib/admin-emails)
+    if (!user.email || !isAdminEmail(user.email)) {
         console.error(`🚨 [Admin Block] Unauthorized access attempt by ${user.email}`);
         throw new Error('Forbidden: Not an Admin');
     }

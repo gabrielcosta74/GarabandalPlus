@@ -6,9 +6,11 @@ import { useLocale } from "../../contexts/LocaleContext";
 
 interface MobileDonationCTAProps {
     onDonate: () => void;
+    /** Hide the floating CTA (e.g. while the donation modal is open). */
+    hidden?: boolean;
 }
 
-export default function MobileDonationCTA({ onDonate }: MobileDonationCTAProps) {
+export default function MobileDonationCTA({ onDonate, hidden = false }: MobileDonationCTAProps) {
     const [isVisible, setIsVisible] = useState(false);
     const { locale } = useLocale();
     const isEn = locale === 'en';
@@ -26,13 +28,14 @@ export default function MobileDonationCTA({ onDonate }: MobileDonationCTAProps) 
 
     return (
         <AnimatePresence>
-            {isVisible && (
+            {isVisible && !hidden && (
                 <motion.div
                     initial={{ y: 100, opacity: 0 }}
                     animate={{ y: 0, opacity: 1 }}
                     exit={{ y: 100, opacity: 0 }}
                     transition={{ type: "spring", stiffness: 260, damping: 20 }}
-                    className="fixed bottom-0 left-0 right-0 z-50 p-4 md:hidden"
+                    // Sit just above the MobileBottomNav (h-16 + safe-area) so both coexist.
+                    className="fixed bottom-[calc(4rem+env(safe-area-inset-bottom,16px))] left-0 right-0 z-40 p-4 md:hidden"
                 >
                     <div className="absolute inset-0 bg-white/80 backdrop-blur-md shadow-[0_-4px_20px_rgba(0,0,0,0.1)] border-t border-white/50" />
 

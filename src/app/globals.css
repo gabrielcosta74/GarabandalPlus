@@ -18,8 +18,13 @@
   box-sizing: border-box;
 }
 
+html {
+  /* `only light` is the explicit opt-out: browsers must not auto-darken/invert. */
+  color-scheme: only light;
+}
+
 :root {
-  color-scheme: light;
+  color-scheme: only light;
   --surface: #ffffff;
   --text: #0f172a;
   --muted: #64748b;

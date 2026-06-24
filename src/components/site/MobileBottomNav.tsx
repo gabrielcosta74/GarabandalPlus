@@ -36,8 +36,7 @@ export default function MobileBottomNav({
             (pathname?.startsWith('/en/pilgrimages/') && pathname.split('/').length > 3 && !pathname.includes('/my-registrations')) ||
             pathname?.includes('/portal-oracoes') ||
             pathname?.includes('/tornar-membro') ||
-            pathname?.includes('/become-member') ||
-            pathname?.includes('/donations');
+            pathname?.includes('/become-member');
 
         setIsVisible(!isConflictRoute);
     }, [pathname]);
