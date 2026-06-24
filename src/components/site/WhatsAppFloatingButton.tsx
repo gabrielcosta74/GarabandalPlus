@@ -6,6 +6,42 @@ import { usePathname } from 'next/navigation';
 const WHATSAPP_NUMBER = '351915206815';
 const WHATSAPP_DISPLAY = '+351 915 206 815';
 
+// Locale prefixes used by the localized route trees.
+const LOCALES = new Set(['en', 'es', 'fr', 'it']);
+
+// Dedicated top-level routes that are NOT served by the CMS `[slug]` catch-all.
+// A bare single-segment path matching one of these is a real route, not a CMS page,
+// so the WhatsApp button should still show there.
+const DEDICATED_ROUTES = new Set([
+    'account', 'admin', 'api', 'auth', 'auth-callback', 'biblioteca',
+    'cancelar-subscricao', 'convite', 'cookies', 'donations', 'embed',
+    'encomendas', 'ensinamentos', 'historia', 'intencoes', 'l', 'leilao',
+    'login', 'loja', 'loja-online', 'member', 'membership', 'mensagens',
+    'noticias', 'peregrinacoes', 'portal-oracoes', 'privacidade', 'profecias',
+    'register', 'reset-password', 'sobre-nos', 'termos', 'testemunhos',
+    'thank-you', 'tornar-membro', 'transparencia',
+]);
+
+// Detect CMS reading pages (article detail + CMS page detail), where the
+// floating WhatsApp button should be hidden, per request.
+function isCmsReadingPage(pathname: string): boolean {
+    const segments = pathname.split('/').filter(Boolean);
+    if (segments.length === 0) return false;
+
+    // Drop a leading locale prefix so PT-root and localized trees share logic.
+    const rest = LOCALES.has(segments[0]) ? segments.slice(1) : segments;
+    if (rest.length === 0) return false;
+
+    // Article detail: /l/<slug> (and /<locale>/l/<slug>).
+    if (rest[0] === 'l' && rest.length >= 2) return true;
+
+    // CMS page detail: the bare `[slug]` catch-all — a single content segment
+    // that is not one of the dedicated top-level routes.
+    if (rest.length === 1 && !DEDICATED_ROUTES.has(rest[0])) return true;
+
+    return false;
+}
+
 export default function WhatsAppFloatingButton() {
     const pathname = usePathname();
 
@@ -14,6 +50,9 @@ export default function WhatsAppFloatingButton() {
         pathname?.startsWith('/peregrinacoes') ||
         pathname?.startsWith('/en/pilgrimages');
     if (isPilgrimage) return null;
+
+    // Hide on CMS article/page reading views, per request.
+    if (pathname && isCmsReadingPage(pathname)) return null;
 
     return (
         <a
