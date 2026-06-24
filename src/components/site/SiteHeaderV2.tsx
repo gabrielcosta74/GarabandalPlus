@@ -16,6 +16,7 @@ import {
 import MobileBottomNav from './MobileBottomNav';
 import { CATEGORIES, PUBLIC_NAV_ORDER, type CategoryKey } from '../../lib/cms/categories';
 import { isAdminEmail } from '../../lib/admin-emails';
+import { localeSwitchHref } from '../../lib/i18n/locale-switch';
 
 /**
  * SiteHeaderV2 — two-tier navigation for the merged content + transactional
@@ -211,8 +212,7 @@ export default function SiteHeaderV2() {
               {/* Language */}
               <button
                 onClick={() => {
-                  if (locale === 'pt') router.push('/en' + (pathname === '/' ? '' : pathname));
-                  else router.push(pathname.startsWith('/en') ? (pathname.slice(3) || '/') : pathname);
+                  router.push(localeSwitchHref(pathname, locale === 'pt' ? 'en' : 'pt'));
                 }}
                 className={`hidden sm:flex items-center justify-center w-11 h-11 rounded-full transition-all text-xs font-bold ${circleBtn}`}
                 aria-label="Switch language"

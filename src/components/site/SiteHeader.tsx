@@ -9,6 +9,7 @@ import { motion, AnimatePresence, useScroll } from 'framer-motion';
 import { useAuth } from '../../contexts/AuthContext';
 import { isActiveMember } from '../../lib/store-discounts';
 import { isAdminEmail } from '../../lib/admin-emails';
+import { localeSwitchHref } from '../../lib/i18n/locale-switch';
 import {
   ShoppingBag,
   Menu,
@@ -289,14 +290,7 @@ export default function SiteHeader() {
             {/* Language Switcher */}
             <button
               onClick={() => {
-                if (locale === 'pt') {
-                  // PT → EN: prepend /en
-                  router.push('/en' + (pathname === '/' ? '' : pathname));
-                } else {
-                  // EN → PT: strip /en prefix
-                  const ptPath = pathname.startsWith('/en') ? pathname.slice(3) || '/' : pathname;
-                  router.push(ptPath);
-                }
+                router.push(localeSwitchHref(pathname, locale === 'pt' ? 'en' : 'pt'));
               }}
               className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider transition-all bg-white/50 border border-slate-200 hover:bg-white backdrop-blur-md text-slate-700 hover:text-garabandal-dark shadow-sm"
               aria-label="Switch language"
@@ -716,8 +710,7 @@ export default function SiteHeader() {
                   <div className="flex gap-2">
                     <button
                       onClick={() => {
-                        const ptPath = pathname.startsWith('/en') ? pathname.slice(3) || '/' : pathname;
-                        router.push(ptPath);
+                        router.push(localeSwitchHref(pathname, 'pt'));
                         setIsMobileOpen(false);
                       }}
                       className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all ${locale === 'pt' ? 'bg-yellow-500 text-white shadow-sm' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
@@ -726,7 +719,7 @@ export default function SiteHeader() {
                     </button>
                     <button
                       onClick={() => {
-                        router.push('/en' + (pathname === '/' ? '' : pathname.startsWith('/en') ? pathname.slice(3) : pathname));
+                        router.push(localeSwitchHref(pathname, 'en'));
                         setIsMobileOpen(false);
                       }}
                       className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all ${locale === 'en' ? 'bg-yellow-500 text-white shadow-sm' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
