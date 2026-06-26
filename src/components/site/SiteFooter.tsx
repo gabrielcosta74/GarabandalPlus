@@ -21,6 +21,7 @@ export default function SiteFooter() {
       const cat = CATEGORIES[key][locale === 'en' ? 'en' : 'pt'];
       return { href: `${localePrefix}/${cat.slug}`, label: cat.label };
     }),
+    { href: `${localePrefix}/l`, label: locale === 'en' ? 'Articles' : 'Artigos' },
   ];
 
   return (
