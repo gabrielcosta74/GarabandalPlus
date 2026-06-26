@@ -19,7 +19,7 @@ export default function VIPLayout({ children, allowPublic, requireMember = true 
     const { locale } = useLocale();
     const [ready, setReady] = useState(false);
     const { user, memberData, loading } = useAuth();
-    const isEn = locale === 'en' || pathname?.startsWith('/en');
+    const isEn = locale === 'en' || (pathname === '/en' || pathname?.startsWith('/en/'));
     const localePrefix = isEn ? '/en' : '';
     const loginPath = `${localePrefix}/login`;
     const quotaPath = `${localePrefix}/member/quota`;

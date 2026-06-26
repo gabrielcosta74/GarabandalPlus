@@ -377,15 +377,14 @@ export default function SiteHeaderV2() {
                 <div className="mt-8 flex gap-3 p-1.5 bg-slate-100 rounded-2xl">
                   <button
                     onClick={() => {
-                      const pt = pathname.startsWith('/en') ? (pathname.slice(3) || '/') : pathname;
-                      router.push(pt);
+                      router.push(localeSwitchHref(pathname, 'pt'));
                       setIsMobileOpen(false);
                     }}
                     className={`flex-1 h-11 rounded-xl text-sm font-bold transition-all ${locale === 'pt' ? 'bg-white text-garabandal-dark shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
                   >🇵🇹 PT</button>
                   <button
                     onClick={() => {
-                      router.push('/en' + (pathname === '/' ? '' : pathname.startsWith('/en') ? pathname.slice(3) : pathname));
+                      router.push(localeSwitchHref(pathname, 'en'));
                       setIsMobileOpen(false);
                     }}
                     className={`flex-1 h-11 rounded-xl text-sm font-bold transition-all ${locale === 'en' ? 'bg-white text-garabandal-dark shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}

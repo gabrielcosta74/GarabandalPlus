@@ -8,7 +8,7 @@ export default function MemberProfilePage() {
   const router = useRouter();
   const pathname = usePathname();
   const { locale } = useLocale();
-  const isEn = locale === 'en' || pathname?.startsWith('/en');
+  const isEn = locale === 'en' || (pathname === '/en' || pathname?.startsWith('/en/'));
 
   useEffect(() => {
     router.replace(isEn ? '/en/account/profile' : '/account/profile');

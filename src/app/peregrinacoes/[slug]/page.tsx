@@ -29,7 +29,7 @@ import { useLocale } from '../../../contexts/LocaleContext';
 const SpiritMap = dynamic(() => import('../../../components/pilgrimage/SpiritMap'), {
     ssr: false,
     loading: () => {
-        const isEnLoad = typeof window !== 'undefined' && window.location.pathname.startsWith('/en');
+        const isEnLoad = typeof window !== 'undefined' && (window.location.pathname === '/en' || window.location.pathname.startsWith('/en/'));
         return (
             <div className="rounded-3xl overflow-hidden shadow-2xl border border-slate-800 bg-slate-950 flex items-center justify-center" style={{ height: 500 }}>
                 <div className="text-center">

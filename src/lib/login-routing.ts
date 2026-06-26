@@ -10,7 +10,7 @@ export const resolveLoginTarget = (next: string | null, activeMember: boolean, i
     if (next === '/' || next === '/login' || next === '/register') return fallback;
     if (next === '/member') return activeMember ? '/en/member' : '/en';
     if (next.startsWith('/member/')) return activeMember ? `/en${next}` : '/en';
-    if (!next.startsWith('/en') && !next.startsWith('/auth')) return fallback;
+    if (!(next === '/en' || next.startsWith('/en/')) && !next.startsWith('/auth')) return fallback;
   }
 
   return next;

@@ -32,7 +32,7 @@ export default function DashboardShell({ title, subtitle, children }: DashboardS
     const { locale } = useLocale();
 
     const { user, memberData, isMember, loading, isAuthenticated, signOut } = useAuth();
-    const isEn = locale === 'en' || pathname?.startsWith('/en');
+    const isEn = locale === 'en' || (pathname === '/en' || pathname?.startsWith('/en/'));
     const localePrefix = isEn ? '/en' : '';
     const loginPath = `${localePrefix}/login`;
     const profilePath = `${localePrefix}/account/profile`;

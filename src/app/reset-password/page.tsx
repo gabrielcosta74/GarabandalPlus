@@ -19,7 +19,7 @@ export default function ResetPasswordRedirect() {
   useEffect(() => {
     // Preserve hash (#access_token=...) and search (?query=...)
     // and forward to the central handler.
-    const isEn = window.location.pathname.startsWith('/en');
+    const isEn = (window.location.pathname === '/en' || window.location.pathname.startsWith('/en/'));
     const search = new URLSearchParams(window.location.search);
     if (isEn && !search.has('locale')) search.set('locale', 'en');
     const qs = search.toString();
@@ -29,7 +29,7 @@ export default function ResetPasswordRedirect() {
     window.location.replace(target);
   }, [router]);
 
-  const isEn = typeof window !== 'undefined' && window.location.pathname.startsWith('/en');
+  const isEn = typeof window !== 'undefined' && (window.location.pathname === '/en' || window.location.pathname.startsWith('/en/'));
 
   return (
     <div className="min-h-screen bg-white flex items-center justify-center">

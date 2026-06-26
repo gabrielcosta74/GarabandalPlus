@@ -12,7 +12,7 @@ import { detectUpdatePasswordAuthPayload } from '../../../lib/auth-redirects';
 export default function UpdatePasswordPage() {
     const router = useRouter();
     const pathname = usePathname();
-    const isEn = pathname?.startsWith('/en') ?? false;
+    const isEn = (pathname === '/en' || pathname?.startsWith('/en/')) ?? false;
     const homePath = isEn ? '/en/member' : '/';
     const loginPath = isEn ? '/en/login' : '/login';
     const updatePath = isEn ? '/en/auth/update-password' : '/auth/update-password';

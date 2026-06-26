@@ -1,7 +1,16 @@
 export type AppLocale = 'pt' | 'en';
 
+/**
+ * A path is English only when its first segment is exactly `en` — i.e. `/en`
+ * or `/en/...`. A bare `startsWith('/en')` wrongly matched PT slugs that merely
+ * begin with the letters "en" (e.g. `/ensinamentos`, `/encomendas`), flipping
+ * the whole UI to English. Always compare the segment, never the prefix.
+ */
+export const isEnglishPathname = (pathname?: string | null): boolean =>
+  pathname === '/en' || (pathname?.startsWith('/en/') ?? false);
+
 export const getLocaleFromPathname = (pathname?: string | null): AppLocale =>
-  pathname?.startsWith('/en') ? 'en' : 'pt';
+  isEnglishPathname(pathname) ? 'en' : 'pt';
 
 export const getLocalePrefix = (locale: AppLocale): '' | '/en' =>
   locale === 'en' ? '/en' : '';

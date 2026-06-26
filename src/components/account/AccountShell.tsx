@@ -20,7 +20,7 @@ export default function AccountShell({ title, subtitle, children }: Props) {
   const [ready, setReady] = useState(false);
   const [summaryEmail, setSummaryEmail] = useState('');
   const [summaryIsMember, setSummaryIsMember] = useState(false);
-  const isEn = locale === 'en' || pathname?.startsWith('/en');
+  const isEn = locale === 'en' || (pathname === '/en' || pathname?.startsWith('/en/'));
   const loginPath = isEn ? '/en/login' : '/login';
   const profilePath = isEn ? '/en/account/profile' : '/account/profile';
   const memberPath = isEn ? '/en/member' : '/member';

@@ -30,7 +30,7 @@ function LoginScreen() {
   const search = useSearchParams();
   const { isAuthenticated, isMember, loading: authLoading } = useAuth();
   const { locale, t } = useLocale();
-  const isEn = locale === 'en' || pathname?.startsWith('/en');
+  const isEn = locale === 'en' || (pathname === '/en' || pathname?.startsWith('/en/'));
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);

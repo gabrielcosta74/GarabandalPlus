@@ -37,7 +37,7 @@ export default function MemberShell({ title, subtitle, children, onMemberLoaded 
     is_membro?: boolean | null;
     data_adesao?: string | null;
   } | null>(null);
-  const isEn = locale === 'en' || pathname?.startsWith('/en');
+  const isEn = locale === 'en' || (pathname === '/en' || pathname?.startsWith('/en/'));
   const loginPath = isEn ? '/en/login' : '/login';
   const memberPath = isEn ? '/en/member' : '/member';
   const quotaPath = isEn ? '/en/member/quota' : '/member/quota';

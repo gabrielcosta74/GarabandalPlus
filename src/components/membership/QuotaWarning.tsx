@@ -18,7 +18,7 @@ export function QuotaWarning({ memberData, className = '' }: QuotaWarningProps) 
     const { locale, t } = useLocale();
     const [dismissed, setDismissed] = useState(true); // Default to true to prevent flash
     const [isOverdue, setIsOverdue] = useState(false);
-    const isEn = locale === 'en' || pathname?.startsWith('/en');
+    const isEn = locale === 'en' || (pathname === '/en' || pathname?.startsWith('/en/'));
     const quotaPath = isEn ? '/en/member/quota' : '/member/quota';
     const o = t.membership.overdue;
 

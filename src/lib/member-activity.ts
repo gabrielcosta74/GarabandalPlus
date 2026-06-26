@@ -88,7 +88,7 @@ export function getSessionId(): string {
 }
 
 function localeFromPath(pathname: string): string {
-  return pathname.startsWith('/en') ? 'en' : 'pt';
+  return (pathname === '/en' || pathname.startsWith('/en/')) ? 'en' : 'pt';
 }
 
 function sanitizeMetadata(metadata: MemberActivityMetadata = {}) {
