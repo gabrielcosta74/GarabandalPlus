@@ -24,7 +24,7 @@ const fetchPilgrimage = async (slug: string) => {
   if (!supabaseServer) return null;
   const { data } = await supabaseServer
     .from('pilgrimages')
-    .select('title, description, cover_image, start_date, end_date, base_price, status, registration_deadline, meeting_point_text, meeting_end_text, itinerary_summary')
+    .select('title, description, cover_image, start_date, end_date, base_price, status, registration_deadline, meeting_point_text, meeting_end_text, itinerary_summary, created_at')
     .eq('slug', slug)
     .maybeSingle();
   return data || null;
@@ -198,6 +198,7 @@ export default async function PeregrinacaoLayout({ children, params }: Props) {
         url: pageUrl,
         availability,
         seller: { '@id': ORGANIZATION_ID },
+        validFrom: pilgrimage.created_at || undefined,
         validThrough: pilgrimage.registration_deadline || undefined,
       }
       : undefined,

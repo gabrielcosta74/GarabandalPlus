@@ -2,8 +2,23 @@ import { createServerClient } from "@supabase/ssr"
 import { NextResponse, type NextRequest } from "next/server"
 import { lookupRedirect } from "./lib/redirects-edge"
 
+const CANONICAL_HOST = 'apostoladodegarabandal.com';
+
 export async function middleware(request: NextRequest) {
     const pathname = request.nextUrl.pathname;
+
+    // 0. Canonical host. The legacy `app.` subdomain (and `www.`) are duplicate
+    //    copies of the whole site that were splitting brand authority in Google
+    //    and polluting the sitelinks. Permanently redirect every non-canonical
+    //    host to the apex domain, preserving the full path + query.
+    const host = (request.headers.get('host') || '').toLowerCase();
+    if (host && host !== CANONICAL_HOST && host.endsWith('apostoladodegarabandal.com')) {
+      const url = request.nextUrl.clone();
+      url.host = CANONICAL_HOST;
+      url.protocol = 'https:';
+      url.port = '';
+      return NextResponse.redirect(url, 301);
+    }
 
     // 1. Public 301s from the migration. Run BEFORE auth so the smallest
     //    possible amount of work happens for redirected URLs (which are mostly

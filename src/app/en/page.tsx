@@ -16,7 +16,7 @@ export const metadata: Metadata = {
   title: {
     absolute: 'Garabandal Apostolate — Marian Apparitions & Pilgrimages',
   },
-  description: 'Official platform of the Garabandal Apostolate. Book Catholic Marian pilgrimages to Garabandal, support the mission, become a member and shop the Catholic store.',
+  description: 'Official website of the Garabandal Apostolate Association, dedicated to spreading the message of Our Lady of Garabandal through pilgrimages, prayer and mission.',
   keywords: [
     'Garabandal Apostolate',
     'Garabandal official website',

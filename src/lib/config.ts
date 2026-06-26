@@ -11,7 +11,7 @@ export const APP_URL =
     normalizeUrl(process.env.NEXT_PUBLIC_APP_URL) ||
     normalizeUrl(process.env.NEXT_PUBLIC_SITE_URL) ||
     (process.env.NODE_ENV === 'production'
-        ? 'https://app.apostoladodegarabandal.com'
+        ? 'https://apostoladodegarabandal.com'
         : process.env.VERCEL_URL
             ? `https://${process.env.VERCEL_URL}`
             : 'http://localhost:3000');

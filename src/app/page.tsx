@@ -16,7 +16,7 @@ export const metadata: Metadata = {
   title: {
     absolute: 'Apostolado de Garabandal — Aparições, mensagens e peregrinações',
   },
-  description: 'Santuário virtual do Apostolado de Garabandal. Peregrinações católicas, doações para a missão e vida de oração.',
+  description: 'Site oficial da Associação do Apostolado de Garabandal, dedicado a divulgar a mensagem de Nossa Senhora em Garabandal através de peregrinações, oração e missão.',
   alternates: {
     canonical: `${APP_URL}/`,
   },
