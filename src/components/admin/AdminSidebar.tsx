@@ -24,6 +24,7 @@ import {
     Video,
     Mail,
     Heart,
+    HeartHandshake,
     Gavel,
     UserPlus,
     ChevronDown,
@@ -77,6 +78,7 @@ export default function AdminSidebar({ onLogout, className }: { onLogout: () => 
                 { label: 'Encomendas', icon: FileText, href: '/admin/encomendas', badge: counts.orders },
                 { label: 'Membros', icon: Users, href: '/admin/membros', badge: counts.members },
                 { label: 'Atividade dos Membros', icon: Activity, href: '/admin/membros/atividade' },
+                { label: 'Voluntariado em Garabandal', icon: HeartHandshake, href: '/admin/membros/voluntariado' },
                 { label: 'Loja & Stock', icon: ShoppingBag, href: '/admin/loja' },
                 { label: 'Transações', icon: CreditCard, href: '/admin/transacoes' },
             ]

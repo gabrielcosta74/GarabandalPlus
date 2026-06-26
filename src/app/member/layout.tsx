@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import MemberActivityTracker from '../../components/member/MemberActivityTracker';
+import VolunteerSurvey from '../../components/member/VolunteerSurvey';
 
 export const metadata: Metadata = {
   robots: {
@@ -13,6 +14,7 @@ export default function MemberLayout({ children }: { children: React.ReactNode }
     <>
       <MemberActivityTracker />
       {children}
+      <VolunteerSurvey />
     </>
   );
 }

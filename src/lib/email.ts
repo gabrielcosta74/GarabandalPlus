@@ -791,3 +791,77 @@ export const sendAdminBankTransferAlert = async (payload: AdminBankTransferAlert
   });
   return true;
 };
+
+type VolunteerApplicationEmailInput = {
+  memberName?: string | null;
+  memberEmail?: string | null;
+  memberPhone?: string | null;
+  numeroSocio?: number | null;
+  linguas: string[];
+  disponibilidade?: string | null;
+  esteveGarabandal?: string | null;
+  condicaoFisica?: string | null;
+  motivacao?: string | null;
+  adminUrl: string;
+};
+
+// Notifica o Apostolado de uma nova candidatura a voluntário de apoio ao peregrino em Garabandal.
+export const sendVolunteerApplicationEmail = async (payload: VolunteerApplicationEmailInput) => {
+  if (!resendClient) {
+    console.warn('Resend nao configurado. Ignorar envio de email.');
+    return false;
+  }
+
+  const row = (label: string, value?: string | null) => {
+    if (!value) return '';
+    return `
+      <tr>
+        <td style="padding:8px 0; color:#64748b; font-size:13px; vertical-align:top; width:170px;">${label}</td>
+        <td style="padding:8px 0; color:#0f172a; font-size:14px; font-weight:600;">${value.replace(/\n/g, '<br/>')}</td>
+      </tr>`;
+  };
+
+  const linguas = payload.linguas?.length ? payload.linguas.join(', ') : '—';
+
+  const html = `
+    <!DOCTYPE html>
+    <html lang="pt">
+    <body style="margin:0; background:#f1f5f9; font-family:'Segoe UI', Arial, sans-serif;">
+      <div style="max-width:640px; margin:0 auto; background:#ffffff; border-radius:16px; overflow:hidden; border:1px solid #e2e8f0;">
+        <div style="padding:28px 32px; background:linear-gradient(135deg,#0f4c81,#1d6fb8); color:#ffffff;">
+          <p style="margin:0; font-size:13px; letter-spacing:1px; text-transform:uppercase; opacity:.85;">Voluntariado em Garabandal</p>
+          <h1 style="margin:6px 0 0; font-size:22px;">Nova candidatura de apoio ao peregrino</h1>
+        </div>
+        <div style="padding:28px 32px;">
+          <table style="width:100%; border-collapse:collapse;">
+            ${row('Membro', payload.memberName)}
+            ${row('Nº de sócio', payload.numeroSocio ? String(payload.numeroSocio) : null)}
+            ${row('Email', payload.memberEmail)}
+            ${row('Telefone', payload.memberPhone)}
+            ${row('Línguas', linguas)}
+            ${row('Disponibilidade', payload.disponibilidade)}
+            ${row('Já esteve em Garabandal', payload.esteveGarabandal)}
+            ${row('Condição física', payload.condicaoFisica)}
+            ${row('Motivação', payload.motivacao)}
+          </table>
+          <p style="margin:18px 0 0; padding:12px 16px; background:#ecfdf5; border-radius:10px; color:#065f46; font-size:13px;">
+            ✓ Comprometeu-se a participar nos dias de formação obrigatória e a usar o colete identificativo do Apostolado.
+          </p>
+          <a href="${payload.adminUrl}" style="display:block; margin-top:22px; background:#0f4c81; color:#fff; text-align:center; padding:14px 24px; border-radius:10px; font-weight:700; font-size:15px; text-decoration:none;">Ver candidaturas no Admin</a>
+        </div>
+        <div style="padding:16px 32px; background:#f8fafc; border-top:1px solid #e2e8f0; text-align:center;">
+          <p style="color:#94a3b8; font-size:12px; margin:0;">Apostolado de Garabandal · apostoladodegarabandal.com</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  await resendClient.emails.send({
+    from: notifyFrom,
+    to: [notifyTo],
+    subject: `🤝 Nova candidatura a voluntário em Garabandal — ${payload.memberName || 'Membro'}`,
+    html,
+  });
+  return true;
+};
