@@ -524,6 +524,19 @@ export default function VolunteerSurvey() {
                                         "We are forming a small group of pilgrim-support volunteers. Those who serve will be hosted at the Apostolate's house and will help welcome pilgrims, share the story of the apparitions, take them to the holy sites and support the Garabandal parish.",
                                     )}
                                 </p>
+                                <div style={{
+                                    margin: "16px 0 0", padding: "12px 14px", borderRadius: 12,
+                                    background: "rgba(15,76,129,0.05)", border: "1px solid rgba(15,76,129,0.12)",
+                                    display: "flex", gap: 10,
+                                }}>
+                                    <span style={{ fontSize: 17, lineHeight: 1.4 }}>🏠</span>
+                                    <p style={{ margin: 0, color: "#334155", fontSize: 13, lineHeight: 1.55 }}>
+                                        {t(
+                                            "O alojamento na casa do Apostolado é oferecido com todo o carinho. As refeições e a viagem até Garabandal ficam a cargo de cada voluntário — com toda a simplicidade, é assim que partilhamos esta missão.",
+                                            "Lodging at the Apostolate's house is offered with all our care. Meals and travel to Garabandal are each volunteer's own responsibility — in all simplicity, that's how we share this mission together.",
+                                        )}
+                                    </p>
+                                </div>
                                 <p style={{ margin: "12px 0 0", color: "#475569", fontSize: 13.5, lineHeight: 1.6 }}>
                                     {t(
                                         "Responder leva menos de 1 minuto. Já temos os seus contactos da sua conta de membro.",
