@@ -43,6 +43,73 @@ const ICONS: Record<CategoryKey, typeof Scroll> = {
   noticias: Info,
 };
 
+// Unique, factual descriptive prose per category. Gives the landing pages real
+// editorial depth (vs. a thin list of links) and topical relevance for queries
+// like "história de garabandal" / "mensagens de garabandal". Kept conservative
+// and consistent with the category intros above.
+const OVERVIEW: Record<CategoryKey, { pt: string[]; en: string[] }> = {
+  historia: {
+    pt: [
+      'As aparições de Garabandal decorreram entre 1961 e 1965, na pequena aldeia de San Sebastián de Garabandal, no norte de Espanha. Quatro meninas — Conchita González, Jacinta González, Mari Loli Mazón e Mari Cruz González — afirmaram ver primeiro o Arcanjo São Miguel e, depois, Nossa Senhora do Carmo, em mais de duas mil aparições.',
+      'Nesta secção reúne-se a cronologia dos acontecimentos, o relato dos êxtases e das marchas extáticas, o testemunho das videntes e dos sacerdotes que os acompanharam, e a posição da Igreja sobre Garabandal ao longo das décadas.',
+    ],
+    en: [
+      'The Garabandal apparitions took place between 1961 and 1965 in the small village of San Sebastián de Garabandal, in northern Spain. Four girls — Conchita González, Jacinta González, Mari Loli Mazón and Mari Cruz González — reported seeing first Saint Michael the Archangel and then Our Lady of Mount Carmel, in more than two thousand apparitions.',
+      'This section gathers the chronology of events, the accounts of the ecstasies and ecstatic marches, the testimony of the seers and the priests who accompanied them, and the position of the Church on Garabandal across the decades.',
+    ],
+  },
+  ensinamentos: {
+    pt: [
+      'A mensagem de Garabandal não acrescenta nada à fé católica: chama-nos de volta ao essencial — a oração, os sacramentos, a devoção a Nossa Senhora e o seguimento sincero do Evangelho.',
+      'Nesta secção reúnem-se reflexões e meditações que partem da experiência de Garabandal para iluminar a vida cristã de hoje, à luz daquilo que Nossa Senhora pediu nas suas mensagens.',
+    ],
+    en: [
+      'The message of Garabandal adds nothing to the Catholic faith: it calls us back to the essentials — prayer, the sacraments, devotion to Our Lady, and the sincere following of the Gospel.',
+      'This section gathers reflections and meditations that draw on the Garabandal experience to illuminate Christian life today, in the light of what Our Lady asked in her messages.',
+    ],
+  },
+  mensagens: {
+    pt: [
+      'Em Garabandal, Nossa Senhora deixou duas mensagens públicas. A primeira, a 18 de Outubro de 1961, apela ao sacrifício, à penitência, à visita ao Santíssimo Sacramento e à vida segundo os mandamentos. A segunda, a 18 de Junho de 1965, transmitida pelo Arcanjo São Miguel, adverte para o afastamento crescente dos sacramentos e renova o chamamento à conversão.',
+      'Aqui pode ler o texto das mensagens, o seu contexto e as meditações que delas brotam — um apelo à oração, à reparação e à proximidade com a Eucaristia.',
+    ],
+    en: [
+      'At Garabandal, Our Lady gave two public messages. The first, on 18 October 1961, calls for sacrifice, penance, visits to the Blessed Sacrament and a life according to the commandments. The second, on 18 June 1965, delivered through Saint Michael the Archangel, warns of a growing estrangement from the sacraments and renews the call to conversion.',
+      'Here you can read the text of the messages, their context, and the meditations that flow from them — a call to prayer, reparation and closeness to the Eucharist.',
+    ],
+  },
+  testemunhos: {
+    pt: [
+      'Ao longo de mais de seis décadas, sacerdotes, religiosos, peregrinos e testemunhas oculares partilharam o impacto de Garabandal nas suas vidas.',
+      'Aqui reúnem-se entrevistas com as videntes, memórias de quem conheceu de perto os acontecimentos, e relatos de conversão e de fé nascidos do encontro com a Mensagem.',
+    ],
+    en: [
+      'Across more than six decades, priests, religious, pilgrims and eyewitnesses have shared the impact of Garabandal on their lives.',
+      'Here you will find interviews with the seers, memoirs of those who knew the events at first hand, and accounts of conversion and faith born from the encounter with the Message.',
+    ],
+  },
+  profecias: {
+    pt: [
+      'Garabandal anuncia quatro acontecimentos futuros: o Aviso, um esclarecimento universal das consciências sentido por todos; o Grande Milagre, prometido em San Sebastián de Garabandal e a anunciar com antecedência por Conchita; o Castigo, condicional e dependente da resposta da humanidade; e um sinal permanente que ficará no local do Milagre.',
+      'Estas páginas reúnem o que as videntes relataram sobre cada um destes acontecimentos, sempre na fidelidade ao discernimento da Igreja.',
+    ],
+    en: [
+      'Garabandal announces four future events: the Warning, a universal illumination of consciences felt by all; the Great Miracle, promised at San Sebastián de Garabandal and to be announced in advance by Conchita; the Chastisement, conditional and dependent on humanity\'s response; and a permanent sign that will remain at the site of the Miracle.',
+      'These pages gather what the seers related about each of these events, always in fidelity to the discernment of the Church.',
+    ],
+  },
+  noticias: {
+    pt: [
+      'Atualidade do Apostolado de Garabandal: eventos, peregrinações, lançamentos e comunicados.',
+      'Acompanhe aqui as novidades da missão e consulte o arquivo de notícias publicadas ao longo dos anos.',
+    ],
+    en: [
+      'News from the Apostolate of Garabandal: events, pilgrimages, releases and announcements.',
+      'Follow the latest from the mission here and browse the archive of stories published over the years.',
+    ],
+  },
+};
+
 const CATEGORY_KEYS = new Set<string>(Object.keys(CATEGORIES));
 
 const T = {
@@ -159,6 +226,15 @@ export async function CategoryIndexPage({ category, locale }: Props) {
           <p className="mt-5 max-w-2xl text-lg font-light leading-relaxed text-slate-600">
             {meta.intro}
           </p>
+        </div>
+      </section>
+
+      {/* OVERVIEW — unique descriptive prose for topical depth */}
+      <section className="mx-auto w-full max-w-3xl px-4 pt-12 sm:px-6 sm:pt-14">
+        <div className="space-y-4 text-base leading-relaxed text-slate-600">
+          {OVERVIEW[category][locale].map((para, i) => (
+            <p key={i}>{para}</p>
+          ))}
         </div>
       </section>
 
