@@ -13,7 +13,7 @@ const playfair = Playfair_Display({ subsets: ['latin'], variable: '--font-playfa
 // (Chrome auto-dark theme, Samsung Internet, etc.) that the site only supports
 // light, so they won't auto-darken / invert our design on phones set to dark mode.
 export const viewport: Viewport = {
-  colorScheme: 'light',
+  colorScheme: 'only light',
   themeColor: '#ffffff',
 };
 
@@ -102,6 +102,7 @@ export default async function RootLayout({
   return (
     <html lang={htmlLang}>
       <head>
+        <meta name="supported-color-schemes" content="light" />
         {/* Sender.net — universal tracking/forms snippet (loaded once for the whole site) */}
         <Script id="sender-universal" strategy="afterInteractive">
           {`(function (s, e, n, d, er) {

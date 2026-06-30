@@ -14,13 +14,17 @@
   --color-garabandal-accent: #334155;
 }
 
-* {
+*,
+*::before,
+*::after {
   box-sizing: border-box;
+  color-scheme: only light;
 }
 
 html {
   /* `only light` is the explicit opt-out: browsers must not auto-darken/invert. */
   color-scheme: only light;
+  background-color: #ffffff;
 }
 
 :root {
@@ -39,6 +43,7 @@ body {
   background: linear-gradient(180deg, #f8faff 0%, #eef2f8 100%);
   color: var(--text);
   overflow-x: hidden;
+  color-scheme: only light;
 }
 
 a {
@@ -51,6 +56,7 @@ input,
 select,
 textarea {
   font: inherit;
+  color-scheme: only light;
 }
 
 .site-nav {
