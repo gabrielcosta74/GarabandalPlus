@@ -154,7 +154,7 @@ export async function CategoryIndexPage({ category, locale }: Props) {
           </span>
 
           <h1 className="mt-5 font-serif text-4xl font-bold leading-[1.1] tracking-tight sm:text-5xl lg:text-6xl">
-            {meta.label}
+            {locale === 'pt' ? `${meta.label} de Garabandal` : `Garabandal ${meta.label}`}
           </h1>
           <p className="mt-5 max-w-2xl text-lg font-light leading-relaxed text-slate-600">
             {meta.intro}

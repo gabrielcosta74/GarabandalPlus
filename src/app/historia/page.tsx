@@ -9,7 +9,7 @@ const cfg = CATEGORIES[CAT];
 
 export async function generateMetadata(): Promise<Metadata> {
   return {
-    title: cfg.pt.label,
+    title: `${cfg.pt.label} de Garabandal`,
     description: cfg.pt.tagline,
     alternates: {
       canonical: `${APP_URL}/${cfg.pt.slug}`,
