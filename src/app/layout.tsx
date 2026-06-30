@@ -9,11 +9,10 @@ import { APP_URL } from '../lib/config';
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 const playfair = Playfair_Display({ subsets: ['latin'], variable: '--font-playfair' });
 
-// Force a single light appearance for everyone. This tells mobile browsers
-// (Chrome auto-dark theme, Samsung Internet, etc.) that the site only supports
-// light, so they won't auto-darken / invert our design on phones set to dark mode.
+// Advertise both schemes so Samsung Internet can prefer our media-query styles
+// instead of auto-transforming colors, while globals.css keeps both schemes light.
 export const viewport: Viewport = {
-  colorScheme: 'only light',
+  colorScheme: 'light dark',
   themeColor: '#ffffff',
 };
 
@@ -102,7 +101,7 @@ export default async function RootLayout({
   return (
     <html lang={htmlLang}>
       <head>
-        <meta name="supported-color-schemes" content="light" />
+        <meta name="supported-color-schemes" content="light dark" />
         {/* Sender.net — universal tracking/forms snippet (loaded once for the whole site) */}
         <Script id="sender-universal" strategy="afterInteractive">
           {`(function (s, e, n, d, er) {

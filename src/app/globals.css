@@ -18,17 +18,16 @@
 *::before,
 *::after {
   box-sizing: border-box;
-  color-scheme: only light;
+  color-scheme: light;
 }
 
 html {
-  /* `only light` is the explicit opt-out: browsers must not auto-darken/invert. */
-  color-scheme: only light;
+  color-scheme: light;
   background-color: #ffffff;
 }
 
 :root {
-  color-scheme: only light;
+  color-scheme: light;
   --surface: #ffffff;
   --text: #0f172a;
   --muted: #64748b;
@@ -43,7 +42,7 @@ body {
   background: linear-gradient(180deg, #f8faff 0%, #eef2f8 100%);
   color: var(--text);
   overflow-x: hidden;
-  color-scheme: only light;
+  color-scheme: light;
 }
 
 a {
@@ -56,7 +55,39 @@ input,
 select,
 textarea {
   font: inherit;
-  color-scheme: only light;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  *,
+  *::before,
+  *::after {
+    color-scheme: light !important;
+  }
+
+  html,
+  :root {
+    color-scheme: light !important;
+    background-color: #ffffff !important;
+    --surface: #ffffff;
+    --text: #0f172a;
+    --muted: #64748b;
+    --primary: #1d4ed8;
+    --border: #e2e8f0;
+    --bg: #f3f6fc;
+  }
+
+  body {
+    color: var(--text) !important;
+    background: linear-gradient(180deg, #f8faff 0%, #eef2f8 100%) !important;
+  }
+
+  button,
+  input,
+  select,
+  textarea {
+    color-scheme: light !important;
+  }
 }
 
 .site-nav {
