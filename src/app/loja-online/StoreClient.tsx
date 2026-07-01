@@ -69,7 +69,7 @@ export default function StoreClient() {
         <StoreLayoutWrapper>
             <StoreHero />
 
-            <main className="container mx-auto px-6 pb-24 min-h-screen">
+            <main className="container mx-auto max-w-6xl px-6 pb-24 min-h-screen">
 
                 <FilterBar
                     categories={categories}

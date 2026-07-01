@@ -20,7 +20,7 @@ const FilterBar: React.FC<FilterBarProps> = ({
 }) => {
     return (
         <div className="sticky top-20 z-30 py-6 bg-garabandal-mist/95 backdrop-blur-xl border-b border-gray-200 mb-12 shadow-sm">
-            <div className="container mx-auto px-6 flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div className="container mx-auto max-w-6xl px-6 flex flex-col md:flex-row md:items-center justify-between gap-6">
 
                 {/* Categories */}
                 <div className="flex items-center gap-4 overflow-x-auto pb-2 md:pb-0 scrollbar-hide">

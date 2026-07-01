@@ -3,9 +3,9 @@
 import React from 'react';
 import Image from 'next/image';
 import { motion } from 'framer-motion';
-import { Product } from '../../app/loja-online/data';
+import { Product, loadCart, saveCart } from '../../app/loja-online/data';
 import Link from 'next/link';
-import { Globe, Eye } from 'lucide-react';
+import { Globe, ShoppingCart } from 'lucide-react';
 import { useCurrency } from '../providers/CurrencyProvider';
 import { inferIsDigitalProduct } from '../../lib/product-kind';
 import { useLocale } from '../../contexts/LocaleContext';
@@ -42,6 +42,20 @@ const ProductCard = React.forwardRef<HTMLDivElement, ProductCardProps>(({
             : (product.stock === null ? true : (product.stock ?? 0) > 0);
 
     const isSoldOut = !isDigital && !hasStock;
+    const hasVariants = !!(product.variants && product.variants.length > 0);
+
+    // Simple products (no variants) can be added straight to the cart.
+    // Products with variants go to the product page so the user picks an option.
+    const addToCart = (e: React.MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const prev = loadCart();
+        const existing = prev.find((item) => item.id === product.id);
+        const next = existing
+            ? prev.map((item) => (item.id === product.id ? { ...item, qty: item.qty + 1 } : item))
+            : [...prev, { id: product.id, qty: 1 }];
+        saveCart(next);
+    };
 
     return (
         <motion.div
@@ -71,21 +85,18 @@ const ProductCard = React.forwardRef<HTMLDivElement, ProductCardProps>(({
 
             {/* Content */}
             <div className="p-5 md:p-6 flex flex-col flex-grow">
-                <h3 className="font-serif text-lg md:text-xl font-bold text-slate-900 mb-2 group-hover:text-amber-600 transition-colors line-clamp-2 leading-snug">
+                <h3 className="font-serif text-lg md:text-xl font-bold text-slate-900 mb-2 group-hover:text-amber-600 transition-colors line-clamp-2 leading-snug flex-grow">
                     {product.name}
                 </h3>
-                <p className="text-slate-500 text-xs md:text-sm line-clamp-2 mb-6 flex-grow font-medium leading-relaxed">
-                    {product.description}
-                </p>
 
                 <div className="mt-auto pt-5 border-t border-slate-100">
                     <div className="flex items-end justify-between mb-5">
                         <div>
-                            <p className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight">
+                            <p className="text-lg md:text-xl font-black text-slate-900 tracking-tight">
                                 {formatEUR(product.price)}
                             </p>
                             {currency !== 'EUR' && (
-                                <p className="text-base text-slate-500 font-semibold mt-0.5">
+                                <p className="text-sm text-slate-500 font-semibold mt-0.5">
                                     ≈ {formatPrice(product.price)}
                                 </p>
                             )}
@@ -125,38 +136,31 @@ const ProductCard = React.forwardRef<HTMLDivElement, ProductCardProps>(({
                         )}
                     </div>
 
-                    {href && !isSoldOut ? (
+                    {isSoldOut ? (
+                        <button
+                            disabled
+                            className="w-full py-2 rounded-lg text-[11px] md:text-xs font-bold flex items-center justify-center bg-slate-100 text-slate-400 cursor-not-allowed"
+                        >
+                            <span>{isEn ? 'Out of Stock' : 'Esgotado'}</span>
+                        </button>
+                    ) : hasVariants && href ? (
                         <Link
                             href={href}
                             onClick={(e) => {
                                 e.stopPropagation();
                                 onAddToCart(e);
                             }}
-                            className="w-full py-3.5 rounded-xl text-xs font-black uppercase tracking-[0.15em] flex items-center justify-center transition-all cursor-pointer bg-yellow-400 text-slate-900 hover:bg-slate-900 hover:text-white shadow-md hover:shadow-lg"
+                            className="w-full py-2 rounded-lg text-[11px] md:text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer bg-slate-900 text-white hover:bg-amber-500 md:opacity-0 md:group-hover:opacity-100 focus-visible:opacity-100"
                         >
-                            <span>{isEn ? 'View Product' : 'Ver Produto'}</span>
+                            <span>{isEn ? 'View' : 'Ver produto'}</span>
                         </Link>
                     ) : (
                         <button
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                onAddToCart(e);
-                            }}
-                            disabled={isSoldOut}
-                            className={`w-full py-3.5 rounded-xl text-xs font-black uppercase tracking-[0.15em] flex items-center justify-center transition-all shadow-sm cursor-pointer
-                            ${isSoldOut
-                                    ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
-                                    : 'bg-yellow-400 text-slate-900 hover:bg-slate-900 hover:text-white hover:shadow-lg'
-                                }
-                        `}
+                            onClick={addToCart}
+                            className="w-full py-2 rounded-lg text-[11px] md:text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer bg-slate-900 text-white hover:bg-amber-500 md:opacity-0 md:group-hover:opacity-100 focus-visible:opacity-100"
                         >
-                            <span>
-                                {isSoldOut ? (
-                                    isEn ? 'Out of Stock' : 'Esgotado'
-                                ) : (
-                                    isEn ? 'View Product' : 'Ver Produto'
-                                )}
-                            </span>
+                            <ShoppingCart size={13} strokeWidth={2.5} />
+                            <span>{isEn ? 'Add' : 'Adicionar'}</span>
                         </button>
                     )}
                 </div>

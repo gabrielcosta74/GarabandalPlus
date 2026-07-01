@@ -65,6 +65,14 @@ export default function StorePageClient({ initialProducts = [], initialLocale }:
         }
     };
 
+    // Curated ordering: physical book first, then Diário de Conchita, rest keep API order.
+    const productRank = (product: Product) => {
+        if (product.is_physical || product.type_id === 'book_physical') return 0;
+        if (product.name.toLowerCase().includes('diário de conchita') ||
+            product.name.toLowerCase().includes('diario de conchita')) return 1;
+        return 2;
+    };
+
     const filteredProducts = useMemo(() => {
         return products.filter(product => {
             const normalizedSearch = searchTerm.toLowerCase();
@@ -97,23 +105,16 @@ export default function StorePageClient({ initialProducts = [], initialLocale }:
             }
 
             return matchesSearch && matchesCategory;
-        });
+        }).sort((a, b) => productRank(a) - productRank(b));
     }, [products, searchTerm, selectedCategory]);
 
     return (
         <div className="min-h-screen bg-[#FDFDFC] pb-24">
             {/* Header Area - Clean & Sleek */}
             <div className="bg-white border-b border-slate-100">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-6 md:pb-8 text-center">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-28 md:pt-32 pb-6 md:pb-8 text-center">
                     <div className="flex flex-col items-center justify-center gap-6">
                         
-                        {/* Title & Description */}
-                        <div className="max-w-3xl mx-auto space-y-4">
-                            <h1 className="text-4xl md:text-5xl lg:text-6xl font-serif font-black text-slate-900 tracking-tight">
-                                {isEn ? 'Online Store' : 'Loja Online'}
-                            </h1>
-                        </div>
-
                         {/* Premium Trust Bar for Payments */}
                         <div className="bg-slate-50/80 border border-slate-200/60 p-4 md:p-6 rounded-3xl flex flex-col items-center gap-4 w-full max-w-3xl mx-auto shadow-[0_8px_30px_rgba(0,0,0,0.02)]">
                             <div className="flex items-center gap-2">
@@ -154,7 +155,7 @@ export default function StorePageClient({ initialProducts = [], initialLocale }:
             </div>
 
             {/* Filters & Categories Area */}
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-12 mb-10 relative z-10">
+            <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 mt-12 mb-10 relative z-10">
                 <div className="flex flex-col lg:flex-row gap-6 items-center justify-between bg-white p-2 rounded-2xl border border-slate-100 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)]">
                     
                     {/* Pills Navigation */}
@@ -204,6 +205,7 @@ export default function StorePageClient({ initialProducts = [], initialLocale }:
                 </div>
             </div>
 
+            <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
                 {loading ? (
                     <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-8">
                         {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
@@ -256,6 +258,7 @@ export default function StorePageClient({ initialProducts = [], initialLocale }:
                         <p className="text-slate-500">{isEn ? 'Try adjusting your search or filters.' : 'Tente ajustar a pesquisa ou os filtros.'}</p>
                     </div>
                 )}
+            </div>
         </div>
     );
 }
