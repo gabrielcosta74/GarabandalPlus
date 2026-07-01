@@ -733,12 +733,12 @@ const referralContent = (locale: EmailLocale, variant: 'member' | 'general' | 's
   const isEn = locale === 'en';
   if (variant === 'share') {
     return isEn
-      ? `${Text('<strong>{{greeting}}</strong>,')}${Text('Thank you for sharing the Apostolate. Many people discover Garabandal because someone close to them had the courage to send a simple invitation.')}
-        ${emailFeatureBlock({ image: BENEFIT_IMG.books, eyebrow: 'Referral credit', title: 'Your invitation remains active', desc: 'For every friend who becomes a member through your invitation, both receive {{referral_reward}} store credit. Credit accumulates and can be used for books, articles or donations.' })}
-        ${emailSteps('Share again when it feels right', ['Open your member area.', 'Copy your invitation link.', 'Send it personally to someone who may need peace, faith or hope.'])}`
-      : `${Text('<strong>{{greeting}}</strong>,')}${Text('Obrigado por partilhar o Apostolado. Muitas pessoas descobrem Garabandal porque alguém próximo teve a coragem de enviar um convite simples.')}
-        ${emailFeatureBlock({ image: BENEFIT_IMG.books, eyebrow: 'Saldo por convite', title: 'O seu convite continua ativo', desc: 'Por cada amigo que se torne membro através do seu convite, ambos recebem {{referral_reward}} de saldo na Loja. O saldo acumula e pode ser usado em livros, artigos ou donativos.' })}
-        ${emailSteps('Partilhe novamente quando fizer sentido', ['Abra a sua área de membro.', 'Copie o seu link de convite.', 'Envie pessoalmente a alguém que possa precisar de paz, fé ou esperança.'])}`;
+      ? `${Text('<strong>{{greeting}}</strong>,')}${Text('Your personal invitation is active in the member area. Many people discover Garabandal because someone close to them shares a simple, thoughtful invitation.')}
+        ${emailFeatureBlock({ image: BENEFIT_IMG.books, eyebrow: 'Referral credit', title: 'Credit is only applied after a confirmed membership', desc: 'If someone becomes a member through your invitation, both of you receive {{referral_reward}} store credit. The credit can be used for books, items or donations.' })}
+        ${emailSteps('Share when it feels right', ['Open your member area.', 'Copy your invitation link.', 'Send it personally to someone who may need peace, faith or hope.'])}`
+      : `${Text('<strong>{{greeting}}</strong>,')}${Text('O seu convite pessoal está ativo na área de membro. Muitas pessoas descobrem Garabandal porque alguém próximo partilha um convite simples, com cuidado e no momento certo.')}
+        ${emailFeatureBlock({ image: BENEFIT_IMG.books, eyebrow: 'Saldo por convite', title: 'O saldo só entra quando uma adesão é confirmada', desc: 'Se alguém se tornar membro através do seu convite, ambos recebem {{referral_reward}} de saldo na Loja. Esse saldo pode ser usado em livros, artigos ou donativos.' })}
+        ${emailSteps('Partilhe quando fizer sentido', ['Abra a sua área de membro.', 'Copie o seu link de convite.', 'Envie pessoalmente a alguém que possa precisar de paz, fé ou esperança.'])}`;
   }
 
   return isEn
@@ -2198,8 +2198,8 @@ export const MARKETING_EMAIL_TEMPLATES: Record<MarketingTemplateKey, MarketingTe
     name: 'Ativar convites',
     category: 'Partilha',
     goal: 'Estimular partilha através de convite.',
-    defaultSubject: '{{first_name}}, convide um amigo e ganham ambos {{referral_reward}}',
-    previewText: 'Uma partilha simples aproxima alguém da fé — e dá saldo aos dois.',
+    defaultSubject: '{{first_name}}, convide um amigo e podem receber {{referral_reward}}',
+    previewText: 'Uma partilha simples pode aproximar alguém da fé — e gerar saldo para os dois.',
     ctaLabel: 'Abrir e Partilhar o Convite',
     ctaUrl: (payload) => payload.referralUrl || marketingUrl('/member', payload),
     title: 'Um convite simples — com um presente para os dois',
@@ -2209,7 +2209,7 @@ export const MARKETING_EMAIL_TEMPLATES: Record<MarketingTemplateKey, MarketingTe
     paragraphs: [
       '<strong>{{greeting}}</strong>,',
       'Se conhece alguém que esteja à procura de algo mais profundo — paz, fé, esperança, um caminho espiritual — a mensagem de Garabandal pode ser exatamente o que essa pessoa precisa de encontrar.',
-      'Quando essa pessoa se torna membro através do seu convite, <strong>recebem ambos {{referral_reward}} de saldo</strong> para a Loja Online. É a nossa forma de agradecer a quem ajuda a missão a crescer — e quanto mais convidar, mais saldo acumula.',
+      'Quando essa pessoa se torna membro através do seu convite, <strong>recebem ambos {{referral_reward}} de saldo</strong> para a Loja Online. O saldo só é atribuído depois da adesão confirmada; é a nossa forma de agradecer a quem ajuda a missão a crescer.',
       'Não é necessário explicar tudo — basta partilhar o seu link de convite e deixar que a missão fale por si.',
     ],
   },
@@ -2218,19 +2218,19 @@ export const MARKETING_EMAIL_TEMPLATES: Record<MarketingTemplateKey, MarketingTe
     name: 'Partilhar missão',
     category: 'Partilha',
     goal: 'Reforçar partilha depois do primeiro convite.',
-    defaultSubject: 'Obrigado, {{first_name}} — continue a convidar e a ganhar saldo',
-    previewText: 'Cada amigo que se torna membro dá {{referral_reward}} de saldo a ambos.',
+    defaultSubject: '{{first_name}}, o seu convite está ativo para partilhar a missão',
+    previewText: 'Se alguém se tornar membro pelo seu convite, ambos recebem {{referral_reward}} de saldo.',
     ctaLabel: 'Partilhar Novamente',
     ctaUrl: (payload) => payload.referralUrl || marketingUrl('/member', payload),
-    title: 'A missão cresce porque partilhou',
-    subtitle: 'Obrigado por caminhar connosco',
+    title: 'O seu convite está pronto para ser partilhado',
+    subtitle: 'Um convite simples, sem pressão',
     requiredVariables: ['name', 'referral_url'],
     contentHtml: (locale) => referralContent(locale, 'share'),
     paragraphs: [
       '<strong>{{greeting}}</strong>,',
-      'Obrigado por partilhar o Apostolado. Muitas pessoas chegam ao Garabandal porque alguém — como você — teve a generosidade e a coragem de dizer "isto pode ser para ti".',
-      'O seu convite continua ativo: por <strong>cada amigo que se torne membro, recebem ambos {{referral_reward}} de saldo</strong> para a Loja Online. O saldo acumula a cada convite aceite — e pode ser trocado por livros, artigos ou doações.',
-      'Se sentir novamente vontade de partilhar, o seu código está à espera na área de membro. Cada partilha é um ato de apostolado concreto — com um valor que vai muito além do que podemos medir.',
+      'O seu convite pessoal está ativo na área de membro. Se houver alguém a quem a mensagem de Garabandal possa fazer bem, pode partilhar esse link com calma, no momento certo.',
+      'Quando alguém se torna membro através do seu convite, <strong>ambos recebem {{referral_reward}} de saldo</strong> para a Loja Online. O saldo só entra depois da adesão confirmada, e pode ser usado em livros, artigos ou donativos.',
+      'Não é preciso explicar tudo nem pressionar ninguém. Uma partilha pessoal, feita com fé e respeito, já é um ato concreto de apostolado.',
     ],
   },
   member_welcome: {
@@ -2615,30 +2615,30 @@ const MARKETING_EMAIL_TEMPLATE_EN: Record<MarketingTemplateKey, MarketingTemplat
   },
   referral_activation: {
     goal: 'Encourage sharing through an invitation.',
-    defaultSubject: '{{first_name}}, invite a friend and you both get {{referral_reward}}',
-    previewText: 'A simple share brings someone closer to faith — and rewards you both.',
+    defaultSubject: '{{first_name}}, invite a friend and you can both receive {{referral_reward}}',
+    previewText: 'A simple share can bring someone closer to faith — and generate credit for both of you.',
     ctaLabel: 'Open and Share the Invitation',
     title: 'A simple invitation — with a gift for both',
     subtitle: 'Bringing Garabandal to more people',
     paragraphs: [
       '<strong>{{greeting}}</strong>,',
       'If you know someone searching for something deeper — peace, faith, hope, a spiritual path — the message of Garabandal may be exactly what they need to find.',
-      'When that person becomes a member through your invitation, <strong>you both receive {{referral_reward}} in store credit</strong> for the Online Store. It is our way of thanking those who help the mission grow — and the more you invite, the more credit you build up.',
+      'When that person becomes a member through your invitation, <strong>you both receive {{referral_reward}} in store credit</strong> for the Online Store. Credit is applied only after the membership is confirmed; it is our way of thanking those who help the mission grow.',
       'There is no need to explain everything — just share your invite link and let the mission speak for itself.',
     ],
   },
   share_mission: {
     goal: 'Reinforce sharing after the first invitation.',
-    defaultSubject: 'Thank you, {{first_name}} — keep inviting and earning credit',
-    previewText: 'Every friend who becomes a member gives {{referral_reward}} in credit to both of you.',
+    defaultSubject: '{{first_name}}, your invitation is active to share the mission',
+    previewText: 'If someone becomes a member through your invitation, both of you receive {{referral_reward}} in credit.',
     ctaLabel: 'Share Again',
-    title: 'The mission grows because you shared',
-    subtitle: 'Thank you for walking with us',
+    title: 'Your invitation is ready to be shared',
+    subtitle: 'A simple invitation, without pressure',
     paragraphs: [
       '<strong>{{greeting}}</strong>,',
-      'Thank you for sharing the Apostolate. Many people arrive at Garabandal because someone — like you — had the generosity and courage to say "this might be for you".',
-      'Your invitation remains active: for <strong>every friend who becomes a member, you both receive {{referral_reward}} in store credit</strong> for the Online Store. The credit adds up with each accepted invite — and can be exchanged for books, items or donations.',
-      'If you feel moved to share again, your code is waiting in your member area. Each share is a concrete act of apostolate — with a value that reaches far beyond what we can measure.',
+      'Your personal invitation is active in the member area. If there is someone who may benefit from the message of Garabandal, you can share that link calmly, at the right moment.',
+      'When someone becomes a member through your invitation, <strong>both of you receive {{referral_reward}} in store credit</strong> for the Online Store. Credit is applied only after the membership is confirmed, and can be used for books, items or donations.',
+      'There is no need to explain everything or pressure anyone. A personal share, made with faith and respect, is already a concrete act of apostolate.',
     ],
   },
   member_welcome: {
