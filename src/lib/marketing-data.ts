@@ -9,6 +9,7 @@ import {
   getMarketingContactId,
   getMarketingRecommendation,
   inferLanguage,
+  isDeliverableMarketingEmail,
   normalizeLocale,
   normalizeCountry,
   normalizeEmail,
@@ -28,6 +29,39 @@ type MutableContact = Omit<MarketingContact, 'segments'> & {
 const toNumber = (value: unknown) => {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const addUnique = (items: string[], value?: unknown) => {
+  const id = typeof value === 'string' ? value : '';
+  if (id && !items.includes(id)) items.push(id);
+};
+
+const hasOpenAvailability = (pilgrimage?: any) => {
+  if (!pilgrimage) return false;
+  const status = normalizeText(pilgrimage.status).toLowerCase();
+  if (!['open', 'active', 'ativo'].includes(status)) return false;
+  if (toNumber(pilgrimage.current_vacancies) <= 0) return false;
+  if (pilgrimage.registration_deadline) {
+    const deadline = new Date(pilgrimage.registration_deadline).getTime();
+    if (!Number.isNaN(deadline) && deadline < Date.now()) return false;
+  }
+  return true;
+};
+
+const trackPilgrimageInterest = (
+  contact: MutableContact,
+  pilgrimageId?: unknown,
+  pilgrimage?: any,
+  options: { waitlist?: boolean } = {},
+) => {
+  addUnique(contact.source_summary.pilgrimage_interest_ids, pilgrimageId);
+  if (options.waitlist) addUnique(contact.source_summary.waitlist_pilgrimage_ids, pilgrimageId);
+  if (hasOpenAvailability(pilgrimage)) {
+    addUnique(contact.source_summary.available_pilgrimage_ids, pilgrimageId);
+    if (options.waitlist) addUnique(contact.source_summary.waitlist_available_pilgrimage_ids, pilgrimageId);
+  }
+  contact.source_summary.available_pilgrimages = contact.source_summary.available_pilgrimage_ids.length;
+  contact.source_summary.waitlist_available_pilgrimages = contact.source_summary.waitlist_available_pilgrimage_ids.length;
 };
 
 const latest = (current: string | null, candidate?: string | null) => {
@@ -138,10 +172,10 @@ export async function buildMarketingContacts(supabase: SupabaseLike): Promise<Ma
     suppressions,
   ] = await Promise.all([
     safeSelect(supabase, 'membros', 'id,nome,email,telefone,country,is_membro,estado_quota,tipo_subscricao,data_adesao,proxima_quota,referral_code,referred_by_code,referrals_count,store_credits,updated_at'),
-    safeSelect(supabase, 'booking_leads', 'id,pilgrimage_id,email,phone,name,status,step_reached,data,created_at,updated_at,last_notified_at,pilgrimages(title,slug,start_date,status)'),
-    safeSelect(supabase, 'pilgrimage_waitlists', 'id,pilgrimage_id,user_id,email,full_name,phone,notes,status,created_at,pilgrimages(title,slug,start_date,status)'),
-    safeSelect(supabase, 'bookings', 'id,user_id,pilgrimage_id,status,total_amount,paid_amount,notes,booking_date,created_at,updated_at,pilgrimages(title,slug,start_date,status)'),
-    safeSelect(supabase, 'pilgrims', 'id,booking_id,full_name,email,phone,country,created_at,bookings(id,status,pilgrimage_id,pilgrimages(title,slug,start_date,status))'),
+    safeSelect(supabase, 'booking_leads', 'id,pilgrimage_id,email,phone,name,status,step_reached,data,created_at,updated_at,last_notified_at,pilgrimages(title,slug,start_date,status,current_vacancies,registration_deadline)'),
+    safeSelect(supabase, 'pilgrimage_waitlists', 'id,pilgrimage_id,user_id,email,full_name,phone,notes,status,created_at,pilgrimages(title,slug,start_date,status,current_vacancies,registration_deadline)'),
+    safeSelect(supabase, 'bookings', 'id,user_id,pilgrimage_id,status,total_amount,paid_amount,notes,booking_date,created_at,updated_at,pilgrimages(title,slug,start_date,status,current_vacancies,registration_deadline)'),
+    safeSelect(supabase, 'pilgrims', 'id,booking_id,full_name,email,phone,country,created_at,bookings(id,status,pilgrimage_id,pilgrimages(title,slug,start_date,status,current_vacancies,registration_deadline))'),
     safeSelect(supabase, 'pilgrimage_payments', 'id,booking_id,user_id,amount,status,method,created_at,bookings(id,pilgrimages(title,slug))'),
     safeSelect(supabase, 'donations', 'id,user_id,amount_cents,currency,status,method,metadata,donor_name,donor_email,donor_country,created_at,updated_at'),
     safeSelect(supabase, 'store_orders', 'id,order_ref,buyer_user_id,buyer_name,buyer_email,buyer_phone,billing_country,shipping_country,total_amount,currency,status,created_at'),
@@ -193,9 +227,10 @@ export async function buildMarketingContacts(supabase: SupabaseLike): Promise<Ma
       locale: lead.data?.locale,
       occurredAt: lead.updated_at || lead.created_at,
     });
-    contact.source_summary.leads += 1;
+    if (lead.status !== 'waitlist') contact.source_summary.leads += 1;
     if (lead.status === 'brochure_request') contact.source_summary.brochure_requests += 1;
     if (lead.status === 'waitlist') contact.source_summary.waitlists += 1;
+    trackPilgrimageInterest(contact, lead.pilgrimage_id, lead.pilgrimages, { waitlist: lead.status === 'waitlist' });
     addLink(contact, {
       source_table: 'booking_leads',
       source_id: lead.id,
@@ -224,6 +259,7 @@ export async function buildMarketingContacts(supabase: SupabaseLike): Promise<Ma
       occurredAt: waitlist.created_at,
     });
     contact.source_summary.waitlists += 1;
+    trackPilgrimageInterest(contact, waitlist.pilgrimage_id, waitlist.pilgrimages, { waitlist: true });
     addLink(contact, {
       source_table: 'pilgrimage_waitlists',
       source_id: waitlist.id,
@@ -251,6 +287,7 @@ export async function buildMarketingContacts(supabase: SupabaseLike): Promise<Ma
       occurredAt: pilgrim.created_at,
     });
     contact.source_summary.pilgrims += 1;
+    trackPilgrimageInterest(contact, pilgrim.bookings?.pilgrimage_id, pilgrim.bookings?.pilgrimages);
     addLink(contact, {
       source_table: 'pilgrims',
       source_id: pilgrim.id,
@@ -281,6 +318,7 @@ export async function buildMarketingContacts(supabase: SupabaseLike): Promise<Ma
     });
     contact.source_summary.bookings += 1;
     if (['confirmed', 'completed'].includes(String(booking.status))) contact.source_summary.confirmed_bookings += 1;
+    trackPilgrimageInterest(contact, booking.pilgrimage_id, booking.pilgrimages);
     addLink(contact, {
       source_table: 'bookings',
       source_id: booking.id,
@@ -490,7 +528,7 @@ export async function persistMarketingContacts(supabase: SupabaseLike, contacts:
   const now = new Date().toISOString();
 
   // 1. Batch-upsert all contacts and collect their DB ids
-  const eligible = contacts.filter((c) => !!c.normalized_email);
+  const eligible = contacts.filter((c) => isDeliverableMarketingEmail(c.normalized_email));
   const emailToId = new Map<string, string>();
 
   for (let i = 0; i < eligible.length; i += BATCH_SIZE_CONTACTS) {

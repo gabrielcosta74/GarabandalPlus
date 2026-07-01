@@ -5,6 +5,7 @@ import {
   type MarketingTemplatePayload,
 } from './email-renderer';
 import type { MarketingContact } from './marketing-core';
+import { isInternalMemberEmail } from './marketing-core';
 import { APP_URL } from './config';
 import { createUnsubscribeToken } from './unsubscribe-token';
 
@@ -70,6 +71,9 @@ export const renderMarketingEmail = (input: MarketingEmailInput) =>
 export const sendMarketingEmail = async (input: MarketingEmailInput) => {
   if (!input.contact.normalized_email) {
     return { sent: false, error: 'Contacto sem email.' };
+  }
+  if (isInternalMemberEmail(input.contact.normalized_email)) {
+    return { sent: false, error: 'Email técnico interno; envio bloqueado.' };
   }
   if (!resendClient) {
     return { sent: false, error: 'RESEND_API_KEY não configurada.' };

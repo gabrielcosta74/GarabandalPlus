@@ -1,15 +1,40 @@
 import { sendMarketingEmail } from './marketing-email';
-import { isContactInSegment } from './marketing-core';
+import { isContactInSegment, isDeliverableMarketingEmail, isInternalMemberEmail, normalizeEmail } from './marketing-core';
 import { buildMarketingContacts, persistMarketingContacts } from './marketing-data';
 import {
   countMarketingSendsForContact,
   getMarketingEmailLimits,
 } from './marketing-limits';
+import { APP_URL } from './config';
 
 export const addMarketingHours = (date: Date, hours: number) =>
   new Date(date.getTime() + hours * 60 * 60 * 1000);
 
 const getSummary = (contact: any) => contact?.source_summary || {};
+
+const RECOVERY_REQUIRES_AVAILABILITY = new Set([
+  'abandoned_registration_1',
+  'abandoned_registration_faq',
+  'abandoned_registration_final',
+]);
+
+const splitStepCondition = (condition?: string | null) =>
+  String(condition || '')
+    .split(/[,|&]+/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+export const getMarketingStepConditions = (step?: any) => {
+  const conditions = splitStepCondition(step?.condition);
+  if (
+    step?.channel !== 'task' &&
+    RECOVERY_REQUIRES_AVAILABILITY.has(String(step?.template_key || '')) &&
+    !conditions.includes('has_availability')
+  ) {
+    conditions.push('has_availability');
+  }
+  return conditions;
+};
 
 export const marketingContactReachedGoal = (contact: any, goals: string[] = []) => {
   const summary = getSummary(contact);
@@ -28,12 +53,16 @@ export const marketingStepConditionPasses = (contact: any, condition?: string | 
   const summary = getSummary(contact);
   if (condition === 'not_booked') return Number(summary.bookings || 0) === 0;
   if (condition === 'not_member') return !summary.is_member;
+  if (condition === 'has_availability') return Number(summary.available_pilgrimages || 0) > 0;
   if (condition === 'has_pending_payment') {
     return Number(summary.pilgrimage_payments || 0) > 0 && Number(summary.pilgrimage_payment_value || 0) === 0;
   }
   if (condition === 'has_email') return Boolean(contact?.normalized_email);
   return true;
 };
+
+export const marketingStepConditionsPass = (contact: any, step?: any) =>
+  getMarketingStepConditions(step).every((condition) => marketingStepConditionPasses(contact, condition));
 
 export const getMarketingEnrollmentStep = (enrollment: any) => {
   const steps = Array.isArray(enrollment?.funnel?.steps) ? enrollment.funnel.steps : [];
@@ -71,14 +100,15 @@ export const evaluateMarketingEnrollment = (enrollment: any, counts?: { day?: nu
   if (marketingContactReachedGoal(contact, Array.isArray(step.stop_if) ? step.stop_if : ['suppressed', 'unsubscribed'])) {
     return { bucket: 'blocked', label: 'Objetivo atingido', reason: 'Uma regra de paragem já foi atingida.', tone: 'emerald' };
   }
-  if (!marketingStepConditionPasses(contact, step.condition)) {
-    return { bucket: 'blocked', label: 'Condição falhou', reason: `Condição não cumprida: ${step.condition}.`, tone: 'amber' };
+  if (!marketingStepConditionsPass(contact, step)) {
+    const conditions = getMarketingStepConditions(step).join(', ') || step.condition;
+    return { bucket: 'blocked', label: 'Condição falhou', reason: `Condição não cumprida: ${conditions}.`, tone: 'amber' };
   }
   if ((counts?.day || 0) >= 1) {
     return { bucket: 'blocked', label: 'Limite de cadência', reason: `Já recebeu um email de marketing nas últimas ${limits.minHoursBetweenEmails}h.`, tone: 'amber' };
   }
   if ((counts?.week || 0) >= limits.maxEmailsPer7Days) {
-    return { bucket: 'blocked', label: 'Limite semanal', reason: `Já recebeu ${limits.maxEmailsPer7Days} emails de marketing nos últimos 7 dias.`, tone: 'amber' };
+    return { bucket: 'blocked', label: 'Limite 7 dias', reason: `Já atingiu o teto de ${limits.maxEmailsPer7Days} emails de marketing nos últimos 7 dias.`, tone: 'amber' };
   }
   if (!nextRunAt) {
     return { bucket: 'blocked', label: 'Sem data', reason: 'Não há próximo envio definido.', tone: 'amber' };
@@ -104,7 +134,7 @@ export const prepareMarketingFunnelEnrollments = async (
   await persistMarketingContacts(supabase, contacts);
 
   const eligible = contacts
-    .filter((contact) => contact.normalized_email && contact.consent_state !== 'suppressed' && contact.consent_state !== 'unsubscribed')
+    .filter((contact) => isDeliverableMarketingEmail(contact.normalized_email) && contact.consent_state !== 'suppressed' && contact.consent_state !== 'unsubscribed')
     .filter((contact) => isContactInSegment(contact, funnel.segment_slug))
     .slice(0, options.limit || 250);
 
@@ -177,6 +207,192 @@ export const prepareMarketingFunnelEnrollments = async (
   return { sourceContacts: contacts.length, eligible: eligible.length, enrolled, skippedExisting };
 };
 
+const hasOpenPilgrimageAvailability = (pilgrimage: any, now = new Date()) => {
+  const status = String(pilgrimage?.status || '').toLowerCase();
+  if (!['open', 'active', 'ativo'].includes(status)) return false;
+  if (Number(pilgrimage?.current_vacancies || 0) <= 0) return false;
+  if (pilgrimage?.registration_deadline) {
+    const deadline = new Date(pilgrimage.registration_deadline).getTime();
+    if (!Number.isNaN(deadline) && deadline < now.getTime()) return false;
+  }
+  return true;
+};
+
+const pilgrimageMarketingUrl = (pilgrimage: any) =>
+  pilgrimage?.slug ? `${APP_URL}/peregrinacoes/${pilgrimage.slug}` : `${APP_URL}/peregrinacoes`;
+
+export const processWaitlistOpenSpotNotifications = async (
+  supabase: any,
+  options: { limit?: number; dryRun?: boolean; now?: Date } = {},
+) => {
+  const now = options.now || new Date();
+  const limits = getMarketingEmailLimits();
+  const limit = Math.max(0, Number(options.limit || 0));
+  if (limit <= 0) {
+    return { checkedPilgrimages: 0, candidates: 0, sent: 0, skipped: 0, results: [] as any[] };
+  }
+
+  const { data: pilgrimages, error: pilgrimageError } = await supabase
+    .from('pilgrimages')
+    .select('id,title,slug,status,current_vacancies,registration_deadline,start_date,cover_image')
+    .gt('current_vacancies', 0)
+    .in('status', ['open', 'active', 'ativo'])
+    .order('start_date', { ascending: true });
+
+  if (pilgrimageError) {
+    console.warn('[Marketing] Waitlist open-spot check skipped:', pilgrimageError.message || pilgrimageError);
+    return {
+      checkedPilgrimages: 0,
+      candidates: 0,
+      sent: 0,
+      skipped: 0,
+      results: [{ action: 'skipped', reason: 'pilgrimage_query_failed', error: pilgrimageError.message || String(pilgrimageError) }],
+    };
+  }
+
+  const openPilgrimages = (pilgrimages || []).filter((pilgrimage: any) => hasOpenPilgrimageAvailability(pilgrimage, now));
+  const results: any[] = [];
+  let candidates = 0;
+  let sent = 0;
+  let skipped = 0;
+
+  for (const pilgrimage of openPilgrimages) {
+    if (sent >= limit) break;
+
+    const { data: waitlistRows, error: waitlistError } = await supabase
+      .from('pilgrimage_waitlists')
+      .select('id,email,full_name,phone,notes,status,created_at')
+      .eq('pilgrimage_id', pilgrimage.id)
+      .in('status', ['pending', 'active', 'waiting', 'waitlist'])
+      .order('created_at', { ascending: true })
+      .limit(Math.max(limit * 3, 10));
+
+    if (waitlistError) {
+      skipped += 1;
+      results.push({ pilgrimage: pilgrimage.id, action: 'skipped', reason: 'waitlist_query_failed', error: waitlistError.message || String(waitlistError) });
+      continue;
+    }
+
+    const rows = (waitlistRows || [])
+      .map((row: any) => ({ ...row, normalized_email: normalizeEmail(row.email) }))
+      .filter((row: any) => isDeliverableMarketingEmail(row.normalized_email));
+    candidates += rows.length;
+    if (!rows.length) continue;
+
+    const emails = rows.map((row: any) => row.normalized_email);
+    const { data: contacts, error: contactsError } = await supabase
+      .from('marketing_contacts')
+      .select('id,normalized_email,display_name,language,consent_state,recommendation,lead_score')
+      .in('normalized_email', emails);
+    if (contactsError) throw contactsError;
+
+    const contactByEmail = new Map((contacts || []).map((contact: any) => [contact.normalized_email, contact]));
+    const contactIds = (contacts || []).map((contact: any) => contact.id).filter(Boolean);
+    const { data: previousLogs, error: logsError } = contactIds.length
+      ? await supabase
+          .from('marketing_message_logs')
+          .select('contact_id,status,metadata')
+          .eq('template_key', 'waitlist_open_spot')
+          .eq('status', 'sent')
+          .in('contact_id', contactIds)
+      : { data: [], error: null };
+    if (logsError) throw logsError;
+
+    const sentForPilgrimage = new Set(
+      (previousLogs || [])
+        .filter((log: any) => log?.metadata?.pilgrimage_id === pilgrimage.id)
+        .map((log: any) => log.contact_id),
+    );
+
+    for (const row of rows) {
+      if (sent >= limit) break;
+      const contact = contactByEmail.get(row.normalized_email) as any;
+      if (!contact?.id) {
+        skipped += 1;
+        results.push({ waitlist: row.id, pilgrimage: pilgrimage.id, action: 'skipped', reason: 'missing_marketing_contact' });
+        continue;
+      }
+      if (contact.consent_state === 'suppressed' || contact.consent_state === 'unsubscribed') {
+        skipped += 1;
+        results.push({ contact: contact.id, pilgrimage: pilgrimage.id, action: 'skipped', reason: `consent_${contact.consent_state}` });
+        continue;
+      }
+      if (sentForPilgrimage.has(contact.id)) {
+        skipped += 1;
+        results.push({ contact: contact.id, pilgrimage: pilgrimage.id, action: 'skipped', reason: 'already_sent_for_pilgrimage' });
+        continue;
+      }
+
+      const sendCounts = await countMarketingSendsForContact(supabase, contact.id, now, limits);
+      if (sendCounts.recent >= 1 || sendCounts.week >= limits.maxEmailsPer7Days) {
+        skipped += 1;
+        results.push({ contact: contact.id, pilgrimage: pilgrimage.id, action: 'skipped', reason: 'rate_limited', sendCounts });
+        continue;
+      }
+
+      const payloadContext = {
+        pilgrimageName: pilgrimage.title || 'Garabandal',
+        pilgrimageUrl: pilgrimageMarketingUrl(pilgrimage),
+        pilgrimageImageUrl: pilgrimage.cover_image || null,
+      };
+
+      if (options.dryRun) {
+        results.push({
+          contact: contact.id,
+          email: row.normalized_email,
+          pilgrimage: pilgrimage.id,
+          templateKey: 'waitlist_open_spot',
+          action: 'would_send',
+          condition: 'has_availability',
+          context: payloadContext,
+        });
+        continue;
+      }
+
+      const result = await sendMarketingEmail({
+        contact: {
+          display_name: contact.display_name || row.full_name || '',
+          normalized_email: row.normalized_email,
+          language: contact.language || (String(row.notes || '').match(/\[locale:en\]/i) ? 'en' : 'pt'),
+          recommendation: contact.recommendation || 'Announce next available pilgrimage',
+        },
+        templateKey: 'waitlist_open_spot',
+        context: payloadContext,
+      });
+
+      await supabase.from('marketing_message_logs').insert({
+        contact_id: contact.id,
+        channel: 'email',
+        to_email: row.normalized_email,
+        provider_message_id: result.providerId || null,
+        subject: result.subject || 'Vaga disponível',
+        template_key: result.templateKey || 'waitlist_open_spot',
+        status: result.sent ? 'sent' : 'failed',
+        error_message: result.sent ? null : result.error,
+        sent_at: result.sent ? now.toISOString() : null,
+        metadata: {
+          source: 'waitlist_open_spot_cron',
+          condition: 'has_availability',
+          pilgrimage_id: pilgrimage.id,
+          waitlist_id: row.id,
+          current_vacancies: pilgrimage.current_vacancies,
+        },
+      });
+
+      if (result.sent) {
+        sent += 1;
+        sentForPilgrimage.add(contact.id);
+        results.push({ contact: contact.id, pilgrimage: pilgrimage.id, action: 'sent', templateKey: result.templateKey });
+      } else {
+        skipped += 1;
+        results.push({ contact: contact.id, pilgrimage: pilgrimage.id, action: 'failed', error: result.error });
+      }
+    }
+  }
+
+  return { checkedPilgrimages: openPilgrimages.length, candidates, sent, skipped, results };
+};
+
 export const processMarketingEnrollment = async (supabase: any, enrollment: any) => {
   const funnel = enrollment.funnel;
   const contact = enrollment.contact;
@@ -192,6 +408,26 @@ export const processMarketingEnrollment = async (supabase: any, enrollment: any)
     return { enrollment: enrollment.id, status: 'stopped', reason: 'missing_contact_or_consent' };
   }
 
+  if (step.channel !== 'task' && isInternalMemberEmail(contact.normalized_email)) {
+    await supabase.from('marketing_message_logs').insert({
+      contact_id: contact.id,
+      funnel_id: funnel.id,
+      enrollment_id: enrollment.id,
+      channel: step.channel || 'email',
+      to_email: contact.normalized_email,
+      subject: funnel.name,
+      template_key: step.template_key || null,
+      status: 'skipped',
+      error_message: 'Email técnico interno; envio bloqueado.',
+      metadata: { step, reason: 'internal_member_email' },
+    });
+    await supabase
+      .from('marketing_enrollments')
+      .update({ status: 'stopped', stopped_reason: 'internal_member_email', next_run_at: null, updated_at: nowIso })
+      .eq('id', enrollment.id);
+    return { enrollment: enrollment.id, status: 'stopped', reason: 'internal_member_email' };
+  }
+
   if (marketingContactReachedGoal(contact, Array.isArray(step.stop_if) ? step.stop_if : ['suppressed', 'unsubscribed'])) {
     await supabase
       .from('marketing_enrollments')
@@ -200,7 +436,8 @@ export const processMarketingEnrollment = async (supabase: any, enrollment: any)
     return { enrollment: enrollment.id, status: 'goal_reached' };
   }
 
-  if (!marketingStepConditionPasses(contact, step.condition)) {
+  if (!marketingStepConditionsPass(contact, step)) {
+    const conditions = getMarketingStepConditions(step);
     const nextStepIndex = enrollment.current_step + 1;
     const nextStep = steps[nextStepIndex];
     await supabase.from('marketing_message_logs').insert({
@@ -212,8 +449,8 @@ export const processMarketingEnrollment = async (supabase: any, enrollment: any)
       subject: funnel.name,
       template_key: step.template_key || null,
       status: 'skipped',
-      error_message: `Condição não cumprida: ${step.condition}`,
-      metadata: { step, reason: 'condition_failed' },
+      error_message: `Condição não cumprida: ${conditions.join(', ') || step.condition}`,
+      metadata: { step, reason: 'condition_failed', effective_conditions: conditions },
     });
     await supabase
       .from('marketing_enrollments')
@@ -224,7 +461,7 @@ export const processMarketingEnrollment = async (supabase: any, enrollment: any)
         updated_at: nowIso,
       })
       .eq('id', enrollment.id);
-    return { enrollment: enrollment.id, status: 'skipped', reason: 'condition_failed' };
+    return { enrollment: enrollment.id, status: 'skipped', reason: 'condition_failed', conditions };
   }
 
   if (step.channel !== 'task') {

@@ -33,7 +33,7 @@ describe('marketing normalization', () => {
 });
 
 describe('marketing scoring and segmentation', () => {
-  it('scores hot pilgrimage leads and assigns the right segments', () => {
+  it('keeps waitlist contacts out of recovery segments', () => {
     vi.setSystemTime(new Date('2026-04-23T12:00:00Z'));
     const summary = emptySourceSummary();
     summary.brochure_requests = 1;
@@ -46,10 +46,11 @@ describe('marketing scoring and segmentation', () => {
 
     expect(lead_score).toBe(100);
     expect(lifecycle_stage).toBe('pilgrim_lead');
-    expect(evaluateMarketingSegments(contact)).toEqual(
-      expect.arrayContaining(['hot-pilgrimage-leads', 'abandoned-registration', 'brochure-requested-not-booked', 'waitlist-contacts']),
-    );
-    expect(getMarketingRecommendation({ source_summary: summary, lead_score })).toBe('Manual follow-up + pilgrimage funnel');
+    const segments = evaluateMarketingSegments(contact);
+    expect(segments).toEqual(expect.arrayContaining(['brochure-requested-not-booked', 'waitlist-contacts']));
+    expect(segments).not.toContain('hot-pilgrimage-leads');
+    expect(segments).not.toContain('abandoned-registration');
+    expect(getMarketingRecommendation({ source_summary: summary, lead_score })).toBe('Announce next available pilgrimage');
     vi.useRealTimers();
   });
 

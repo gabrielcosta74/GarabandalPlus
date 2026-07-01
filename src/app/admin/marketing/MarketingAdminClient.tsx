@@ -28,7 +28,7 @@ import {
 } from 'lucide-react';
 import { toast, Toaster } from 'sonner';
 
-type View = 'overview' | 'contacts' | 'segments' | 'campaigns' | 'funnels' | 'scheduled' | 'outbox' | 'templates' | 'tasks' | 'analytics';
+type View = 'overview' | 'flow' | 'contacts' | 'segments' | 'campaigns' | 'funnels' | 'scheduled' | 'outbox' | 'templates' | 'tasks' | 'analytics';
 
 type MarketingAdminClientProps = {
   view: View;
@@ -159,6 +159,7 @@ function StatusPill({ label, tone = 'slate' }: { label: string; tone?: string })
 
 const platformNav: Array<{ view: View; label: string; href: string; icon: any }> = [
   { view: 'overview', label: 'Dashboard', href: '/admin/marketing', icon: BarChart2 },
+  { view: 'flow', label: 'Fluxo & Previews', href: '/admin/marketing/flow', icon: Activity },
   { view: 'contacts', label: 'CRM / Audiência', href: '/admin/marketing/contacts', icon: Users },
   { view: 'segments', label: 'Segmentos', href: '/admin/marketing/segments', icon: Layers },
   { view: 'funnels', label: 'Automações', href: '/admin/marketing/funnels', icon: Zap },
@@ -178,11 +179,16 @@ const campaignTemplateOptions = [
   { key: 'abandoned_registration_final', label: 'Inscrição abandonada — último aviso' },
   { key: 'waitlist_welcome', label: 'Lista de espera — boas-vindas' },
   { key: 'waitlist_open_spot', label: 'Lista de espera — vaga disponível' },
+  { key: 'waitlist_garabandal_story', label: 'Lista de espera — conhecer Garabandal' },
+  { key: 'waitlist_book_recommendation', label: 'Lista de espera — livros oficiais' },
+  { key: 'waitlist_mission_support', label: 'Lista de espera — apoiar a missão' },
+  { key: 'waitlist_member_invitation', label: 'Lista de espera — convite para membro' },
   { key: 'payment_support', label: 'Peregrinação — apoio ao pagamento' },
   { key: 'donation_thank_you', label: 'Doação — agradecimento' },
   { key: 'donation_thank_you_story', label: 'Doação — impacto' },
   { key: 'donor_to_member', label: 'Doador para membro' },
   { key: 'member_invitation', label: 'Convite para membro' },
+  { key: 'store_book_recommendation', label: 'Loja — livros oficiais' },
   { key: 'membership_renewal', label: 'Renovação de membro' },
   { key: 'member_referral_activation', label: 'Membro — ativar partilha' },
   { key: 'referral_activation', label: 'Convites — ativar partilha' },
@@ -197,6 +203,101 @@ const campaignTemplateOptions = [
 const templateLabelByKey: Record<string, string> = Object.fromEntries(
   campaignTemplateOptions.map((t) => [t.key, t.label]),
 );
+
+const marketingFlowPlan = [
+  {
+    title: 'Lista de espera e vagas reais',
+    audience: 'Pessoas em waitlist de uma peregrinação específica',
+    goal: 'Criar urgência quando abre uma vaga sem prometer disponibilidade falsa.',
+    cadence: 'Boas-vindas ao entrar na lista; vaga aberta só quando há disponibilidade real.',
+    conditions: ['Contacto subscrito', 'Peregrinação com vagas abertas', 'Sem reserva confirmada', 'Deduplicado por contacto e peregrinação'],
+    conflict: 'Não concorre com recuperação de inscrição enquanto não houver vaga; respeita sempre 24h desde o último email.',
+    templates: ['waitlist_welcome', 'waitlist_open_spot', 'waitlist_garabandal_story', 'waitlist_book_recommendation', 'waitlist_mission_support', 'waitlist_member_invitation'],
+  },
+  {
+    title: 'Recuperação de peregrinação',
+    audience: 'Leads que pediram informação ou começaram inscrição e não reservaram',
+    goal: 'Responder a dúvidas, recuperar intenção e levar à reserva enquanto existem lugares.',
+    cadence: 'Sequência espaçada: convite inicial, testemunho/FAQ, último lembrete.',
+    conditions: ['Contacto com interesse em peregrinação', 'Ainda sem reserva', 'has_availability', 'Lead score prioriza a fila'],
+    conflict: 'Se a pessoa entrar em waitlist sem vagas, sai da copy de “garanta a vaga”.',
+    templates: ['brochure_followup_1', 'pilgrimage_testimony', 'pilgrimage_faq_objections', 'abandoned_registration_1', 'abandoned_registration_faq', 'abandoned_registration_final'],
+  },
+  {
+    title: 'Doações e Casa de Acolhimento',
+    audience: 'Doadores e apoiantes com histórico de contribuição',
+    goal: 'Agradecer, mostrar impacto concreto da Casa e incentivar nova ajuda ou partilha.',
+    cadence: 'Agradecimento próximo da doação; história de impacto depois de conteúdo/valor.',
+    conditions: ['Contacto marketable', 'Doação registada ou alto envolvimento', 'Sem pedido repetido logo a seguir a outro pedido'],
+    conflict: 'Não coloca dois pedidos seguidos; intercala impacto, gratidão e partilha familiar.',
+    templates: ['donation_thank_you', 'donation_thank_you_story'],
+  },
+  {
+    title: 'Membros',
+    audience: 'Doadores, apoiantes e membros novos/pendentes',
+    goal: 'Explicar benefícios, estabilizar apoio mensal/anual e acolher novos membros.',
+    cadence: 'Convite contextual; depois onboarding e formação espiritual para membros.',
+    conditions: ['Não é membro ativo ou acabou de aderir', 'Tom público usa sempre membro/membros', 'Sem insistência após adesão'],
+    conflict: 'Se já é membro, recebe acolhimento/conteúdo em vez de convite para aderir.',
+    templates: ['donor_to_member', 'member_invitation', 'member_welcome', 'member_pray_intentions', 'member_novena_invite', 'member_learn_garabandal', 'membership_renewal'],
+  },
+  {
+    title: 'Loja e livros oficiais',
+    audience: 'Pessoas interessadas em Garabandal, membros, peregrinos e leads frios',
+    goal: 'Vender livros certos sem parecer publicidade genérica.',
+    cadence: 'Entra como conteúdo útil entre pedidos comerciais ou depois de interesse demonstrado.',
+    conditions: ['Produtos ativos', 'Imagem oficial do produto', 'Sem “membro” quando o objetivo é livro'],
+    conflict: 'Funciona como email de valor entre doação/membro/peregrinação para reduzir sensação de spam.',
+    templates: ['store_book_recommendation'],
+  },
+  {
+    title: 'Comunidade e convites',
+    audience: 'Membros e apoiantes com potencial de partilhar a missão',
+    goal: 'Trazer familiares e amigos para a comunidade por convite responsável.',
+    cadence: 'Depois de relação criada; nunca como primeiro contacto frio.',
+    conditions: ['Membro ou apoiador envolvido', 'Tem link/contexto de partilha', 'Mensagem focada em missão, não pressão'],
+    conflict: 'Não substitui emails transacionais nem emails de pagamento.',
+    templates: ['member_referral_activation', 'referral_activation', 'share_mission'],
+  },
+];
+
+const waitlistNurtureSteps = [
+  {
+    delay: 'Dia 3',
+    title: 'Valor espiritual',
+    templateKey: 'waitlist_garabandal_story',
+    purpose: 'Preparar o coração e aprofundar a história de Garabandal sem pedir compra/doação.',
+    guardrail: 'Sem urgência falsa; não fala em vaga disponível.',
+  },
+  {
+    delay: 'Dia 7',
+    title: 'Livros oficiais',
+    templateKey: 'waitlist_book_recommendation',
+    purpose: 'Recomendar livros e guias como preparação natural enquanto a pessoa aguarda vaga.',
+    guardrail: 'Não mistura convite para membro nem doação no email de loja.',
+  },
+  {
+    delay: 'Dia 14',
+    title: 'Missão e Casa de Acolhimento',
+    templateKey: 'waitlist_mission_support',
+    purpose: 'Mostrar o impacto concreto do Apostolado e abrir uma doação suave.',
+    guardrail: 'Pedido simples, sem culpa; deixa claro que continuar em espera é suficiente.',
+  },
+  {
+    delay: 'Dia 24',
+    title: 'Convite para membro',
+    templateKey: 'waitlist_member_invitation',
+    purpose: 'Convidar a pessoa a pertencer ao Apostolado antes mesmo da peregrinação.',
+    guardrail: 'Só se ainda não reservou e ainda não é membro.',
+  },
+  {
+    delay: 'Dia 35',
+    title: 'Follow-up manual',
+    templateKey: 'waitlist_manual_follow_up',
+    purpose: 'Criar tarefa para contacto humano quando ainda há interesse e nenhuma reserva.',
+    guardrail: 'Tarefa interna; não envia email automático.',
+  },
+];
 
 const segmentOptions = [
   { slug: 'hot-pilgrimage-leads', label: 'Leads quentes de peregrinação' },
@@ -233,6 +334,10 @@ export default function MarketingAdminClient({ view: initialView }: MarketingAdm
   const [previewLanguage, setPreviewLanguage] = useState<'pt' | 'en'>('pt');
   const [previewLoading, setPreviewLoading] = useState(false);
   const [templateCategory, setTemplateCategory] = useState<string>('all');
+  const availableTemplateKeys = useMemo(
+    () => new Set<string>((data?.templates || []).map((template: any) => String(template.key))),
+    [data],
+  );
 
   // Client-side routing interceptor for blazing fast UX
   const navigateTo = (newView: View, href: string) => {
@@ -256,7 +361,7 @@ export default function MarketingAdminClient({ view: initialView }: MarketingAdm
               ? `/api/admin/marketing/scheduled?${new URLSearchParams({ ...(scheduleBucket !== 'all' ? { bucket: scheduleBucket } : {}) }).toString()}`
               : view === 'outbox'
                 ? `/api/admin/marketing/outbox?${new URLSearchParams({ ...(outboxStatus !== 'all' ? { status: outboxStatus } : {}), ...(outboxSearch ? { q: outboxSearch } : {}) }).toString()}`
-                : view === 'templates'
+                : view === 'templates' || view === 'flow'
                   ? '/api/admin/marketing/templates'
             : `/api/admin/marketing/${view}`;
 
@@ -379,10 +484,11 @@ export default function MarketingAdminClient({ view: initialView }: MarketingAdm
     }
   };
 
-  const previewEmailTemplate = async (key: string) => {
+  const previewEmailTemplate = async (key: string, language: 'pt' | 'en' = previewLanguage) => {
+    setPreviewLanguage(language);
     setPreviewLoading(true);
     try {
-      const result = await api(`/api/admin/marketing/templates/${key}/preview`, { method: 'POST', body: JSON.stringify({ language: previewLanguage }) });
+      const result = await api(`/api/admin/marketing/templates/${key}/preview`, { method: 'POST', body: JSON.stringify({ language }) });
       setPreviewTemplate({ key, ...result.preview });
     } catch (error: any) {
       toast.error(error?.message || 'Erro ao gerar preview.');
@@ -402,6 +508,55 @@ export default function MarketingAdminClient({ view: initialView }: MarketingAdm
       toast.error(error?.message || 'Erro ao testar envio.');
     }
   };
+
+  const renderPreviewPanel = (emptyCopy = 'Escolhe um template na lista para ver como o email é enviado.') => (
+    <aside className="sticky top-6 h-fit rounded-[2rem] border border-slate-200/60 bg-white p-6 shadow-xl shadow-slate-200/40">
+      <div className="flex items-start justify-between gap-4 border-b border-slate-100 pb-4">
+        <div>
+          <h3 className="text-xl font-black text-slate-900">Pré-visualização</h3>
+          <p className="mt-1 text-sm font-medium text-slate-500">Render real do backend, com dados de exemplo.</p>
+        </div>
+        <select
+          value={previewLanguage}
+          onChange={(e) => {
+            const nextLanguage = e.target.value === 'en' ? 'en' : 'pt';
+            setPreviewLanguage(nextLanguage);
+            if (previewTemplate?.key) void previewEmailTemplate(previewTemplate.key, nextLanguage);
+          }}
+          className="appearance-none rounded-xl border-transparent bg-slate-50 px-4 py-2 text-xs font-bold text-slate-700 outline-none transition-all focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/20"
+        >
+          <option value="pt">Português (PT)</option>
+          <option value="en">English (EN)</option>
+        </select>
+      </div>
+
+      {previewLoading && (
+        <div className="mt-6 flex h-[600px] flex-col items-center justify-center rounded-2xl bg-slate-50/50">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-blue-600"></div>
+          <p className="mt-4 font-bold text-slate-500">A renderizar HTML...</p>
+        </div>
+      )}
+
+      {!previewLoading && previewTemplate && (
+        <div className="mt-6 space-y-4">
+          <div className="rounded-xl border border-slate-200/60 bg-white p-4 shadow-sm">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Assunto Resolvido</p>
+            <p className="mt-1 font-black text-slate-900">{previewTemplate.subject}</p>
+          </div>
+          <div className="overflow-hidden rounded-xl border border-slate-200/60 bg-white shadow-sm ring-4 ring-slate-50">
+            <iframe title="Email preview" srcDoc={previewTemplate.html} className="h-[600px] w-full bg-white" />
+          </div>
+        </div>
+      )}
+
+      {!previewLoading && !previewTemplate && (
+        <div className="mt-6 flex h-[600px] flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-slate-50/50 px-8">
+          <Eye className="h-10 w-10 text-slate-300" />
+          <p className="mt-4 text-center text-sm font-medium text-slate-500">{emptyCopy}</p>
+        </div>
+      )}
+    </aside>
+  );
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900 px-6 pb-12">
@@ -1089,6 +1244,219 @@ export default function MarketingAdminClient({ view: initialView }: MarketingAdm
               </motion.div>
             )}
 
+            {/* FLOW & PREVIEWS */}
+            {!loading && view === 'flow' && data && (
+              <motion.div
+                key="flow"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ duration: 0.3 }}
+                className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_500px]"
+              >
+                <div className="space-y-6">
+                  <section className="rounded-[2rem] border border-slate-200/60 bg-white p-6 shadow-sm">
+                    <div className="flex flex-wrap items-start justify-between gap-4">
+                      <div>
+                        <p className="text-xs font-black uppercase tracking-widest text-amber-600">Mapa operacional</p>
+                        <h3 className="mt-2 text-2xl font-black tracking-tight text-slate-900">Ordem dos emails, condições e previews</h3>
+                        <p className="mt-2 max-w-3xl text-sm font-medium leading-6 text-slate-500">
+                          Esta página mostra o que cada pessoa pode receber, porquê, e que conflitos são travados antes do envio.
+                          Os botões PT/EN usam o mesmo renderer que envia os emails reais.
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <Link href="/admin/emails" className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-sm font-black text-white shadow-sm transition-colors hover:bg-slate-800">
+                          <Mail className="h-4 w-4" />
+                          Todos os emails
+                        </Link>
+                        <Link href="/admin/marketing/templates" className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-black text-slate-700 shadow-sm transition-colors hover:bg-slate-50">
+                          <Eye className="h-4 w-4" />
+                          Só marketing
+                        </Link>
+                      </div>
+                    </div>
+                  </section>
+
+                  <div className="grid gap-4 md:grid-cols-3">
+                    <section className="rounded-[1.5rem] border border-emerald-200 bg-emerald-50 p-5">
+                      <div className="flex items-center gap-2 text-emerald-700">
+                        <CheckCircle className="h-5 w-5" />
+                        <span className="text-xs font-black uppercase tracking-widest">Anti-spam</span>
+                      </div>
+                      <p className="mt-3 text-2xl font-black text-emerald-950">Máx. 1/dia</p>
+                      <p className="mt-1 text-sm font-semibold leading-5 text-emerald-800">24h mínimas entre emails por contacto; teto semanal de 7.</p>
+                    </section>
+                    <section className="rounded-[1.5rem] border border-amber-200 bg-amber-50 p-5">
+                      <div className="flex items-center gap-2 text-amber-700">
+                        <Target className="h-5 w-5" />
+                        <span className="text-xs font-black uppercase tracking-widest">Relevância</span>
+                      </div>
+                      <p className="mt-3 text-2xl font-black text-amber-950">Score primeiro</p>
+                      <p className="mt-1 text-sm font-semibold leading-5 text-amber-800">A fila prioriza contactos com maior valor/intenção quando há limite de lote.</p>
+                    </section>
+                    <section className="rounded-[1.5rem] border border-blue-200 bg-blue-50 p-5">
+                      <div className="flex items-center gap-2 text-blue-700">
+                        <PauseCircle className="h-5 w-5" />
+                        <span className="text-xs font-black uppercase tracking-widest">Conflitos</span>
+                      </div>
+                      <p className="mt-3 text-2xl font-black text-blue-950">Sem pressão dupla</p>
+                      <p className="mt-1 text-sm font-semibold leading-5 text-blue-800">Pedidos são espaçados e emails de valor entram entre convites comerciais.</p>
+                    </section>
+                  </div>
+
+                  <div className="space-y-4">
+                    <section className="overflow-hidden rounded-[2rem] border border-amber-200 bg-white shadow-sm">
+                      <div className="border-b border-amber-100 bg-amber-50 p-6">
+                        <div className="flex flex-wrap items-start justify-between gap-4">
+                          <div>
+                            <p className="text-xs font-black uppercase tracking-widest text-amber-700">Funil em aprovação</p>
+                            <h3 className="mt-2 text-2xl font-black tracking-tight text-slate-900">Lista de espera: nurture até abrir vaga</h3>
+                            <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-slate-600">
+                              Sequência pensada para pessoas que estão em lista de espera: primeiro valor espiritual, depois livros,
+                              depois missão/doação e só no fim convite para membro. O funil fica em <strong>draft</strong> até aprovação.
+                            </p>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            <StatusPill label="draft" tone="amber" />
+                            <StatusPill label="waitlist-contacts" tone="blue" />
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="divide-y divide-slate-100">
+                        {waitlistNurtureSteps.map((step, index) => {
+                          const canPreview = availableTemplateKeys.has(step.templateKey);
+                          return (
+                            <div key={step.templateKey} className="grid gap-4 p-5 lg:grid-cols-[88px_minmax(0,1fr)_180px] lg:items-center">
+                              <div className="flex items-center gap-3 lg:block">
+                                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-900 text-sm font-black text-white">
+                                  {index + 1}
+                                </div>
+                                <p className="mt-0 text-xs font-black uppercase tracking-widest text-slate-400 lg:mt-2">{step.delay}</p>
+                              </div>
+                              <div>
+                                <h4 className="text-lg font-black text-slate-900">{step.title}</h4>
+                                <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">{step.purpose}</p>
+                                <p className="mt-2 rounded-xl bg-slate-50 px-3 py-2 text-xs font-bold text-slate-500">
+                                  Guardrail: {step.guardrail}
+                                </p>
+                                <code className="mt-2 inline-flex rounded bg-slate-100 px-2 py-1 text-[11px] font-bold text-slate-500">
+                                  {step.templateKey}
+                                </code>
+                              </div>
+                              <div className="flex gap-2 lg:justify-end">
+                                {canPreview ? (
+                                  <>
+                                    <button
+                                      onClick={() => previewEmailTemplate(step.templateKey, 'pt')}
+                                      className="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-3 py-2 text-xs font-black text-white transition-colors hover:bg-slate-800"
+                                    >
+                                      <Eye className="h-3.5 w-3.5" />
+                                      PT-BR
+                                    </button>
+                                    <button
+                                      onClick={() => previewEmailTemplate(step.templateKey, 'en')}
+                                      className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700 transition-colors hover:bg-slate-50"
+                                    >
+                                      <Eye className="h-3.5 w-3.5" />
+                                      EN
+                                    </button>
+                                  </>
+                                ) : (
+                                  <span className="rounded-lg bg-slate-100 px-3 py-2 text-xs font-bold text-slate-500">Tarefa interna</span>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </section>
+
+                    {marketingFlowPlan.map((flow, index) => (
+                      <section key={flow.title} className="rounded-[2rem] border border-slate-200/60 bg-white p-6 shadow-sm">
+                        <div className="flex flex-wrap items-start gap-4">
+                          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-slate-900 text-sm font-black text-white">
+                            {String(index + 1).padStart(2, '0')}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-start justify-between gap-3">
+                              <div>
+                                <h3 className="text-xl font-black tracking-tight text-slate-900">{flow.title}</h3>
+                                <p className="mt-1 text-sm font-bold text-slate-500">{flow.audience}</p>
+                              </div>
+                              <StatusPill label={index === 0 ? 'crítico' : index === 4 ? 'valor' : 'planeado'} tone={index === 0 ? 'amber' : index === 4 ? 'emerald' : 'blue'} />
+                            </div>
+
+                            <div className="mt-5 grid gap-4 lg:grid-cols-3">
+                              <div className="rounded-2xl bg-slate-50 p-4">
+                                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Objetivo</p>
+                                <p className="mt-2 text-sm font-semibold leading-6 text-slate-700">{flow.goal}</p>
+                              </div>
+                              <div className="rounded-2xl bg-slate-50 p-4">
+                                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Cadência</p>
+                                <p className="mt-2 text-sm font-semibold leading-6 text-slate-700">{flow.cadence}</p>
+                              </div>
+                              <div className="rounded-2xl bg-slate-50 p-4">
+                                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Conflitos tratados</p>
+                                <p className="mt-2 text-sm font-semibold leading-6 text-slate-700">{flow.conflict}</p>
+                              </div>
+                            </div>
+
+                            <div className="mt-5">
+                              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Condições antes de enviar</p>
+                              <div className="mt-2 flex flex-wrap gap-2">
+                                {flow.conditions.map((condition) => (
+                                  <span key={condition} className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">
+                                    {condition}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+
+                            <div className="mt-5 overflow-hidden rounded-2xl border border-slate-100">
+                              {flow.templates.map((templateKey) => {
+                                const exists = availableTemplateKeys.has(templateKey);
+                                return (
+                                  <div key={templateKey} className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 bg-white p-3 last:border-b-0">
+                                    <div className="min-w-0">
+                                      <p className="font-black text-slate-900">{templateLabelByKey[templateKey] || templateKey.replace(/_/g, ' ')}</p>
+                                      <div className="mt-1 flex flex-wrap items-center gap-2 text-xs font-bold text-slate-400">
+                                        <code className="rounded bg-slate-100 px-1.5 py-0.5 text-[11px] text-slate-500">{templateKey}</code>
+                                        <span>{exists ? 'template ativo' : 'a confirmar no backend'}</span>
+                                      </div>
+                                    </div>
+                                    <div className="flex gap-2">
+                                      <button
+                                        onClick={() => previewEmailTemplate(templateKey, 'pt')}
+                                        className="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-3 py-2 text-xs font-black text-white transition-colors hover:bg-slate-800"
+                                      >
+                                        <Eye className="h-3.5 w-3.5" />
+                                        PT
+                                      </button>
+                                      <button
+                                        onClick={() => previewEmailTemplate(templateKey, 'en')}
+                                        className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700 transition-colors hover:bg-slate-50"
+                                      >
+                                        <Eye className="h-3.5 w-3.5" />
+                                        EN
+                                      </button>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        </div>
+                      </section>
+                    ))}
+                  </div>
+                </div>
+
+                {renderPreviewPanel('Escolhe um email no fluxo para ver a copy, imagens e CTA em PT ou EN.')}
+              </motion.div>
+            )}
+
             {/* TEMPLATES */}
             {!loading && view === 'templates' && data && (
               <motion.div
@@ -1154,46 +1522,7 @@ export default function MarketingAdminClient({ view: initialView }: MarketingAdm
                   </div>
                 </div>
 
-                <aside className="sticky top-6 h-fit rounded-[2rem] border border-slate-200/60 bg-white p-6 shadow-xl shadow-slate-200/40">
-                  <div className="flex items-start justify-between gap-4 border-b border-slate-100 pb-4">
-                    <div>
-                      <h3 className="text-xl font-black text-slate-900">Pré-visualização</h3>
-                      <p className="mt-1 text-sm font-medium text-slate-500">Usa o renderer do backend React Email.</p>
-                    </div>
-                    <select value={previewLanguage} onChange={(e) => setPreviewLanguage(e.target.value === 'en' ? 'en' : 'pt')} className="appearance-none rounded-xl border-transparent bg-slate-50 px-4 py-2 text-xs font-bold text-slate-700 outline-none transition-all focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/20">
-                      <option value="pt">Português (PT)</option>
-                      <option value="en">English (EN)</option>
-                    </select>
-                  </div>
-
-                  {previewLoading && (
-                    <div className="mt-6 flex h-[600px] flex-col items-center justify-center rounded-2xl bg-slate-50/50">
-                      <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-blue-600"></div>
-                      <p className="mt-4 font-bold text-slate-500">A renderizar HTML...</p>
-                    </div>
-                  )}
-
-                  {!previewLoading && previewTemplate && (
-                    <div className="mt-6 space-y-4">
-                      <div className="rounded-xl border border-slate-200/60 bg-white p-4 shadow-sm">
-                        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Assunto Resolvido</p>
-                        <p className="mt-1 font-black text-slate-900">{previewTemplate.subject}</p>
-                      </div>
-                      <div className="overflow-hidden rounded-xl border border-slate-200/60 bg-white shadow-sm ring-4 ring-slate-50">
-                        <iframe title="Email preview" srcDoc={previewTemplate.html} className="h-[600px] w-full bg-white" />
-                      </div>
-                    </div>
-                  )}
-
-                  {!previewLoading && !previewTemplate && (
-                    <div className="mt-6 flex h-[600px] flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-slate-50/50">
-                      <Eye className="h-10 w-10 text-slate-300" />
-                      <p className="mt-4 text-center text-sm font-medium text-slate-500">
-                        Escolhe um template na lista<br/>para ver como o email é enviado.
-                      </p>
-                    </div>
-                  )}
-                </aside>
+                {renderPreviewPanel('Escolhe um template na lista para ver como o email é enviado.')}
               </motion.div>
             )}
 

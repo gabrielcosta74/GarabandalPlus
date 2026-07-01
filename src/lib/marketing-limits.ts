@@ -6,8 +6,8 @@ const parseEnvInt = (name: string, fallback: number, min: number, max: number) =
 };
 
 export const getMarketingEmailLimits = () => ({
-  minHoursBetweenEmails: parseEnvInt('MARKETING_MIN_HOURS_BETWEEN_EMAILS', 48, 12, 168),
-  maxEmailsPer7Days: parseEnvInt('MARKETING_MAX_EMAILS_PER_7D', 2, 1, 7),
+  minHoursBetweenEmails: parseEnvInt('MARKETING_MIN_HOURS_BETWEEN_EMAILS', 24, 12, 168),
+  maxEmailsPer7Days: parseEnvInt('MARKETING_MAX_EMAILS_PER_7D', 7, 1, 7),
   cronBatchLimit: parseEnvInt('MARKETING_CRON_BATCH_LIMIT', 15, 1, 50),
   cronDailySendCap: parseEnvInt('MARKETING_CRON_DAILY_SEND_CAP', 50, 1, 500),
   enrollmentPrepareLimit: parseEnvInt('MARKETING_ENROLLMENT_PREPARE_LIMIT', 50, 1, 250),

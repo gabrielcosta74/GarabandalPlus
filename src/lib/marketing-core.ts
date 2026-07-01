@@ -70,6 +70,12 @@ export type MarketingSourceSummary = {
   referrals_count: number;
   referred_by_code: string | null;
   failed_or_canceled_payments: number;
+  pilgrimage_interest_ids: string[];
+  available_pilgrimage_ids: string[];
+  waitlist_pilgrimage_ids: string[];
+  waitlist_available_pilgrimage_ids: string[];
+  available_pilgrimages: number;
+  waitlist_available_pilgrimages: number;
 };
 
 export type MarketingSegment = {
@@ -135,6 +141,18 @@ export const normalizeEmail = (value: unknown) => {
   if (typeof value !== 'string') return null;
   const email = value.trim().toLowerCase();
   return email.includes('@') ? email : null;
+};
+
+export const INTERNAL_MEMBER_EMAIL_SUFFIX = '@sem-email.local';
+
+export const isInternalMemberEmail = (value: unknown) => {
+  const email = normalizeEmail(value);
+  return Boolean(email && email.endsWith(INTERNAL_MEMBER_EMAIL_SUFFIX));
+};
+
+export const isDeliverableMarketingEmail = (value: unknown) => {
+  const email = normalizeEmail(value);
+  return Boolean(email && !isInternalMemberEmail(email));
 };
 
 export const normalizePhone = (value: unknown) => {
@@ -225,13 +243,19 @@ export const emptySourceSummary = (): MarketingSourceSummary => ({
   referrals_count: 0,
   referred_by_code: null,
   failed_or_canceled_payments: 0,
+  pilgrimage_interest_ids: [],
+  available_pilgrimage_ids: [],
+  waitlist_pilgrimage_ids: [],
+  waitlist_available_pilgrimage_ids: [],
+  available_pilgrimages: 0,
+  waitlist_available_pilgrimages: 0,
 });
 
 export const evaluateMarketingSegments = (contact: Pick<MarketingContact, 'source_summary' | 'lead_score' | 'lifecycle_stage'>) => {
   const s = contact.source_summary;
   const segments: string[] = [];
-  if (contact.lead_score >= 70 && (s.leads > 0 || s.waitlists > 0) && s.bookings === 0) segments.push('hot-pilgrimage-leads');
-  if (s.leads > 0 && s.bookings === 0) segments.push('abandoned-registration');
+  if (contact.lead_score >= 70 && s.leads > 0 && s.waitlists === 0 && s.bookings === 0) segments.push('hot-pilgrimage-leads');
+  if (s.leads > 0 && s.waitlists === 0 && s.bookings === 0) segments.push('abandoned-registration');
   if (s.brochure_requests > 0 && s.bookings === 0) segments.push('brochure-requested-not-booked');
   if (s.waitlists > 0) segments.push('waitlist-contacts');
   if (s.pilgrims > 0 || s.bookings > 0) segments.push('past-pilgrims');
@@ -281,13 +305,13 @@ export const determineLifecycleStage = (summary: MarketingSourceSummary): Market
 
 export const getMarketingRecommendation = (contact: Pick<MarketingContact, 'lead_score' | 'source_summary'>) => {
   const s = contact.source_summary;
-  if (contact.lead_score >= 70 && (s.leads > 0 || s.waitlists > 0 || s.brochure_requests > 0) && s.bookings === 0) {
+  if (s.waitlists > 0 && s.bookings === 0) return 'Announce next available pilgrimage';
+  if (contact.lead_score >= 70 && (s.leads > 0 || s.brochure_requests > 0) && s.bookings === 0) {
     return 'Manual follow-up + pilgrimage funnel';
   }
   if (s.succeeded_donations > 0 && !s.is_member) return 'Invite to become a member';
   if (s.is_member && s.referrals_count === 0) return 'Activate member referral sharing';
   if (['expirado', 'pendente', 'revogado'].includes(s.member_status || '')) return 'Renew membership support';
-  if (s.waitlists > 0) return 'Announce next available pilgrimage';
   if (s.donation_value + s.quota_value + s.store_value + s.pilgrimage_payment_value >= 100) return 'Invite deeper mission support';
   return 'Keep nurturing';
 };

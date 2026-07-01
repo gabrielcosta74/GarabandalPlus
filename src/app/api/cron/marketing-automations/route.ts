@@ -1,10 +1,35 @@
 import { NextResponse } from 'next/server';
-import { prepareMarketingFunnelEnrollments, processMarketingEnrollment } from '../../../../lib/marketing-automation-engine';
+import {
+  getMarketingStepConditions,
+  getMarketingEnrollmentStep,
+  prepareMarketingFunnelEnrollments,
+  processMarketingEnrollment,
+  processWaitlistOpenSpotNotifications,
+} from '../../../../lib/marketing-automation-engine';
 import { countMarketingSendsSince, getMarketingEmailLimits, getMarketingWindowStarts } from '../../../../lib/marketing-limits';
 import { supabaseServer } from '../../../../lib/supabase';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+
+const getContactValue = (contact: any) => {
+  const summary = contact?.source_summary || {};
+  return (
+    Number(summary.donation_value || 0) +
+    Number(summary.quota_value || 0) +
+    Number(summary.store_value || 0) +
+    Number(summary.pilgrimage_payment_value || 0)
+  );
+};
+
+const sortDueEnrollments = (rows: any[] = []) =>
+  [...rows].sort((a, b) => {
+    const scoreDiff = Number(b.contact?.lead_score || 0) - Number(a.contact?.lead_score || 0);
+    if (scoreDiff !== 0) return scoreDiff;
+    const valueDiff = getContactValue(b.contact) - getContactValue(a.contact);
+    if (valueDiff !== 0) return valueDiff;
+    return new Date(a.next_run_at || 0).getTime() - new Date(b.next_run_at || 0).getTime();
+  });
 
 export async function GET(req: Request) {
   if (!supabaseServer) {
@@ -35,14 +60,20 @@ export async function GET(req: Request) {
     if (funnelsError) throw funnelsError;
 
     if (dryRun) {
+      const waitlistOpenSpot = await processWaitlistOpenSpotNotifications(supabaseServer, {
+        limit: Math.max(1, Math.min(limits.cronBatchLimit, remainingDailyCapacity || limits.cronBatchLimit)),
+        dryRun: true,
+      });
+
       const { data: dueEnrollments, error: enrollmentError, count } = await supabaseServer
         .from('marketing_enrollments')
-        .select('id,current_step,next_run_at,contact:marketing_contacts(id,language,consent_state),funnel:marketing_funnels(id,name,slug,status)', { count: 'exact' })
+        .select('id,current_step,next_run_at,contact:marketing_contacts(id,language,consent_state,lead_score,source_summary),funnel:marketing_funnels(id,name,slug,status,steps)', { count: 'exact' })
         .eq('status', 'active')
         .lte('next_run_at', new Date().toISOString())
         .order('next_run_at', { ascending: true })
-        .limit(Math.max(1, limits.cronBatchLimit));
+        .limit(Math.max(1, limits.cronBatchLimit * 3));
       if (enrollmentError) throw enrollmentError;
+      const sortedDueEnrollments = sortDueEnrollments(dueEnrollments || []).slice(0, Math.max(1, limits.cronBatchLimit));
 
       return NextResponse.json({
         success: true,
@@ -52,16 +83,24 @@ export async function GET(req: Request) {
         remainingDailyCapacity,
         activeFunnels: (funnels || []).length,
         dueEnrollments: count || 0,
-        wouldProcess: Math.min((dueEnrollments || []).length, batchLimit),
+        waitlistOpenSpot,
+        wouldProcess: Math.min(sortedDueEnrollments.length, batchLimit),
         processed: [],
-        candidates: (dueEnrollments || []).map((enrollment: any) => ({
-          enrollment: enrollment.id,
-          currentStep: enrollment.current_step,
-          nextRunAt: enrollment.next_run_at,
-          language: enrollment.contact?.language || null,
-          consentState: enrollment.contact?.consent_state || null,
-          funnel: enrollment.funnel?.slug || enrollment.funnel?.name || null,
-        })),
+        candidates: sortedDueEnrollments.map((enrollment: any) => {
+          const { step } = getMarketingEnrollmentStep(enrollment);
+          return {
+            enrollment: enrollment.id,
+            currentStep: enrollment.current_step,
+            nextRunAt: enrollment.next_run_at,
+            language: enrollment.contact?.language || null,
+            consentState: enrollment.contact?.consent_state || null,
+            leadScore: enrollment.contact?.lead_score || 0,
+            contactValue: getContactValue(enrollment.contact),
+            funnel: enrollment.funnel?.slug || enrollment.funnel?.name || null,
+            templateKey: step?.template_key || null,
+            effectiveConditions: getMarketingStepConditions(step),
+          };
+        }),
       });
     }
 
@@ -84,17 +123,24 @@ export async function GET(req: Request) {
       enrolled += result.enrolled;
     }
 
-    const { data: dueEnrollments, error: enrollmentError } = await supabaseServer
-      .from('marketing_enrollments')
-      .select('*, contact:marketing_contacts(*), funnel:marketing_funnels(*)')
-      .eq('status', 'active')
-      .lte('next_run_at', new Date().toISOString())
-      .order('next_run_at', { ascending: true })
-      .limit(batchLimit);
+    const waitlistOpenSpot = await processWaitlistOpenSpotNotifications(supabaseServer, {
+      limit: batchLimit,
+    });
+    const enrollmentBatchLimit = Math.max(0, batchLimit - waitlistOpenSpot.sent);
+
+    const { data: dueEnrollments, error: enrollmentError } = enrollmentBatchLimit > 0
+      ? await supabaseServer
+          .from('marketing_enrollments')
+          .select('*, contact:marketing_contacts(*), funnel:marketing_funnels(*)')
+          .eq('status', 'active')
+          .lte('next_run_at', new Date().toISOString())
+          .order('next_run_at', { ascending: true })
+          .limit(Math.max(enrollmentBatchLimit * 3, enrollmentBatchLimit))
+      : { data: [], error: null };
     if (enrollmentError) throw enrollmentError;
 
     const processed: any[] = [];
-    for (const enrollment of dueEnrollments || []) {
+    for (const enrollment of sortDueEnrollments(dueEnrollments || []).slice(0, enrollmentBatchLimit)) {
       processed.push(await processMarketingEnrollment(supabaseServer, enrollment));
     }
 
@@ -105,6 +151,7 @@ export async function GET(req: Request) {
       remainingDailyCapacity,
       activeFunnels: (funnels || []).length,
       enrolled,
+      waitlistOpenSpot,
       processed,
     });
   } catch (error: any) {
