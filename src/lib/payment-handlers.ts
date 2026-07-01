@@ -11,6 +11,7 @@ import { generateMemberDiplomaPdf } from './member-diploma';
 import { createAdminNotification } from './admin-notifications';
 import { calculateNextQuotaDate } from './membership-logic';
 import { getNextMemberNumber } from './membership-db';
+import { sendMarketingEmail } from './marketing-email';
 
 const formatISODate = (date: Date) => date.toISOString().slice(0, 10);
 const resolveEmailLocale = (value?: any): 'pt' | 'en' => String(value || '').toLowerCase() === 'en' ? 'en' : 'pt';
@@ -37,6 +38,107 @@ const ensureUniqueMemberNumber = async (
     }
 
     return getNextMemberNumber(supabaseServer);
+};
+
+const normalizeMarketingEmail = (value?: string | null) => {
+    const email = String(value || '').trim().toLowerCase();
+    return email.includes('@') ? email : null;
+};
+
+const formatReferralRewardAmount = (value: unknown, locale: 'pt' | 'en') => {
+    const amount = Number(value || 2.5);
+    const fixed = Number.isFinite(amount) ? amount.toFixed(2) : '2.50';
+    return locale === 'en' ? `€${fixed}` : `€${fixed.replace('.', ',')}`;
+};
+
+const logReferralRewardEmail = async (
+    supabaseServer: SupabaseClient,
+    input: {
+        toEmail: string;
+        templateKey: string;
+        result: Awaited<ReturnType<typeof sendMarketingEmail>>;
+        reward: any;
+    },
+) => {
+    await supabaseServer.from('marketing_message_logs').insert({
+        channel: 'email',
+        to_email: input.toEmail,
+        provider_message_id: input.result.providerId || null,
+        subject: input.result.subject || null,
+        template_key: input.templateKey,
+        status: input.result.sent ? 'sent' : 'failed',
+        error_message: input.result.error || null,
+        sent_at: input.result.sent ? new Date().toISOString() : null,
+        metadata: {
+            source: 'referral_reward',
+            reward_id: input.reward.id,
+            referral_code: input.reward.referral_code,
+            inviter_id: input.reward.inviter_id,
+            new_member_id: input.reward.new_member_id,
+        },
+    });
+};
+
+const sendReferralRewardEmails = async (
+    supabaseServer: SupabaseClient,
+    input: {
+        inviter: any;
+        invitee: any;
+        reward: any;
+        locale: 'pt' | 'en';
+    },
+) => {
+    const rewardLabel = formatReferralRewardAmount(input.reward?.amount, input.locale);
+    const inviterEmail = normalizeMarketingEmail(input.inviter?.email);
+    const inviteeEmail = normalizeMarketingEmail(input.invitee?.email);
+    const inviteeName = input.invitee?.nome || (input.locale === 'en' ? 'your friend' : 'a pessoa convidada');
+    const inviterName = input.inviter?.nome || (input.locale === 'en' ? 'your inviter' : 'quem convidou você');
+
+    if (inviterEmail) {
+        const result = await sendMarketingEmail({
+            contact: {
+                display_name: input.inviter?.nome || '',
+                normalized_email: inviterEmail,
+                language: input.locale,
+                recommendation: '',
+            },
+            templateKey: 'referral_reward_inviter',
+            context: {
+                inviteeName,
+                referralCode: input.reward?.referral_code || input.inviter?.referral_code || null,
+                storeCredit: rewardLabel,
+            },
+        });
+        await logReferralRewardEmail(supabaseServer, {
+            toEmail: inviterEmail,
+            templateKey: 'referral_reward_inviter',
+            result,
+            reward: input.reward,
+        });
+    }
+
+    if (inviteeEmail) {
+        const result = await sendMarketingEmail({
+            contact: {
+                display_name: input.invitee?.nome || '',
+                normalized_email: inviteeEmail,
+                language: input.locale,
+                recommendation: '',
+            },
+            templateKey: 'referral_reward_invitee',
+            context: {
+                inviterName,
+                referralCode: input.invitee?.referral_code || null,
+                storeCredit: rewardLabel,
+            },
+        });
+        await logReferralRewardEmail(supabaseServer, {
+            toEmail: inviteeEmail,
+            templateKey: 'referral_reward_invitee',
+            result,
+            reward: input.reward,
+        });
+    }
 };
 
 export type PaymentHandlerContext = {
@@ -232,6 +334,9 @@ export async function handleMembershipSuccess(ctx: PaymentHandlerContext) {
         const paymentDate = ctx.paymentDate || new Date();
         const nextQuotaDate = calculateNextQuotaDate(paymentDate);
         const wasMember = !!membro?.is_membro;
+        const emailLocale = resolveEmailLocale(metadata.locale) === 'en'
+            ? 'en'
+            : resolveLocaleFromNotes(paymentRow?.notes);
 
         // Generate Number if needed
         let numero_socio = await ensureUniqueMemberNumber(
@@ -278,6 +383,12 @@ export async function handleMembershipSuccess(ctx: PaymentHandlerContext) {
         // If this is their FIRST successful payment and they used a referral code, trigger the reward RPC.
         if (!wasMember && membro?.referred_by_code) {
             try {
+                const { data: existingReferralReward } = await supabaseServer
+                    .from('referral_rewards')
+                    .select('id')
+                    .eq('new_member_id', userId)
+                    .maybeSingle();
+
                 const { error: rewardError } = await supabaseServer.rpc('reward_inviter', {
                     p_referral_code: membro.referred_by_code,
                     p_new_member_id: userId,
@@ -287,6 +398,35 @@ export async function handleMembershipSuccess(ctx: PaymentHandlerContext) {
                     console.error(`Failed to execute reward_inviter for user ${userId} with code ${membro.referred_by_code}:`, rewardError);
                 } else {
                     console.log(`Successfully rewarded inviter for code ${membro.referred_by_code} and new member ${userId}`);
+                    if (!existingReferralReward?.id) {
+                        const { data: rewardRow } = await supabaseServer
+                            .from('referral_rewards')
+                            .select('id,referral_code,inviter_id,new_member_id,amount,created_at')
+                            .eq('new_member_id', userId)
+                            .maybeSingle();
+
+                        if (rewardRow?.id) {
+                            const [{ data: inviter }, { data: invitee }] = await Promise.all([
+                                supabaseServer
+                                    .from('membros')
+                                    .select('id,nome,email,referral_code,store_credits')
+                                    .eq('id', rewardRow.inviter_id)
+                                    .maybeSingle(),
+                                supabaseServer
+                                    .from('membros')
+                                    .select('id,nome,email,referral_code,store_credits')
+                                    .eq('id', rewardRow.new_member_id)
+                                    .maybeSingle(),
+                            ]);
+
+                            await sendReferralRewardEmails(supabaseServer, {
+                                inviter,
+                                invitee: invitee || membro,
+                                reward: rewardRow,
+                                locale: emailLocale,
+                            });
+                        }
+                    }
                 }
             } catch (err) {
                 console.error(`Exception executing reward_inviter for user ${userId}:`, err);
@@ -298,9 +438,6 @@ export async function handleMembershipSuccess(ctx: PaymentHandlerContext) {
         const shouldNotify = !paymentRow?.email_notificado_at;
         if (shouldNotify) {
             const memberEmail = membro?.email || customerDetails?.email;
-            const emailLocale = resolveEmailLocale(metadata.locale) === 'en'
-                ? 'en'
-                : resolveLocaleFromNotes(paymentRow?.notes);
             // Send standard notification (Membership Paid/Renewed)
             await sendMembershipNotification({
                 kind: wasMember ? 'renewal' : 'new',

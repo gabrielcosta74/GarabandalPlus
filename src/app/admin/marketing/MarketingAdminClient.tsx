@@ -193,6 +193,8 @@ const campaignTemplateOptions = [
   { key: 'member_referral_activation', label: 'Membro — ativar partilha' },
   { key: 'referral_activation', label: 'Convites — ativar partilha' },
   { key: 'share_mission', label: 'Partilhar missão' },
+  { key: 'referral_reward_inviter', label: 'Convites — recompensa para quem convidou' },
+  { key: 'referral_reward_invitee', label: 'Convites — saldo para novo membro' },
   { key: 'member_welcome', label: 'Membro — acolhimento' },
   { key: 'member_pray_intentions', label: 'Membro — entregar intenções' },
   { key: 'member_novena_invite', label: 'Membro — convite a novena' },

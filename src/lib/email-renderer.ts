@@ -192,7 +192,7 @@ const WhatsAppButton = (locale: EmailLocale = "pt") => `
     <tr>
       <td align="center" bgcolor="#25D366" style="border-radius:999px;background:#25D366;">
         <a href="${WHATSAPP_CONTACT_URL}" style="display:inline-block;color:#FFFFFF;font-weight:800;font-size:14px;line-height:1;text-decoration:none;padding:13px 24px;border-radius:999px;">
-          ${locale === "en" ? "Chat with us on WhatsApp" : "Falar connosco no WhatsApp"}
+          ${locale === "en" ? "Chat with us on WhatsApp" : "Falar com a gente no WhatsApp"}
         </a>
       </td>
     </tr>
@@ -297,7 +297,7 @@ const Layout = ({
                 <tr>
                   <td align="center" class="px" style="padding:26px 40px 34px;text-align:center;">
                     <p class="email-heading" style="margin:0 0 8px;font-size:15px;line-height:22px;font-weight:800;color:${COLORS.heading};">${locale === "en" ? "Need help?" : "Precisa de ajuda?"}</p>
-                    <p class="email-text" style="margin:0;font-size:13px;line-height:21px;color:${COLORS.textLight};">${locale === "en" ? `Message us on ${contactWa} or email ${contactMail}.` : `Fale connosco pelo ${contactWa} ou por ${contactMail}.`}</p>
+                    <p class="email-text" style="margin:0;font-size:13px;line-height:21px;color:${COLORS.textLight};">${locale === "en" ? `Message us on ${contactWa} or email ${contactMail}.` : `Fale com a gente pelo ${contactWa} ou por ${contactMail}.`}</p>
                     ${WhatsAppButton(locale)}
                     ${unsubscribeUrl ? `<p class="muted-text" style="margin:18px 0 0;font-size:11px;line-height:18px;color:${COLORS.textLight};">${locale === "en" ? `If you no longer wish to receive these emails, you can <a href="${unsubscribeUrl}" style="color:${COLORS.textLight};text-decoration:underline;">unsubscribe here</a>.` : `Se já não deseja receber estes emails, pode <a href="${unsubscribeUrl}" style="color:${COLORS.textLight};text-decoration:underline;">cancelar a subscrição aqui</a>.`}</p>` : ""}
                   </td>
@@ -525,14 +525,14 @@ const membershipWelcomeContent = (locale: EmailLocale) => {
     : [
         '<strong>{{greeting}}</strong>,',
         'Em algum momento o seu coração aproximou-se de Garabandal — talvez por uma peregrinação, um pedido de oração, um donativo, ou simplesmente pela mensagem de Nossa Senhora. Acreditamos que não foi por acaso.',
-        'Hoje queremos convidá-lo a dar um passo a mais: <strong>tornar-se membro do Apostolado de Garabandal</strong> — fazer parte, de forma contínua, de uma família que reza e trabalha ao serviço desta mensagem. Eis um pouco do que o espera:',
+        'Hoje queremos convidar você a dar um passo a mais: <strong>tornar-se membro do Apostolado de Garabandal</strong> — fazer parte, de forma contínua, de uma família que reza e trabalha ao serviço desta mensagem. Eis um pouco do que o espera:',
       ];
 
   const cards = locale === 'en'
     ? benefitFeaturedCard({ img: BENEFIT_IMG.archive, badge: 'Golden Archive', title: 'Access to the Private Documentation', desc: 'Our most precious treasure: reserved access to the private Garabandal archive — documents, testimonies and historical records not shared publicly.' })
       + benefitImageCard({ img: BENEFIT_IMG.videos, eyebrow: 'Exclusive Content', title: 'Exclusive Videos', desc: 'Unlimited access to video content, documentaries and in-depth study materials on the Apparitions and Marian spirituality.' })
       + benefitImageCard({ img: BENEFIT_IMG.books, eyebrow: 'Online Store', title: '5% off Books', desc: 'A permanent direct discount across the entire official bookstore, to deepen your faith.' })
-    : benefitFeaturedCard({ img: BENEFIT_IMG.archive, badge: 'Acervo de Ouro', title: 'Acesso à Documentação Privada', desc: 'O nosso tesouro mais precioso: acesso reservado ao arquivo privado de Garabandal — documentos, testemunhos e registos históricos que não são partilhados publicamente.' })
+    : benefitFeaturedCard({ img: BENEFIT_IMG.archive, badge: 'Acervo de Ouro', title: 'Acesso à Documentação Privada', desc: 'O nosso tesouro mais precioso: acesso reservado ao arquivo privado de Garabandal — documentos, testemunhos e registros históricos que não são compartilhados publicamente.' })
       + benefitImageCard({ img: BENEFIT_IMG.videos, eyebrow: 'Conteúdo Exclusivo', title: 'Vídeos Exclusivos', desc: 'Acesso ilimitado a vídeos, documentários e materiais de estudo aprofundado sobre as Aparições e a espiritualidade mariana.' })
       + benefitImageCard({ img: BENEFIT_IMG.books, eyebrow: 'Loja Online', title: '5% nos Livros', desc: 'Desconto direto permanente em toda a livraria oficial, para aprofundar a sua fé.' });
 
@@ -608,10 +608,168 @@ const emailSteps = (title: string, steps: string[]) => `
   </td></tr>
 </table>`;
 
+// Real pilgrim testimonials (source: Supabase `testimonials` table). Native PT-BR + EN.
+const REAL_TESTIMONIALS: { pt: string; en: string; author: string }[] = [
+  {
+    pt: 'Esta peregrinação aprofundou o meu encontro com Jesus e Maria. Uma viagem transformadora.',
+    en: 'This pilgrimage deepened my encounter with Jesus and Mary. A truly transformative journey.',
+    author: 'Danielle · Florianópolis',
+  },
+  {
+    pt: 'Super recomendo. Itinerário perfeito, hospedagem excelente e presença real de Jesus e Nossa Senhora.',
+    en: 'I highly recommend it. Perfect itinerary, excellent accommodation, and the real presence of Jesus and Our Lady.',
+    author: 'Dani Silva · Curitiba',
+  },
+  {
+    pt: 'Organização impecável, lugares lindos e muita fé. Não nos preocupamos com nada, só vivemos a graça!',
+    en: 'Impeccable organization, beautiful places, and so much faith. We did not have to worry about anything; we simply lived the grace.',
+    author: 'Mardja Cássia · Brasil',
+  },
+  {
+    pt: 'Senti a presença forte de Maria e a alegria dos peregrinos. Minha fé foi profundamente fortalecida.',
+    en: "I felt Mary's strong presence and the joy of the pilgrims. My faith was deeply strengthened.",
+    author: 'Simone · Brasil',
+  },
+];
+
+// Testimonial widget — a real pilgrim quote in a warm, quotation-styled card.
+const testimonialCard = (locale: EmailLocale, index = 0) => {
+  const t = REAL_TESTIMONIALS[index % REAL_TESTIMONIALS.length];
+  const quote = locale === 'en' ? t.en : t.pt;
+  return `
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#fffbeb" style="margin:20px 0;border:1px solid rgba(212,175,55,0.4);border-left:4px solid ${COLORS.primary};border-radius:14px;background:#fffbeb;background-color:#fffbeb;">
+  <tr><td style="padding:22px 24px;">
+    <div style="font-size:34px;line-height:20px;color:${COLORS.primary};font-family:${FONTS.serif};height:20px;">&ldquo;</div>
+    <div style="font-size:16px;line-height:26px;color:${COLORS.heading};font-family:${FONTS.serif};font-style:italic;margin:6px 0 12px;">${quote}</div>
+    <div style="font-size:13px;font-weight:700;color:${COLORS.primary};">— ${t.author}</div>
+  </td></tr>
+</table>`;
+};
+
+const pilgrimageTestimonyContent = (locale: EmailLocale) => {
+  const isEn = locale === 'en';
+  const intro = isEn
+    ? [
+        '<strong>{{greeting}}</strong>,',
+        'Garabandal is a small, hidden village. And yet Our Lady\'s message here has touched millions.',
+        'Those who go rarely come back the same. Here is what a few pilgrims told us:',
+      ]
+    : [
+        '<strong>{{greeting}}</strong>,',
+        'Garabandal é um lugarejo pequeno e escondido. E, ainda assim, a mensagem de Nossa Senhora aqui tocou milhões.',
+        'Quem vai, dificilmente volta o mesmo. Veja o que alguns peregrinos nos contaram:',
+      ];
+  const closing = isEn
+    ? 'If you feel this path may be for you, see the pilgrimages available now.'
+    : 'Se você sente que esse caminho pode ser o seu, veja as peregrinações disponíveis.';
+  return `${intro.map((p) => Text(p)).join('')}${testimonialCard(locale, 0)}${testimonialCard(locale, 3)}${Text(closing)}`;
+};
+
+const brochureFollowupContent = (locale: EmailLocale) => {
+  const isEn = locale === 'en';
+  const intro = isEn
+    ? [
+        '<strong>{{greeting}}</strong>,',
+        'You asked for the itinerary of <strong>{{pilgrimage_name}}</strong> — and that already says something.',
+        'Many who travel with us today started exactly like you: with a quiet curiosity that kept growing.',
+      ]
+    : [
+        '<strong>{{greeting}}</strong>,',
+        'Você pediu o roteiro de <strong>{{pilgrimage_name}}</strong> — e isso já diz muito.',
+        'Muita gente que hoje viaja com a gente começou exatamente assim: com uma curiosidade simples que foi crescendo.',
+      ];
+  const note = isEn
+    ? emailNotePanel('Small groups, limited places', 'Each pilgrimage is guided by our team, in a spirit of prayer and fellowship. Places fill quickly.')
+    : emailNotePanel('Grupos pequenos, vagas limitadas', 'Cada peregrinação é acompanhada pela nossa equipe, com espírito de oração e comunhão. As vagas se preenchem rápido.');
+  const closing = isEn
+    ? 'If this feels like your moment, checking dates and availability is the natural next step.'
+    : 'Se você sente que é o seu momento, ver as datas e a disponibilidade é o próximo passo natural.';
+  return `${intro.map((p) => Text(p)).join('')}${testimonialCard(locale, 1)}${note}${Text(closing)}`;
+};
+
+const paymentSupportContent = (locale: EmailLocale) => {
+  const isEn = locale === 'en';
+  const intro = isEn
+    ? [
+        '<strong>{{greeting}}</strong>,',
+        'We are following your registration for <strong>{{pilgrimage_name}}</strong> and noticed a payment may still be pending.',
+        'We do not want you to lose your place over a small detail. It is simple to sort out:',
+      ]
+    : [
+        '<strong>{{greeting}}</strong>,',
+        'Estamos acompanhando sua inscrição em <strong>{{pilgrimage_name}}</strong> e notamos que um pagamento pode estar pendente.',
+        'Não queremos que você perca a vaga por um detalhe. É simples de resolver:',
+      ];
+  const steps = isEn
+    ? emailSteps('How to complete it', [
+        'Open your registration using the button below.',
+        'Already paid by bank transfer? Just upload the receipt.',
+        'Our team confirms everything and secures your place.',
+      ])
+    : emailSteps('Como concluir', [
+        'Abra sua inscrição no botão abaixo.',
+        'Já pagou por transferência? É só enviar o comprovante.',
+        'Nossa equipe confirma tudo e garante sua vaga.',
+      ]);
+  return `${intro.map((p) => Text(p)).join('')}${steps}`;
+};
+
+const membershipRenewalContent = (locale: EmailLocale) => {
+  const isEn = locale === 'en';
+  const intro = isEn
+    ? [
+        '<strong>{{greeting}}</strong>,',
+        'Your membership is about to expire. Renewing takes less than a minute — and keeps all of this active:',
+      ]
+    : [
+        '<strong>{{greeting}}</strong>,',
+        'Sua anuidade está prestes a vencer. Renovar leva menos de um minuto — e mantém tudo isto ativo:',
+      ];
+  const checklist = isEn
+    ? benefitChecklist('As a member, you keep:', [
+        'The <strong>live Holy Mass</strong> from Garabandal',
+        '<strong>Novenas</strong> and candles lit for your intentions',
+        'Exclusive content and the spiritual Academy',
+        'The certainty that your support sustains this mission',
+      ])
+    : benefitChecklist('Como membro, você mantém:', [
+        'A <strong>Santa Missa ao vivo</strong> desde Garabandal',
+        '<strong>Novenas</strong> e velas acesas pelas suas intenções',
+        'Conteúdos exclusivos e a Academia espiritual',
+        'A certeza de que seu apoio sustenta esta missão',
+      ]);
+  const closing = isEn
+    ? 'A simple gesture that says a lot: "I am still here, still praying, still supporting."'
+    : 'Um gesto simples que diz muito: "continuo aqui, continuo rezando, continuo apoiando."';
+  return `${intro.map((p) => Text(p)).join('')}${checklist}${Text(closing)}`;
+};
+
+const leadToMemberFollowupContent = (locale: EmailLocale) => {
+  const isEn = locale === 'en';
+  const intro = isEn
+    ? [
+        '<strong>{{greeting}}</strong>,',
+        'A few days ago we invited you to join the Apostolate. Perhaps the timing was not right — we understand.',
+        'But let me ask just this: <strong>think of one intention</strong> you carry in your heart — a sick loved one, a hard decision, a grace you await. As a member, that intention is taken to the <strong>candles lit in Garabandal</strong> and to our community\'s <strong>novenas</strong>. You do not walk alone.',
+      ]
+    : [
+        '<strong>{{greeting}}</strong>,',
+        'Há poucos dias convidamos você a fazer parte do Apostolado. Talvez o momento não tenha sido o certo — a gente entende.',
+        'Mas deixe eu pedir só isto: <strong>pense numa intenção</strong> que você traz no coração — um familiar doente, uma decisão difícil, uma graça que espera. Como membro, essa intenção passa a ser levada às <strong>velas acesas em Garabandal</strong> e às <strong>novenas</strong> da nossa comunidade. Você não caminha sozinho.',
+      ];
+  const offer = isEn
+    ? offerHighlight({ eyebrow: 'Welcome gift · until 15 July', title: 'Become a member and receive €5 of store credit', sub: 'Annual membership is just €25/year' })
+    : offerHighlight({ eyebrow: 'Oferta de boas-vindas · até 15 de julho', title: 'Torne-se membro e receba 5€ de saldo na Loja', sub: 'Anuidade de apenas 25€/ano' });
+  const closing = isEn
+    ? 'Whatever you decide, you remain in our prayers.'
+    : 'Seja qual for a sua decisão, você fica na nossa oração.';
+  return `${intro.map((p) => Text(p)).join('')}${offer}${Text(closing)}`;
+};
+
 const supportSentence = (locale: EmailLocale) =>
   locale === 'en'
     ? `If you need help before deciding, message us on ${contactWa} or email ${contactMail}.`
-    : `Se precisar de ajuda antes de decidir, fale connosco pelo ${contactWa} ou por ${contactMail}.`;
+    : `Se precisar de ajuda antes de decidir, fale com a gente pelo ${contactWa} ou por ${contactMail}.`;
 
 const pilgrimageRecoveryContent = (locale: EmailLocale, stage: 'start' | 'faq' | 'final') => {
   const isEn = locale === 'en';
@@ -623,8 +781,8 @@ const pilgrimageRecoveryContent = (locale: EmailLocale, stage: 'start' | 'faq' |
         ${Text(`${supportSentence(locale)} If you are ready, the button below takes you back to your registration.`)}`
       : `${Text('<strong>{{greeting}}</strong>,')}${Text('Quando uma inscrição fica a meio, quase sempre há uma dúvida concreta por trás. É normal: uma peregrinação é uma decisão importante e deve ser tomada com paz.')}
         ${emailFeatureBlock({ image: BENEFIT_IMG.archive, eyebrow: 'Peregrinação acompanhada', title: 'Não precisa de resolver tudo sozinho', desc: 'Ajudamos com pagamento faseado, alojamento, viagem sozinho ou acompanhado, documentos e qualquer dúvida prática antes de confirmar.' })}
-        ${benefitChecklist('Dúvidas que podemos esclarecer', ['Pagamento em prestações ou por transferência', 'Quarto individual ou partilhado', 'Detalhes da viagem e acompanhamento do grupo', 'O que acontece se os planos mudarem antes da partida'])}
-        ${Text(`${supportSentence(locale)} Se já está pronto, o botão abaixo leva-o de volta à inscrição.`)}`;
+        ${benefitChecklist('Dúvidas que podemos esclarecer', ['Pagamento em prestações ou por transferência', 'Quarto individual ou compartilhado', 'Detalhes da viagem e acompanhamento do grupo', 'O que acontece se os planos mudarem antes da partida'])}
+        ${Text(`${supportSentence(locale)} Se já está pronto, o botão abaixo leva você de volta à inscrição.`)}`;
   }
 
   if (stage === 'final') {
@@ -645,7 +803,7 @@ const pilgrimageRecoveryContent = (locale: EmailLocale, stage: 'start' | 'faq' |
       ${emailSteps('What happens next', ['Resume the registration from where you stopped.', 'Check personal details, room preference and payment method.', 'Receive confirmation and practical guidance from the Apostolate team.'])}
       ${Text(supportSentence(locale))}`
     : `${Text('<strong>{{greeting}}</strong>,')}${Text('Iniciou a inscrição para <strong>{{pilgrimage_name}}</strong>, mas o processo ficou por concluir. Isto pode acontecer por uma simples interrupção, por uma dúvida no pagamento ou por precisar de pensar mais um pouco.')}
-      ${emailFeatureBlock({ image: BENEFIT_IMG.archive, eyebrow: 'Peregrinação a Garabandal', title: 'A sua inscrição ainda pode ser retomada', desc: 'Quando existe disponibilidade real, pode voltar ao mesmo processo e completar apenas o que ficou em falta. Depois, a equipa confirma consigo os próximos passos.' })}
+      ${emailFeatureBlock({ image: BENEFIT_IMG.archive, eyebrow: 'Peregrinação a Garabandal', title: 'A sua inscrição ainda pode ser retomada', desc: 'Quando existe disponibilidade real, pode voltar ao mesmo processo e completar apenas o que ficou em falta. Depois, a equipa confirma com você os próximos passos.' })}
       ${emailSteps('O que acontece a seguir', ['Retoma a inscrição no ponto onde ficou.', 'Confirma dados pessoais, quarto e forma de pagamento.', 'Recebe a confirmação e o acompanhamento prático da equipa do Apostolado.'])}
       ${Text(supportSentence(locale))}`;
 };
@@ -671,7 +829,7 @@ const waitlistContent = (locale: EmailLocale, variant: 'welcome' | 'open_spot') 
       ${emailNotePanel('No false urgency', 'Being on the waiting list does not mean you will receive pressure emails. It means we keep your interest organised and contact you when there is something useful.')}
       ${emailFeatureBlock({ image: BENEFIT_IMG.archive, eyebrow: 'While you wait', title: 'You can still view open pilgrimages', desc: 'If another date or group works better for you, the pilgrimage page shows what is currently available.' })}
       ${Text(supportSentence(locale))}`
-    : `${Text('<strong>{{greeting}}</strong>,')}${Text('O seu interesse ficou registado. Só voltaremos a contactá-lo sobre este caminho quando houver algo relevante: uma nova data, uma vaga real, ou informação que o ajude a decidir.')}
+    : `${Text('<strong>{{greeting}}</strong>,')}${Text('O seu interesse ficou registrado. Só voltaremos a entrar em contato com você sobre este caminho quando houver algo relevante: uma nova data, uma vaga real, ou informação que o ajude a decidir.')}
       ${emailNotePanel('Sem falsa urgência', 'Estar em lista de espera não significa receber pressão. Significa que guardamos o seu interesse de forma organizada e só avisamos quando há algo útil.')}
       ${emailFeatureBlock({ image: BENEFIT_IMG.archive, eyebrow: 'Enquanto espera', title: 'Pode ver peregrinações abertas', desc: 'Se outra data ou outro grupo fizer mais sentido para si, a página de peregrinações mostra o que está disponível neste momento.' })}
       ${Text(supportSentence(locale))}`;
@@ -711,10 +869,10 @@ const memberInvitationContent = (locale: EmailLocale, variant: 'donor' | 'genera
   const intro = variant === 'donor'
     ? (isEn
       ? 'You have already supported the Apostolate with generosity. Today we would like to invite you to take a deeper and more stable step: becoming a member of this living mission.'
-      : 'Você já apoiou o Apostolado com generosidade. Hoje queremos convidá-lo a dar um passo mais profundo e estável: tornar-se membro desta missão viva.')
+      : 'Você já apoiou o Apostolado com generosidade. Hoje queremos convidar você a dar um passo mais profundo e estável: tornar-se membro desta missão viva.')
     : (isEn
       ? 'We would like to invite you to become a member of the Garabandal Apostolate: not only to support once, but to belong continuously to this mission.'
-      : 'Queremos convidá-lo a tornar-se membro do Apostolado de Garabandal: não apenas apoiar uma vez, mas fazer parte continuamente desta missão.');
+      : 'Queremos convidar você a tornar-se membro do Apostolado de Garabandal: não apenas apoiar uma vez, mas fazer parte continuamente desta missão.');
 
   return isEn
     ? `${Text('<strong>{{greeting}}</strong>,')}${Text(intro)}
@@ -734,11 +892,11 @@ const referralContent = (locale: EmailLocale, variant: 'member' | 'general' | 's
   if (variant === 'share') {
     return isEn
       ? `${Text('<strong>{{greeting}}</strong>,')}${Text('Your personal invitation is active in the member area. Many people discover Garabandal because someone close to them shares a simple, thoughtful invitation.')}
-        ${emailFeatureBlock({ image: BENEFIT_IMG.books, eyebrow: 'Referral credit', title: 'Credit is only applied after a confirmed membership', desc: 'If someone becomes a member through your invitation, both of you receive {{referral_reward}} store credit. The credit can be used for books, items or donations.' })}
+        ${emailFeatureBlock({ image: BENEFIT_IMG.association, eyebrow: 'Referral credit', title: 'Credit is only applied after a confirmed membership', desc: 'If someone becomes a member through your invitation, both of you receive {{referral_reward}} store credit. The credit can be used for books, items or donations.' })}
         ${emailSteps('Share when it feels right', ['Open your member area.', 'Copy your invitation link.', 'Send it personally to someone who may need peace, faith or hope.'])}`
-      : `${Text('<strong>{{greeting}}</strong>,')}${Text('O seu convite pessoal está ativo na área de membro. Muitas pessoas descobrem Garabandal porque alguém próximo partilha um convite simples, com cuidado e no momento certo.')}
-        ${emailFeatureBlock({ image: BENEFIT_IMG.books, eyebrow: 'Saldo por convite', title: 'O saldo só entra quando uma adesão é confirmada', desc: 'Se alguém se tornar membro através do seu convite, ambos recebem {{referral_reward}} de saldo na Loja. Esse saldo pode ser usado em livros, artigos ou donativos.' })}
-        ${emailSteps('Partilhe quando fizer sentido', ['Abra a sua área de membro.', 'Copie o seu link de convite.', 'Envie pessoalmente a alguém que possa precisar de paz, fé ou esperança.'])}`;
+      : `${Text('<strong>{{greeting}}</strong>,')}${Text('O seu convite pessoal está ativo na área de membro. Muitas pessoas descobrem Garabandal porque alguém próximo compartilha um convite simples, com cuidado e no momento certo.')}
+        ${emailFeatureBlock({ image: BENEFIT_IMG.association, eyebrow: 'Saldo por convite', title: 'O saldo só entra quando uma adesão é confirmada', desc: 'Se alguém se tornar membro através do seu convite, ambos recebem {{referral_reward}} de saldo na Loja. Esse saldo pode ser usado em livros, artigos ou donativos.' })}
+        ${emailSteps('Compartilhe quando fizer sentido', ['Abra a sua área de membro.', 'Copie o seu link de convite.', 'Envie pessoalmente a alguém que possa precisar de paz, fé ou esperança.'])}`;
   }
 
   return isEn
@@ -746,8 +904,30 @@ const referralContent = (locale: EmailLocale, variant: 'member' | 'general' | 's
       ${emailFeatureBlock({ image: BENEFIT_IMG.archive, eyebrow: 'A personal invitation', title: 'A simple link can open a real path', desc: 'You do not need to explain everything. Share your invitation with care and let the person discover the Apostolate at their own pace.' })}
       ${emailSteps('How it works', ['Share your personal invitation link.', 'Your friend discovers the mission and may become a member.', 'When that happens, both receive {{referral_reward}} store credit as a thank-you.'])}`
     : `${Text('<strong>{{greeting}}</strong>,')}${Text(variant === 'member' ? 'Pense numa só pessoa: um familiar, um amigo, alguém que procura paz ou atravessa um momento difícil.' : 'Se conhece alguém que procura algo mais profundo, a mensagem de Garabandal pode ser exatamente o que essa pessoa precisa de descobrir.')}
-      ${emailFeatureBlock({ image: BENEFIT_IMG.archive, eyebrow: 'Convite pessoal', title: 'Um link simples pode abrir um caminho real', desc: 'Não precisa de explicar tudo. Partilhe o seu convite com cuidado e deixe a pessoa conhecer o Apostolado ao seu ritmo.' })}
-      ${emailSteps('Como funciona', ['Partilha o seu link pessoal de convite.', 'O seu amigo conhece a missão e pode tornar-se membro.', 'Quando isso acontece, ambos recebem {{referral_reward}} de saldo na Loja como agradecimento.'])}`;
+      ${emailFeatureBlock({ image: BENEFIT_IMG.association, eyebrow: 'Convite pessoal', title: 'Um link simples pode abrir um caminho real', desc: 'Não precisa explicar tudo. Compartilhe o seu convite com cuidado e deixe a pessoa conhecer o Apostolado no próprio ritmo.' })}
+      ${emailSteps('Como funciona', ['Compartilhe o seu link pessoal de convite.', 'O seu amigo conhece a missão e pode se tornar membro.', 'Quando isso acontece, ambos recebem {{referral_reward}} de saldo na Loja como agradecimento.'])}`;
+};
+
+const referralRewardContent = (locale: EmailLocale, variant: 'inviter' | 'invitee') => {
+  const isEn = locale === 'en';
+
+  if (variant === 'inviter') {
+    return isEn
+      ? `${Text('<strong>{{greeting}}</strong>,')}${Text('<strong>{{invitee_name}}</strong> has become a member through your invitation. Thank you: your personal share helped someone take a real step into the Apostolate.')}
+        ${emailFeatureBlock({ image: BENEFIT_IMG.association, eyebrow: 'Confirmed invitation', title: '{{referral_reward}} has been added to your store credit', desc: 'The credit is available in your member area and can be used for official books, items or donations. {{invitee_name}} also received the same credit as a welcome gift.' })}
+        ${emailSteps('Keep the invitation alive', ['Open your member area and check your credit.', 'Copy your personal invitation link again.', 'Share it with one person who may need peace, faith or hope.'])}`
+      : `${Text('<strong>{{greeting}}</strong>,')}${Text('<strong>{{invitee_name}}</strong> se tornou membro através do seu convite. Obrigado: o seu compartilhamento pessoal ajudou alguém a dar um passo real dentro do Apostolado.')}
+        ${emailFeatureBlock({ image: BENEFIT_IMG.association, eyebrow: 'Convite confirmado', title: '{{referral_reward}} foram adicionados ao seu saldo da Loja', desc: 'O saldo está disponível na sua área de membro e pode ser usado em livros oficiais, artigos ou donativos. {{invitee_name}} também recebeu o mesmo saldo como presente de boas-vindas.' })}
+        ${emailSteps('Mantenha o convite vivo', ['Abra a sua área de membro e veja o saldo.', 'Copie novamente o seu link pessoal de convite.', 'Compartilhe com uma pessoa que possa precisar de paz, fé ou esperança.'])}`;
+  }
+
+  return isEn
+    ? `${Text('<strong>{{greeting}}</strong>,')}${Text('You became a member through the invitation of <strong>{{inviter_name}}</strong>. As a welcome thank-you, <strong>{{referral_reward}}</strong> has been added to your store credit.')}
+      ${emailFeatureBlock({ image: BENEFIT_IMG.association, eyebrow: 'Welcome credit', title: 'Your credit is ready in the member area', desc: 'You can use it for official books, items or donations. Your own invitation link is also ready, so you can invite someone else when the time feels right.' })}
+      ${emailSteps('What you can do now', ['Open your member area and check your credit.', 'Use the credit in the Online Store when you wish.', 'Share your own invitation with someone who may benefit from the mission.'])}`
+    : `${Text('<strong>{{greeting}}</strong>,')}${Text('Você se tornou membro através do convite de <strong>{{inviter_name}}</strong>. Como gesto de boas-vindas, <strong>{{referral_reward}}</strong> foram adicionados ao seu saldo da Loja.')}
+      ${emailFeatureBlock({ image: BENEFIT_IMG.association, eyebrow: 'Saldo de boas-vindas', title: 'O seu saldo está pronto na área de membro', desc: 'Você pode usá-lo em livros oficiais, artigos ou donativos. O seu próprio link de convite também já está pronto, para compartilhar com alguém quando fizer sentido.' })}
+      ${emailSteps('O que você pode fazer agora', ['Abrir a área de membro e ver o saldo.', 'Usar o saldo na Loja Online quando desejar.', 'Compartilhar o seu próprio convite com alguém que possa se beneficiar da missão.'])}`;
 };
 
 const storeBookRecommendationContent = (locale: EmailLocale) => {
@@ -756,9 +936,9 @@ const storeBookRecommendationContent = (locale: EmailLocale) => {
     ? `${Text('<strong>{{greeting}}</strong>,')}${Text('If Garabandal has been speaking to your heart, one of the best next steps is to read with calm and depth. The official store has books and digital guides prepared precisely for that: to help you understand, pray and share the message at home.')}
       ${emailNotePanel('Official store recommendation', 'Below are active products from the Apostolate store. This is not a membership email: it is a direct recommendation for those who want to keep discovering Garabandal through reliable material.')}
       ${benefitChecklist('Why these books help', ['They give context to the apparitions and messages', 'They are easy to read at home or share with family', 'Digital editions are available immediately after purchase', 'Every purchase also supports the mission of the Apostolate'])}`
-    : `${Text('<strong>{{greeting}}</strong>,')}${Text('Se Garabandal tem falado ao seu coração, um dos melhores próximos passos é ler com calma e profundidade. A Loja oficial reúne livros e guias digitais preparados justamente para isso: ajudar você a compreender, rezar e partilhar a mensagem em casa.')}
+    : `${Text('<strong>{{greeting}}</strong>,')}${Text('Se Garabandal tem falado ao seu coração, um dos melhores próximos passos é ler com calma e profundidade. A Loja oficial reúne livros e guias digitais preparados justamente para isso: ajudar você a compreender, rezar e compartilhar a mensagem em casa.')}
       ${emailNotePanel('Recomendação da Loja oficial', 'Abaixo estão produtos ativos da Loja do Apostolado. Este não é um email de adesão como membro: é uma recomendação direta para quem deseja continuar conhecendo Garabandal com material confiável.')}
-      ${benefitChecklist('Por que estes livros ajudam', ['Dão contexto às aparições e mensagens', 'São fáceis de ler em casa ou partilhar com a família', 'As edições digitais ficam disponíveis rapidamente após a compra', 'Cada compra também apoia a missão do Apostolado'])}`;
+      ${benefitChecklist('Por que estes livros ajudam', ['Dão contexto às aparições e mensagens', 'São fáceis de ler em casa ou compartilhar com a família', 'As edições digitais ficam disponíveis rapidamente após a compra', 'Cada compra também apoia a missão do Apostolado'])}`;
 };
 
 /* -------------------------------------------------------------------------- */
@@ -818,7 +998,7 @@ export const renderMemberReceiptEmail = (payload: MemberReceiptInput) => {
       children: `
                 ${Header({
         title: isEn ? "Payment Confirmed" : "Pagamento Confirmado",
-        subtitle: isEn ? "Thank you for walking with us." : "Obrigado por caminhar connosco.",
+        subtitle: isEn ? "Thank you for walking with us." : "Obrigado por caminhar com a gente.",
       })}
                 ${Section({
         children: `
@@ -1094,7 +1274,7 @@ export const renderPilgrimagePaymentReminderEmail = (
         overdue_5d:
           'O sinal de inscrição continua pendente após o prazo inicial. Pedimos, por favor, que regularize este valor para não comprometer a sua vaga.',
         overdue_3d:
-          'Verificámos que este valor ainda não foi registado. Se já efetuou o pagamento, pode entrar na sua inscrição e enviar o comprovativo.',
+          'Verificámos que este valor ainda não foi registrado. Se já efetuou o pagamento, pode entrar na sua inscrição e enviar o comprovativo.',
         overdue_10d:
           'Este valor continua em aberto. Pedimos, por favor, que regularize a situação assim que possível para manter a sua inscrição sem pendências.',
       };
@@ -1229,7 +1409,7 @@ export const renderDonationReceiptEmail = (payload: DonationReceiptInput) => {
                                 ${InfoRow({ label: isEn ? "Reference" : "Referência", value: payload.paymentReference || "-", isLast: true })}
                             `,
         })}
-                        ${Text(isEn ? "We will keep this record for administrative and tax purposes, when applicable." : "Guardaremos este registo para efeitos administrativos e fiscais, quando aplicável.")}
+                        ${Text(isEn ? "We will keep this record for administrative and tax purposes, when applicable." : "Guardaremos este registro para efeitos administrativos e fiscais, quando aplicável.")}
                     `,
       })}
             `,
@@ -1250,17 +1430,17 @@ export const renderGeneralLeadEmail = (payload: GeneralLeadInput) => {
       preview: isEn ? "You will be among the first to know about new dates and places." : "Será dos primeiros a saber sobre novas datas e vagas.",
       locale,
       children: `
-                ${Header({ title: isEn ? "Your interest has been noted" : "O seu interesse foi registado", subtitle: "Apostolado de Garabandal" })}
+                ${Header({ title: isEn ? "Your interest has been noted" : "O seu interesse foi registrado", subtitle: "Apostolado de Garabandal" })}
                 ${Section({
         children: `
                         ${Text(isEn ? `Hello <strong>${greetingPrefix}${firstName}</strong>,` : `Olá <strong>${greetingPrefix}${firstName}</strong>,`)}
                         ${Text(isEn
           ? "Your contact has been registered. When there are new dates, places or relevant opportunities, we will reach out to you directly — before the public announcement."
-          : "O seu contacto foi registado. Quando existirem novas datas, vagas ou oportunidades relevantes, entraremos diretamente em contacto consigo — antes de anunciarmos ao público."
+          : "O seu contacto foi registrado. Quando existirem novas datas, vagas ou oportunidades relevantes, entraremos diretamente em contato com você — antes de anunciarmos ao público."
         )}
                         ${Text(isEn
           ? `In the meantime, you can browse the pilgrimages we currently have open. If you have any questions, message us on ${contactWa} or email ${contactMail}.`
-          : `Entretanto, pode ver as peregrinações que estão abertas. Se tiver alguma questão, fale connosco pelo ${contactWa} ou por ${contactMail}.`
+          : `Entretanto, pode ver as peregrinações que estão abertas. Se tiver alguma questão, fale com a gente pelo ${contactWa} ou por ${contactMail}.`
         )}
                         ${Button({ label: isEn ? "View Pilgrimages" : "Ver Peregrinações", url: isEn ? `${APP_URL}/en/pilgrimages` : `${APP_URL}/peregrinacoes` })}
                     `,
@@ -1525,7 +1705,7 @@ export const renderAbandonmentRecoveryEmail = (
       children: `
                     ${Text(`Olá <strong>${firstName}</strong>,`)}
                     ${Text(`Iniciou a inscrição para <strong>${payload.pilgrimageName}</strong>, mas o processo ficou por concluir. As vagas são limitadas — e a sua pode ainda ser garantida.`)}
-                    ${Text(`Pode retomar exatamente onde ficou com um clique. Se encontrou alguma dificuldade, fale connosco pelo ${contactWa} ou por ${contactMail} e ajudamos.`)}
+                    ${Text(`Pode retomar exatamente onde ficou com um clique. Se encontrou alguma dificuldade, fale com a gente pelo ${contactWa} ou por ${contactMail} e ajudamos.`)}
                     ${Button({ label: "Retomar e Confirmar a Minha Vaga", url: payload.recoveryLink })}
                 `,
     })}
@@ -1577,7 +1757,7 @@ export const renderBrochureEmail = (payload: BrochureEmailInput) => {
       )}
                 ${Text(isEn
         ? `If you have any questions or feel ready to take the next step, message us on ${contactWa} or email ${contactMail}. We are here.`
-        : `Se tiver dúvidas ou sentir que está pronto para dar o próximo passo, fale connosco pelo ${contactWa} ou por ${contactMail}. Estamos aqui.`
+        : `Se tiver dúvidas ou sentir que está pronto para dar o próximo passo, fale com a gente pelo ${contactWa} ou por ${contactMail}. Estamos aqui.`
       )}
                 ${Button({ label: isEn ? "Open and Download PDF" : "Abrir e Descarregar PDF", url: payload.pdfUrl })}
 `,
@@ -1609,6 +1789,8 @@ export type MarketingTemplateKey =
   | 'member_referral_activation'
   | 'referral_activation'
   | 'share_mission'
+  | 'referral_reward_inviter'
+  | 'referral_reward_invitee'
   | 'member_welcome'
   | 'member_pray_intentions'
   | 'member_novena_invite'
@@ -1637,6 +1819,10 @@ export type MarketingTemplatePayload = {
   memberUrl?: string | null;
   donationUrl?: string | null;
   referralUrl?: string | null;
+  referralCode?: string | null;
+  inviteeName?: string | null;
+  inviterName?: string | null;
+  storeCredit?: string | null;
   products?: MarketingTemplateProduct[];
   productTitle?: string | null;
   productPrice?: string | null;
@@ -1751,7 +1937,11 @@ const fillMarketingVariables = (value: string, payload: MarketingTemplatePayload
     brochure_url: payload.brochureUrl || payload.pilgrimageUrl || marketingUrl('/peregrinacoes', payload),
     member_url: payload.memberUrl || marketingUrl('/tornar-membro', payload),
     donation_url: payload.donationUrl || marketingUrl('/donations', payload),
-  referral_url: payload.referralUrl || marketingUrl('/member', payload),
+    referral_url: payload.referralUrl || marketingUrl('/member', payload),
+    referral_code: payload.referralCode || '',
+    invitee_name: payload.inviteeName || (locale === 'en' ? 'your friend' : 'a pessoa convidada'),
+    inviter_name: payload.inviterName || (locale === 'en' ? 'your inviter' : 'quem convidou você'),
+    store_credit: payload.storeCredit || (locale === 'en' ? '€2.50' : '€2,50'),
     product_title: payload.productTitle || '',
     product_price: payload.productPrice || '',
     product_url: payload.productUrl || '',
@@ -1775,18 +1965,18 @@ export const MARKETING_EMAIL_TEMPLATES: Record<MarketingTemplateKey, MarketingTe
     name: 'Brochure follow-up',
     category: 'Peregrinações',
     goal: 'Converter pedido de roteiro em inscrição.',
-    defaultSubject: '{{first_name}}, o roteiro está consigo — falta um passo',
-    previewText: 'Muitos dos nossos peregrinos começaram exatamente aqui. Veja datas e disponibilidade.',
+    defaultSubject: '{{first_name}}, você tem o roteiro — falta só um passo',
+    previewText: 'Muitos peregrinos começaram exatamente aqui. Veja datas e disponibilidade.',
     ctaLabel: 'Ver Datas e Reservar',
     ctaUrl: (payload) => payload.pilgrimageUrl || marketingUrl('/peregrinacoes', payload),
     title: 'Uma peregrinação que pode mudar muito',
     subtitle: '{{pilgrimage_name}} — próximas datas',
     requiredVariables: ['name', 'pilgrimage_name', 'pilgrimage_url'],
+    contentHtml: (locale) => brochureFollowupContent(locale),
     paragraphs: [
       '<strong>{{greeting}}</strong>,',
-      'Pediu o roteiro de <strong>{{pilgrimage_name}}</strong> — e isso já diz algo. Muitas das pessoas que hoje viajam connosco começaram exatamente assim, com uma simples curiosidade que foi crescendo.',
-      'As vagas são limitadas e acompanhadas pela nossa equipa para garantir uma experiência com espírito de oração, grupo e fé. Se sentiu que este pode ser o momento, ver as datas e disponibilidade é o passo mais natural agora.',
-      `Se tiver alguma dúvida antes de decidir — sobre o programa, os valores, o alojamento, ou simplesmente se este caminho é para si — fale connosco pelo ${contactWa} ou por ${contactMail}. Estamos aqui.`,
+      'Você pediu o roteiro de <strong>{{pilgrimage_name}}</strong> — e isso já diz muito.',
+      'Muita gente que hoje viaja com a gente começou exatamente assim: com uma curiosidade simples que foi crescendo. Se você sente que é o seu momento, ver as datas é o próximo passo natural.',
     ],
   },
   pilgrimage_testimony: {
@@ -1795,17 +1985,17 @@ export const MARKETING_EMAIL_TEMPLATES: Record<MarketingTemplateKey, MarketingTe
     category: 'Peregrinações',
     goal: 'Aumentar confiança e desejo espiritual.',
     defaultSubject: 'Garabandal não é uma viagem — é um encontro',
-    previewText: 'Muitos peregrinos regressam com uma paz difícil de explicar. Veja a peregrinação.',
-    ctaLabel: 'Descobrir a Peregrinação',
+    previewText: 'Veja o que peregrinos brasileiros viveram em Garabandal.',
+    ctaLabel: 'Ver Peregrinações Disponíveis',
     ctaUrl: (payload) => payload.pilgrimageUrl || marketingUrl('/peregrinacoes', payload),
     title: 'Uma experiência que transforma',
-    subtitle: 'O que muitos vivem em Garabandal',
+    subtitle: 'O que peregrinos viveram em Garabandal',
     requiredVariables: ['name', 'pilgrimage_url'],
+    contentHtml: (locale) => pilgrimageTestimonyContent(locale),
     paragraphs: [
       '<strong>{{greeting}}</strong>,',
-      'Muitos peregrinos partilham que chegam a Garabandal com o coração pesado e regressam com uma paz difícil de explicar. É um lugar pequeno e escondido — e, ainda assim, a mensagem de Nossa Senhora aqui tocou milhões de almas.',
-      'As pessoas chegam com perguntas que nem conseguem formular. Encontram silêncio, oração, partilha entre irmãos na fé — e uma presença que tantos descrevem como inconfundível.',
-      `Se sentiu que este caminho pode ser para si, veja o programa com calma. E se precisar de perceber melhor como tudo funciona antes de decidir, fale connosco pelo ${contactWa} ou por ${contactMail}.`,
+      'Garabandal é um lugarejo pequeno e escondido. E, ainda assim, a mensagem de Nossa Senhora aqui tocou milhões.',
+      'Quem vai, dificilmente volta o mesmo. Se você sente que esse caminho pode ser o seu, veja o programa com calma.',
     ],
   },
   pilgrimage_faq_objections: {
@@ -1822,9 +2012,9 @@ export const MARKETING_EMAIL_TEMPLATES: Record<MarketingTemplateKey, MarketingTe
     requiredVariables: ['name', 'pilgrimage_name', 'pilgrimage_url'],
     paragraphs: [
       '<strong>{{greeting}}</strong>,',
-      '"Gostava muito de ir, mas não sei se consigo..." — reconhece este pensamento? É completamente normal querer ter tudo claro antes de avançar.',
-      'As dúvidas mais frequentes — valor total, quartos individuais ou partilhados, viagem incluída, pagamento em prestações, cancelamento, quem acompanha o grupo — têm resposta na página da peregrinação.',
-      `Se algo continuar em aberto, fale connosco pelo ${contactWa} ou por ${contactMail}. Queremos que decida com clareza, confiança e paz. Sem pressão de nenhum tipo.`,
+      '"Gostava muito de ir, mas não sei se com você..." — reconhece este pensamento? É completamente normal querer ter tudo claro antes de avançar.',
+      'As dúvidas mais frequentes — valor total, quartos individuais ou compartilhados, viagem incluída, pagamento em prestações, cancelamento, quem acompanha o grupo — têm resposta na página da peregrinação.',
+      `Se algo continuar em aberto, fale com a gente pelo ${contactWa} ou por ${contactMail}. Queremos que decida com clareza, confiança e paz. Sem pressão de nenhum tipo.`,
     ],
   },
   abandoned_registration_1: {
@@ -1843,7 +2033,7 @@ export const MARKETING_EMAIL_TEMPLATES: Record<MarketingTemplateKey, MarketingTe
     paragraphs: [
       '<strong>{{greeting}}</strong>,',
       'Iniciou a inscrição para <strong>{{pilgrimage_name}}</strong>, mas o processo ficou por concluir. As vagas são limitadas — e a sua pode ainda ser garantida.',
-      `Se foi uma simples interrupção, pode retomar exatamente onde ficou com um clique. Se encontrou alguma dificuldade com o pagamento, os dados ou a disponibilidade, fale connosco pelo ${contactWa} ou por ${contactMail} e ajudamos a resolver.`,
+      `Se foi uma simples interrupção, pode retomar exatamente onde ficou com um clique. Se encontrou alguma dificuldade com o pagamento, os dados ou a disponibilidade, fale com a gente pelo ${contactWa} ou por ${contactMail} e ajudamos a resolver.`,
     ],
   },
   abandoned_registration_faq: {
@@ -1861,8 +2051,8 @@ export const MARKETING_EMAIL_TEMPLATES: Record<MarketingTemplateKey, MarketingTe
     contentHtml: (locale) => pilgrimageRecoveryContent(locale, 'faq'),
     paragraphs: [
       '<strong>{{greeting}}</strong>,',
-      'Quando uma inscrição fica a meio, quase sempre é por uma dúvida concreta: como pagar em prestações, quarto individual ou partilhado, viajar sozinho ou acompanhado, ou simplesmente dados em falta.',
-      `Não precisa de resolver tudo sozinho. Pode falar connosco pelo ${contactWa} ou por ${contactMail} com a sua questão — temos toda a disponibilidade para ajudar. Se já está pronto para continuar, o botão abaixo leva-o de volta ao processo em segundos.`,
+      'Quando uma inscrição fica a meio, quase sempre é por uma dúvida concreta: como pagar em prestações, quarto individual ou compartilhado, viajar sozinho ou acompanhado, ou simplesmente dados em falta.',
+      `Não precisa de resolver tudo sozinho. Pode falar com a gente pelo ${contactWa} ou por ${contactMail} com a sua questão — temos toda a disponibilidade para ajudar. Se já está pronto para continuar, o botão abaixo leva você de volta ao processo em segundos.`,
     ],
   },
   abandoned_registration_final: {
@@ -1889,7 +2079,7 @@ export const MARKETING_EMAIL_TEMPLATES: Record<MarketingTemplateKey, MarketingTe
     name: 'Boas-vindas à lista de espera',
     category: 'Peregrinações',
     goal: 'Confirmar interesse e manter contacto quente.',
-    defaultSubject: '{{first_name}}, o seu interesse foi registado — ficamos atentos',
+    defaultSubject: '{{first_name}}, o seu interesse foi registrado — ficamos atentos',
     previewText: 'Será dos primeiros a saber quando houver novas datas ou vagas.',
     ctaLabel: 'Ver Peregrinações Disponíveis',
     ctaUrl: (payload) => marketingUrl('/peregrinacoes', payload),
@@ -1899,8 +2089,8 @@ export const MARKETING_EMAIL_TEMPLATES: Record<MarketingTemplateKey, MarketingTe
     contentHtml: (locale) => waitlistContent(locale, 'welcome'),
     paragraphs: [
       '<strong>{{greeting}}</strong>,',
-      'Confirmamos que o seu interesse ficou registado. Quando existirem novas datas, vagas ou peregrinações relacionadas, entraremos diretamente em contacto consigo — antes de anunciarmos ao público em geral.',
-      `Entretanto, pode ver as peregrinações que estão abertas. E se tiver questões antes de qualquer vaga abrir, fale connosco pelo ${contactWa} ou por ${contactMail}.`,
+      'Confirmamos que o seu interesse ficou registrado. Quando existirem novas datas, vagas ou peregrinações relacionadas, entraremos diretamente em contato com você — antes de anunciarmos ao público em geral.',
+      `Entretanto, pode ver as peregrinações que estão abertas. E se tiver questões antes de qualquer vaga abrir, fale com a gente pelo ${contactWa} ou por ${contactMail}.`,
     ],
   },
   waitlist_open_spot: {
@@ -1918,7 +2108,7 @@ export const MARKETING_EMAIL_TEMPLATES: Record<MarketingTemplateKey, MarketingTe
     contentHtml: (locale) => waitlistContent(locale, 'open_spot'),
     paragraphs: [
       '<strong>{{greeting}}</strong>,',
-      'Estamos a contactá-lo porque demonstrou interesse em peregrinações do Apostolado — e abriu agora uma vaga em <strong>{{pilgrimage_name}}</strong>.',
+      'Estamos a entrar em contato com você porque demonstrou interesse em peregrinações do Apostolado — e abriu agora uma vaga em <strong>{{pilgrimage_name}}</strong>.',
       'As vagas são poucas e preenchem rapidamente. Se esta data faz sentido para si, recomendamos ver os detalhes agora e avançar com a inscrição. Ficamos à sua disposição para qualquer ajuda necessária.',
     ],
   },
@@ -2003,17 +2193,18 @@ export const MARKETING_EMAIL_TEMPLATES: Record<MarketingTemplateKey, MarketingTe
     name: 'Apoio ao pagamento',
     category: 'Peregrinações',
     goal: 'Ajudar reservas com pagamentos pendentes.',
-    defaultSubject: '{{first_name}}, podemos ajudar a concluir o pagamento',
-    previewText: 'Um pagamento pendente — mas é simples de resolver. Ajudamos.',
-    ctaLabel: 'Gerir a Minha Inscrição',
+    defaultSubject: '{{first_name}}, vamos concluir seu pagamento juntos',
+    previewText: 'Um pagamento pendente — mas é simples de resolver. A gente ajuda.',
+    ctaLabel: 'Gerenciar Minha Inscrição',
     ctaUrl: (payload) => payload.bookingResumeUrl || payload.pilgrimageUrl || marketingUrl('/peregrinacoes', payload),
-    title: 'Pagamento por concluir',
+    title: 'Falta pouco para garantir sua vaga',
     subtitle: '{{pilgrimage_name}}',
     requiredVariables: ['name', 'booking_resume_url'],
+    contentHtml: (locale) => paymentSupportContent(locale),
     paragraphs: [
       '<strong>{{greeting}}</strong>,',
-      'Estamos a acompanhar a sua inscrição e notámos que ainda pode existir um pagamento ou comprovativo por registar. Não queremos que perca a vaga por uma questão técnica.',
-      `Pode gerir tudo pela sua inscrição com um clique. Se já fez a transferência bancária, basta enviar o comprovativo e a equipa trata do resto. Se tiver qualquer dificuldade, fale connosco pelo ${contactWa} ou por ${contactMail}.`,
+      'Estamos acompanhando sua inscrição e notamos que um pagamento pode estar pendente. Não queremos que você perca a vaga por um detalhe.',
+      'Você gerencia tudo pela sua inscrição em um clique. Já pagou por transferência? É só enviar o comprovante e nossa equipe cuida do resto.',
     ],
   },
   donation_thank_you: {
@@ -2070,7 +2261,7 @@ export const MARKETING_EMAIL_TEMPLATES: Record<MarketingTemplateKey, MarketingTe
     paragraphs: [
       '<strong>{{greeting}}</strong>,',
       'Já demonstrou generosidade para com o Apostolado — e isso significa muito para toda a nossa comunidade. Gostaríamos de lhe apresentar um caminho ainda mais próximo: tornar-se membro.',
-      'Como membro, a sua ligação à missão torna-se estável e regular, com acesso a conteúdos exclusivos e ao acompanhamento espiritual do Apostolado. É uma forma concreta de dizer "estou aqui" — não uma vez, mas continuamente, ao lado de todos os que partilham este amor por Garabandal.',
+      'Como membro, a sua ligação à missão torna-se estável e regular, com acesso a conteúdos exclusivos e ao acompanhamento espiritual do Apostolado. É uma forma concreta de dizer "estou aqui" — não uma vez, mas continuamente, ao lado de todos os que compartilham este amor por Garabandal.',
     ],
   },
   member_invitation: {
@@ -2088,8 +2279,8 @@ export const MARKETING_EMAIL_TEMPLATES: Record<MarketingTemplateKey, MarketingTe
     contentHtml: (locale) => memberInvitationContent(locale, 'general'),
     paragraphs: [
       '<strong>{{greeting}}</strong>,',
-      'Queremos convidá-lo a tornar-se membro do Apostolado — não apenas apoiar pontualmente, mas fazer parte de forma contínua desta missão ao serviço da mensagem de Garabandal.',
-      `Como membro, recebe o diploma digital, acesso a conteúdos exclusivos e a satisfação de saber que a sua contribuição sustenta concretamente este trabalho. Pode ver como funciona com calma. Se tiver dúvidas, fale connosco pelo ${contactWa} ou por ${contactMail}.`,
+      'Queremos convidar você a tornar-se membro do Apostolado — não apenas apoiar pontualmente, mas fazer parte de forma contínua desta missão ao serviço da mensagem de Garabandal.',
+      `Como membro, recebe o diploma digital, acesso a conteúdos exclusivos e a satisfação de saber que a sua contribuição sustenta concretamente este trabalho. Pode ver como funciona com calma. Se tiver dúvidas, fale com a gente pelo ${contactWa} ou por ${contactMail}.`,
     ],
   },
   store_book_recommendation: {
@@ -2098,7 +2289,7 @@ export const MARKETING_EMAIL_TEMPLATES: Record<MarketingTemplateKey, MarketingTe
     category: 'Loja',
     goal: 'Recomendar livro ou produto relevante sem misturar com convite de membro.',
     defaultSubject: '{{first_name}}, livros oficiais para aprofundar Garabandal',
-    previewText: 'Produtos ativos da Loja oficial para ler, rezar e partilhar em família.',
+    previewText: 'Produtos ativos da Loja oficial para ler, rezar e compartilhar em família.',
     ctaLabel: 'Ver Loja Oficial',
     ctaUrl: (payload) => payload.productUrl || marketingUrl('/loja', payload),
     title: 'Livros oficiais de Garabandal',
@@ -2127,11 +2318,11 @@ export const MARKETING_EMAIL_TEMPLATES: Record<MarketingTemplateKey, MarketingTe
     paragraphs: [
       '<strong>{{greeting}}</strong>,',
       'Em algum momento o seu coração aproximou-se de Garabandal — talvez por uma peregrinação, um pedido de oração, um donativo, ou simplesmente pela mensagem de Nossa Senhora. Acreditamos que não foi por acaso. Há caminhos que se abrem quando menos esperamos.',
-      'Hoje queremos convidá-lo a dar um passo a mais: <strong>tornar-se membro do Apostolado de Garabandal</strong>. Não é apenas apoiar pontualmente — é fazer parte, de forma contínua, de uma família que reza e trabalha ao serviço desta mensagem.',
+      'Hoje queremos convidar você a dar um passo a mais: <strong>tornar-se membro do Apostolado de Garabandal</strong>. Não é apenas apoiar pontualmente — é fazer parte, de forma contínua, de uma família que reza e trabalha ao serviço desta mensagem.',
       '<strong>Como membro, passa a ter:</strong><br>🕊️&nbsp; A Santa Missa <strong>ao vivo</strong> desde Garabandal<br>📿&nbsp; As novenas e as <strong>velas acesas pelas suas intenções</strong><br>📖&nbsp; Conteúdos exclusivos e a Academia espiritual<br>🎓&nbsp; O seu diploma digital de membro<br>❤️&nbsp; A certeza de que a sua contribuição sustenta esta missão',
       'A anuidade é de apenas <strong>25€/ano</strong>. E, como sinal de gratidão, <strong>quem se tornar membro até 15 de julho recebe 5€ de saldo</strong> na nossa Loja Online — para um livro que alimente a sua fé.',
       '<em>"É preciso rezar muito, rezar com fé e fervor."</em> — Mensagem de Garabandal',
-      `Se tiver qualquer dúvida, fale connosco pelo ${contactWa} ou por ${contactMail}. Estamos aqui — e rezamos por si.`,
+      `Se tiver qualquer dúvida, fale com a gente pelo ${contactWa} ou por ${contactMail}. Estamos aqui — e rezamos por si.`,
     ],
   },
   lead_to_member_followup: {
@@ -2139,19 +2330,19 @@ export const MARKETING_EMAIL_TEMPLATES: Record<MarketingTemplateKey, MarketingTe
     name: 'Convite a membro — follow-up (intenção + prazo)',
     category: 'Membros',
     goal: 'Recuperar leads que não aderiram, com apelo à intenção e ao prazo do bónus.',
-    defaultSubject: '{{first_name}}, pense numa só intenção que gostaria de ver rezada',
+    defaultSubject: '{{first_name}}, pense numa intenção que gostaria de ver rezada',
     previewText: 'Faltam poucos dias para o gesto de boas-vindas de 5€.',
     ctaLabel: 'Fazer Parte Agora',
     ctaUrl: (payload) => payload.memberUrl || marketingUrl('/tornar-membro', payload),
-    title: 'Pense numa só intenção',
+    title: 'Pense numa intenção',
     subtitle: 'Um convite que fica de pé',
     requiredVariables: ['name', 'member_url'],
+    contentHtml: (locale) => leadToMemberFollowupContent(locale),
     paragraphs: [
       '<strong>{{greeting}}</strong>,',
-      'Há poucos dias convidámo-lo a fazer parte do Apostolado. Talvez o momento não tenha sido o certo — compreendemos perfeitamente.',
-      'Mas deixe-me pedir-lhe apenas isto: <strong>pense numa intenção</strong> que traz no coração — um familiar doente, uma decisão difícil, uma graça que espera. Como membro, essa intenção passa a ser levada às <strong>velas acesas em Garabandal</strong> e às <strong>novenas</strong> rezadas pela nossa comunidade. Não caminha sozinho.',
-      'O gesto de boas-vindas — <strong>5€ de saldo na Loja</strong> ao tornar-se membro — termina a <strong>15 de julho</strong>. Quisemos avisá-lo a tempo.',
-      'Seja qual for a sua decisão, fica na nossa oração.',
+      'Há poucos dias convidamos você a fazer parte do Apostolado. Talvez o momento não tenha sido o certo — a gente entende.',
+      'Mas deixe eu pedir só isto: <strong>pense numa intenção</strong> que você traz no coração — um familiar doente, uma decisão difícil, uma graça que espera. Como membro, essa intenção passa a ser levada às <strong>velas acesas em Garabandal</strong> e às <strong>novenas</strong> da nossa comunidade. Você não caminha sozinho.',
+      'Seja qual for a sua decisão, você fica na nossa oração.',
     ],
   },
   membership_renewal: {
@@ -2159,23 +2350,23 @@ export const MARKETING_EMAIL_TEMPLATES: Record<MarketingTemplateKey, MarketingTe
     name: 'Renovação de membro',
     category: 'Membros',
     goal: 'Recuperar membros pendentes ou expirados.',
-    defaultSubject: '{{first_name}}, faltam poucos dias para manter o seu lugar',
-    previewText: 'Renove a sua anuidade e continue a rezar e a caminhar connosco.',
-    ctaLabel: 'Renovar a Minha Anuidade',
+    defaultSubject: '{{first_name}}, faltam poucos dias para manter seu lugar',
+    previewText: 'Renove sua anuidade e continue rezando e caminhando com a gente.',
+    ctaLabel: 'Renovar Minha Anuidade',
     ctaUrl: (payload) => payload.memberUrl || marketingUrl('/member/quota', payload),
-    title: 'Mantenha o seu lugar nesta missão de oração',
+    title: 'Mantenha seu lugar nesta missão de oração',
     subtitle: 'Área de membro',
     requiredVariables: ['name', 'member_url'],
+    contentHtml: (locale) => membershipRenewalContent(locale),
     paragraphs: [
       '<strong>{{greeting}}</strong>,',
-      'A sua anuidade de membro está prestes a vencer. Enquanto membro, tem acesso à Missa ao vivo de Garabandal, às novenas, às velas pelas suas intenções e a todo o conteúdo espiritual da sua área — e o seu apoio sustenta concretamente esta missão.',
-      'Renovar leva menos de um minuto e mantém tudo isso ativo. É um gesto simples que diz muito: "continuo aqui, continuo a rezar, continuo a apoiar".',
-      `Se já regularizou, ou se tiver qualquer dificuldade, fale connosco pelo ${contactWa} ou por ${contactMail} — estamos aqui para ajudar.`,
+      'Sua anuidade de membro está prestes a vencer. Renovar leva menos de um minuto — e mantém ativa a Missa ao vivo de Garabandal, as novenas, as velas pelas suas intenções e todo o conteúdo espiritual da sua área.',
+      'É um gesto simples que diz muito: "continuo aqui, continuo rezando, continuo apoiando".',
     ],
   },
   member_referral_activation: {
     key: 'member_referral_activation',
-    name: 'Ativar partilha de membro',
+    name: 'Ativar compartilhamento de membro',
     category: 'Partilha',
     goal: 'Estimular o membro a convidar uma pessoa concreta que tem em mente.',
     defaultSubject: '{{first_name}}, há alguém que lhe vem ao pensamento?',
@@ -2197,10 +2388,10 @@ export const MARKETING_EMAIL_TEMPLATES: Record<MarketingTemplateKey, MarketingTe
     key: 'referral_activation',
     name: 'Ativar convites',
     category: 'Partilha',
-    goal: 'Estimular partilha através de convite.',
+    goal: 'Estimular compartilhamento através de convite.',
     defaultSubject: '{{first_name}}, convide um amigo e podem receber {{referral_reward}}',
-    previewText: 'Uma partilha simples pode aproximar alguém da fé — e gerar saldo para os dois.',
-    ctaLabel: 'Abrir e Partilhar o Convite',
+    previewText: 'Um compartilhamento simples pode aproximar alguém da fé — e gerar saldo para os dois.',
+    ctaLabel: 'Abrir e Compartilhar o Convite',
     ctaUrl: (payload) => payload.referralUrl || marketingUrl('/member', payload),
     title: 'Um convite simples — com um presente para os dois',
     subtitle: 'Levar Garabandal a mais pessoas',
@@ -2210,27 +2401,67 @@ export const MARKETING_EMAIL_TEMPLATES: Record<MarketingTemplateKey, MarketingTe
       '<strong>{{greeting}}</strong>,',
       'Se conhece alguém que esteja à procura de algo mais profundo — paz, fé, esperança, um caminho espiritual — a mensagem de Garabandal pode ser exatamente o que essa pessoa precisa de encontrar.',
       'Quando essa pessoa se torna membro através do seu convite, <strong>recebem ambos {{referral_reward}} de saldo</strong> para a Loja Online. O saldo só é atribuído depois da adesão confirmada; é a nossa forma de agradecer a quem ajuda a missão a crescer.',
-      'Não é necessário explicar tudo — basta partilhar o seu link de convite e deixar que a missão fale por si.',
+      'Não é necessário explicar tudo — basta compartilhar o seu link de convite e deixar que a missão fale por si.',
     ],
   },
   share_mission: {
     key: 'share_mission',
-    name: 'Partilhar missão',
+    name: 'Compartilhar missão',
     category: 'Partilha',
-    goal: 'Reforçar partilha depois do primeiro convite.',
-    defaultSubject: '{{first_name}}, o seu convite está ativo para partilhar a missão',
+    goal: 'Reforçar compartilhamento depois do primeiro convite.',
+    defaultSubject: '{{first_name}}, o seu convite está ativo para compartilhar a missão',
     previewText: 'Se alguém se tornar membro pelo seu convite, ambos recebem {{referral_reward}} de saldo.',
-    ctaLabel: 'Partilhar Novamente',
+    ctaLabel: 'Compartilhar Novamente',
     ctaUrl: (payload) => payload.referralUrl || marketingUrl('/member', payload),
-    title: 'O seu convite está pronto para ser partilhado',
+    title: 'O seu convite está pronto para ser compartilhado',
     subtitle: 'Um convite simples, sem pressão',
     requiredVariables: ['name', 'referral_url'],
     contentHtml: (locale) => referralContent(locale, 'share'),
     paragraphs: [
       '<strong>{{greeting}}</strong>,',
-      'O seu convite pessoal está ativo na área de membro. Se houver alguém a quem a mensagem de Garabandal possa fazer bem, pode partilhar esse link com calma, no momento certo.',
+      'O seu convite pessoal está ativo na área de membro. Se houver alguém a quem a mensagem de Garabandal possa fazer bem, você pode compartilhar esse link com calma, no momento certo.',
       'Quando alguém se torna membro através do seu convite, <strong>ambos recebem {{referral_reward}} de saldo</strong> para a Loja Online. O saldo só entra depois da adesão confirmada, e pode ser usado em livros, artigos ou donativos.',
-      'Não é preciso explicar tudo nem pressionar ninguém. Uma partilha pessoal, feita com fé e respeito, já é um ato concreto de apostolado.',
+      'Não é preciso explicar tudo nem pressionar ninguém. Um compartilhamento pessoal, feito com fé e respeito, já é um ato concreto de apostolado.',
+    ],
+  },
+  referral_reward_inviter: {
+    key: 'referral_reward_inviter',
+    name: 'Convite convertido — quem convidou',
+    category: 'Partilha',
+    goal: 'Avisar quem convidou que uma pessoa aderiu, explicar o saldo e incentivar novo compartilhamento.',
+    defaultSubject: '{{first_name}}, {{invitee_name}} aderiu pelo seu convite',
+    previewText: '{{referral_reward}} foram adicionados ao seu saldo da Loja.',
+    ctaLabel: 'Ver Saldo e Compartilhar de Novo',
+    ctaUrl: (payload) => payload.referralUrl || marketingUrl('/member', payload),
+    title: 'O seu convite deu fruto',
+    subtitle: 'Saldo confirmado na Loja',
+    requiredVariables: ['name', 'invitee_name', 'referral_url'],
+    contentHtml: (locale) => referralRewardContent(locale, 'inviter'),
+    paragraphs: [
+      '<strong>{{greeting}}</strong>,',
+      '{{invitee_name}} se tornou membro através do seu convite. Obrigado por ajudar a missão a crescer.',
+      'Como agradecimento, {{referral_reward}} foram adicionados ao seu saldo da Loja. {{invitee_name}} também recebeu o mesmo saldo como presente de boas-vindas.',
+      'O seu link continua ativo. Se houver outra pessoa a quem Garabandal possa fazer bem, compartilhe quando sentir que é o momento certo.',
+    ],
+  },
+  referral_reward_invitee: {
+    key: 'referral_reward_invitee',
+    name: 'Convite aceite — novo membro',
+    category: 'Partilha',
+    goal: 'Explicar ao novo membro o saldo recebido pelo convite e abrir o próximo ciclo de compartilhamento.',
+    defaultSubject: '{{first_name}}, o seu saldo de boas-vindas está disponível',
+    previewText: 'Entrou pelo convite de {{inviter_name}} e recebeu {{referral_reward}} de saldo.',
+    ctaLabel: 'Ver Meu Saldo',
+    ctaUrl: (payload) => payload.referralUrl || marketingUrl('/member', payload),
+    title: 'O seu saldo de boas-vindas está pronto',
+    subtitle: 'Bem-vindo ao Apostolado',
+    requiredVariables: ['name', 'inviter_name', 'referral_url'],
+    contentHtml: (locale) => referralRewardContent(locale, 'invitee'),
+    paragraphs: [
+      '<strong>{{greeting}}</strong>,',
+      'Você se tornou membro através do convite de {{inviter_name}}. Como gesto de boas-vindas, {{referral_reward}} foram adicionados ao seu saldo da Loja.',
+      'Você pode usar esse saldo em livros oficiais, artigos ou donativos. O seu próprio link de convite também está pronto na área de membro.',
+      'Quando fizer sentido, compartilhe com alguém que possa precisar de paz, fé ou esperança.',
     ],
   },
   member_welcome: {
@@ -2239,17 +2470,17 @@ export const MARKETING_EMAIL_TEMPLATES: Record<MarketingTemplateKey, MarketingTe
     category: 'Vida Espiritual',
     goal: 'Acolher o novo membro e apresentar a área como lugar de oração.',
     defaultSubject: '{{first_name}}, seja bem-vindo a esta missão de oração',
-    previewText: 'O seu lugar de oração e recolhimento já está pronto.',
+    previewText: 'Seu lugar de oração e recolhimento já está pronto.',
     ctaLabel: 'Entrar na Minha Área',
     ctaUrl: (payload) => marketingUrl('/member', payload),
     title: 'Bem-vindo ao Apostolado de Garabandal',
-    subtitle: 'A sua área de membro está pronta',
+    subtitle: 'Sua área de membro está pronta',
     requiredVariables: ['name', 'member_area_url'],
     paragraphs: [
       '<strong>{{greeting}}</strong>,',
-      'É com alegria que o acolhemos no Apostolado de Garabandal. A partir de hoje, faz parte de uma comunidade unida pela oração e pela mensagem de Nossa Senhora.',
-      'Na sua área de membro encontra um lugar de recolhimento: para rezar, entregar as suas intenções e aprofundar a sua fé — incluindo a Santa Missa transmitida ao vivo da igreja de Garabandal.',
-      `Que Nossa Senhora de Garabandal o acompanhe neste caminho. Estamos aqui para o que precisar — fale connosco pelo ${contactWa} ou por ${contactMail}.`,
+      'É com alegria que acolhemos você no Apostolado de Garabandal. A partir de hoje, você faz parte de uma comunidade unida pela oração e pela mensagem de Nossa Senhora.',
+      'Na sua área de membro você encontra um lugar de recolhimento: para rezar, entregar suas intenções e aprofundar sua fé — incluindo a Santa Missa transmitida ao vivo da igreja de Garabandal.',
+      `Que Nossa Senhora de Garabandal acompanhe você neste caminho. Estamos aqui para o que precisar — fale com a gente pelo ${contactWa} ou por ${contactMail}.`,
     ],
   },
   member_pray_intentions: {
@@ -2257,18 +2488,18 @@ export const MARKETING_EMAIL_TEMPLATES: Record<MarketingTemplateKey, MarketingTe
     name: 'Entregar intenções',
     category: 'Vida Espiritual',
     goal: 'Convidar o membro a rezar e entregar as suas intenções.',
-    defaultSubject: 'Entregue as suas intenções a Nossa Senhora',
-    previewText: 'Acenda uma vela e reze pelas suas intenções, a partir da sua área.',
+    defaultSubject: 'Entregue suas intenções a Nossa Senhora',
+    previewText: 'Acenda uma vela e reze pelas suas intenções, na sua área.',
     ctaLabel: 'Acender uma Vela e Rezar',
     ctaUrl: (payload) => marketingUrl('/member/velas', payload),
-    title: 'As suas intenções nas mãos de Nossa Senhora',
+    title: 'Suas intenções nas mãos de Nossa Senhora',
     subtitle: 'Um momento de oração',
     requiredVariables: ['name', 'candles_url'],
     paragraphs: [
       '<strong>{{greeting}}</strong>,',
-      'Todos carregamos intenções no coração — por quem amamos, por uma graça, por uma cura. Em Garabandal, Nossa Senhora pediu-nos que rezássemos com confiança.',
-      'Na sua área de membro pode <strong>acender uma vela</strong> que fica a arder pelas suas intenções, e rezar com as orações que ali encontra. É um gesto simples, mas cheio de fé.',
-      'Reserve um momento de silêncio e entregue a Nossa Senhora aquilo que traz no coração.',
+      'Todos carregamos intenções no coração — por quem amamos, por uma graça, por uma cura. Em Garabandal, Nossa Senhora nos pediu que rezássemos com confiança.',
+      'Na sua área de membro você pode <strong>acender uma vela</strong> que fica acesa pelas suas intenções, e rezar com as orações que encontra ali. É um gesto simples, mas cheio de fé.',
+      'Reserve um momento de silêncio e entregue a Nossa Senhora aquilo que você traz no coração.',
     ],
   },
   member_novena_invite: {
@@ -2277,7 +2508,7 @@ export const MARKETING_EMAIL_TEMPLATES: Record<MarketingTemplateKey, MarketingTe
     category: 'Vida Espiritual',
     goal: 'Convidar o membro a começar uma novena.',
     defaultSubject: '{{first_name}}, reze uma novena pelas suas intenções',
-    previewText: 'Nove dias de oração para confiar as suas intenções a Nossa Senhora.',
+    previewText: 'Nove dias de oração para confiar suas intenções a Nossa Senhora.',
     ctaLabel: 'Começar uma Novena',
     ctaUrl: (payload) => marketingUrl('/member/novenas', payload),
     title: 'Nove dias de oração perseverante',
@@ -2285,28 +2516,28 @@ export const MARKETING_EMAIL_TEMPLATES: Record<MarketingTemplateKey, MarketingTe
     requiredVariables: ['name', 'novenas_url'],
     paragraphs: [
       '<strong>{{greeting}}</strong>,',
-      'Uma novena são nove dias de oração perseverante — um caminho simples e poderoso para confiar as suas intenções a Nossa Senhora de Garabandal.',
-      'Pode começar hoje, ao seu ritmo, a partir da sua área de membro. Cada dia, uma oração; cada dia, um passo mais perto.',
-      'Deixe que estes nove dias sejam um tempo de paz e de entrega. Nossa Senhora escuta sempre.',
+      'Uma novena são nove dias de oração perseverante — um caminho simples e poderoso para confiar suas intenções a Nossa Senhora de Garabandal.',
+      'Você pode começar hoje, no seu ritmo, a partir da sua área de membro. Cada dia, uma oração; cada dia, um passo mais perto.',
+      'Deixe que estes nove dias sejam um tempo de paz e de entrega. Nossa Senhora sempre escuta.',
     ],
   },
   member_learn_garabandal: {
     key: 'member_learn_garabandal',
     name: 'Conhecer Garabandal',
     category: 'Vida Espiritual',
-    goal: 'Convidar o membro a aprofundar a mensagem e, se quiser, partilhar.',
+    goal: 'Convidar o membro a aprofundar a mensagem e, se quiser, compartilhar.',
     defaultSubject: 'Venha conhecer Garabandal mais de perto',
     previewText: 'Vídeos, cursos e a história das aparições, na sua área de membro.',
     ctaLabel: 'Aprender sobre Garabandal',
     ctaUrl: (payload) => marketingUrl('/member/academy', payload),
-    title: 'A mensagem de Garabandal, mais perto de si',
-    subtitle: 'Aprofunde a sua fé',
+    title: 'A mensagem de Garabandal, mais perto de você',
+    subtitle: 'Aprofunde sua fé',
     requiredVariables: ['name', 'learn_url'],
     paragraphs: [
       '<strong>{{greeting}}</strong>,',
-      'A mensagem de Garabandal é profunda e ainda pouco conhecida. Na sua área de membro tem <strong>vídeos, cursos e a história das aparições</strong> para aprofundar tudo o que Nossa Senhora veio dizer.',
-      'Pode ver ao seu ritmo, um pouco de cada vez. Cada vídeo, cada testemunho, cada documento é um convite a conhecer melhor este lugar e a sua mensagem.',
-      'Que cada passo o aproxime mais do coração da mensagem — e de Nossa Senhora.',
+      'A mensagem de Garabandal é profunda e ainda pouco conhecida. Na sua área de membro você tem <strong>vídeos, cursos e a história das aparições</strong> para aprofundar tudo o que Nossa Senhora veio dizer.',
+      'Você assiste no seu ritmo, um pouco de cada vez. Cada vídeo, cada testemunho, cada documento é um convite a conhecer melhor este lugar e sua mensagem.',
+      'Que cada passo aproxime você mais do coração da mensagem — e de Nossa Senhora.',
     ],
   },
 };
@@ -2639,6 +2870,34 @@ const MARKETING_EMAIL_TEMPLATE_EN: Record<MarketingTemplateKey, MarketingTemplat
       'Your personal invitation is active in the member area. If there is someone who may benefit from the message of Garabandal, you can share that link calmly, at the right moment.',
       'When someone becomes a member through your invitation, <strong>both of you receive {{referral_reward}} in store credit</strong> for the Online Store. Credit is applied only after the membership is confirmed, and can be used for books, items or donations.',
       'There is no need to explain everything or pressure anyone. A personal share, made with faith and respect, is already a concrete act of apostolate.',
+    ],
+  },
+  referral_reward_inviter: {
+    goal: 'Notify the inviter that someone joined, explain the credit and encourage another thoughtful share.',
+    defaultSubject: '{{first_name}}, {{invitee_name}} joined through your invitation',
+    previewText: '{{referral_reward}} has been added to your store credit.',
+    ctaLabel: 'See Credit and Share Again',
+    title: 'Your invitation bore fruit',
+    subtitle: 'Store credit confirmed',
+    paragraphs: [
+      '<strong>{{greeting}}</strong>,',
+      '{{invitee_name}} became a member through your invitation. Thank you for helping the mission grow.',
+      'As a thank-you, {{referral_reward}} has been added to your store credit. {{invitee_name}} also received the same credit as a welcome gift.',
+      'Your link remains active. If there is another person who may benefit from Garabandal, share it when the moment feels right.',
+    ],
+  },
+  referral_reward_invitee: {
+    goal: 'Explain the welcome credit to the new member and open the next sharing loop.',
+    defaultSubject: '{{first_name}}, your welcome credit is available',
+    previewText: 'You joined through {{inviter_name}}’s invitation and received {{referral_reward}} in credit.',
+    ctaLabel: 'See My Credit',
+    title: 'Your welcome credit is ready',
+    subtitle: 'Welcome to the Apostolate',
+    paragraphs: [
+      '<strong>{{greeting}}</strong>,',
+      'You became a member through {{inviter_name}}’s invitation. As a welcome thank-you, {{referral_reward}} has been added to your store credit.',
+      'You can use this credit for official books, items or donations. Your own invitation link is also ready in the member area.',
+      'When it feels right, share it with someone who may need peace, faith or hope.',
     ],
   },
   member_welcome: {
