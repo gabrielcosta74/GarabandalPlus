@@ -677,6 +677,7 @@ export default function PilgrimageDetailPage() {
             <ChatWidget
                 pilgrimageSlug={pilgrimage.slug}
                 pilgrimageTitle={pilgrimageTitle}
+                pilgrimageId={pilgrimage.id}
                 remainingSpots={remainingSpots}
                 registrationLink={registrationLink}
                 isWaitlist={isWaitlist}

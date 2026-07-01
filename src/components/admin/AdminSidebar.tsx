@@ -34,6 +34,7 @@ import {
     Megaphone,
     Activity,
     Search,
+    Star,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAdminNotifications } from '../../context/AdminNotificationContext';
@@ -87,6 +88,7 @@ export default function AdminSidebar({ onLogout, className }: { onLogout: () => 
             label: 'Comunidade & Leads',
             items: [
                 { label: 'Leads & Inscrições', icon: Target, href: '/admin/leads' },
+                { label: 'Interessados (Novembro)', icon: Star, href: '/admin/leads/interessados' },
                 { label: 'Doações', icon: Heart, href: '/admin/doacoes' },
                 { label: 'Convites de Membros', icon: UserPlus, href: '/admin/convites' },
                 { label: 'Leilão', icon: Gavel, href: '/admin/leilao' },

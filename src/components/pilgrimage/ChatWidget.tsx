@@ -3,7 +3,9 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { MessageCircle, X, Send, Bot, User, Sparkles, Phone, Users, ArrowRight } from 'lucide-react';
-import { buildWhatsAppLink, ESCALATION_MARKER, CONTACT_EMAIL } from '../../lib/chat-config';
+import { buildWhatsAppLink, buildInterestWhatsAppLink, ESCALATION_MARKER, INTEREST_MARKER, CONTACT_EMAIL } from '../../lib/chat-config';
+import { captureInterest } from '../../lib/interest-capture';
+import { WhatsAppIcon } from '../icons/WhatsAppIcon';
 import { useLocale } from '../../contexts/LocaleContext';
 import { isNovemberCampaignPilgrimage } from '../../lib/utils';
 
@@ -17,6 +19,8 @@ type Message = {
 type Props = {
     pilgrimageSlug?: string;
     pilgrimageTitle?: string;
+    /** Pilgrimage id — used to attach "Estou interessado em ir" captures to the pilgrimage. */
+    pilgrimageId?: string;
     /** Where the widget is mounted. Sent to the API so the bot can adapt. */
     context?: 'pilgrimage-page' | 'registration-form';
     /** Remaining spots to surface urgency + CTA inside the chat. Only used on pilgrimage-page. */
@@ -65,6 +69,21 @@ const CHIPS_FORM_EN = [
     'I have food allergies, what do I put?',
 ];
 
+const CHIPS_WAITLIST_PT = [
+    'Ainda dá para entrar?',
+    'Há chance de abrir mais lugares?',
+    'Como garanto a minha vaga?',
+    'Quero muito ir, o que faço?',
+    'Falar com o Apostolado agora',
+];
+const CHIPS_WAITLIST_EN = [
+    'Can I still get in?',
+    'Any chance more spots open?',
+    'How do I secure my place?',
+    'I really want to go, what do I do?',
+    'Talk to the Apostolate now',
+];
+
 function useSessionId(slug?: string) {
     const ref = useRef<string>('');
     if (!ref.current) {
@@ -89,6 +108,7 @@ function useSessionId(slug?: string) {
 export default function ChatWidget({
     pilgrimageSlug,
     pilgrimageTitle,
+    pilgrimageId,
     context = 'pilgrimage-page',
     remainingSpots,
     registrationLink,
@@ -96,7 +116,9 @@ export default function ChatWidget({
 }: Props) {
     const { locale } = useLocale();
     const isEn = locale === 'en';
-    const CHIPS_PAGE = isEn ? CHIPS_PAGE_EN : CHIPS_PAGE_PT;
+    const CHIPS_PAGE = isWaitlist
+        ? (isEn ? CHIPS_WAITLIST_EN : CHIPS_WAITLIST_PT)
+        : (isEn ? CHIPS_PAGE_EN : CHIPS_PAGE_PT);
     const CHIPS_FORM = isEn ? CHIPS_FORM_EN : CHIPS_FORM_PT;
     const [isOpen, setIsOpen] = useState(false);
     const [showTooltip, setShowTooltip] = useState(true);
@@ -123,15 +145,15 @@ export default function ChatWidget({
         role: 'assistant',
         content: context === 'registration-form'
             ? (isEn
-                ? `Hello! 🙏 I'm here while you fill out the form. If you have questions about rooms, documents, payments, or any step of the **${pilgrimageTitle || 'pilgrimage'}** registration, feel free to ask.`
-                : `Olá! 🙏 Estou aqui enquanto preenche o formulário. Se tiver dúvidas sobre quartos, documentos, pagamentos ou qualquer passo da inscrição da **${pilgrimageTitle || 'peregrinação'}**, pergunte à vontade.`)
+                ? `Hello! 🙏 I'm here with you while you complete the registration for **${pilgrimageTitle || 'this pilgrimage'}**. If anything feels unclear - rooms, documents, payments, flights, or the next step - tell me and I'll help you move forward calmly.`
+                : `Olá! 🙏 Estou aqui com você enquanto faz a inscrição da **${pilgrimageTitle || 'peregrinação'}**. Se surgir qualquer dúvida sobre quartos, documentos, pagamentos, voo ou próximo passo, me diga e eu ajudo você a avançar com calma.`)
             : pilgrimageTitle
                 ? (isEn
-                    ? `Hello! 🙏 I'm the Apostolate of Garabandal assistant. I'm here to help with any questions about the **${pilgrimageTitle}** — registration, prices, itinerary, payments. How can I help?`
-                    : `Olá! 🙏 Sou o assistente do Apostolado de Garabandal. Estou aqui para ajudar com todas as suas dúvidas sobre a **${pilgrimageTitle}** — inscrição, preços, itinerário, pagamentos. Como posso ajudar?`)
+                    ? `Hello! 🙏 I'm the Apostolate of Garabandal assistant. I can help you understand the **${pilgrimageTitle}** - the spiritual experience, itinerary, prices, flights, payments, and whether this pilgrimage is the right step for you. What would you like to know first?`
+                    : `Olá! 🙏 Sou o assistente do Apostolado de Garabandal. Posso ajudar você a entender a **${pilgrimageTitle}** - a experiência espiritual, itinerário, valores, voo, pagamentos e se esta peregrinação faz sentido para você. O que você gostaria de saber primeiro?`)
                 : (isEn
-                    ? 'Hello! 🙏 I am the Apostolate of Garabandal assistant. How can I help with your pilgrimage?'
-                    : 'Olá! 🙏 Sou o assistente do Apostolado de Garabandal. Como posso ajudar com a sua peregrinação?'),
+                    ? 'Hello! 🙏 I am the Apostolate of Garabandal assistant. I can help you understand the pilgrimage and the next step with calm and clarity. What would you like to know first?'
+                    : 'Olá! 🙏 Sou o assistente do Apostolado de Garabandal. Posso ajudar você a entender a peregrinação e o próximo passo com calma e clareza. O que você gostaria de saber primeiro?'),
     }), [pilgrimageTitle, context, isEn]);
 
     const [messages, setMessages] = useState<Message[]>(() => {
@@ -154,7 +176,7 @@ export default function ChatWidget({
     useEffect(() => {
         if (typeof window === 'undefined') return;
         try {
-            const serializable = messages.map(({ streaming: _s, ...m }) => m);
+            const serializable = messages.map(({ id, role, content }) => ({ id, role, content }));
             window.sessionStorage.setItem(messagesKey(pilgrimageSlug), JSON.stringify(serializable));
         } catch { /* ignore quota errors */ }
     }, [messages, pilgrimageSlug]);
@@ -303,6 +325,29 @@ export default function ChatWidget({
 
     const showChips = messages.length <= 1 && !isLoading;
 
+    // Fire-and-forget capture of "Estou mesmo interessado em ir"; the anchor href opens WhatsApp.
+    const handleInterestClick = () => {
+        captureInterest({
+            source: 'chat_interest',
+            sessionId,
+            pilgrimageId,
+            pilgrimageTitle,
+            email: leadCaptured && leadEmail ? leadEmail : undefined,
+            locale: isEn ? 'en' : 'pt',
+        });
+    };
+
+    // Strip the hidden INTEREST_MARKER (and any partial token still streaming) from the visible text.
+    const stripInterestMarker = (text: string) => {
+        const idx = text.lastIndexOf('[[');
+        if (idx === -1) return text;
+        const tail = text.slice(idx);
+        if (INTEREST_MARKER.startsWith(tail) || tail.startsWith(INTEREST_MARKER)) {
+            return text.slice(0, idx).trimEnd();
+        }
+        return text;
+    };
+
     const renderContent = (text: string) => {
         const parts = text.split(/(\*\*[^*]+\*\*)/g);
         return parts.map((part, i) =>
@@ -352,17 +397,29 @@ export default function ChatWidget({
                     {/* Contextual CTA (vacancies + Reservar) -- only on pilgrimage page */}
                     {registrationLink && (
                         isWaitlist ? (
-                            <div className="bg-gradient-to-r from-amber-50 to-orange-50 border-b border-amber-200/60 px-4 py-3 flex items-center justify-between gap-3 shadow-sm">
-                                <div className="flex items-center gap-2 text-[11px] md:text-xs text-amber-800 leading-tight">
-                                    <Users className="w-3.5 h-3.5 shrink-0" />
+                            <div className="bg-gradient-to-r from-amber-50 to-orange-50 border-b border-amber-200/60 px-4 py-3 shadow-sm space-y-2">
+                                <div className="flex items-center gap-2 text-[11px] md:text-xs text-amber-800 leading-snug">
+                                    <Sparkles className="w-3.5 h-3.5 shrink-0 text-amber-500" />
                                     <span>
-                                        <span className="font-bold">{isEn ? 'Sold out' : 'Vagas esgotadas'}</span>
-                                        <span className="text-amber-700/80 hidden sm:inline"> {isEn ? '— join the waiting list' : '— entre na lista de espera'}</span>
+                                        <span className="font-bold">{isEn ? 'Limited selection' : 'Seleção limitada'}</span>
+                                        <span className="text-amber-700/90"> {isEn ? '— only a few will be chosen to go' : '— só alguns serão escolhidos para ir'}</span>
                                     </span>
                                 </div>
-                                <Link href={registrationLink} className="inline-flex items-center gap-1.5 text-[11px] md:text-xs font-black bg-amber-100 hover:bg-amber-200 text-amber-900 px-3 py-1.5 md:py-2 rounded-xl transition-colors shrink-0">
-                                    {isEn ? 'Waiting List' : 'Lista de Espera'} <ArrowRight className="w-3 h-3" />
-                                </Link>
+                                <div className="flex items-center gap-2">
+                                    <a
+                                        href={buildInterestWhatsAppLink(pilgrimageTitle, isEn)}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        onClick={handleInterestClick}
+                                        className="flex-1 inline-flex items-center justify-center gap-1.5 text-[11px] md:text-xs font-black bg-[#25D366] hover:bg-[#1fb858] text-white px-3 py-2 rounded-xl shadow-sm hover:shadow-md transition-all text-center"
+                                    >
+                                        <WhatsAppIcon className="w-3.5 h-3.5 shrink-0" />
+                                        {isEn ? "I'm really interested" : 'Estou mesmo interessado'}
+                                    </a>
+                                    <Link href={registrationLink} className="inline-flex items-center gap-1 text-[11px] md:text-xs font-bold text-amber-900/80 hover:text-amber-900 underline underline-offset-2 shrink-0">
+                                        {isEn ? 'Waiting list' : 'Lista de espera'}
+                                    </Link>
+                                </div>
                             </div>
                         ) : (
                             <div className={`border-b px-4 py-3 flex items-center justify-between gap-3 shadow-sm ${
@@ -399,6 +456,10 @@ export default function ChatWidget({
                                 msg.role === 'assistant' &&
                                 !msg.streaming &&
                                 msg.content.includes(ESCALATION_MARKER);
+                            const showInterest =
+                                msg.role === 'assistant' &&
+                                !msg.streaming &&
+                                msg.content.includes(INTEREST_MARKER);
                             return (
                                 <div key={msg.id} className="space-y-2">
                                     <div className={`flex gap-2 max-w-[88%] ${msg.role === 'user' ? 'ml-auto flex-row-reverse' : ''}`}>
@@ -411,7 +472,7 @@ export default function ChatWidget({
                                                 : 'bg-white text-slate-700 border border-slate-100 rounded-2xl rounded-bl-sm'
                                         }`}>
                                             {msg.content
-                                                ? renderContent(msg.content)
+                                                ? renderContent(stripInterestMarker(msg.content))
                                                 : msg.streaming && (
                                                     <span className="inline-flex gap-1 items-center h-4">
                                                         <span className="w-1.5 h-1.5 bg-slate-300 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
@@ -442,6 +503,25 @@ export default function ChatWidget({
                                             >
                                                 {isEn ? 'Send email' : 'Enviar email'}
                                             </a>
+                                        </div>
+                                    )}
+                                    {showInterest && (
+                                        <div className="ml-9 space-y-1.5">
+                                            <a
+                                                href={buildInterestWhatsAppLink(pilgrimageTitle, isEn)}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                onClick={handleInterestClick}
+                                                className="inline-flex items-center gap-2 text-xs font-black bg-[#25D366] hover:bg-[#1fb858] text-white px-4 py-2.5 rounded-full shadow-md hover:shadow-lg transition-all animate-in fade-in slide-in-from-bottom-2 duration-300"
+                                            >
+                                                <WhatsAppIcon className="w-4 h-4" />
+                                                {isEn ? "I'm really interested in going" : 'Estou mesmo interessado em ir'}
+                                            </a>
+                                            <p className="text-[10px] text-slate-400 leading-tight max-w-[250px]">
+                                                {isEn
+                                                    ? 'The Apostolate will select a limited number of people. Register now and talk on WhatsApp to be considered.'
+                                                    : 'O Apostolado vai selecionar um número limitado de pessoas. Registe já e fale no WhatsApp para ser considerado(a).'}
+                                            </p>
                                         </div>
                                     )}
                                 </div>

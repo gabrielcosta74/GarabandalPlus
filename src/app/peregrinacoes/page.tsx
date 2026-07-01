@@ -12,6 +12,9 @@ import { PastPilgrimagesGallery } from '../../components/pilgrimage/PastPilgrima
 import { PilgrimageTestimonials } from '../../components/pilgrimage/PilgrimageTestimonials';
 import { getPilgrimagesAction } from './actions';
 import { getCivilDateTimestamp, getAvailabilityHighlightLabel, isNovemberCampaignPilgrimage, todayCivilTimestamp } from '../../lib/utils';
+import { buildInterestWhatsAppLink } from '../../lib/chat-config';
+import { captureInterest } from '../../lib/interest-capture';
+import { WhatsAppIcon } from '../../components/icons/WhatsAppIcon';
 
 type Pilgrimage = {
     id: string;
@@ -158,7 +161,7 @@ export default function PilgrimagesPage() {
                                     </div>
                                     <h2 className="font-serif text-3xl font-bold leading-tight text-slate-950 md:text-4xl">
                                         {novemberSoldOut
-                                            ? (locale === 'en' ? 'The November pilgrimage is full. Join the waiting list.' : 'A peregrinação de novembro está esgotada. Entre na lista de espera.')
+                                            ? (locale === 'en' ? 'The November pilgrimage is full — but there may be a chance of more spots opening.' : 'A peregrinação de novembro está esgotada — mas poderá haver chance de abrirem mais lugares disponíveis.')
                                             : (locale === 'en' ? 'The available date is November. It usually fills quickly.' : 'A data disponível é novembro. Normalmente esgota rapidamente.')}
                                     </h2>
                                     <p className="mt-4 max-w-2xl text-base leading-relaxed text-slate-600 md:text-lg">
@@ -166,21 +169,52 @@ export default function PilgrimagesPage() {
                                             ? 'First see the full programme, flights, price and spiritual rhythm. Each pilgrimage also supports the House of the Apostolate and the mission of spreading Garabandal.'
                                             : 'Veja primeiro o programa completo, voos, preço e ritmo espiritual. Cada peregrinação ajuda também a erguer a Casa do Apostolado e a missão de dar a conhecer Garabandal.'}
                                     </p>
+                                    {novemberSoldOut && (
+                                        <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50/70 p-4">
+                                            <p className="text-sm font-bold text-amber-900">
+                                                {locale === 'en' ? 'Only a limited number will be selected to go.' : 'Só um número limitado de pessoas será selecionado para ir.'}
+                                            </p>
+                                            <p className="mt-1 text-xs leading-relaxed text-amber-800/90">
+                                                {locale === 'en'
+                                                    ? 'Show your interest now and talk to the Apostolate on WhatsApp — the sooner you do, the greater your chance of being considered.'
+                                                    : 'Mostre já o seu interesse e fale com o Apostolado no WhatsApp — quanto antes o fizer, maior a possibilidade de ser considerado(a).'}
+                                            </p>
+                                        </div>
+                                    )}
                                     <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+                                        {novemberSoldOut && novemberPilgrimage && (
+                                            <a
+                                                href={buildInterestWhatsAppLink(novemberPilgrimage.title, locale === 'en')}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                onClick={() => captureInterest({
+                                                    source: 'pilgrimage_page_interest',
+                                                    pilgrimageId: novemberPilgrimage.id,
+                                                    pilgrimageTitle: novemberPilgrimage.title,
+                                                    locale: locale === 'en' ? 'en' : 'pt',
+                                                })}
+                                                className="inline-flex min-h-14 items-center justify-center gap-2 rounded-2xl bg-[#25D366] px-6 py-4 text-sm font-black uppercase tracking-wide text-white shadow-lg shadow-emerald-700/20 transition-colors hover:bg-[#1fb858]"
+                                            >
+                                                <WhatsAppIcon className="h-5 w-5" />
+                                                {locale === 'en' ? "I'm really interested" : 'Estou mesmo interessado'}
+                                            </a>
+                                        )}
                                         <Link
                                             href={novemberHref}
-                                            className="inline-flex min-h-14 items-center justify-center gap-2 rounded-2xl bg-yellow-400 px-6 py-4 text-sm font-black uppercase tracking-wide text-slate-950 shadow-lg shadow-yellow-700/20 ring-1 ring-yellow-200 transition-colors hover:bg-yellow-300"
+                                            className={`inline-flex min-h-14 items-center justify-center gap-2 rounded-2xl px-6 py-4 text-sm font-black uppercase tracking-wide transition-colors ${novemberSoldOut ? 'border border-slate-200 bg-white text-slate-800 hover:bg-slate-50' : 'bg-yellow-400 text-slate-950 shadow-lg shadow-yellow-700/20 ring-1 ring-yellow-200 hover:bg-yellow-300'}`}
                                         >
                                             {locale === 'en' ? 'View November pilgrimage' : 'Ver peregrinação de novembro'}
                                             <ArrowRight className="h-4 w-4" />
                                         </Link>
-                                        <Link
-                                            href={donationsPath}
-                                            className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-6 py-4 text-sm font-bold text-slate-800 transition-colors hover:bg-slate-50"
-                                        >
-                                            <Heart className="h-4 w-4 text-red-500" />
-                                            {locale === 'en' ? 'Know the mission' : 'Conhecer a missão'}
-                                        </Link>
+                                        {!novemberSoldOut && (
+                                            <Link
+                                                href={donationsPath}
+                                                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-6 py-4 text-sm font-bold text-slate-800 transition-colors hover:bg-slate-50"
+                                            >
+                                                <Heart className="h-4 w-4 text-red-500" />
+                                                {locale === 'en' ? 'Know the mission' : 'Conhecer a missão'}
+                                            </Link>
+                                        )}
                                     </div>
                                 </div>
                                 <div className="border-t border-yellow-100 bg-yellow-50/80 p-6 md:border-l md:border-t-0 md:p-8">
@@ -189,7 +223,7 @@ export default function PilgrimagesPage() {
                                             <p className="text-xs font-black uppercase tracking-widest text-yellow-800">{locale === 'en' ? 'Why now' : 'Porque agora'}</p>
                                             <p className="mt-2 text-sm leading-relaxed text-slate-700 md:text-base">
                                                 {novemberSoldOut
-                                                    ? (locale === 'en' ? 'This departure has reached capacity. Join the waiting list and we will contact you if a place opens or a new date is confirmed.' : 'Esta partida atingiu a lotação. Entre na lista de espera e contactamos se abrir um lugar ou se for confirmada uma nova data.')
+                                                    ? (locale === 'en' ? 'This departure has reached capacity, but with the huge demand there may be a chance of more spots opening. Register your interest and we will contact you if a place opens or a new date is confirmed.' : 'Esta partida atingiu a lotação, mas com a enorme procura poderá haver chance de abrirem mais lugares disponíveis. Registe já o seu interesse e contactamos se abrir uma vaga ou for confirmada uma nova data.')
                                                     : (locale === 'en' ? 'Other departures have already reached capacity or waitlist. This is the date to discern calmly before registration.' : 'As outras partidas já chegaram a esgotado ou lista de espera. Esta é a data para discernir com calma antes da inscrição.')}
                                             </p>
                                         </div>

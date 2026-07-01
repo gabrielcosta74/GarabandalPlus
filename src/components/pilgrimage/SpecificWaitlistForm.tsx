@@ -1,8 +1,11 @@
 "use client";
 
 import { useState } from 'react';
-import { Loader2, Send, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Loader2, Send, CheckCircle2, AlertCircle, Sparkles } from 'lucide-react';
 import { useLocale } from '../../contexts/LocaleContext';
+import { buildInterestWhatsAppLink } from '../../lib/chat-config';
+import { captureInterest } from '../../lib/interest-capture';
+import { WhatsAppIcon } from '../icons/WhatsAppIcon';
 
 interface SpecificWaitlistFormProps {
     pilgrimageId: string;
@@ -19,6 +22,19 @@ export function SpecificWaitlistForm({ pilgrimageId, pilgrimageTitle }: Specific
         notes: ''
     });
     const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+
+    // Fire-and-forget capture of "Estou mesmo interessado em ir"; the anchor href opens WhatsApp.
+    const handleInterestClick = () => {
+        captureInterest({
+            source: 'pilgrimage_page_interest',
+            pilgrimageId,
+            pilgrimageTitle,
+            name: formData.full_name || undefined,
+            email: formData.email || undefined,
+            phone: formData.phone || undefined,
+            locale: isEn ? 'en' : 'pt',
+        });
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -62,13 +78,42 @@ export function SpecificWaitlistForm({ pilgrimageId, pilgrimageTitle }: Specific
 
     return (
         <div className="bg-white rounded-3xl p-6 md:p-8 shadow-xl border border-slate-100">
-            <div className="text-center mb-8">
+            <div className="text-center mb-6">
+                <div className="inline-flex items-center gap-1.5 text-[11px] font-black uppercase tracking-wider text-amber-700 bg-amber-50 border border-amber-100 px-3 py-1 rounded-full mb-3">
+                    <Sparkles className="w-3.5 h-3.5" />
+                    {isEn ? 'Limited selection' : 'Seleção limitada'}
+                </div>
                 <h3 className="text-xl md:text-2xl font-bold text-slate-900 mb-2">
-                    {isEn ? 'Sold Out: Join the Waiting List' : 'Esgotado: Entre na Lista de Espera'}
+                    {isEn ? 'Sold out — but you may still be chosen' : 'Esgotado — mas ainda pode ser escolhido'}
                 </h3>
-                <p className="text-slate-500">
-                    {isEn ? 'Leave your details. If there is a cancellation, you will be the first to know.' : 'Deixe os seus dados. Se houver alguma desistência, será o primeiro a saber.'}
+                <p className="text-slate-500 text-sm leading-relaxed">
+                    {isEn
+                        ? 'Demand has been enormous. The Apostolate will select a limited number of people to go, so there is a possibility of more spots. Show your interest now to be considered — the sooner you do, the greater your chance.'
+                        : 'A procura tem sido enorme. O Apostolado vai selecionar um número limitado de pessoas para ir, por isso há possibilidade de mais lugares. Mostre já o seu interesse para ser considerado(a) — quanto antes o fizer, maior a sua chance.'}
                 </p>
+            </div>
+
+            {/* One-tap interest → WhatsApp (same flow as the chat) */}
+            <a
+                href={buildInterestWhatsAppLink(pilgrimageTitle, isEn)}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={handleInterestClick}
+                className="w-full mb-3 py-4 bg-[#25D366] hover:bg-[#1fb858] text-white rounded-xl font-bold text-base md:text-lg shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2 text-center leading-tight"
+            >
+                <WhatsAppIcon className="w-5 h-5 shrink-0" />
+                {isEn ? "I'm really interested in going" : 'Estou mesmo interessado em ir'}
+            </a>
+            <p className="text-center text-[11px] text-slate-400 mb-6">
+                {isEn ? 'Talk directly to the Apostolate on WhatsApp to be considered for a spot.' : 'Fale diretamente com o Apostolado no WhatsApp para ser considerado(a) para uma vaga.'}
+            </p>
+
+            <div className="flex items-center gap-3 mb-5">
+                <span className="h-px flex-1 bg-slate-100" />
+                <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                    {isEn ? 'or join the waiting list' : 'ou entre na lista de espera'}
+                </span>
+                <span className="h-px flex-1 bg-slate-100" />
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">
