@@ -4,7 +4,19 @@ import { sendStoreShippingEmail } from '../../../../../../lib/email';
 import { ensureNotificationRecord, markNotificationSent } from '../../../../../../lib/email-notifications';
 
 import { verifyAdmin } from '../../../../../../lib/admin-auth';
-import { logAdminAction } from '../../../../../../lib/admin-logger';
+
+type ShipOrderBody = {
+    shippingStatus?: string;
+    tracking?: string | null;
+    carrier?: string | null;
+    carrierName?: string | null;
+};
+
+type StoreOrderItem = {
+    name: string;
+    qty: number;
+    unit_price: number;
+};
 
 export async function PATCH(
     request: NextRequest,
@@ -20,16 +32,17 @@ export async function PATCH(
             return NextResponse.json({ message: 'Supabase não configurado' }, { status: 500 });
         }
         const { ref } = await params;
-        const { shippingStatus, tracking, carrier, carrierName } = await request.json();
+        const { shippingStatus, tracking, carrier, carrierName } = await request.json() as ShipOrderBody;
 
         if (!ref || shippingStatus !== 'enviado') {
             return NextResponse.json({ message: 'Dados inválidos' }, { status: 400 });
         }
 
         // 1. Update the order in Supabase
-        const updatePayload: Record<string, any> = {
+        const updatePayload: Record<string, string | null> = {
             shipping_status: 'enviado',
             shipping_tracking: tracking || null,
+            shipping_carrier: carrierName || carrier || null,
             shipped_at: new Date().toISOString(),
         };
 
@@ -69,7 +82,7 @@ export async function PATCH(
                             `${order.shipping_postal_code || ''} ${order.shipping_city || ''}`.trim(),
                             (order.shipping_country || '').toUpperCase()
                         ].filter(Boolean).join('\n'),
-                        items: (order.store_order_items || []).map((i: any) => ({
+                        items: ((order.store_order_items || []) as StoreOrderItem[]).map((i) => ({
                             name: i.name,
                             qty: i.qty,
                             unit_price: i.unit_price,
@@ -88,7 +101,7 @@ export async function PATCH(
         }
 
         return NextResponse.json({ success: true, order });
-    } catch (err: any) {
+    } catch (err: unknown) {
         console.error('Erro no endpoint PATCH shipping:', err);
         return NextResponse.json({ message: 'Erro interno' }, { status: 500 });
     }

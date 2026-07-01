@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState } from 'react';
-import { OrderRow } from '../page';
 import ShipOrderModal from './ShipOrderModal';
 import { supabaseBrowser } from '../../../../lib/supabase-browser';
 
@@ -47,7 +46,7 @@ export type OrderDetailRow = {
 };
 
 import {
-    X, CheckCircle, Truck, FileText, User, CreditCard, Package, Copy, AlertCircle
+    X, CheckCircle, Truck, User, CreditCard, Package, Copy, AlertCircle
 } from 'lucide-react';
 
 const formatCurrency = (value: number, currency = 'EUR') =>
@@ -64,7 +63,7 @@ type OrderDetailsModalProps = {
     order: OrderDetailRow;
     onClose: () => void;
     onToggleInvoice: (order: OrderDetailRow) => void;
-    onMarkShipped: (order: OrderDetailRow) => void;
+    onMarkShipped: (order: OrderDetailRow, options?: { alreadyUpdated?: boolean }) => void | Promise<void>;
 };
 
 export default function OrderDetailsModal({ order, onClose, onToggleInvoice, onMarkShipped }: OrderDetailsModalProps) {
@@ -104,6 +103,9 @@ export default function OrderDetailsModal({ order, onClose, onToggleInvoice, onM
         if (!supabaseBrowser) throw new Error('Supabase error');
         const { data: { session } } = await supabaseBrowser.auth.getSession();
         const token = session?.access_token;
+        if (!token) {
+            throw new Error('Sessão expirada. Inicie sessão novamente.');
+        }
 
         const res = await fetch(`/api/admin/orders/${localOrder.order_ref}/ship`, {
             method: 'PATCH',
@@ -125,13 +127,22 @@ export default function OrderDetailsModal({ order, onClose, onToggleInvoice, onM
                 const errData = await res.json();
                 if (errData.message) errorMsg = errData.message;
                 if (errData.error) errorMsg += ` (Detalhe: ${JSON.stringify(errData.error)})`;
-            } catch (e) {}
+            } catch {}
             throw new Error(errorMsg);
         }
 
-        setLocalOrder(prev => ({ ...prev, shipping_status: 'enviado', shipping_tracking: trackingCode, shipping_carrier: carrierName }));
+        const payload = await res.json();
+        const updatedOrder = {
+            ...localOrder,
+            ...payload.order,
+            shipping_status: 'enviado',
+            shipping_tracking: trackingCode,
+            shipping_carrier: carrierName,
+        };
+
+        setLocalOrder(updatedOrder);
         setShowShipModal(false);
-        onMarkShipped({ ...localOrder, shipping_status: 'enviado' });
+        await onMarkShipped(updatedOrder, { alreadyUpdated: true });
     };
 
     return (

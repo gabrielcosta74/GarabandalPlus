@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import AdminLayout from '../../../components/admin/AdminLayout';
 import AdminStatCard from '../../../components/admin/AdminStatCard';
 import AdminTable from '../../../components/admin/AdminTable';
@@ -13,8 +13,7 @@ import {
   Inbox,
   Clock,
   CheckCircle,
-  Eye,
-  MoreHorizontal
+  Eye
 } from 'lucide-react';
 import OrderFilters, { OrderFiltersState } from './components/OrderFilters';
 import OrderDetailsModal, { OrderDetailRow } from './components/OrderDetailsModal';
@@ -39,13 +38,9 @@ const formatCurrency = (value: number, currency = 'EUR') =>
 
 const formatDate = (value: string) => new Date(value).toLocaleDateString('pt-PT');
 
-const statusLabel = (status: string) => {
-  const normalized = status?.toLowerCase?.() || '';
-  if (normalized === 'paid' || normalized === 'pago') return 'Pago';
-  if (normalized === 'pending' || normalized === 'pendente') return 'Pendente';
-  if (normalized === 'failed') return 'Falhado';
-  if (normalized === 'canceled' || normalized === 'cancelado') return 'Cancelado';
-  return status || 'Indefinido';
+const getErrorMessage = (error: unknown, fallback: string) => {
+  if (error instanceof Error && error.message) return error.message;
+  return fallback;
 };
 
 const shippingLabel = (status?: string | null) => {
@@ -64,10 +59,21 @@ const isPaid = (order: OrderRow) => {
   return normalized === 'paid' || normalized === 'pago';
 };
 
+const withTimeout = async <T,>(promise: Promise<T>, ms: number, message: string) => {
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => reject(new Error(message)), ms);
+  });
+  try {
+    return await Promise.race([promise, timeoutPromise]);
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
+  }
+};
+
 export default function AdminEncomendasPage() {
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [selectedOrder, setSelectedOrder] = useState<OrderRow | null>(null);
 
@@ -84,20 +90,12 @@ export default function AdminEncomendasPage() {
     search: '',
   });
 
-  // --- Network ---
-  const withTimeout = async <T,>(promise: Promise<T>, ms: number, message: string) => {
-    let timeoutId: ReturnType<typeof setTimeout> | null = null;
-    const timeoutPromise = new Promise<never>((_, reject) => {
-      timeoutId = setTimeout(() => reject(new Error(message)), ms);
-    });
-    try {
-      return await Promise.race([promise, timeoutPromise]);
-    } finally {
-      if (timeoutId) clearTimeout(timeoutId);
-    }
-  };
+  const showToast = useCallback((message: string) => {
+    setToast(message);
+    window.setTimeout(() => setToast(null), 3500);
+  }, []);
 
-  const loadOrders = async () => {
+  const loadOrders = useCallback(async () => {
     setLoading(true);
     try {
       const headers: Record<string, string> = {};
@@ -110,7 +108,7 @@ export default function AdminEncomendasPage() {
           );
           const token = sessionData.session?.access_token;
           if (token) headers.Authorization = `Bearer ${token}`;
-        } catch (err) {
+        } catch {
           // Proceed
         }
       }
@@ -123,61 +121,73 @@ export default function AdminEncomendasPage() {
       if (!res.ok) throw new Error('Erro ao carregar encomendas.');
       const payload = await res.json();
       setOrders(payload.orders || []);
-      setError(null);
-    } catch (err: any) {
-      setError(err?.message || 'Erro ao carregar encomendas.');
+    } catch (err: unknown) {
+      showToast(getErrorMessage(err, 'Erro ao carregar encomendas.'));
     } finally {
       setLoading(false);
     }
-  };
+  }, [showToast]);
 
   useEffect(() => {
     loadOrders();
     // Refresh loop every 60s
     const interval = setInterval(loadOrders, 60000);
     return () => clearInterval(interval);
-  }, []);
-
-  const showToast = (message: string) => {
-    setToast(message);
-    window.setTimeout(() => setToast(null), 3500);
-  };
+  }, [loadOrders]);
 
   // --- Actions ---
-  const handleMarkShipped = async (order: OrderRow) => {
+  const getAdminAccessToken = async () => {
+    if (!supabaseBrowser) throw new Error('Supabase erro.');
+    const { data: { session } } = await supabaseBrowser.auth.getSession();
+    const token = session?.access_token;
+    if (!token) {
+      throw new Error('Sessão expirada. Inicie sessão novamente.');
+    }
+    return token;
+  };
+
+  const handleMarkShipped = async (order: OrderRow, options?: { alreadyUpdated?: boolean }) => {
     try {
-      if (!supabaseBrowser) throw new Error('Supabase erro.');
-      const { data: { session } } = await supabaseBrowser.auth.getSession();
-      const token = session?.access_token;
+      const shippedAt = order.shipped_at || new Date().toISOString();
+      let updatedOrder: OrderRow = { ...order, shipping_status: 'enviado', shipped_at: shippedAt };
 
-      const res = await fetch(`/api/admin/orders/${order.order_ref}`, {
-        method: 'PATCH',
-        headers: token ? { 'Authorization': `Bearer ${token}` } : {},
-        body: JSON.stringify({ shippingStatus: 'enviado' }),
-      });
-      if (!res.ok) throw new Error('Falha ao atualizar envio.');
+      if (!options?.alreadyUpdated) {
+        const token = await getAdminAccessToken();
+        const res = await fetch(`/api/admin/orders/${order.order_ref}`, {
+          method: 'PATCH',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ shippingStatus: 'enviado' }),
+        });
+        if (!res.ok) throw new Error('Falha ao atualizar envio.');
+        const savedOrder = await res.json() as OrderRow;
+        updatedOrder = { ...updatedOrder, ...savedOrder };
+      }
 
-      const newOrders = orders.map(o => o.order_ref === order.order_ref ? { ...o, shipping_status: 'enviado', shipped_at: new Date().toISOString() } : o);
+      const newOrders = orders.map(o => o.order_ref === order.order_ref ? { ...o, ...updatedOrder } : o);
       setOrders(newOrders);
       if (selectedOrder?.order_ref === order.order_ref) {
-        setSelectedOrder(prev => prev ? { ...prev, shipping_status: 'enviado' } : null);
+        setSelectedOrder(prev => prev ? { ...prev, ...updatedOrder } : null);
       }
       showToast('Encomenda marcada como enviada! 📦 ✈️');
-    } catch (err: any) {
-      showToast(err.message);
+    } catch (err: unknown) {
+      showToast(getErrorMessage(err, 'Falha ao atualizar envio.'));
     }
   };
 
   const handleToggleInvoice = async (order: OrderRow) => {
     try {
-      if (!supabaseBrowser) throw new Error('Supabase erro.');
-      const { data: { session } } = await supabaseBrowser.auth.getSession();
-      const token = session?.access_token;
+      const token = await getAdminAccessToken();
 
       const newStatus = !order.invoice_sent_at;
       const res = await fetch(`/api/admin/orders/${order.order_ref}`, {
         method: 'PATCH',
-        headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({ invoiceSent: newStatus }),
       });
       if (!res.ok) throw new Error('Falha ao atualizar fatura.');
@@ -189,8 +199,8 @@ export default function AdminEncomendasPage() {
         setSelectedOrder(prev => prev ? { ...prev, invoice_sent_at: updatedDate } : null);
       }
       showToast(newStatus ? 'Fatura marcada como enviada! 📄✅' : 'Fatura marcada como pendente. ⏳');
-    } catch (err: any) {
-      showToast(err.message);
+    } catch (err: unknown) {
+      showToast(getErrorMessage(err, 'Falha ao atualizar fatura.'));
     }
   };
 
