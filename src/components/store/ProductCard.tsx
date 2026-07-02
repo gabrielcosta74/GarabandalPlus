@@ -3,12 +3,13 @@
 import React from 'react';
 import Image from 'next/image';
 import { motion } from 'framer-motion';
-import { Product, loadCart, saveCart } from '../../app/loja-online/data';
+import { Product } from '../../app/loja-online/data';
 import Link from 'next/link';
-import { Globe, ShoppingCart } from 'lucide-react';
+import { ArrowRight, Check, Globe, ShoppingCart } from 'lucide-react';
 import { useCurrency } from '../providers/CurrencyProvider';
 import { inferIsDigitalProduct } from '../../lib/product-kind';
 import { useLocale } from '../../contexts/LocaleContext';
+import { applyStoreBookPromo } from '../../lib/store-promo';
 
 interface ProductCardProps {
     product: Product;
@@ -26,6 +27,8 @@ const ProductCard = React.forwardRef<HTMLDivElement, ProductCardProps>(({
     const { formatPrice, formatEUR, currency } = useCurrency();
     const { locale } = useLocale();
     const isEn = locale === 'en';
+    const [justAdded, setJustAdded] = React.useState(false);
+    const promoPrice = applyStoreBookPromo(product.price, product);
     const isDigital = inferIsDigitalProduct({
         isPhysical: product.isPhysical,
         typeId: product.type_id,
@@ -46,15 +49,18 @@ const ProductCard = React.forwardRef<HTMLDivElement, ProductCardProps>(({
 
     // Simple products (no variants) can be added straight to the cart.
     // Products with variants go to the product page so the user picks an option.
-    const addToCart = (e: React.MouseEvent) => {
+    const handleQuickAdd = (e: React.MouseEvent) => {
         e.preventDefault();
         e.stopPropagation();
-        const prev = loadCart();
-        const existing = prev.find((item) => item.id === product.id);
-        const next = existing
-            ? prev.map((item) => (item.id === product.id ? { ...item, qty: item.qty + 1 } : item))
-            : [...prev, { id: product.id, qty: 1 }];
-        saveCart(next);
+        onAddToCart(e);
+        setJustAdded(true);
+        window.setTimeout(() => setJustAdded(false), 1300);
+    };
+
+    const handleViewOptions = (e: React.MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        onClick();
     };
 
     return (
@@ -72,6 +78,11 @@ const ProductCard = React.forwardRef<HTMLDivElement, ProductCardProps>(({
                 {product.tag && (
                     <div className="absolute top-4 left-4 z-10 bg-slate-900 text-amber-400 text-[10px] font-black uppercase tracking-[0.2em] px-4 py-1.5 rounded-full shadow-sm">
                         {product.tag}
+                    </div>
+                )}
+                {promoPrice.active && (
+                    <div className="absolute top-4 right-4 z-10 rounded-full bg-garabandal-gold px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.16em] text-slate-950 shadow-sm">
+                        -15% {isEn ? 'today' : 'hoje'}
                     </div>
                 )}
                 <Image
@@ -92,15 +103,25 @@ const ProductCard = React.forwardRef<HTMLDivElement, ProductCardProps>(({
                 <div className="mt-auto pt-5 border-t border-slate-100">
                     <div className="flex items-end justify-between mb-5">
                         <div>
-                            <p className="text-lg md:text-xl font-black text-slate-900 tracking-tight">
-                                {formatEUR(product.price)}
+                            {promoPrice.active && (
+                                <p className="mb-0.5 text-xs font-bold text-slate-400 line-through">
+                                    {formatEUR(product.price)}
+                                </p>
+                            )}
+                            <p className={`text-lg md:text-xl font-black tracking-tight ${promoPrice.active ? 'text-emerald-700' : 'text-slate-900'}`}>
+                                {formatEUR(promoPrice.discountedPrice)}
                             </p>
                             {currency !== 'EUR' && (
                                 <p className="text-sm text-slate-500 font-semibold mt-0.5">
-                                    ≈ {formatPrice(product.price)}
+                                    ≈ {formatPrice(promoPrice.discountedPrice)}
                                 </p>
                             )}
                             <div className="flex flex-col gap-1.5 mt-1">
+                                {promoPrice.active && (
+                                    <p className="text-[10px] text-emerald-700 uppercase tracking-widest font-black">
+                                        {isEn ? 'Special edition' : 'Edição especial'}
+                                    </p>
+                                )}
                                 <p className="text-[10px] text-slate-400 uppercase tracking-widest font-bold">
                                     {isEn ? 'VAT included' : 'IVA incluído'}
                                 </p>
@@ -143,24 +164,45 @@ const ProductCard = React.forwardRef<HTMLDivElement, ProductCardProps>(({
                         >
                             <span>{isEn ? 'Out of Stock' : 'Esgotado'}</span>
                         </button>
-                    ) : hasVariants && href ? (
+                    ) : hasVariants ? (
+                        href ? (
                         <Link
                             href={href}
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                onAddToCart(e);
-                            }}
+                            onClick={(e) => e.stopPropagation()}
                             className="w-full py-2 rounded-lg text-[11px] md:text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer bg-slate-900 text-white hover:bg-amber-500 md:opacity-0 md:group-hover:opacity-100 focus-visible:opacity-100"
                         >
-                            <span>{isEn ? 'View' : 'Ver produto'}</span>
+                            <span>{isEn ? 'Choose option' : 'Escolher opção'}</span>
+                            <ArrowRight size={13} strokeWidth={2.5} />
                         </Link>
+                        ) : (
+                            <button
+                                onClick={handleViewOptions}
+                                className="w-full py-2 rounded-lg text-[11px] md:text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer bg-slate-900 text-white hover:bg-amber-500 md:opacity-0 md:group-hover:opacity-100 focus-visible:opacity-100"
+                            >
+                                <span>{isEn ? 'Choose option' : 'Escolher opção'}</span>
+                                <ArrowRight size={13} strokeWidth={2.5} />
+                            </button>
+                        )
                     ) : (
                         <button
-                            onClick={addToCart}
-                            className="w-full py-2 rounded-lg text-[11px] md:text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer bg-slate-900 text-white hover:bg-amber-500 md:opacity-0 md:group-hover:opacity-100 focus-visible:opacity-100"
+                            onClick={handleQuickAdd}
+                            className={`w-full py-2 rounded-lg text-[11px] md:text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer md:opacity-0 md:group-hover:opacity-100 focus-visible:opacity-100 ${
+                                justAdded
+                                    ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/20'
+                                    : 'bg-slate-900 text-white hover:bg-amber-500'
+                            }`}
                         >
-                            <ShoppingCart size={13} strokeWidth={2.5} />
-                            <span>{isEn ? 'Add' : 'Adicionar'}</span>
+                            {justAdded ? (
+                                <>
+                                    <Check size={13} strokeWidth={3} />
+                                    <span>{isEn ? 'Added' : 'Adicionado'}</span>
+                                </>
+                            ) : (
+                                <>
+                                    <ShoppingCart size={13} strokeWidth={2.5} />
+                                    <span>{isEn ? 'Add' : 'Adicionar'}</span>
+                                </>
+                            )}
                         </button>
                     )}
                 </div>

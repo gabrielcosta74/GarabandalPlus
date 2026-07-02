@@ -6,12 +6,15 @@ import { useRouter } from 'next/navigation';
 import { AnimatePresence } from 'framer-motion';
 import { ShoppingBag, Search, X } from 'lucide-react';
 import ProductCard from '../../components/store/ProductCard';
-import { Product } from '../loja-online/data';
+import MobileCartConfirmation from '../../components/store/MobileCartConfirmation';
+import { StoreBookPromoBanner, StoreBookPromoPopup } from '../../components/store/StoreBookPromoCampaign';
+import { Product, loadCart, saveCart } from '../loja-online/data';
 import { buildProductPath } from '../../lib/slug';
 import { inferIsDigitalProduct } from '../../lib/product-kind';
 import { useLocale } from '../../contexts/LocaleContext';
 import { type AppLocale } from '../../lib/locale-routing';
 import { captureStoreEvent } from '../../lib/analytics';
+import { getStoreCheckoutPath } from '../../lib/store-i18n';
 
 const getCategories = (isEn: boolean) => [
     { id: 'all', label: isEn ? 'All' : 'Todos' },
@@ -36,6 +39,9 @@ export default function StorePageClient({ initialProducts = [], initialLocale }:
     const [loading, setLoading] = useState(initialProducts.length === 0);
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedCategory, setSelectedCategory] = useState('all');
+    const [addedProduct, setAddedProduct] = useState<Product | null>(null);
+    const [cartCount, setCartCount] = useState(0);
+    const [showCartConfirmation, setShowCartConfirmation] = useState(false);
 
     const isDigitalProduct = (product: Product) => {
         return inferIsDigitalProduct({
@@ -50,6 +56,21 @@ export default function StorePageClient({ initialProducts = [], initialLocale }:
     useEffect(() => {
         fetchProducts();
     }, [locale]);
+
+    useEffect(() => {
+        const refreshCartCount = () => {
+            setCartCount(loadCart().reduce((sum, item) => sum + item.qty, 0));
+        };
+
+        refreshCartCount();
+        window.addEventListener('cart:updated', refreshCartCount as EventListener);
+        window.addEventListener('storage', refreshCartCount);
+
+        return () => {
+            window.removeEventListener('cart:updated', refreshCartCount as EventListener);
+            window.removeEventListener('storage', refreshCartCount);
+        };
+    }, []);
 
     const fetchProducts = async () => {
         try {
@@ -108,6 +129,29 @@ export default function StorePageClient({ initialProducts = [], initialLocale }:
         }).sort((a, b) => productRank(a) - productRank(b));
     }, [products, searchTerm, selectedCategory]);
 
+    const handleAddToCart = (product: Product) => {
+        const prev = loadCart();
+        const existing = prev.find((item) => item.id === product.id);
+        const next = existing
+            ? prev.map((item) => (item.id === product.id ? { ...item, qty: item.qty + 1 } : item))
+            : [...prev, { id: product.id, qty: 1 }];
+
+        saveCart(next);
+        setAddedProduct(product);
+        setCartCount(next.reduce((sum, item) => sum + item.qty, 0));
+        setShowCartConfirmation(true);
+
+        captureStoreEvent('store_add_to_cart', {
+            product_id: product.id,
+            product_name: product.name,
+            category: product.category || null,
+            price: product.price,
+            quantity: 1,
+            locale,
+            source: 'product_card',
+        });
+    };
+
     return (
         <div className="min-h-screen bg-[#FDFDFC] pb-24">
             {/* Header Area - Clean & Sleek */}
@@ -153,6 +197,16 @@ export default function StorePageClient({ initialProducts = [], initialLocale }:
                     </div>
                 </div>
             </div>
+
+            <StoreBookPromoBanner
+                onViewBooks={() => {
+                    setSelectedCategory('Livro Físico');
+                    setSearchTerm('');
+                    window.setTimeout(() => {
+                        document.getElementById('store-products')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }, 50);
+                }}
+            />
 
             {/* Filters & Categories Area */}
             <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 mt-12 mb-10 relative z-10">
@@ -205,7 +259,7 @@ export default function StorePageClient({ initialProducts = [], initialLocale }:
                 </div>
             </div>
 
-            <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+            <div id="store-products" className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 scroll-mt-28">
                 {loading ? (
                     <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-8">
                         {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
@@ -235,14 +289,7 @@ export default function StorePageClient({ initialProducts = [], initialLocale }:
                                         onAddToCart={(e) => {
                                             e.preventDefault();
                                             e.stopPropagation();
-                                            captureStoreEvent('store_product_clicked', {
-                                                product_id: product.id,
-                                                product_name: product.name,
-                                                category: product.category || null,
-                                                price: product.price,
-                                                locale,
-                                            });
-                                            router.push(productPath);
+                                            handleAddToCart(product);
                                         }}
                                     />
                                 );
@@ -259,6 +306,23 @@ export default function StorePageClient({ initialProducts = [], initialLocale }:
                     </div>
                 )}
             </div>
+
+            <MobileCartConfirmation
+                isOpen={showCartConfirmation}
+                product={addedProduct}
+                cartCount={cartCount}
+                checkoutHref={getStoreCheckoutPath(locale)}
+                onClose={() => setShowCartConfirmation(false)}
+            />
+            <StoreBookPromoPopup
+                onViewBooks={() => {
+                    setSelectedCategory('Livro Físico');
+                    setSearchTerm('');
+                    window.setTimeout(() => {
+                        document.getElementById('store-products')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }, 50);
+                }}
+            />
         </div>
     );
 }

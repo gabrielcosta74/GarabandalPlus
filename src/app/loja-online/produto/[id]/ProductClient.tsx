@@ -7,12 +7,16 @@ import { motion } from "framer-motion";
 import { Product, loadCart, saveCart } from "../../data";
 import StoreLayoutWrapper from "../../../../components/store/StoreLayoutWrapper";
 import ProductCard from "../../../../components/store/ProductCard";
+import MobileCartConfirmation from "../../../../components/store/MobileCartConfirmation";
 import { ShoppingCart, ArrowLeft, Check, Truck, ShieldCheck, CreditCard, Globe } from "lucide-react";
 import { useCurrency } from "../../../../components/providers/CurrencyProvider";
 import { listCountryOptions } from "../../../../lib/country-utils";
 import { inferIsDigitalProduct } from "../../../../lib/product-kind";
 import { useLocale } from "../../../../contexts/LocaleContext";
 import { buildProductPath } from "../../../../lib/slug";
+import { getStoreCheckoutPath } from "../../../../lib/store-i18n";
+import { applyStoreBookPromo } from "../../../../lib/store-promo";
+import { StoreBookPromoCountdown } from "../../../../components/store/StoreBookPromoCampaign";
 
 const getVatRate = (product: Product) => (product.isPhysical ? 0.06 : 0.23);
 
@@ -33,6 +37,9 @@ export default function ProductClient({ product, relatedProducts }: ProductClien
     const isEn = locale === 'en';
     const router = useRouter();
     const [justAdded, setJustAdded] = useState(false);
+    const [cartCount, setCartCount] = useState(0);
+    const [cartConfirmationProduct, setCartConfirmationProduct] = useState<Product | null>(null);
+    const [showCartConfirmation, setShowCartConfirmation] = useState(false);
 
     const addToCart = (id: string, qty = 1) => {
         const current = loadCart();
@@ -41,11 +48,15 @@ export default function ProductClient({ product, relatedProducts }: ProductClien
             ? current.map((item) => (item.id === id ? { ...item, qty: item.qty + qty } : item))
             : [...current, { id, qty }];
         saveCart(next);
+        return next;
     };
 
     const handleAddToCart = () => {
         if (!product) return;
-        addToCart(product.id);
+        const next = addToCart(product.id);
+        setCartCount(next.reduce((sum, item) => sum + item.qty, 0));
+        setCartConfirmationProduct(product);
+        setShowCartConfirmation(true);
         setJustAdded(true);
         setTimeout(() => setJustAdded(false), 1200);
     };
@@ -53,7 +64,7 @@ export default function ProductClient({ product, relatedProducts }: ProductClien
     const handleBuyNow = () => {
         if (!product) return;
         addToCart(product.id);
-        router.push("/loja-online/checkout");
+        router.push(getStoreCheckoutPath(locale));
     };
 
     // 1. Not Found State
@@ -78,7 +89,8 @@ export default function ProductClient({ product, relatedProducts }: ProductClien
 
     // 2. Main Render
     const rate = getVatRate(product);
-    const breakdown = getVatBreakdown(product.price, rate);
+    const promoPrice = applyStoreBookPromo(product.price, product);
+    const breakdown = getVatBreakdown(promoPrice.discountedPrice, rate);
     const normalizedTypeId = (product.type_id || '').toLowerCase();
     const normalizedCategory = (product.category || '').toLowerCase();
     const isClothing =
@@ -156,12 +168,17 @@ export default function ProductClient({ product, relatedProducts }: ProductClien
                         {/* Price */}
                         <div className="flex items-baseline gap-4 mb-8">
                             <div className="flex flex-col">
-                                <span className="text-4xl font-serif text-garabandal-dark">
-                                    {formatEUR(product.price)}
+                                {promoPrice.active && (
+                                    <span className="mb-1 text-sm font-bold text-gray-400 line-through">
+                                        {formatEUR(product.price)}
+                                    </span>
+                                )}
+                                <span className={`text-4xl font-serif ${promoPrice.active ? 'text-emerald-700' : 'text-garabandal-dark'}`}>
+                                    {formatEUR(promoPrice.discountedPrice)}
                                 </span>
                                 {currency !== 'EUR' && (
                                     <span className="text-lg text-gray-500 font-semibold mt-0.5">
-                                        ≈ {formatPrice(product.price)}
+                                        ≈ {formatPrice(promoPrice.discountedPrice)}
                                     </span>
                                 )}
                             </div>
@@ -169,6 +186,20 @@ export default function ProductClient({ product, relatedProducts }: ProductClien
                                 {formatPrice(breakdown.base)} + {formatPrice(breakdown.vat)} {isEn ? 'VAT' : 'IVA'}
                             </span>
                         </div>
+
+                        {promoPrice.active && (
+                            <div className="mb-8 rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
+                                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                    <div>
+                                        <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">{isEn ? 'Today only!' : 'Só hoje!'}</p>
+                                        <p className="mt-1 text-sm font-semibold text-emerald-950">{isEn ? '15% off until midnight in Brazil.' : '15% até à meia-noite no Brasil. Depois volta ao preço normal.'}</p>
+                                    </div>
+                                    <div className="rounded-2xl bg-slate-950 p-3 text-white sm:min-w-[210px]">
+                                        <StoreBookPromoCountdown compact />
+                                    </div>
+                                </div>
+                            </div>
+                        )}
 
                         {/* Member Discount Banner */}
                         <div className="bg-blue-50/50 border border-blue-100 rounded-xl p-4 flex items-center gap-4 mb-8">
@@ -312,8 +343,12 @@ export default function ProductClient({ product, relatedProducts }: ProductClien
                                     product={item}
                                     onClick={() => router.push(buildProductPath(item.id, item.name, isEn ? 'en' : 'pt'))}
                                     onAddToCart={(e) => {
+                                        e.preventDefault();
                                         e.stopPropagation();
-                                        addToCart(item.id);
+                                        const next = addToCart(item.id);
+                                        setCartCount(next.reduce((sum, cartItem) => sum + cartItem.qty, 0));
+                                        setCartConfirmationProduct(item);
+                                        setShowCartConfirmation(true);
                                     }}
                                 />
                             ))}
@@ -321,6 +356,14 @@ export default function ProductClient({ product, relatedProducts }: ProductClien
                     </section>
                 )}
             </div>
+
+            <MobileCartConfirmation
+                isOpen={showCartConfirmation}
+                product={cartConfirmationProduct}
+                cartCount={cartCount}
+                checkoutHref={getStoreCheckoutPath(locale)}
+                onClose={() => setShowCartConfirmation(false)}
+            />
         </StoreLayoutWrapper>
     );
 }

@@ -3,22 +3,29 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { Product, loadCart, saveCart } from "./data";
-import { supabaseBrowser } from "../../lib/supabase-browser";
-import { isActiveMember } from "../../lib/store-discounts";
 import StoreLayoutWrapper from "../../components/store/StoreLayoutWrapper";
 import StoreHero from "../../components/store/StoreHero";
 import FilterBar from "../../components/store/FilterBar";
 import ProductCard from "../../components/store/ProductCard";
+import MobileCartConfirmation from "../../components/store/MobileCartConfirmation";
+import { StoreBookPromoBanner, StoreBookPromoPopup } from "../../components/store/StoreBookPromoCampaign";
 import { motion, AnimatePresence } from "framer-motion";
 import { buildProductPath } from "../../lib/slug";
+import { useLocale } from "../../contexts/LocaleContext";
+import { getStoreCheckoutPath } from "../../lib/store-i18n";
+import { captureStoreEvent } from "../../lib/analytics";
 
 export default function StoreClient() {
     const [products, setProducts] = useState<Product[]>([]);
     const [loadingProducts, setLoadingProducts] = useState(true);
     const [category, setCategory] = useState("all");
     const [type, setType] = useState<"all" | "physical" | "digital">("all");
+    const [addedProduct, setAddedProduct] = useState<Product | null>(null);
+    const [cartCount, setCartCount] = useState(0);
+    const [showCartConfirmation, setShowCartConfirmation] = useState(false);
     // const [isMemberActive, setIsMemberActive] = useState(false); // Unused variable
     const router = useRouter();
+    const { locale } = useLocale();
 
     useEffect(() => {
         const loadProducts = async () => {
@@ -37,6 +44,21 @@ export default function StoreClient() {
         loadProducts();
     }, []);
 
+    useEffect(() => {
+        const refreshCartCount = () => {
+            setCartCount(loadCart().reduce((sum, item) => sum + item.qty, 0));
+        };
+
+        refreshCartCount();
+        window.addEventListener('cart:updated', refreshCartCount as EventListener);
+        window.addEventListener('storage', refreshCartCount);
+
+        return () => {
+            window.removeEventListener('cart:updated', refreshCartCount as EventListener);
+            window.removeEventListener('storage', refreshCartCount);
+        };
+    }, []);
+
     // Removed unused loadMember effect if not used in render
 
     const addToCart = (id: string) => {
@@ -46,6 +68,22 @@ export default function StoreClient() {
             ? prev.map((item) => (item.id === id ? { ...item, qty: item.qty + 1 } : item))
             : [...prev, { id, qty: 1 }];
         saveCart(next);
+        const product = products.find((item) => item.id === id) || null;
+        setAddedProduct(product);
+        setCartCount(next.reduce((sum, item) => sum + item.qty, 0));
+        setShowCartConfirmation(!!product);
+
+        if (product) {
+            captureStoreEvent('store_add_to_cart', {
+                product_id: product.id,
+                product_name: product.name,
+                category: product.category || null,
+                price: product.price,
+                quantity: 1,
+                locale,
+                source: 'product_card',
+            });
+        }
     };
 
     const categories = useMemo(() => {
@@ -68,6 +106,7 @@ export default function StoreClient() {
     return (
         <StoreLayoutWrapper>
             <StoreHero />
+            <StoreBookPromoBanner />
 
             <main className="container mx-auto max-w-6xl px-6 pb-24 min-h-screen">
 
@@ -114,6 +153,15 @@ export default function StoreClient() {
                 )}
 
             </main>
+
+            <MobileCartConfirmation
+                isOpen={showCartConfirmation}
+                product={addedProduct}
+                cartCount={cartCount}
+                checkoutHref={getStoreCheckoutPath(locale)}
+                onClose={() => setShowCartConfirmation(false)}
+            />
+            <StoreBookPromoPopup />
         </StoreLayoutWrapper>
     );
 }

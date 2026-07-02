@@ -14,6 +14,8 @@ import { useLocale } from '../../../contexts/LocaleContext';
 import { getStoreHomePath } from '../../../lib/store-i18n';
 import { captureStoreEvent } from '../../../lib/analytics';
 import { buildProductReviewSummary } from '../../../lib/product-schema';
+import { applyStoreBookPromo } from '../../../lib/store-promo';
+import { StoreBookPromoCountdown } from '../../../components/store/StoreBookPromoCampaign';
 
 const REVIEW_METADATA_KEYS = new Set([
     'rating_value',
@@ -52,6 +54,14 @@ export default function ProductDetailsClient({ initialProduct }: { initialProduc
     useEffect(() => {
         if (id && (!initialProduct || isEn)) fetchProduct(id);
     }, [id, initialProduct, isEn]);
+
+    useEffect(() => {
+        if (!product?.variants?.length) return;
+        if (selectedVariant && product.variants.some((variant: any) => variant.sku === selectedVariant.sku)) return;
+
+        const firstInStock = product.variants.find((variant: any) => variant.stock > 0);
+        setSelectedVariant(firstInStock || product.variants[0]);
+    }, [product, selectedVariant]);
 
     useEffect(() => {
         if (!product) return;
@@ -112,16 +122,23 @@ export default function ProductDetailsClient({ initialProduct }: { initialProduc
     const handleAddToCart = async () => {
         if (!product) return;
 
+        const variants = product.variants || [];
+        const activeVariant = selectedVariant || variants.find((variant: any) => variant.stock > 0) || variants[0] || null;
+
         // Check variant selection
-        if (product.variants && product.variants.length > 0 && !selectedVariant) {
+        if (variants.length > 0 && !activeVariant) {
             toast.warning(isEn ? "Please select an option." : "Por favor selecione uma opção.");
             return;
+        }
+
+        if (activeVariant && !selectedVariant) {
+            setSelectedVariant(activeVariant);
         }
 
         setAdding(true);
 
         const prev = loadCart();
-        const variantId = selectedVariant ? selectedVariant.sku : undefined;
+        const variantId = activeVariant ? activeVariant.sku : undefined;
 
         // Find existing item
         const existingIndex = prev.findIndex(item => item.id === product.id && (item as any).variantId === variantId);
@@ -135,7 +152,7 @@ export default function ProductDetailsClient({ initialProduct }: { initialProduc
                 id: product.id,
                 qty: qty,
                 variantId: variantId,
-                variantName: selectedVariant?.name
+                variantName: activeVariant?.name
             };
             next = [...prev, newItem];
         }
@@ -147,9 +164,14 @@ export default function ProductDetailsClient({ initialProduct }: { initialProduc
             category: product.category || null,
             price: product.price,
             quantity: qty,
-            variant: selectedVariant?.name || null,
+            variant: activeVariant?.name || null,
             locale,
         });
+
+        window.setTimeout(() => {
+            setAdding(false);
+            setShowAddModal(true);
+        }, 250);
 
         // Fetch related products for upsell (simple random logic for now)
         try {
@@ -160,12 +182,6 @@ export default function ProductDetailsClient({ initialProduct }: { initialProduc
             const others = (data.products || []).filter((p: any) => p.id !== product.id).sort(() => 0.5 - Math.random()).slice(0, 2);
             setRelatedProducts(others);
         } catch (e) { console.error(e) }
-
-        setTimeout(() => {
-            setAdding(false);
-            setShowAddModal(true);
-            // toast.success("Adicionado ao carrinho"); // Replaced by Modal
-        }, 500);
     };
 
     if (loading) {
@@ -254,6 +270,7 @@ export default function ProductDetailsClient({ initialProduct }: { initialProduc
             return { code, label: country?.label || code };
         });
     const reviewSummary = buildProductReviewSummary(product.metadata);
+    const promoPrice = applyStoreBookPromo(product.price, product);
     const publicMetadataEntries = Object.entries(product.metadata || {}).filter(([key, value]) => {
         return !REVIEW_METADATA_KEYS.has(key) && Boolean(value);
     });
@@ -317,11 +334,31 @@ export default function ProductDetailsClient({ initialProduct }: { initialProduc
                                 {product.name}
                             </h1>
                             <div className="flex items-baseline gap-4">
-                                <p className="text-3xl font-light text-slate-900">
-                                    {new Intl.NumberFormat(isEn ? 'en-US' : 'pt-PT', { style: 'currency', currency: product.currency }).format(product.price)}
-                                </p>
+                                <div>
+                                    {promoPrice.active && (
+                                        <p className="text-sm font-bold text-slate-400 line-through">
+                                            {new Intl.NumberFormat(isEn ? 'en-US' : 'pt-PT', { style: 'currency', currency: product.currency }).format(product.price)}
+                                        </p>
+                                    )}
+                                    <p className={`text-3xl font-light ${promoPrice.active ? 'text-emerald-700' : 'text-slate-900'}`}>
+                                        {new Intl.NumberFormat(isEn ? 'en-US' : 'pt-PT', { style: 'currency', currency: product.currency }).format(promoPrice.discountedPrice)}
+                                    </p>
+                                </div>
                                 {product.taxRate && product.taxRate > 0 && <span className="text-xs text-slate-400 font-medium">{isEn ? 'VAT included' : 'IVA incluído'}</span>}
                             </div>
+                            {promoPrice.active && (
+                                <div className="mt-4 rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
+                                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                        <div>
+                                            <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">{isEn ? 'Today only!' : 'Só hoje!'}</p>
+                                            <p className="mt-1 text-sm font-semibold text-emerald-950">{isEn ? '15% off until midnight in Brazil.' : '15% até à meia-noite no Brasil. Depois volta ao preço normal.'}</p>
+                                        </div>
+                                        <div className="rounded-2xl bg-slate-950 p-3 text-white sm:min-w-[210px]">
+                                            <StoreBookPromoCountdown compact />
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
                             {(reviewSummary.aggregateRating || reviewSummary.review) && (
                                 <div className="mt-5 rounded-2xl border border-amber-100 bg-amber-50/60 p-4">
                                     {reviewSummary.aggregateRating && (
@@ -606,12 +643,13 @@ export default function ProductDetailsClient({ initialProduct }: { initialProduc
                 <>
                     {/* Mobile Sticky Footer */}
                     {!isOutOfStock && (
-                        <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-slate-200 lg:hidden z-[100] shadow-[0_-5px_20px_-10px_rgba(0,0,0,0.1)] safe-area-bottom">
+                        <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-slate-200 lg:hidden z-[9997] shadow-[0_-5px_20px_-10px_rgba(0,0,0,0.1)] safe-area-bottom">
                             <div className="flex gap-3">
                                 <button
                                     onClick={handleAddToCart}
                                     disabled={adding}
-                                    className="flex-1 bg-slate-900 text-white px-6 py-4 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg active:scale-95 transition-all"
+                                    className="flex-1 bg-slate-900 px-6 py-4 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg active:scale-95 transition-all disabled:opacity-70 disabled:cursor-not-allowed"
+                                    style={{ color: '#fff' }}
                                 >
                                     {adding ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : (isEn ? 'Add to Cart' : 'Adicionar ao Carrinho')}
                                 </button>

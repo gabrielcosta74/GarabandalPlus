@@ -13,6 +13,7 @@ import { checkRateLimit } from '../../../../lib/rate-limit';
 import { inferRequestLocale, withLocalePrefix } from '../../../../lib/locale-routing';
 import { localizeStoreProductText } from '../../../../lib/store-i18n';
 import { getPostHogClient } from '../../../../lib/posthog-server';
+import { applyStoreBookPromo } from '../../../../lib/store-promo';
 
 const itemSchema = z.object({
   id: z.string().min(1),
@@ -164,7 +165,9 @@ export async function POST(request: Request) {
       const product = productRows?.find((entry) => entry.product_id === item.id);
       if (!product || product.is_active === false) return null;
       const basePrice = Number(product.price ?? 0);
-      const price = applyMemberDiscount(basePrice, memberDiscountRate > 0);
+      const promoPrice = applyStoreBookPromo(basePrice, product as any);
+      const memberPrice = applyMemberDiscount(basePrice, memberDiscountRate > 0);
+      const price = promoPrice.active ? promoPrice.discountedPrice : memberPrice;
       const isDigital = inferIsDigitalProduct({
         isPhysical: product.is_physical,
         typeId: (product as any).type_id,
@@ -182,6 +185,7 @@ export async function POST(request: Request) {
         isPhysical,
         stock: isPhysical && typeof product.stock === 'number' ? product.stock : null,
         allowedCountries: product.allowed_countries,
+        promoId: promoPrice.active ? promoPrice.promo?.id ?? null : null,
       };
     });
 
@@ -200,6 +204,7 @@ export async function POST(request: Request) {
       isPhysical: boolean;
       stock: number | null;
       allowedCountries: string[] | null;
+      promoId: string | null;
     }>;
 
     const hasPhysical = itemsResolved.some((item) => item.isPhysical);
@@ -330,6 +335,7 @@ export async function POST(request: Request) {
       shippingZone: getShippingZone(shipping?.country),
       shippingOrigin: getShippingOrigin(shipping?.country),
       memberDiscount: memberDiscountRate ? String(memberDiscountRate) : '',
+      promo: itemsResolved.some((item) => item.promoId) ? 'garabandal_books_15' : '',
       paymentProvider,
       locale,
     };

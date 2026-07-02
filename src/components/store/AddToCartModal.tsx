@@ -9,6 +9,7 @@ import { useCurrency } from '../providers/CurrencyProvider';
 import { buildProductPath } from '../../lib/slug';
 import { useLocale } from '../../contexts/LocaleContext';
 import { getStoreCheckoutPath } from '../../lib/store-i18n';
+import { applyStoreBookPromo } from '../../lib/store-promo';
 
 interface AddToCartModalProps {
     isOpen: boolean;
@@ -29,6 +30,7 @@ export default function AddToCartModal({
     const { formatPrice } = useCurrency();
     const { locale } = useLocale();
     const isEn = locale === 'en';
+    const promoPrice = applyStoreBookPromo(product.price, product);
 
     if (!isOpen) return null;
 
@@ -42,20 +44,21 @@ export default function AddToCartModal({
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
                         onClick={onClose}
-                        className="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm"
+                        className="fixed inset-0 z-[9998] bg-slate-900/60 backdrop-blur-sm"
                     />
 
                     {/* Modal */}
                     <motion.div
-                        initial={{ opacity: 0, scale: 0.95, y: 20 }}
-                        animate={{ opacity: 1, scale: 1, y: 0 }}
-                        exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                        className="fixed inset-0 z-[101] flex items-center justify-center p-4 sm:p-6 pointer-events-none"
+                        initial={{ opacity: 0, y: 32 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: 32 }}
+                        transition={{ type: "spring", stiffness: 420, damping: 34 }}
+                        className="fixed inset-0 z-[9999] flex items-end justify-center p-0 sm:items-center sm:p-6 pointer-events-none"
                     >
-                        <div className="bg-white w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden pointer-events-auto flex flex-col max-h-[90vh]">
+                        <div className="bg-white w-full max-w-2xl rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden pointer-events-auto flex flex-col max-h-[92vh] pb-[env(safe-area-inset-bottom)]">
 
                             {/* Header / Success Message */}
-                            <div className="bg-emerald-50 p-6 flex items-start justify-between border-b border-emerald-100">
+                            <div className="bg-emerald-50 p-5 sm:p-6 flex items-start justify-between border-b border-emerald-100">
                                 <div className="flex gap-4">
                                     <div className="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center shrink-0">
                                         <motion.div
@@ -81,7 +84,7 @@ export default function AddToCartModal({
 
                             <div className="overflow-y-auto custom-scrollbar">
                                 {/* Added Product Details */}
-                                <div className="p-6 flex gap-4 md:gap-6 items-center">
+                                <div className="p-5 sm:p-6 flex gap-4 md:gap-6 items-center">
                                     <div className="w-20 h-20 md:w-24 md:h-24 bg-slate-50 rounded-xl border border-slate-100 p-2 shrink-0">
                                         <img src={product.image} alt={product.name} className="w-full h-full object-contain mix-blend-multiply" />
                                     </div>
@@ -92,12 +95,19 @@ export default function AddToCartModal({
                                                 {isEn ? 'Option' : 'Opção'}: <span className="text-slate-900 font-bold">{variantName}</span>
                                             </p>
                                         )}
-                                        <p className="text-lg font-light text-slate-900 mt-1">{formatPrice(product.price)}</p>
+                                        <div className="mt-1 flex items-baseline gap-2">
+                                            {promoPrice.active && (
+                                                <span className="text-sm font-bold text-slate-400 line-through">{formatPrice(product.price)}</span>
+                                            )}
+                                            <span className={`text-lg font-light ${promoPrice.active ? 'text-emerald-700' : 'text-slate-900'}`}>
+                                                {formatPrice(promoPrice.discountedPrice)}
+                                            </span>
+                                        </div>
                                     </div>
                                 </div>
 
                                 {/* Actions */}
-                                <div className="px-6 flex flex-col sm:flex-row gap-3">
+                                <div className="px-5 sm:px-6 flex flex-col sm:flex-row gap-3">
                                     <button
                                         onClick={() => {
                                             onClose();

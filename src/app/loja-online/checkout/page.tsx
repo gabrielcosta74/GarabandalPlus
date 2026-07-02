@@ -23,6 +23,7 @@ import { Check, ChevronRight, CreditCard, User, ShoppingBag, MapPin, ArrowLeft, 
 import { useLocale } from '../../../contexts/LocaleContext';
 import { getStoreHomePath } from '../../../lib/store-i18n';
 import { captureStoreEvent } from '../../../lib/analytics';
+import { applyStoreBookPromo } from '../../../lib/store-promo';
 
 const getVatRate = (product: Product) => (product.isPhysical ? 0.06 : 0.23);
 
@@ -59,6 +60,25 @@ type SavedProfile = {
   tipo_subscricao?: string | null;
   proxima_quota?: string | null;
   store_credits?: number | null;
+};
+
+const getCartItemKey = (item: Pick<CartItem, 'id' | 'variantId' | 'variantName'>) =>
+  `${item.id}::${item.variantId || item.variantName || 'default'}`;
+
+const normalizeCartItems = (items: CartItem[]) => {
+  const merged = new Map<string, CartItem>();
+
+  items.forEach((item) => {
+    if (!item?.id || item.qty <= 0) return;
+    const key = getCartItemKey(item);
+    const existing = merged.get(key);
+
+    merged.set(key, existing
+      ? { ...existing, qty: existing.qty + item.qty }
+      : { ...item });
+  });
+
+  return Array.from(merged.values());
 };
 
 const ADDRESS_AUTOCOMPLETE_ENABLED = process.env.NEXT_PUBLIC_ADDRESS_AUTOCOMPLETE === '1';
@@ -180,24 +200,36 @@ export default function CheckoutPage() {
         const product = products.find((prod) => prod.id === item.id);
         if (!product) return null;
         const basePrice = Number(product.price || 0);
-        const effectivePrice = applyMemberDiscount(basePrice, isMemberActive);
+        const promoPrice = applyStoreBookPromo(basePrice, product);
+        const memberPrice = applyMemberDiscount(basePrice, isMemberActive);
+        const effectivePrice = promoPrice.active ? promoPrice.discountedPrice : memberPrice;
         return {
           ...product,
+          cartKey: getCartItemKey(item),
+          variantId: item.variantId,
           qty: item.qty,
           variantName: item.variantName,
           basePrice,
           price: effectivePrice,
           baseTotal: basePrice * item.qty,
           total: effectivePrice * item.qty,
+          promoActive: promoPrice.active,
+          promoDiscount: promoPrice.active ? promoPrice.discountAmount * item.qty : 0,
+          memberDiscount: !promoPrice.active && isMemberActive ? (basePrice - memberPrice) * item.qty : 0,
         };
       })
-      .filter(Boolean) as Array<Product & { qty: number; total: number; baseTotal: number; basePrice: number; price: number; variantName?: string }>;
+      .filter(Boolean) as Array<Product & { cartKey: string; variantId?: string; qty: number; total: number; baseTotal: number; basePrice: number; price: number; variantName?: string; promoActive: boolean; promoDiscount: number; memberDiscount: number }>;
   }, [cart, products, isMemberActive]);
 
   const hasPhysical = cartEntries.some((item) => item.isPhysical);
   const baseSubtotal = useMemo(() => cartEntries.reduce((sum, item) => sum + item.baseTotal, 0), [cartEntries]);
   const discountedTotal = useMemo(() => cartEntries.reduce((sum, item) => sum + item.total, 0), [cartEntries]);
-  const discountValue = useMemo(() => Math.max(0, baseSubtotal - discountedTotal), [baseSubtotal, discountedTotal]);
+  const promoDiscountValue = useMemo(() => cartEntries.reduce((sum, item) => sum + item.promoDiscount, 0), [cartEntries]);
+  const memberDiscountValue = useMemo(() => cartEntries.reduce((sum, item) => sum + item.memberDiscount, 0), [cartEntries]);
+  const potentialMemberSavings = useMemo(
+    () => cartEntries.reduce((sum, item) => sum + (item.promoActive ? 0 : item.baseTotal * MEMBER_DISCOUNT_RATE), 0),
+    [cartEntries],
+  );
   const vatTotals = useMemo(() => {
     return cartEntries.reduce(
       (acc, item) => {
@@ -238,14 +270,17 @@ export default function CheckoutPage() {
     cart_total: Number(rawTotalWithShipping.toFixed(2)),
     total_to_pay: Number(totalToPay.toFixed(2)),
     has_physical: hasPhysical,
-    has_member_discount: isMemberActive && discountValue > 0,
+    has_member_discount: isMemberActive && memberDiscountValue > 0,
+    has_book_promo: promoDiscountValue > 0,
     uses_store_credits: applyCredits && appliedCreditsValue > 0,
     locale,
-  }), [appliedCreditsValue, applyCredits, cartEntries, discountValue, hasPhysical, isMemberActive, locale, rawTotalWithShipping, step, totalToPay]);
+  }), [appliedCreditsValue, applyCredits, cartEntries, hasPhysical, isMemberActive, locale, memberDiscountValue, promoDiscountValue, rawTotalWithShipping, step, totalToPay]);
 
   // Load Data Effects
   useEffect(() => {
-    setCart(loadCart());
+    const normalizedCart = normalizeCartItems(loadCart());
+    setCart(normalizedCart);
+    saveCart(normalizedCart);
     const draft = loadCheckoutDraft();
     if (draft?.saveCheckout) {
       setSaveCheckout(true);
@@ -424,9 +459,13 @@ export default function CheckoutPage() {
     }));
   };
 
-  const updateQty = (id: string, qty: number) => {
+  const updateQty = (cartKey: string, qty: number) => {
     setCart((prev) => {
-      const next = qty <= 0 ? prev.filter((item) => item.id !== id) : prev.map((item) => (item.id === id ? { ...item, qty } : item));
+      const next = normalizeCartItems(
+        qty <= 0
+          ? prev.filter((item) => getCartItemKey(item) !== cartKey)
+          : prev.map((item) => (getCartItemKey(item) === cartKey ? { ...item, qty } : item)),
+      );
       saveCart(next);
       return next;
     });
@@ -603,7 +642,7 @@ export default function CheckoutPage() {
         </div>
       </header>
 
-      <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8 lg:py-12">
+      <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8 pb-36 lg:py-12">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12">
 
           {/* Left Column: Form & Steps */}
@@ -661,35 +700,42 @@ export default function CheckoutPage() {
                     ) : (
                       <div className="space-y-6">
                         {cartEntries.map((item) => (
-                          <div className="flex gap-4 p-4 rounded-2xl border border-gray-50 bg-gray-50/30 hover:bg-white hover:shadow-md transition-all" key={item.id}>
-                            <div className="w-20 h-20 bg-white rounded-xl overflow-hidden shrink-0 border border-gray-100">
+                          <div className="grid grid-cols-[72px_1fr] gap-3 rounded-2xl border border-gray-100 bg-white p-3 shadow-sm transition-all hover:shadow-md sm:grid-cols-[80px_1fr] sm:gap-4 sm:p-4" key={item.cartKey}>
+                            <div className="w-[72px] h-[72px] sm:w-20 sm:h-20 bg-white rounded-xl overflow-hidden shrink-0 border border-gray-100">
                               <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
                             </div>
-                            <div className="flex-1 min-w-0 flex flex-col justify-between">
+                            <div className="min-w-0 flex flex-col justify-between gap-3">
                               <div className="flex justify-between items-start gap-2">
-                                <div>
-                                  <h3 className="font-bold text-gray-900 truncate">{item.name}</h3>
-                                  {item.variantName && <p className="text-xs font-bold text-slate-600">{item.variantName}</p>}
-                                  <p className="text-sm text-gray-500">{formatPrice(item.price)}</p>
+                                <div className="min-w-0">
+                                  <h3 className="font-bold text-gray-900 text-sm leading-snug line-clamp-2 sm:text-base">{item.name}</h3>
+                                  {item.variantName && <p className="mt-1 w-fit rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-600">{item.variantName}</p>}
+                                  <div className="mt-1 flex flex-wrap items-center gap-2">
+                                    {item.promoActive && <span className="text-xs font-bold text-gray-400 line-through">{formatPrice(item.basePrice)}</span>}
+                                    <span className={`text-sm font-semibold ${item.promoActive ? 'text-emerald-700' : 'text-gray-600'}`}>{formatPrice(item.price)}</span>
+                                    {item.promoActive && <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-emerald-700">-15%</span>}
+                                  </div>
                                   {!item.isPhysical && ownedDigitalProductIds.has(item.id) && (
                                     <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-2 py-1 mt-2 inline-block font-semibold">
                                       {isEn ? 'You already have this product in your library. You can buy it again if you want.' : 'Já tens este produto na tua biblioteca. Podes comprar novamente se quiseres.'}
                                     </p>
                                   )}
                                 </div>
-                                <button onClick={() => updateQty(item.id, 0)} className="text-gray-400 hover:text-red-500 transition-colors p-1">
-                                  <span className="sr-only">Remover</span>
+                                <button onClick={() => updateQty(item.cartKey, 0)} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-gray-400 transition-colors hover:bg-red-50 hover:text-red-500">
+                                  <span className="sr-only">{isEn ? 'Remove' : 'Remover'}</span>
                                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                                 </button>
                               </div>
-                              <div className="flex items-center gap-3 mt-2">
-                                <div className="flex items-center gap-3 bg-white border border-gray-200 rounded-lg p-1">
-                                  <button onClick={() => updateQty(item.id, item.qty - 1)} className="w-6 h-6 flex items-center justify-center text-gray-500 hover:bg-gray-100 rounded-md transition-colors">-</button>
-                                  <span className="text-sm font-bold w-4 text-center">{item.qty}</span>
-                                  <button onClick={() => updateQty(item.id, item.qty + 1)} className="w-6 h-6 flex items-center justify-center text-gray-500 hover:bg-gray-100 rounded-md transition-colors">+</button>
+                              <div className="flex items-center gap-3">
+                                <div className="flex h-11 items-center gap-1 rounded-xl border border-gray-200 bg-gray-50 p-1">
+                                  <button onClick={() => updateQty(item.cartKey, item.qty - 1)} className="flex h-9 w-9 items-center justify-center rounded-lg text-lg font-bold text-gray-600 transition-colors hover:bg-white">-</button>
+                                  <span className="w-7 text-center text-sm font-black text-gray-900">{item.qty}</span>
+                                  <button onClick={() => updateQty(item.cartKey, item.qty + 1)} className="flex h-9 w-9 items-center justify-center rounded-lg text-lg font-bold text-gray-600 transition-colors hover:bg-white">+</button>
                                 </div>
-                                <div className="text-xs text-gray-400 ml-auto hidden sm:block">
-                                  {formatVatDisplay(getVatBreakdown(item.price, getVatRate(item)).vat, formatPrice)} {isEn ? 'VAT included' : 'IVA incluído'}
+                                <div className="ml-auto text-right">
+                                  <p className="text-sm font-black text-gray-900">{formatPrice(item.total)}</p>
+                                  <p className="hidden text-xs text-gray-400 sm:block">
+                                    {formatVatDisplay(getVatBreakdown(item.price, getVatRate(item)).vat, formatPrice)} {isEn ? 'VAT included' : 'IVA incluído'}
+                                  </p>
                                 </div>
                               </div>
                             </div>
@@ -988,7 +1034,7 @@ export default function CheckoutPage() {
                 </div>
 
                 {/* Member Upsell - Only if not member */}
-                {!isMemberActive && baseSubtotal > 0 && (
+                {!isMemberActive && potentialMemberSavings > 0 && (
                   <div className="px-6 py-4 bg-garabandal-gold/10 border-b border-garabandal-gold/20 flex flex-col gap-3">
                     <div className="flex items-start gap-3">
                       <div className="p-1.5 bg-garabandal-gold rounded-full text-white mt-0.5">
@@ -996,7 +1042,7 @@ export default function CheckoutPage() {
                       </div>
                       <div>
                         <p className="text-sm font-bold text-garabandal-dark">{isEn ? 'If you were a member...' : 'Se fosses Membro...'}</p>
-                        <p className="text-xs text-gray-600">{isEn ? <>You would save <span className="font-bold text-green-600">{formatPrice(baseSubtotal * MEMBER_DISCOUNT_RATE)}</span> on this purchase!</> : <>Poupavas <span className="font-bold text-green-600">{formatPrice(baseSubtotal * MEMBER_DISCOUNT_RATE)}</span> nesta compra!</>}</p>
+                        <p className="text-xs text-gray-600">{isEn ? <>You would save <span className="font-bold text-green-600">{formatPrice(potentialMemberSavings)}</span> on this purchase!</> : <>Poupavas <span className="font-bold text-green-600">{formatPrice(potentialMemberSavings)}</span> nesta compra!</>}</p>
                       </div>
                     </div>
                     <Link href={isEn ? '/en/become-member' : '/tornar-membro'} target="_blank" className="text-center text-xs font-bold uppercase tracking-wider text-garabandal-dark border border-garabandal-dark/20 rounded-lg py-2 hover:bg-white transition-colors">
@@ -1012,10 +1058,16 @@ export default function CheckoutPage() {
                       <span>{isEn ? 'Subtotal' : 'Subtotal'}</span>
                       <span className="font-medium text-gray-900">{formatPrice(baseSubtotal)}</span>
                     </div>
-                    {isMemberActive && discountValue > 0 && (
+                    {promoDiscountValue > 0 && (
+                      <div className="flex justify-between text-emerald-600">
+                        <span>{isEn ? 'Garabandal books special (-15%)' : 'Especial livros Garabandal (-15%)'}</span>
+                        <span className="font-bold">-{formatPrice(promoDiscountValue)}</span>
+                      </div>
+                    )}
+                    {isMemberActive && memberDiscountValue > 0 && (
                       <div className="flex justify-between text-green-600">
                         <span>{isEn ? 'Member Discount (5%)' : 'Desconto de Membro (5%)'}</span>
-                        <span className="font-bold">-{formatPrice(discountValue)}</span>
+                        <span className="font-bold">-{formatPrice(memberDiscountValue)}</span>
                       </div>
                     )}
                     <div className="flex justify-between text-gray-600">
@@ -1102,6 +1154,40 @@ export default function CheckoutPage() {
           </div>
         </div >
       </main >
+
+      {cartEntries.length > 0 && (
+        <div className="fixed inset-x-0 bottom-0 z-[10000] border-t border-gray-200 bg-white/95 px-4 pb-[max(0.85rem,env(safe-area-inset-bottom))] pt-3 shadow-[0_-12px_30px_-18px_rgba(15,23,42,0.45)] backdrop-blur lg:hidden">
+          <div className="mx-auto flex max-w-xl items-center gap-3">
+            {step > 1 && (
+              <button
+                type="button"
+                onClick={previousStep}
+                className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-600 shadow-sm"
+                aria-label={isEn ? 'Back' : 'Voltar'}
+              >
+                <ArrowLeft className="h-5 w-5" />
+              </button>
+            )}
+            <div className="min-w-0 flex-1">
+              <p className="text-[11px] font-bold uppercase tracking-wide text-gray-400">{isEn ? 'Total' : 'Total'}</p>
+              <p className="truncate text-lg font-black text-garabandal-dark">{formatPrice(totalToPay)}</p>
+            </div>
+            <button
+              type="button"
+              onClick={step === 3 ? handleCheckout : nextStep}
+              disabled={loading}
+              className="flex h-12 min-w-[150px] items-center justify-center gap-2 rounded-xl bg-garabandal-gold px-4 text-sm font-black text-garabandal-dark shadow-lg shadow-garabandal-gold/20 transition-all active:scale-[0.98] disabled:opacity-70"
+            >
+              {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : (
+                <>
+                  <span>{step === 3 ? (isEn ? 'Pay now' : 'Pagar agora') : (isEn ? 'Continue' : 'Continuar')}</span>
+                  {step !== 3 && <ChevronRight className="h-4 w-4" />}
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      )}
     </div >
   );
 }
