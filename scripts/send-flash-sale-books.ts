@@ -128,7 +128,7 @@ async function main() {
       segment_slug: 'newsletter-subscribers',
       subject: 'Só hoje: 15% nos livros de Garabandal',
       template_key: TEMPLATE_KEY,
-      status: 'sending',
+      status: 'active',
       metrics: { planned: audience.length, skipped_rate_limited: skippedRate, promo_id: STORE_BOOK_PROMO.id },
     })
     .select('id')
@@ -208,7 +208,7 @@ async function main() {
     await supabase
       .from('marketing_campaigns')
       .update({
-        status: 'sent',
+        status: 'completed',
         metrics: { planned: audience.length, sent, failed, skipped_rate_limited: skippedRate, duration_s: Math.round((Date.now() - startedAt) / 1000), promo_id: STORE_BOOK_PROMO.id },
         updated_at: new Date().toISOString(),
       })
