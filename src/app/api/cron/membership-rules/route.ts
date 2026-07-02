@@ -109,7 +109,7 @@ export async function GET(request: Request) {
         try {
             let sent = false;
 
-            const memberLocale = inferLanguage(member.country ?? null);
+            const memberLocale = inferLanguage(member.country ?? null) === 'en' ? 'en' : 'pt';
 
             if (notificationType === 'membership_revoked') {
                 sent = await sendMembershipRevokedEmail({

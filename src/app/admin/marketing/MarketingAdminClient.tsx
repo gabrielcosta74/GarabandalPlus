@@ -1,15 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import { supabaseBrowser } from '../../../lib/supabase-browser';
 import {
-  ArrowUpRight,
   CheckCircle,
   Database,
   Eye,
-  Filter,
   Mail,
   PauseCircle,
   PlayCircle,
@@ -20,15 +17,34 @@ import {
   Users,
   Activity,
   Zap,
-  MoreVertical,
   Calendar,
   Layers,
   ChevronRight,
-  BarChart2
+  BarChart2,
+  Heart,
+  Plane,
+  ShoppingBag,
+  Share2,
+  Sparkles,
+  UserPlus
 } from 'lucide-react';
 import { toast, Toaster } from 'sonner';
 
-type View = 'overview' | 'flow' | 'contacts' | 'segments' | 'campaigns' | 'funnels' | 'scheduled' | 'outbox' | 'templates' | 'tasks' | 'analytics';
+type View = 'overview' | 'flow' | 'contacts' | 'newsletter' | 'funnels' | 'scheduled' | 'outbox' | 'templates';
+
+// Metadados das categorias de emails de marketing — ordem por jornada do contacto,
+// rótulos em PT-BR, ícone, cor e descrição do fluxo. Usado para agrupar a página de templates.
+const CATEGORY_META: Record<string, { label: string; icon: any; color: string; bg: string; flow: string; order: number }> = {
+  'Peregrinações': { label: 'Peregrinações', icon: Plane, color: 'text-sky-600', bg: 'bg-sky-50', order: 1, flow: 'Da curiosidade à inscrição: roteiro, testemunhos, dúvidas, recuperação de inscrição e lista de espera.' },
+  'Doações': { label: 'Doações', icon: Heart, color: 'text-rose-600', bg: 'bg-rose-50', order: 2, flow: 'Agradecer quem doou e mostrar o impacto real da contribuição.' },
+  'Membros': { label: 'Membros', icon: UserPlus, color: 'text-amber-600', bg: 'bg-amber-50', order: 3, flow: 'Convidar leads e doadores a se tornarem membros e renovar quem já é.' },
+  'Vida Espiritual': { label: 'Vida Espiritual', icon: Sparkles, color: 'text-violet-600', bg: 'bg-violet-50', order: 4, flow: 'Acompanhar o membro na oração: acolhimento, intenções, novenas e formação.' },
+  'Indicações': { label: 'Indicações', icon: Share2, color: 'text-emerald-600', bg: 'bg-emerald-50', order: 5, flow: 'Estimular membros a convidar pessoas — cada indicação confirmada dá saldo aos dois.' },
+  'Loja': { label: 'Loja', icon: ShoppingBag, color: 'text-indigo-600', bg: 'bg-indigo-50', order: 6, flow: 'Recomendar livros oficiais para aprofundar a mensagem de Garabandal.' },
+};
+
+const getCategoryMeta = (cat: string) =>
+  CATEGORY_META[cat] || { label: cat || 'Outros', icon: Mail, color: 'text-slate-600', bg: 'bg-slate-50', order: 99, flow: '' };
 
 type MarketingAdminClientProps = {
   view: View;
@@ -90,59 +106,14 @@ async function api(path: string, init?: RequestInit) {
   return body;
 }
 
-function StatCard({ label, value, icon: Icon, trend, color = 'blue' }: { label: string; value: string | number; icon: any; trend?: string; color?: 'blue' | 'emerald' | 'amber' | 'purple' }) {
-  const bgColors = {
-    blue: 'from-blue-500/10 to-transparent text-blue-600 ring-blue-500/20',
-    emerald: 'from-emerald-500/10 to-transparent text-emerald-600 ring-emerald-500/20',
-    amber: 'from-amber-500/10 to-transparent text-amber-600 ring-amber-500/20',
-    purple: 'from-purple-500/10 to-transparent text-purple-600 ring-purple-500/20',
-  };
-
-  return (
-    <motion.div
-      whileHover={{ y: -4, scale: 1.02 }}
-      className="relative overflow-hidden rounded-3xl border border-slate-200/50 bg-white p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] transition-all"
-    >
-      <div className={`absolute -right-10 -top-10 h-40 w-40 rounded-full bg-gradient-to-br blur-3xl opacity-60 ${bgColors[color].split(' ')[0]}`} />
-
-      <div className="relative z-10 flex items-start justify-between">
-        <div>
-          <span className="text-xs font-bold uppercase tracking-widest text-slate-400">{label}</span>
-          <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-4xl font-black tracking-tighter text-slate-900">{value}</span>
-            {trend && <span className={`text-xs font-bold ${color === 'emerald' ? 'text-emerald-500' : 'text-blue-500'}`}>{trend}</span>}
-          </div>
-        </div>
-        <div className={`flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br ring-1 shadow-sm ${bgColors[color]}`}>
-          <Icon className="h-5 w-5" />
-        </div>
-      </div>
-    </motion.div>
-  );
-}
-
 function ScoreBadge({ score }: { score: number }) {
-  const isHot = score >= 80;
-  const isWarm = score >= 50;
-
-  if (isHot) {
-    return (
-      <span className="relative inline-flex items-center justify-center gap-1.5 rounded-full bg-emerald-500 px-3 py-1 text-xs font-black text-white shadow-[0_0_15px_rgba(16,185,129,0.4)]">
-        <span className="absolute -right-1 -top-1 flex h-3 w-3">
-          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
-          <span className="relative inline-flex h-3 w-3 rounded-full bg-emerald-300"></span>
-        </span>
-        <Zap className="h-3 w-3" fill="currentColor" />
-        {score}
-      </span>
-    );
-  }
-
-  return (
-    <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-black ring-1 ${isWarm ? 'bg-amber-50 text-amber-700 ring-amber-200' : 'bg-slate-50 text-slate-600 ring-slate-200'}`}>
-      {score}
-    </span>
-  );
+  const tone =
+    score >= 80
+      ? 'bg-emerald-50 text-emerald-700 ring-emerald-200'
+      : score >= 50
+        ? 'bg-amber-50 text-amber-700 ring-amber-200'
+        : 'bg-slate-50 text-slate-600 ring-slate-200';
+  return <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ring-1 ${tone}`}>{score}</span>;
 }
 
 function StatusPill({ label, tone = 'slate' }: { label: string; tone?: string }) {
@@ -154,20 +125,18 @@ function StatusPill({ label, tone = 'slate' }: { label: string; tone?: string })
     red: 'bg-red-50 text-red-700 ring-red-200',
     slate: 'bg-slate-50 text-slate-600 ring-slate-200',
   };
-  return <span className={`inline-flex items-center rounded-full px-3 py-1 text-[11px] font-black uppercase tracking-wider ring-1 shadow-sm ${colors[tone] || colors.slate}`}>{label}</span>;
+  return <span className={`inline-flex items-center rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-wider ring-1 shadow-sm ${colors[tone] || colors.slate}`}>{label}</span>;
 }
 
 const platformNav: Array<{ view: View; label: string; href: string; icon: any }> = [
   { view: 'overview', label: 'Dashboard', href: '/admin/marketing', icon: BarChart2 },
   { view: 'flow', label: 'Fluxo & Previews', href: '/admin/marketing/flow', icon: Activity },
-  { view: 'contacts', label: 'CRM / Audiência', href: '/admin/marketing/contacts', icon: Users },
-  { view: 'segments', label: 'Segmentos', href: '/admin/marketing/segments', icon: Layers },
+  { view: 'contacts', label: 'Contactos', href: '/admin/marketing/contacts', icon: Users },
+  { view: 'newsletter', label: 'Newsletter', href: '/admin/marketing/newsletter', icon: Mail },
   { view: 'funnels', label: 'Automações', href: '/admin/marketing/funnels', icon: Zap },
-  { view: 'campaigns', label: 'Campanhas', href: '/admin/marketing/campaigns', icon: Send },
-  { view: 'scheduled', label: 'Agenda', href: '/admin/marketing/scheduled', icon: Calendar },
+  { view: 'scheduled', label: 'Próximos Envios', href: '/admin/marketing/scheduled', icon: Calendar },
   { view: 'outbox', label: 'Enviados', href: '/admin/marketing/outbox', icon: Mail },
   { view: 'templates', label: 'Templates', href: '/admin/marketing/templates', icon: Eye },
-  { view: 'tasks', label: 'Tarefas', href: '/admin/marketing/tasks', icon: CheckCircle },
 ];
 
 const campaignTemplateOptions = [
@@ -265,6 +234,13 @@ const marketingFlowPlan = [
 
 const waitlistNurtureSteps = [
   {
+    delay: 'Dia 0',
+    title: 'Boas-vindas',
+    templateKey: 'waitlist_welcome',
+    purpose: 'Confirmar a entrada na lista de espera e explicar o que acontece a seguir.',
+    guardrail: 'Sem promessa de vaga; expectativa honesta de espera.',
+  },
+  {
     delay: 'Dia 3',
     title: 'Valor espiritual',
     templateKey: 'waitlist_garabandal_story',
@@ -292,13 +268,6 @@ const waitlistNurtureSteps = [
     purpose: 'Convidar a pessoa a pertencer ao Apostolado antes mesmo da peregrinação.',
     guardrail: 'Só se ainda não reservou e ainda não é membro.',
   },
-  {
-    delay: 'Dia 35',
-    title: 'Follow-up manual',
-    templateKey: 'waitlist_manual_follow_up',
-    purpose: 'Criar tarefa para contacto humano quando ainda há interesse e nenhuma reserva.',
-    guardrail: 'Tarefa interna; não envia email automático.',
-  },
 ];
 
 const segmentOptions = [
@@ -310,8 +279,11 @@ const segmentOptions = [
   { slug: 'donors-not-members', label: 'Doadores que não são membros' },
   { slug: 'new-members', label: 'Novos membros' },
   { slug: 'members-without-referrals', label: 'Membros sem convites' },
-  { slug: 'expired-pending-members', label: 'Membros expirados/pendentes' },
+  { slug: 'expired-members', label: 'Membros expirados (renovação)' },
   { slug: 'high-value-supporters', label: 'Apoiantes de alto valor' },
+  { slug: 'newsletter-subscribers', label: 'Newsletter — todos' },
+  { slug: 'newsletter-pt', label: 'Newsletter — Português' },
+  { slug: 'newsletter-en', label: 'Newsletter — Inglês' },
 ];
 
 export default function MarketingAdminClient({ view: initialView }: MarketingAdminClientProps) {
@@ -325,13 +297,6 @@ export default function MarketingAdminClient({ view: initialView }: MarketingAdm
   const [scheduleBucket, setScheduleBucket] = useState('all');
   const [outboxStatus, setOutboxStatus] = useState('all');
   const [outboxSearch, setOutboxSearch] = useState('');
-  const [campaignForm, setCampaignForm] = useState({
-    name: '',
-    segment_slug: 'hot-pilgrimage-leads',
-    template_key: 'brochure_followup_1',
-    subject: '',
-    body: '',
-  });
   const [previewTemplate, setPreviewTemplate] = useState<any>(null);
   const [previewLanguage, setPreviewLanguage] = useState<'pt' | 'en'>('pt');
   const [previewLoading, setPreviewLoading] = useState(false);
@@ -355,7 +320,7 @@ export default function MarketingAdminClient({ view: initialView }: MarketingAdm
 
     try {
       const endpoint =
-        view === 'overview' || view === 'analytics'
+        view === 'overview'
           ? '/api/admin/marketing/overview'
           : view === 'contacts'
             ? `/api/admin/marketing/contacts?${new URLSearchParams({ ...(search ? { search } : {}), ...(segment ? { segment } : {}) }).toString()}`
@@ -410,27 +375,6 @@ export default function MarketingAdminClient({ view: initialView }: MarketingAdm
     } catch (error: any) {
       toast.error(error?.message || 'Erro ao sincronizar.');
     }
-  };
-
-  const createCampaign = async () => {
-    try {
-      await api('/api/admin/marketing/campaigns', {
-        method: 'POST',
-        body: JSON.stringify(campaignForm),
-      });
-      setCampaignForm({ name: '', segment_slug: 'hot-pilgrimage-leads', template_key: 'brochure_followup_1', subject: '', body: '' });
-      toast.success('Campanha criada com sucesso!');
-      await load(true);
-    } catch (error: any) {
-      toast.error(error?.message || 'Erro ao criar campanha.');
-    }
-  };
-
-  const updateTask = async (id: string, status: string) => {
-    try {
-      await api('/api/admin/marketing/tasks', { method: 'PATCH', body: JSON.stringify({ id, status }) });
-      await load(true);
-    } catch (error: any) { toast.error(error?.message || 'Erro ao atualizar tarefa.'); }
   };
 
   const updateFunnel = async (funnel: any, status: string) => {
@@ -499,24 +443,12 @@ export default function MarketingAdminClient({ view: initialView }: MarketingAdm
     }
   };
 
-  const sendDryRun = async (campaignId: string) => {
-    try {
-      const result = await api(`/api/admin/marketing/campaigns/${campaignId}/send`, {
-        method: 'POST',
-        body: JSON.stringify({ dryRun: true }),
-      });
-      toast.success(`${result.eligible} contactos elegíveis.`);
-    } catch (error: any) {
-      toast.error(error?.message || 'Erro ao testar envio.');
-    }
-  };
-
-  const renderPreviewPanel = (emptyCopy = 'Escolhe um template na lista para ver como o email é enviado.') => (
-    <aside className="sticky top-6 h-fit rounded-[2rem] border border-slate-200/60 bg-white p-6 shadow-xl shadow-slate-200/40">
+  const renderPreviewPanel = (emptyCopy = 'Escolha um modelo na lista para ver como o email é enviado.') => (
+    <aside className="sticky top-6 h-fit rounded-xl border border-slate-200/60 bg-white p-6 shadow-sm">
       <div className="flex items-start justify-between gap-4 border-b border-slate-100 pb-4">
         <div>
-          <h3 className="text-xl font-black text-slate-900">Pré-visualização</h3>
-          <p className="mt-1 text-sm font-medium text-slate-500">Render real do backend, com dados de exemplo.</p>
+          <h3 className="text-xl font-semibold text-slate-900">Prévia do Email</h3>
+          <p className="mt-1 text-sm font-medium text-slate-500">Exatamente como o contacto vai receber, com dados de exemplo.</p>
         </div>
         <select
           value={previewLanguage}
@@ -533,17 +465,17 @@ export default function MarketingAdminClient({ view: initialView }: MarketingAdm
       </div>
 
       {previewLoading && (
-        <div className="mt-6 flex h-[600px] flex-col items-center justify-center rounded-2xl bg-slate-50/50">
+        <div className="mt-6 flex h-[600px] flex-col items-center justify-center rounded-lg bg-slate-50/50">
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-blue-600"></div>
-          <p className="mt-4 font-bold text-slate-500">A renderizar HTML...</p>
+          <p className="mt-4 font-bold text-slate-500">A gerar prévia...</p>
         </div>
       )}
 
       {!previewLoading && previewTemplate && (
         <div className="mt-6 space-y-4">
           <div className="rounded-xl border border-slate-200/60 bg-white p-4 shadow-sm">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Assunto Resolvido</p>
-            <p className="mt-1 font-black text-slate-900">{previewTemplate.subject}</p>
+            <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Assunto do Email</p>
+            <p className="mt-1 font-semibold text-slate-900">{previewTemplate.subject}</p>
           </div>
           <div className="overflow-hidden rounded-xl border border-slate-200/60 bg-white shadow-sm ring-4 ring-slate-50">
             <iframe title="Email preview" srcDoc={previewTemplate.html} className="h-[600px] w-full bg-white" />
@@ -552,7 +484,7 @@ export default function MarketingAdminClient({ view: initialView }: MarketingAdm
       )}
 
       {!previewLoading && !previewTemplate && (
-        <div className="mt-6 flex h-[600px] flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-slate-50/50 px-8">
+        <div className="mt-6 flex h-[600px] flex-col items-center justify-center rounded-lg border border-dashed border-slate-300 bg-slate-50/50 px-8">
           <Eye className="h-10 w-10 text-slate-300" />
           <p className="mt-4 text-center text-sm font-medium text-slate-500">{emptyCopy}</p>
         </div>
@@ -561,211 +493,200 @@ export default function MarketingAdminClient({ view: initialView }: MarketingAdm
   );
 
   return (
-    <div className="min-h-screen bg-slate-50 font-sans text-slate-900 px-6 pb-12">
+    <div className="min-h-screen bg-slate-50 text-slate-900">
       <Toaster richColors position="top-center" />
 
-      <div className="flex min-h-[calc(100vh-4rem)] flex-col lg:flex-row lg:gap-8 pt-6">
-
-        {/* Dynamic Sidebar Navigation */}
-        <aside className="mb-8 w-full shrink-0 lg:mb-0 lg:w-64">
-          <div className="sticky top-6 rounded-3xl bg-slate-900 p-4 shadow-2xl shadow-slate-900/20">
-            <div className="mb-6 px-4 pt-2">
-              <a href="/admin/dashboard" className="mb-6 flex w-fit items-center gap-2 rounded-lg bg-white/10 px-3 py-1.5 text-xs font-bold text-slate-300 transition-colors hover:bg-white/20 hover:text-white">
-                <ChevronRight className="h-3 w-3 rotate-180" />
-                Voltar ao Admin
+      {/* Topbar simples: título, navegação por separadores e duas ações */}
+      <header className="border-b border-slate-200 bg-white">
+        <div className="mx-auto max-w-7xl px-6 pt-5">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <a href="/admin/dashboard" className="flex items-center gap-1 text-sm font-medium text-slate-500 transition-colors hover:text-slate-900">
+                <ChevronRight className="h-4 w-4 rotate-180" />
+                Admin
               </a>
-              <h1 className="text-xl font-black tracking-tight text-white">Centro de Comando</h1>
-              <p className="mt-1 text-xs font-medium text-slate-400">Garabandal Growth Engine</p>
+              <span className="text-slate-300">/</span>
+              <h1 className="text-lg font-semibold tracking-tight">Marketing</h1>
+              {isFetching && !loading && <RefreshCw className="h-4 w-4 animate-spin text-slate-400" />}
             </div>
 
-            <nav className="flex flex-col gap-1">
-              {platformNav.map((item) => {
-                const Icon = item.icon;
-                const active = item.view === view;
-                return (
-                  <button
-                    key={item.view}
-                    onClick={() => navigateTo(item.view, item.href)}
-                    className={`relative flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm font-bold transition-all ${
-                      active ? 'text-white' : 'text-slate-400 hover:bg-white/5 hover:text-white'
-                    }`}
-                  >
-                    {active && (
-                      <motion.div
-                        layoutId="active-sidebar-tab"
-                        className="absolute inset-0 z-0 rounded-2xl bg-white/10 ring-1 ring-white/20"
-                        transition={{ type: 'spring', bounce: 0.2, duration: 0.6 }}
-                      />
-                    )}
-                    <Icon className="relative z-10 h-5 w-5" />
-                    <span className="relative z-10">{item.label}</span>
-                    {active && <ChevronRight className="relative z-10 ml-auto h-4 w-4 opacity-50" />}
-                  </button>
-                );
-              })}
-            </nav>
-
-            <div className="mt-8 border-t border-white/10 px-4 pt-6 pb-2">
-              <button onClick={syncContacts} className="flex w-full items-center justify-center gap-2 rounded-xl bg-white/5 px-4 py-2.5 text-xs font-bold text-white transition-colors hover:bg-white/10">
-                <Database className="h-3.5 w-3.5" />
-                Sincronizar CRM
-              </button>
-            </div>
-          </div>
-        </aside>
-
-        {/* Main Content Area */}
-        <main className="flex-1 min-w-0">
-
-          {/* Top Actions & Breadcrumb */}
-          <div className="mb-8 flex items-center justify-between">
-            <div>
-              <h2 className="text-3xl font-black tracking-tight text-slate-900">
-                {platformNav.find(n => n.view === view)?.label}
-              </h2>
-              {isFetching && !loading && (
-                <div className="mt-2 flex items-center gap-2 text-xs font-bold text-slate-400">
-                  <RefreshCw className="h-3 w-3 animate-spin" /> Atualizando...
-                </div>
-              )}
-            </div>
-
-            <div className="flex gap-3">
+            <div className="flex items-center gap-2">
               {(view === 'funnels' || view === 'scheduled') && (
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
+                <button
                   onClick={() => prepareAutomations()}
-                  className="inline-flex items-center gap-2 rounded-xl bg-emerald-500 px-5 py-2.5 text-sm font-black text-white shadow-lg shadow-emerald-500/25 transition-colors hover:bg-emerald-600"
+                  className="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-slate-700"
                 >
-                  <PlayCircle className="h-5 w-5" />
-                  Processar Fila
-                </motion.button>
+                  <PlayCircle className="h-4 w-4" />
+                  Processar fila
+                </button>
               )}
-              <button onClick={() => load(false)} className="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white p-2.5 text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900 shadow-sm">
-                <RefreshCw className="h-5 w-5" />
+              <button onClick={syncContacts} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50">
+                <Database className="h-4 w-4" />
+                Sincronizar
+              </button>
+              <button onClick={() => load(false)} title="Atualizar" className="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white p-2 text-slate-500 transition-colors hover:bg-slate-50 hover:text-slate-900">
+                <RefreshCw className="h-4 w-4" />
               </button>
             </div>
           </div>
 
-          <AnimatePresence mode="wait">
+          <nav className="mt-3 flex gap-1 overflow-x-auto">
+            {platformNav.map((item) => {
+              const active = item.view === view;
+              return (
+                <button
+                  key={item.view}
+                  onClick={() => navigateTo(item.view, item.href)}
+                  className={`whitespace-nowrap border-b-2 px-3 py-2.5 text-sm font-medium transition-colors ${
+                    active
+                      ? 'border-slate-900 text-slate-900'
+                      : 'border-transparent text-slate-500 hover:border-slate-200 hover:text-slate-900'
+                  }`}
+                >
+                  {item.label}
+                </button>
+              );
+            })}
+          </nav>
+        </div>
+      </header>
+
+      <main className="mx-auto max-w-7xl px-6 py-8">
+          <>
             {loading && (
-              <motion.div key="loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex h-64 items-center justify-center rounded-3xl border border-slate-200/50 bg-white/50 backdrop-blur-md">
-                <div className="flex flex-col items-center gap-4">
-                  <div className="h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-slate-900" />
-                  <p className="text-sm font-bold text-slate-500">A processar dados...</p>
+              <div key="loading" className="flex h-64 items-center justify-center">
+                <div className="flex flex-col items-center gap-3">
+                  <div className="h-8 w-8 animate-spin rounded-full border-2 border-slate-200 border-t-slate-900" />
+                  <p className="text-sm text-slate-500">A carregar…</p>
                 </div>
-              </motion.div>
+              </div>
             )}
 
-            {/* OVERVIEW BENTO GRID */}
-            {!loading && (view === 'overview' || view === 'analytics') && data && (
-              <motion.div
-                key="overview"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                transition={{ duration: 0.3, ease: 'easeOut' }}
-                className="space-y-8"
-              >
-                <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
-                  <StatCard label="Total CRM" value={data.stats.total_contacts} icon={Users} color="blue" trend="+12 hoje" />
-                  <StatCard label="Inscritos Mailing" value={data.stats.marketable_contacts} icon={Mail} color="purple" />
-                  <StatCard label="Leads Quentes" value={data.stats.hot_pilgrimage_leads} icon={Zap} color="emerald" trend="Alta conversão" />
-                  <StatCard label="Valor Total" value={formatCurrency(data.stats.total_value)} icon={BarChart2} color="amber" />
+            {/* OVERVIEW */}
+            {!loading && view === 'overview' && data && (
+              <div key="overview" className="space-y-6">
+                {/* Números essenciais, sem decoração */}
+                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+                  {[
+                    ['Contactos', data.stats.total_contacts],
+                    ['Contactáveis', data.stats.marketable_contacts],
+                    ['Newsletter', data.segmentCounts?.['newsletter-subscribers'] || 0],
+                    ['Automações ativas', (data.funnels || []).filter((f: any) => f.status === 'active').length],
+                    ['Valor total', formatCurrency(data.stats.total_value)],
+                  ].map(([label, value]) => (
+                    <div key={String(label)} className="rounded-xl border border-slate-200 bg-white p-5">
+                      <p className="text-xs font-medium uppercase tracking-wide text-slate-400">{label}</p>
+                      <p className="mt-2 text-2xl font-semibold text-slate-900">{value}</p>
+                    </div>
+                  ))}
                 </div>
 
-                <div className="grid gap-8 xl:grid-cols-3">
-                  <div className="xl:col-span-2 space-y-8">
-                    {/* Hot Leads Bento Box */}
-                    <section className="rounded-3xl border border-slate-200/60 bg-white p-8 shadow-sm">
-                      <div className="mb-6 flex items-center justify-between">
-                        <h2 className="text-xl font-black text-slate-900">Leads Focados (Alta Prioridade)</h2>
-                        <button onClick={() => navigateTo('contacts', '/admin/marketing/contacts')} className="text-sm font-bold text-blue-600 hover:text-blue-700">Ver todos</button>
-                      </div>
-                      <div className="grid gap-4 md:grid-cols-2">
-                        {(data.hotLeads || []).slice(0,6).map((contact: any) => (
-                          <div key={contact.id} className="group relative flex items-center justify-between rounded-2xl border border-slate-100 bg-slate-50/50 p-4 transition-all hover:-translate-y-1 hover:bg-white hover:shadow-lg hover:shadow-slate-200/50 hover:border-slate-200">
-                            <div className="flex items-center gap-3">
-                              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 text-sm font-black text-white shadow-sm">
-                                {(contact.display_name || 'C')[0]}
-                              </div>
-                              <div>
-                                <p className="font-bold text-slate-900">{contact.display_name}</p>
-                                <p className="text-xs text-slate-500">{contact.normalized_email || contact.normalized_phone}</p>
-                              </div>
-                            </div>
-                            <ScoreBadge score={contact.lead_score} />
-
-                            <button className="absolute right-4 opacity-0 transition-opacity group-hover:opacity-100 text-slate-400 hover:text-slate-900">
-                              <ArrowUpRight className="h-5 w-5" />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    </section>
+                {(data.failedMessages || []).length > 0 && (
+                  <div className="rounded-xl border border-red-200 bg-red-50 p-4">
+                    <p className="text-sm font-semibold text-red-800">
+                      {(data.failedMessages || []).length} email(s) falharam recentemente.
+                    </p>
+                    <ul className="mt-2 space-y-1 text-xs text-red-700">
+                      {(data.failedMessages || []).slice(0, 3).map((message: any) => (
+                        <li key={message.id} className="truncate">
+                          {message.to_email} — {message.error_message || 'erro desconhecido'}
+                        </li>
+                      ))}
+                    </ul>
+                    <button onClick={() => navigateTo('outbox', '/admin/marketing/outbox')} className="mt-2 text-xs font-semibold text-red-800 underline">
+                      Ver enviados
+                    </button>
                   </div>
+                )}
 
-                  {/* Activity Timeline */}
-                  <section className="rounded-3xl border border-slate-200/60 bg-slate-900 p-8 text-white shadow-lg">
-                    <h2 className="mb-8 text-xl font-black">Sinais Vitais</h2>
-                    <div className="relative space-y-6 before:absolute before:inset-y-0 before:left-[11px] before:w-[2px] before:bg-white/10">
-                      {(data.recentEvents || []).map((event: any, i: number) => (
-                        <div key={`${event.source_table}-${event.source_id}-${event.event_type}`} className="relative flex items-start gap-4">
-                          <div className="relative z-10 mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-900 ring-4 ring-slate-900">
-                            <div className="h-2.5 w-2.5 rounded-full bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.8)]" />
-                          </div>
-                          <div>
-                            <p className="font-bold text-white">{event.title}</p>
-                            <p className="mt-1 text-sm text-slate-400">
-                              <span className="text-slate-200">{event.contact_name}</span> · {formatDateTime(event.occurred_at)}
+                <div className="grid gap-6 lg:grid-cols-3">
+                  {/* Próximos envios — a fila real do cron, mostrada antes de acontecer */}
+                  <section className="rounded-xl border border-slate-200 bg-white p-6 lg:col-span-2">
+                    <div className="mb-4 flex items-center justify-between">
+                      <div>
+                        <h2 className="text-base font-semibold text-slate-900">Próximos envios</h2>
+                        <p className="mt-0.5 text-sm text-slate-500">Quem recebe o quê e quando.</p>
+                      </div>
+                      <button onClick={() => navigateTo('scheduled', '/admin/marketing/scheduled')} className="text-sm font-medium text-slate-500 transition-colors hover:text-slate-900">
+                        Ver tudo →
+                      </button>
+                    </div>
+                    <div className="divide-y divide-slate-100">
+                      {(data.upcoming || []).slice(0, 8).map((item: any) => (
+                        <div key={item.id} className="flex items-center justify-between gap-4 py-2.5">
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-medium text-slate-900">{item.contact_name || item.contact_email || 'Contacto'}</p>
+                            <p className="truncate text-xs text-slate-500">
+                              {item.funnel_name} · passo {item.step_number}/{item.total_steps}
+                              {item.template_key ? ` · ${templateLabelByKey[item.template_key] || item.template_key}` : ''}
                             </p>
                           </div>
+                          <span className="shrink-0 text-xs font-medium text-slate-500">{formatDateTime(item.next_run_at)}</span>
                         </div>
                       ))}
+                      {(data.upcoming || []).length === 0 && (
+                        <p className="py-8 text-center text-sm text-slate-500">Nenhum envio automático na fila.</p>
+                      )}
+                    </div>
+                  </section>
+
+                  {/* Atividade recente, em lista simples */}
+                  <section className="rounded-xl border border-slate-200 bg-white p-6">
+                    <h2 className="mb-4 text-base font-semibold text-slate-900">Atividade recente</h2>
+                    <div className="space-y-3">
+                      {(data.recentEvents || []).slice(0, 8).map((event: any) => (
+                        <div key={`${event.source_table}-${event.source_id}-${event.event_type}`}>
+                          <p className="text-sm font-medium text-slate-900">{event.title}</p>
+                          <p className="text-xs text-slate-500">{event.contact_name} · {formatDateTime(event.occurred_at)}</p>
+                        </div>
+                      ))}
+                      {(data.recentEvents || []).length === 0 && (
+                        <p className="py-4 text-center text-sm text-slate-500">Sem atividade recente.</p>
+                      )}
                     </div>
                   </section>
                 </div>
-              </motion.div>
+              </div>
             )}
 
             {/* CONTACTS / CRM */}
             {!loading && view === 'contacts' && data && (
-              <motion.div
+              <div
                 key="contacts"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                transition={{ duration: 0.3 }}
                 className="space-y-6"
               >
-                <div className="flex flex-col gap-4 rounded-3xl border border-slate-200/60 bg-white p-4 shadow-sm md:flex-row md:items-center">
+                <div className="flex flex-col gap-3 md:flex-row md:items-center">
                   <div className="relative flex-1">
-                    <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
-                    <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Procurar leads, emails..." className="w-full rounded-2xl bg-slate-50 py-3 pl-12 pr-4 text-sm font-medium outline-none transition-all focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500" />
+                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                    <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Procurar nome ou email…" className="w-full rounded-lg border border-slate-200 bg-white py-2.5 pl-10 pr-4 text-sm outline-none transition-colors focus:border-slate-400" />
                   </div>
-                  <div className="relative md:w-72">
-                    <Filter className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
-                    <select value={segment} onChange={(e) => setSegment(e.target.value)} className="w-full appearance-none rounded-2xl bg-slate-50 py-3 pl-12 pr-10 text-sm font-bold text-slate-700 outline-none transition-all focus:bg-white focus:ring-2 focus:ring-blue-500/20">
-                      <option value="">Todos os Segmentos</option>
-                      {Object.entries(data.segmentCounts || {}).map(([slug, count]) => (
-                        <option key={slug} value={slug}>{slug.replace(/-/g, ' ').toUpperCase()} ({String(count)})</option>
-                      ))}
-                    </select>
-                  </div>
+                  <select value={segment} onChange={(e) => setSegment(e.target.value)} className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm font-medium text-slate-700 outline-none transition-colors focus:border-slate-400 md:w-72">
+                    <option value="">Todos os segmentos</option>
+                    {(segmentOptions).map((option) => {
+                      // A API de contactos devolve segmentCounts como array [{slug,count}]
+                      const counts = Array.isArray(data.segmentCounts)
+                        ? data.segmentCounts.find((row: any) => row.slug === option.slug)?.count
+                        : data.segmentCounts?.[option.slug];
+                      return (
+                        <option key={option.slug} value={option.slug}>
+                          {option.label} ({typeof counts === 'number' ? counts : 0})
+                        </option>
+                      );
+                    })}
+                  </select>
                 </div>
 
-                <div className="overflow-hidden rounded-3xl border border-slate-200/60 bg-white shadow-sm">
+                <div className="overflow-hidden rounded-xl border border-slate-200/60 bg-white shadow-sm">
                   <table className="w-full text-left text-sm">
-                    <thead className="bg-slate-50/50 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                    <thead className="bg-slate-50/50 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
                       <tr>
-                        <th className="p-5">Contacto</th>
-                        <th className="p-5">Fase</th>
-                        <th className="p-5">Score</th>
-                        <th className="p-5">Valor</th>
-                        <th className="p-5">Próximo Passo</th>
-                        <th className="p-5">Atividade</th>
-                        <th className="p-5"></th>
+                        <th className="p-4">Contacto</th>
+                        <th className="p-4">Fase</th>
+                        <th className="p-4">Score</th>
+                        <th className="p-4">Valor</th>
+                        <th className="p-4">Recomendação</th>
+                        <th className="p-4">Atividade</th>
+                        <th className="p-4"></th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
@@ -773,26 +694,26 @@ export default function MarketingAdminClient({ view: initialView }: MarketingAdm
                         const initials = (contact.display_name || 'C').split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase();
                         return (
                           <tr key={contact.id} className="group transition-colors hover:bg-slate-50">
-                            <td className="p-5">
-                              <div className="flex items-center gap-4">
-                                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-slate-900 text-sm font-black text-white shadow-sm">
+                            <td className="p-4">
+                              <div className="flex items-center gap-3">
+                                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xs font-semibold text-slate-600">
                                   {initials}
                                 </div>
                                 <div>
-                                  <p className="text-base font-black text-slate-900 group-hover:text-blue-600 transition-colors">{contact.display_name}</p>
-                                  <p className="mt-0.5 text-xs font-medium text-slate-500">{contact.normalized_email || contact.normalized_phone}</p>
+                                  <p className="text-sm font-semibold text-slate-900">{contact.display_name}</p>
+                                  <p className="mt-0.5 text-xs text-slate-500">{contact.normalized_email || contact.normalized_phone}</p>
                                 </div>
                               </div>
                             </td>
-                            <td className="p-5"><StatusPill label={stageLabel(contact.lifecycle_stage)} tone={contact.lifecycle_stage === 'lead' ? 'blue' : 'slate'} /></td>
-                            <td className="p-5"><ScoreBadge score={contact.lead_score} /></td>
-                            <td className="p-5 font-black text-slate-900">{formatCurrency(contact.value_total)}</td>
-                            <td className="p-5"><span className="rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-600">{contact.recommendation || 'Nenhum'}</span></td>
-                            <td className="p-5 text-xs font-medium text-slate-500">{formatDate(contact.latest_activity_at)}</td>
-                            <td className="p-5 text-right">
-                              <button className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white opacity-0 shadow-sm ring-1 ring-slate-200 transition-all group-hover:opacity-100 hover:bg-slate-900 hover:text-white hover:ring-slate-900">
-                                <MoreVertical className="h-4 w-4" />
-                              </button>
+                            <td className="p-4"><StatusPill label={stageLabel(contact.lifecycle_stage)} tone={contact.lifecycle_stage === 'lead' ? 'blue' : 'slate'} /></td>
+                            <td className="p-4"><ScoreBadge score={contact.lead_score} /></td>
+                            <td className="p-4 text-sm font-medium text-slate-900">{formatCurrency(contact.value_total)}</td>
+                            <td className="p-4 text-xs text-slate-500">{contact.recommendation || '—'}</td>
+                            <td className="p-4 text-xs text-slate-500">{formatDate(contact.latest_activity_at)}</td>
+                            <td className="p-4 text-right">
+                              <Link href={`/admin/marketing/contacts/${contact.id}`} className="text-sm font-medium text-slate-500 transition-colors hover:text-slate-900">
+                                Ver
+                              </Link>
                             </td>
                           </tr>
                         );
@@ -804,279 +725,122 @@ export default function MarketingAdminClient({ view: initialView }: MarketingAdm
                       <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-slate-100">
                         <Users className="h-8 w-8 text-slate-300" />
                       </div>
-                      <h3 className="mt-4 text-lg font-black text-slate-900">Nenhum contacto encontrado</h3>
+                      <h3 className="mt-4 text-lg font-semibold text-slate-900">Nenhum contacto encontrado</h3>
                       <p className="mt-2 text-sm text-slate-500">Tenta ajustar os teus filtros de pesquisa.</p>
                     </div>
                   )}
                 </div>
-              </motion.div>
+              </div>
             )}
 
             {/* FUNNELS / AUTOMATIONS */}
             {!loading && view === 'funnels' && data && (
-              <motion.div
+              <div
                 key="funnels"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                transition={{ duration: 0.3 }}
                 className="grid gap-8 lg:grid-cols-2"
               >
                 {(data.funnels || []).map((funnel: any) => (
-                  <div key={funnel.id} className="group relative overflow-hidden rounded-[2rem] bg-white shadow-xl shadow-slate-200/40 ring-1 ring-slate-200/50">
-                    {/* Header */}
-                    <div className="relative p-8">
-                      <div className="absolute inset-0 bg-gradient-to-br from-slate-900 to-slate-800" />
-                      <div className="absolute inset-0 bg-[url('/noise.png')] opacity-20 mix-blend-overlay" />
-
-                      <div className="relative z-10">
-                        <div className="flex items-start justify-between">
-                          <div>
-                            <div className="flex items-center gap-3">
-                              <h3 className="text-2xl font-black text-white tracking-tight">{funnel.name}</h3>
-                              <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-black ${funnel.status === 'active' ? 'bg-emerald-500/20 text-emerald-300 ring-1 ring-emerald-500/50' : 'bg-white/10 text-slate-300 ring-1 ring-white/20'}`}>
-                                {funnel.status === 'active' ? <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" /> : null}
-                                {funnel.status === 'active' ? 'Em execução' : 'Pausado'}
-                              </span>
-                            </div>
-                            <p className="mt-2 text-slate-300 text-sm leading-relaxed max-w-sm">{funnel.description}</p>
+                  <div key={funnel.id} className="rounded-xl border border-slate-200 bg-white">
+                    <div className="border-b border-slate-100 p-6">
+                      <div className="flex items-start justify-between gap-4">
+                        <div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <h3 className="text-base font-semibold text-slate-900">{funnel.name}</h3>
+                            <StatusPill
+                              label={funnel.status === 'active' ? 'Ativo' : funnel.status === 'draft' ? 'Rascunho' : 'Pausado'}
+                              tone={funnel.status === 'active' ? 'emerald' : 'slate'}
+                            />
                           </div>
-
-                          <button onClick={() => updateFunnel(funnel, funnel.status === 'active' ? 'paused' : 'active')} className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl transition-all hover:scale-105 active:scale-95 ${funnel.status === 'active' ? 'bg-white/10 text-white hover:bg-white/20' : 'bg-emerald-500 text-white hover:bg-emerald-400 shadow-lg shadow-emerald-500/30'}`}>
-                            {funnel.status === 'active' ? <PauseCircle className="h-6 w-6" /> : <PlayCircle className="h-6 w-6" />}
-                          </button>
+                          <p className="mt-1.5 text-sm leading-relaxed text-slate-500">{funnel.description}</p>
                         </div>
+                        <button
+                          onClick={() => updateFunnel(funnel, funnel.status === 'active' ? 'paused' : 'active')}
+                          title={funnel.status === 'active' ? 'Pausar' : 'Ativar'}
+                          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition-colors hover:bg-slate-50 hover:text-slate-900"
+                        >
+                          {funnel.status === 'active' ? <PauseCircle className="h-5 w-5" /> : <PlayCircle className="h-5 w-5" />}
+                        </button>
+                      </div>
 
-                        {/* Stats mini-bento */}
-                        <div className="mt-8 grid grid-cols-3 gap-3">
-                          <div className="rounded-2xl bg-black/20 p-4 backdrop-blur-sm">
-                            <p className="text-3xl font-black text-white">{funnel.enrollment_counts?.active || 0}</p>
-                            <p className="mt-1 text-xs font-bold uppercase tracking-widest text-slate-400">Ativos</p>
-                          </div>
-                          <div className="rounded-2xl bg-black/20 p-4 backdrop-blur-sm">
-                            <p className="text-3xl font-black text-white">{funnel.enrollment_counts?.completed || 0}</p>
-                            <p className="mt-1 text-xs font-bold uppercase tracking-widest text-slate-400">Concluídos</p>
-                          </div>
-                          <div className="rounded-2xl bg-black/20 p-4 backdrop-blur-sm">
-                            <p className="text-3xl font-black text-slate-300">{funnel.enrollment_counts?.paused || 0}</p>
-                            <p className="mt-1 text-xs font-bold uppercase tracking-widest text-slate-500">Em Pausa</p>
-                          </div>
-                        </div>
+                      <div className="mt-4 flex gap-6 text-sm">
+                        <span className="text-slate-500"><strong className="font-semibold text-slate-900">{funnel.enrollment_counts?.active || 0}</strong> ativos</span>
+                        <span className="text-slate-500"><strong className="font-semibold text-slate-900">{funnel.enrollment_counts?.completed || 0}</strong> concluídos</span>
+                        <span className="text-slate-500"><strong className="font-semibold text-slate-900">{funnel.enrollment_counts?.paused || 0}</strong> em pausa</span>
                       </div>
                     </div>
 
-                    {/* Pipeline Steps */}
-                    <div className="p-8 pb-4">
-                      <h4 className="mb-6 text-xs font-black uppercase tracking-widest text-slate-400">Sequência do Funil</h4>
-                      <div className="relative before:absolute before:inset-y-0 before:left-5 before:w-0.5 before:bg-slate-100">
+                    <div className="p-6">
+                      <ol className="space-y-3">
                         {(funnel.steps || []).map((step: any, idx: number) => (
-                          <div key={idx} className="relative mb-8 flex items-start gap-6 last:mb-0">
-                            <div className="relative z-10 flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white text-sm font-black text-slate-900 shadow-sm ring-1 ring-slate-200">
+                          <li key={idx} className="flex items-start gap-3">
+                            <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xs font-semibold text-slate-600">
                               {idx + 1}
+                            </span>
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm font-medium text-slate-900">{templateLabelByKey[step.template_key] || step.template_key || 'Passo'}</p>
+                              <p className="mt-0.5 text-xs text-slate-500">
+                                +{step.delay_hours || 0}h
+                                {step.condition ? ` · se: ${step.condition}` : ''}
+                                {step.stop_if ? ` · pára se: ${step.stop_if.join(', ')}` : ''}
+                              </p>
                             </div>
-                            <div className="min-w-0 flex-1 pt-1">
-                              <p className="text-lg font-black text-slate-900">{templateLabelByKey[step.template_key] || step.template_key || step.task_type || 'Passo Genérico'}</p>
-                              <div className="mt-2 flex flex-wrap gap-2">
-                                <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-600">
-                                  <Calendar className="h-3.5 w-3.5" /> +{step.delay_hours || 0}h
-                                </span>
-                                <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-2.5 py-1 text-xs font-bold text-blue-700">
-                                  {step.channel === 'task' ? <CheckCircle className="h-3.5 w-3.5" /> : <Mail className="h-3.5 w-3.5" />}
-                                  {step.channel === 'task' ? 'Tarefa Admin' : 'Email Auto'}
-                                </span>
-                              </div>
-                              {(step.condition || step.stop_if) && (
-                                <div className="mt-3 rounded-xl border border-slate-100 bg-slate-50 p-3 text-xs font-medium text-slate-600">
-                                  {step.condition && <p>Se: <span className="text-slate-900">{step.condition}</span></p>}
-                                  {step.stop_if && <p className="mt-1">Parar se: <span className="text-slate-900">{step.stop_if.join(', ')}</span></p>}
-                                </div>
-                              )}
-                            </div>
-                          </div>
+                          </li>
                         ))}
-                      </div>
+                      </ol>
                     </div>
                   </div>
                 ))}
-              </motion.div>
-            )}
-
-            {/* SEGMENTS */}
-            {!loading && view === 'segments' && data && (
-              <motion.div
-                key="segments"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                transition={{ duration: 0.3 }}
-                className="grid gap-6 md:grid-cols-3"
-              >
-                {(data.segments || []).map((segment: any) => (
-                  <Link key={segment.slug} href={`/admin/marketing/contacts?segment=${segment.slug}`} className="group relative overflow-hidden rounded-[2rem] border border-slate-200/60 bg-white p-8 shadow-sm transition-all hover:-translate-y-1 hover:shadow-xl hover:shadow-slate-200/50 hover:border-slate-300">
-                    <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <p className="text-xl font-black text-slate-900 group-hover:text-blue-600 transition-colors">{segment.name}</p>
-                        <p className="mt-2 text-sm font-medium text-slate-500 leading-relaxed">{segment.description}</p>
-                      </div>
-                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-slate-900 text-lg font-black text-white shadow-lg">
-                        {segment.count}
-                      </div>
-                    </div>
-                  </Link>
-                ))}
-              </motion.div>
-            )}
-
-            {/* CAMPAIGNS */}
-            {!loading && view === 'campaigns' && data && (
-              <motion.div
-                key="campaigns"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                transition={{ duration: 0.3 }}
-                className="grid gap-8 lg:grid-cols-[420px_1fr]"
-              >
-                <section className="rounded-[2rem] border border-slate-200/60 bg-white p-8 shadow-sm h-fit">
-                  <h2 className="mb-6 text-2xl font-black text-slate-900 tracking-tight">Nova Campanha</h2>
-                  <div className="space-y-5">
-                    <div>
-                      <label className="mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-500">Nome Interno</label>
-                      <input value={campaignForm.name} onChange={(e) => setCampaignForm({ ...campaignForm, name: e.target.value })} placeholder="Ex: Aviso retiro Quaresma" className="w-full rounded-xl bg-slate-50 border-transparent focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/20 px-4 py-3 text-sm font-medium transition-all outline-none" />
-                    </div>
-                    <div>
-                      <label className="mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-500">Público Alvo</label>
-                      <select value={campaignForm.segment_slug} onChange={(e) => setCampaignForm({ ...campaignForm, segment_slug: e.target.value })} className="w-full appearance-none rounded-xl bg-slate-50 border-transparent focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/20 px-4 py-3 text-sm font-bold text-slate-700 transition-all outline-none">
-                        {segmentOptions.map((seg) => (
-                          <option key={seg.slug} value={seg.slug}>{seg.label}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-500">Template Base</label>
-                      <select value={campaignForm.template_key} onChange={(e) => setCampaignForm({ ...campaignForm, template_key: e.target.value })} className="w-full appearance-none rounded-xl bg-slate-50 border-transparent focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/20 px-4 py-3 text-sm font-bold text-slate-700 transition-all outline-none">
-                        {campaignTemplateOptions.map((template) => (
-                          <option key={template.key} value={template.key}>{template.label}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-500">Assunto (substitui o do template)</label>
-                      <input value={campaignForm.subject} onChange={(e) => setCampaignForm({ ...campaignForm, subject: e.target.value })} placeholder="Opcional" className="w-full rounded-xl bg-slate-50 border-transparent focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/20 px-4 py-3 text-sm font-medium transition-all outline-none" />
-                    </div>
-                    <div>
-                      <label className="mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-500">Conteúdo Extra (Merg tags suportadas)</label>
-                      <textarea value={campaignForm.body} onChange={(e) => setCampaignForm({ ...campaignForm, body: e.target.value })} placeholder="Opcional: texto extra dentro do template. Pode usar {{name}}, {{recommendation}}, {{app_url}}." rows={5} className="w-full rounded-xl bg-slate-50 border-transparent focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/20 px-4 py-3 text-sm font-medium transition-all outline-none resize-none" />
-                    </div>
-                    <button onClick={createCampaign} className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-3.5 text-sm font-black text-white hover:bg-slate-800 transition-transform active:scale-95 shadow-lg shadow-slate-900/20">
-                      <Mail className="h-5 w-5" />
-                      Criar Campanha e Analisar Público
-                    </button>
-                  </div>
-                </section>
-                <div className="space-y-4">
-                  {(data.campaigns || []).map((campaign: any) => (
-                    <div key={campaign.id} className="group flex flex-col md:flex-row md:items-center justify-between gap-4 rounded-2xl border border-slate-200/60 bg-white p-6 shadow-sm transition-all hover:border-slate-300 hover:shadow-md">
-                      <div>
-                        <div className="flex items-center gap-3">
-                          <h3 className="text-xl font-black text-slate-900">{campaign.name}</h3>
-                          <StatusPill label={campaign.status} tone={campaign.status === 'draft' ? 'slate' : 'blue'} />
-                        </div>
-                        <div className="mt-2 flex flex-wrap items-center gap-2 text-sm font-medium text-slate-500">
-                          <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-600">
-                            <Filter className="h-3.5 w-3.5" />
-                            {campaign.segment_slug || 'Sem segmento'}
-                          </span>
-                          <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-2.5 py-1 text-xs font-bold text-blue-700">
-                            <Eye className="h-3.5 w-3.5" />
-                            {campaign.template_key || 'template'}
-                          </span>
-                        </div>
-                      </div>
-                      <button onClick={() => sendDryRun(campaign.id)} className="inline-flex shrink-0 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 shadow-sm transition-colors hover:bg-slate-50 hover:text-slate-900">
-                        <Send className="h-4 w-4 text-blue-500" />
-                        Testar Público
-                      </button>
-                    </div>
-                  ))}
-                  {(data.campaigns || []).length === 0 && (
-                    <div className="flex h-64 flex-col items-center justify-center rounded-[2rem] border border-dashed border-slate-300 bg-slate-50/50">
-                      <Send className="h-10 w-10 text-slate-300" />
-                      <p className="mt-4 font-bold text-slate-500">Sem campanhas criadas.</p>
-                    </div>
-                  )}
-                </div>
-              </motion.div>
+              </div>
             )}
 
             {/* SCHEDULED */}
             {!loading && view === 'scheduled' && data && (
-              <motion.div
+              <div
                 key="scheduled"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                transition={{ duration: 0.3 }}
                 className="space-y-6"
               >
-                <div className="grid gap-4 md:grid-cols-5">
+                <div className="flex flex-wrap items-center gap-2">
                   {[
-                    ['ready', 'Prontos', 'emerald'],
-                    ['today', 'Hoje', 'blue'],
-                    ['upcoming', 'Programados', 'slate'],
-                    ['blocked', 'Bloqueados', 'amber'],
-                    ['failed', 'Falhados', 'red'],
-                  ].map(([key, label, tone]) => (
+                    ['all', 'Todos'],
+                    ['ready', 'Prontos'],
+                    ['today', 'Hoje'],
+                    ['upcoming', 'Programados'],
+                    ['blocked', 'Bloqueados'],
+                    ['paused', 'Pausados'],
+                    ['failed', 'Falhados'],
+                  ].map(([key, label]) => (
                     <button
                       key={key}
-                      onClick={() => setScheduleBucket(scheduleBucket === key ? 'all' : key)}
-                      className={`group relative overflow-hidden rounded-2xl border p-6 text-left shadow-sm transition-all hover:-translate-y-1 hover:shadow-md ${
-                        scheduleBucket === key ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-200/60 bg-white text-slate-900 hover:border-slate-300'
+                      onClick={() => setScheduleBucket(key)}
+                      className={`rounded-full border px-3 py-1.5 text-sm font-medium transition-colors ${
+                        scheduleBucket === key
+                          ? 'border-slate-900 bg-slate-900 text-white'
+                          : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-900'
                       }`}
                     >
-                      <p className={`text-xs font-black uppercase tracking-wider ${scheduleBucket === key ? 'text-white/60' : 'text-slate-400'}`}>{label}</p>
-                      <p className={`mt-2 text-3xl font-black ${scheduleBucket === key ? 'text-white' : 'text-slate-900'}`}>{data.stats?.[key] || 0}</p>
-                      {scheduleBucket !== key && <div className="mt-3"><StatusPill label={label} tone={tone} /></div>}
-                      {scheduleBucket === key && (
-                         <div className="absolute -right-6 -top-6 h-24 w-24 rounded-full bg-white/5 blur-2xl"></div>
-                      )}
+                      {label}
+                      {key !== 'all' && typeof data.stats?.[key] === 'number' ? ` · ${data.stats[key]}` : ''}
                     </button>
                   ))}
                 </div>
 
-                <div className="flex flex-col gap-4 rounded-2xl border border-slate-200/60 bg-white p-5 shadow-sm md:flex-row md:items-center md:justify-between">
-                  <div>
-                    <h3 className="text-lg font-black tracking-tight text-slate-900">Agenda Operacional</h3>
-                    <p className="mt-1 text-sm font-medium text-slate-500">Próximos passos de cada contacto e ações diretas disponíveis.</p>
-                  </div>
-                  <select value={scheduleBucket} onChange={(e) => setScheduleBucket(e.target.value)} className="appearance-none rounded-xl border-transparent bg-slate-50 px-4 py-2.5 text-sm font-bold text-slate-700 outline-none transition-all focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/20">
-                    <option value="all">Todos os buckets</option>
-                    <option value="ready">Prontos a enviar</option>
-                    <option value="today">Para hoje</option>
-                    <option value="upcoming">Programados (futuro)</option>
-                    <option value="blocked">Bloqueados/Condições</option>
-                    <option value="paused">Pausados manualmente</option>
-                    <option value="failed">Falhados/Erro</option>
-                  </select>
-                </div>
-
                 <div className="space-y-4">
                   {(data.scheduled || []).length === 0 && (
-                    <div className="flex h-48 flex-col items-center justify-center rounded-[2rem] border border-dashed border-slate-300 bg-slate-50/50">
+                    <div className="flex h-48 flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-slate-50/50">
                       <RefreshCw className="h-10 w-10 text-slate-300" />
                       <p className="mt-4 font-bold text-slate-500">A agenda está vazia.</p>
                     </div>
                   )}
                   {(data.scheduled || []).map((item: any) => (
-                    <div key={item.id} className="overflow-hidden rounded-[2rem] border border-slate-200/60 bg-white shadow-sm transition-all hover:border-slate-300 hover:shadow-md">
+                    <div key={item.id} className="overflow-hidden rounded-xl border border-slate-200/60 bg-white shadow-sm transition-all hover:border-slate-300 hover:shadow-md">
                       <div className="flex flex-col gap-5 p-6 lg:flex-row lg:items-center lg:justify-between">
                         <div className="min-w-0">
                           <div className="flex flex-wrap items-center gap-2">
                             <StatusPill label={item.evaluation?.label || item.status} tone={item.evaluation?.tone || 'slate'} />
-                            <h4 className="text-lg font-black text-slate-900">{item.contact?.display_name || item.contact?.normalized_email || 'Contacto'}</h4>
+                            <h4 className="text-lg font-semibold text-slate-900">{item.contact?.display_name || item.contact?.normalized_email || 'Contacto'}</h4>
                             <ScoreBadge score={item.contact?.lead_score || 0} />
                             <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-600 border border-slate-200">{stageLabel(item.contact?.lifecycle_stage)}</span>
-                            <span className="rounded-full bg-blue-50/80 px-2.5 py-1 text-xs font-black text-blue-700 border border-blue-100">{item.contact?.language === 'en' ? 'EN' : 'PT'}</span>
+                            <span className="rounded-full bg-blue-50/80 px-2.5 py-1 text-xs font-semibold text-blue-700 border border-blue-100">{item.contact?.language === 'en' ? 'EN' : 'PT'}</span>
                           </div>
 
                           <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm font-medium">
@@ -1105,7 +869,7 @@ export default function MarketingAdminClient({ view: initialView }: MarketingAdm
                         </div>
 
                         <div className="flex shrink-0 flex-wrap gap-2 lg:flex-col lg:items-end">
-                          <button onClick={() => updateEnrollment(item.id, 'send-now')} className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-bold text-white hover:bg-slate-800 transition-transform active:scale-95">
+                          <button onClick={() => updateEnrollment(item.id, 'send-now')} className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-bold text-white hover:bg-slate-800 transition-colors">
                             <Send className="h-4 w-4" />
                             Forçar Envio
                           </button>
@@ -1133,65 +897,50 @@ export default function MarketingAdminClient({ view: initialView }: MarketingAdm
                       <div className="flex flex-wrap items-center gap-6 border-t border-slate-100 bg-slate-50/50 px-6 py-3 text-xs font-medium text-slate-500">
                         <span><strong className="text-slate-700">Consentimento:</strong> {item.contact?.consent_state || '—'}</span>
                         <span><strong className="text-slate-700">Funil status:</strong> {item.funnel?.status || '—'}</span>
-                        <Link href={`/admin/marketing/contacts/${item.contact_id}`} className="ml-auto font-black text-blue-600 hover:text-blue-700 hover:underline">Perfil Completo &rarr;</Link>
+                        <Link href={`/admin/marketing/contacts/${item.contact_id}`} className="ml-auto font-semibold text-blue-600 hover:text-blue-700 hover:underline">Perfil Completo &rarr;</Link>
                       </div>
                     </div>
                   ))}
                 </div>
-              </motion.div>
+              </div>
             )}
 
             {/* OUTBOX */}
             {!loading && view === 'outbox' && data && (
-              <motion.div
+              <div
                 key="outbox"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                transition={{ duration: 0.3 }}
                 className="space-y-6"
               >
-                <div className="grid gap-4 md:grid-cols-5">
+                <div className="flex flex-wrap items-center gap-2">
                   {[
-                    ['sent', 'Enviados', 'emerald'],
-                    ['failed', 'Falhados', 'red'],
-                    ['skipped', 'Ignorados', 'amber'],
-                    ['test', 'Testes', 'blue'],
-                    ['queued', 'Fila', 'slate'],
-                  ].map(([key, label, tone]) => (
+                    ['all', 'Todos'],
+                    ['sent', 'Enviados'],
+                    ['failed', 'Falhados'],
+                    ['skipped', 'Ignorados'],
+                    ['test', 'Testes'],
+                    ['queued', 'Fila'],
+                  ].map(([key, label]) => (
                     <button
                       key={key}
-                      onClick={() => setOutboxStatus(outboxStatus === key ? 'all' : key)}
-                      className={`group relative overflow-hidden rounded-2xl border p-6 text-left shadow-sm transition-all hover:-translate-y-1 hover:shadow-md ${
-                        outboxStatus === key ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-200/60 bg-white text-slate-900 hover:border-slate-300'
+                      onClick={() => setOutboxStatus(key)}
+                      className={`rounded-full border px-3 py-1.5 text-sm font-medium transition-colors ${
+                        outboxStatus === key
+                          ? 'border-slate-900 bg-slate-900 text-white'
+                          : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-900'
                       }`}
                     >
-                      <p className={`text-xs font-black uppercase tracking-wider ${outboxStatus === key ? 'text-white/60' : 'text-slate-400'}`}>{label}</p>
-                      <p className={`mt-2 text-3xl font-black ${outboxStatus === key ? 'text-white' : 'text-slate-900'}`}>{data.stats?.[key] || 0}</p>
-                      {outboxStatus !== key && <div className="mt-3"><StatusPill label={label} tone={tone} /></div>}
-                      {outboxStatus === key && (
-                         <div className="absolute -right-6 -top-6 h-24 w-24 rounded-full bg-white/5 blur-2xl"></div>
-                      )}
+                      {label}
+                      {key !== 'all' && typeof data.stats?.[key] === 'number' ? ` · ${data.stats[key]}` : ''}
                     </button>
                   ))}
                 </div>
 
-                <div className="flex flex-col gap-4 rounded-2xl border border-slate-200/60 bg-white p-5 shadow-sm md:flex-row md:items-center">
-                  <div className="relative flex-1">
-                    <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
-                    <input value={outboxSearch} onChange={(e) => setOutboxSearch(e.target.value)} placeholder="Pesquisar email, assunto, contacto ou template..." className="w-full appearance-none rounded-xl border-transparent bg-slate-50 py-3 pl-12 pr-4 text-sm font-medium outline-none transition-all focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/20" />
-                  </div>
-                  <select value={outboxStatus} onChange={(e) => setOutboxStatus(e.target.value)} className="appearance-none rounded-xl border-transparent bg-slate-50 px-4 py-3 text-sm font-bold text-slate-700 outline-none transition-all focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/20 md:w-64">
-                    <option value="all">Todos os estados</option>
-                    <option value="sent">Enviados com Sucesso</option>
-                    <option value="failed">Falhados</option>
-                    <option value="skipped">Ignorados (Regras)</option>
-                    <option value="test">Testes Dry-run</option>
-                    <option value="queued">Na Fila</option>
-                  </select>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <input value={outboxSearch} onChange={(e) => setOutboxSearch(e.target.value)} placeholder="Pesquisar email, assunto, contacto ou template…" className="w-full rounded-lg border border-slate-200 bg-white py-2.5 pl-10 pr-4 text-sm outline-none transition-colors focus:border-slate-400" />
                 </div>
 
-                <div className="overflow-hidden rounded-[2rem] border border-slate-200/60 bg-white shadow-sm">
+                <div className="overflow-hidden rounded-xl border border-slate-200/60 bg-white shadow-sm">
                   <table className="w-full text-left text-sm">
                     <thead className="border-b border-slate-100 bg-slate-50/50 text-xs uppercase tracking-wider text-slate-500 font-bold">
                       <tr>
@@ -1206,7 +955,7 @@ export default function MarketingAdminClient({ view: initialView }: MarketingAdm
                       {(data.messages || []).map((message: any) => (
                         <tr key={message.id} className="group transition-colors hover:bg-slate-50/50">
                           <td className="p-4 pl-6 align-top">
-                            <p className="font-black text-slate-900 line-clamp-1">{message.subject || 'Sem assunto'}</p>
+                            <p className="font-semibold text-slate-900 line-clamp-1">{message.subject || 'Sem assunto'}</p>
                             <div className="mt-1 flex items-center gap-2 text-xs font-medium text-slate-500">
                               <span className="flex items-center gap-1"><Eye className="h-3 w-3" /> {message.template_key || 'template'}</span>
                               <span>·</span>
@@ -1215,7 +964,7 @@ export default function MarketingAdminClient({ view: initialView }: MarketingAdm
                             {message.error_message && <p className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-xs font-bold text-red-700 border border-red-100 line-clamp-2">{message.error_message}</p>}
                           </td>
                           <td className="p-4 align-top">
-                            <p className="font-bold text-slate-900">{message.contact?.display_name || '—'} <span className="ml-1 inline-flex rounded bg-blue-50 px-1.5 py-0.5 text-[10px] font-black text-blue-700 border border-blue-100">{message.contact?.language === 'en' ? 'EN' : 'PT'}</span></p>
+                            <p className="font-bold text-slate-900">{message.contact?.display_name || '—'} <span className="ml-1 inline-flex rounded bg-blue-50 px-1.5 py-0.5 text-[10px] font-semibold text-blue-700 border border-blue-100">{message.contact?.language === 'en' ? 'EN' : 'PT'}</span></p>
                             <p className="mt-1 text-xs text-slate-500">{message.contact?.normalized_email || '—'}</p>
                           </td>
                           <td className="p-4 align-top">
@@ -1243,36 +992,32 @@ export default function MarketingAdminClient({ view: initialView }: MarketingAdm
                     </div>
                   )}
                 </div>
-              </motion.div>
+              </div>
             )}
 
             {/* FLOW & PREVIEWS */}
             {!loading && view === 'flow' && data && (
-              <motion.div
+              <div
                 key="flow"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                transition={{ duration: 0.3 }}
                 className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_500px]"
               >
                 <div className="space-y-6">
-                  <section className="rounded-[2rem] border border-slate-200/60 bg-white p-6 shadow-sm">
+                  <section className="rounded-xl border border-slate-200/60 bg-white p-6 shadow-sm">
                     <div className="flex flex-wrap items-start justify-between gap-4">
                       <div>
-                        <p className="text-xs font-black uppercase tracking-widest text-amber-600">Mapa operacional</p>
-                        <h3 className="mt-2 text-2xl font-black tracking-tight text-slate-900">Ordem dos emails, condições e previews</h3>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-amber-600">Mapa operacional</p>
+                        <h3 className="mt-2 text-2xl font-semibold tracking-tight text-slate-900">Ordem dos emails, condições e previews</h3>
                         <p className="mt-2 max-w-3xl text-sm font-medium leading-6 text-slate-500">
                           Esta página mostra o que cada pessoa pode receber, porquê, e que conflitos são travados antes do envio.
                           Os botões PT/EN usam o mesmo renderer que envia os emails reais.
                         </p>
                       </div>
                       <div className="flex flex-wrap gap-2">
-                        <Link href="/admin/emails" className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-sm font-black text-white shadow-sm transition-colors hover:bg-slate-800">
+                        <Link href="/admin/emails" className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-slate-800">
                           <Mail className="h-4 w-4" />
                           Todos os emails
                         </Link>
-                        <Link href="/admin/marketing/templates" className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-black text-slate-700 shadow-sm transition-colors hover:bg-slate-50">
+                        <Link href="/admin/marketing/templates" className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition-colors hover:bg-slate-50">
                           <Eye className="h-4 w-4" />
                           Só marketing
                         </Link>
@@ -1281,39 +1026,39 @@ export default function MarketingAdminClient({ view: initialView }: MarketingAdm
                   </section>
 
                   <div className="grid gap-4 md:grid-cols-3">
-                    <section className="rounded-[1.5rem] border border-emerald-200 bg-emerald-50 p-5">
+                    <section className="rounded-xl border border-emerald-200 bg-emerald-50 p-5">
                       <div className="flex items-center gap-2 text-emerald-700">
                         <CheckCircle className="h-5 w-5" />
-                        <span className="text-xs font-black uppercase tracking-widest">Anti-spam</span>
+                        <span className="text-xs font-semibold uppercase tracking-wide">Anti-spam</span>
                       </div>
-                      <p className="mt-3 text-2xl font-black text-emerald-950">Máx. 1/dia</p>
+                      <p className="mt-3 text-2xl font-semibold text-emerald-950">Máx. 1/dia</p>
                       <p className="mt-1 text-sm font-semibold leading-5 text-emerald-800">24h mínimas entre emails por contacto; teto semanal de 7.</p>
                     </section>
-                    <section className="rounded-[1.5rem] border border-amber-200 bg-amber-50 p-5">
+                    <section className="rounded-xl border border-amber-200 bg-amber-50 p-5">
                       <div className="flex items-center gap-2 text-amber-700">
                         <Target className="h-5 w-5" />
-                        <span className="text-xs font-black uppercase tracking-widest">Relevância</span>
+                        <span className="text-xs font-semibold uppercase tracking-wide">Relevância</span>
                       </div>
-                      <p className="mt-3 text-2xl font-black text-amber-950">Score primeiro</p>
+                      <p className="mt-3 text-2xl font-semibold text-amber-950">Score primeiro</p>
                       <p className="mt-1 text-sm font-semibold leading-5 text-amber-800">A fila prioriza contactos com maior valor/intenção quando há limite de lote.</p>
                     </section>
-                    <section className="rounded-[1.5rem] border border-blue-200 bg-blue-50 p-5">
+                    <section className="rounded-xl border border-blue-200 bg-blue-50 p-5">
                       <div className="flex items-center gap-2 text-blue-700">
                         <PauseCircle className="h-5 w-5" />
-                        <span className="text-xs font-black uppercase tracking-widest">Conflitos</span>
+                        <span className="text-xs font-semibold uppercase tracking-wide">Conflitos</span>
                       </div>
-                      <p className="mt-3 text-2xl font-black text-blue-950">Sem pressão dupla</p>
+                      <p className="mt-3 text-2xl font-semibold text-blue-950">Sem pressão dupla</p>
                       <p className="mt-1 text-sm font-semibold leading-5 text-blue-800">Pedidos são espaçados e emails de valor entram entre convites comerciais.</p>
                     </section>
                   </div>
 
                   <div className="space-y-4">
-                    <section className="overflow-hidden rounded-[2rem] border border-amber-200 bg-white shadow-sm">
+                    <section className="overflow-hidden rounded-xl border border-amber-200 bg-white shadow-sm">
                       <div className="border-b border-amber-100 bg-amber-50 p-6">
                         <div className="flex flex-wrap items-start justify-between gap-4">
                           <div>
-                            <p className="text-xs font-black uppercase tracking-widest text-amber-700">Funil em aprovação</p>
-                            <h3 className="mt-2 text-2xl font-black tracking-tight text-slate-900">Lista de espera: nurture até abrir vaga</h3>
+                            <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">Funil em aprovação</p>
+                            <h3 className="mt-2 text-2xl font-semibold tracking-tight text-slate-900">Lista de espera: nurture até abrir vaga</h3>
                             <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-slate-600">
                               Sequência pensada para pessoas que estão em lista de espera: primeiro valor espiritual, depois livros,
                               depois missão/doação e só no fim convite para membro. O funil fica em <strong>draft</strong> até aprovação.
@@ -1332,13 +1077,13 @@ export default function MarketingAdminClient({ view: initialView }: MarketingAdm
                           return (
                             <div key={step.templateKey} className="grid gap-4 p-5 lg:grid-cols-[88px_minmax(0,1fr)_180px] lg:items-center">
                               <div className="flex items-center gap-3 lg:block">
-                                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-900 text-sm font-black text-white">
+                                <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-slate-900 text-sm font-semibold text-white">
                                   {index + 1}
                                 </div>
-                                <p className="mt-0 text-xs font-black uppercase tracking-widest text-slate-400 lg:mt-2">{step.delay}</p>
+                                <p className="mt-0 text-xs font-semibold uppercase tracking-wide text-slate-400 lg:mt-2">{step.delay}</p>
                               </div>
                               <div>
-                                <h4 className="text-lg font-black text-slate-900">{step.title}</h4>
+                                <h4 className="text-lg font-semibold text-slate-900">{step.title}</h4>
                                 <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">{step.purpose}</p>
                                 <p className="mt-2 rounded-xl bg-slate-50 px-3 py-2 text-xs font-bold text-slate-500">
                                   Guardrail: {step.guardrail}
@@ -1352,14 +1097,14 @@ export default function MarketingAdminClient({ view: initialView }: MarketingAdm
                                   <>
                                     <button
                                       onClick={() => previewEmailTemplate(step.templateKey, 'pt')}
-                                      className="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-3 py-2 text-xs font-black text-white transition-colors hover:bg-slate-800"
+                                      className="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-slate-800"
                                     >
                                       <Eye className="h-3.5 w-3.5" />
                                       PT-BR
                                     </button>
                                     <button
                                       onClick={() => previewEmailTemplate(step.templateKey, 'en')}
-                                      className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700 transition-colors hover:bg-slate-50"
+                                      className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-50"
                                     >
                                       <Eye className="h-3.5 w-3.5" />
                                       EN
@@ -1376,37 +1121,37 @@ export default function MarketingAdminClient({ view: initialView }: MarketingAdm
                     </section>
 
                     {marketingFlowPlan.map((flow, index) => (
-                      <section key={flow.title} className="rounded-[2rem] border border-slate-200/60 bg-white p-6 shadow-sm">
+                      <section key={flow.title} className="rounded-xl border border-slate-200/60 bg-white p-6 shadow-sm">
                         <div className="flex flex-wrap items-start gap-4">
-                          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-slate-900 text-sm font-black text-white">
+                          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-slate-900 text-sm font-semibold text-white">
                             {String(index + 1).padStart(2, '0')}
                           </div>
                           <div className="min-w-0 flex-1">
                             <div className="flex flex-wrap items-start justify-between gap-3">
                               <div>
-                                <h3 className="text-xl font-black tracking-tight text-slate-900">{flow.title}</h3>
+                                <h3 className="text-xl font-semibold tracking-tight text-slate-900">{flow.title}</h3>
                                 <p className="mt-1 text-sm font-bold text-slate-500">{flow.audience}</p>
                               </div>
                               <StatusPill label={index === 0 ? 'crítico' : index === 4 ? 'valor' : 'planeado'} tone={index === 0 ? 'amber' : index === 4 ? 'emerald' : 'blue'} />
                             </div>
 
                             <div className="mt-5 grid gap-4 lg:grid-cols-3">
-                              <div className="rounded-2xl bg-slate-50 p-4">
-                                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Objetivo</p>
+                              <div className="rounded-lg bg-slate-50 p-4">
+                                <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Objetivo</p>
                                 <p className="mt-2 text-sm font-semibold leading-6 text-slate-700">{flow.goal}</p>
                               </div>
-                              <div className="rounded-2xl bg-slate-50 p-4">
-                                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Cadência</p>
+                              <div className="rounded-lg bg-slate-50 p-4">
+                                <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Cadência</p>
                                 <p className="mt-2 text-sm font-semibold leading-6 text-slate-700">{flow.cadence}</p>
                               </div>
-                              <div className="rounded-2xl bg-slate-50 p-4">
-                                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Conflitos tratados</p>
+                              <div className="rounded-lg bg-slate-50 p-4">
+                                <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Conflitos tratados</p>
                                 <p className="mt-2 text-sm font-semibold leading-6 text-slate-700">{flow.conflict}</p>
                               </div>
                             </div>
 
                             <div className="mt-5">
-                              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Condições antes de enviar</p>
+                              <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Condições antes de enviar</p>
                               <div className="mt-2 flex flex-wrap gap-2">
                                 {flow.conditions.map((condition) => (
                                   <span key={condition} className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">
@@ -1416,13 +1161,13 @@ export default function MarketingAdminClient({ view: initialView }: MarketingAdm
                               </div>
                             </div>
 
-                            <div className="mt-5 overflow-hidden rounded-2xl border border-slate-100">
+                            <div className="mt-5 overflow-hidden rounded-lg border border-slate-100">
                               {flow.templates.map((templateKey) => {
                                 const exists = availableTemplateKeys.has(templateKey);
                                 return (
                                   <div key={templateKey} className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 bg-white p-3 last:border-b-0">
                                     <div className="min-w-0">
-                                      <p className="font-black text-slate-900">{templateLabelByKey[templateKey] || templateKey.replace(/_/g, ' ')}</p>
+                                      <p className="font-semibold text-slate-900">{templateLabelByKey[templateKey] || templateKey.replace(/_/g, ' ')}</p>
                                       <div className="mt-1 flex flex-wrap items-center gap-2 text-xs font-bold text-slate-400">
                                         <code className="rounded bg-slate-100 px-1.5 py-0.5 text-[11px] text-slate-500">{templateKey}</code>
                                         <span>{exists ? 'template ativo' : 'a confirmar no backend'}</span>
@@ -1431,14 +1176,14 @@ export default function MarketingAdminClient({ view: initialView }: MarketingAdm
                                     <div className="flex gap-2">
                                       <button
                                         onClick={() => previewEmailTemplate(templateKey, 'pt')}
-                                        className="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-3 py-2 text-xs font-black text-white transition-colors hover:bg-slate-800"
+                                        className="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-slate-800"
                                       >
                                         <Eye className="h-3.5 w-3.5" />
                                         PT
                                       </button>
                                       <button
                                         onClick={() => previewEmailTemplate(templateKey, 'en')}
-                                        className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700 transition-colors hover:bg-slate-50"
+                                        className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-50"
                                       >
                                         <Eye className="h-3.5 w-3.5" />
                                         EN
@@ -1455,163 +1200,225 @@ export default function MarketingAdminClient({ view: initialView }: MarketingAdm
                   </div>
                 </div>
 
-                {renderPreviewPanel('Escolhe um email no fluxo para ver a copy, imagens e CTA em PT ou EN.')}
-              </motion.div>
+                {renderPreviewPanel('Escolha um email no fluxo para ver o texto, imagens e botão em PT ou EN.')}
+              </div>
             )}
 
             {/* TEMPLATES */}
             {!loading && view === 'templates' && data && (
-              <motion.div
+              <div
                 key="templates"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                transition={{ duration: 0.3 }}
                 className="grid gap-8 lg:grid-cols-[1fr_500px]"
               >
                 <div className="h-fit">
-                  <div className="mb-6 flex flex-wrap gap-2">
-                    {(() => {
-                      const cats: string[] = Array.from(
-                        new Set((data.templates || []).map((t: any) => String(t.category || '')).filter(Boolean))
-                      );
-                      return ['all', ...cats].map((cat) => {
-                        const isActive = templateCategory === cat;
-                        const count = cat === 'all'
-                          ? (data.templates || []).length
-                          : (data.templates || []).filter((t: any) => t.category === cat).length;
-                        return (
-                          <button
-                            key={cat}
-                            onClick={() => setTemplateCategory(cat)}
-                            className={`rounded-full px-3.5 py-1.5 text-xs font-bold transition-colors ${isActive ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
-                          >
-                            {cat === 'all' ? 'Todos' : cat} ({count})
-                          </button>
-                        );
-                      });
-                    })()}
-                  </div>
-                  <div className="grid gap-6 md:grid-cols-2">
-                  {(data.templates || [])
-                    .filter((template: any) => templateCategory === 'all' || template.category === templateCategory)
-                    .map((template: any) => (
-                    <section key={template.key} className="group flex flex-col rounded-[2rem] border border-slate-200/60 bg-white p-6 shadow-sm transition-all hover:-translate-y-1 hover:border-slate-300 hover:shadow-md">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex items-center gap-2">
-                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
-                            <Eye className="h-5 w-5" />
+                  {(() => {
+                    const allTemplates = data.templates || [];
+                    // Categorias presentes, ordenadas pela jornada do contacto
+                    const cats: string[] = (Array.from(new Set(allTemplates.map((t: any) => String(t.category || '')).filter(Boolean))) as string[])
+                      .sort((a, b) => getCategoryMeta(a).order - getCategoryMeta(b).order);
+                    const activeCatCount = templateCategory === 'all'
+                      ? allTemplates.length
+                      : allTemplates.filter((t: any) => t.category === templateCategory).length;
+
+                    return (
+                      <>
+                        {/* Cabeçalho + filtros de categoria */}
+                        <div className="mb-6">
+                          <div className="flex flex-wrap items-baseline justify-between gap-2">
+                            <h2 className="text-2xl font-semibold tracking-tight text-slate-900">Modelos de Email</h2>
+                            <span className="text-sm font-bold text-slate-400">{activeCatCount} {activeCatCount === 1 ? 'modelo' : 'modelos'}</span>
                           </div>
-                          <div>
-                            <p className="font-black text-slate-900 line-clamp-1">{template.name}</p>
-                            <span className="inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-600">{template.category}</span>
+                          <p className="mt-1 text-sm font-medium text-slate-500">Todos os emails automáticos, organizados pela jornada do contacto. Clique em qualquer um para ver a prévia real.</p>
+
+                          <div className="mt-5 flex flex-wrap gap-2">
+                            <button
+                              onClick={() => setTemplateCategory('all')}
+                              className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-bold transition-colors ${templateCategory === 'all' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                            >
+                              <Layers className="h-3.5 w-3.5" /> Todos ({allTemplates.length})
+                            </button>
+                            {cats.map((cat) => {
+                              const meta = getCategoryMeta(cat);
+                              const Icon = meta.icon;
+                              const isActive = templateCategory === cat;
+                              const count = allTemplates.filter((t: any) => t.category === cat).length;
+                              return (
+                                <button
+                                  key={cat}
+                                  onClick={() => setTemplateCategory(cat)}
+                                  className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-bold transition-colors ${isActive ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                                >
+                                  <Icon className={`h-3.5 w-3.5 ${isActive ? 'text-white' : meta.color}`} /> {meta.label} ({count})
+                                </button>
+                              );
+                            })}
                           </div>
                         </div>
-                      </div>
-                      <p className="mt-4 flex-1 text-sm font-medium text-slate-500">{template.description}</p>
 
-                      <div className="mt-4 rounded-xl bg-slate-50 p-3">
-                        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Assunto Base</p>
-                        <p className="mt-0.5 text-sm font-bold text-slate-700 line-clamp-1">{template.defaultSubject}</p>
-                      </div>
+                        {/* Secções por categoria */}
+                        <div className="space-y-10">
+                          {cats
+                            .filter((cat) => templateCategory === 'all' || templateCategory === cat)
+                            .map((cat) => {
+                              const meta = getCategoryMeta(cat);
+                              const Icon = meta.icon;
+                              const items = allTemplates.filter((t: any) => t.category === cat);
+                              if (!items.length) return null;
+                              return (
+                                <section key={cat}>
+                                  <div className="mb-4 flex items-start gap-3">
+                                    <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-lg ${meta.bg} ${meta.color}`}>
+                                      <Icon className="h-5 w-5" />
+                                    </div>
+                                    <div>
+                                      <div className="flex items-center gap-2">
+                                        <h3 className="text-lg font-semibold text-slate-900">{meta.label}</h3>
+                                        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-500">{items.length}</span>
+                                      </div>
+                                      {meta.flow && <p className="mt-0.5 max-w-xl text-xs font-medium text-slate-400">{meta.flow}</p>}
+                                    </div>
+                                  </div>
 
-                      <button onClick={() => previewEmailTemplate(template.key)} className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-black text-white transition-transform hover:bg-slate-800 active:scale-95 shadow-sm">
-                        <Eye className="h-4 w-4" />
-                        Preview Real
-                      </button>
-                    </section>
-                  ))}
-                  </div>
+                                  <div className="grid gap-4 md:grid-cols-2">
+                                    {items.map((template: any) => {
+                                      const isSelected = previewTemplate?.key === template.key;
+                                      return (
+                                        <button
+                                          key={template.key}
+                                          onClick={() => previewEmailTemplate(template.key)}
+                                          className={`group flex flex-col rounded-lg border bg-white p-5 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md ${isSelected ? 'border-slate-900 ring-2 ring-slate-900/10' : 'border-slate-200/70 hover:border-slate-300'}`}
+                                        >
+                                          <div className="flex items-start justify-between gap-2">
+                                            <p className="font-semibold leading-tight text-slate-900">{template.name}</p>
+                                            <span className={`inline-flex shrink-0 items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-semibold transition-colors ${isSelected ? 'bg-slate-900 text-white' : 'bg-slate-50 text-slate-400 group-hover:bg-slate-100 group-hover:text-slate-600'}`}>
+                                              <Eye className="h-3.5 w-3.5" /> Prévia
+                                            </span>
+                                          </div>
+                                          {template.description && <p className="mt-2 line-clamp-2 text-xs font-medium text-slate-500">{template.description}</p>}
+                                          <div className="mt-3 rounded-lg bg-slate-50 px-3 py-2">
+                                            <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Assunto</p>
+                                            <p className="mt-0.5 line-clamp-1 text-xs font-bold text-slate-700">{template.defaultSubject}</p>
+                                          </div>
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                </section>
+                              );
+                            })}
+                        </div>
+                      </>
+                    );
+                  })()}
                 </div>
 
-                {renderPreviewPanel('Escolhe um template na lista para ver como o email é enviado.')}
-              </motion.div>
+                {renderPreviewPanel('Escolha um modelo na lista para ver como o email é enviado.')}
+              </div>
             )}
 
-            {/* TASKS */}
-            {!loading && view === 'tasks' && data && (
-              <motion.div
-                key="tasks"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                transition={{ duration: 0.3 }}
-                className="space-y-4"
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <div>
-                    <h2 className="text-2xl font-black text-slate-900 tracking-tight">Tarefas Manuais</h2>
-                    <p className="mt-1 text-sm font-medium text-slate-500">Ações geradas pelos funis que requerem intervenção humana.</p>
-                  </div>
-                </div>
-
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                  {(data.tasks || []).map((task: any) => (
-                    <div key={task.id} className="group flex flex-col rounded-[2rem] border border-slate-200/60 bg-white p-6 shadow-sm transition-all hover:-translate-y-1 hover:border-slate-300 hover:shadow-md">
-                      <div className="flex items-start justify-between gap-4 mb-4">
-                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
-                          <CheckCircle className="h-5 w-5" />
-                        </div>
-                        <span className="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-600 border border-slate-200">{task.priority}</span>
-                      </div>
-
-                      <h3 className="text-lg font-black text-slate-900">{task.title}</h3>
-                      {task.description && <p className="mt-2 text-sm font-medium text-slate-500">{task.description}</p>}
-
-                      <div className="mt-6 flex-1 rounded-xl bg-slate-50 p-4 border border-slate-100">
-                        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Contacto Associado</p>
-                        <p className="mt-1 font-bold text-slate-900 line-clamp-1">{task.contact?.display_name || task.contact?.normalized_email || 'Contacto Desconhecido'}</p>
-                        <p className="mt-0.5 text-xs text-slate-500 line-clamp-1">Origem: {task.source}</p>
-
-                        <Link href={`/admin/marketing/contacts/${task.contact_id}`} className="mt-3 inline-flex items-center gap-1.5 text-xs font-black text-blue-600 hover:text-blue-700">
-                          Ver Perfil Completo &rarr;
-                        </Link>
-                      </div>
-
-                      <button onClick={() => updateTask(task.id, 'done')} className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 text-sm font-black text-white transition-transform hover:bg-emerald-700 active:scale-95 shadow-sm shadow-emerald-600/20">
-                        <CheckCircle className="h-4 w-4" />
-                        Marcar como Concluída
-                      </button>
+            {/* NEWSLETTER */}
+            {!loading && view === 'newsletter' && data && (
+              <div key="newsletter" className="space-y-6">
+                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+                  {[
+                    ['Subscritores', data.stats?.total ?? 0],
+                    ['Português', data.stats?.pt ?? 0],
+                    ['Inglês', data.stats?.en ?? 0],
+                    ['Espanhol (sem envios)', data.stats?.es ?? 0],
+                    ['Suprimidos', data.stats?.suppressed ?? 0],
+                  ].map(([label, value]) => (
+                    <div key={String(label)} className="rounded-xl border border-slate-200 bg-white p-5">
+                      <p className="text-xs font-medium uppercase tracking-wide text-slate-400">{label}</p>
+                      <p className="mt-2 text-2xl font-semibold text-slate-900">{value}</p>
                     </div>
                   ))}
                 </div>
 
-                {(data.tasks || []).length === 0 && (
-                  <div className="flex h-64 flex-col items-center justify-center rounded-[2rem] border border-dashed border-slate-300 bg-slate-50/50">
-                    <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white shadow-sm ring-1 ring-slate-200 mb-4">
-                      <CheckCircle className="h-8 w-8 text-emerald-500" />
+                <section className="rounded-xl border border-slate-200 bg-white p-6">
+                  <h2 className="text-base font-semibold text-slate-900">Como funciona a newsletter</h2>
+                  <ul className="mt-3 space-y-2 text-sm text-slate-600">
+                    <li>• <strong className="font-semibold text-slate-900">Audiência:</strong> só quem fez opt-in na newsletter (PT + EN). Contactos só-do-site ficam de fora dos envios de artigos.</li>
+                    <li>• <strong className="font-semibold text-slate-900">Cadência:</strong> mensal — 3-4 artigos do site + 1 destaque (livro, peregrinação ou missão).</li>
+                    <li>• <strong className="font-semibold text-slate-900">Aprovação:</strong> nada é enviado sem o teu OK; a edição é proposta e revês a preview primeiro.</li>
+                    <li>• <strong className="font-semibold text-slate-900">Espanhol:</strong> os {data.stats?.es ?? 0} contactos ES estão guardados mas não recebem nada até existir copy em espanhol.</li>
+                    <li>• <strong className="font-semibold text-slate-900">Proteções:</strong> máx. 1 email de marketing por pessoa por dia; unsubscribe individual em todos os envios.</li>
+                  </ul>
+                  <button
+                    onClick={() => { setSegment('newsletter-subscribers'); navigateTo('contacts', '/admin/marketing/contacts'); }}
+                    className="mt-4 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
+                  >
+                    Ver subscritores em Contactos →
+                  </button>
+                </section>
+
+                <div className="grid gap-6 lg:grid-cols-2">
+                  <section className="rounded-xl border border-slate-200 bg-white p-6">
+                    <h2 className="mb-4 text-base font-semibold text-slate-900">Campanhas enviadas</h2>
+                    <div className="divide-y divide-slate-100">
+                      {(data.campaigns || []).map((campaign: any) => (
+                        <div key={campaign.id} className="py-3">
+                          <div className="flex items-center justify-between gap-3">
+                            <p className="min-w-0 truncate text-sm font-medium text-slate-900">{campaign.name}</p>
+                            <StatusPill
+                              label={campaign.status === 'sent' ? 'Enviada' : campaign.status === 'sending' ? 'A enviar' : campaign.status}
+                              tone={campaign.status === 'sent' ? 'emerald' : campaign.status === 'sending' ? 'blue' : 'slate'}
+                            />
+                          </div>
+                          <p className="mt-1 text-xs text-slate-500">
+                            {formatDateTime(campaign.created_at)}
+                            {campaign.metrics?.sent != null ? ` · ${campaign.metrics.sent} enviados` : campaign.metrics?.planned != null ? ` · ${campaign.metrics.planned} planeados` : ''}
+                            {campaign.metrics?.failed ? ` · ${campaign.metrics.failed} falhados` : ''}
+                          </p>
+                        </div>
+                      ))}
+                      {(data.campaigns || []).length === 0 && (
+                        <p className="py-8 text-center text-sm text-slate-500">Ainda não foi enviada nenhuma campanha.</p>
+                      )}
                     </div>
-                    <h3 className="text-xl font-black text-slate-900">Tudo em dia!</h3>
-                    <p className="mt-2 font-medium text-slate-500">Não existem tarefas manuais pendentes.</p>
-                  </div>
-                )}
-              </motion.div>
+                  </section>
+
+                  <section className="rounded-xl border border-slate-200 bg-white p-6">
+                    <h2 className="mb-4 text-base font-semibold text-slate-900">Últimos subscritores</h2>
+                    <div className="divide-y divide-slate-100">
+                      {(data.recentSubscribers || []).map((subscriber: any) => (
+                        <div key={subscriber.id} className="flex items-center justify-between gap-3 py-2.5">
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-medium text-slate-900">{subscriber.display_name || subscriber.normalized_email}</p>
+                            <p className="truncate text-xs text-slate-500">{subscriber.normalized_email}</p>
+                          </div>
+                          <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold uppercase text-slate-600">
+                            {subscriber.language || 'pt'}
+                          </span>
+                        </div>
+                      ))}
+                      {(data.recentSubscribers || []).length === 0 && (
+                        <p className="py-8 text-center text-sm text-slate-500">Sem subscritores.</p>
+                      )}
+                    </div>
+                  </section>
+                </div>
+              </div>
             )}
 
             {/* Other views fallback */}
-            {!loading && view !== 'overview' && view !== 'analytics' && view !== 'contacts' && view !== 'funnels' && view !== 'segments' && view !== 'campaigns' && view !== 'scheduled' && view !== 'outbox' && view !== 'templates' && view !== 'tasks' && data && (
-               <motion.div
+            {!loading && view !== 'overview' && view !== 'newsletter' && view !== 'flow' && view !== 'contacts' && view !== 'funnels' && view !== 'scheduled' && view !== 'outbox' && view !== 'templates' && data && (
+               <div
                 key="other"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                transition={{ duration: 0.3 }}
                >
-                 <div className="flex h-64 items-center justify-center rounded-3xl border border-dashed border-slate-300 bg-slate-50">
+                 <div className="flex h-64 items-center justify-center rounded-xl border border-dashed border-slate-300 bg-slate-50">
                     <div className="text-center">
                       <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-white shadow-sm ring-1 ring-slate-200">
                         <Layers className="h-8 w-8 text-slate-400" />
                       </div>
-                      <h3 className="mt-4 text-xl font-black text-slate-900">Em Desenvolvimento</h3>
+                      <h3 className="mt-4 text-xl font-semibold text-slate-900">Em Desenvolvimento</h3>
                       <p className="mt-2 text-slate-500">A nova interface para este módulo está a ser finalizada.</p>
                     </div>
                  </div>
-               </motion.div>
+               </div>
             )}
 
-          </AnimatePresence>
-        </main>
-      </div>
+          </>
+      </main>
     </div>
   );
 }

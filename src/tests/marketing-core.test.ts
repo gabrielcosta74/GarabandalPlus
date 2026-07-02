@@ -70,7 +70,15 @@ describe('marketing scoring and segmentation', () => {
     const memberScore = calculateMarketingScore(member, '2026-04-22T12:00:00Z');
     expect(determineLifecycleStage(member)).toBe('member');
     expect(evaluateMarketingSegments({ source_summary: member, lead_score: memberScore, lifecycle_stage: 'member' })).toEqual(
-      expect.arrayContaining(['members-without-referrals', 'expired-pending-members']),
+      expect.arrayContaining(['members-without-referrals', 'expired-members']),
     );
+
+    // Renovação é só para 'expirado' — pendente/revogado ficam de fora do segmento.
+    const pendingMember = emptySourceSummary();
+    pendingMember.is_member = true;
+    pendingMember.member_status = 'pendente';
+    expect(
+      evaluateMarketingSegments({ source_summary: pendingMember, lead_score: 0, lifecycle_stage: 'member' }),
+    ).not.toEqual(expect.arrayContaining(['expired-members']));
   });
 });

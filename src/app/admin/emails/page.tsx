@@ -22,8 +22,22 @@ import {
     renderBookingConfirmationEmail,
     renderPilgrimagePaymentReminderEmail,
     renderWelcomeEmail,
+    renderAuctionAnnouncementEmail,
+    renderAuctionOutbidEmail,
+    renderAuctionWinnerEmail,
+    renderAuctionAdminNotificationEmail,
+    renderAuctionPaymentConfirmedEmail,
+    renderBookingAdminNotification,
+    renderAuthMagicLinkEmail,
+    renderAuthRecoveryEmail,
+    renderBookingAccessLinkEmail,
+    renderAdminBankTransferAlertEmail,
+    renderVolunteerApplicationEmail,
+    MARKETING_EMAIL_TEMPLATES,
+    renderMarketingTemplateEmail,
 } from '../../../lib/email-renderer';
-import { Mail, Smartphone, Monitor, ChevronRight, Info, CheckCircle } from 'lucide-react';
+import Link from 'next/link';
+import { Mail, Smartphone, Monitor, ChevronRight, Info, CheckCircle, Languages } from 'lucide-react';
 
 const MOCK_MEMBER = {
     kind: 'new' as const,
@@ -102,6 +116,61 @@ const MOCK_QUOTA_LINK = 'https://apostoladodegarabandal.com/tornar-membro';
 const MOCK_PILGRIMAGE_BOOKING_URL =
     'https://apostoladodegarabandal.com/peregrinacoes/inscricao/BOOK-2025-001?viewToken=mock&token=mock';
 
+const MOCK_MEMBER_AREA_URL = 'https://apostoladodegarabandal.com/member';
+const MOCK_ADMIN_URL = 'https://apostoladodegarabandal.com/admin';
+const MOCK_AUCTION_URL = 'https://apostoladodegarabandal.com/leilao/peca-solidaria';
+const MOCK_PRODUCT_URL = 'https://apostoladodegarabandal.com/loja';
+const MOCK_PILGRIMAGE_URL = 'https://apostoladodegarabandal.com/peregrinacoes/garabandal-outubro-2026';
+const MOCK_PILGRIMAGE_IMAGE_URL =
+    'https://pntzzuxzjnzksubbjfvj.supabase.co/storage/v1/object/public/site-content/pilgrimages/covers/1768917805305_l2ho16.png';
+
+const MOCK_MARKETING_PRODUCTS = [
+    {
+        title: 'Garabandal — Mensagem de Esperança',
+        price: '15,00 €',
+        imageUrl: 'https://pntzzuxzjnzksubbjfvj.supabase.co/storage/v1/object/public/store-products/products/200000048/1766876268448.webp',
+        url: 'https://apostoladodegarabandal.com/loja/produto/200000048',
+        label: 'Livro oficial',
+    },
+    {
+        title: 'Diário de Conchita',
+        price: '12,00 €',
+        imageUrl: 'https://pntzzuxzjnzksubbjfvj.supabase.co/storage/v1/object/public/store-products/products/978-989-33-8094--9/1766876383807.webp',
+        url: 'https://apostoladodegarabandal.com/loja/produto/978-989-33-8094--9',
+        label: 'Produto oficial',
+    },
+    {
+        title: 'Guia do Peregrino',
+        price: '8,00 €',
+        imageUrl: 'https://pntzzuxzjnzksubbjfvj.supabase.co/storage/v1/object/public/store-products/products/200000057/1766876326970.webp',
+        url: 'https://apostoladodegarabandal.com/loja/produto/200000057',
+        label: 'Guia digital',
+    },
+];
+
+const renderMarketingPreview = (templateKey: string, language: 'pt' | 'en') =>
+    renderMarketingTemplateEmail({
+        templateKey,
+        language,
+        name: language === 'en' ? 'John Smith' : 'Clara Almeida',
+        email: 'preview@example.com',
+        pilgrimageName: language === 'en'
+            ? 'Garabandal Pilgrimage — Marian Way — October 2026'
+            : 'Peregrinação a Garabandal — Caminho Mariano — Outubro 2026',
+        pilgrimageUrl: MOCK_PILGRIMAGE_URL,
+        pilgrimageImageUrl: MOCK_PILGRIMAGE_IMAGE_URL,
+        bookingResumeUrl: `${MOCK_PILGRIMAGE_URL}?resume=preview`,
+        donationUrl: 'https://apostoladodegarabandal.com/donativos',
+        memberUrl: 'https://apostoladodegarabandal.com/tornar-membro',
+        referralUrl: `${MOCK_MEMBER_AREA_URL}?tab=convites`,
+        productTitle: MOCK_MARKETING_PRODUCTS[0].title,
+        productPrice: MOCK_MARKETING_PRODUCTS[0].price,
+        productImageUrl: MOCK_MARKETING_PRODUCTS[0].imageUrl,
+        productUrl: MOCK_PRODUCT_URL,
+        products: MOCK_MARKETING_PRODUCTS,
+        unsubscribeUrl: 'https://apostoladodegarabandal.com/cancelar-subscricao?preview=1',
+    });
+
 const BASE_PILGRIMAGE_REMINDER_PREVIEW: Parameters<typeof renderPilgrimagePaymentReminderEmail>[0] = {
     toEmail: 'peregrino@test.com',
     recipientName: 'Peregrino',
@@ -130,10 +199,11 @@ type EmailTemplate = {
     when: string;
     why: string;
     technical: string;
-    render: () => { html: string; subject?: string };
+    supportsLocale?: boolean;
+    render: (language?: 'pt' | 'en') => { html: string; subject?: string };
 };
 
-const EMAIL_TEMPLATES = {
+const SYSTEM_EMAIL_TEMPLATES: Record<string, EmailTemplate> = {
     'member-welcome': {
         label: '👋 Pagamento de Quota (Admin)',
         title: 'Notificação de Pagamento de Quota',
@@ -352,9 +422,9 @@ const EMAIL_TEMPLATES = {
         title: 'Retoma de Inscrição',
         category: 'Leads & Peregrinações',
         recipient: 'Interessado',
-        when: 'Enviado após inatividade em inscrição iniciada.',
+        when: 'Envio manual pelo admin para um lead específico (a recuperação automática é feita pelo funil de marketing).',
         why: 'Incentivar conclusão do processo de inscrição.',
-        technical: 'Cron: /api/cron/recover-leads -> sendAbandonmentRecoveryEmail',
+        technical: 'Manual: /api/leads/notify -> sendAbandonmentRecoveryEmail',
         render: () =>
             renderAbandonmentRecoveryEmail({
                 email: 'recovery@test.com',
@@ -450,7 +520,233 @@ const EMAIL_TEMPLATES = {
                 stage: 'overdue_10d',
             }),
     },
-} satisfies Record<string, EmailTemplate>;
+};
+
+const EXTRA_EMAIL_TEMPLATES: Record<string, EmailTemplate> = {
+    'auth-magic-link': {
+        label: 'Acesso por link mágico',
+        title: 'Link de acesso à conta',
+        category: 'Conta & Acesso',
+        recipient: 'Utilizador',
+        when: 'Enviado quando alguém pede acesso por email, incluindo mobile.',
+        why: 'Permitir entrada segura sem password.',
+        technical: 'API: /api/auth/send-magic-link e /api/mobile/auth/send-magic-link -> sendAuthMagicLinkEmail',
+        supportsLocale: true,
+        render: (language = 'pt') =>
+            renderAuthMagicLinkEmail({
+                magicLink: `${MOCK_MEMBER_AREA_URL}?token=preview`,
+                locale: language,
+            }),
+    },
+    'auth-recovery': {
+        label: 'Recuperação de password',
+        title: 'Recuperação de password',
+        category: 'Conta & Acesso',
+        recipient: 'Utilizador',
+        when: 'Enviado quando alguém pede recuperação de password.',
+        why: 'Permitir definir nova password com link e código alternativo.',
+        technical: 'API: /api/auth/send-recovery-link -> sendAuthRecoveryEmail',
+        supportsLocale: true,
+        render: (language = 'pt') =>
+            renderAuthRecoveryEmail({
+                recoveryLink: `${MOCK_MEMBER_AREA_URL}/recuperar?token=preview`,
+                otpCode: '123456',
+                locale: language,
+            }),
+    },
+    'booking-access-link': {
+        label: 'Acesso à inscrição',
+        title: 'Link seguro da inscrição',
+        category: 'Leads & Peregrinações',
+        recipient: 'Peregrino',
+        when: 'Enviado quando o peregrino pede novo link para gerir a inscrição.',
+        why: 'Dar acesso seguro à inscrição existente.',
+        technical: 'API: /api/booking/send-access-link -> sendBookingAccessLinkEmail',
+        supportsLocale: true,
+        render: (language = 'pt') =>
+            renderBookingAccessLinkEmail({
+                accessLink: MOCK_PILGRIMAGE_BOOKING_URL,
+                pilgrimageName: language === 'en' ? 'Garabandal Pilgrimage' : 'Peregrinação a Garabandal',
+                locale: language,
+            }),
+    },
+    'booking-admin-notification': {
+        label: 'Nova inscrição (Admin)',
+        title: 'Notificação de inscrição para admin',
+        category: 'Admin & Operações',
+        recipient: 'Admin',
+        when: 'Enviado quando uma inscrição de peregrinação é criada.',
+        why: 'Avisar a equipa de nova inscrição para acompanhamento operacional.',
+        technical: 'API: /api/booking/create -> sendBookingAdminNotification',
+        render: () =>
+            renderBookingAdminNotification({
+                bookingId: 'BOOK-2025-001',
+                pilgrimageName: 'Peregrinação a Garabandal',
+                customerName: 'Maria Peregrina',
+                customerEmail: 'maria@exemplo.com',
+                numberOfPilgrims: 2,
+                totalAmount: 900,
+                paymentMethod: 'bank_transfer',
+            }),
+    },
+    'admin-bank-transfer-alert': {
+        label: 'Transferência bancária (Admin)',
+        title: 'Alerta de transferência bancária',
+        category: 'Admin & Operações',
+        recipient: 'Admin',
+        when: 'Enviado quando uma inscrição é criada por transferência bancária.',
+        why: 'Pedir validação manual da entrada de dinheiro.',
+        technical: 'Booking flow -> sendAdminBankTransferAlert',
+        render: () =>
+            renderAdminBankTransferAlertEmail({
+                customerName: 'Maria Peregrina',
+                customerEmail: 'maria@exemplo.com',
+                pilgrimageName: 'Peregrinação a Garabandal',
+                totalAmount: 900,
+                numberOfPilgrims: 2,
+                adminUrl: `${MOCK_ADMIN_URL}/peregrinacoes`,
+            }),
+    },
+    'volunteer-application': {
+        label: 'Candidatura voluntariado (Admin)',
+        title: 'Candidatura de voluntariado',
+        category: 'Admin & Operações',
+        recipient: 'Admin',
+        when: 'Enviado quando um membro submete candidatura para voluntariado em Garabandal.',
+        why: 'Permitir análise da candidatura pela equipa.',
+        technical: 'API: /api/member/voluntariado -> sendVolunteerApplicationEmail',
+        render: () =>
+            renderVolunteerApplicationEmail({
+                memberName: 'Clara Almeida',
+                memberEmail: 'clara@exemplo.com',
+                memberPhone: '+351 915 206 815',
+                numeroSocio: 124,
+                linguas: ['Português', 'Inglês', 'Espanhol'],
+                disponibilidade: 'Julho e Agosto, em blocos de uma semana.',
+                esteveGarabandal: 'Sim, em 2024.',
+                condicaoFisica: 'Boa mobilidade para caminhadas moderadas.',
+                motivacao: 'Desejo ajudar os peregrinos e servir Nossa Senhora com disponibilidade e discrição.',
+                adminUrl: `${MOCK_ADMIN_URL}/membros/voluntariado`,
+            }),
+    },
+    'auction-announcement': {
+        label: 'Anúncio de leilão',
+        title: 'Leilão solidário anunciado',
+        category: 'Leilões',
+        recipient: 'Contactos elegíveis',
+        when: 'Enviado pelo admin ao anunciar uma peça em leilão.',
+        why: 'Trazer licitações para apoiar a missão.',
+        technical: 'Admin: /api/admin/auction/[id]/announce -> sendAuctionAnnouncementEmail',
+        supportsLocale: true,
+        render: (language = 'pt') =>
+            renderAuctionAnnouncementEmail({
+                recipientName: language === 'en' ? 'John' : 'Clara',
+                itemTitle: 'Imagem de Nossa Senhora de Garabandal',
+                itemDescription: 'Peça solidária oferecida ao Apostolado.',
+                imageUrl: 'https://apostoladodegarabandal.com/logo.png',
+                startingPrice: 2500,
+                currentBid: 4500,
+                endsAt: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString(),
+                itemUrl: MOCK_AUCTION_URL,
+                locale: language,
+            }),
+    },
+    'auction-outbid': {
+        label: 'Lance ultrapassado',
+        title: 'Aviso de lance ultrapassado',
+        category: 'Leilões',
+        recipient: 'Licitador',
+        when: 'Enviado quando outro utilizador ultrapassa o lance.',
+        why: 'Permitir voltar a licitar antes do fim.',
+        technical: 'API: /api/auction/bid -> sendAuctionOutbidEmail',
+        supportsLocale: true,
+        render: (language = 'pt') =>
+            renderAuctionOutbidEmail({
+                email: 'licitador@exemplo.com',
+                itemTitle: 'Imagem de Nossa Senhora de Garabandal',
+                yourBid: 45,
+                newBid: 55,
+                minIncrement: 5,
+                itemUrl: MOCK_AUCTION_URL,
+                locale: language,
+            }),
+    },
+    'auction-winner': {
+        label: 'Vencedor do leilão',
+        title: 'Confirmação de vencedor',
+        category: 'Leilões',
+        recipient: 'Vencedor',
+        when: 'Enviado quando o leilão termina e há vencedor.',
+        why: 'Pedir pagamento dentro do prazo.',
+        technical: 'Cron/Admin auction close -> sendAuctionWinnerEmail',
+        render: () =>
+            renderAuctionWinnerEmail({
+                email: 'vencedor@exemplo.com',
+                winnerName: 'Clara Almeida',
+                itemTitle: 'Imagem de Nossa Senhora de Garabandal',
+                winningBid: 7500,
+                paymentDeadlineHours: 48,
+                itemUrl: MOCK_AUCTION_URL,
+            }),
+    },
+    'auction-admin-notification': {
+        label: 'Leilão terminado (Admin)',
+        title: 'Notificação de leilão terminado',
+        category: 'Leilões',
+        recipient: 'Admin',
+        when: 'Enviado quando o leilão termina com vencedor.',
+        why: 'Dar contexto administrativo sobre vencedor e lances.',
+        technical: 'Cron/Admin auction close -> sendAuctionAdminNotification',
+        render: () =>
+            renderAuctionAdminNotificationEmail({
+                itemTitle: 'Imagem de Nossa Senhora de Garabandal',
+                winnerEmail: 'vencedor@exemplo.com',
+                winningBid: 75,
+                totalBids: 12,
+            }),
+    },
+    'auction-payment-confirmed': {
+        label: 'Pagamento de leilão confirmado',
+        title: 'Pagamento confirmado',
+        category: 'Leilões',
+        recipient: 'Vencedor',
+        when: 'Enviado quando o pagamento do leilão é confirmado.',
+        why: 'Confirmar pagamento e preparar envio.',
+        technical: 'Payment handler -> sendAuctionPaymentConfirmedEmail',
+        render: () =>
+            renderAuctionPaymentConfirmedEmail({
+                itemTitle: 'Imagem de Nossa Senhora de Garabandal',
+                winnerName: 'Clara Almeida',
+                winningBid: 7500,
+                paymentMethod: 'Cartão',
+                paymentReference: 'AUC-2026-001',
+                paidAt: new Date().toISOString(),
+            }),
+    },
+};
+
+const MARKETING_EMAIL_TEMPLATE_PREVIEWS = Object.fromEntries(
+    Object.values(MARKETING_EMAIL_TEMPLATES).map((template) => [
+        `marketing-${template.key}`,
+        {
+            label: template.name,
+            title: template.name,
+            category: `Marketing — ${template.category}`,
+            recipient: 'Contacto de marketing',
+            when: 'Enviado por funil, campanha manual ou automação de marketing quando as condições forem cumpridas.',
+            why: template.goal,
+            technical: `Marketing renderer -> renderMarketingTemplateEmail(${template.key})`,
+            supportsLocale: true,
+            render: (language: 'pt' | 'en' = 'pt') => renderMarketingPreview(template.key, language),
+        } satisfies EmailTemplate,
+    ]),
+) as Record<string, EmailTemplate>;
+
+const EMAIL_TEMPLATES: Record<string, EmailTemplate> = {
+    ...SYSTEM_EMAIL_TEMPLATES,
+    ...EXTRA_EMAIL_TEMPLATES,
+    ...MARKETING_EMAIL_TEMPLATE_PREVIEWS,
+};
 
 type TemplateKey = keyof typeof EMAIL_TEMPLATES;
 
@@ -472,25 +768,27 @@ const TEMPLATE_GROUPS = TEMPLATE_LIST.reduce((acc, template) => {
 export default function EmailPreviewPage() {
     const [activeView, setActiveView] = useState<ViewKey>('member-welcome');
     const [viewMode, setViewMode] = useState<'desktop' | 'mobile'>('desktop');
+    const [previewLanguage, setPreviewLanguage] = useState<'pt' | 'en'>('pt');
 
     const isOverview = activeView === 'overview';
     const activeTemplate = isOverview ? null : EMAIL_TEMPLATES[activeView];
 
-    const { htmlContent, errorMessage } = useMemo(() => {
+    const { htmlContent, subject, errorMessage } = useMemo(() => {
         if (!activeTemplate) {
-            return { htmlContent: '', errorMessage: '' };
+            return { htmlContent: '', subject: '', errorMessage: '' };
         }
 
         try {
-            const rendered = activeTemplate.render();
-            return { htmlContent: rendered.html, errorMessage: '' };
+            const rendered = activeTemplate.render(previewLanguage);
+            return { htmlContent: rendered.html, subject: rendered.subject || '', errorMessage: '' };
         } catch (error: any) {
             return {
                 htmlContent: '<div style="padding:20px;color:red;">Erro ao renderizar template.</div>',
+                subject: '',
                 errorMessage: error?.message || 'Erro desconhecido',
             };
         }
-    }, [activeTemplate]);
+    }, [activeTemplate, previewLanguage]);
 
     return (
         <AdminLayout title="Previews de Emails do Sistema">
@@ -500,7 +798,13 @@ export default function EmailPreviewPage() {
                 <aside className="w-80 bg-white border-r border-slate-200 flex flex-col overflow-y-auto">
                     <div className="p-4 border-b border-slate-100">
                         <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Sistema de Emails</h2>
-                        <p className="text-[10px] text-slate-400 mt-1">Selecione um template para ver os detalhes</p>
+                        <p className="text-[10px] text-slate-400 mt-1">{TEMPLATE_LIST.length} previews disponíveis</p>
+                        <Link
+                            href="/admin/marketing/flow"
+                            className="mt-3 inline-flex items-center gap-2 rounded-lg bg-slate-900 px-3 py-2 text-xs font-bold text-white transition-colors hover:bg-slate-800"
+                        >
+                            Ver fluxo de marketing
+                        </Link>
                     </div>
                     <nav className="flex-1 p-2 space-y-4">
                         <button
@@ -565,6 +869,11 @@ export default function EmailPreviewPage() {
                                             <CheckCircle className="w-3 h-3 text-emerald-500 mt-0.5" />
                                             <span>{activeTemplate?.technical}</span>
                                         </div>
+                                        {subject ? (
+                                            <div className="rounded-lg border border-amber-100 bg-amber-50 px-3 py-2 text-sm text-amber-950">
+                                                <span className="font-bold">Assunto:</span> {subject}
+                                            </div>
+                                        ) : null}
                                         {errorMessage ? (
                                             <div className="text-xs text-red-500">Erro: {errorMessage}</div>
                                         ) : null}
@@ -574,19 +883,38 @@ export default function EmailPreviewPage() {
 
                             {/* View Controls */}
                             {!isOverview && (
-                                <div className="flex bg-slate-100 rounded-lg p-1 self-start">
-                                    <button
-                                        onClick={() => setViewMode('desktop')}
-                                        className={`p-2 rounded-md transition-colors ${viewMode === 'desktop' ? 'bg-white shadow-sm text-slate-800' : 'text-slate-400 hover:text-slate-600'}`}
-                                    >
-                                        <Monitor className="w-4 h-4" />
-                                    </button>
-                                    <button
-                                        onClick={() => setViewMode('mobile')}
-                                        className={`p-2 rounded-md transition-colors ${viewMode === 'mobile' ? 'bg-white shadow-sm text-slate-800' : 'text-slate-400 hover:text-slate-600'}`}
-                                    >
-                                        <Smartphone className="w-4 h-4" />
-                                    </button>
+                                <div className="flex flex-wrap items-center gap-2 self-start">
+                                    {activeTemplate?.supportsLocale && (
+                                        <div className="flex items-center gap-1 rounded-lg bg-slate-100 p-1">
+                                            <Languages className="ml-2 h-4 w-4 text-slate-400" />
+                                            <button
+                                                onClick={() => setPreviewLanguage('pt')}
+                                                className={`rounded-md px-3 py-2 text-xs font-bold transition-colors ${previewLanguage === 'pt' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                                            >
+                                                PT
+                                            </button>
+                                            <button
+                                                onClick={() => setPreviewLanguage('en')}
+                                                className={`rounded-md px-3 py-2 text-xs font-bold transition-colors ${previewLanguage === 'en' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                                            >
+                                                EN
+                                            </button>
+                                        </div>
+                                    )}
+                                    <div className="flex rounded-lg bg-slate-100 p-1">
+                                        <button
+                                            onClick={() => setViewMode('desktop')}
+                                            className={`p-2 rounded-md transition-colors ${viewMode === 'desktop' ? 'bg-white shadow-sm text-slate-800' : 'text-slate-400 hover:text-slate-600'}`}
+                                        >
+                                            <Monitor className="w-4 h-4" />
+                                        </button>
+                                        <button
+                                            onClick={() => setViewMode('mobile')}
+                                            className={`p-2 rounded-md transition-colors ${viewMode === 'mobile' ? 'bg-white shadow-sm text-slate-800' : 'text-slate-400 hover:text-slate-600'}`}
+                                        >
+                                            <Smartphone className="w-4 h-4" />
+                                        </button>
+                                    </div>
                                 </div>
                             )}
                         </div>

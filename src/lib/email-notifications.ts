@@ -2,6 +2,7 @@ type NotificationType =
   | 'membership_paid'
   | 'membership_renewal'
   | 'donation_paid'
+  | 'auction_paid'
   | 'store_order_owner'
   | 'store_order_buyer'
   | 'store_order_preparing'

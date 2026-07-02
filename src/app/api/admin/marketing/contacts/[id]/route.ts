@@ -22,17 +22,13 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
           .maybeSingle()
       : { data: null };
 
-    const [tasks, messages] = persisted?.id
-      ? await Promise.all([
-          auth.supabase.from('marketing_tasks').select('*').eq('contact_id', persisted.id).order('created_at', { ascending: false }).limit(20),
-          auth.supabase.from('marketing_message_logs').select('*').eq('contact_id', persisted.id).order('created_at', { ascending: false }).limit(20),
-        ])
-      : [{ data: [] }, { data: [] }];
+    const messages = persisted?.id
+      ? await auth.supabase.from('marketing_message_logs').select('*').eq('contact_id', persisted.id).order('created_at', { ascending: false }).limit(20)
+      : { data: [] };
 
     return NextResponse.json({
       contact,
       persisted,
-      tasks: tasks.data || [],
       messages: messages.data || [],
     });
   } catch (error) {

@@ -169,6 +169,7 @@ export async function buildMarketingContacts(supabase: SupabaseLike): Promise<Ma
     donations,
     orders,
     quotaPayments,
+    newsletterSubscribers,
     suppressions,
   ] = await Promise.all([
     safeSelect(supabase, 'membros', 'id,nome,email,telefone,country,is_membro,estado_quota,tipo_subscricao,data_adesao,proxima_quota,referral_code,referred_by_code,referrals_count,store_credits,updated_at'),
@@ -180,6 +181,7 @@ export async function buildMarketingContacts(supabase: SupabaseLike): Promise<Ma
     safeSelect(supabase, 'donations', 'id,user_id,amount_cents,currency,status,method,metadata,donor_name,donor_email,donor_country,created_at,updated_at'),
     safeSelect(supabase, 'store_orders', 'id,order_ref,buyer_user_id,buyer_name,buyer_email,buyer_phone,billing_country,shipping_country,total_amount,currency,status,created_at'),
     safeSelect(supabase, 'pagamentos_quotas', 'id,user_id,data_pagamento,valor,metodo_pagamento,estado,membros(id,email,nome,telefone,country,estado_quota,is_membro)'),
+    safeSelect(supabase, 'newsletter_subscribers', 'id,normalized_email,display_name,language,group_label,country,city,consent_state,subscribed_at,imported_at'),
     safeSelect(supabase, 'marketing_suppression_list', 'normalized_email,normalized_phone,reason'),
   ]);
 
@@ -463,6 +465,36 @@ export async function buildMarketingContacts(supabase: SupabaseLike): Promise<Ma
     });
   }
 
+  for (const subscriber of newsletterSubscribers) {
+    const key = getSourceKey({ email: subscriber.normalized_email, fallback: `newsletter:${subscriber.id}` });
+    const contact = ensureContact(contacts, {
+      key,
+      email: subscriber.normalized_email,
+      name: subscriber.display_name,
+      country: subscriber.country,
+      // Group/list language is authoritative — pass it as the locale so it wins
+      // over any country inference for both new and existing (enriched) contacts.
+      locale: subscriber.language,
+      occurredAt: subscriber.subscribed_at,
+    });
+    contact.source_summary.newsletter_subscriber = true;
+    contact.source_summary.newsletter_group = normalizeText(subscriber.group_label) || null;
+    // Newsletter opt-in is an explicit consent upgrade — but never override a
+    // stronger negative state (suppression is applied further below and wins).
+    if (contact.consent_state === 'assumed' || contact.consent_state === 'unknown') {
+      contact.consent_state = 'explicit';
+    }
+    addLink(contact, { source_table: 'newsletter_subscribers', source_id: subscriber.id, source_label: subscriber.group_label || 'Newsletter' });
+    addEvent(contact, {
+      event_type: 'newsletter_subscribed',
+      source_table: 'newsletter_subscribers',
+      source_id: subscriber.id,
+      title: 'Subscrição de newsletter',
+      occurred_at: subscriber.subscribed_at || subscriber.imported_at || new Date().toISOString(),
+      metadata: { group_label: subscriber.group_label, language: subscriber.language },
+    });
+  }
+
   const suppressedEmails = new Set((suppressions || []).map((row: any) => normalizeEmail(row.normalized_email)).filter(Boolean) as string[]);
   const suppressedPhones = new Set((suppressions || []).map((row: any) => normalizePhone(row.normalized_phone)).filter(Boolean) as string[]);
 
@@ -526,7 +558,6 @@ export async function persistMarketingContacts(supabase: SupabaseLike, contacts:
   let persistedContacts = 0;
   let persistedLinks = 0;
   let persistedEvents = 0;
-  let createdTasks = 0;
 
   const now = new Date().toISOString();
 
@@ -570,7 +601,6 @@ export async function persistMarketingContacts(supabase: SupabaseLike, contacts:
   // 2. Batch-upsert links and events for all contacts that got an id
   const allLinkRows: object[] = [];
   const allEventRows: object[] = [];
-  const hotLeadContacts: { contactId: string; contact: MarketingContact }[] = [];
 
   for (const contact of eligible) {
     const contactId = contact.normalized_email ? emailToId.get(contact.normalized_email) : undefined;
@@ -597,10 +627,6 @@ export async function persistMarketingContacts(supabase: SupabaseLike, contacts:
         metadata: event.metadata || {},
       });
     }
-
-    if (contact.segments.includes('hot-pilgrimage-leads')) {
-      hotLeadContacts.push({ contactId, contact });
-    }
   }
 
   // Batch the links and events
@@ -622,32 +648,7 @@ export async function persistMarketingContacts(supabase: SupabaseLike, contacts:
     else console.warn('[Marketing] Event batch upsert failed:', error.message || error);
   }
 
-  // 3. Hot-lead tasks — still per-contact (low volume, needs check before insert)
-  for (const { contactId, contact } of hotLeadContacts) {
-    const { data: existing } = await supabase
-      .from('marketing_tasks')
-      .select('id')
-      .eq('contact_id', contactId)
-      .eq('source', 'hot-pilgrimage-leads')
-      .in('status', ['open', 'in_progress'])
-      .limit(1)
-      .maybeSingle();
-
-    if (!existing?.id) {
-      const { error } = await supabase.from('marketing_tasks').insert({
-        contact_id: contactId,
-        title: `Follow up with ${contact.display_name}`,
-        description: contact.recommendation,
-        task_type: 'follow_up',
-        priority: contact.lead_score >= 90 ? 'high' : 'medium',
-        source: 'hot-pilgrimage-leads',
-        metadata: { score: contact.lead_score, email: contact.normalized_email },
-      });
-      if (!error) createdTasks += 1;
-    }
-  }
-
-  return { persistedContacts, persistedLinks, persistedEvents, createdTasks };
+  return { persistedContacts, persistedLinks, persistedEvents };
 }
 
 export const buildMarketingOverview = (contacts: MarketingContact[]) => {

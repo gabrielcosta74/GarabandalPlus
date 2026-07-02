@@ -33,7 +33,7 @@ export type MarketingContact = {
   normalized_phone: string | null;
   display_name: string;
   country: string | null;
-  language: 'pt' | 'en';
+  language: 'pt' | 'en' | 'es';
   consent_state: MarketingConsentState;
   lifecycle_stage: MarketingLifecycleStage;
   lead_score: number;
@@ -69,6 +69,8 @@ export type MarketingSourceSummary = {
   has_referral_code: boolean;
   referrals_count: number;
   referred_by_code: string | null;
+  newsletter_subscriber: boolean;
+  newsletter_group: string | null;
   failed_or_canceled_payments: number;
   pilgrimage_interest_ids: string[];
   available_pilgrimage_ids: string[];
@@ -126,14 +128,29 @@ export const DEFAULT_MARKETING_SEGMENTS: MarketingSegment[] = [
     description: 'Members with no recorded referrals.',
   },
   {
-    name: 'Expired/pending members',
-    slug: 'expired-pending-members',
-    description: 'Members with expired or pending quota state.',
+    name: 'Expired members',
+    slug: 'expired-members',
+    description: 'Members with expired quota only (renewal outreach). Pending/revoked members are excluded on purpose.',
   },
   {
     name: 'High-value supporters',
     slug: 'high-value-supporters',
     description: 'Contacts with meaningful donation, order, pilgrimage, or quota value.',
+  },
+  {
+    name: 'Newsletter subscribers',
+    slug: 'newsletter-subscribers',
+    description: 'All imported newsletter subscribers (explicit consent), any language.',
+  },
+  {
+    name: 'Newsletter PT',
+    slug: 'newsletter-pt',
+    description: 'Portuguese newsletter subscribers — audience for monthly article digests.',
+  },
+  {
+    name: 'Newsletter EN',
+    slug: 'newsletter-en',
+    description: 'English newsletter subscribers — audience for monthly article digests.',
   },
 ];
 
@@ -190,14 +207,15 @@ export const normalizeCountry = (value: unknown) => {
   return country;
 };
 
-export const normalizeLocale = (value: unknown): 'pt' | 'en' | null => {
+export const normalizeLocale = (value: unknown): 'pt' | 'en' | 'es' | null => {
   const locale = normalizeText(value).toLowerCase();
-  if (['en', 'eng', 'english', 'en-gb', 'en-us'].includes(locale)) return 'en';
-  if (['pt', 'por', 'portuguese', 'pt-pt', 'pt-br'].includes(locale)) return 'pt';
+  if (['en', 'eng', 'english', 'inglesa', 'en-gb', 'en-us'].includes(locale)) return 'en';
+  if (['pt', 'por', 'portuguese', 'portuguesa', 'pt-pt', 'pt-br'].includes(locale)) return 'pt';
+  if (['es', 'esp', 'spanish', 'espanhola', 'española', 'es-es'].includes(locale)) return 'es';
   return null;
 };
 
-export const inferLanguage = (country: string | null, explicitLocale?: unknown): 'pt' | 'en' => {
+export const inferLanguage = (country: string | null, explicitLocale?: unknown): 'pt' | 'en' | 'es' => {
   const locale = normalizeLocale(explicitLocale);
   if (locale) return locale;
   if (!country) return 'pt';
@@ -242,6 +260,8 @@ export const emptySourceSummary = (): MarketingSourceSummary => ({
   has_referral_code: false,
   referrals_count: 0,
   referred_by_code: null,
+  newsletter_subscriber: false,
+  newsletter_group: null,
   failed_or_canceled_payments: 0,
   pilgrimage_interest_ids: [],
   available_pilgrimage_ids: [],
@@ -251,7 +271,7 @@ export const emptySourceSummary = (): MarketingSourceSummary => ({
   waitlist_available_pilgrimages: 0,
 });
 
-export const evaluateMarketingSegments = (contact: Pick<MarketingContact, 'source_summary' | 'lead_score' | 'lifecycle_stage'>) => {
+export const evaluateMarketingSegments = (contact: Pick<MarketingContact, 'source_summary' | 'lead_score' | 'lifecycle_stage'> & { language?: MarketingContact['language'] }) => {
   const s = contact.source_summary;
   const segments: string[] = [];
   if (contact.lead_score >= 70 && s.leads > 0 && s.waitlists === 0 && s.bookings === 0) segments.push('hot-pilgrimage-leads');
@@ -267,8 +287,17 @@ export const evaluateMarketingSegments = (contact: Pick<MarketingContact, 'sourc
     }
   }
   if (s.is_member && s.referrals_count === 0) segments.push('members-without-referrals');
-  if (['expirado', 'pendente', 'revogado'].includes(s.member_status || '')) segments.push('expired-pending-members');
+  // Renovação é SÓ para 'expirado' — 'pendente'/'revogado' não devem receber copy de renovação.
+  if ((s.member_status || '') === 'expirado') segments.push('expired-members');
   if ((s.donation_value + s.quota_value + s.store_value + s.pilgrimage_payment_value) >= 100) segments.push('high-value-supporters');
+  if (s.newsletter_subscriber) {
+    segments.push('newsletter-subscribers');
+    // Language-scoped segments let us target funnels per list language. ES is
+    // intentionally NOT given a funnel-eligible segment yet — no ES copy exists,
+    // so Spanish subscribers stay in 'newsletter-subscribers' only (held out).
+    if (contact.language === 'pt') segments.push('newsletter-pt');
+    else if (contact.language === 'en') segments.push('newsletter-en');
+  }
   return segments;
 };
 
@@ -311,7 +340,7 @@ export const getMarketingRecommendation = (contact: Pick<MarketingContact, 'lead
   }
   if (s.succeeded_donations > 0 && !s.is_member) return 'Invite to become a member';
   if (s.is_member && s.referrals_count === 0) return 'Activate member referral sharing';
-  if (['expirado', 'pendente', 'revogado'].includes(s.member_status || '')) return 'Renew membership support';
+  if ((s.member_status || '') === 'expirado') return 'Renew membership support';
   if (s.donation_value + s.quota_value + s.store_value + s.pilgrimage_payment_value >= 100) return 'Invite deeper mission support';
   return 'Keep nurturing';
 };

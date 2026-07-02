@@ -158,7 +158,6 @@ export default function MarketingContactDetailClient({ id }: { id: string }) {
                     Marketing
                   </h2>
                   <div className="space-y-2 text-sm text-slate-600">
-                    <p>Tarefas: {(data.tasks || []).length}</p>
                     <p>Mensagens: {(data.messages || []).length}</p>
                     <p>Consentimento: {contact.consent_state}</p>
                   </div>

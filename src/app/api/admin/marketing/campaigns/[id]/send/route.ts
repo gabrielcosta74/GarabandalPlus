@@ -54,7 +54,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
     const contacts = (await buildMarketingContacts(auth.supabase))
       .filter((contact) => isContactInSegment(contact, campaign.segment_slug))
-      .filter((contact) => contact.normalized_email && contact.consent_state !== 'suppressed')
+      .filter((contact) => contact.normalized_email && contact.consent_state !== 'suppressed' && contact.consent_state !== 'unsubscribed')
       .slice(0, limits.campaignAudienceLimit);
 
     if (dryRun) {
@@ -84,7 +84,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
           subject: campaign.subject,
           template_key: campaign.template_key || 'marketing_generic',
           status: 'skipped',
-          error_message: `Limite de frequência atingido (${limits.minHoursBetweenEmails}h / ${limits.maxEmailsPer7Days} por 7 dias).`,
+          error_message: `Limite de frequência atingido (máx. 1 email/dia; teto ${limits.maxEmailsPer7Days} por 7 dias).`,
           metadata: { reason: 'rate_limited', limits, sendCounts },
         });
         results.push({ email: contact.normalized_email, sent: false, skipped: true, reason: 'rate_limited' });

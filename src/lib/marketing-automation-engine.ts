@@ -1,5 +1,5 @@
 import { sendMarketingEmail } from './marketing-email';
-import { isContactInSegment, isDeliverableMarketingEmail, isInternalMemberEmail, normalizeEmail } from './marketing-core';
+import { evaluateMarketingSegments, isContactInSegment, isDeliverableMarketingEmail, isInternalMemberEmail, normalizeEmail } from './marketing-core';
 import { buildMarketingContacts, persistMarketingContacts } from './marketing-data';
 import {
   countMarketingSendsForContact,
@@ -18,6 +18,44 @@ const RECOVERY_REQUIRES_AVAILABILITY = new Set([
   'abandoned_registration_final',
 ]);
 
+// Regra de prioridade: um funil só envia quando o contacto não tem inscrição ativa
+// num funil mais prioritário (ex. referral espera o onboarding terminar).
+const FUNNEL_BLOCKED_BY: Record<string, string[]> = {
+  'member-referral-activation': ['member-onboarding'],
+};
+
+// Segmentos com janela temporal: o contacto sai do segmento a meio da sequência por
+// desenho (new-members = 14 dias; onboarding dura 16). Não pausar por left_segment.
+const TIME_WINDOW_SEGMENTS = new Set(['new-members']);
+
+const getBlockedContactIds = async (
+  supabase: any,
+  funnelSlug: string,
+  contactIds: string[],
+): Promise<Set<string>> => {
+  const blockerSlugs = FUNNEL_BLOCKED_BY[funnelSlug] || [];
+  if (!blockerSlugs.length || !contactIds.length) return new Set();
+
+  const { data: blockerFunnels, error: funnelError } = await supabase
+    .from('marketing_funnels')
+    .select('id')
+    .in('slug', blockerSlugs);
+  if (funnelError) throw funnelError;
+
+  const blockerIds = (blockerFunnels || []).map((row: any) => row.id).filter(Boolean);
+  if (!blockerIds.length) return new Set();
+
+  const { data: blockingEnrollments, error: enrollmentError } = await supabase
+    .from('marketing_enrollments')
+    .select('contact_id')
+    .in('funnel_id', blockerIds)
+    .in('contact_id', contactIds)
+    .eq('status', 'active');
+  if (enrollmentError) throw enrollmentError;
+
+  return new Set((blockingEnrollments || []).map((row: any) => row.contact_id));
+};
+
 const splitStepCondition = (condition?: string | null) =>
   String(condition || '')
     .split(/[,|&]+/)
@@ -27,7 +65,6 @@ const splitStepCondition = (condition?: string | null) =>
 export const getMarketingStepConditions = (step?: any) => {
   const conditions = splitStepCondition(step?.condition);
   if (
-    step?.channel !== 'task' &&
     RECOVERY_REQUIRES_AVAILABILITY.has(String(step?.template_key || '')) &&
     !conditions.includes('has_availability')
   ) {
@@ -77,7 +114,10 @@ export const evaluateMarketingEnrollment = (enrollment: any, counts?: { day?: nu
   const limits = getMarketingEmailLimits();
 
   if (enrollment?.status === 'paused') {
-    return { bucket: 'paused', label: 'Pausado', reason: 'Pausado pelo admin.', tone: 'slate' };
+    const reason = enrollment?.stopped_reason === 'left_segment'
+      ? 'Saiu do segmento — pausado automaticamente.'
+      : 'Pausado pelo admin.';
+    return { bucket: 'paused', label: 'Pausado', reason, tone: 'slate' };
   }
   if (enrollment?.status === 'failed') {
     return { bucket: 'failed', label: 'Falhado', reason: enrollment?.stopped_reason || 'Falhou no último processamento.', tone: 'red' };
@@ -91,7 +131,7 @@ export const evaluateMarketingEnrollment = (enrollment: any, counts?: { day?: nu
   if (!step || !contact) {
     return { bucket: 'blocked', label: 'Bloqueado', reason: 'Falta contacto ou passo do funil.', tone: 'red' };
   }
-  if (!contact?.normalized_email && step.channel !== 'task') {
+  if (!contact?.normalized_email) {
     return { bucket: 'blocked', label: 'Bloqueado', reason: 'Contacto sem email válido.', tone: 'red' };
   }
   if (contact?.consent_state === 'suppressed' || contact?.consent_state === 'unsubscribed') {
@@ -161,6 +201,7 @@ export const prepareMarketingFunnelEnrollments = async (
   if (existingError) throw existingError;
 
   const existingByContactId = new Map((existingEnrollments || []).map((row: any) => [row.contact_id, row]));
+  const blockedContactIds = await getBlockedContactIds(supabase, funnel.slug, contactIds as string[]);
   const firstStep = Array.isArray(funnel.steps) ? funnel.steps[0] : null;
   const delayHours = Number(firstStep?.delay_hours || 0);
   const nextRunAt = addMarketingHours(new Date(), delayHours).toISOString();
@@ -170,6 +211,7 @@ export const prepareMarketingFunnelEnrollments = async (
   for (const contact of eligible) {
     const contactId = byEmail.get(contact.normalized_email);
     if (!contactId) continue;
+    if (blockedContactIds.has(String(contactId))) continue;
 
     const existing = existingByContactId.get(contactId) as { id?: string; status?: string } | undefined;
     if (existing?.id) {
@@ -221,6 +263,28 @@ const hasOpenPilgrimageAvailability = (pilgrimage: any, now = new Date()) => {
 const pilgrimageMarketingUrl = (pilgrimage: any) =>
   pilgrimage?.slug ? `${APP_URL}/peregrinacoes/${pilgrimage.slug}` : `${APP_URL}/peregrinacoes`;
 
+// Human-readable date range, e.g. "11 a 24 de outubro de 2026" / "11–24 October 2026".
+const formatPilgrimageDates = (start?: string | null, end?: string | null, locale: 'pt' | 'en' = 'pt') => {
+  if (!start) return null;
+  const s = new Date(start);
+  if (Number.isNaN(s.getTime())) return null;
+  const loc = locale === 'en' ? 'en-GB' : 'pt-BR';
+  const e = end ? new Date(end) : null;
+  if (e && !Number.isNaN(e.getTime())) {
+    const sameMonth = s.getMonth() === e.getMonth() && s.getFullYear() === e.getFullYear();
+    if (sameMonth) {
+      const monthYear = s.toLocaleDateString(loc, { month: 'long', year: 'numeric' });
+      return locale === 'en'
+        ? `${s.getDate()}–${e.getDate()} ${s.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}`
+        : `${s.getDate()} a ${e.getDate()} de ${monthYear}`;
+    }
+    const sTxt = s.toLocaleDateString(loc, { day: 'numeric', month: 'long' });
+    const eTxt = e.toLocaleDateString(loc, { day: 'numeric', month: 'long', year: 'numeric' });
+    return locale === 'en' ? `${sTxt} – ${eTxt}` : `${sTxt} a ${eTxt}`;
+  }
+  return s.toLocaleDateString(loc, { day: 'numeric', month: 'long', year: 'numeric' });
+};
+
 export const processWaitlistOpenSpotNotifications = async (
   supabase: any,
   options: { limit?: number; dryRun?: boolean; now?: Date } = {},
@@ -234,7 +298,7 @@ export const processWaitlistOpenSpotNotifications = async (
 
   const { data: pilgrimages, error: pilgrimageError } = await supabase
     .from('pilgrimages')
-    .select('id,title,slug,status,current_vacancies,registration_deadline,start_date,cover_image')
+    .select('id,title,slug,status,current_vacancies,registration_deadline,start_date,end_date,cover_image')
     .gt('current_vacancies', 0)
     .in('status', ['open', 'active', 'ativo'])
     .order('start_date', { ascending: true });
@@ -330,10 +394,14 @@ export const processWaitlistOpenSpotNotifications = async (
         continue;
       }
 
+      const contactLocale = (contact.language === 'en' ? 'en' : 'pt') as 'pt' | 'en';
       const payloadContext = {
         pilgrimageName: pilgrimage.title || 'Garabandal',
         pilgrimageUrl: pilgrimageMarketingUrl(pilgrimage),
         pilgrimageImageUrl: pilgrimage.cover_image || null,
+        pilgrimageDates: formatPilgrimageDates(pilgrimage.start_date, pilgrimage.end_date, contactLocale),
+        pilgrimageStatus: 'open' as const,
+        pilgrimageVacancies: Number(pilgrimage.current_vacancies || 0) || null,
       };
 
       if (options.dryRun) {
@@ -408,7 +476,7 @@ export const processMarketingEnrollment = async (supabase: any, enrollment: any)
     return { enrollment: enrollment.id, status: 'stopped', reason: 'missing_contact_or_consent' };
   }
 
-  if (step.channel !== 'task' && isInternalMemberEmail(contact.normalized_email)) {
+  if (isInternalMemberEmail(contact.normalized_email)) {
     await supabase.from('marketing_message_logs').insert({
       contact_id: contact.id,
       funnel_id: funnel.id,
@@ -434,6 +502,31 @@ export const processMarketingEnrollment = async (supabase: any, enrollment: any)
       .update({ status: 'completed', goal_reached_at: nowIso, next_run_at: null, updated_at: nowIso })
       .eq('id', enrollment.id);
     return { enrollment: enrollment.id, status: 'goal_reached' };
+  }
+
+  // Prioridade: se o contacto está num funil mais prioritário (ex. onboarding),
+  // adia este passo em vez de competir com ele.
+  const blockedByPriority = await getBlockedContactIds(supabase, funnel?.slug, [contact.id]);
+  if (blockedByPriority.has(contact.id)) {
+    const retryAt = addMarketingHours(new Date(), 72).toISOString();
+    await supabase
+      .from('marketing_enrollments')
+      .update({ next_run_at: retryAt, updated_at: nowIso })
+      .eq('id', enrollment.id);
+    return { enrollment: enrollment.id, status: 'deferred', reason: 'waiting_priority_funnel', retryAt };
+  }
+
+  // Se o contacto já não pertence ao segmento do funil (ex. fez referral, renovou,
+  // entrou em lista de espera), pausa em vez de continuar a sequência errada.
+  if (funnel?.segment_slug && !TIME_WINDOW_SEGMENTS.has(funnel.segment_slug)) {
+    const currentSegments = evaluateMarketingSegments(contact);
+    if (!currentSegments.includes(funnel.segment_slug)) {
+      await supabase
+        .from('marketing_enrollments')
+        .update({ status: 'paused', stopped_reason: 'left_segment', next_run_at: null, updated_at: nowIso })
+        .eq('id', enrollment.id);
+      return { enrollment: enrollment.id, status: 'paused', reason: 'left_segment' };
+    }
   }
 
   if (!marketingStepConditionsPass(contact, step)) {
@@ -464,77 +557,63 @@ export const processMarketingEnrollment = async (supabase: any, enrollment: any)
     return { enrollment: enrollment.id, status: 'skipped', reason: 'condition_failed', conditions };
   }
 
-  if (step.channel !== 'task') {
-    const sendCounts = await countMarketingSendsForContact(supabase, contact.id, new Date(), limits);
+  const sendCounts = await countMarketingSendsForContact(supabase, contact.id, new Date(), limits);
 
-    if (sendCounts.recent >= 1 || sendCounts.week >= limits.maxEmailsPer7Days) {
-      const retryAt = addMarketingHours(new Date(), limits.minHoursBetweenEmails).toISOString();
-      await supabase
-        .from('marketing_enrollments')
-        .update({ next_run_at: retryAt, updated_at: nowIso })
-        .eq('id', enrollment.id);
-      await supabase.from('marketing_message_logs').insert({
-        contact_id: contact.id,
-        funnel_id: funnel.id,
-        enrollment_id: enrollment.id,
-        channel: step.channel || 'email',
-        to_email: contact.normalized_email,
-        subject: funnel.name,
-        template_key: step.template_key || null,
-        status: 'skipped',
-        error_message: `Limite de frequência atingido. Reagendado +${limits.minHoursBetweenEmails}h.`,
-        metadata: {
-          step,
-          reason: 'rate_limited',
-          retry_at: retryAt,
-          limits,
-          sendCounts,
-        },
-      });
-      return { enrollment: enrollment.id, status: 'rate_limited', retryAt, limits, sendCounts };
-    }
-  }
-
-  if (step.channel === 'task') {
-    await supabase.from('marketing_tasks').insert({
-      contact_id: contact.id,
-      title: `Follow up: ${contact.display_name || contact.normalized_email}`,
-      description: contact.recommendation || funnel.description,
-      task_type: 'follow_up',
-      priority: contact.lead_score >= 90 ? 'high' : 'medium',
-      source: funnel.slug,
-      metadata: { enrollment_id: enrollment.id, step },
-    });
-  } else {
-    const result = await sendMarketingEmail({
-      contact,
-      subject: step.subject_override || null,
-      body: step.body_override || null,
-      templateKey: step.template_key,
-    });
-
+  if (sendCounts.recent >= 1 || sendCounts.week >= limits.maxEmailsPer7Days) {
+    const retryAt = addMarketingHours(new Date(), limits.minHoursBetweenEmails).toISOString();
+    await supabase
+      .from('marketing_enrollments')
+      .update({ next_run_at: retryAt, updated_at: nowIso })
+      .eq('id', enrollment.id);
     await supabase.from('marketing_message_logs').insert({
       contact_id: contact.id,
       funnel_id: funnel.id,
       enrollment_id: enrollment.id,
-      channel: 'email',
+      channel: step.channel || 'email',
       to_email: contact.normalized_email,
-      provider_message_id: result.providerId || null,
-      subject: result.subject || funnel.name,
-      template_key: result.templateKey || step.template_key || null,
-      status: result.sent ? 'sent' : 'failed',
-      error_message: result.sent ? null : result.error,
-      sent_at: result.sent ? nowIso : null,
-      metadata: { step },
+      subject: funnel.name,
+      template_key: step.template_key || null,
+      status: 'skipped',
+      error_message: `Limite de frequência atingido. Reagendado +${limits.minHoursBetweenEmails}h.`,
+      metadata: {
+        step,
+        reason: 'rate_limited',
+        retry_at: retryAt,
+        limits,
+        sendCounts,
+      },
     });
+    return { enrollment: enrollment.id, status: 'rate_limited', retryAt, limits, sendCounts };
+  }
 
-    if (!result.sent) {
-      await supabase
-        .from('marketing_enrollments')
-        .update({ status: 'failed', stopped_reason: result.error || 'send_failed', updated_at: nowIso })
-        .eq('id', enrollment.id);
-      return { enrollment: enrollment.id, status: 'failed', error: result.error };
-    }
+  const result = await sendMarketingEmail({
+    contact,
+    subject: step.subject_override || null,
+    body: step.body_override || null,
+    templateKey: step.template_key,
+  });
+
+  await supabase.from('marketing_message_logs').insert({
+    contact_id: contact.id,
+    funnel_id: funnel.id,
+    enrollment_id: enrollment.id,
+    channel: 'email',
+    to_email: contact.normalized_email,
+    provider_message_id: result.providerId || null,
+    subject: result.subject || funnel.name,
+    template_key: result.templateKey || step.template_key || null,
+    status: result.sent ? 'sent' : 'failed',
+    error_message: result.sent ? null : result.error,
+    sent_at: result.sent ? nowIso : null,
+    metadata: { step },
+  });
+
+  if (!result.sent) {
+    await supabase
+      .from('marketing_enrollments')
+      .update({ status: 'failed', stopped_reason: result.error || 'send_failed', updated_at: nowIso })
+      .eq('id', enrollment.id);
+    return { enrollment: enrollment.id, status: 'failed', error: result.error };
   }
 
   const nextStepIndex = enrollment.current_step + 1;
@@ -549,5 +628,5 @@ export const processMarketingEnrollment = async (supabase: any, enrollment: any)
     })
     .eq('id', enrollment.id);
 
-  return { enrollment: enrollment.id, status: step.channel === 'task' ? 'task_created' : 'sent', step: enrollment.current_step };
+  return { enrollment: enrollment.id, status: 'sent', step: enrollment.current_step };
 };

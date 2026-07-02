@@ -64,7 +64,8 @@ const toArray = (value: unknown): string[] => {
 };
 
 export const inferEmailCategory = (subject: string, from?: string | null): EmailCategoryKey => {
-  const haystack = `${normalizeText(subject)} ${normalizeText(from)}`;
+  const haystack = normalizeText(subject);
+  const sender = normalizeText(from);
 
   if (
     /(peregrin|inscric|roteiro|garabandal|lista de espera|espera|lead|retoma|brochura)/.test(
@@ -78,7 +79,7 @@ export const inferEmailCategory = (subject: string, from?: string | null): Email
     return 'members';
   }
 
-  if (/(encomenda|loja|tracking|envio|preparac|shipping|order|checkout)/.test(haystack)) {
+  if (/(encomenda|loja|tracking|envio|preparac|shipping|order|checkout)/.test(`${haystack} ${sender}`)) {
     return 'store';
   }
 
@@ -220,4 +221,3 @@ export const formatRecipientList = (recipients: string[]) => {
   if (recipients.length === 1) return recipients[0];
   return `${recipients[0]} +${recipients.length - 1}`;
 };
-

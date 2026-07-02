@@ -55,7 +55,9 @@ export const buildMarketingTemplatePayload = (input: MarketingEmailInput): Marke
   templateKey: input.templateKey || 'brochure_followup_1',
   name: input.contact.display_name,
   email: input.contact.normalized_email,
-  language: input.contact.language,
+  // Templates only exist in pt/en; es falls back to the pt base copy (held out
+  // of funnels, so this only affects manual sends until ES copy is authored).
+  language: input.contact.language === 'en' ? 'en' : 'pt',
   recommendation: input.contact.recommendation,
   subjectOverride: input.subject || null,
   bodyOverride: input.body || null,
