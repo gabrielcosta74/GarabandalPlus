@@ -132,7 +132,9 @@ describe('marketing quiet hours (São Paulo window)', () => {
 });
 
 describe('resend webhook signature (svix format)', () => {
-  const secret = 'whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw';
+  // Segredo sintético gerado aqui mesmo — nunca commitar valores com formato
+  // whsec_<base64> literais (dispara o secret scanning do GitHub).
+  const secret = ['whsec', Buffer.from('local-test-only-signing-key-1234').toString('base64')].join('_');
   const id = 'msg_p5jXN8AQM9LWM0D4loKWxJek';
   const timestamp = '1614265330';
   const payload = '{"test": 2432232314}';
