@@ -52,12 +52,19 @@ export const serializeCivilDateForStorage = (value?: string | null) => {
 export const todayCivilTimestamp = (now: Date = new Date()) =>
     new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12, 0, 0, 0).getTime();
 
+// Mostra sempre o número real de vagas (pedido do operador, 2026-07-09):
+// urgência honesta em vez de "lugares limitados" genérico.
 export const getPublicAvailabilityLabel = (remainingSpots: number, locale: 'pt' | 'en' = 'pt') => {
-    if (remainingSpots <= 5) {
-        return locale === 'en' ? 'Last spots' : 'Últimas vagas';
+    if (!Number.isFinite(remainingSpots) || remainingSpots <= 0) {
+        return locale === 'en' ? 'Limited spots' : 'Lugares limitados';
     }
-
-    return locale === 'en' ? 'Limited spots' : 'Lugares limitados';
+    if (remainingSpots === 1) {
+        return locale === 'en' ? 'Only 1 spot left' : 'Resta apenas 1 vaga';
+    }
+    if (remainingSpots <= 9) {
+        return locale === 'en' ? `Only ${remainingSpots} spots left` : `Restam apenas ${remainingSpots} vagas`;
+    }
+    return locale === 'en' ? `${remainingSpots} spots available` : `${remainingSpots} vagas disponíveis`;
 };
 
 type CampaignPilgrimage = {
@@ -76,16 +83,8 @@ export const isNovemberCampaignPilgrimage = (pilgrimage: CampaignPilgrimage) => 
 export const getAvailabilityHighlightLabel = (
     remainingSpots: number,
     locale: 'pt' | 'en' = 'pt',
-    pilgrimage?: CampaignPilgrimage,
-) => {
-    // A peregrinação de novembro não usa o aviso de "Últimas vagas":
-    // mostra apenas o rótulo neutro de lugares limitados.
-    if (pilgrimage && isNovemberCampaignPilgrimage(pilgrimage)) {
-        return locale === 'en' ? 'Limited spots' : 'Lugares limitados';
-    }
-
-    return getPublicAvailabilityLabel(remainingSpots, locale);
-};
+    _pilgrimage?: CampaignPilgrimage,
+) => getPublicAvailabilityLabel(remainingSpots, locale);
 
 export const parseRoomInfo = (notes?: string) => {
     if (!notes) return { bedType: null, sharingMode: null, roommates: null, cleanNotes: '' };

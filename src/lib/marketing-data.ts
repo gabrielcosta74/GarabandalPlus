@@ -229,10 +229,13 @@ export async function buildMarketingContacts(supabase: SupabaseLike): Promise<Ma
       locale: lead.data?.locale,
       occurredAt: lead.updated_at || lead.created_at,
     });
-    // 'interested' = "Estou interessado em ir" (chat/page WhatsApp flow). It is a soft demand
-    // signal only and must NOT count as a lead, or it would sweep the contact into the active
-    // abandoned-registration / hot-pilgrimage-leads funnels (wrong copy). See marketing-core.ts.
-    if (lead.status !== 'waitlist' && lead.status !== 'interested') contact.source_summary.leads += 1;
+    // 'interested' = "Estou interessado em ir" (chat/page WhatsApp flow) is a soft demand
+    // signal, and 'brochure_request' has its own counter/segment. Neither may count as a
+    // lead, or the contact is swept into the abandoned-registration / hot-pilgrimage-leads
+    // funnels and receives "sua inscrição ficou quase pronta" copy that is false for them.
+    if (!['waitlist', 'interested', 'brochure_request'].includes(String(lead.status))) {
+      contact.source_summary.leads += 1;
+    }
     if (lead.status === 'brochure_request') contact.source_summary.brochure_requests += 1;
     if (lead.status === 'waitlist') contact.source_summary.waitlists += 1;
     trackPilgrimageInterest(contact, lead.pilgrimage_id, lead.pilgrimages, { waitlist: lead.status === 'waitlist' });
@@ -250,7 +253,6 @@ export async function buildMarketingContacts(supabase: SupabaseLike): Promise<Ma
       occurred_at: lead.created_at,
       metadata: { status: lead.status, step_reached: lead.step_reached },
     });
-    if (toNumber(lead.step_reached) >= 2 && lead.status === 'draft') contact.source_summary.leads += 1;
   }
 
   for (const waitlist of waitlists) {

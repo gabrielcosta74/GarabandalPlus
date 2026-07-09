@@ -14,6 +14,28 @@ export const getMarketingEmailLimits = () => ({
   campaignAudienceLimit: parseEnvInt('MARKETING_CAMPAIGN_AUDIENCE_LIMIT', 100, 1, 500),
 });
 
+// Quiet hours: emails de marketing só saem dentro da janela local do público
+// (maioria Brasil). Fora da janela o cron não processa nada — os enrollments
+// ficam devidos e saem na primeira corrida dentro da janela. Formato do env:
+// MARKETING_SEND_WINDOW="9-21" (hora de início inclusive, fim exclusive).
+export const MARKETING_SEND_TIMEZONE = 'America/Sao_Paulo';
+
+export const getMarketingSendWindow = () => {
+  const raw = process.env.MARKETING_SEND_WINDOW || '9-21';
+  const match = raw.match(/^(\d{1,2})-(\d{1,2})$/);
+  const start = match ? Math.min(23, Math.max(0, Number(match[1]))) : 9;
+  const end = match ? Math.min(24, Math.max(start + 1, Number(match[2]))) : 21;
+  return { start, end };
+};
+
+export const isWithinMarketingSendWindow = (now: Date = new Date()) => {
+  const { start, end } = getMarketingSendWindow();
+  const hour = Number(
+    new Intl.DateTimeFormat('en-GB', { hour: 'numeric', hour12: false, timeZone: MARKETING_SEND_TIMEZONE }).format(now),
+  );
+  return hour >= start && hour < end;
+};
+
 export const getMarketingWindowStarts = (
   now: Date = new Date(),
   limits = getMarketingEmailLimits(),

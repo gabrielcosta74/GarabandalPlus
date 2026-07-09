@@ -940,6 +940,16 @@ export default function MarketingAdminClient({ view: initialView }: MarketingAdm
                   <input value={outboxSearch} onChange={(e) => setOutboxSearch(e.target.value)} placeholder="Pesquisar email, assunto, contacto ou template…" className="w-full rounded-lg border border-slate-200 bg-white py-2.5 pl-10 pr-4 text-sm outline-none transition-colors focus:border-slate-400" />
                 </div>
 
+                {typeof data.stats?.sent === 'number' && data.stats.sent > 0 && (
+                  <p className="text-xs font-medium text-slate-500">
+                    Últimos 7 dias: {data.stats.sent} enviados
+                    {' · '}<span className="font-bold text-blue-700">{data.stats.opened || 0} abertos ({Math.round(((data.stats.opened || 0) / data.stats.sent) * 100)}%)</span>
+                    {' · '}<span className="font-bold text-emerald-700">{data.stats.clicked || 0} clicados</span>
+                    {typeof data.stats.bounced === 'number' && data.stats.bounced > 0 ? <>{' · '}<span className="font-bold text-red-700">{data.stats.bounced} devolvidos/spam</span></> : null}
+                    {' — '}dados de abertura começam a contar a partir da ativação do webhook do Resend.
+                  </p>
+                )}
+
                 <div className="overflow-hidden rounded-xl border border-slate-200/60 bg-white shadow-sm">
                   <table className="w-full text-left text-sm">
                     <thead className="border-b border-slate-100 bg-slate-50/50 text-xs uppercase tracking-wider text-slate-500 font-bold">
@@ -977,6 +987,23 @@ export default function MarketingAdminClient({ view: initialView }: MarketingAdm
                               label={message.status}
                               tone={message.status === 'sent' ? 'emerald' : message.status === 'failed' ? 'red' : message.status === 'skipped' ? 'amber' : 'slate'}
                             />
+                            {(() => {
+                              const meta = message.metadata || {};
+                              const badge = meta.complained_at
+                                ? { label: 'Spam ⚠', cls: 'bg-red-50 text-red-700 border-red-200', at: meta.complained_at }
+                                : meta.bounced_at
+                                  ? { label: 'Devolvido', cls: 'bg-red-50 text-red-700 border-red-200', at: meta.bounced_at }
+                                  : meta.clicked_at
+                                    ? { label: `Clicado${Number(meta.click_count) > 1 ? ` ×${meta.click_count}` : ''}`, cls: 'bg-emerald-50 text-emerald-700 border-emerald-200', at: meta.clicked_at }
+                                    : meta.opened_at
+                                      ? { label: `Aberto${Number(meta.open_count) > 1 ? ` ×${meta.open_count}` : ''}`, cls: 'bg-blue-50 text-blue-700 border-blue-200', at: meta.opened_at }
+                                      : null;
+                              return badge ? (
+                                <span title={formatDateTime(badge.at)} className={`mt-1.5 inline-flex rounded-full border px-2 py-0.5 text-[10px] font-bold ${badge.cls}`}>
+                                  {badge.label}
+                                </span>
+                              ) : null;
+                            })()}
                           </td>
                           <td className="p-4 pr-6 align-top text-xs font-medium text-slate-500">
                             {formatDateTime(message.sent_at || message.created_at)}

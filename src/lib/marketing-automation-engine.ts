@@ -337,9 +337,30 @@ export const processWaitlistOpenSpotNotifications = async (
       continue;
     }
 
+    // Quem já se inscreveu nesta peregrinação (tem registo de peregrino) não pode
+    // receber "restam X vagas" — a vaga dele já está garantida.
+    const { data: pilgrimRows, error: pilgrimsError } = await supabase
+      .from('pilgrims')
+      .select('email, bookings!inner(pilgrimage_id)')
+      .eq('bookings.pilgrimage_id', pilgrimage.id);
+    if (pilgrimsError) {
+      skipped += 1;
+      results.push({ pilgrimage: pilgrimage.id, action: 'skipped', reason: 'pilgrims_query_failed', error: pilgrimsError.message || String(pilgrimsError) });
+      continue;
+    }
+    const registeredEmails = new Set(
+      (pilgrimRows || []).map((row: any) => normalizeEmail(row.email)).filter(Boolean) as string[],
+    );
+
     const rows = (waitlistRows || [])
       .map((row: any) => ({ ...row, normalized_email: normalizeEmail(row.email) }))
-      .filter((row: any) => isDeliverableMarketingEmail(row.normalized_email));
+      .filter((row: any) => isDeliverableMarketingEmail(row.normalized_email))
+      .filter((row: any) => {
+        if (!registeredEmails.has(row.normalized_email)) return true;
+        skipped += 1;
+        results.push({ waitlist: row.id, pilgrimage: pilgrimage.id, action: 'skipped', reason: 'already_registered' });
+        return false;
+      });
     candidates += rows.length;
     if (!rows.length) continue;
 

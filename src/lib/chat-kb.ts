@@ -87,8 +87,8 @@ export function buildPilgrimageContext(
             : null;
     const availabilityLabel = p.status === 'waitlist' || p.status === 'closed' || vacanciesRaw === 0
         ? 'Lista de espera / esgotado'
-        : typeof vacanciesRaw === 'number' && vacanciesRaw <= 5
-            ? 'Últimas vagas'
+        : typeof vacanciesRaw === 'number' && vacanciesRaw > 0
+            ? (vacanciesRaw === 1 ? 'Resta apenas 1 vaga' : `Restam apenas ${vacanciesRaw} vagas`)
             : 'Lugares limitados';
     const isNovemberPilgrimage = [p.slug, p.title]
         .filter(Boolean)

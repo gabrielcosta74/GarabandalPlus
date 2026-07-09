@@ -26,13 +26,18 @@ export async function GET(req: Request) {
     const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
     const { data: recent, error: statsError } = await auth.supabase
       .from('marketing_message_logs')
-      .select('status')
+      .select('status, metadata')
       .gte('created_at', since);
     if (statsError) throw statsError;
 
+    // opened/clicked/bounced vêm do webhook do Resend (metadata gravada por evento).
     const stats = (recent || []).reduce<Record<string, number>>((acc, row: any) => {
       acc[row.status] = (acc[row.status] || 0) + 1;
       acc.total = (acc.total || 0) + 1;
+      const meta = row.metadata || {};
+      if (meta.opened_at) acc.opened = (acc.opened || 0) + 1;
+      if (meta.clicked_at) acc.clicked = (acc.clicked || 0) + 1;
+      if (meta.bounced_at || meta.complained_at) acc.bounced = (acc.bounced || 0) + 1;
       return acc;
     }, { total: 0 });
 

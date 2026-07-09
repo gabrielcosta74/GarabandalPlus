@@ -155,6 +155,20 @@ não servem para enviar a 876 pessoas num dia. O envio mensal vai precisar de um
 respeitar supressão/unsubscribe e a registar em `marketing_campaigns`. Resolver quando montarmos
 a primeira edição.
 
+### 2.4-A Política de campanhas em massa (2026-07-09 — ver auditoria)
+
+Todo o envio em massa por script obedece a isto, sem exceção:
+
+1. **Registo antes do envio:** linha em `marketing_campaigns` + log por destinatário em
+   `marketing_message_logs` (o anúncio de junho ficou fora da contabilidade — não repetir).
+2. **Máximo 1 campanha comercial por mês** à lista da newsletter, e **nunca nos 7 dias**
+   seguintes à edição mensal. A newsletter é o "dar"; a campanha é o "pedir".
+3. **Lotes ≤ 300/dia** (o script `send-newsletter.ts` já impõe; qualquer script novo deve
+   impor o mesmo teto e retomar entre corridas por `campaign_slug`).
+4. **Dry-run primeiro, sempre** — e envio real só com aprovação explícita do Gabriel.
+5. Flash sales: máximo 2/ano, sempre ancoradas em datas marianas reais, nunca como primeiro
+   toque de um segmento novo.
+
 ### 2.4 Decisões tomadas (para não reabrir sem pensar)
 
 - **Past-pilgrims (46) e high-value (41) não têm automação de propósito** — são o público mais valioso; menos email = mais confiança. Contactar só por campanha pontual aprovada à mão.

@@ -1,0 +1,41 @@
+{
+  "campaignSlug": "newsletter-2026-07-pt",
+  "name": "Newsletter mensal nº 1 — Conhecer Garabandal (julho 2026, PT)",
+  "language": "pt",
+  "subject": "{{first_name}}, 4 leituras para conhecer Garabandal do princípio",
+  "intro": [
+    "<strong>{{greeting}}</strong>,",
+    "Esta é a primeira edição da nossa newsletter mensal. Todos os meses vamos escolher algumas leituras do nosso site — artigos, testemunhos e a vida da missão — para você ler com calma, rezar e, se quiser, compartilhar com quem ama.",
+    "Nesta primeira edição, quisemos começar pelo princípio: a história, as testemunhas e a vida do Apostolado hoje."
+  ],
+  "articles": [
+    {
+      "title": "A História de Garabandal",
+      "url": "https://apostoladodegarabandal.com/a-historia-de-garabandal",
+      "excerpt": "A história das aparições de Nossa Senhora do Carmo em Garabandal, contada do princípio: as quatro meninas, as mensagens e o que aconteceu naquela aldeia das montanhas.",
+      "imageUrl": "https://pntzzuxzjnzksubbjfvj.supabase.co/storage/v1/object/public/posts-media/1b1a7d3166098944.jpg",
+      "tag": "Para começar"
+    },
+    {
+      "title": "O Padre Pio esteve em Garabandal!",
+      "url": "https://apostoladodegarabandal.com/l/o-padre-pio-esteve-em-garabandal",
+      "excerpt": "A visita do Padre Pio a Garabandal em bilocação — um dos testemunhos mais impressionantes ligados às aparições.",
+      "imageUrl": "https://pntzzuxzjnzksubbjfvj.supabase.co/storage/v1/object/public/posts-media/72361d7fcc96d629.jpg",
+      "tag": "Testemunho"
+    },
+    {
+      "title": "Recentes palavras de Conchita",
+      "url": "https://apostoladodegarabandal.com/l/recentes-palavras-de-conchita",
+      "excerpt": "Palavras de Conchita González, vidente de Garabandal, para o momento que estamos vivendo.",
+      "imageUrl": "https://pntzzuxzjnzksubbjfvj.supabase.co/storage/v1/object/public/posts-media/0f9360adc692fcbe.jpg",
+      "tag": "A vidente"
+    },
+    {
+      "title": "Inauguração do Garabandal +",
+      "url": "https://apostoladodegarabandal.com/l/inauguracao-do-garabandal",
+      "excerpt": "O Apostolado inaugurou o Garabandal +, o novo espaço da missão — um passo concreto para levar a mensagem de Nossa Senhora a mais corações.",
+      "imageUrl": "https://pntzzuxzjnzksubbjfvj.supabase.co/storage/v1/object/public/posts-media/3cf2ffe14a805e6f.jpg",
+      "tag": "A missão hoje"
+    }
+  ]
+}

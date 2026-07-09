@@ -6,7 +6,13 @@ import {
   processMarketingEnrollment,
   processWaitlistOpenSpotNotifications,
 } from '../../../../lib/marketing-automation-engine';
-import { countMarketingSendsSince, getMarketingEmailLimits, getMarketingWindowStarts } from '../../../../lib/marketing-limits';
+import {
+  countMarketingSendsSince,
+  getMarketingEmailLimits,
+  getMarketingSendWindow,
+  getMarketingWindowStarts,
+  isWithinMarketingSendWindow,
+} from '../../../../lib/marketing-limits';
 import { supabaseServer } from '../../../../lib/supabase';
 
 export const runtime = 'nodejs';
@@ -47,6 +53,19 @@ export async function GET(req: Request) {
   try {
     const requestUrl = new URL(req.url);
     const dryRun = requestUrl.searchParams.get('dryRun') === '1';
+
+    // Quiet hours: fora da janela (hora de São Paulo) nada é enviado; os
+    // enrollments devidos saem na primeira corrida dentro da janela.
+    if (!dryRun && !isWithinMarketingSendWindow()) {
+      return NextResponse.json({
+        success: true,
+        skipped: true,
+        reason: 'quiet_hours',
+        sendWindow: getMarketingSendWindow(),
+        processed: [],
+      });
+    }
+
     const limits = getMarketingEmailLimits();
     const windows = getMarketingWindowStarts(new Date(), limits);
     const sentLast24h = await countMarketingSendsSince(supabaseServer, windows.day);

@@ -1,0 +1,34 @@
+{
+  "campaignSlug": "newsletter-2026-07-en",
+  "name": "Monthly newsletter #1 — Discovering Garabandal (July 2026, EN)",
+  "language": "en",
+  "subject": "{{first_name}}, 3 readings to discover Garabandal from the beginning",
+  "intro": [
+    "<strong>{{greeting}}</strong>,",
+    "This is the first edition of our monthly newsletter. Every month we will choose a few readings from our website — articles, testimonies and the life of the mission — for you to read calmly, pray with, and share with those you love.",
+    "For this first edition, we wanted to start at the beginning: the history, the witnesses and the life of the Apostolate."
+  ],
+  "articles": [
+    {
+      "title": "The History of Garabandal",
+      "url": "https://apostoladodegarabandal.com/en/garabandal-history",
+      "excerpt": "The history of the apparitions of Our Lady of Mount Carmel in Garabandal, told from the beginning: the four girls, the messages, and what happened in that mountain village.",
+      "imageUrl": "https://pntzzuxzjnzksubbjfvj.supabase.co/storage/v1/object/public/posts-media/1b1a7d3166098944.jpg",
+      "tag": "Start here"
+    },
+    {
+      "title": "Meeting with Jacinta González",
+      "url": "https://apostoladodegarabandal.com/en/l/meeting-with-jacinta-gonzalez",
+      "excerpt": "A meeting with Jacinta González, one of the visionaries of Garabandal, during a presentation on the apparitions in Louisiana, USA.",
+      "imageUrl": "https://pntzzuxzjnzksubbjfvj.supabase.co/storage/v1/object/public/posts-media/3e2523443dee6840.jpg",
+      "tag": "The visionary"
+    },
+    {
+      "title": "Our first E-Pilgrimage at Garabandal!",
+      "url": "https://apostoladodegarabandal.com/en/l/our-first-e-pilgrimage-to-garabandal",
+      "excerpt": "How the Apostolate brought Garabandal to pilgrims around the world — praying together, directly from the village.",
+      "imageUrl": "https://pntzzuxzjnzksubbjfvj.supabase.co/storage/v1/object/public/posts-media/69520520e755f93d.jpg",
+      "tag": "The mission"
+    }
+  ]
+}

@@ -162,7 +162,9 @@ export default function PilgrimagesPage() {
                                     <h2 className="font-serif text-3xl font-bold leading-tight text-slate-950 md:text-4xl">
                                         {novemberSoldOut
                                             ? (locale === 'en' ? 'The November pilgrimage is full — but there may be a chance of more spots opening.' : 'A peregrinação de novembro está esgotada — mas poderá haver chance de abrirem mais lugares disponíveis.')
-                                            : (locale === 'en' ? 'The available date is November. It usually fills quickly.' : 'A data disponível é novembro. Normalmente esgota rapidamente.')}
+                                            : (locale === 'en'
+                                                ? `The available date is November — only ${getRemainingSpots(novemberPilgrimage)} spots left.`
+                                                : `A data disponível é novembro — restam apenas ${getRemainingSpots(novemberPilgrimage)} vagas.`)}
                                     </h2>
                                     <p className="mt-4 max-w-2xl text-base leading-relaxed text-slate-600 md:text-lg">
                                         {locale === 'en'
