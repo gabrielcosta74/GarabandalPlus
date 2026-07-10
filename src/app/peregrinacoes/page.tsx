@@ -11,7 +11,7 @@ import { PilgrimageCard } from '../../components/pilgrimage/PilgrimageCard';
 import { PastPilgrimagesGallery } from '../../components/pilgrimage/PastPilgrimagesGallery';
 import { PilgrimageTestimonials } from '../../components/pilgrimage/PilgrimageTestimonials';
 import { getPilgrimagesAction } from './actions';
-import { getCivilDateTimestamp, getAvailabilityHighlightLabel, isNovemberCampaignPilgrimage, todayCivilTimestamp } from '../../lib/utils';
+import { getCivilDateTimestamp, getAvailabilityHighlightLabel, isNovemberCampaignPilgrimage, isPubliclyListedPilgrimage, todayCivilTimestamp } from '../../lib/utils';
 import { buildInterestWhatsAppLink } from '../../lib/chat-config';
 import { captureInterest } from '../../lib/interest-capture';
 import { WhatsAppIcon } from '../../components/icons/WhatsAppIcon';
@@ -112,7 +112,10 @@ export default function PilgrimagesPage() {
     };
 
     const todayTs = todayCivilTimestamp();
-    const sortedPilgrimages = [...pilgrimages].sort((a, b) => {
+    // Defesa no cliente (o caminho de fallback busca direto ao Supabase, sem
+    // passar pela action filtrada). Rascunhos/teste nunca renderizam.
+    const visiblePilgrimages = pilgrimages.filter(isPubliclyListedPilgrimage);
+    const sortedPilgrimages = [...visiblePilgrimages].sort((a, b) => {
         const aCampaign = isNovemberCampaignPilgrimage(a);
         const bCampaign = isNovemberCampaignPilgrimage(b);
         if (aCampaign !== bCampaign) return aCampaign ? -1 : 1;
@@ -125,8 +128,8 @@ export default function PilgrimagesPage() {
         || sortedPilgrimages.find(isNovemberCampaignPilgrimage);
     const nextPilgrimageWithVacancies = novemberPilgrimage
         || sortedPilgrimages.find(isBookable)
-        || pilgrimages.find((pilgrimage) => getRemainingSpots(pilgrimage) > 0)
-        || pilgrimages[0];
+        || visiblePilgrimages.find((pilgrimage) => getRemainingSpots(pilgrimage) > 0)
+        || visiblePilgrimages[0];
     const basePilgrimagePath = locale === 'en' ? '/en/pilgrimages' : '/peregrinacoes';
     const donationsPath = locale === 'en' ? '/en/donations' : '/donations';
     const novemberHref = novemberPilgrimage ? `${basePilgrimagePath}/${novemberPilgrimage.slug}` : basePilgrimagePath;
@@ -325,7 +328,7 @@ export default function PilgrimagesPage() {
                             <div className="animate-spin w-10 h-10 border-3 border-yellow-500 border-t-transparent rounded-full mx-auto mb-6" />
                             <p className="text-slate-500 font-medium animate-pulse">{p.loading}</p>
                         </div>
-                    ) : pilgrimages.length === 0 ? (
+                    ) : sortedPilgrimages.length === 0 ? (
                         <div className="bg-white rounded-[2rem] border-2 border-dashed border-slate-200 p-16 text-center shadow-sm">
                             <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-6 text-slate-300">
                                 <MapPin className="w-10 h-10" />
@@ -342,7 +345,7 @@ export default function PilgrimagesPage() {
                     )}
 
                     {/* Spiritual Mission Section */}
-                    {pilgrimages.length > 0 && (
+                    {sortedPilgrimages.length > 0 && (
                         <div className="mt-12 bg-indigo-900/5 border border-indigo-900/10 rounded-3xl p-8 md:p-10 relative overflow-hidden">
                             <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
                             <div className="relative z-10 flex flex-col md:flex-row gap-8 items-center">

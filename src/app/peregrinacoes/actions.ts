@@ -3,7 +3,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 import { unstable_cache } from 'next/cache';
-import { getCivilDateTimestamp } from '../../lib/utils';
+import { getCivilDateTimestamp, isPubliclyListedPilgrimage } from '../../lib/utils';
 
 const getPilgrimagesCached = unstable_cache(async () => {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -37,7 +37,7 @@ const getPilgrimagesCached = unstable_cache(async () => {
         const chosenRaw = tableList.length > rpcList.length ? tableList : rpcList;
         const chosen = Array.from(
             new Map(chosenRaw.map((row: any) => [row.id, row])).values()
-        ).sort((a: any, b: any) => {
+        ).filter((row: any) => isPubliclyListedPilgrimage(row)).sort((a: any, b: any) => {
             const aDate = getCivilDateTimestamp(a?.start_date);
             const bDate = getCivilDateTimestamp(b?.start_date);
             return aDate - bDate;

@@ -73,6 +73,19 @@ type CampaignPilgrimage = {
     start_date?: string | null;
 };
 
+// O site público (lista de peregrinações + homepage) nunca mostra rascunhos,
+// peregrinações arquivadas/canceladas, nem entradas de teste/demo. As páginas
+// de detalhe por slug NÃO usam este filtro (permitem pré-visualização direta).
+export const isPubliclyListedPilgrimage = (
+    pilgrimage: { title?: string | null; slug?: string | null; status?: string | null },
+) => {
+    const status = String(pilgrimage.status || '').toLowerCase();
+    if (['draft', 'archived', 'cancelled', 'canceled', 'hidden'].includes(status)) return false;
+    const label = `${pilgrimage.title || ''} ${pilgrimage.slug || ''}`.toLowerCase();
+    if (/\[?\s*teste\s*\]?|fict[ií]cia|\bdemo\b/.test(label)) return false;
+    return true;
+};
+
 export const isNovemberCampaignPilgrimage = (pilgrimage: CampaignPilgrimage) => {
     const searchable = `${pilgrimage.slug || ''} ${pilgrimage.title || ''}`.toLowerCase();
     return searchable.includes('novembro-2026')
