@@ -3,7 +3,7 @@ import { supabaseServer } from '../../../../lib/supabase';
 import { getAppUrl } from '../../../../lib/config';
 import { reduniqClient } from '../../../../lib/reduniq/client';
 import { checkRateLimit } from '../../../../lib/rate-limit';
-import { inferRequestLocale, withLocalePrefix } from '../../../../lib/locale-routing';
+import { inferRequestLocale } from '../../../../lib/locale-routing';
 import {
     buildPilgrimageReduniqFeeNote,
     calculatePilgrimageReduniqCharge,
@@ -42,7 +42,13 @@ const toSafeCheckoutError = (error: unknown): string => {
 export async function POST(req: Request) {
     try {
         const locale = inferRequestLocale(req);
-        const bookingPathBase = withLocalePrefix('/pilgrimages/registration', locale);
+        // Return path must map to the REAL route for each locale. The EN slug is
+        // `/en/pilgrimages/registration`; the PT route is `/peregrinacoes/inscricao`
+        // (not a locale-prefixed copy of the EN slug). Using withLocalePrefix here
+        // produced `/pilgrimages/registration/{id}` for PT, which is a 404.
+        const bookingPathBase = locale === 'en'
+            ? '/en/pilgrimages/registration'
+            : '/peregrinacoes/inscricao';
         const rateLimit = checkRateLimit(req, {
             keyPrefix: 'payments-checkout',
             windowMs: 60_000,

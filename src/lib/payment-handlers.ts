@@ -656,6 +656,17 @@ export async function handleAuctionSuccess(ctx: PaymentHandlerContext) {
 
     console.log(`[Auction] Marked as paid in handler: ${auctionItemId}`);
 
+    // Notifications — guarded by ensureNotificationRecord (unique on type+reference)
+    // so the webhook and the in-browser confirm don't both send the confirmation
+    // email / admin notification for the same payment.
+    const notif = await ensureNotificationRecord(supabaseServer, {
+        type: 'auction_paid',
+        reference: String(auctionItemId),
+        userId: item.winner_id || null,
+    });
+
+    if (!notif.shouldSend) return;
+
     // Try to get winner details to send email (membros.id == auth.users.id)
     if (item.winner_id) {
         const { data: membro } = await supabaseServer
@@ -680,4 +691,6 @@ export async function handleAuctionSuccess(ctx: PaymentHandlerContext) {
 
     // Create an admin notification
     await createAdminNotification('auction', 'Pagamento Leilão', `Leilão #${auctionItemId} - ${(amountCents / 100).toFixed(2)}€`, `/admin/leilao`);
+
+    await markNotificationSent(supabaseServer, notif.recordId);
 }

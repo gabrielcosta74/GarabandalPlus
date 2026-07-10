@@ -59,12 +59,25 @@ async function findTokenByOrderRef(orderRef: string) {
     .maybeSingle();
   if (pilgrimagePayment?.payment_intent_id) return String(pilgrimagePayment.payment_intent_id);
 
+  // Auctions store the Reduniq token (not the orderRef) in payment_intent_id.
+  // Auction order refs are generated as `auc${item.id.slice(0, 8)}...`, so use
+  // that prefix to recover the stored token when Reduniq returns only orderRef.
   const { data: auctionItem } = await supabaseServer
     .from('auction_items')
     .select('payment_intent_id')
-    .or(`payment_intent_id.eq.${orderRef},id.eq.${orderRef.replace('auc', '').substring(0, orderRef.length - 6)}`)
+    .eq('payment_intent_id', orderRef)
     .maybeSingle();
   if (auctionItem?.payment_intent_id) return String(auctionItem.payment_intent_id);
+
+  const auctionPrefix = orderRef.match(/^auc([0-9a-f]{8})/i)?.[1];
+  if (auctionPrefix) {
+    const { data: auctionByPrefix } = await supabaseServer
+      .from('auction_items')
+      .select('payment_intent_id')
+      .ilike('id', `${auctionPrefix}%`)
+      .maybeSingle();
+    if (auctionByPrefix?.payment_intent_id) return String(auctionByPrefix.payment_intent_id);
+  }
 
   return null;
 }

@@ -30,8 +30,17 @@ export async function POST(request: Request) {
             if (s?.payment_reference) return String(s.payment_reference);
             const { data: p } = await supabaseServer.from('pilgrimage_payments').select('payment_intent_id').eq('external_reference', orderRef).maybeSingle();
             if (p?.payment_intent_id) return String(p.payment_intent_id);
-            const { data: a } = await supabaseServer.from('auction_items').select('payment_intent_id').or(`payment_intent_id.eq.${orderRef},id.eq.${orderRef.replace('auc', '').substring(0, Math.max(0, orderRef.length - 6))}`).maybeSingle();
+            const { data: a } = await supabaseServer.from('auction_items').select('payment_intent_id').eq('payment_intent_id', orderRef).maybeSingle();
             if (a?.payment_intent_id) return String(a.payment_intent_id);
+            const auctionPrefix = String(orderRef || '').match(/^auc([0-9a-f]{8})/i)?.[1];
+            if (auctionPrefix) {
+                const { data: auctionByPrefix } = await supabaseServer
+                    .from('auction_items')
+                    .select('payment_intent_id')
+                    .ilike('id', `${auctionPrefix}%`)
+                    .maybeSingle();
+                if (auctionByPrefix?.payment_intent_id) return String(auctionByPrefix.payment_intent_id);
+            }
             return null;
         }
 
@@ -235,14 +244,17 @@ export async function POST(request: Request) {
             return NextResponse.json({ received: true });
         }
 
-        // 5. Try Auctions
-        let auctionItemQuery = supabaseServer.from('auction_items').select('*');
-        if (referenceToMatch) {
-            auctionItemQuery = auctionItemQuery.or(`payment_intent_id.eq.${referenceToMatch},id.eq.${referenceToMatch.replace('auc', '').substring(0, referenceToMatch.length - 6)}`);
-        } else {
-            auctionItemQuery = auctionItemQuery.eq('payment_intent_id', token);
-        }
-        const { data: auctionItem } = await auctionItemQuery.maybeSingle();
+        // 5. Try Auctions.
+        // Auctions don't persist the orderRef — checkout only stores the Reduniq
+        // token (or transactionId) in payment_intent_id. The webhook already holds
+        // the verified token, so match on that. (The previous orderRef-based `.or()`
+        // never matched and could even abort the query with an invalid-uuid cast.)
+        const auctionCandidates = Array.from(
+            new Set([token, manualCheck.transactionId].filter(Boolean).map(String)),
+        );
+        const { data: auctionItem } = auctionCandidates.length
+            ? await supabaseServer.from('auction_items').select('*').in('payment_intent_id', auctionCandidates).maybeSingle()
+            : { data: null };
 
         if (auctionItem) {
             // current_bid / starting_price are already stored in cents.
