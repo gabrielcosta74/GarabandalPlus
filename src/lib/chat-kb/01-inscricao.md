@@ -3,7 +3,7 @@
 ## Passo-a-passo no site
 
 1. **Escolher a peregrinação** na página `/peregrinacoes` e abrir a página da peregrinação desejada.
-2. Clicar no botão **"Inscrever-me"** (ou "Inscrição" na barra lateral/barra fixa).
+2. Clicar no botão **"Iniciar Inscrição"** (ou **"Start Registration"** na página em inglês). Quando a peregrinação estiver em lista de espera, usar **"Lista de Espera" / "Waiting List"** e falar pelo WhatsApp.
 3. **Passo 1 — Identificação:** indicar email e telemóvel. Se já tiver conta, é pedido login; se não tiver, será criada automaticamente.
 4. **Passo 2 — Dados dos peregrinos:** preencher para cada peregrino:
    - Nome completo, email (único por pessoa), telemóvel, data de nascimento, sexo

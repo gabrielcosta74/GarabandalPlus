@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { MessageCircle, X, Send, Bot, User, Sparkles, Phone, Users, ArrowRight } from 'lucide-react';
-import { buildWhatsAppLink, buildInterestWhatsAppLink, ESCALATION_MARKER, INTEREST_MARKER, CONTACT_EMAIL } from '../../lib/chat-config';
+import { buildWhatsAppLink, buildInterestWhatsAppLink, ESCALATION_MARKERS, INTEREST_MARKER, CONTACT_EMAIL } from '../../lib/chat-config';
 import { captureInterest } from '../../lib/interest-capture';
 import { WhatsAppIcon } from '../icons/WhatsAppIcon';
 import { useLocale } from '../../contexts/LocaleContext';
@@ -222,6 +222,7 @@ export default function ChatWidget({
                     pilgrimageTitle,
                     sessionId,
                     context,
+                    locale,
                 }),
             });
 
@@ -379,7 +380,7 @@ export default function ChatWidget({
                         </div>
                         <div className="flex items-center gap-1">
                             <a
-                                href={buildWhatsAppLink(pilgrimageTitle)}
+                                href={buildWhatsAppLink(pilgrimageTitle, undefined, isEn)}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="p-2 hover:bg-yellow-600/50 rounded-full transition-colors"
@@ -455,7 +456,7 @@ export default function ChatWidget({
                             const needsEscalation =
                                 msg.role === 'assistant' &&
                                 !msg.streaming &&
-                                msg.content.includes(ESCALATION_MARKER);
+                                ESCALATION_MARKERS.some(marker => msg.content.includes(marker));
                             const showInterest =
                                 msg.role === 'assistant' &&
                                 !msg.streaming &&
@@ -489,7 +490,7 @@ export default function ChatWidget({
                                     {needsEscalation && (
                                         <div className="ml-9 flex flex-wrap gap-2">
                                             <a
-                                                href={buildWhatsAppLink(pilgrimageTitle)}
+                                                href={buildWhatsAppLink(pilgrimageTitle, undefined, isEn)}
                                                 target="_blank"
                                                 rel="noopener noreferrer"
                                                 className="inline-flex items-center gap-1.5 text-xs font-semibold bg-[#25D366] hover:bg-[#1fb858] text-white px-3 py-2 rounded-full shadow-sm transition-colors"

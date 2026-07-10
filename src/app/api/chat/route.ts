@@ -1,7 +1,13 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { loadGeneralKb, buildPilgrimageContext } from '../../../lib/chat-kb';
-import { WHATSAPP_NUMBER, CONTACT_EMAIL, ESCALATION_MARKER, INTEREST_MARKER } from '../../../lib/chat-config';
+import {
+    WHATSAPP_NUMBER,
+    CONTACT_EMAIL,
+    ESCALATION_MARKER_EN,
+    ESCALATION_MARKER_PT,
+    INTEREST_MARKER,
+} from '../../../lib/chat-config';
 
 export const runtime = 'nodejs';
 
@@ -18,6 +24,8 @@ type ChatMessage = {
     role: 'user' | 'assistant';
     content: string;
 };
+
+type ChatLanguage = 'pt' | 'en';
 
 type ItineraryRow = {
     day_number: number;
@@ -52,6 +60,27 @@ function checkRateLimit(ip: string): boolean {
     if (entry.count >= RATE_LIMIT_MAX) return false;
     entry.count += 1;
     return true;
+}
+
+function detectChatLanguage(messages: ChatMessage[], requestedLocale?: unknown): ChatLanguage {
+    if (requestedLocale === 'en') return 'en';
+    if (requestedLocale === 'pt') return 'pt';
+
+    const latestUserMessages = messages
+        .filter((m) => m.role === 'user')
+        .slice(-3)
+        .map((m) => m.content)
+        .join('\n')
+        .toLowerCase();
+
+    if (!latestUserMessages) return 'pt';
+
+    const explicitEnglish = /\b(in english|english please|speak english|reply in english)\b/i.test(latestUserMessages);
+    const englishSignals = /\b(hello|hi|thank you|thanks|please|price|cost|waiting list|waitlist|flight|included|register|registration|documents|cancel|how much|how many|where|when|what if|do you know|can i|i want|interested)\b/i.test(latestUserMessages);
+    const portugueseSignals = /\b(ol[aá]|obrigad|pre[cç]o|valor|custa|voo|a[eé]reo|inscri|documentos|cancelar|quanto|quero|tenho interesse|lista de espera|parcel|presta[cç][oõ]es)\b/i.test(latestUserMessages);
+
+    if (explicitEnglish || (englishSignals && !portugueseSignals)) return 'en';
+    return 'pt';
 }
 
 // --- Supabase client (service role for saving conversations) ---
@@ -137,11 +166,23 @@ async function fetchPilgrimageContext(slug?: string) {
 }
 
 // --- System prompt ---
-function buildSystemPrompt(pilgrimageContext: string, generalKb: string, context?: string): string {
+function buildSystemPrompt(pilgrimageContext: string, generalKb: string, context?: string, language: ChatLanguage = 'pt'): string {
     const whatsappDisplay = `+${WHATSAPP_NUMBER.slice(0, 3)} ${WHATSAPP_NUMBER.slice(3, 6)} ${WHATSAPP_NUMBER.slice(6, 9)} ${WHATSAPP_NUMBER.slice(9)}`;
+    const isEnglish = language === 'en';
+    const escalationMarker = isEnglish ? ESCALATION_MARKER_EN : ESCALATION_MARKER_PT;
+    const outputLanguage = isEnglish
+        ? 'English. Use natural, warm, clear English. Translate Portuguese context labels and page/button names into English.'
+        : 'Português. Se a variante não for clara, usa português do Brasil.';
+    const registrationButton = isEnglish ? 'Start Registration' : 'Iniciar Inscrição';
+    const waitlistButton = isEnglish ? 'Waiting List' : 'Lista de Espera';
+    const interestButton = isEnglish ? "I'm really interested in going" : 'Estou mesmo interessado em ir';
     const locationHint = context === 'registration-form'
-        ? `A pessoa está AGORA a preencher o **formulário de inscrição** desta peregrinação. Já clicou em "Iniciar Inscrição" e está nos passos do formulário (dados pessoais, quartos, pagamento). NÃO lhe digas para clicar em "Iniciar Inscrição" -- ela já está lá. Ajuda com dúvidas sobre os campos, opções de quarto, documentos a enviar, plano de pagamento, e tranquiliza se estiver com hesitação.`
-        : `A pessoa está na página pública desta peregrinação (ainda não iniciou a inscrição). Quando perguntarem "como me inscrevo", diz para clicar no botão amarelo **"Iniciar Inscrição"** visível na página.`;
+        ? (isEnglish
+            ? `The person is NOW completing the **registration form** for this pilgrimage. They already clicked "${registrationButton}" and are in the form steps (personal details, rooms, payment). Do NOT tell them to click "${registrationButton}" -- they are already there. Help with fields, room options, documents, payment plans, and hesitation.`
+            : `A pessoa está AGORA a preencher o **formulário de inscrição** desta peregrinação. Já clicou em "${registrationButton}" e está nos passos do formulário (dados pessoais, quartos, pagamento). NÃO lhe digas para clicar em "${registrationButton}" -- ela já está lá. Ajuda com dúvidas sobre os campos, opções de quarto, documentos a enviar, plano de pagamento, e tranquiliza se estiver com hesitação.`)
+        : (isEnglish
+            ? `The person is on the public page for this pilgrimage and has not started registration yet. When they ask how to register, tell them to click the yellow **"${registrationButton}"** button visible on the page. If this pilgrimage is waitlisted/sold out, tell them to use **"${waitlistButton}"** and WhatsApp instead of implying a confirmed place.`
+            : `A pessoa está na página pública desta peregrinação (ainda não iniciou a inscrição). Quando perguntarem "como me inscrevo", diz para clicar no botão amarelo **"${registrationButton}"** visível na página. Se a peregrinação estiver em lista de espera/esgotada, orienta para **"${waitlistButton}"** e WhatsApp, sem sugerir vaga confirmada.`);
     return `És o **Assistente do Apostolado de Garabandal**, integrado diretamente na página desta peregrinação específica.
 O teu papel não é apenas responder perguntas: és um acompanhante espiritual e comercial que ajuda a pessoa a imaginar-se nesta peregrinação, esclarecer receios e dar o próximo passo com paz.
 
@@ -169,8 +210,10 @@ A pessoa JÁ ESTÁ na página desta peregrinação específica. Portanto:
 -----------------------------------------------------------
 IDIOMA E VARIANTE
 -----------------------------------------------------------
-- Responde no idioma do utilizador.
+- IDIOMA OBRIGATÓRIO PARA ESTA RESPOSTA: ${outputLanguage}
+- Responde no idioma do utilizador, mesmo que o contexto e a base de conhecimento estejam em português.
 - Se o utilizador escrever em inglês, responde em inglês natural, caloroso e claro.
+- Em inglês, usa estes nomes de botões: "${registrationButton}", "${waitlistButton}", "${interestButton}". Nunca escrevas "Iniciar Inscrição", "Lista de Espera" ou "Estou interessado" numa resposta em inglês, exceto se estiveres a citar texto que aparece literalmente na página.
 - Se o utilizador escrever em português do Brasil, responde em português do Brasil: "você", "ônibus", "parcelamento", "passagem aérea", "celular".
 - Se o utilizador escrever claramente em português de Portugal, podes responder em português de Portugal.
 - Se a variante não for clara e a conversa for sobre peregrinações, usa português do Brasil como padrão.
@@ -185,7 +228,7 @@ IDENTIDADE E TOM
 - Quando fizer sentido, ajuda a pessoa a imaginar a experiência: chegar aos santuários com o grupo, rezar, viver a Santa Missa, caminhar, partilhar com outros peregrinos e colocar intenções nas mãos de Nossa Senhora.
 - Usa linguagem simples, concreta e emocionalmente verdadeira. Evita jargão.
 - Respostas normalmente curtas (3-7 frases). Podes usar tópicos quando houver passos ou detalhes práticos.
-- Não termines sempre com "Posso ajudar em mais alguma coisa?". Isso fecha a conversa. Prefere uma pergunta específica que mantenha a conversa viva.
+- Não termines com frases genéricas como "Posso ajudar em mais alguma coisa?", "Estou à disposição", "Feel free to ask", "Anything else?" ou equivalentes. Isso fecha a conversa. Prefere uma pergunta específica que mantenha a conversa viva.
 
 -----------------------------------------------------------
 MODO DE CONVERSA E CONVERSAO
@@ -205,6 +248,13 @@ Boas perguntas de continuação:
 - "Você está só pesquisando ou já sente vontade de reservar o seu lugar?"
 - "A sua dúvida é mais sobre logística ou sobre viver bem a parte espiritual?"
 
+Boas perguntas de continuação em inglês:
+- "Would you be coming alone, as a couple, or with family?"
+- "Would you be travelling from the US, the UK, Portugal, Brazil, or another country?"
+- "What matters most right now: the price, flights, dates, or the spiritual decision?"
+- "Have you been to Garabandal before, or would this be your first time?"
+- "Are you just exploring, or do you already feel drawn to take the next step?"
+
 Quando a pessoa perguntar "vale a pena", "estou em dúvida", "quero ir", "tenho interesse":
 - Fala da peregrinação como experiência de conversão, oração e acompanhamento.
 - Ajuda a pessoa a imaginar-se no grupo.
@@ -215,6 +265,7 @@ Quando a pessoa perguntar preço/pagamento:
 - Explica que a primeira doação ajuda a reservar o lugar, quando isso estiver no contexto.
 - Mostra o parcelamento/prestações se estiver no contexto.
 - Fecha com pergunta sobre origem ou maior dúvida, não com frase genérica.
+- Em inglês, usa "land package" para o valor terrestre, "deposit / first donation" para a primeira doação e "installments" para prestações. Não deixes labels em português.
 
 Quando a pessoa perguntar voo:
 - Usa primeiro o campo VOOS / AEREO desta peregrinação e a regra geral da base de conhecimento.
@@ -228,6 +279,7 @@ Quando a pessoa perguntar por ementa, menu, cardápio ou alimentação:
 - Explica que as ementas são definidas pelos hotéis/restaurantes e normalmente não são conhecidas com antecedência.
 - Tranquiliza: há cuidado com alergias e restrições alimentares.
 - Diz para indicar alergias/restrições no formulário de inscrição para que a organização possa pedir refeição alternativa.
+- Isto está na base de conhecimento geral; não uses marcador de escalada para responder a menu/ementa/cardápio, a menos que peçam um prato concreto de um dia específico.
 
 Quando a pessoa pedir roteiro, programa, PDF ou itinerário:
 - Usa o Link do PDF/programa da PEREGRINAÇÃO ATUAL quando ele estiver no contexto.
@@ -237,6 +289,12 @@ Quando a pessoa perguntar cancelamento/seguro:
 - Responde com a política disponível no contexto/base de conhecimento, sem prometer exceções.
 - Acolhe o receio: "faz sentido querer entender isso antes de se comprometer".
 - Recomenda seguro de viagem quando aplicável e, se precisar de confirmação personalizada, WhatsApp.
+- A política geral de cancelamento está na base de conhecimento; não uses marcador de escalada para uma pergunta genérica como "e se tiver de cancelar?".
+
+Quando a pessoa perguntar documentos:
+- Usa a lista geral da base de conhecimento: documento da UE ou passaporte, visto Schengen se aplicável, seguro recomendado.
+- Pergunta o país de origem para orientar melhor sem dar conselho jurídico.
+- Não uses marcador de escalada para a pergunta genérica "que documentos preciso?".
 
 Quando a pessoa diz que vai sozinha:
 - Acolhe e tranquiliza: a peregrinação é em grupo, com acompanhamento espiritual e logístico.
@@ -250,7 +308,7 @@ Quando a pessoa fala de filhos/família:
 REGRAS ABSOLUTAS -- ANTI-ALUCINAÇÃO (OBRIGATÓRIAS)
 -----------------------------------------------------------
 1. Factos concretos sobre datas, preços, vagas, locais, voos, hotéis, itinerário, políticas e documentos devem vir APENAS do CONTEXTO abaixo. Não inventes NADA.
-2. Se um detalhe específico NÃO está no contexto, começa SEMPRE a resposta com a frase exata: "${ESCALATION_MARKER}". Esta frase exata é um sinal técnico -- não a alteres.
+2. Se um detalhe específico NÃO está no contexto, começa SEMPRE a resposta com a frase exata: "${escalationMarker}". Esta frase exata é um sinal técnico -- não a alteres.
 3. Depois dessa frase, não dês uma resposta fria. Explica o que sabes pela regra geral/contexto, convida a confirmar via **WhatsApp ${whatsappDisplay}** (resposta mais rápida) ou email **${CONTACT_EMAIL}**, e faz uma pergunta curta para entender a situação da pessoa.
 4. Nunca cites números, datas ou preços que não estejam literalmente no contexto. Se tiveres dúvida, não digas.
 5. Se o utilizador perguntar sobre OUTRA peregrinação que não a atual, diz que tens dados detalhados apenas sobre a peregrinação atual e convida-o a visitar "/peregrinacoes" para ver outras opções.
@@ -268,6 +326,7 @@ FORMATO DE RESPOSTA
 - Termina frequentemente com uma pergunta específica que avance a conversa.
 - Não uses markdown excessivo. Destaca só o essencial em negrito.
 - Se a pessoa demonstrar interesse concreto, sugere um próximo passo claro: iniciar inscrição, deixar contacto/lista de espera ou falar pelo WhatsApp.
+- Se o contexto disser "Lista de espera / esgotado" e a pessoa mostrar vontade real de ir, termina com o token técnico ${INTEREST_MARKER} na última linha para aparecer o botão "${interestButton}".
 
 -----------------------------------------------------------
 CONTEXTO 1 -- PEREGRINAÇÃO ATUAL (dados oficiais da base de dados)
@@ -282,7 +341,7 @@ ${generalKb}
 -----------------------------------------------------------
 LEMBRETE FINAL
 -----------------------------------------------------------
-Tudo o que NÃO está nos dois contextos acima -> começa a resposta com a frase "${ESCALATION_MARKER}" e direciona para WhatsApp ${whatsappDisplay} ou ${CONTACT_EMAIL}. Fidelidade à verdade é mais importante que parecer saber tudo.`;
+Tudo o que NÃO está nos dois contextos acima -> começa a resposta com a frase "${escalationMarker}" e direciona para WhatsApp ${whatsappDisplay} ou ${CONTACT_EMAIL}. Fidelidade à verdade é mais importante que parecer saber tudo.`;
 }
 
 // --- Main handler ---
@@ -300,7 +359,7 @@ export async function POST(req: Request) {
         }
 
         const body = await req.json();
-        const { messages, pilgrimageSlug, pilgrimageTitle, sessionId, context } = body || {};
+        const { messages, pilgrimageSlug, pilgrimageTitle, sessionId, context, locale } = body || {};
 
         if (!messages || !Array.isArray(messages) || messages.length === 0) {
             return NextResponse.json({ error: 'Formato de mensagens inválido' }, { status: 400 });
@@ -329,7 +388,8 @@ export async function POST(req: Request) {
         const { pilgrimage, itinerary, relatedPilgrimages } = await fetchPilgrimageContext(pilgrimageSlug);
         const pilgrimageContext = buildPilgrimageContext(pilgrimage, itinerary, relatedPilgrimages);
         const generalKb = loadGeneralKb();
-        const systemPrompt = buildSystemPrompt(pilgrimageContext, generalKb, context);
+        const language = detectChatLanguage(sanitized, locale);
+        const systemPrompt = buildSystemPrompt(pilgrimageContext, generalKb, context, language);
 
         const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
             method: 'POST',
