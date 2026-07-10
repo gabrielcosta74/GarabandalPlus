@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { buildShipOrderUpdate, getEmbeddedStoreOrderItems, omitShippingCarrier } from '../lib/admin-order-shipping';
+import {
+  buildShipOrderUpdate,
+  getEmbeddedStoreOrderItems,
+  isMissingShippingCarrierColumnError,
+  omitShippingCarrier,
+} from '../lib/admin-order-shipping';
 
 describe('admin order shipping helpers', () => {
   it('builds a shipped update with trimmed tracking and carrier details', () => {
@@ -39,6 +44,23 @@ describe('admin order shipping helpers', () => {
       shipping_tracking: 'CT123456789PT',
       shipped_at: '2026-07-10T12:00:00.000Z',
     });
+  });
+
+  it('detects missing shipping_carrier errors from Postgres and PostgREST schema cache', () => {
+    expect(isMissingShippingCarrierColumnError({
+      code: '42703',
+      message: 'column "shipping_carrier" of relation "store_orders" does not exist',
+    })).toBe(true);
+
+    expect(isMissingShippingCarrierColumnError({
+      code: 'PGRST204',
+      message: "Could not find the 'shipping_carrier' column of 'store_orders' in the schema cache",
+    })).toBe(true);
+
+    expect(isMissingShippingCarrierColumnError({
+      code: 'PGRST204',
+      message: "Could not find the 'other_column' column of 'store_orders' in the schema cache",
+    })).toBe(false);
   });
 
   it('reads order items from either embedded Supabase shape', () => {

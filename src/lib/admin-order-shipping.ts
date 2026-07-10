@@ -54,6 +54,15 @@ export function omitShippingCarrier<T extends { shipping_carrier?: string | null
   return next;
 }
 
+export function isMissingShippingCarrierColumnError(error: { code?: unknown; message?: unknown } | null | undefined) {
+  if (!error) return false;
+
+  const code = String(error.code || '');
+  const message = String(error.message || '');
+
+  return (code === '42703' || code === 'PGRST204') && /shipping_carrier/i.test(message);
+}
+
 export function getEmbeddedStoreOrderItems(order: { items?: unknown; store_order_items?: unknown }) {
   const rawItems = Array.isArray(order.items)
     ? order.items

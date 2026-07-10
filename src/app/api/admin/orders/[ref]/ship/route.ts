@@ -4,12 +4,13 @@ import { sendStoreShippingEmail } from '../../../../../../lib/email';
 import { ensureNotificationRecord, markNotificationSent } from '../../../../../../lib/email-notifications';
 
 import { verifyAdmin } from '../../../../../../lib/admin-auth';
-import { buildShipOrderUpdate, getEmbeddedStoreOrderItems, omitShippingCarrier, ShipOrderBody } from '../../../../../../lib/admin-order-shipping';
-
-type SupabaseErrorLike = {
-    code?: unknown;
-    message?: unknown;
-};
+import {
+    buildShipOrderUpdate,
+    getEmbeddedStoreOrderItems,
+    isMissingShippingCarrierColumnError,
+    omitShippingCarrier,
+    ShipOrderBody
+} from '../../../../../../lib/admin-order-shipping';
 
 export async function PATCH(
     request: NextRequest,
@@ -47,8 +48,7 @@ export async function PATCH(
             .select('*, items:store_order_items(*)')
             .single();
 
-        const updateError = error as SupabaseErrorLike | null;
-        if (updateError && String(updateError.code || '') === '42703' && /shipping_carrier/i.test(String(updateError.message || ''))) {
+        if (isMissingShippingCarrierColumnError(error)) {
             const retry = await supabase
                 .from('store_orders')
                 .update(omitShippingCarrier(shipping.updatePayload))
