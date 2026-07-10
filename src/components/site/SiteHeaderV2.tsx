@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
 import { useLocale } from '../../contexts/LocaleContext';
 import { useAuth } from '../../contexts/AuthContext';
@@ -141,8 +142,14 @@ export default function SiteHeaderV2() {
           >
             {/* 1. Brand Logo */}
             <Link href={locale === 'pt' ? '/' : '/en'} className="flex items-center gap-3 sm:gap-4 group focus:outline-none">
-              <div className="w-11 h-11 flex items-center justify-center rounded-2xl bg-garabandal-dark text-white font-serif font-bold text-xl shadow-md transition-transform duration-300 group-hover:scale-105 group-active:scale-95">
-                G
+              <div className="relative w-11 h-11 overflow-hidden rounded-2xl shadow-md transition-transform duration-300 group-hover:scale-105 group-active:scale-95">
+                <Image
+                  src="/apple-touch-icon.png"
+                  alt="Nossa Senhora de Garabandal"
+                  fill
+                  sizes="44px"
+                  className="object-cover"
+                />
               </div>
               <div className="hidden lg:flex flex-col justify-center">
                 <span className="font-serif text-lg xl:text-xl font-bold tracking-tight leading-none text-garabandal-dark">

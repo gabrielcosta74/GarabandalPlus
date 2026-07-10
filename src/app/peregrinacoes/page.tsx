@@ -137,11 +137,11 @@ export default function PilgrimagesPage() {
 
     return (
         <VIPLayout allowPublic={true}>
-            <div className="bg-[#f8fafc] min-h-screen p-0 md:p-10 shadow-sm overflow-hidden relative -mx-4 -mt-24 md:-mx-8 -mb-12">
+            <div className="bg-[#f8fafc] min-h-screen pb-12 shadow-sm overflow-hidden relative -mx-4 -mt-24 md:-mx-8 -mb-12">
 
                 <PilgrimageHero featuredPilgrimage={nextPilgrimageWithVacancies} />
 
-                <div className="relative z-10 max-w-6xl mx-auto px-4 md:px-0">
+                <div className="relative z-10 max-w-6xl mx-auto px-4 md:px-8 lg:px-12">
                     {/* Testimonials Section - Strategic Position: Social Proof before Product */}
                     <div className="-mx-4 md:mx-0">
                         <PilgrimageTestimonials />

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { ReactNode, useEffect, useState } from 'react';
 import { supabaseBrowser } from '../../lib/supabase-browser';
 import AdminSidebar from '../../components/admin/AdminSidebar';
@@ -78,19 +78,19 @@ export default function AdminShell({
           </button>
         </div>
 
-        <div className="flex-1 p-8 overflow-y-auto">
-          <header className="mb-8 border-b pb-4">
+        <div className="flex-1 p-3 sm:p-4 md:p-8 overflow-y-auto">
+          <header className="mb-4 md:mb-8 border-b pb-4">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <div>
+              <div className="min-w-0">
                 {showBackLink && (
                   <Link href="/admin" className="text-sm text-gray-500 hover:text-gray-900 mb-2 inline-block">
                     ← Voltar ao dashboard
                   </Link>
                 )}
-                <h1 className="text-3xl font-bold text-gray-900">{title}</h1>
+                <h1 className="text-2xl md:text-3xl font-bold text-gray-900 leading-tight break-words">{title}</h1>
                 {description && <p className="text-gray-500 mt-1">{description}</p>}
               </div>
-              {toolbar && <div>{toolbar}</div>}
+              {toolbar && <div className="w-full md:w-auto">{toolbar}</div>}
             </div>
           </header>
           <main>

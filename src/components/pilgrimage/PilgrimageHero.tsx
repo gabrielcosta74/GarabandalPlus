@@ -1,7 +1,7 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowRight, Star, Heart, Calendar, AlertTriangle } from "lucide-react";
+import { ArrowRight, Star, Heart, Calendar, AlertTriangle, User } from "lucide-react";
 import { useEffect, useState } from "react";
 import Link from 'next/link';
 import Image from 'next/image';
@@ -89,7 +89,7 @@ export function PilgrimageHero({ featuredPilgrimage }: { featuredPilgrimage?: Fe
         : 0;
 
     return (
-        <div className="relative overflow-hidden md:rounded-[2.5rem] rounded-b-3xl bg-slate-900 text-white min-h-[720px] sm:min-h-[760px] md:min-h-[650px] flex items-center mb-8 md:mb-14 shadow-2xl group transition-all duration-1000 py-8 md:py-0">
+        <div className="relative overflow-hidden rounded-b-3xl md:rounded-none md:rounded-b-[3rem] bg-slate-900 text-white min-h-[720px] sm:min-h-[760px] md:min-h-[650px] flex items-center mb-8 md:mb-14 shadow-2xl group transition-all duration-1000 pt-28 pb-12 md:pt-36 md:pb-16">
             {/* Dynamic Background */}
             <AnimatePresence mode='wait'>
                 <motion.div
@@ -187,21 +187,52 @@ export function PilgrimageHero({ featuredPilgrimage }: { featuredPilgrimage?: Fe
                                 <div className="absolute top-0 right-0 w-40 h-40 bg-yellow-400/15 rounded-full blur-[60px] translate-x-1/2 -translate-y-1/2" />
 
                                 <div className="relative space-y-5">
-                                    <div className="flex flex-wrap items-center gap-2">
+                                    <div className="flex flex-col gap-3">
                                         {remainingSpots > 0 ? (
-                                            <>
-                                                <span className="rounded-full bg-yellow-300 px-3 py-1.5 text-[11px] font-black uppercase tracking-widest text-slate-950 shadow-sm">
-                                                    {isEn ? 'November still available' : 'Novembro ainda disponível'}
-                                                </span>
-                                                <span className="inline-flex items-center gap-1.5 rounded-full bg-red-600 px-3 py-1.5 text-[11px] font-black uppercase tracking-widest text-white shadow-lg shadow-red-950/30 ring-2 ring-white/80">
-                                                    <AlertTriangle className="h-3.5 w-3.5" />
-                                                    {getAvailabilityHighlightLabel(remainingSpots, locale, featuredPilgrimage)}
-                                                </span>
-                                            </>
+                                            remainingSpots <= 5 ? (
+                                                <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-yellow-400 to-amber-500 border-2 border-yellow-300 shadow-[0_0_30px_rgba(251,191,36,0.5)] p-4 sm:p-5">
+                                                    <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10 mix-blend-overlay"></div>
+                                                    <div className="relative z-10 flex flex-col items-center text-center space-y-4">
+                                                        <div className="flex items-center justify-center gap-2">
+                                                            <div className="animate-pulse">
+                                                                <AlertTriangle className="w-5 h-5 sm:w-6 sm:h-6 text-amber-950" />
+                                                            </div>
+                                                            <h4 className="text-xl sm:text-2xl font-black uppercase tracking-wider text-amber-950 drop-shadow-sm">
+                                                                {isEn ? `ONLY ${remainingSpots} SPOTS LEFT` : `RESTAM APENAS ${remainingSpots} VAGAS`}
+                                                            </h4>
+                                                            <div className="animate-pulse">
+                                                                <AlertTriangle className="w-5 h-5 sm:w-6 sm:h-6 text-amber-950" />
+                                                            </div>
+                                                        </div>
+                                                        <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3 py-1">
+                                                            {Array.from({ length: remainingSpots }).map((_, i) => (
+                                                                <div key={i} className="bg-white/30 p-2 sm:p-2.5 rounded-full border border-white/50 shadow-[0_0_15px_rgba(255,255,255,0.4)]">
+                                                                    <User className="w-6 h-6 sm:w-8 sm:h-8 text-amber-950 fill-amber-950" />
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                        <p className="text-xs sm:text-sm font-bold text-amber-950 uppercase tracking-wide bg-amber-900/10 px-4 py-2 rounded-xl border border-amber-900/20 w-full">
+                                                            {isEn ? "Spots go quickly! Don't miss out." : "Atenção: Estas vagas esgotam rápido."}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <div className="flex flex-wrap items-center gap-2">
+                                                    <span className="rounded-full bg-yellow-300 px-3 py-1.5 text-[11px] font-black uppercase tracking-widest text-slate-950 shadow-sm">
+                                                        {isEn ? 'November still available' : 'Novembro ainda disponível'}
+                                                    </span>
+                                                    <span className="inline-flex items-center gap-1.5 rounded-full bg-red-600 px-3 py-1.5 text-[11px] font-black uppercase tracking-widest text-white shadow-lg shadow-red-950/30 ring-2 ring-white/80">
+                                                        <AlertTriangle className="h-3.5 w-3.5" />
+                                                        {getAvailabilityHighlightLabel(remainingSpots, locale, featuredPilgrimage)}
+                                                    </span>
+                                                </div>
+                                            )
                                         ) : (
-                                            <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-700 px-3 py-1.5 text-[11px] font-black uppercase tracking-widest text-white shadow-lg shadow-slate-950/30 ring-2 ring-white/80">
-                                                {isEn ? 'Waiting list' : 'Lista de espera'}
-                                            </span>
+                                            <div className="flex flex-wrap items-center gap-2">
+                                                <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-700 px-3 py-1.5 text-[11px] font-black uppercase tracking-widest text-white shadow-lg shadow-slate-950/30 ring-2 ring-white/80">
+                                                    {isEn ? 'Waiting list' : 'Lista de espera'}
+                                                </span>
+                                            </div>
                                         )}
                                     </div>
 

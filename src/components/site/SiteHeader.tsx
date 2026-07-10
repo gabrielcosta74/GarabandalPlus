@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
 import { useLocale } from '../../contexts/LocaleContext';
 import { formatCurrency, loadCart } from '../../app/loja-online/data';
@@ -232,8 +233,14 @@ export default function SiteHeader() {
   
             {/* 1. Logo Area */}
             <Link href="/" className="flex items-center gap-3 group z-50 focus:outline-none">
-              <div className="w-10 h-10 flex items-center justify-center rounded-xl font-serif font-bold text-xl shadow-sm transition-all duration-300 bg-garabandal-dark text-white">
-                G
+              <div className="relative w-10 h-10 overflow-hidden rounded-xl shadow-sm transition-all duration-300">
+                <Image
+                  src="/apple-touch-icon.png"
+                  alt="Nossa Senhora de Garabandal"
+                  fill
+                  sizes="40px"
+                  className="object-cover"
+                />
               </div>
               <div className="flex flex-col">
                 <span className="font-serif text-xl font-bold tracking-tight leading-tight transition-colors duration-300 text-garabandal-dark">
