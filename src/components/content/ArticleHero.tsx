@@ -1,3 +1,4 @@
+import { cloneElement, isValidElement } from 'react';
 import Link from 'next/link';
 import { ChevronRight } from 'lucide-react';
 
@@ -18,12 +19,19 @@ export function ArticleHero({
   meta?: React.ReactNode;
   variant?: 'page' | 'post';
 }) {
+  // Hand the hero's light/dark theme down to themeable meta (e.g. the
+  // LocaleSwitcher) so it stays legible on both photo and pale heroes.
+  const tone: 'light' | 'dark' = coverImage ? 'dark' : 'light';
+  const metaNode = isValidElement(meta)
+    ? cloneElement(meta as React.ReactElement<{ tone?: 'light' | 'dark' }>, { tone })
+    : meta;
+
   return (
     <header
       style={{
         position: 'relative',
         width: '100%',
-        minHeight: coverImage ? '70vh' : 'auto',
+        minHeight: coverImage ? 'min(70vh, 620px)' : 'auto',
         display: 'flex',
         alignItems: coverImage ? 'flex-end' : 'flex-start',
         padding: coverImage ? 'clamp(6rem, 15vw, 12rem) 1.5rem 4rem' : '6rem 1.5rem 4rem',
@@ -121,7 +129,7 @@ export function ArticleHero({
           >
             {variant === 'post' ? 'Artigo' : 'Página'}
           </span>
-          {meta}
+          {metaNode}
         </div>
 
         <h1
