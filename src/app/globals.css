@@ -593,3 +593,10 @@ textarea {
     align-items: flex-start;
   }
 }
+
+/* Cookie banner is server-rendered so it paints at FCP (mobile LCP fix);
+   visitors with stored consent get it hidden pre-paint by the inline
+   script in app/layout.tsx that sets .cc-done on <html>. */
+html.cc-done #cookie-consent {
+  display: none;
+}

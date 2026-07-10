@@ -113,6 +113,16 @@ export default async function RootLayout({
     <html lang={htmlLang}>
       <head>
         <meta name="supported-color-schemes" content="light dark" />
+        {/* Hide the SSR'd cookie banner before first paint for visitors who already
+            consented (consent lives in localStorage, unreadable on the server).
+            Keeping the banner in the SSR HTML lets it paint at FCP instead of after
+            hydration, which was inflating mobile LCP to ~7s. */}
+        <script
+          // eslint-disable-next-line react/no-danger
+          dangerouslySetInnerHTML={{
+            __html: `try{var c=JSON.parse(localStorage.getItem('garabandal_cookie_consent_v1'));if(c&&c.version===1&&c.necessary===true)document.documentElement.classList.add('cc-done')}catch(e){}`,
+          }}
+        />
         {/* Sender.net — universal tracking/forms snippet (loaded once for the whole site) */}
         <Script id="sender-universal" strategy="afterInteractive">
           {`(function (s, e, n, d, er) {

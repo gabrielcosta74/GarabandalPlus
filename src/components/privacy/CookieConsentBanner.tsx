@@ -71,7 +71,10 @@ const copyByLocale: Record<'pt' | 'en', Copy> = {
 export default function CookieConsentBanner() {
   const { locale } = useLocale();
   const copy = copyByLocale[locale];
-  const [isVisible, setIsVisible] = useState(false);
+  // Starts visible so the banner is in the SSR HTML and paints at FCP (mobile
+  // LCP fix). Visitors with stored consent never see it: an inline <head>
+  // script hides it pre-paint via html.cc-done, then this effect unmounts it.
+  const [isVisible, setIsVisible] = useState(true);
   const [showSettings, setShowSettings] = useState(false);
   const [analytics, setAnalytics] = useState(false);
   const [marketing, setMarketing] = useState(false);
@@ -81,10 +84,8 @@ export default function CookieConsentBanner() {
     if (existing) {
       setAnalytics(existing.analytics);
       setMarketing(existing.marketing);
-      return;
+      setIsVisible(false);
     }
-
-    setIsVisible(true);
   }, []);
 
   useEffect(() => {
@@ -92,6 +93,9 @@ export default function CookieConsentBanner() {
       const existing = readCookieConsent();
       setAnalytics(existing?.analytics === true);
       setMarketing(existing?.marketing === true);
+      // Undo the pre-paint hide from the inline <head> script, otherwise the
+      // reopened banner would stay display:none for consented visitors.
+      document.documentElement.classList.remove('cc-done');
       setShowSettings(true);
       setIsVisible(true);
     };
@@ -116,17 +120,17 @@ export default function CookieConsentBanner() {
   if (!isVisible) return null;
 
   return (
-    <div className="fixed inset-x-0 bottom-0 z-[200] px-3 pb-3 sm:left-auto sm:right-6 sm:max-w-[520px] sm:px-0 sm:pb-6" role="region" aria-label={copy.title}>
+    <div id="cookie-consent" className="fixed inset-x-0 bottom-0 z-[200] px-3 pb-3 sm:left-auto sm:right-6 sm:max-w-[520px] sm:px-0 sm:pb-6" role="region" aria-label={copy.title}>
       <div className="rounded-lg border border-white/10 bg-[#050911]/95 text-white shadow-2xl shadow-slate-950/40 backdrop-blur-xl">
-        <div className="grid gap-4 p-4 sm:p-5">
+        <div className={`grid gap-4 p-4 sm:p-5 ${showSettings ? 'max-h-[70svh] overflow-y-auto' : 'max-sm:gap-3 max-sm:p-3'}`}>
           <div className="space-y-2.5">
             <div className="flex items-start gap-3">
-              <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-garabandal-gold/15 text-garabandal-gold ring-1 ring-garabandal-gold/25">
+              <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-garabandal-gold/15 text-garabandal-gold ring-1 ring-garabandal-gold/25 max-sm:h-8 max-sm:w-8">
                 <Cookie className="h-4 w-4" aria-hidden="true" />
               </div>
               <div className="min-w-0">
-                <h2 className="font-serif text-lg font-bold leading-6 text-white">{copy.title}</h2>
-                <p className="mt-1 text-sm leading-5 text-white/65">{copy.intro}</p>
+                <h2 className="font-serif text-lg font-bold leading-6 text-white max-sm:text-base">{copy.title}</h2>
+                <p className={`mt-1 text-sm leading-5 text-white/65 ${showSettings ? '' : 'max-sm:line-clamp-2'}`}>{copy.intro}</p>
               </div>
             </div>
 
@@ -189,7 +193,7 @@ export default function CookieConsentBanner() {
             <button
               type="button"
               onClick={() => commit(true, true)}
-              className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-md bg-garabandal-gold px-4 py-2.5 text-sm font-bold text-slate-950 shadow-lg shadow-garabandal-gold/10 transition-all duration-200 hover:-translate-y-0.5 hover:bg-yellow-300 hover:shadow-garabandal-gold/25 active:translate-y-0 focus:outline-none focus:ring-2 focus:ring-garabandal-gold/40"
+              className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-md bg-garabandal-gold px-4 py-2.5 text-sm font-bold text-slate-950 shadow-lg shadow-garabandal-gold/10 transition-all duration-200 hover:-translate-y-0.5 hover:bg-yellow-300 hover:shadow-garabandal-gold/25 active:translate-y-0 focus:outline-none focus:ring-2 focus:ring-garabandal-gold/40 max-sm:py-2"
             >
               <ShieldCheck className="h-4 w-4" aria-hidden="true" />
               {copy.acceptAll}
@@ -198,7 +202,7 @@ export default function CookieConsentBanner() {
               <button
                 type="button"
                 onClick={() => commit(analytics, marketing)}
-                className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-md border border-white/15 bg-white/10 px-4 py-2.5 text-sm font-semibold text-white transition-all duration-200 hover:-translate-y-0.5 hover:border-garabandal-gold/50 hover:bg-white/15 active:translate-y-0 focus:outline-none focus:ring-2 focus:ring-garabandal-gold/30"
+                className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-md border border-white/15 bg-white/10 px-4 py-2.5 text-sm font-semibold text-white transition-all duration-200 hover:-translate-y-0.5 hover:border-garabandal-gold/50 hover:bg-white/15 active:translate-y-0 focus:outline-none focus:ring-2 focus:ring-garabandal-gold/30 max-sm:py-2"
               >
                 <Settings2 className="h-4 w-4" aria-hidden="true" />
                 {copy.save}
@@ -207,7 +211,7 @@ export default function CookieConsentBanner() {
               <button
                 type="button"
                 onClick={() => setShowSettings(true)}
-                className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-md border border-white/15 bg-white/10 px-4 py-2.5 text-sm font-semibold text-white transition-all duration-200 hover:-translate-y-0.5 hover:border-garabandal-gold/50 hover:bg-white/15 active:translate-y-0 focus:outline-none focus:ring-2 focus:ring-garabandal-gold/30"
+                className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-md border border-white/15 bg-white/10 px-4 py-2.5 text-sm font-semibold text-white transition-all duration-200 hover:-translate-y-0.5 hover:border-garabandal-gold/50 hover:bg-white/15 active:translate-y-0 focus:outline-none focus:ring-2 focus:ring-garabandal-gold/30 max-sm:py-2"
               >
                 <Settings2 className="h-4 w-4" aria-hidden="true" />
                 {copy.customize}
@@ -216,7 +220,7 @@ export default function CookieConsentBanner() {
             <button
               type="button"
               onClick={() => commit(false, false)}
-              className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-md px-3 py-2.5 text-sm font-semibold text-white/55 transition-all duration-200 hover:-translate-y-0.5 hover:bg-white/10 hover:text-white active:translate-y-0 focus:outline-none focus:ring-2 focus:ring-garabandal-gold/25"
+              className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-md px-3 py-2.5 text-sm font-semibold text-white/55 transition-all duration-200 hover:-translate-y-0.5 hover:bg-white/10 hover:text-white active:translate-y-0 focus:outline-none focus:ring-2 focus:ring-garabandal-gold/25 max-sm:py-2"
             >
               <X className="h-4 w-4" aria-hidden="true" />
               {copy.rejectOptional}
