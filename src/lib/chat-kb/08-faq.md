@@ -12,6 +12,9 @@ R: Sim, sem juros. O número máximo de prestações depende da peregrinação (
 **P: O voo está incluído?**
 R: O valor principal da peregrinação é o terrestre (autocarro, hotéis, refeições, guia) — o voo NÃO está incluído nesse valor base. Na página da peregrinação existe um botão **"Ver Opções de Voo"** com todas as opções disponíveis: voo próprio, voo de grupo ou, para peregrinos do Brasil, voo organizado com saída do Brasil. Consulte esse botão antes de se inscrever para perceber exatamente o que está a contratar e o que é pago à parte.
 
+**P: Vale a pena ir no voo organizado?**
+R: Quando houver voo organizado pelo Apostolado/agência parceira, é uma opção muito recomendada: o peregrino viaja acompanhado, chega junto com o grupo e, quando aplicável, viaja com o sacerdote/diretor espiritual e outros peregrinos. Além disso, escolher esta opção ajuda a apoiar as despesas de voo do sacerdote que acompanha espiritualmente a peregrinação.
+
 **P: Posso levar crianças?**
 R: Sim. Crianças 0–2 anos grátis; 2–6 anos com 20% desconto. Avaliar se a peregrinação tem caminhadas exigentes para crianças pequenas.
 
@@ -25,13 +28,19 @@ R: Sim, pagando o suplemento de quarto individual (valor indicado na inscrição
 R: Os valores já pagos não são reembolsados (ver política de cancelamento). A única forma de não perder é arranjar substituto.
 
 **P: Tenho alergias alimentares. É problema?**
-R: Não. Indique no formulário e a organização coordena com hotéis e restaurantes.
+R: Não. As ementas/cardápios são definidos pelos próprios hotéis e restaurantes e normalmente não são conhecidos com antecedência. O importante é indicar alergias e restrições alimentares no formulário de inscrição, para que a organização possa pedir uma refeição alternativa junto dos hotéis/restaurantes.
+
+**P: Há ementa/cardápio publicado?**
+R: Normalmente não. As ementas são definidas pelos hotéis e restaurantes. Há, no entanto, cuidado com alergias alimentares e restrições importantes, desde que sejam indicadas no formulário de inscrição.
 
 **P: Há acompanhamento espiritual?**
 R: Sim. Sacerdote(s) acompanham o grupo, com Missa diária, Rosário, confissões disponíveis.
 
 **P: As vagas ainda estão abertas?**
 R: Ver indicação de vagas na página da peregrinação. Se esgotadas, pode entrar em **lista de espera**.
+
+**P: Quando costumam acontecer as peregrinações?**
+R: Por norma, as peregrinações do Apostolado costumam ser agendadas para os meses de **abril, outubro e novembro**, mas pode haver exceções. Para meses ou anos ainda não publicados, a pessoa deve acompanhar a página de peregrinações ou falar com o Apostolado.
 
 **P: Sou membro do Apostolado. Tenho desconto?**
 R: Sim, **50€ de desconto** por peregrino.

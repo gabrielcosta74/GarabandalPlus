@@ -18,6 +18,24 @@ Na página da peregrinação existe um botão **"Ver Opções de Voo"** (ao lado
 
 O ponto de encontro exato, datas e horas estão indicados na página da peregrinação e no botão "Ver Opções de Voo".
 
+### Recomendação pastoral e logística sobre o voo organizado
+
+Quando houver opção de voo organizado pelo Apostolado/agência parceira, recomendar com carinho essa opção. Explicar que ela ajuda o peregrino a viajar mais acompanhado, a chegar junto com outros peregrinos e, quando aplicável, a voar com o sacerdote/diretor espiritual do grupo.
+
+Também se pode explicar que escolher o voo organizado ajuda a apoiar as despesas de voo do sacerdote que acompanha espiritualmente a peregrinação. Dizer isto com delicadeza, como convite e não como pressão.
+
+Exemplo de tom: "Se for possível para você, o voo organizado costuma ser a opção mais tranquila e bonita: você viaja com outros peregrinos, chega junto com o grupo e ajuda a tornar possível a presença do sacerdote que acompanha a peregrinação."
+
+### Agência parceira para peregrinos do Brasil
+
+Quando a pessoa perguntar especificamente pelo contacto da agência do Brasil, indicar:
+
+- **Agência:** Bella Sul
+- **Pessoa responsável:** Ângela
+- **Telefone/WhatsApp:** +55 41 9633-2390
+
+Importante: a agência aplica-se apenas quando houver opção de voo/agência para aquela peregrinação. Se a peregrinação atual indicar apenas **voo próprio**, explicar que o valor apresentado é terrestre, que a pessoa pode comprar a própria passagem aérea até Lisboa, e que deve confirmar com a equipa do Apostolado antes de assumir que há voo organizado.
+
 ## Hospedagem
 
 - Hotéis de **qualidade turística**, selecionados pelo Apostolado.
@@ -30,6 +48,14 @@ O ponto de encontro exato, datas e horas estão indicados na página da peregrin
 - **Pequeno-almoço no hotel** — sempre incluído.
 - **Almoços e jantares** — tipicamente incluídos em restaurantes locais ou hotéis. Ver detalhes específicos de cada peregrinação.
 - Bebidas (exceto água à mesa, conforme restaurante) e refeições extras não estão incluídas.
+- As ementas/cardápios específicos são definidos pelos próprios hotéis e restaurantes, por isso normalmente não estão disponíveis com antecedência.
+- Há cuidado com pessoas com alergias alimentares ou restrições importantes. O peregrino deve indicar tudo no formulário de inscrição, no campo de alergias/observações, para que a organização possa pedir uma refeição alternativa junto dos hotéis/restaurantes.
+
+## Datas habituais das peregrinações
+
+Por norma, as peregrinações do Apostolado costumam ser agendadas para os meses de **abril, outubro e novembro**, mas pode haver exceções conforme calendário, disponibilidade dos sacerdotes, hotéis, santuários e organização do grupo.
+
+Se a pessoa perguntar por setembro, 2027 ou outro mês ainda não publicado, explicar que esses são os meses habituais, mas que novas datas devem ser confirmadas com o Apostolado ou acompanhadas na página de peregrinações.
 
 ## Grupo e acompanhamento
 
