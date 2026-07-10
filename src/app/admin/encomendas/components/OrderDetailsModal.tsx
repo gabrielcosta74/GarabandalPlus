@@ -107,7 +107,7 @@ export default function OrderDetailsModal({ order, onClose, onToggleInvoice, onM
             throw new Error('Sessão expirada. Inicie sessão novamente.');
         }
 
-        const res = await fetch(`/api/admin/orders/${localOrder.order_ref}/ship`, {
+        const res = await fetch(`/api/admin/orders/${encodeURIComponent(localOrder.order_ref)}/ship`, {
             method: 'PATCH',
             headers: {
                 'Content-Type': 'application/json',
@@ -132,12 +132,13 @@ export default function OrderDetailsModal({ order, onClose, onToggleInvoice, onM
         }
 
         const payload = await res.json();
+        const savedOrder = payload.order || {};
         const updatedOrder = {
             ...localOrder,
-            ...payload.order,
+            ...savedOrder,
             shipping_status: 'enviado',
-            shipping_tracking: trackingCode,
-            shipping_carrier: carrierName,
+            shipping_tracking: savedOrder.shipping_tracking ?? trackingCode,
+            shipping_carrier: savedOrder.shipping_carrier ?? carrierName,
         };
 
         setLocalOrder(updatedOrder);

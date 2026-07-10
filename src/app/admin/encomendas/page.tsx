@@ -153,7 +153,7 @@ export default function AdminEncomendasPage() {
 
       if (!options?.alreadyUpdated) {
         const token = await getAdminAccessToken();
-        const res = await fetch(`/api/admin/orders/${order.order_ref}`, {
+        const res = await fetch(`/api/admin/orders/${encodeURIComponent(order.order_ref)}`, {
           method: 'PATCH',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -182,7 +182,7 @@ export default function AdminEncomendasPage() {
       const token = await getAdminAccessToken();
 
       const newStatus = !order.invoice_sent_at;
-      const res = await fetch(`/api/admin/orders/${order.order_ref}`, {
+      const res = await fetch(`/api/admin/orders/${encodeURIComponent(order.order_ref)}`, {
         method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${token}`,

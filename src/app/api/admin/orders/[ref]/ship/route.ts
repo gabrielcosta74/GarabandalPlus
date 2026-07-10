@@ -4,18 +4,11 @@ import { sendStoreShippingEmail } from '../../../../../../lib/email';
 import { ensureNotificationRecord, markNotificationSent } from '../../../../../../lib/email-notifications';
 
 import { verifyAdmin } from '../../../../../../lib/admin-auth';
+import { buildShipOrderUpdate, getEmbeddedStoreOrderItems, omitShippingCarrier, ShipOrderBody } from '../../../../../../lib/admin-order-shipping';
 
-type ShipOrderBody = {
-    shippingStatus?: string;
-    tracking?: string | null;
-    carrier?: string | null;
-    carrierName?: string | null;
-};
-
-type StoreOrderItem = {
-    name: string;
-    qty: number;
-    unit_price: number;
+type SupabaseErrorLike = {
+    code?: unknown;
+    message?: unknown;
 };
 
 export async function PATCH(
@@ -32,26 +25,39 @@ export async function PATCH(
             return NextResponse.json({ message: 'Supabase não configurado' }, { status: 500 });
         }
         const { ref } = await params;
-        const { shippingStatus, tracking, carrier, carrierName } = await request.json() as ShipOrderBody;
+        const body = await request.json() as ShipOrderBody;
 
-        if (!ref || shippingStatus !== 'enviado') {
+        if (!ref) {
             return NextResponse.json({ message: 'Dados inválidos' }, { status: 400 });
         }
 
-        // 1. Update the order in Supabase
-        const updatePayload: Record<string, string | null> = {
-            shipping_status: 'enviado',
-            shipping_tracking: tracking || null,
-            shipping_carrier: carrierName || carrier || null,
-            shipped_at: new Date().toISOString(),
-        };
+        let shipping;
+        try {
+            shipping = buildShipOrderUpdate(body);
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'Dados inválidos';
+            return NextResponse.json({ message }, { status: 400 });
+        }
 
-        const { data: order, error } = await supabase
+        // 1. Update the order in Supabase
+        let { data: order, error } = await supabase
             .from('store_orders')
-            .update(updatePayload)
+            .update(shipping.updatePayload)
             .eq('order_ref', ref)
-            .select('*, store_order_items(*)')
+            .select('*, items:store_order_items(*)')
             .single();
+
+        const updateError = error as SupabaseErrorLike | null;
+        if (updateError && String(updateError.code || '') === '42703' && /shipping_carrier/i.test(String(updateError.message || ''))) {
+            const retry = await supabase
+                .from('store_orders')
+                .update(omitShippingCarrier(shipping.updatePayload))
+                .eq('order_ref', ref)
+                .select('*, items:store_order_items(*)')
+                .single();
+            order = retry.data;
+            error = retry.error;
+        }
 
         if (error || !order) {
             console.error('Erro ao atualizar encomenda:', error);
@@ -72,21 +78,17 @@ export async function PATCH(
                         orderRef: order.order_ref,
                         buyerName: order.buyer_name,
                         buyerEmail: order.buyer_email,
-                        tracking: tracking || null,
-                        carrierName: carrierName || carrier || null,
-                        carrierId: carrier || null,
-                        shippedAt: new Date().toISOString(),
+                        tracking: order.shipping_tracking || shipping.emailPayload.tracking,
+                        carrierName: order.shipping_carrier || shipping.emailPayload.carrierName,
+                        carrierId: shipping.emailPayload.carrierId,
+                        shippedAt: order.shipped_at || shipping.emailPayload.shippedAt,
                         shippingAddress: [
                             order.shipping_address1,
                             order.shipping_address2,
                             `${order.shipping_postal_code || ''} ${order.shipping_city || ''}`.trim(),
                             (order.shipping_country || '').toUpperCase()
                         ].filter(Boolean).join('\n'),
-                        items: ((order.store_order_items || []) as StoreOrderItem[]).map((i) => ({
-                            name: i.name,
-                            qty: i.qty,
-                            unit_price: i.unit_price,
-                        })),
+                        items: getEmbeddedStoreOrderItems(order),
                         totalAmount: order.total_amount,
                         currency: order.currency || 'EUR',
                     });
