@@ -4,7 +4,7 @@ import { APP_URL } from '../../../lib/config';
 
 const title = 'Política de Devolução | Loja do Apostolado de Garabandal';
 const description =
-  'Política restrita de devolução, livre resolução legal, trocas e reembolsos aplicável aos artigos vendidos na loja online do Apostolado de Garabandal.';
+  'Política de devolução de 30 dias para artigos físicos elegíveis, livre resolução, trocas e reembolsos da loja do Apostolado de Garabandal.';
 const url = `${APP_URL}/loja/politica-devolucao`;
 
 export const metadata: Metadata = {
@@ -46,23 +46,22 @@ export default function PoliticaDevolucaoPage() {
             Política de Devolução
           </h1>
           <p className="text-sm text-slate-500">
-            Última atualização: 15 de junho de 2026
+            Última atualização: 10 de julho de 2026
           </p>
           <p className="text-slate-600 leading-relaxed">
             Esta política aplica-se aos artigos comprados na loja online do Apostolado de
             Garabandal, incluindo livros, artigos religiosos, vestuário e conteúdos digitais.
-            Fora dos casos legalmente obrigatórios, não aceitamos devoluções, trocas ou reembolsos
-            por mera conveniência, alteração de preferência ou engano na compra.
+            Os artigos físicos elegíveis podem ser devolvidos no prazo de 30 dias após a receção.
+            Os conteúdos digitais mantêm as condições específicas indicadas na secção 7.
           </p>
         </header>
 
         <section className="space-y-3">
-          <h2 className="text-xl font-semibold text-slate-900">1. Política restrita</h2>
+          <h2 className="text-xl font-semibold text-slate-900">1. Prazo de devolução de 30 dias</h2>
           <p className="text-slate-600 leading-relaxed">
-            A loja não oferece uma política comercial voluntária de devoluções ou trocas. As
-            devoluções são aceites apenas quando a lei o imponha: exercício válido do direito de
-            livre resolução em compras à distância, artigo defeituoso, artigo danificado no
-            transporte ou artigo diferente do encomendado.
+            Para além dos direitos legalmente aplicáveis, aceitamos a devolução voluntária de
+            artigos físicos elegíveis quando o pedido for comunicado até 30 dias de calendário após
+            a receção. Este prazo comercial inclui e amplia o período legal de 14 dias, sem o limitar.
           </p>
           <p className="text-slate-600 leading-relaxed">
             Compras efetuadas por empresas, profissionais ou entidades no âmbito da sua atividade
@@ -72,13 +71,15 @@ export default function PoliticaDevolucaoPage() {
         </section>
 
         <section className="space-y-3">
-          <h2 className="text-xl font-semibold text-slate-900">2. Direito de livre resolução</h2>
+          <h2 className="text-xl font-semibold text-slate-900">2. Direito legal de livre resolução</h2>
           <p className="text-slate-600 leading-relaxed">
             Nos contratos celebrados à distância, o consumidor pode resolver a compra no prazo de
             14 dias de calendário, sem necessidade de indicar motivo. Para artigos físicos, o prazo
             conta a partir do dia em que o consumidor, ou um terceiro por si indicado, recebe o
             artigo. Se a encomenda for entregue em várias remessas, o prazo conta a partir da
             receção do último artigo.
+            A nossa política comercial permite pedir a devolução de artigos físicos elegíveis até
+            ao 30.º dia após a receção.
           </p>
         </section>
 

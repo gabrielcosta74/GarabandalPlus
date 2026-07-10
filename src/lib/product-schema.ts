@@ -191,7 +191,7 @@ export const buildMerchantReturnPolicy = (isDigital: boolean) => ({
     : 'https://schema.org/MerchantReturnFiniteReturnWindow',
   ...(!isDigital
     ? {
-        merchantReturnDays: 14,
+        merchantReturnDays: 30,
         returnMethod: 'https://schema.org/ReturnByMail',
         returnFees: 'https://schema.org/ReturnFeesCustomerResponsibility',
       }

@@ -4,6 +4,7 @@ import { supabaseServer } from '../../../lib/supabase';
 import { buildProductPath } from '../../../lib/slug';
 import { inferIsDigitalProduct } from '../../../lib/product-kind';
 import { getPortugueseProductDescriptionFallback, localizeStoreProductText } from '../../../lib/store-i18n';
+import { getAdditionalProductImageUrls, toAbsoluteStoreImageUrl } from '../../../lib/store-merchandising';
 import {
   buildMerchantReturnPolicy,
   buildOfferShippingDetails,
@@ -234,6 +235,11 @@ export default async function LojaProdutoLayout({ children, params }: Props) {
   const productUrl = product?.product_id
     ? `${APP_URL}${buildProductPath(product.product_id, product?.name || null)}`
     : `${APP_URL}${buildProductPath(id, product?.name || null)}`;
+  const productImages = [
+    ...(product.image_url ? [getAbsoluteImageUrl(product.image_url)] : []),
+    ...getAdditionalProductImageUrls(product.product_id, product.metadata, product.image_url)
+      .map((image) => toAbsoluteStoreImageUrl(image, APP_URL)),
+  ].filter(Boolean);
 
   // additionalProperty for book-specific metadata (author, isbn, pages, publisher, cover_type, format)
   const additionalProperties = [];
@@ -261,7 +267,7 @@ export default async function LojaProdutoLayout({ children, params }: Props) {
     '@id': `${productUrl}#product`,
     name: product.name || 'Produto',
     description: product.description || getPortugueseProductDescriptionFallback(product.name) || undefined,
-    image: product.image_url ? [getAbsoluteImageUrl(product.image_url)] : undefined,
+    image: productImages.length > 0 ? productImages : undefined,
     ...buildProductIdentifierStructuredData(meta, {
       isBook,
       sku: product.sku,

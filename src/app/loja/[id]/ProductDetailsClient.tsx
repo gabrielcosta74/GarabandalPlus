@@ -1,13 +1,14 @@
 "use client";
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import dynamic from 'next/dynamic';
+import Link from 'next/link';
 import Image from 'next/image';
 import { ShoppingBag, ArrowLeft, Truck, Package, AlertCircle, ShoppingCart, Check, Download, Globe, Star } from 'lucide-react';
 import { Product, loadCart, saveCart, CartItem } from '../../loja-online/data';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
-import AddToCartModal from '../../../components/store/AddToCartModal';
 import { inferIsDigitalProduct } from '../../../lib/product-kind';
 import { listCountryOptions } from '../../../lib/country-utils';
 import { useLocale } from '../../../contexts/LocaleContext';
@@ -16,6 +17,9 @@ import { captureStoreEvent } from '../../../lib/analytics';
 import { buildProductReviewSummary } from '../../../lib/product-schema';
 import { applyStoreBookPromo } from '../../../lib/store-promo';
 import { StoreBookPromoCountdown } from '../../../components/store/StoreBookPromoCampaign';
+import { getAdditionalProductImageUrls } from '../../../lib/store-merchandising';
+
+const AddToCartModal = dynamic(() => import('../../../components/store/AddToCartModal'), { ssr: false });
 
 const REVIEW_METADATA_KEYS = new Set([
     'rating_value',
@@ -33,6 +37,10 @@ const REVIEW_METADATA_KEYS = new Set([
     'review_rating_value',
     'review_date',
     'date_published',
+    'additional_image_urls',
+    'additional_images',
+    'gallery_images',
+    'images',
 ]);
 
 export default function ProductDetailsClient({ initialProduct }: { initialProduct?: Product | null }) {
@@ -50,6 +58,14 @@ export default function ProductDetailsClient({ initialProduct }: { initialProduc
     const [qty, setQty] = useState(1);
     const [showAddModal, setShowAddModal] = useState(false);
     const [relatedProducts, setRelatedProducts] = useState<Product[]>([]);
+    const productImages = useMemo(() => {
+        if (!product) return [];
+        return Array.from(new Set([
+            product.image,
+            ...getAdditionalProductImageUrls(product.id, product.metadata, product.image),
+        ].filter((image): image is string => Boolean(image))));
+    }, [product]);
+    const [selectedImage, setSelectedImage] = useState<string | null>(initialProduct?.image || null);
 
     useEffect(() => {
         if (id && (!initialProduct || isEn)) fetchProduct(id);
@@ -62,6 +78,11 @@ export default function ProductDetailsClient({ initialProduct }: { initialProduc
         const firstInStock = product.variants.find((variant: any) => variant.stock > 0);
         setSelectedVariant(firstInStock || product.variants[0]);
     }, [product, selectedVariant]);
+
+    useEffect(() => {
+        if (productImages.length === 0) return;
+        if (!selectedImage || !productImages.includes(selectedImage)) setSelectedImage(productImages[0]);
+    }, [productImages, selectedImage]);
 
     useEffect(() => {
         if (!product) return;
@@ -292,15 +313,16 @@ export default function ProductDetailsClient({ initialProduct }: { initialProduc
                     <div className="space-y-4 -mx-4 sm:mx-0">
                         {/* Mobile: Edge to edge image */}
                         <motion.div
-                            initial={{ opacity: 0, scale: 0.95 }}
-                            animate={{ opacity: 1, scale: 1 }}
+                            initial={false}
                             className="aspect-square md:aspect-[4/5] bg-slate-50 md:rounded-3xl overflow-hidden border-b md:border border-slate-100 flex items-center justify-center p-8 relative"
                         >
-                            {product.image ? (
+                            {selectedImage || product.image ? (
                                 <Image
-                                    src={product.image}
-                                    alt={product.name}
+                                    src={selectedImage || product.image}
+                                    alt={selectedImage === product.image ? product.name : `${product.name} - pré-visualização`}
                                     fill
+                                    priority
+                                    fetchPriority="high"
                                     sizes="(min-width: 1024px) 50vw, 100vw"
                                     className="object-contain drop-shadow-xl mix-blend-multiply"
                                 />
@@ -315,6 +337,30 @@ export default function ProductDetailsClient({ initialProduct }: { initialProduc
                                 </div>
                             )}
                         </motion.div>
+                        {productImages.length > 1 && (
+                            <div className="grid grid-cols-4 gap-3 px-4 sm:px-0" aria-label={isEn ? 'Product images' : 'Imagens do produto'}>
+                                {productImages.map((image, index) => (
+                                    <button
+                                        key={image}
+                                        type="button"
+                                        aria-label={isEn ? `View image ${index + 1}` : `Ver imagem ${index + 1}`}
+                                        aria-pressed={selectedImage === image}
+                                        onClick={() => setSelectedImage(image)}
+                                        className={`relative aspect-square overflow-hidden rounded-xl border-2 bg-slate-50 p-2 transition-colors ${
+                                            selectedImage === image ? 'border-amber-500' : 'border-slate-100 hover:border-slate-300'
+                                        }`}
+                                    >
+                                        <Image
+                                            src={image}
+                                            alt=""
+                                            fill
+                                            sizes="(min-width: 1024px) 12vw, 25vw"
+                                            className="object-contain"
+                                        />
+                                    </button>
+                                ))}
+                            </div>
+                        )}
                     </div>
 
                     {/* Product Info */}
@@ -611,6 +657,18 @@ export default function ProductDetailsClient({ initialProduct }: { initialProduc
                                     </div>
                                 </div>
                             )}
+
+                            <Link
+                                href={isEn ? '/en/store/return-policy' : '/loja/politica-devolucao'}
+                                className="mt-4 flex items-center justify-between rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-900 hover:border-emerald-200"
+                            >
+                                <span>
+                                    {isDigital
+                                        ? (isEn ? 'See digital content return conditions' : 'Ver condições de devolução de conteúdos digitais')
+                                        : (isEn ? '30-day return period for eligible items' : 'Devolução em 30 dias para artigos elegíveis')}
+                                </span>
+                                <ArrowLeft className="h-4 w-4 rotate-180" aria-hidden="true" />
+                            </Link>
                         </div>
 
                         {/* Specs Table */}
@@ -657,13 +715,15 @@ export default function ProductDetailsClient({ initialProduct }: { initialProduc
                         </div>
                     )}
 
-                    <AddToCartModal
-                        isOpen={showAddModal}
-                        onClose={() => setShowAddModal(false)}
-                        product={product}
-                        variantName={selectedVariant?.name}
-                        relatedProducts={relatedProducts}
-                    />
+                    {showAddModal && (
+                        <AddToCartModal
+                            isOpen
+                            onClose={() => setShowAddModal(false)}
+                            product={product}
+                            variantName={selectedVariant?.name}
+                            relatedProducts={relatedProducts}
+                        />
+                    )}
                 </>
             )}
         </div>

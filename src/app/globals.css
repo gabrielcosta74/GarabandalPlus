@@ -1,4 +1,3 @@
-@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap');
 @import "tailwindcss" source(none);
 @source "../app/**/*.{ts,tsx,mdx}";
 @source "../components/**/*.{ts,tsx,mdx}";
@@ -38,7 +37,7 @@ html {
 
 body {
   margin: 0;
-  font-family: 'Manrope', 'Segoe UI', system-ui, sans-serif;
+  font-family: var(--font-inter), 'Segoe UI', system-ui, sans-serif;
   background: linear-gradient(180deg, #f8faff 0%, #eef2f8 100%);
   color: var(--text);
   overflow-x: hidden;

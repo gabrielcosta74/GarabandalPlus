@@ -2,7 +2,6 @@
 
 import React from 'react';
 import Image from 'next/image';
-import { motion } from 'framer-motion';
 import { Product } from '../../app/loja-online/data';
 import Link from 'next/link';
 import { ArrowRight, Check, Globe, ShoppingCart } from 'lucide-react';
@@ -14,6 +13,7 @@ import { applyStoreBookPromo } from '../../lib/store-promo';
 interface ProductCardProps {
     product: Product;
     href?: string;
+    priority?: boolean;
     onClick: () => void;
     onAddToCart: (e: React.MouseEvent) => void;
 }
@@ -21,6 +21,7 @@ interface ProductCardProps {
 const ProductCard = React.forwardRef<HTMLDivElement, ProductCardProps>(({
     product,
     href,
+    priority = false,
     onClick,
     onAddToCart,
 }, ref) => {
@@ -64,14 +65,16 @@ const ProductCard = React.forwardRef<HTMLDivElement, ProductCardProps>(({
     };
 
     return (
-        <motion.div
-            layout
+        <div
             ref={ref}
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            whileHover={{ y: -6 }}
-            className="group relative bg-white border border-slate-100 rounded-3xl overflow-hidden hover:shadow-[0_20px_40px_-15px_rgba(0,0,0,0.08)] transition-all cursor-pointer flex flex-col h-full"
+            role="link"
+            tabIndex={0}
+            aria-label={isEn ? `View ${product.name}` : `Ver ${product.name}`}
+            className="group relative bg-white border border-slate-100 rounded-3xl overflow-hidden hover:-translate-y-1.5 hover:shadow-[0_20px_40px_-15px_rgba(0,0,0,0.08)] transition-all cursor-pointer flex flex-col h-full"
             onClick={onClick}
+            onKeyDown={(event) => {
+                if (event.key === 'Enter') onClick();
+            }}
         >
             {/* Image Area */}
             <div className="relative aspect-square bg-slate-50/50 p-8 md:p-10 overflow-hidden border-b border-slate-50 group-hover:bg-slate-100/50 transition-colors">
@@ -89,6 +92,8 @@ const ProductCard = React.forwardRef<HTMLDivElement, ProductCardProps>(({
                     src={product.image}
                     alt={product.name}
                     fill
+                    priority={priority}
+                    fetchPriority={priority ? 'high' : 'auto'}
                     sizes="(min-width: 1280px) 20vw, (min-width: 1024px) 25vw, (min-width: 640px) 33vw, 50vw"
                     className="object-contain transform transition-transform duration-700 group-hover:scale-105 mix-blend-multiply"
                 />
@@ -207,7 +212,7 @@ const ProductCard = React.forwardRef<HTMLDivElement, ProductCardProps>(({
                     )}
                 </div>
             </div>
-        </motion.div>
+        </div>
     );
 });
 

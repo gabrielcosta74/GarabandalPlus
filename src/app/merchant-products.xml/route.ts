@@ -2,6 +2,12 @@ import { APP_URL } from '../../lib/config';
 import { inferIsDigitalProduct } from '../../lib/product-kind';
 import { buildProductPath } from '../../lib/slug';
 import { supabaseServer } from '../../lib/supabase';
+import {
+  getAdditionalProductImageUrls,
+  getMerchantProductDescription,
+  getMerchantProductTitle,
+  toAbsoluteStoreImageUrl,
+} from '../../lib/store-merchandising';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -54,10 +60,13 @@ const getNumericIdentifier = (metadata: ProductRow['metadata'], keys: string[]) 
 };
 
 const getDescription = (product: ProductRow) => {
-  const description = String(product.description || '').replace(/\s+/g, ' ').trim();
-  if (description) return description.slice(0, 5000);
+  const description = getMerchantProductDescription(product.product_id, product.description);
+  if (description) return description;
   return `Produto da loja do Apostolado de Garabandal: ${product.name || product.product_id}.`;
 };
+
+const getMerchantImageUrl = (productId: string) =>
+  `${APP_URL}/merchant-images/${encodeURIComponent(productId)}`;
 
 const getShippingCountries = (product: ProductRow, isDigital: boolean) => {
   if (isDigital) return ['PT', 'BR'];
@@ -94,24 +103,35 @@ const buildProductItemXml = (product: ProductRow) => {
   const price = Number(product.price ?? 0);
   const link = `${APP_URL}${buildProductPath(product.product_id, product.name || null)}`;
   const availability = isPhysical && typeof product.stock === 'number' && product.stock <= 0 ? 'out_of_stock' : 'in_stock';
-  const gtin = getNumericIdentifier(metadata, ['gtin', 'gtin13', 'gtin14', 'gtin12', 'gtin8']);
   const isbn = getMetadataText(metadata, ['isbn']);
+  const isbnAsGtin = isbn?.replace(/[^\d]/g, '') || null;
+  const gtin =
+    getNumericIdentifier(metadata, ['gtin', 'gtin13', 'gtin14', 'gtin12', 'gtin8']) ||
+    (isbnAsGtin?.length === 13 ? isbnAsGtin : null);
   const mpn = getMetadataText(metadata, ['mpn', 'manufacturer_part_number']) || product.sku || product.product_id;
   const hasIdentifier = Boolean(gtin || isbn || mpn);
+  const additionalImages = getAdditionalProductImageUrls(
+    product.product_id,
+    metadata,
+    product.image_url,
+  )
+    .map((url) => toAbsoluteStoreImageUrl(url, APP_URL))
+    .map((url) => `<g:additional_image_link>${xmlEscape(url)}</g:additional_image_link>`)
+    .join('\n      ');
 
   return `
     <item>
       <g:id>${xmlEscape(product.product_id)}</g:id>
-      <g:title>${xmlEscape(product.name || product.product_id)}</g:title>
+      <g:title>${xmlEscape(getMerchantProductTitle(product.product_id, product.name || product.product_id))}</g:title>
       <g:description>${xmlEscape(getDescription(product))}</g:description>
       <g:link>${xmlEscape(link)}</g:link>
-      <g:image_link>${xmlEscape(normalizeUrl(product.image_url))}</g:image_link>
+      <g:image_link>${xmlEscape(product.image_url ? getMerchantImageUrl(product.product_id) : normalizeUrl(null))}</g:image_link>
+      ${additionalImages}
       <g:availability>${availability}</g:availability>
       <g:price>${price.toFixed(2)} ${xmlEscape(currency)}</g:price>
       <g:condition>new</g:condition>
       <g:brand>Apostolado de Garabandal</g:brand>
       ${gtin ? `<g:gtin>${xmlEscape(gtin)}</g:gtin>` : ''}
-      ${isbn ? `<g:isbn>${xmlEscape(isbn)}</g:isbn>` : ''}
       ${mpn ? `<g:mpn>${xmlEscape(mpn)}</g:mpn>` : ''}
       <g:identifier_exists>${hasIdentifier ? 'yes' : 'no'}</g:identifier_exists>
       ${product.category ? `<g:product_type>${xmlEscape(product.category)}</g:product_type>` : ''}

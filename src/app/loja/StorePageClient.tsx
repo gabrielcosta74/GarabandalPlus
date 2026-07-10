@@ -3,7 +3,6 @@
 import { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { AnimatePresence } from 'framer-motion';
 import { ShoppingBag, Search, X } from 'lucide-react';
 import ProductCard from '../../components/store/ProductCard';
 import MobileCartConfirmation from '../../components/store/MobileCartConfirmation';
@@ -54,8 +53,34 @@ export default function StorePageClient({ initialProducts = [], initialLocale }:
     };
 
     useEffect(() => {
-        fetchProducts();
-    }, [locale]);
+        if (initialProducts.length > 0 && (!initialLocale || locale === initialLocale)) {
+            setProducts(initialProducts);
+            setLoading(false);
+            return;
+        }
+
+        const controller = new AbortController();
+        setLoading(true);
+
+        const fetchProducts = async () => {
+            try {
+                const res = await fetch(`/api/store/products?includeVariants=0&locale=${locale}`, {
+                    cache: 'no-store',
+                    signal: controller.signal,
+                });
+                if (!res.ok) throw new Error(`Store products request failed: ${res.status}`);
+                const data = await res.json();
+                setProducts(data.products || []);
+            } catch (error) {
+                if (!controller.signal.aborted) console.error('Failed to load products:', error);
+            } finally {
+                if (!controller.signal.aborted) setLoading(false);
+            }
+        };
+
+        void fetchProducts();
+        return () => controller.abort();
+    }, [initialLocale, initialProducts, locale]);
 
     useEffect(() => {
         const refreshCartCount = () => {
@@ -71,20 +96,6 @@ export default function StorePageClient({ initialProducts = [], initialLocale }:
             window.removeEventListener('storage', refreshCartCount);
         };
     }, []);
-
-    const fetchProducts = async () => {
-        try {
-            const res = await fetch(`/api/store/products?includeVariants=0&locale=${locale}&t=${Date.now()}`, {
-                cache: 'no-store'
-            });
-            const data = await res.json();
-            setProducts(data.products || []);
-        } catch (error) {
-            console.error('Failed to load products:', error);
-        } finally {
-            setLoading(false);
-        }
-    };
 
     // Curated ordering: physical book first, then Diário de Conchita, rest keep API order.
     const productRank = (product: Product) => {
@@ -268,14 +279,15 @@ export default function StorePageClient({ initialProducts = [], initialLocale }:
                     </div>
                 ) : filteredProducts.length > 0 ? (
                     <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-8">
-                        <AnimatePresence mode='popLayout'>
-                            {filteredProducts.map((product) => {
+                        <>
+                            {filteredProducts.map((product, index) => {
                                 const productPath = buildProductPath(product.id, product.name, locale);
                                 return (
                                     <ProductCard
                                         key={product.id}
                                         product={product}
                                         href={productPath}
+                                        priority={index === 0}
                                         onClick={() => {
                                             captureStoreEvent('store_product_clicked', {
                                                 product_id: product.id,
@@ -294,7 +306,7 @@ export default function StorePageClient({ initialProducts = [], initialLocale }:
                                     />
                                 );
                             })}
-                        </AnimatePresence>
+                        </>
                     </div>
                 ) : (
                     <div className="text-center py-32">

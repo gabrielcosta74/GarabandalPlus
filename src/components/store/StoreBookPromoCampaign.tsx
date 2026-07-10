@@ -112,7 +112,9 @@ export function StoreBookPromoPopup({ onViewBooks }: { onViewBooks?: () => void 
     if (!isStoreBookPromoActive()) return;
     if (sessionStorage.getItem('store:book-promo-seen') === '1') return;
 
-    const timer = window.setTimeout(() => setIsOpen(true), 900);
+    // Let the product grid become stable before adding a full-page backdrop.
+    // Opening during the LCP window forces repeated background repaints.
+    const timer = window.setTimeout(() => setIsOpen(true), 12_000);
     return () => window.clearTimeout(timer);
   }, []);
 

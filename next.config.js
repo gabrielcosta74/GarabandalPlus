@@ -40,6 +40,7 @@ const nextConfig = {
         source: '/images/:path*',
         headers: [
           { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
+          { key: 'X-Robots-Tag', value: 'index, follow, max-image-preview:large' },
         ],
       },
     ];

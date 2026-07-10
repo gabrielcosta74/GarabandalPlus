@@ -4,7 +4,7 @@ import { APP_URL } from '../../../../lib/config';
 
 const title = 'Return Policy | Garabandal Apostolate Store';
 const description =
-  'Restrictive return, legal withdrawal and refund policy for items sold through the Garabandal Apostolate online store.';
+  '30-day return policy for eligible physical goods, legal withdrawal and refunds at the Garabandal Apostolate online store.';
 const url = `${APP_URL}/en/store/return-policy`;
 
 export const metadata: Metadata = {
@@ -46,23 +46,22 @@ export default function ReturnPolicyPage() {
             Return Policy
           </h1>
           <p className="text-sm text-slate-500">
-            Last updated: 15 June 2026
+            Last updated: 10 July 2026
           </p>
           <p className="text-slate-600 leading-relaxed">
             This policy applies to items bought from the Garabandal Apostolate online store,
             including books, religious articles, clothing and digital content.
-            Outside legally mandatory cases, we do not accept returns, exchanges or refunds due to
-            convenience, change of preference or purchase error.
+            Eligible physical goods may be returned within 30 days of receipt. Digital content
+            remains subject to the specific conditions in section 7.
           </p>
         </header>
 
         <section className="space-y-3">
-          <h2 className="text-xl font-semibold text-slate-900">1. Restrictive policy</h2>
+          <h2 className="text-xl font-semibold text-slate-900">1. 30-day return period</h2>
           <p className="text-slate-600 leading-relaxed">
-            The store does not offer a voluntary commercial return or exchange policy. Returns are
-            accepted only where required by law: valid exercise of the legal distance-selling
-            withdrawal right, defective item, transport damage or item different from what was
-            ordered.
+            In addition to applicable statutory rights, we accept voluntary returns of eligible
+            physical goods when the request is made within 30 calendar days of receipt. This
+            commercial period includes and extends the statutory 14-day period without limiting it.
           </p>
           <p className="text-slate-600 leading-relaxed">
             Purchases made by companies, professionals or entities acting within their business
@@ -72,12 +71,14 @@ export default function ReturnPolicyPage() {
         </section>
 
         <section className="space-y-3">
-          <h2 className="text-xl font-semibold text-slate-900">2. Right of withdrawal</h2>
+          <h2 className="text-xl font-semibold text-slate-900">2. Statutory right of withdrawal</h2>
           <p className="text-slate-600 leading-relaxed">
             For distance purchases, consumers may withdraw from the purchase within 14 calendar days
             without giving a reason. For physical goods, this period starts on the day the consumer,
             or a third party appointed by the consumer, receives the item. If an order is delivered
             in multiple shipments, the period starts when the final item is received.
+            Our commercial policy allows eligible physical goods to be returned up to the 30th day
+            after receipt.
           </p>
         </section>
 

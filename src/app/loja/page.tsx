@@ -11,6 +11,7 @@ import {
   getProductSchemaType,
 } from '../../lib/product-schema';
 import StorePageClient from './StorePageClient';
+import { getAdditionalProductImageUrls, toAbsoluteStoreImageUrl } from '../../lib/store-merchandising';
 
 export const revalidate = 3600;
 
@@ -45,7 +46,11 @@ export async function StorePageServer({ locale }: StorePageServerProps) {
           '@type': getProductSchemaType(Boolean(product.type_id?.includes('book'))),
           name: product.name,
           description: product.description,
-          image: getAbsoluteImageUrl(product.image),
+          image: [
+            getAbsoluteImageUrl(product.image),
+            ...getAdditionalProductImageUrls(product.id, product.metadata, product.image)
+              .map((image) => toAbsoluteStoreImageUrl(image, APP_URL)),
+          ].filter(Boolean),
           ...buildProductIdentifierStructuredData(product.metadata, {
             isBook: Boolean(product.type_id?.includes('book')),
             sku: product.sku || product.id,
