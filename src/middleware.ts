@@ -6,6 +6,10 @@ const CANONICAL_HOST = 'apostoladodegarabandal.com';
 
 export async function middleware(request: NextRequest) {
     const pathname = request.nextUrl.pathname;
+    // `nextUrl.pathname` may already be normalized by Next.js. Keep the raw
+    // browser pathname so legacy trailing slashes can be collapsed together
+    // with a host redirect instead of producing a second hop.
+    const rawPathname = new URL(request.url).pathname;
 
     // 0. Canonical host. The legacy `app.` subdomain (and `www.`) are duplicate
     //    copies of the whole site that were splitting brand authority in Google
@@ -13,10 +17,31 @@ export async function middleware(request: NextRequest) {
     //    host to the apex domain, preserving the full path + query.
     const host = (request.headers.get('host') || '').toLowerCase();
     if (host && host !== CANONICAL_HOST && host.endsWith('apostoladodegarabandal.com')) {
-      const url = request.nextUrl.clone();
+      const url = new URL(request.url);
       url.host = CANONICAL_HOST;
       url.protocol = 'https:';
       url.port = '';
+      // Legacy Webnode URLs commonly ended in a slash. Normalize the path in
+      // this same redirect so Google reaches the canonical URL in one hop
+      // instead of host redirect -> trailing-slash redirect -> final page.
+      if (rawPathname.length > 1 && rawPathname.endsWith('/')) {
+        url.pathname = rawPathname.slice(0, -1);
+      }
+      return NextResponse.redirect(url, 301);
+    }
+
+    // Next.js' built-in trailing-slash redirect runs before middleware. We
+    // disable that default in next.config.js and normalize here so a legacy
+    // `www` URL with a trailing slash is consolidated in the host redirect
+    // above, while canonical-host URLs still get one permanent redirect.
+    if (
+      rawPathname.length > 1 &&
+      rawPathname.endsWith('/') &&
+      !rawPathname.startsWith('/.well-known') &&
+      !rawPathname.includes('.')
+    ) {
+      const url = new URL(request.url);
+      url.pathname = rawPathname.slice(0, -1);
       return NextResponse.redirect(url, 301);
     }
 

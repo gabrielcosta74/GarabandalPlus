@@ -6,6 +6,9 @@ const withBundleAnalyzer = require('@next/bundle-analyzer')({
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   outputFileTracingRoot: path.join(__dirname),
+  // Canonicalize trailing slashes in middleware so legacy `www` URLs can be
+  // collapsed to the apex host and slashless path in a single 301.
+  skipTrailingSlashRedirect: true,
   experimental: {
     serverActions: {
       bodySizeLimit: '2mb',

@@ -507,5 +507,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     return baseRoutes;
   }
 
-  return [...baseRoutes, ...dynamicRoutes];
+  // A few migrated CMS pages share their URL with curated category routes.
+  // Advertise each canonical URL only once; duplicate <loc> entries waste
+  // crawl attention and make Search Console's discovered-page counts noisy.
+  const seenUrls = new Set<string>();
+  return [...baseRoutes, ...dynamicRoutes].filter((entry) => {
+    if (seenUrls.has(entry.url)) return false;
+    seenUrls.add(entry.url);
+    return true;
+  });
 }
