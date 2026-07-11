@@ -1,4 +1,5 @@
 import { cloneElement, isValidElement } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { ChevronRight } from 'lucide-react';
 
@@ -41,17 +42,18 @@ export function ArticleHero({
     >
       {coverImage && (
         <>
-          <div
+          <Image
+            src={coverImage}
+            alt={`Imagem de capa: ${title}`}
+            fill
+            priority
+            sizes="100vw"
             style={{
-              position: 'absolute',
-              inset: 0,
-              backgroundImage: `url("${coverImage}")`,
-              backgroundPosition: 'center',
-              backgroundSize: 'cover',
+              objectFit: 'cover',
+              objectPosition: 'center',
               opacity: 0.6,
               filter: 'contrast(1.05) saturate(1.05)',
               transform: 'scale(1.02)',
-              transition: 'transform 10s ease-out',
             }}
           />
           <div
@@ -74,7 +76,6 @@ export function ArticleHero({
           display: 'flex',
           flexDirection: 'column',
           gap: '1.5rem',
-          animation: 'heroFadeUp 1s cubic-bezier(0.16, 1, 0.3, 1) forwards',
         }}
       >
         {breadcrumbs?.length ? (
@@ -162,12 +163,6 @@ export function ArticleHero({
           </p>
         ) : null}
       </div>
-      <style dangerouslySetInnerHTML={{ __html: `
-        @keyframes heroFadeUp {
-          from { opacity: 0; transform: translateY(20px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-      `}} />
     </header>
   );
 }
