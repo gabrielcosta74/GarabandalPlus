@@ -171,6 +171,7 @@ export async function GET() {
   return new Response(xml, {
     headers: {
       'Content-Type': 'application/xml; charset=utf-8',
+      'Content-Disposition': 'inline; filename="merchant-products.xml"',
       'Cache-Control': 'public, max-age=300, s-maxage=300, stale-while-revalidate=3600',
     },
   });
