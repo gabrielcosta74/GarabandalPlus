@@ -22,6 +22,81 @@ const getAbsoluteImageUrl = (image?: string | null) => {
   return `${APP_URL}${image.startsWith('/') ? image : `/${image}`}`;
 };
 
+type SitemapContentRow = {
+  id: string;
+  slug: string;
+  locale: string;
+  updated_at: string;
+  published_at?: string | null;
+  cover_image_url?: string | null;
+  og_image_url: string | null;
+};
+
+type TranslationLink = {
+  group_id: string;
+  content_type: 'page' | 'post';
+  content_id: string;
+};
+
+const contentUrl = (kind: 'page' | 'post', row: SitemapContentRow) => {
+  const localePrefix = row.locale === 'pt' ? '' : `/${row.locale}`;
+  const typePrefix = kind === 'post' ? '/l' : '';
+  return `${APP_URL}${localePrefix}${typePrefix}/${row.slug}`;
+};
+
+/** Build sitemap hreflang from the CMS translation group, not matching slugs. */
+function appendTranslatedContentRoutes(
+  target: MetadataRoute.Sitemap,
+  kind: 'page' | 'post',
+  rows: SitemapContentRow[],
+  links: TranslationLink[],
+  fallbackDate: Date,
+) {
+  const rowsById = new Map(rows.map((row) => [row.id, row]));
+  const groupByContentId = new Map(
+    links
+      .filter((link) => link.content_type === kind)
+      .map((link) => [link.content_id, link.group_id]),
+  );
+  const contentIdsByGroup = new Map<string, string[]>();
+
+  for (const link of links) {
+    if (link.content_type !== kind) continue;
+    const ids = contentIdsByGroup.get(link.group_id) ?? [];
+    ids.push(link.content_id);
+    contentIdsByGroup.set(link.group_id, ids);
+  }
+
+  for (const row of rows) {
+    const groupId = groupByContentId.get(row.id);
+    const peerIds = groupId ? contentIdsByGroup.get(groupId) ?? [] : [];
+    const peers = peerIds
+      .map((id) => rowsById.get(id))
+      .filter((peer): peer is SitemapContentRow => Boolean(peer));
+    if (!peers.some((peer) => peer.id === row.id)) peers.push(row);
+
+    const languages: Record<string, string> = {};
+    for (const peer of peers) {
+      languages[hreflangKey(peer.locale as 'pt' | 'en' | 'es' | 'fr' | 'it')] = contentUrl(kind, peer);
+    }
+    const portuguesePeer = peers.find((peer) => peer.locale === 'pt');
+    languages['x-default'] = contentUrl(kind, portuguesePeer ?? row);
+
+    const image = kind === 'post'
+      ? row.cover_image_url ?? row.og_image_url
+      : row.og_image_url;
+
+    target.push({
+      url: contentUrl(kind, row),
+      lastModified: getSitemapDate(row.updated_at, fallbackDate),
+      changeFrequency: kind === 'post' ? 'weekly' : 'monthly',
+      priority: kind === 'post' ? 0.65 : 0.7,
+      images: image ? [image] : undefined,
+      alternates: { languages },
+    });
+  }
+}
+
 async function fetchSitemapProducts(): Promise<StoreProductSitemapRecord[]> {
   if (!supabaseServer) return [];
 
@@ -47,19 +122,16 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // ── Core pages ──────────────────────────────────────────────────
     {
       url: `${APP_URL}/`,
-      lastModified: now,
       changeFrequency: 'weekly',
       priority: 1,
     },
     {
       url: `${APP_URL}/peregrinacoes`,
-      lastModified: now,
       changeFrequency: 'weekly',
       priority: 0.95,
     },
     {
       url: `${APP_URL}/loja`,
-      lastModified: now,
       changeFrequency: 'weekly',
       priority: 0.85,
       alternates: {
@@ -72,13 +144,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     },
     {
       url: `${APP_URL}/donations`,
-      lastModified: now,
       changeFrequency: 'monthly',
       priority: 0.8,
     },
     {
       url: `${APP_URL}/leilao`,
-      lastModified: now,
       changeFrequency: 'daily',
       priority: 0.85,
       alternates: {
@@ -91,44 +161,37 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     },
     {
       url: `${APP_URL}/tornar-membro`,
-      lastModified: now,
       changeFrequency: 'monthly',
       priority: 0.75,
     },
     {
       url: `${APP_URL}/sobre-nos`,
-      lastModified: now,
       changeFrequency: 'monthly',
       priority: 0.65,
     },
     {
       url: `${APP_URL}/intencoes`,
-      lastModified: now,
       changeFrequency: 'monthly',
       priority: 0.6,
     },
     {
       url: `${APP_URL}/transparencia`,
-      lastModified: now,
       changeFrequency: 'monthly',
       priority: 0.55,
     },
     // ── English versions ─────────────────────────────────────────────
     {
       url: `${APP_URL}/en`,
-      lastModified: now,
       changeFrequency: 'weekly',
       priority: 0.7,
     },
     {
       url: `${APP_URL}/en/pilgrimages`,
-      lastModified: now,
       changeFrequency: 'weekly',
       priority: 0.7,
     },
     {
       url: `${APP_URL}/en/store`,
-      lastModified: now,
       changeFrequency: 'weekly',
       priority: 0.65,
       alternates: {
@@ -141,13 +204,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     },
     {
       url: `${APP_URL}/en/donations`,
-      lastModified: now,
       changeFrequency: 'monthly',
       priority: 0.6,
     },
     {
       url: `${APP_URL}/en/auction`,
-      lastModified: now,
       changeFrequency: 'daily',
       priority: 0.7,
       alternates: {
@@ -160,37 +221,31 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     },
     {
       url: `${APP_URL}/en/become-member`,
-      lastModified: now,
       changeFrequency: 'monthly',
       priority: 0.6,
     },
     {
       url: `${APP_URL}/en/about`,
-      lastModified: now,
       changeFrequency: 'monthly',
       priority: 0.5,
     },
     {
       url: `${APP_URL}/en/intentions`,
-      lastModified: now,
       changeFrequency: 'monthly',
       priority: 0.5,
     },
     {
       url: `${APP_URL}/en/privacy`,
-      lastModified: now,
       changeFrequency: 'yearly',
       priority: 0.2,
     },
     {
       url: `${APP_URL}/en/terms`,
-      lastModified: now,
       changeFrequency: 'yearly',
       priority: 0.2,
     },
     {
       url: `${APP_URL}/en/cookies`,
-      lastModified: now,
       changeFrequency: 'yearly',
       priority: 0.15,
     },
@@ -207,14 +262,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
           return [
             {
               url: ptUrl,
-              lastModified: now,
               changeFrequency: 'weekly' as const,
               priority: 0.85,
               alternates: { languages: langs },
             },
             {
               url: enUrl,
-              lastModified: now,
               changeFrequency: 'weekly' as const,
               priority: 0.75,
               alternates: { languages: langs },
@@ -225,25 +278,21 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // ── Legal ────────────────────────────────────────────────────────
     {
       url: `${APP_URL}/termos`,
-      lastModified: now,
       changeFrequency: 'yearly',
       priority: 0.3,
     },
     {
       url: `${APP_URL}/privacidade`,
-      lastModified: now,
       changeFrequency: 'yearly',
       priority: 0.3,
     },
     {
       url: `${APP_URL}/cookies`,
-      lastModified: now,
       changeFrequency: 'yearly',
       priority: 0.2,
     },
     {
       url: `${APP_URL}/loja/politica-devolucao`,
-      lastModified: now,
       changeFrequency: 'yearly',
       priority: 0.3,
       alternates: {
@@ -256,7 +305,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     },
     {
       url: `${APP_URL}/en/store/return-policy`,
-      lastModified: now,
       changeFrequency: 'yearly',
       priority: 0.2,
       alternates: {
@@ -377,15 +425,19 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
     // ── Migrated devotional content (wp_pages + posts) ──────────────────
     // Only emit when status='published'. Drafts stay invisible to crawlers.
-    const [{ data: pubPages }, { data: pubPosts }] = await Promise.all([
+    const [{ data: pubPages }, { data: pubPosts }, { data: translationLinks }] = await Promise.all([
       supabaseServer
         .from('wp_pages')
-        .select('slug, locale, updated_at, og_image_url')
+        .select('id, slug, locale, updated_at, og_image_url')
         .eq('status', 'published'),
       supabaseServer
         .from('posts')
-        .select('slug, locale, updated_at, published_at, cover_image_url, og_image_url')
+        .select('id, slug, locale, updated_at, published_at, cover_image_url, og_image_url')
         .eq('status', 'published'),
+      supabaseServer
+        .from('content_translations')
+        .select('group_id, content_type, content_id')
+        .in('content_type', ['page', 'post']),
     ]);
 
     // Blog index pages — only emit when there are actually posts to list.
@@ -454,55 +506,20 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       }
     }
 
-    // Group by slug to build hreflang maps cheaply.
-    const pageBySlug = new Map<string, Array<{ slug: string; locale: string; updated_at: string; og_image_url: string | null }>>();
-    for (const r of (pubPages ?? []) as any[]) {
-      const arr = pageBySlug.get(r.slug) ?? [];
-      arr.push(r);
-      pageBySlug.set(r.slug, arr);
-    }
-    for (const [slug, rows] of pageBySlug) {
-      const langs: Record<string, string> = {};
-      for (const r of rows) {
-        langs[hreflangKey(r.locale as 'pt' | 'en' | 'es')] = `${APP_URL}${r.locale === 'pt' ? '' : '/' + r.locale}/${slug}`;
-      }
-      for (const r of rows) {
-        const url = `${APP_URL}${r.locale === 'pt' ? '' : '/' + r.locale}/${slug}`;
-        dynamicRoutes.push({
-          url,
-          lastModified: getSitemapDate(r.updated_at, now),
-          changeFrequency: 'monthly',
-          priority: 0.7,
-          images: r.og_image_url ? [r.og_image_url] : undefined,
-          alternates: { languages: langs },
-        });
-      }
-    }
-
-    const postBySlug = new Map<string, Array<{ slug: string; locale: string; updated_at: string; published_at: string | null; cover_image_url: string | null; og_image_url: string | null }>>();
-    for (const r of (pubPosts ?? []) as any[]) {
-      const arr = postBySlug.get(r.slug) ?? [];
-      arr.push(r);
-      postBySlug.set(r.slug, arr);
-    }
-    for (const [slug, rows] of postBySlug) {
-      const langs: Record<string, string> = {};
-      for (const r of rows) {
-        langs[hreflangKey(r.locale as 'pt' | 'en' | 'es')] = `${APP_URL}${r.locale === 'pt' ? '' : '/' + r.locale}/l/${slug}`;
-      }
-      for (const r of rows) {
-        const url = `${APP_URL}${r.locale === 'pt' ? '' : '/' + r.locale}/l/${slug}`;
-        const cover = r.cover_image_url ?? r.og_image_url;
-        dynamicRoutes.push({
-          url,
-          lastModified: getSitemapDate(r.updated_at, now),
-          changeFrequency: 'weekly',
-          priority: 0.65,
-          images: cover ? [cover] : undefined,
-          alternates: { languages: langs },
-        });
-      }
-    }
+    appendTranslatedContentRoutes(
+      dynamicRoutes,
+      'page',
+      (pubPages ?? []) as SitemapContentRow[],
+      (translationLinks ?? []) as TranslationLink[],
+      now,
+    );
+    appendTranslatedContentRoutes(
+      dynamicRoutes,
+      'post',
+      (pubPosts ?? []) as SitemapContentRow[],
+      (translationLinks ?? []) as TranslationLink[],
+      now,
+    );
   } catch {
     return baseRoutes;
   }

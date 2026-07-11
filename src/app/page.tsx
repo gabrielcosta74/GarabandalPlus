@@ -19,6 +19,15 @@ export const metadata: Metadata = {
   description: 'Site oficial da Associação do Apostolado de Garabandal, dedicado a divulgar a mensagem de Nossa Senhora em Garabandal através de peregrinações, oração e missão.',
   alternates: {
     canonical: `${APP_URL}/`,
+    languages: {
+      'x-default': `${APP_URL}/`,
+      'pt-BR': `${APP_URL}/`,
+      'pt-PT': `${APP_URL}/`,
+      en: `${APP_URL}/en`,
+      es: `${APP_URL}/es`,
+      fr: `${APP_URL}/fr`,
+      it: `${APP_URL}/it`,
+    },
   },
 };
 

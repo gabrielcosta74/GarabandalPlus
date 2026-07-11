@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import Image from 'next/image';
 import Preloader from './Preloader';
 import Hero from './Hero';
@@ -37,16 +37,17 @@ interface HomePageClientProps {
 const HomePageClient: React.FC<HomePageClientProps> = ({ meta, pilgrimages = [], featuredProducts = [], homeContent, lives = [], locale = 'pt' }) => {
     const [loading, setLoading] = useState(true);
     const { memberData } = useAuth();
+    const handlePreloaderComplete = useCallback(() => setLoading(false), []);
 
 
     return (
         <main className="min-h-screen bg-garabandal-mist text-slate-900 selection:bg-garabandal-gold selection:text-white">
             {/* Intro Sequence */}
-            <Preloader onComplete={() => setLoading(false)} />
+            <Preloader onComplete={handlePreloaderComplete} />
 
-            {/* Main Content - revealed after loader */}
-            {!loading && (
-                <div className="relative isolate">
+            {/* Keep the complete homepage in the initial HTML. The preloader is
+                a temporary visual overlay, never a gate for primary content. */}
+            <div className="relative isolate" aria-busy={loading}>
                     {/* Background Overlay Removed for a cleaner readable look */}
                     <div className="fixed inset-0 z-0 pointer-events-none bg-garabandal-mist" />
 
@@ -89,8 +90,7 @@ const HomePageClient: React.FC<HomePageClientProps> = ({ meta, pilgrimages = [],
                         {/* Contact band just above the footer */}
                         <ContactBar />
                     </div>
-                </div>
-            )}
+            </div>
         </main>
     );
 };

@@ -16,17 +16,22 @@ const Preloader: React.FC<PreloaderProps> = ({ onComplete }) => {
     const [isPresent, setIsPresent] = useState(true);
 
     useEffect(() => {
-        const timer = setTimeout(() => {
+        let completionTimer: ReturnType<typeof setTimeout> | undefined;
+        const hideTimer = setTimeout(() => {
             setIsPresent(false);
-            setTimeout(onComplete, 700); // Allow exit animation to finish
+            completionTimer = setTimeout(onComplete, 700); // Allow exit animation to finish
         }, 1100);
-        return () => clearTimeout(timer);
+        return () => {
+            clearTimeout(hideTimer);
+            if (completionTimer) clearTimeout(completionTimer);
+        };
     }, [onComplete]);
 
     return (
         <AnimatePresence>
             {isPresent && (
                 <motion.div
+                    aria-hidden="true"
                     className="fixed inset-0 z-50 flex items-center justify-center bg-garabandal-mist overflow-hidden"
                     initial={{ clipPath: 'inset(0% 0% 0% 0%)' }}
                     exit={{
@@ -46,7 +51,7 @@ const Preloader: React.FC<PreloaderProps> = ({ onComplete }) => {
                         </motion.span>
 
                         {/* Wordmark — letter mask reveal */}
-                        <h1 className="flex font-serif text-4xl md:text-6xl tracking-[0.15em] text-garabandal-dark uppercase">
+                        <div className="flex font-serif text-4xl md:text-6xl tracking-[0.15em] text-garabandal-dark uppercase">
                             {WORD.split('').map((char, i) => (
                                 <span key={i} className="inline-block overflow-hidden">
                                     <motion.span
@@ -63,7 +68,7 @@ const Preloader: React.FC<PreloaderProps> = ({ onComplete }) => {
                                     </motion.span>
                                 </span>
                             ))}
-                        </h1>
+                        </div>
 
                         {/* Hairline that draws across */}
                         <motion.div
