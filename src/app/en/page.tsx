@@ -31,6 +31,7 @@ export const metadata: Metadata = {
   alternates: {
     canonical: `${APP_URL}/en`,
     languages: {
+      'x-default': `${APP_URL}/`,
       en: `${APP_URL}/en`,
       'pt-BR': `${APP_URL}/`,
       'pt-PT': `${APP_URL}/`,
