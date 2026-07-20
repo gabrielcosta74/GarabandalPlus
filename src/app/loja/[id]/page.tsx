@@ -1,4 +1,5 @@
 import { supabaseServer } from '../../../lib/supabase';
+import { notFound } from 'next/navigation';
 import ProductDetailsClient from './ProductDetailsClient';
 import { type AppLocale } from '../../../lib/locale-routing';
 import { getStoreProductTypeText, localizeStoreProductText } from '../../../lib/store-i18n';
@@ -24,13 +25,15 @@ export const fetchProductForPage = async (param: string, locale: AppLocale = 'pt
   }
 
   try {
-    const { data } = await supabaseServer
+    const { data, error } = await supabaseServer
       .from('store_products')
       .select(
         'product_id, sku, name, name_en, description, description_en, category_id, category, price, currency, stock, is_active, is_physical, type_id, metadata, image_url, digital_url, allowed_countries, tax_rate, specifications, variants:product_variants(*)',
       )
       .in('product_id', Array.from(candidates))
       .eq('is_active', true);
+
+    if (error) throw error;
 
     if (!data || data.length === 0) return null;
     const best = data.reduce((b: any, c: any) => {
@@ -68,13 +71,15 @@ export const fetchProductForPage = async (param: string, locale: AppLocale = 'pt
       tag: typeText.tag,
       format: typeText.format,
     };
-  } catch {
-    return null;
+  } catch (error) {
+    console.error('[store] fetchProductForPage failed', error);
+    throw error;
   }
 };
 
 export default async function ProductPage({ params }: Props) {
   const { id } = await params;
   const product = await fetchProductForPage(id);
+  if (!product) notFound();
   return <ProductDetailsClient initialProduct={product} />;
 }

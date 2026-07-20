@@ -68,7 +68,11 @@ export default function ProductDetailsClient({ initialProduct }: { initialProduc
     const [selectedImage, setSelectedImage] = useState<string | null>(initialProduct?.image || null);
 
     useEffect(() => {
-        if (id && (!initialProduct || isEn)) fetchProduct(id);
+        // The server already supplies the correctly localized product for both
+        // /loja and /en/store. Re-fetching it during hydration makes Googlebot
+        // call a robots-blocked /api URL and replace valid SSR content with the
+        // client-side "Product not found" state (a genuine soft 404).
+        if (id && !initialProduct) fetchProduct(id);
     }, [id, initialProduct, isEn]);
 
     useEffect(() => {

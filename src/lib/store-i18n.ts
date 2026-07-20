@@ -35,13 +35,13 @@ const KNOWN_PRODUCT_DESCRIPTION_PT: Record<string, string> = {
 
 const KNOWN_PRODUCT_DESCRIPTION_EN: Record<string, string> = {
   'a historia de garabandal para criancas - pdf':
-    'Digital PDF book created to introduce children to the message of Garabandal in a simple, catechetical and accessible way.',
+    'This illustrated 20-page digital book introduces the events and message of Garabandal to children in clear, age-appropriate language. Created by the Garabandal Apostolate, it gives families, catechists and parish groups a concise resource for reading together and discussing the call to prayer and conversion. The short format makes the subject approachable while supporting adult guidance and catechesis. The purchase supplies a digital PDF for personal use, with immediate access after payment; no physical copy is shipped.',
   'diario de conchita - versao digital em portugues':
-    "Portuguese digital edition of Conchita's Diary, an essential testimony for understanding the events and message of Garabandal.",
+    "This 360-page Portuguese digital edition of Conchita's Diary presents an essential first-hand testimony for understanding the events and message of Garabandal. It is supplied as a PDF with immediate access after purchase.",
   'guia do peregrino - garabandal (portugues / espanhol) - pdf':
-    'Digital pilgrim guide for Garabandal, with practical and spiritual support in Portuguese and Spanish to help prepare the visit.',
+    'This 36-page bilingual digital guide helps Portuguese- and Spanish-speaking pilgrims prepare for a visit to Garabandal. It includes a map of the village, the principal places to visit, the route to the Pines and practical information for planning time on site. The guide combines those logistics with spiritual guidance so it can be used both before the journey and during the pilgrimage. The purchase supplies a downloadable PDF with immediate access after payment; no physical copy is shipped.',
   'livro - garabandal, um chamamento urgente a conversao':
-    'Physical book about Garabandal and the urgent call to conversion, created for spiritual formation and deeper study of the Marian message.',
+    'This 360-page physical book brings together the history, messages and testimonies of Garabandal to explain its urgent call to conversion. Written and published by the Garabandal Apostolate, it offers a substantial resource for spiritual formation, personal reading and deeper study of the Marian message. This is the paperback print edition, not a digital download. Eligible orders are packed for delivery, with shipping currently available to Portugal and Brazil.',
 };
 
 const getEnglishProductNameFallback = (name?: string | null) => {
