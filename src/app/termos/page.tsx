@@ -31,19 +31,23 @@ export default function TermosPage() {
             Termos e Condições
           </h1>
           <p className="text-sm text-slate-500">
-            Última atualização: 13 de fevereiro de 2026
+            Última atualização: 23 de julho de 2026
           </p>
           <p className="text-slate-600 leading-relaxed">
-            Ao utilizar o website e a web app do Apostolado de Garabandal, o utilizador declara que
-            leu, compreendeu e aceita estes Termos.
+            Ao utilizar o website, a web app ou a aplicação móvel para membros do Apostolado de
+            Garabandal, o utilizador declara que leu, compreendeu e aceita estes Termos.
           </p>
         </header>
 
         <section className="space-y-3">
           <h2 className="text-xl font-semibold text-slate-900">1. Objeto e âmbito</h2>
           <p className="text-slate-600 leading-relaxed">
-            Estes Termos regulam o acesso e utilização do website, área de membro, inscrição em
-            peregrinações, doações, pagamentos de quotas e loja online.
+            Estes Termos regulam o acesso e utilização do website, web app, aplicação móvel, área de
+            membro, inscrição em peregrinações, doações, pagamentos de quotas e loja online.
+          </p>
+          <p className="text-slate-600 leading-relaxed">
+            A plataforma é operada pela Associação do Apostolado de Garabandal, NIPC 517582023,
+            com sede no Largo da Igreja, n.º 36, 4535-275 Paços de Brandão, Portugal.
           </p>
         </section>
 
@@ -53,6 +57,7 @@ export default function TermosPage() {
             <li>O utilizador é responsável pela veracidade dos dados fornecidos e pela segurança da conta.</li>
             <li>Não é permitida utilização abusiva, fraudulenta ou que viole legislação aplicável.</li>
             <li>Podemos suspender acessos em caso de risco de segurança ou incumprimento destes Termos.</li>
+            <li>A aplicação móvel permite solicitar a eliminação da conta no Perfil, sem prejuízo da conservação de registos exigida por lei.</li>
           </ul>
         </section>
 
@@ -71,6 +76,9 @@ export default function TermosPage() {
             <li>Os pagamentos podem ser processados por prestadores externos (ex.: Stripe, Reduniq), de acordo com os seus termos próprios.</li>
             <li>Doações e quotas são registadas para controlo administrativo, contabilístico e fiscal.</li>
             <li>Quando aplicável, o estado do pagamento depende da confirmação do operador de pagamento.</li>
+            <li>A quota é uma obrigação estatutária de membro da associação e não uma compra de conteúdo digital da aplicação.</li>
+            <li>A aplicação móvel não processa pagamentos nem recolhe dados de cartão.</li>
+            <li>Os donativos são voluntários, não desbloqueiam funcionalidades ou conteúdo digital e, quando iniciados na aplicação, são concluídos fora da aplicação no navegador do dispositivo.</li>
           </ul>
         </section>
 

@@ -32,11 +32,11 @@ export default function CookiesPage() {
             Política de Cookies
           </h1>
           <p className="text-sm text-slate-500">
-            Última atualização: 28 de abril de 2026
+            Última atualização: 23 de julho de 2026
           </p>
           <p className="text-slate-600 leading-relaxed">
             Esta política explica o uso de cookies, armazenamento local e tecnologias semelhantes no
-            website e web app do Apostolado de Garabandal.
+            website, web app e aplicação móvel do Apostolado de Garabandal.
           </p>
         </header>
 
@@ -70,7 +70,17 @@ export default function CookiesPage() {
         </section>
 
         <section className="space-y-3">
-          <h2 className="text-xl font-semibold text-slate-900">4. Gestão de preferências</h2>
+          <h2 className="text-xl font-semibold text-slate-900">4. Aplicação móvel</h2>
+          <p className="text-slate-600 leading-relaxed">
+            A aplicação móvel não utiliza cookies de publicidade. Guarda localmente a sessão de
+            forma segura e algumas preferências, favoritos e progresso de oração necessários ao
+            funcionamento. Ao abrir o site oficial no navegador, aplica-se a configuração de
+            cookies escolhida nesse navegador.
+          </p>
+        </section>
+
+        <section className="space-y-3">
+          <h2 className="text-xl font-semibold text-slate-900">5. Gestão de preferências</h2>
           <p className="text-slate-600 leading-relaxed">
             Pode aceitar todos, rejeitar cookies opcionais ou escolher categorias no banner de
             consentimento. Pode alterar a sua escolha a qualquer momento através do botão abaixo.
@@ -81,7 +91,7 @@ export default function CookiesPage() {
         </section>
 
         <section className="space-y-3">
-          <h2 className="text-xl font-semibold text-slate-900">5. Cookies de terceiros</h2>
+          <h2 className="text-xl font-semibold text-slate-900">6. Cookies de terceiros</h2>
           <p className="text-slate-600 leading-relaxed">
             Alguns fluxos dependem de serviços terceiros (ex.: Supabase para autenticação/base de
             dados, Stripe/Reduniq para pagamentos, PostHog para analytics quando consentido, e
@@ -91,7 +101,7 @@ export default function CookiesPage() {
         </section>
 
         <section className="space-y-3">
-          <h2 className="text-xl font-semibold text-slate-900">6. Base legal</h2>
+          <h2 className="text-xl font-semibold text-slate-900">7. Base legal</h2>
           <p className="text-slate-600 leading-relaxed">
             Cookies estritamente necessários são utilizados para execução do serviço solicitado e
             segurança da plataforma. Cookies analíticos e de marketing são utilizados com base no seu
@@ -100,7 +110,7 @@ export default function CookiesPage() {
         </section>
 
         <section className="space-y-3">
-          <h2 className="text-xl font-semibold text-slate-900">7. Contacto</h2>
+          <h2 className="text-xl font-semibold text-slate-900">8. Contacto</h2>
           <p className="text-slate-600 leading-relaxed">
             Para questões sobre cookies e privacidade, contacte{' '}
             <strong>geral@apostoladodegarabandal.com</strong> ou consulte a{' '}

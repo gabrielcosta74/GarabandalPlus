@@ -31,19 +31,22 @@ export default function PrivacidadePage() {
             Política de Privacidade
           </h1>
           <p className="text-sm text-slate-500">
-            Última atualização: 13 de fevereiro de 2026
+            Última atualização: 23 de julho de 2026
           </p>
           <p className="text-slate-600 leading-relaxed">
             Esta Política descreve como o Apostolado de Garabandal trata dados pessoais no âmbito
-            do website e web app (incluindo áreas de membro, peregrinações, doações, inscrições,
-            loja online e comunicações operacionais).
+            do website, web app e aplicação móvel para membros (incluindo áreas de membro,
+            peregrinações, doações, inscrições, loja online e comunicações operacionais).
           </p>
         </header>
 
         <section className="space-y-3">
           <h2 className="text-xl font-semibold text-slate-900">1. Responsável pelo tratamento</h2>
           <p className="text-slate-600 leading-relaxed">
-            Responsável: <strong>Apostolado de Garabandal</strong>.
+            Responsável: <strong>Associação do Apostolado de Garabandal</strong>, associação sem
+            fins lucrativos, NIPC <strong>517582023</strong>.
+            <br />
+            Sede: Largo da Igreja, n.º 36, 4535-275 Paços de Brandão, Portugal.
             <br />
             Contacto de privacidade: <strong>geral@apostoladodegarabandal.com</strong>.
             <br />
@@ -56,6 +59,7 @@ export default function PrivacidadePage() {
           <ul className="list-disc pl-6 text-slate-600 leading-relaxed space-y-2">
             <li>Identificação e contacto: nome, email, telefone, país, morada e dados fiscais quando aplicável.</li>
             <li>Conta e autenticação: credenciais, identificadores técnicos de sessão e estado de autenticação.</li>
+            <li>Utilização da área de membro: progresso de novenas, orações concluídas, favoritos e atividade necessária ao funcionamento da aplicação.</li>
             <li>Dados de inscrição e peregrinação: dados dos peregrinos, preferências logísticas, comprovativos e histórico.</li>
             <li>Dados de transação: montantes, método de pagamento, referências e estado de pagamento.</li>
             <li>Dados de loja online: encomendas, envio, faturação e histórico comercial.</li>
@@ -81,6 +85,12 @@ export default function PrivacidadePage() {
             notificações), sempre ao abrigo de contratos com cláusulas de proteção de dados.
           </p>
           <p className="text-slate-600 leading-relaxed">
+            Os principais prestadores incluem Supabase (autenticação e base de dados), Railway
+            (alojamento e API), Resend (email transacional) e, apenas no website quando há uma
+            transação, os operadores de pagamento apresentados no respetivo checkout. A aplicação
+            móvel não integra publicidade, não vende dados e não recolhe dados de cartão.
+          </p>
+          <p className="text-slate-600 leading-relaxed">
             Não vendemos dados pessoais.
           </p>
         </section>
@@ -96,9 +106,11 @@ export default function PrivacidadePage() {
         <section className="space-y-3">
           <h2 className="text-xl font-semibold text-slate-900">6. Conservação</h2>
           <ul className="list-disc pl-6 text-slate-600 leading-relaxed space-y-2">
-            <li>Conta e histórico operacional: durante a relação ativa e prazo adicional razoável de suporte/auditoria.</li>
-            <li>Dados transacionais e fiscais: pelo prazo legalmente exigido em Portugal.</li>
+            <li>Conta: enquanto estiver ativa; após eliminação, o acesso é revogado e o perfil é apagado ou anonimizado.</li>
+            <li>Atividade e progresso de oração no servidor: eliminados com a conta, salvo cópias de segurança sujeitas ao seu ciclo técnico de rotação.</li>
+            <li>Dados transacionais, contabilísticos e fiscais: durante 10 anos, ou prazo superior quando uma obrigação legal ou litígio aplicável o imponha.</li>
             <li>Dados baseados em consentimento: até retirada do consentimento ou termo da finalidade.</li>
+            <li>Preferências e progresso guardados apenas no dispositivo: até serem removidos pelo utilizador, pela aplicação ou pela desinstalação, conforme o mecanismo utilizado.</li>
           </ul>
         </section>
 
@@ -109,10 +121,31 @@ export default function PrivacidadePage() {
             portabilidade e retirada de consentimento (quando aplicável), bem como apresentar
             reclamação à CNPD.
           </p>
+          <p className="text-slate-600 leading-relaxed">
+            A aplicação móvel disponibiliza uma opção de eliminação da conta no Perfil. A eliminação
+            revoga o acesso, elimina o progresso e a atividade e anonimiza o perfil, sem prejuízo da
+            conservação limitada de registos necessária para cumprir obrigações legais,
+            contabilísticas ou fiscais, prevenir fraude ou resolver litígios. O pedido também pode
+            ser iniciado na página pública de{' '}
+            <Link href="/eliminar-conta" className="underline hover:text-slate-900">
+              eliminação de conta e dados
+            </Link>
+            .
+          </p>
         </section>
 
         <section className="space-y-3">
-          <h2 className="text-xl font-semibold text-slate-900">8. Segurança</h2>
+          <h2 className="text-xl font-semibold text-slate-900">8. Aplicação móvel e rastreamento</h2>
+          <p className="text-slate-600 leading-relaxed">
+            A aplicação usa armazenamento seguro para manter a sessão e armazenamento local para
+            preferências, favoritos e progresso temporário de oração. Não utiliza identificadores
+            publicitários, não acompanha o utilizador entre apps ou websites e não solicita acesso a
+            contactos, localização, fotografias, microfone ou câmara.
+          </p>
+        </section>
+
+        <section className="space-y-3">
+          <h2 className="text-xl font-semibold text-slate-900">9. Segurança</h2>
           <p className="text-slate-600 leading-relaxed">
             Aplicamos medidas técnicas e organizativas adequadas (controlo de acesso, segregação de
             permissões, registos de auditoria e proteção de infraestrutura), sem prejuízo de não
@@ -121,7 +154,7 @@ export default function PrivacidadePage() {
         </section>
 
         <section className="space-y-3">
-          <h2 className="text-xl font-semibold text-slate-900">9. Cookies</h2>
+          <h2 className="text-xl font-semibold text-slate-900">10. Cookies</h2>
           <p className="text-slate-600 leading-relaxed">
             O detalhe sobre cookies e tecnologias semelhantes está disponível na{' '}
             <Link href="/cookies" className="underline hover:text-slate-900">
@@ -132,7 +165,7 @@ export default function PrivacidadePage() {
         </section>
 
         <section className="space-y-3">
-          <h2 className="text-xl font-semibold text-slate-900">10. Alterações</h2>
+          <h2 className="text-xl font-semibold text-slate-900">11. Alterações</h2>
           <p className="text-slate-600 leading-relaxed">
             Esta Política pode ser atualizada para refletir alterações legais, técnicas ou
             operacionais. A versão em vigor é sempre a publicada nesta página.
@@ -149,4 +182,3 @@ export default function PrivacidadePage() {
     </main>
   );
 }
-
