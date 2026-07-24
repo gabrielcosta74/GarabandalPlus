@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import VIPLayout from '../../../components/member/VIPLayout';
 import Link from 'next/link';
 import { supabaseBrowser } from '../../../lib/supabase-browser';
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import {
     Calendar,
     Users,
@@ -15,7 +15,8 @@ import {
     Plane,
     ArrowRight,
     Star,
-    AlertTriangle
+    AlertTriangle,
+    Eye
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { enUS, pt } from 'date-fns/locale';
@@ -46,6 +47,14 @@ import { SpecificWaitlistForm } from '../../../components/pilgrimage/SpecificWai
 import { useCurrency } from '../../../components/providers/CurrencyProvider';
 import { PilgrimagePrice } from '../../../components/pilgrimage/PilgrimagePrice';
 import ChatWidget from '../../../components/pilgrimage/ChatWidget';
+import {
+    CountryBasedFlightPolicy,
+    getCountryBasedFlightPolicy,
+} from '../../../lib/pilgrimage-flight-policy';
+import {
+    getConfiguredInstallmentDeadline,
+    getMaxInstallments,
+} from '../../../lib/pilgrimage-installments';
 
 type Pilgrimage = {
     id: string;
@@ -78,6 +87,8 @@ type Pilgrimage = {
             triple?: number;
             quadruple?: number;
         };
+        flight_registration_policy?: CountryBasedFlightPolicy | null;
+        installment_deadline?: string | null;
     };
     // New fields for upgrade
     meeting_point_text?: string;
@@ -164,11 +175,14 @@ const toSlug = (value?: string | null) =>
 
 export default function PilgrimageDetailPage() {
     const params = useParams();
+    const searchParams = useSearchParams();
     const { currency } = useCurrency();
     const { locale } = useLocale();
     const isEn = locale === 'en';
     const listPath = isEn ? '/en/pilgrimages' : '/peregrinacoes';
     const slug = params.slug as string;
+    const previewId = searchParams.get('previewId');
+    const isAdminPreview = Boolean(previewId);
     const [pilgrimage, setPilgrimage] = useState<Pilgrimage | null>(null);
     const [globalLogistics, setGlobalLogistics] = useState<GlobalLogistics | null>(null);
     const [stages, setStages] = useState<Stage[]>([]);
@@ -183,12 +197,43 @@ export default function PilgrimageDetailPage() {
         const fetchAllData = async () => {
             if (!slug || !supabaseBrowser) return;
 
+            if (previewId) {
+                const { data: sessionData } = await supabaseBrowser.auth.getSession();
+                const token = sessionData.session?.access_token;
+                if (!token) {
+                    setLoading(false);
+                    return;
+                }
+
+                const previewResponse = await fetch(
+                    `/api/admin/pilgrimages/${encodeURIComponent(previewId)}/preview`,
+                    {
+                        headers: { Authorization: `Bearer ${token}` },
+                        cache: 'no-store',
+                    },
+                );
+                if (!previewResponse.ok) {
+                    setLoading(false);
+                    return;
+                }
+
+                const previewData = await previewResponse.json();
+                setPilgrimage(previewData.pilgrimage as Pilgrimage);
+                setGlobalLogistics(previewData.globalLogistics as GlobalLogistics | null);
+                setStages((previewData.stages || []) as Stage[]);
+                setItineraryItems((previewData.itineraryItems || []) as ItineraryItem[]);
+                setTeamMembers((previewData.teamMembers || []) as TeamMember[]);
+                setExistingBooking(null);
+                setLoading(false);
+                return;
+            }
+
             const { data: rpcData, error: pError } = await supabaseBrowser
                 .rpc('get_pilgrimage_list', { p_slug: slug })
                 .maybeSingle() as { data: Pilgrimage | null; error: { message?: string } | null };
 
             if (pError) console.error("❌ [RPC Error]", pError);
-            let pData: Pilgrimage | null = rpcData;
+            let pData: Pilgrimage | null = rpcData?.status === 'draft' ? null : rpcData;
 
             if (!pData) {
                 const { data: fallbackRows, error: fallbackError } = await supabaseBrowser
@@ -200,6 +245,7 @@ export default function PilgrimageDetailPage() {
                     console.error("❌ [Fallback Query Error]", fallbackError);
                 } else if (fallbackRows?.length) {
                     pData = (fallbackRows as Pilgrimage[]).find((row) => {
+                        if (row.status === 'draft') return false;
                         const dbSlug = String(row?.slug || '').trim();
                         if (dbSlug && dbSlug === slug) return true;
                         // Backward compatibility: old links generated from title slug
@@ -254,7 +300,7 @@ export default function PilgrimageDetailPage() {
             setLoading(false);
         };
         fetchAllData();
-    }, [slug]);
+    }, [previewId, slug]);
 
     if (loading) {
         return (
@@ -315,17 +361,25 @@ export default function PilgrimageDetailPage() {
     const meetingEndTextToShow = isEn ? pilgrimage.meeting_end_text_en || pilgrimage.meeting_end_text : pilgrimage.meeting_end_text;
     const paymentPlanTextToShow = isEn ? pilgrimage.payment_plan_text_en || pilgrimage.payment_plan_text : pilgrimage.payment_plan_text;
     const cancellationPolicyTextToShow = isEn ? pilgrimage.cancellation_policy_text_en || pilgrimage.cancellation_policy_text : pilgrimage.cancellation_policy_text;
+    const countryBasedFlightPolicy = getCountryBasedFlightPolicy(pilgrimage);
+    const installmentDeadline = getConfiguredInstallmentDeadline(pilgrimage);
+    const publicMaxInstallments = installmentDeadline
+        ? getMaxInstallments(pilgrimage.start_date, installmentDeadline)
+        : 8;
     const hasFlightInfo = Boolean(
+        countryBasedFlightPolicy ||
         flightInfoTextToShow ||
         pilgrimage.flight_price_from ||
         groupFlightDetailsToShow ||
         meetingPointTextToShow ||
         meetingEndTextToShow
     );
-    const registrationLink = existingBooking
-        ? (isEn ? `/en/pilgrimages/registration/${existingBooking}` : `/peregrinacoes/inscricao/${existingBooking}`)
-        : (isEn ? `/en/pilgrimages/${pilgrimage.slug}/register` : `/peregrinacoes/${pilgrimage.slug}/inscrever`);
-    const shouldWarnBeforeRegistration = !isClosed && !existingBooking && !isWaitlist;
+    const registrationLink = isAdminPreview
+        ? '#'
+        : existingBooking
+            ? (isEn ? `/en/pilgrimages/registration/${existingBooking}` : `/peregrinacoes/inscricao/${existingBooking}`)
+            : (isEn ? `/en/pilgrimages/${pilgrimage.slug}/register` : `/peregrinacoes/${pilgrimage.slug}/inscrever`);
+    const shouldWarnBeforeRegistration = !isAdminPreview && !isClosed && !existingBooking && !isWaitlist;
 
     const accommodationRatingToShow = pilgrimage.accommodation_rating || (isEn ? globalLogistics?.accommodation_rating_en || globalLogistics?.accommodation_rating : globalLogistics?.accommodation_rating) || '';
     const accommodationDescriptionToShow = isEn
@@ -342,6 +396,12 @@ export default function PilgrimageDetailPage() {
     return (
         <VIPLayout allowPublic={true}>
             <div className="-mx-4 bg-slate-50 min-h-screen relative pb-20 md:mx-0">
+                {isAdminPreview && (
+                    <div className="sticky top-0 z-[100] flex items-center justify-center gap-2 border-b border-amber-300 bg-amber-100 px-4 py-2.5 text-center text-xs font-black uppercase tracking-wider text-amber-950 shadow-sm">
+                        <Eye className="h-4 w-4" />
+                        Pré-visualização privada · rascunho não publicado
+                    </div>
+                )}
                 {/* Hero Header */}
                 <div className="relative min-h-[560px] w-full overflow-hidden md:h-[68vh] md:min-h-[620px]">
                     <div className="absolute inset-0 bg-slate-950/35 z-10" />
@@ -355,8 +415,11 @@ export default function PilgrimageDetailPage() {
                     <div className="absolute inset-0 z-10 bg-gradient-to-t from-slate-950 via-slate-950/55 to-slate-950/10" />
                     <div className="absolute inset-0 z-10 bg-gradient-to-r from-slate-950/75 via-slate-950/25 to-transparent" />
                     <div className="absolute inset-0 z-20 container mx-auto px-4 md:px-6 h-full flex flex-col justify-end pb-8 md:pb-12">
-                        <Link href={listPath} className="mb-5 inline-flex w-fit items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm font-bold text-white shadow-lg backdrop-blur-md transition-colors hover:bg-white/20">
-                            <ArrowLeft className="w-4 h-4" /> {isEn ? 'Back to list' : 'Voltar à lista'}
+                        <Link
+                            href={isAdminPreview && previewId ? `/admin/peregrinacoes/${previewId}` : listPath}
+                            className="mb-5 inline-flex w-fit items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm font-bold text-white shadow-lg backdrop-blur-md transition-colors hover:bg-white/20"
+                        >
+                            <ArrowLeft className="w-4 h-4" /> {isAdminPreview ? 'Voltar ao editor' : (isEn ? 'Back to list' : 'Voltar à lista')}
                         </Link>
                         <div className="mb-4 flex w-fit items-center gap-2 rounded-full bg-yellow-300 px-3 py-1.5 text-xs font-black uppercase tracking-widest text-slate-950 shadow-lg">
                             <Plane className="w-4 h-4" />
@@ -538,7 +601,9 @@ export default function PilgrimageDetailPage() {
                                                 <span className="h-3 w-px bg-slate-200" />
                                                 <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 uppercase tracking-wide">
                                                     <ShieldCheck className="w-3 h-3" />
-                                                    {isEn ? 'up to 8 instalments' : 'até 8 prestações'}
+                                                    {isEn
+                                                        ? `up to ${publicMaxInstallments} instalments`
+                                                        : `até ${publicMaxInstallments} prestações`}
                                                 </span>
                                             </div>
                                             {currency !== 'EUR' && (
@@ -571,8 +636,20 @@ export default function PilgrimageDetailPage() {
                                                         className="flex w-full items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-left transition-colors hover:border-yellow-300 hover:bg-yellow-50"
                                                     >
                                                         <div>
-                                                            <p className="text-sm font-bold text-slate-900">{isEn ? 'See flight options' : 'Ver opções de voo'}</p>
-                                                            <p className="text-xs text-slate-500">{isEn ? 'Learn what is paid separately and which options are available.' : 'Saiba o que é pago à parte e as opções disponíveis.'}</p>
+                                                            <p className="text-sm font-bold text-slate-900">
+                                                                {countryBasedFlightPolicy
+                                                                    ? (isEn ? 'See mandatory flight rules' : 'Ver regras obrigatórias dos voos')
+                                                                    : (isEn ? 'See flight options' : 'Ver opções de voo')}
+                                                            </p>
+                                                            <p className="text-xs text-slate-500">
+                                                                {countryBasedFlightPolicy
+                                                                    ? (isEn
+                                                                        ? 'Check the rules by country of residence and what is paid directly to the agency.'
+                                                                        : 'Consulte as regras por país de residência e o que é pago diretamente à agência.')
+                                                                    : (isEn
+                                                                        ? 'Learn what is paid separately and which options are available.'
+                                                                        : 'Saiba o que é pago à parte e as opções disponíveis.')}
+                                                            </p>
                                                         </div>
                                                         <ArrowRight className="h-4 w-4 text-slate-400" />
                                                     </button>
@@ -640,7 +717,12 @@ export default function PilgrimageDetailPage() {
                             showFlightsButton={hasFlightInfo}
                             onOpenIncluded={() => setActiveInfoModal('included')}
                             onOpenFlights={() => setActiveInfoModal('flights')}
-                            onPrimaryClick={shouldWarnBeforeRegistration ? () => setIsPaymentWarningOpen(true) : undefined}
+                            onPrimaryClick={isAdminPreview
+                                ? () => undefined
+                                : shouldWarnBeforeRegistration
+                                    ? () => setIsPaymentWarningOpen(true)
+                                    : undefined}
+                            maxInstallments={publicMaxInstallments}
                         />
                     </div>
                 </div>
@@ -655,6 +737,7 @@ export default function PilgrimageDetailPage() {
                 flightInfoText={flightInfoTextToShow}
                 flightPriceFrom={pilgrimage.flight_price_from}
                 groupFlightDetails={groupFlightDetailsToShow}
+                flightRegistrationPolicy={countryBasedFlightPolicy}
                 meetingPointText={meetingPointTextToShow}
                 meetingEndText={meetingEndTextToShow}
                 paymentPlanText={paymentPlanTextToShow}

@@ -15,7 +15,8 @@ import {
     Clock,
     ChevronRight,
     ChevronLeft,
-    CheckCircle2
+    CheckCircle2,
+    Eye
 } from 'lucide-react';
 import BookingsManager from '../../../../components/admin/BookingsManager';
 import WaitlistManager from '../../../../components/admin/WaitlistManager';
@@ -26,9 +27,11 @@ import PricingTab from './components/PricingTab';
 import ItineraryTab from './components/ItineraryTab';
 import DetailedItineraryTab from './components/DetailedItineraryTab';
 import TeamTab from './components/TeamTab';
+import PreviewTab from './components/PreviewTab';
 import { Toaster, toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
 import { serializeCivilDateForStorage } from '../../../../lib/utils';
+import type { CountryBasedFlightPolicy } from '../../../../lib/pilgrimage-flight-policy';
 
 // --- Types ---
 type Pilgrimage = {
@@ -73,6 +76,8 @@ type Pilgrimage = {
             triple?: number;
             quadruple?: number;
         };
+        flight_registration_policy?: CountryBasedFlightPolicy | null;
+        installment_deadline?: string | null;
     } | null;
     // EN translations
     title_en?: string | null;
@@ -118,6 +123,7 @@ type TeamMember = {
 
 const TABS = [
     { id: 'general', label: 'Informação Geral', icon: FileText, description: 'Títulos, datas e descrição' },
+    { id: 'preview', label: 'Pré-visualização', icon: Eye, show: (isNew: boolean) => !isNew, description: 'Ver a página antes de publicar' },
     { id: 'logistics', label: 'Logística', icon: Plane, description: 'Voos e alojamento' },
     { id: 'pricing', label: 'Preços', icon: Hotel, description: 'Valores e suplementos' },
     { id: 'itinerary', label: 'Roteiro 3D', icon: MapPin, description: 'Mapa interativo' },
@@ -571,6 +577,16 @@ export default function PilgrimageEditorPage() {
                 </span>
                 {!isNew && <p className="text-[10px] text-slate-400 font-mono mt-0.5 uppercase tracking-tighter">ID: {id.substring(0, 8)}...</p>}
             </div>
+            {!isNew && (
+                <button
+                    type="button"
+                    onClick={() => setActiveTab('preview')}
+                    className="w-full sm:w-auto flex items-center justify-center gap-2 border border-indigo-200 bg-indigo-50 text-indigo-700 px-4 py-3 sm:py-2.5 rounded-xl hover:bg-indigo-100 transition-all font-bold text-xs"
+                >
+                    <Eye className="w-4 h-4" />
+                    Pré-visualizar
+                </button>
+            )}
             <button
                 onClick={handleSave}
                 disabled={saving}
@@ -638,10 +654,13 @@ export default function PilgrimageEditorPage() {
                             animate={{ opacity: 1, y: 0 }}
                             exit={{ opacity: 0, y: -10 }}
                             transition={{ duration: 0.2 }}
-                            className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden min-h-[400px]"
+                            className={activeTab === 'preview'
+                                ? 'min-h-[400px]'
+                                : 'bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden min-h-[400px]'
+                            }
                         >
                             {/* Tab Header (Purely Visual) */}
-                            <div className="px-8 py-6 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
+                            {activeTab !== 'preview' && <div className="px-4 md:px-8 py-4 md:py-6 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
                                 <div>
                                     <h2 className="text-xl font-bold text-slate-800 flex items-center gap-3">
                                         {(() => {
@@ -661,10 +680,19 @@ export default function PilgrimageEditorPage() {
                                         {TABS.find(t => t.id === activeTab)?.description}
                                     </p>
                                 </div>
-                            </div>
+                            </div>}
 
-                            <div className="p-8">
+                            <div className={activeTab === 'preview' ? 'p-0' : 'p-4 md:p-8'}>
                                 {activeTab === 'general' && <GeneralInfoTab form={form} setForm={setForm} />}
+                                {activeTab === 'preview' && (
+                                    <PreviewTab
+                                        pilgrimageId={id}
+                                        status={form.status}
+                                        slug={form.slug}
+                                        saving={saving}
+                                        onSave={handleSave}
+                                    />
+                                )}
                                 {activeTab === 'logistics' && <LogisticsTab form={form} setForm={setForm} />}
                                 {activeTab === 'pricing' && <PricingTab form={form} setForm={setForm} />}
                                 {activeTab === 'itinerary' && (
@@ -692,7 +720,7 @@ export default function PilgrimageEditorPage() {
                             </div>
 
                             {/* 3. Footer Navigation */}
-                            <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-between items-center sticky bottom-0">
+                            {activeTab !== 'preview' && <div className="p-3 md:p-4 bg-slate-50 border-t border-slate-100 flex justify-between items-center sticky bottom-0 gap-2">
                                 <button
                                     onClick={handlePrevTab}
                                     disabled={isFirstTab}
@@ -732,7 +760,7 @@ export default function PilgrimageEditorPage() {
                                         </button>
                                     )}
                                 </div>
-                            </div>
+                            </div>}
                         </motion.div>
                     </AnimatePresence>
                 </main>

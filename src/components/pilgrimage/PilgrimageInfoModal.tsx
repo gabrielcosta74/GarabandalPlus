@@ -5,6 +5,11 @@ import Link from 'next/link';
 import { CheckCircle2, Plane, Users, X, MapPin, ShieldCheck, ArrowRight } from 'lucide-react';
 import { useLocale } from '../../contexts/LocaleContext';
 import { PilgrimagePrice } from './PilgrimagePrice';
+import {
+    CountryBasedFlightPolicy,
+    formatFlightEstimate,
+    parseCountryBasedFlightPolicy,
+} from '../../lib/pilgrimage-flight-policy';
 
 type PilgrimageInfoModalProps = {
     mode: 'included' | 'flights';
@@ -16,6 +21,7 @@ type PilgrimageInfoModalProps = {
     flightInfoText?: string;
     flightPriceFrom?: number;
     groupFlightDetails?: string;
+    flightRegistrationPolicy?: CountryBasedFlightPolicy | null;
     meetingPointText?: string;
     meetingEndText?: string;
     paymentPlanText?: string;
@@ -40,6 +46,7 @@ export default function PilgrimageInfoModal({
     flightInfoText,
     flightPriceFrom,
     groupFlightDetails,
+    flightRegistrationPolicy,
     meetingPointText,
     meetingEndText,
     paymentPlanText,
@@ -83,6 +90,7 @@ export default function PilgrimageInfoModal({
     }
 
     const isIncludedMode = mode === 'included';
+    const countryBasedFlightPolicy = parseCountryBasedFlightPolicy(flightRegistrationPolicy);
 
     return (
         <div className="fixed inset-0 z-[100000000]">
@@ -103,7 +111,11 @@ export default function PilgrimageInfoModal({
                                     {isEn ? 'Important Information' : 'Informação Importante'}
                                 </p>
                                 <h2 className="text-2xl font-bold text-slate-900 md:text-3xl">
-                                    {isIncludedMode ? (isEn ? 'Included in the land package' : 'Incluído no valor de terrestre') : (isEn ? 'Flight options' : 'Opções de voo')}
+                                    {isIncludedMode
+                                        ? (isEn ? 'Included in the land package' : 'Incluído no valor de terrestre')
+                                        : countryBasedFlightPolicy
+                                            ? (isEn ? 'Mandatory flight rules' : 'Regras obrigatórias dos voos')
+                                            : (isEn ? 'Flight options' : 'Opções de voo')}
                                 </h2>
                                 <p className="mt-2 text-sm leading-relaxed text-slate-500">
                                     {isIncludedMode
@@ -327,6 +339,107 @@ export default function PilgrimageInfoModal({
                                     </div>
                                 )}
                             </>
+                        ) : countryBasedFlightPolicy ? (
+                            <>
+                                <div className="rounded-3xl border border-amber-200 bg-amber-50 p-5 md:p-6">
+                                    <div className="flex items-start gap-3">
+                                        <ShieldCheck className="mt-0.5 h-6 w-6 shrink-0 text-amber-700" />
+                                        <div>
+                                            <h3 className="text-lg font-black text-amber-950">
+                                                {isEn ? 'The rule depends on your country of residence' : 'A regra depende do seu país de residência'}
+                                            </h3>
+                                            <p className="mt-2 text-sm font-medium leading-relaxed text-amber-900">
+                                                {isEn
+                                                    ? 'The registration form applies the correct rule automatically. There is no optional flight choice for this pilgrimage.'
+                                                    : 'O formulário de inscrição aplica automaticamente a regra correta. Nesta peregrinação não existe uma escolha opcional de voo.'}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="grid gap-5 md:grid-cols-2">
+                                    <div className="rounded-3xl border-2 border-amber-200 bg-white p-6 shadow-sm">
+                                        <div className="mb-4 flex items-center gap-2 text-amber-800">
+                                            <Users className="h-5 w-5" />
+                                            <h3 className="text-lg font-black">
+                                                {isEn ? 'Residents of Portugal or Brazil' : 'Residentes em Portugal ou no Brasil'}
+                                            </h3>
+                                        </div>
+                                        <p className="text-sm font-bold leading-relaxed text-slate-800">
+                                            {isEn
+                                                ? 'The agency air package is mandatory. Do not purchase these flights independently.'
+                                                : 'O pacote aéreo da agência é obrigatório. Não compre estes voos por conta própria.'}
+                                        </p>
+                                        <ul className="mt-4 space-y-2 text-sm text-slate-700">
+                                            {[
+                                                isEn ? 'Country of residence → Rome' : 'País de residência → Roma',
+                                                isEn ? 'Rome → Split' : 'Roma → Split',
+                                                isEn ? 'Split → home destination' : 'Split → destino de regresso',
+                                            ].map(item => (
+                                                <li key={item} className="flex items-start gap-2">
+                                                    <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+                                                    {item}
+                                                </li>
+                                            ))}
+                                        </ul>
+                                        <div className="mt-5 grid gap-3 sm:grid-cols-2 md:grid-cols-1">
+                                            <div className="rounded-2xl bg-amber-50 p-4">
+                                                <p className="text-xs font-black uppercase tracking-wider text-amber-700">
+                                                    {isEn ? 'Brazil estimate' : 'Estimativa Brasil'}
+                                                </p>
+                                                <p className="mt-1 text-xl font-black text-amber-950">
+                                                    {formatFlightEstimate(countryBasedFlightPolicy.estimates_eur.BR, isEn ? 'en' : 'pt')}
+                                                </p>
+                                            </div>
+                                            <div className="rounded-2xl bg-amber-50 p-4">
+                                                <p className="text-xs font-black uppercase tracking-wider text-amber-700">
+                                                    {isEn ? 'Portugal estimate' : 'Estimativa Portugal'}
+                                                </p>
+                                                <p className="mt-1 text-xl font-black text-amber-950">
+                                                    {formatFlightEstimate(countryBasedFlightPolicy.estimates_eur.PT, isEn ? 'en' : 'pt')}
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <p className="mt-4 text-xs font-bold leading-relaxed text-amber-800">
+                                            {isEn
+                                                ? 'Paid directly to the agency. Never added to the land-package registration total.'
+                                                : 'Pago diretamente à agência. Nunca é somado ao total terrestre da inscrição.'}
+                                        </p>
+                                    </div>
+
+                                    <div className="rounded-3xl border-2 border-sky-200 bg-sky-50 p-6">
+                                        <div className="mb-4 flex items-center gap-2 text-sky-800">
+                                            <Plane className="h-5 w-5" />
+                                            <h3 className="text-lg font-black">
+                                                {isEn ? 'Residents of every other country' : 'Residentes em todos os outros países'}
+                                            </h3>
+                                        </div>
+                                        <p className="text-sm font-bold leading-relaxed text-slate-800">
+                                            {isEn
+                                                ? 'You must purchase your own flights and comply with all three mandatory windows.'
+                                                : 'Tem de comprar as suas próprias passagens e cumprir as três janelas obrigatórias.'}
+                                        </p>
+                                        <ol className="mt-4 space-y-3">
+                                            <li className="rounded-2xl bg-white p-4 text-sm leading-relaxed text-slate-700">
+                                                <strong className="block text-sky-800">{isEn ? '5 April 2027' : '5 de abril de 2027'}</strong>
+                                                {isEn
+                                                    ? `Be at ${countryBasedFlightPolicy.own_flight_schedule.rome_arrival.airport} by ${countryBasedFlightPolicy.own_flight_schedule.rome_arrival.by} (Rome local time).`
+                                                    : `Estar no ${countryBasedFlightPolicy.own_flight_schedule.rome_arrival.airport} até às ${countryBasedFlightPolicy.own_flight_schedule.rome_arrival.by} (hora local de Roma).`}
+                                            </li>
+                                            <li className="rounded-2xl bg-white p-4 text-sm leading-relaxed text-slate-700">
+                                                <strong className="block text-sky-800">{isEn ? '14 April 2027' : '14 de abril de 2027'}</strong>
+                                                {isEn ? 'Book Rome → Split for the afternoon.' : 'Reservar Roma → Split para a parte da tarde.'}
+                                            </li>
+                                            <li className="rounded-2xl bg-white p-4 text-sm leading-relaxed text-slate-700">
+                                                <strong className="block text-sky-800">{isEn ? '17 April 2027' : '17 de abril de 2027'}</strong>
+                                                {isEn
+                                                    ? 'Book Split → home destination for the afternoon.'
+                                                    : 'Reservar Split → destino de regresso para a parte da tarde.'}
+                                            </li>
+                                        </ol>
+                                    </div>
+                                </div>
+                            </>
                         ) : (
                             <>
                                 <div className="grid gap-6 md:grid-cols-2">
@@ -412,7 +525,9 @@ export default function PilgrimageInfoModal({
                             <p className="text-sm leading-relaxed text-slate-500">
                                 {isIncludedMode
                                     ? (isEn ? 'If it is clear, return to the form and continue with the registration.' : 'Se ficou claro, volte ao formulário e avance com a inscrição.')
-                                    : (isEn ? 'First confirm the flight option. Then continue with the registration.' : 'Primeiro confirme a opção de voo. Depois avance com a inscrição.')}
+                                    : countryBasedFlightPolicy
+                                        ? (isEn ? 'In the registration form, read and confirm the mandatory rule for each pilgrim.' : 'No formulário, leia e confirme a regra obrigatória de cada peregrino.')
+                                        : (isEn ? 'First confirm the flight option. Then continue with the registration.' : 'Primeiro confirme a opção de voo. Depois avance com a inscrição.')}
                             </p>
                             <div className="flex flex-col gap-2 md:flex-row">
                                 <button

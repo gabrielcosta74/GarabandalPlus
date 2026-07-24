@@ -23,6 +23,7 @@ type UniversalStickyBarProps = {
     onOpenIncluded?: () => void;
     onOpenFlights?: () => void;
     onPrimaryClick?: () => void;
+    maxInstallments?: number;
 };
 
 export default function UniversalStickyBar({
@@ -35,7 +36,8 @@ export default function UniversalStickyBar({
     showFlightsButton = false,
     onOpenIncluded,
     onOpenFlights,
-    onPrimaryClick
+    onPrimaryClick,
+    maxInstallments = 8,
 }: UniversalStickyBarProps) {
     const [mounted, setMounted] = useState(false);
     const { locale } = useLocale();
@@ -76,7 +78,15 @@ export default function UniversalStickyBar({
                                     secondaryClassName="text-sm font-bold text-slate-500"
                                     showLabels={false}
                                 />
-                                <span className="text-[9px] text-slate-500 font-bold leading-tight">{isEn ? '/ person' : '/ pess.'} <br/><span className="text-emerald-600 uppercase">{isEn ? 'Up to 8 instalments' : 'Ate 8x Parcelamento'}</span></span>
+                                <span className="text-[9px] text-slate-500 font-bold leading-tight">
+                                    {isEn ? '/ person' : '/ pess.'}
+                                    <br />
+                                    <span className="text-emerald-600 uppercase">
+                                        {isEn
+                                            ? `Up to ${maxInstallments} instalments`
+                                            : `Até ${maxInstallments} prestações`}
+                                    </span>
+                                </span>
                             </div>
                         </div>
                     </div>

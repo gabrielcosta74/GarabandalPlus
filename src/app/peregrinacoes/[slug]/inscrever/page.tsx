@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { supabaseBrowser } from '../../../../lib/supabase-browser';
 import { useForm, useFieldArray, FormProvider, useWatch, Controller } from 'react-hook-form';
 import Swal from 'sweetalert2';
@@ -12,6 +12,16 @@ import Link from 'next/link';
 import { useAuth } from '../../../../contexts/AuthContext';
 import { useLocale } from '../../../../contexts/LocaleContext';
 import { handleBookingWithAutoLogin } from '../../../../lib/booking-api';
+import { listCountryOptions, resolveCountryMeta } from '../../../../lib/country-utils';
+import {
+    deriveFlightOption,
+    getCountryBasedFlightPolicy,
+} from '../../../../lib/pilgrimage-flight-policy';
+import {
+    calculateInstallments,
+    getConfiguredInstallmentDeadline,
+    getMaxInstallments,
+} from '../../../../lib/pilgrimage-installments';
 
 // Phone Input
 import PhoneInput from 'react-phone-number-input';
@@ -22,6 +32,7 @@ import RoomOrganizer, { Room } from '../../../../components/booking/RoomOrganize
 import VIPLayout from '../../../../components/member/VIPLayout';
 import DateInput from '../../../../components/ui/DateInput';
 import ChatWidget from '../../../../components/pilgrimage/ChatWidget';
+import PilgrimageFlightStep from '../../../../components/booking/PilgrimageFlightStep';
 
 /* -------------------------------------------------------------------------- */
 /*                                CONSTANTS                                   */
@@ -39,6 +50,9 @@ const getCountries = (isEn: boolean) => [
     { code: 'OTHER', name: isEn ? 'Other' : 'Outro', postalMask: '', postalPlaceholder: '' },
 ];
 const COUNTRIES = getCountries(false);
+const LOCAL_DRAFT_INSTALLMENT_DEADLINES: Record<string, string> = {
+    'a7e2616e-fe39-48dc-968e-b14153c25325': '2027-04-01',
+};
 
 /* -------------------------------------------------------------------------- */
 /*                                 Validations                                */
@@ -146,62 +160,22 @@ const calculatePilgrimPrice = (pilgrim: any, pilgrimage: any, rooms: Room[], pil
     return { finalPrice, subtotal, discount, isChild, isInfant, age, roomType, regFee, basePrice, supplementPrice, isMember };
 };
 
-const getMaxInstallments = (startDate: string) => {
-    const start = new Date();
-    const end = new Date(startDate);
-    end.setMonth(end.getMonth() - 1); // Deadline is 1 month before
-
-    let monthsMax = 0;
-    let current = new Date(start);
-    current.setMonth(current.getMonth() + 1);
-    current.setDate(10);
-
-    while (current < end) {
-        monthsMax++;
-        current.setMonth(current.getMonth() + 1);
-    }
-    return monthsMax;
-};
-
 // Utility function to round monetary values to 2 decimal places
 const roundToTwo = (num: number): number => Math.round(num * 100) / 100;
 const formatMoney = (value: number): string => `${roundToTwo(Number(value) || 0).toFixed(2)}€`;
 
-const calculateInstallments = (totalBalance: number, startDate: string, desiredCount?: number) => {
-    const installments: { date: Date; amount: number }[] = [];
-    if (totalBalance <= 0) return installments;
-
-    const start = new Date();
-    const end = new Date(startDate);
-    end.setMonth(end.getMonth() - 1); // Deadline is 1 month before
-
-    let current = new Date(start);
-    current.setMonth(current.getMonth() + 1);
-    current.setDate(10); // Monthly payments on the 10th
-
-    const maxMonths = getMaxInstallments(startDate);
-    const actualCount = desiredCount ? Math.min(desiredCount, maxMonths) : maxMonths;
-
-    if (actualCount <= 1) {
-        installments.push({ date: end, amount: roundToTwo(totalBalance) });
-    } else {
-        const perMonth = roundToTwo(totalBalance / actualCount);
-        let remaining = roundToTwo(totalBalance);
-
-        for (let i = 0; i < actualCount; i++) {
-            const date = new Date(current);
-            const amount = i === actualCount - 1 ? roundToTwo(remaining) : perMonth;
-            installments.push({ date, amount });
-            remaining = roundToTwo(remaining - amount);
-            current.setMonth(current.getMonth() + 1);
-        }
-    }
-
-    return installments;
-};
-
 // -- Step 1: Identification Component --
-function StepIdentification({ onNext, initialEmail, pilgrimageId }: { onNext: (email: string, phone: string) => void, initialEmail?: string, pilgrimageId?: string }) {
+function StepIdentification({
+    onNext,
+    initialEmail,
+    pilgrimageId,
+    isPreview = false,
+}: {
+    onNext: (email: string, phone: string) => void,
+    initialEmail?: string,
+    pilgrimageId?: string,
+    isPreview?: boolean,
+}) {
     const router = useRouter();
     const { locale } = useLocale();
     const isEn = locale === 'en';
@@ -235,6 +209,12 @@ function StepIdentification({ onNext, initialEmail, pilgrimageId }: { onNext: (e
 
         setLoading(true);
         setDuplicateFound(null);
+
+        if (isPreview) {
+            onNext(email, phone);
+            setLoading(false);
+            return;
+        }
 
         // Check for duplicates
         if (pilgrimageId) {
@@ -599,16 +579,37 @@ function StepIdentification({ onNext, initialEmail, pilgrimageId }: { onNext: (e
 
 // Helper for Pilgrim Card to manage reactivity independently if needed, or straight in map
 // We will use standard map but boost Field Labels
-const PilgrimCard = ({ index, remove, control, register, errors, memberStatus, isLeader, leaderEmail, allEmails, isEn, countries }: any) => {
+const PilgrimCard = ({
+    index,
+    remove,
+    control,
+    register,
+    errors,
+    memberStatus,
+    isLeader,
+    leaderEmail,
+    allEmails,
+    isEn,
+    countries,
+    hideFlightOption = false,
+    countryValueMode = 'name',
+}: any) => {
     // Watch Country for Postal Code Helper
     const country = useWatch({
         control,
         name: `pilgrims.${index}.country`,
-        defaultValue: 'Portugal'
+        defaultValue: hideFlightOption ? '' : 'Portugal'
+    });
+    const emailValue = useWatch({
+        control,
+        name: `pilgrims.${index}.email`,
+        defaultValue: '',
     });
 
     const countryList = countries || COUNTRIES;
-    const selectedCountry = countryList.find((c: any) => c.name === country) || countryList[0];
+    const selectedCountry = countryList.find((c: any) =>
+        countryValueMode === 'code' ? c.code === country : c.name === country
+    ) || countryList.find((c: any) => c.code === 'PT') || countryList[0];
     const postalPlaceholder = selectedCountry.postalPlaceholder || '0000-000';
 
     return (
@@ -655,7 +656,6 @@ const PilgrimCard = ({ index, remove, control, register, errors, memberStatus, i
                         {/* Member Status Badge */}
                         <div className="absolute right-4 top-1/2 -translate-y-1/2">
                             {(() => {
-                                const emailValue = useWatch({ control, name: `pilgrims.${index}.email` });
                                 if (!emailValue || !emailValue.includes('@')) return null;
 
                                 // Real-time Duplicate Check
@@ -738,12 +738,21 @@ const PilgrimCard = ({ index, remove, control, register, errors, memberStatus, i
 
                 <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-8">
                     <div>
-                        <label className="text-base uppercase font-bold text-yellow-500 mb-2 block tracking-wide">{isEn ? 'Country' : 'País'}</label>
-                        <select {...register(`pilgrims.${index}.country`)} className="w-full bg-slate-800 border-2 border-slate-700 rounded-xl px-6 py-5 text-white text-xl focus:border-yellow-500 focus:outline-none shadow-inner">
+                        <label className="text-base uppercase font-bold text-yellow-500 mb-2 block tracking-wide">{isEn ? 'Country of residence' : 'País de residência'}</label>
+                        <select
+                            {...register(`pilgrims.${index}.country`)}
+                            className={`w-full bg-slate-800 border-2 rounded-xl px-6 py-5 text-white text-xl focus:outline-none shadow-inner ${
+                                errors.pilgrims?.[index]?.country
+                                    ? 'border-red-500 error-ring'
+                                    : 'border-slate-700 focus:border-yellow-500'
+                            }`}
+                        >
+                            {hideFlightOption && <option value="">{isEn ? 'Select your country...' : 'Escolha o seu país...'}</option>}
                             {countryList.map((c: any) => (
-                                <option key={c.code} value={c.name}>{c.name}</option>
+                                <option key={c.code} value={countryValueMode === 'code' ? c.code : c.name}>{c.name}</option>
                             ))}
                         </select>
+                        {errors.pilgrims?.[index]?.country && <span className="text-red-500 text-base font-bold mt-2 block flex items-center gap-2 animate-pulse"><AlertCircle className="w-5 h-5" /> {errors.pilgrims[index]?.country?.message}</span>}
                     </div>
                     <div>
                         <label className="text-base uppercase font-bold text-yellow-500 mb-2 block tracking-wide">{isEn ? 'Postal Code / ZIP' : 'Código Postal / CEP'}</label>
@@ -769,19 +778,21 @@ const PilgrimCard = ({ index, remove, control, register, errors, memberStatus, i
 
             {/* Flight & Extras */}
             <div className="grid grid-cols-1 gap-8 pt-6 border-t border-white/5">
-                <div>
-                    <label className="text-base uppercase font-bold text-yellow-500 mb-2 block tracking-wide">{isEn ? 'Flight Option' : 'Opção de Aéreo'}</label>
-                    <select
-                        {...register(`pilgrims.${index}.flight_option`)}
-                        className={`w-full bg-slate-800 border-2 rounded-xl px-6 py-5 text-white text-xl focus:outline-none shadow-inner ${errors.pilgrims?.[index]?.flight_option ? 'border-red-500 error-ring' : 'border-slate-700 focus:border-yellow-500'}`}
-                    >
-                        <option value="" disabled>{isEn ? 'Select an option...' : 'Selecione uma opção...'}</option>
-                        <option value="none">{isEn ? "1. I don't need it (I live in Europe/Other)" : '1. Não preciso (Vivo na Europa/Outro)'}</option>
-                        <option value="own">{isEn ? '2. I will buy my own tickets' : '2. Eu compro as minhas passagens'}</option>
-                        <option value="agency">{isEn ? '3. I want to buy through the Agency' : '3. Quero comprar pela Agência'}</option>
-                    </select>
-                    {errors.pilgrims?.[index]?.flight_option && <span className="text-red-500 text-base font-bold mt-2 block flex items-center gap-2 animate-pulse"><AlertCircle className="w-5 h-5" /> {errors.pilgrims[index]?.flight_option?.message}</span>}
-                </div>
+                {!hideFlightOption && (
+                    <div>
+                        <label className="text-base uppercase font-bold text-yellow-500 mb-2 block tracking-wide">{isEn ? 'Flight Option' : 'Opção de Aéreo'}</label>
+                        <select
+                            {...register(`pilgrims.${index}.flight_option`)}
+                            className={`w-full bg-slate-800 border-2 rounded-xl px-6 py-5 text-white text-xl focus:outline-none shadow-inner ${errors.pilgrims?.[index]?.flight_option ? 'border-red-500 error-ring' : 'border-slate-700 focus:border-yellow-500'}`}
+                        >
+                            <option value="" disabled>{isEn ? 'Select an option...' : 'Selecione uma opção...'}</option>
+                            <option value="none">{isEn ? "1. I don't need it (I live in Europe/Other)" : '1. Não preciso (Vivo na Europa/Outro)'}</option>
+                            <option value="own">{isEn ? '2. I will buy my own tickets' : '2. Eu compro as minhas passagens'}</option>
+                            <option value="agency">{isEn ? '3. I want to buy through the Agency' : '3. Quero comprar pela Agência'}</option>
+                        </select>
+                        {errors.pilgrims?.[index]?.flight_option && <span className="text-red-500 text-base font-bold mt-2 block flex items-center gap-2 animate-pulse"><AlertCircle className="w-5 h-5" /> {errors.pilgrims[index]?.flight_option?.message}</span>}
+                    </div>
+                )}
                 <div>
                     <label className="text-base uppercase font-bold text-yellow-500 mb-2 block tracking-wide">{isEn ? 'Food Allergies?' : 'Alergias Alimentares?'}</label>
                     <input {...register(`pilgrims.${index}.allergies`)} className="w-full bg-slate-800 border-2 border-slate-700 rounded-xl px-6 py-5 text-white text-xl focus:border-yellow-500 focus:outline-none shadow-inner" placeholder={isEn ? "Write 'No' or describe the allergy..." : "Escreve 'Não' ou descreve a alergia..."} />
@@ -803,13 +814,15 @@ const PilgrimCard = ({ index, remove, control, register, errors, memberStatus, i
 export default function PilgrimageBookingPage() {
     const params = useParams();
     const router = useRouter();
+    const searchParams = useSearchParams();
     const slug = params.slug as string;
+    const draftId = searchParams.get('draftId');
+    const isLocalDraftPreview = process.env.NODE_ENV === 'development' && Boolean(draftId);
     const { locale } = useLocale();
     const isEn = locale === 'en';
     const listPath = isEn ? '/en/pilgrimages' : '/peregrinacoes';
     const myRegPath = isEn ? '/en/my-registrations' : '/peregrinacoes/minhas-inscricoes';
     const bookingSchema = useMemo(() => createBookingSchema(isEn), [isEn]);
-    const countriesList = useMemo(() => getCountries(isEn), [isEn]);
 
     // State
     const [step, setStep] = useState(1);
@@ -817,6 +830,22 @@ export default function PilgrimageBookingPage() {
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
     const [installmentCount, setInstallmentCount] = useState<number | null>(null);
+    const [flightAcknowledgements, setFlightAcknowledgements] = useState<Record<number, boolean>>({});
+
+    const countryBasedFlightPolicy = useMemo(
+        () => getCountryBasedFlightPolicy(pilgrimage),
+        [pilgrimage],
+    );
+    const hasCountryBasedFlightStep = Boolean(countryBasedFlightPolicy);
+    const finalStep = hasCountryBasedFlightStep ? 5 : 4;
+    const countriesList = useMemo(() => {
+        if (!hasCountryBasedFlightStep) return getCountries(isEn);
+        return listCountryOptions(isEn ? 'en' : 'pt-PT').map(option => ({
+            code: option.code,
+            name: option.label,
+            postalPlaceholder: resolveCountryMeta(option.code)?.postalPlaceholder || '',
+        }));
+    }, [hasCountryBasedFlightStep, isEn]);
 
     // User State
     const [userEmail, setUserEmail] = useState('');
@@ -843,6 +872,25 @@ export default function PilgrimageBookingPage() {
         name: 'pilgrims',
         defaultValue: []
     });
+
+    useEffect(() => {
+        if (!countryBasedFlightPolicy) return;
+
+        currentPilgrims.forEach((pilgrim, index) => {
+            const derivedOption = deriveFlightOption(pilgrim.country, countryBasedFlightPolicy);
+            if (derivedOption && pilgrim.flight_option !== derivedOption) {
+                methods.setValue(`pilgrims.${index}.flight_option`, derivedOption, {
+                    shouldDirty: true,
+                    shouldValidate: false,
+                });
+            }
+        });
+    }, [countryBasedFlightPolicy, currentPilgrims, methods]);
+
+    const residenceCountrySignature = currentPilgrims.map(pilgrim => pilgrim.country || '').join('|');
+    useEffect(() => {
+        if (countryBasedFlightPolicy) setFlightAcknowledgements({});
+    }, [countryBasedFlightPolicy, residenceCountrySignature]);
 
     // Member Status State
     const [memberStatus, setMemberStatus] = useState<Record<string, boolean>>({});
@@ -885,7 +933,10 @@ export default function PilgrimageBookingPage() {
     useEffect(() => {
         const init = async () => {
             if (!supabaseBrowser) return;
-            const { data: pData, error } = await supabaseBrowser.from('pilgrimages').select('*').eq('slug', slug).single();
+            const pilgrimageQuery = supabaseBrowser.from('pilgrimages').select('*');
+            const { data: pData, error } = isLocalDraftPreview && draftId
+                ? await pilgrimageQuery.eq('id', draftId).eq('status', 'draft').single()
+                : await pilgrimageQuery.eq('slug', slug).single();
             if (error || !pData) return;
             setPilgrimage(pData);
 
@@ -896,7 +947,7 @@ export default function PilgrimageBookingPage() {
             setLoading(false);
         };
         init();
-    }, [slug]);
+    }, [draftId, isLocalDraftPreview, slug]);
 
     // Calculated Totals (Moved up for onSubmit access)
     const pricedPilgrims = useMemo(() => {
@@ -917,6 +968,22 @@ export default function PilgrimageBookingPage() {
     const ageDiscountTotal = pricedPilgrims.reduce((sum, p) => sum + Number(p.ageDiscount || 0), 0);
     const memberDiscountTotal = pricedPilgrims.reduce((sum, p) => sum + Number(p.memberDiscount || 0), 0);
     const totalBookingAmount = pricedPilgrims.reduce((sum, p) => sum + Number(p.price.finalPrice || 0), 0);
+    const installmentDeadline = getConfiguredInstallmentDeadline(pilgrimage)
+        ?? (
+            isLocalDraftPreview && draftId
+                ? LOCAL_DRAFT_INSTALLMENT_DEADLINES[draftId] || null
+                : null
+        );
+    const maximumInstallmentCount = pilgrimage
+        ? getMaxInstallments(pilgrimage.start_date, installmentDeadline)
+        : 1;
+    const installmentDeadlineLabel = installmentDeadline
+        ? new Intl.DateTimeFormat(isEn ? 'en-GB' : 'pt-PT', {
+            day: 'numeric',
+            month: 'long',
+            year: 'numeric',
+        }).format(new Date(`${installmentDeadline}T12:00:00`))
+        : null;
 
     // Handlers
     const handleIdentitySubmit = (email: string, phone: string) => {
@@ -925,8 +992,9 @@ export default function PilgrimageBookingPage() {
         if (fields.length === 0) {
             append({
                 full_name: '', email: email, phone: '', birth_date: '', sex: 'M', // Phone will be overwritten on Submit for leader
-                address: '', postal_code: '', city: '', country: 'Portugal',
-                flight_option: 'none' as any, allergies: '', notes: '', cpf_nif: '' // Default to something safe or empty string if allowed? Enums need value.
+                address: '', postal_code: '', city: '', country: hasCountryBasedFlightStep ? '' : 'Portugal',
+                flight_option: (hasCountryBasedFlightStep ? '' : 'none') as any,
+                allergies: '', notes: '', cpf_nif: ''
             });
         }
         setStep(2);
@@ -935,6 +1003,18 @@ export default function PilgrimageBookingPage() {
 
     const nextStep = async () => {
         if (step === 2) {
+            if (countryBasedFlightPolicy) {
+                methods.getValues('pilgrims').forEach((pilgrim, index) => {
+                    const derivedOption = deriveFlightOption(pilgrim.country, countryBasedFlightPolicy);
+                    if (derivedOption) {
+                        methods.setValue(`pilgrims.${index}.flight_option`, derivedOption, {
+                            shouldDirty: true,
+                            shouldValidate: false,
+                        });
+                    }
+                });
+            }
+
             const valid = await methods.trigger('pilgrims');
             if (!valid) {
                 handleValidationErrors();
@@ -976,6 +1056,25 @@ export default function PilgrimageBookingPage() {
         window.scrollTo(0, 0);
     };
 
+    const continueFromFlightStep = () => {
+        if (!countryBasedFlightPolicy) return;
+        const allAcknowledged = currentPilgrims.length > 0
+            && currentPilgrims.every((_, index) => flightAcknowledgements[index]);
+        if (!allAcknowledged) return;
+
+        currentPilgrims.forEach((pilgrim, index) => {
+            const derivedOption = deriveFlightOption(pilgrim.country, countryBasedFlightPolicy);
+            if (derivedOption) {
+                methods.setValue(`pilgrims.${index}.flight_option`, derivedOption, {
+                    shouldDirty: true,
+                    shouldValidate: true,
+                });
+            }
+        });
+        setStep(5);
+        window.scrollTo(0, 0);
+    };
+
     const handleValidationErrors = () => {
         // 1. Show Global Alert
         Swal.fire({
@@ -1008,6 +1107,19 @@ export default function PilgrimageBookingPage() {
 
     const onSubmit = async (data: BookingFormValues) => {
         console.log("🚀 [Frontend] onSubmit called - starting booking process");
+
+        if (isLocalDraftPreview) {
+            await Swal.fire({
+                title: isEn ? 'Local preview completed' : 'Pré-visualização local concluída',
+                text: isEn
+                    ? 'No booking, lead, or payment was created.'
+                    : 'Não foi criada nenhuma inscrição, lead ou pagamento.',
+                icon: 'success',
+                confirmButtonColor: '#eab308',
+            });
+            return;
+        }
+
         setSubmitting(true);
         try {
             const pilgrimsPayload = data.pilgrims.map((p, idx) => {
@@ -1027,6 +1139,12 @@ export default function PilgrimageBookingPage() {
 
                 return {
                     ...p,
+                    flight_option: countryBasedFlightPolicy
+                        ? deriveFlightOption(p.country, countryBasedFlightPolicy)
+                        : p.flight_option,
+                    flight_policy_acknowledged: countryBasedFlightPolicy
+                        ? Boolean(flightAcknowledgements[idx])
+                        : undefined,
                     phone: finalPhone,
                     room_type: room?.type || 'double',
                     notes: (p.notes || '') + extraNotes
@@ -1043,7 +1161,8 @@ export default function PilgrimageBookingPage() {
             const paymentPlan = data.payment_method === 'installments' ? calculateInstallments(
                 totalBookingAmount - depositTotal,
                 pilgrimage.start_date,
-                installmentCount || getMaxInstallments(pilgrimage.start_date)
+                installmentCount || maximumInstallmentCount,
+                installmentDeadline,
             ) : null;
 
             console.log("📞 [Frontend] Calling handleBookingWithAutoLogin...");
@@ -1052,7 +1171,7 @@ export default function PilgrimageBookingPage() {
                 email: userEmail,
                 pilgrimage_id: pilgrimage.id,
                 payment_method: data.payment_method,
-                installment_count: installmentCount || getMaxInstallments(pilgrimage.start_date),
+                installment_count: installmentCount || maximumInstallmentCount,
                 payment_plan: paymentPlan ? JSON.stringify(paymentPlan) : undefined,
                 pilgrim_data: pilgrimsPayload,
                 terms_accepted: data.terms_accepted,
@@ -1178,6 +1297,14 @@ export default function PilgrimageBookingPage() {
     if (loading || authLoading) return <div className="min-h-screen bg-slate-950 flex items-center justify-center"><Loader2 className="animate-spin text-yellow-500 w-10 h-10" /></div>;
     if (!pilgrimage) return <div className="text-white text-center pt-20">{isEn ? 'Pilgrimage not found.' : 'Peregrinação não encontrada.'}</div>;
 
+    const stepLabels = hasCountryBasedFlightStep
+        ? (isEn
+            ? ['Identification', 'People details', 'Accommodation', 'Flights', 'Donation']
+            : ['Identificação', 'Dados das pessoas', 'Alojamento', 'Voos', 'Doação'])
+        : (isEn
+            ? ['Identification', 'People details', 'Accommodation', 'Donation']
+            : ['Identificação', 'Dados das pessoas', 'Alojamento', 'Doação']);
+
     return (
         <VIPLayout allowPublic={true}>
             <header className="fixed top-0 left-0 right-0 z-50 bg-slate-950/80 backdrop-blur-md border-b border-white/5 h-20">
@@ -1188,20 +1315,44 @@ export default function PilgrimageBookingPage() {
             </header>
 
             <main className="pt-32 pb-20 container mx-auto px-4 max-w-4xl">
+                {isLocalDraftPreview && (
+                    <div className="mb-6 rounded-2xl border border-amber-400/50 bg-amber-500/10 p-4 text-center">
+                        <p className="text-xs font-black uppercase tracking-[0.2em] text-amber-300">
+                            {isEn ? 'Private local draft preview' : 'Pré-visualização local privada do draft'}
+                        </p>
+                        <p className="mt-1 text-sm font-semibold text-amber-100">
+                            {isEn
+                                ? 'Nothing submitted here is saved. This preview is unavailable in production.'
+                                : 'Nada do que submeter aqui será gravado. Esta pré-visualização não existe em produção.'}
+                        </p>
+                    </div>
+                )}
                 <div className="flex justify-between mb-8 px-4 md:px-12 relative">
                     <div className="absolute top-1/2 left-12 right-12 h-0.5 bg-slate-800 -z-10 -translate-y-1/2" />
-                    {[1, 2, 3, 4].map(s => (
+                    {stepLabels.map((_, index) => {
+                        const s = index + 1;
+                        return (
                         <div key={s} className={`w-10 h-10 rounded-full flex items-center justify-center font-bold transition-all ${step >= s ? 'bg-yellow-500 text-black scale-110 shadow-lg shadow-yellow-500/20' : 'bg-slate-800 text-slate-500 border-2 border-slate-700'}`}>
                             {step > s ? <Check className="w-5 h-5" /> : s}
                         </div>
-                    ))}
+                        );
+                    })}
                 </div>
 
                 <h1 className="text-center text-3xl md:text-4xl font-serif font-bold text-white mb-2">{(isEn && pilgrimage.title_en) ? pilgrimage.title_en : pilgrimage.title}</h1>
-                <p className="text-center text-slate-400 mb-12">{isEn ? 'Step' : 'Passo'} {step}: {isEn ? (step === 1 ? 'Identification' : step === 2 ? 'People Details' : step === 3 ? 'Accommodation' : 'Donation') : (step === 1 ? 'Identificação' : step === 2 ? 'Dados das Pessoas' : step === 3 ? 'Alojamento' : 'Doação')}</p>
+                <p className="text-center text-slate-400 mb-12">
+                    {isEn ? 'Step' : 'Passo'} {step}: {stepLabels[step - 1]}
+                </p>
 
                 <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 md:p-12 shadow-2xl relative overflow-hidden min-h-[400px]">
-                    {step === 1 && <StepIdentification onNext={handleIdentitySubmit} initialEmail={userEmail} pilgrimageId={pilgrimage.id} />}
+                    {step === 1 && (
+                        <StepIdentification
+                            onNext={handleIdentitySubmit}
+                            initialEmail={userEmail}
+                            pilgrimageId={pilgrimage.id}
+                            isPreview={isLocalDraftPreview}
+                        />
+                    )}
 
                     {step > 1 && (
                         <div id="booking-form-start">
@@ -1226,6 +1377,8 @@ export default function PilgrimageBookingPage() {
                                                     allEmails={currentPilgrims.map(p => p.email)}
                                                     isEn={isEn}
                                                     countries={countriesList}
+                                                    hideFlightOption={hasCountryBasedFlightStep}
+                                                    countryValueMode={hasCountryBasedFlightStep ? 'code' : 'name'}
                                                 />
                                             ))}
                                             <div className="bg-yellow-500/10 border-2 border-yellow-500/50 rounded-3xl p-6 text-center space-y-4">
@@ -1236,7 +1389,7 @@ export default function PilgrimageBookingPage() {
                                                         {isEn ? <>ATTENTION: You should only add members of your <span className="font-bold text-yellow-500 uppercase">Household</span> (Father, Mother, Children) who live with you.<br />For friends or acquaintances, each one must make their own separate registration.</> : <>ATENÇÃO: Só deves adicionar pessoas do teu <span className="font-bold text-yellow-500 uppercase">Agregado Familiar</span> (Pai, Mãe, Filhos) que vivam contigo.<br />Para amigos ou conhecidos, cada uno deve fazer a sua própria inscrição separadamente.</>}
                                                     </p>
                                                 </div>
-                                                <button type="button" onClick={() => append({ full_name: '', email: '', phone: '', birth_date: '', sex: 'M', address: '', postal_code: '', city: '', country: 'Portugal', flight_option: '' as any, allergies: isEn ? 'No' : 'Não', notes: '', cpf_nif: '' })} className="bg-yellow-500 hover:bg-yellow-400 text-black px-8 py-3 rounded-xl font-bold transition-all shadow-lg shadow-yellow-500/20 active:scale-95">
+                                                <button type="button" onClick={() => append({ full_name: '', email: '', phone: '', birth_date: '', sex: 'M', address: '', postal_code: '', city: '', country: hasCountryBasedFlightStep ? '' : 'Portugal', flight_option: '' as any, allergies: isEn ? 'No' : 'Não', notes: '', cpf_nif: '' })} className="bg-yellow-500 hover:bg-yellow-400 text-black px-8 py-3 rounded-xl font-bold transition-all shadow-lg shadow-yellow-500/20 active:scale-95">
                                                     {isEn ? 'Understood, add family member' : 'Entendido, adicionar familiar'}
                                                 </button>
                                             </div>
@@ -1260,11 +1413,31 @@ export default function PilgrimageBookingPage() {
                                                 onUpdate={setRooms}
                                                 pricing={pilgrimage?.pricing_config?.room_supplements}
                                             />
-                                            <div className="flex justify-between pt-8"><button type="button" onClick={() => setStep(2)} className="text-slate-400 font-bold hover:text-white">{isEn ? 'Back' : 'Voltar'}</button><button type="button" onClick={nextStep} className="bg-white text-slate-900 px-8 py-3 rounded-xl font-bold hover:bg-slate-200 transition-colors flex items-center gap-2">{isEn ? 'Review Donation' : 'Rever Doação'} <ChevronRight className="w-5 h-5" /></button></div>
+                                            <div className="flex justify-between pt-8"><button type="button" onClick={() => setStep(2)} className="text-slate-400 font-bold hover:text-white">{isEn ? 'Back' : 'Voltar'}</button><button type="button" onClick={nextStep} className="bg-white text-slate-900 px-8 py-3 rounded-xl font-bold hover:bg-slate-200 transition-colors flex items-center gap-2">{hasCountryBasedFlightStep ? (isEn ? 'Flight information' : 'Informação dos voos') : (isEn ? 'Review Donation' : 'Rever Doação')} <ChevronRight className="w-5 h-5" /></button></div>
                                         </div>
                                     )}
 
-                                    {step === 4 && (
+                                    {hasCountryBasedFlightStep && step === 4 && countryBasedFlightPolicy && (
+                                        <PilgrimageFlightStep
+                                            pilgrims={currentPilgrims}
+                                            policy={countryBasedFlightPolicy}
+                                            acknowledgements={flightAcknowledgements}
+                                            onAcknowledgementChange={(index, acknowledged) => {
+                                                setFlightAcknowledgements(previous => ({
+                                                    ...previous,
+                                                    [index]: acknowledged,
+                                                }));
+                                            }}
+                                            onBack={() => {
+                                                setStep(3);
+                                                window.scrollTo(0, 0);
+                                            }}
+                                            onContinue={continueFromFlightStep}
+                                            isEn={isEn}
+                                        />
+                                    )}
+
+                                    {step === finalStep && (
                                         <div className="space-y-8">
                                             <div className="text-center"><h2 className="text-3xl font-bold text-white mb-2">{isEn ? 'Almost there!' : 'Quase lá!'}</h2><p className="text-slate-400">{isEn ? 'Check the final summary before confirming.' : 'Verifica o resumo final antes de confirmar.'}</p></div>
 
@@ -1316,7 +1489,7 @@ export default function PilgrimageBookingPage() {
                                                         </div>
                                                     )}
                                                     <div className="flex justify-between items-center pt-2">
-                                                        <span className="text-slate-400 font-bold uppercase tracking-widest text-xs">{isEn ? 'Booking Total' : 'Total da Reserva'}</span>
+                                                        <span className="text-slate-400 font-bold uppercase tracking-widest text-xs">{isEn ? 'Land-package total' : 'Total terrestre'}</span>
                                                         <span className="text-3xl font-bold text-white font-mono">{formatMoney(totalBookingAmount)}</span>
                                                     </div>
                                                 </div>
@@ -1350,11 +1523,27 @@ export default function PilgrimageBookingPage() {
                                                             <h4 className="text-white font-bold text-lg">{isEn ? 'In how many installments would you like to donate?' : 'Em quantas prestações quer doar?'}</h4>
                                                         </div>
 
-                                                        {getMaxInstallments(pilgrimage.start_date) > 1 ? (
+                                                        {installmentDeadlineLabel && (
+                                                            <div className="mb-6 rounded-2xl border border-amber-400/30 bg-amber-500/10 p-4 text-center">
+                                                                <p className="text-xs font-black uppercase tracking-wider text-amber-300">
+                                                                    {isEn ? 'Final payment deadline' : 'Data limite do pagamento total'}
+                                                                </p>
+                                                                <p className="mt-1 text-lg font-black text-white">
+                                                                    {installmentDeadlineLabel}
+                                                                </p>
+                                                                <p className="mt-1 text-xs font-semibold text-amber-100">
+                                                                    {isEn
+                                                                        ? 'The maximum installment plan ends on this date.'
+                                                                        : 'O plano máximo de prestações termina nesta data.'}
+                                                                </p>
+                                                            </div>
+                                                        )}
+
+                                                        {maximumInstallmentCount > 1 ? (
                                                             <div className="flex flex-wrap justify-center gap-2 mb-8">
-                                                                {[...Array(getMaxInstallments(pilgrimage.start_date))].map((_, i) => {
+                                                                {[...Array(maximumInstallmentCount)].map((_, i) => {
                                                                     const count = i + 1;
-                                                                    const isSelected = (installmentCount || getMaxInstallments(pilgrimage.start_date)) === count;
+                                                                    const isSelected = (installmentCount || maximumInstallmentCount) === count;
                                                                     return (
                                                                         <button
                                                                             key={i}
@@ -1369,7 +1558,15 @@ export default function PilgrimageBookingPage() {
                                                             </div>
                                                         ) : (
                                                             <div className="text-center mb-6 py-4 bg-slate-800/50 rounded-xl border border-white/5">
-                                                                <p className="text-sm text-slate-400">{isEn ? 'Due to the proximity of the date, only 1 installment is possible.' : 'Devido à proximidade da data, apenas 1 prestação é possível.'}</p>
+                                                                <p className="text-sm text-slate-400">
+                                                                    {installmentDeadlineLabel
+                                                                        ? (isEn
+                                                                            ? `This option has 1 installment, due by ${installmentDeadlineLabel}.`
+                                                                            : `Nesta opção existe 1 prestação, com data limite a ${installmentDeadlineLabel}.`)
+                                                                        : (isEn
+                                                                            ? 'Due to the proximity of the date, only 1 installment is possible.'
+                                                                            : 'Devido à proximidade da data, apenas 1 prestação é possível.')}
+                                                                </p>
                                                             </div>
                                                         )}
 
@@ -1381,11 +1578,17 @@ export default function PilgrimageBookingPage() {
                                                             {calculateInstallments(
                                                                 totalBookingAmount - depositTotal,
                                                                 pilgrimage.start_date,
-                                                                installmentCount || getMaxInstallments(pilgrimage.start_date)
+                                                                installmentCount || maximumInstallmentCount,
+                                                                installmentDeadline,
                                                             ).map((inst, idx) => (
                                                                 <div key={idx} className="flex justify-between text-sm py-2 border-b border-white/5 last:border-0">
                                                                     <span className="text-slate-300">
-                                                                        {isEn ? 'Installment' : 'Mensalidade'} {idx + 1} - {inst.date.toLocaleDateString(isEn ? 'en-US' : 'pt-PT', { month: 'long', year: 'numeric' })}
+                                                                        {isEn ? 'Installment' : 'Mensalidade'} {idx + 1} - {inst.date.toLocaleDateString(
+                                                                            isEn ? 'en-GB' : 'pt-PT',
+                                                                            installmentDeadline
+                                                                                ? { day: 'numeric', month: 'long', year: 'numeric' }
+                                                                                : { month: 'long', year: 'numeric' },
+                                                                        )}
                                                                     </span>
                                                                     <span className="text-white font-bold">{formatMoney(inst.amount)}</span>
                                                                 </div>
@@ -1393,8 +1596,8 @@ export default function PilgrimageBookingPage() {
                                                         </div>
                                                         <p className="text-[10px] text-slate-500 mt-6 leading-relaxed italic text-center px-4">
                                                             {isEn
-                                                                ? `* The remaining amount of ${formatMoney(totalBookingAmount - depositTotal)} will be divided into ${installmentCount || getMaxInstallments(pilgrimage.start_date)} installments paid by Bank Transfer or MBWAY. We will send reminders via WhatsApp/Email every month.`
-                                                                : `* O valor em falta de ${formatMoney(totalBookingAmount - depositTotal)} será dividido em ${installmentCount || getMaxInstallments(pilgrimage.start_date)} mensalidades pagas via Transferência Bancária ou MBWAY. Enviaremos os lembretes por WhatsApp/Email todos os meses.`
+                                                                ? `* The remaining amount of ${formatMoney(totalBookingAmount - depositTotal)} will be divided into ${installmentCount || maximumInstallmentCount} installments paid by Bank Transfer or MBWAY. We will send reminders via WhatsApp/Email every month.`
+                                                                : `* O valor em falta de ${formatMoney(totalBookingAmount - depositTotal)} será dividido em ${installmentCount || maximumInstallmentCount} mensalidades pagas via Transferência Bancária ou MBWAY. Enviaremos os lembretes por WhatsApp/Email todos os meses.`
                                                             }
                                                         </p>
                                                     </div>
@@ -1414,7 +1617,7 @@ export default function PilgrimageBookingPage() {
                                             </div>
 
                                             <div className="flex justify-between items-center pt-4">
-                                                <button type="button" onClick={() => setStep(3)} className="text-slate-500 font-bold hover:text-white transition-colors">{isEn ? 'Back' : 'Voltar'}</button>
+                                                <button type="button" onClick={() => setStep(hasCountryBasedFlightStep ? 4 : 3)} className="text-slate-500 font-bold hover:text-white transition-colors">{isEn ? 'Back' : 'Voltar'}</button>
                                                 <button
                                                     type="submit"
                                                     disabled={submitting}

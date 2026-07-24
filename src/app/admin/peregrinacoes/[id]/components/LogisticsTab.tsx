@@ -1,5 +1,9 @@
 import { Hotel, Bus, Info } from 'lucide-react';
 import BilingualField, { TranslateAllButton } from '../../../../../components/admin/BilingualField';
+import {
+    CountryBasedFlightPolicy,
+    parseCountryBasedFlightPolicy,
+} from '../../../../../lib/pilgrimage-flight-policy';
 
 interface LogisticsTabProps {
     form: any;
@@ -7,6 +11,28 @@ interface LogisticsTabProps {
 }
 
 export default function LogisticsTab({ form, setForm }: LogisticsTabProps) {
+    const countryBasedFlightPolicy = parseCountryBasedFlightPolicy(
+        form.pricing_config?.flight_registration_policy,
+    );
+
+    const updateFlightEstimate = (country: 'BR' | 'PT', rawValue: string) => {
+        if (!countryBasedFlightPolicy) return;
+        const parsed = rawValue === '' ? null : Number(rawValue);
+        const nextPolicy: CountryBasedFlightPolicy = {
+            ...countryBasedFlightPolicy,
+            estimates_eur: {
+                ...countryBasedFlightPolicy.estimates_eur,
+                [country]: parsed !== null && Number.isFinite(parsed) && parsed >= 0 ? parsed : null,
+            },
+        };
+        setForm({
+            ...form,
+            pricing_config: {
+                ...(form.pricing_config || {}),
+                flight_registration_policy: nextPolicy,
+            },
+        });
+    };
 
     const translatableFields = [
         { ptValue: form.accommodation_description ?? '', onChangeEn: (v: string) => setForm({ ...form, accommodation_description_en: v }) },
@@ -130,23 +156,63 @@ export default function LogisticsTab({ form, setForm }: LogisticsTabProps) {
                         </div>
                         <div className="p-6 space-y-4">
                             <div>
-                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Preço de Voo (Estimativa)</label>
-                                <div className="relative">
-                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">€</span>
-                                    <input
-                                        type="number"
-                                        className="w-full pl-7 p-2 bg-white border border-slate-200 rounded-lg text-sm focus:border-slate-500 outline-none"
-                                        value={form.flight_price_from || ''}
-                                        onChange={e => setForm({ ...form, flight_price_from: parseFloat(e.target.value) })}
-                                        placeholder="0.00"
-                                    />
-                                </div>
-                                <p className="text-[10px] text-slate-400 mt-1 mb-3">
-                                    Preencha para <strong>ativar a Opção B (Voo de Grupo)</strong> na página pública.
-                                </p>
+                                {countryBasedFlightPolicy ? (
+                                    <div className="mb-5 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+                                        <p className="text-xs font-black uppercase tracking-wider text-amber-800">
+                                            Política obrigatória por país
+                                        </p>
+                                        <p className="mt-2 text-sm leading-relaxed text-amber-900">
+                                            Portugal e Brasil contratam obrigatoriamente o pacote aéreo através da agência.
+                                            Todos os restantes países compram os próprios voos.
+                                        </p>
+                                        <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+                                            {([
+                                                { country: 'BR' as const, label: 'Estimativa Brasil (€)' },
+                                                { country: 'PT' as const, label: 'Estimativa Portugal (€)' },
+                                            ]).map(({ country, label }) => (
+                                                <div key={country}>
+                                                    <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-amber-800">
+                                                        {label}
+                                                    </label>
+                                                    <input
+                                                        type="number"
+                                                        min="0"
+                                                        step="0.01"
+                                                        inputMode="decimal"
+                                                        className="w-full rounded-xl border border-amber-200 bg-white p-3 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
+                                                        value={countryBasedFlightPolicy.estimates_eur[country] ?? ''}
+                                                        onChange={event => updateFlightEstimate(country, event.target.value)}
+                                                        placeholder="A confirmar"
+                                                    />
+                                                </div>
+                                            ))}
+                                        </div>
+                                        <p className="mt-3 text-xs font-semibold leading-relaxed text-amber-800">
+                                            Valor meramente informativo, pago diretamente à agência parceira. Nunca é
+                                            somado ao valor terrestre nem ao total da inscrição.
+                                        </p>
+                                    </div>
+                                ) : (
+                                    <>
+                                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Preço de Voo (Estimativa)</label>
+                                        <div className="relative">
+                                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">€</span>
+                                            <input
+                                                type="number"
+                                                className="w-full pl-7 p-2 bg-white border border-slate-200 rounded-lg text-sm focus:border-slate-500 outline-none"
+                                                value={form.flight_price_from || ''}
+                                                onChange={e => setForm({ ...form, flight_price_from: e.target.value === '' ? null : Number(e.target.value) })}
+                                                placeholder="0.00"
+                                            />
+                                        </div>
+                                        <p className="text-[10px] text-slate-400 mt-1 mb-3">
+                                            Preencha para <strong>ativar a Opção B (Voo de Grupo)</strong> na página pública.
+                                        </p>
+                                    </>
+                                )}
 
                                 <BilingualField
-                                    label="Detalhes Voo de Grupo (Opção B)"
+                                    label={countryBasedFlightPolicy ? 'Pacote obrigatório Portugal/Brasil' : 'Detalhes Voo de Grupo (Opção B)'}
                                     ptValue={form.group_flight_details ?? ''}
                                     enValue={form.group_flight_details_en ?? ''}
                                     onChangePt={v => setForm({ ...form, group_flight_details: v })}
@@ -158,7 +224,7 @@ export default function LogisticsTab({ form, setForm }: LogisticsTabProps) {
                                 />
                             </div>
                             <BilingualField
-                                label="Opção A (Voo Próprio) / Avisos"
+                                label={countryBasedFlightPolicy ? 'Voos próprios — restantes países' : 'Opção A (Voo Próprio) / Avisos'}
                                 ptValue={form.flight_info_text ?? ''}
                                 enValue={form.flight_info_text_en ?? ''}
                                 onChangePt={v => setForm({ ...form, flight_info_text: v })}

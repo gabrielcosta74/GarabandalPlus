@@ -6,6 +6,15 @@ import { parseRoomInfo } from '../../../../lib/utils';
 import { generateViewToken, generateIdempotencyKey } from '../../../../lib/auth-utils';
 import { isActiveMember } from '../../../../lib/store-discounts';
 import { getPostHogClient } from '../../../../lib/posthog-server';
+import {
+    deriveFlightOption,
+    getCountryBasedFlightPolicy,
+    normalizeResidenceCountryCode,
+} from '../../../../lib/pilgrimage-flight-policy';
+import {
+    getConfiguredInstallmentDeadline,
+    isPaymentPlanWithinDeadline,
+} from '../../../../lib/pilgrimage-installments';
 
 async function findAuthUserByEmail(
     adminAuth: NonNullable<typeof supabaseServer>['auth']['admin'],
@@ -48,8 +57,63 @@ export async function POST(req: Request) {
 
         console.log(`📦 [API] Payload: Email=${bookingEmail}, Pilgrims=${pilgrim_data?.length}`);
 
-        if (!pilgrim_data || !pilgrimage_id || !bookingEmail) {
+        if (!Array.isArray(pilgrim_data) || pilgrim_data.length === 0 || !pilgrimage_id || !bookingEmail) {
             return NextResponse.json({ error: "Missing required data" }, { status: 400 });
+        }
+
+        // Load the pilgrimage and enforce any country-based flight policy before
+        // creating an account or writing booking data.
+        const { data: pilgrimage, error: pilgError } = await supabaseServer
+            .from('pilgrimages')
+            .select('base_price, title, title_en, deposit_value, min_deposit, pricing_config, start_date')
+            .eq('id', pilgrimage_id)
+            .single();
+
+        if (pilgError || !pilgrimage) throw pilgError || new Error('Pilgrimage not found');
+
+        const countryBasedFlightPolicy = getCountryBasedFlightPolicy(pilgrimage);
+        const installmentDeadline = getConfiguredInstallmentDeadline(pilgrimage);
+        if (
+            installmentDeadline
+            && payment_method === 'installments'
+            && !isPaymentPlanWithinDeadline(body.payment_plan, installmentDeadline)
+        ) {
+            return NextResponse.json({
+                error: bookingLocale === 'en'
+                    ? `The installment plan must end by ${installmentDeadline}.`
+                    : `O plano de prestações tem de terminar até ${installmentDeadline}.`,
+            }, { status: 400 });
+        }
+
+        let bookingPilgrimData = pilgrim_data;
+
+        if (countryBasedFlightPolicy) {
+            const normalizedPilgrims = [];
+            for (const pilgrim of pilgrim_data) {
+                if (pilgrim?.flight_policy_acknowledged !== true) {
+                    return NextResponse.json({
+                        error: bookingLocale === 'en'
+                            ? 'Confirm the mandatory flight information for every pilgrim.'
+                            : 'Confirme a informação obrigatória de voos de cada peregrino.',
+                    }, { status: 400 });
+                }
+
+                const countryCode = normalizeResidenceCountryCode(pilgrim?.country);
+                const flightOption = deriveFlightOption(countryCode, countryBasedFlightPolicy);
+                if (!countryCode || !flightOption) {
+                    return NextResponse.json({
+                        error: bookingLocale === 'en'
+                            ? 'Select a valid country of residence for every pilgrim.'
+                            : 'Selecione um país de residência válido para cada peregrino.',
+                    }, { status: 400 });
+                }
+                normalizedPilgrims.push({
+                    ...pilgrim,
+                    country: countryCode,
+                    flight_option: flightOption,
+                });
+            }
+            bookingPilgrimData = normalizedPilgrims;
         }
 
         // 1. SECURITY: User Resolution (no user_id_hint accepted from frontend)
@@ -143,20 +207,11 @@ export async function POST(req: Request) {
             });
         }
 
-        // 2. Fetch Pilgrimage Details for Pricing
-        const { data: pilgrimage, error: pilgError } = await supabaseServer
-            .from('pilgrimages')
-            .select('base_price, title, deposit_value, min_deposit, pricing_config, start_date')
-            .eq('id', pilgrimage_id)
-            .single();
-
-        if (pilgError) throw pilgError;
-
         // 3. Resolve active members for 50€ discount
         const candidateEmails = new Set<string>();
         const normalizedBookingEmail = bookingEmail;
         if (normalizedBookingEmail.includes('@')) candidateEmails.add(normalizedBookingEmail);
-        (pilgrim_data || []).forEach((p: any) => {
+        bookingPilgrimData.forEach((p: any) => {
             const pilgrimEmail = typeof p?.email === 'string' ? p.email.trim().toLowerCase() : '';
             if (pilgrimEmail.includes('@')) candidateEmails.add(pilgrimEmail);
         });
@@ -187,7 +242,7 @@ export async function POST(req: Request) {
         const regFee = Number(pilgrimage.deposit_value || pilgrimage.min_deposit) || 0;
         const supplements = (pilgrimage.pricing_config as any)?.room_supplements || {};
 
-        const pilgrimsToInsert = pilgrim_data.map((p: any, idx: number) => {
+        const pilgrimsToInsert = bookingPilgrimData.map((p: any, idx: number) => {
             // Determine room type for this pilgrim
             let roomType = p.room_type || 'double';
 
