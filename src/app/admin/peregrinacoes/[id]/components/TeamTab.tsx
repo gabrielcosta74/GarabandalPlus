@@ -1,5 +1,6 @@
 import { Trash2, Crown } from 'lucide-react';
 import BilingualField from '../../../../../components/admin/BilingualField';
+import AdminImageUpload from '../../../../../components/admin/AdminImageUpload';
 
 interface TeamMember {
     id?: string;
@@ -42,7 +43,7 @@ export default function TeamTab({ teamMembers, setTeamMembers }: TeamTabProps) {
         setTeamMembers(newMembers);
     };
 
-    const updateTeamMember = (index: number, field: keyof TeamMember, value: any) => {
+    const updateTeamMember = <K extends keyof TeamMember,>(index: number, field: K, value: TeamMember[K]) => {
         const newMembers = [...teamMembers];
         newMembers[index] = { ...newMembers[index], [field]: value };
         setTeamMembers(newMembers);
@@ -70,15 +71,8 @@ export default function TeamTab({ teamMembers, setTeamMembers }: TeamTabProps) {
                             <button onClick={() => removeTeamMember(idx)} className="text-red-400 hover:text-red-600 bg-red-50 p-2 rounded-lg"><Trash2 className="w-4 h-4" /></button>
                         </div>
 
-                        <div className="flex gap-4 mb-4">
-                            <div className="w-20 h-20 rounded-full bg-slate-100 overflow-hidden border-2 border-slate-100 flex-shrink-0">
-                                {member.image_url ? (
-                                    <img src={member.image_url} className="w-full h-full object-cover" />
-                                ) : (
-                                    <div className="w-full h-full flex items-center justify-center text-slate-300 font-bold text-2xl">?</div>
-                                )}
-                            </div>
-                            <div className="flex-1 space-y-2">
+                        <div className="mb-4">
+                            <div className="space-y-2">
                                 <input
                                     value={member.name}
                                     onChange={e => updateTeamMember(idx, 'name', e.target.value)}
@@ -127,11 +121,11 @@ export default function TeamTab({ teamMembers, setTeamMembers }: TeamTabProps) {
                                 placeholderEn="Short biography..."
                             />
 
-                            <input
-                                value={member.image_url || ''}
-                                onChange={e => updateTeamMember(idx, 'image_url', e.target.value)}
-                                className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-400"
-                                placeholder="URL da Foto"
+                            <AdminImageUpload
+                                value={member.image_url}
+                                onChange={url => updateTeamMember(idx, 'image_url', url)}
+                                label="Fotografia"
+                                alt={member.name ? `Fotografia de ${member.name}` : 'Fotografia do membro da equipa'}
                             />
                         </div>
                     </div>
