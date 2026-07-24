@@ -124,21 +124,21 @@ export default function UniversalStickyBar({
                                 <button
                                     type="button"
                                     onClick={onPrimaryClick}
-                                    className="group flex min-h-[46px] items-center justify-center gap-2 bg-slate-950 text-white rounded-xl font-black uppercase tracking-wide shadow-lg shadow-slate-900/20 active:scale-95 transition-all w-full ring-1 ring-yellow-300/70"
+                                    className="group flex min-h-[48px] w-full items-center justify-center gap-2 rounded-xl border border-amber-300 bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-300 px-4 font-extrabold text-slate-950 shadow-lg shadow-amber-500/20 transition-all active:scale-[0.98] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-amber-300/50"
                                 >
-                                    <span className="text-sm leading-none">{isEn ? resolvedButtonText : 'Começar Inscrição'}</span>
-                                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-yellow-300 text-slate-950 transition-transform group-hover:translate-x-0.5">
-                                        <ArrowRight className="w-3.5 h-3.5" />
+                                    <span className="text-sm leading-none text-slate-950">{isEn ? resolvedButtonText : 'Começar inscrição'}</span>
+                                    <span className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-950 text-white transition-transform group-hover:translate-x-0.5">
+                                        <ArrowRight className="h-3.5 w-3.5" />
                                     </span>
                                 </button>
                             ) : (
                                 <Link
                                     href={link}
-                                    className="group flex min-h-[46px] items-center justify-center gap-2 bg-slate-950 text-white rounded-xl font-black uppercase tracking-wide shadow-lg shadow-slate-900/20 active:scale-95 transition-all w-full ring-1 ring-yellow-300/70"
+                                    className="group flex min-h-[48px] w-full items-center justify-center gap-2 rounded-xl border border-amber-300 bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-300 px-4 font-extrabold !text-slate-950 shadow-lg shadow-amber-500/20 transition-all active:scale-[0.98] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-amber-300/50"
                                 >
-                                    <span className="text-sm leading-none">{isEn ? resolvedButtonText : 'Começar Inscrição'}</span>
-                                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-yellow-300 text-slate-950 transition-transform group-hover:translate-x-0.5">
-                                        <ArrowRight className="w-3.5 h-3.5" />
+                                    <span className="text-sm leading-none !text-slate-950">{isEn ? resolvedButtonText : 'Começar inscrição'}</span>
+                                    <span className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-950 !text-white transition-transform group-hover:translate-x-0.5">
+                                        <ArrowRight className="h-3.5 w-3.5" />
                                     </span>
                                 </Link>
                             )}

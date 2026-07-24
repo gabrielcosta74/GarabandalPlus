@@ -675,23 +675,23 @@ export default function PilgrimageDetailPage() {
                                         {isClosed ? (
                                             <button disabled className="w-full bg-slate-100 text-slate-400 font-bold py-4 rounded-xl cursor-not-allowed">{isEn ? 'Closed' : 'Encerradas'}</button>
                                         ) : existingBooking ? (
-                                            <Link href={registrationLink} className="w-full bg-green-600 text-white font-bold py-4 rounded-xl flex items-center justify-center gap-2 shadow-lg"><CheckCircle2 className="w-5 h-5" /> {isEn ? 'Manage Registration' : 'Gerir Inscrição'}</Link>
+                                            <Link href={registrationLink} className="flex w-full items-center justify-center gap-2 rounded-xl bg-green-600 py-4 font-bold !text-white shadow-lg"><CheckCircle2 className="w-5 h-5" /> {isEn ? 'Manage Registration' : 'Gerir Inscrição'}</Link>
                                         ) : shouldWarnBeforeRegistration ? (
                                             <button
                                                 type="button"
                                                 onClick={() => setIsPaymentWarningOpen(true)}
-                                                className="group w-full bg-slate-950 hover:bg-slate-900 text-white py-4 rounded-2xl flex items-center justify-center gap-3 shadow-xl shadow-slate-900/20 transition-all active:scale-[0.98] ring-2 ring-yellow-300/70"
+                                                className="group flex w-full items-center justify-center gap-3 rounded-2xl border border-amber-300 bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-300 px-5 py-4 text-slate-950 shadow-xl shadow-amber-500/20 transition-all hover:-translate-y-0.5 hover:from-amber-300 hover:via-yellow-200 hover:to-amber-200 hover:shadow-2xl active:translate-y-0 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-amber-300/50"
                                             >
-                                                <span className="text-[15px] font-black uppercase tracking-[0.12em]">{isEn ? 'Start Registration' : 'Começar Inscrição'}</span>
-                                                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-yellow-300 text-slate-950 transition-transform group-hover:translate-x-0.5">
-                                                    <ArrowRight className="w-4 h-4" />
+                                                <span className="text-base font-extrabold tracking-tight text-slate-950">{isEn ? 'Start registration' : 'Começar inscrição'}</span>
+                                                <span className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-950 text-white shadow-sm transition-transform group-hover:translate-x-1">
+                                                    <ArrowRight className="h-4 w-4" />
                                                 </span>
                                             </button>
                                         ) : (
-                                            <Link href={registrationLink} className="group w-full bg-slate-950 hover:bg-slate-900 text-white py-4 rounded-2xl flex items-center justify-center gap-3 shadow-xl shadow-slate-900/20 transition-all active:scale-[0.98] ring-2 ring-yellow-300/70">
-                                                <span className="text-[15px] font-black uppercase tracking-[0.12em]">{isEn ? 'Start Registration' : 'Começar Inscrição'}</span>
-                                                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-yellow-300 text-slate-950 transition-transform group-hover:translate-x-0.5">
-                                                    <ArrowRight className="w-4 h-4" />
+                                            <Link href={registrationLink} className="group flex w-full items-center justify-center gap-3 rounded-2xl border border-amber-300 bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-300 px-5 py-4 !text-slate-950 shadow-xl shadow-amber-500/20 transition-all hover:-translate-y-0.5 hover:from-amber-300 hover:via-yellow-200 hover:to-amber-200 hover:!text-slate-950 hover:shadow-2xl active:translate-y-0 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-amber-300/50">
+                                                <span className="text-base font-extrabold tracking-tight !text-slate-950">{isEn ? 'Start registration' : 'Começar inscrição'}</span>
+                                                <span className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-950 !text-white shadow-sm transition-transform group-hover:translate-x-1">
+                                                    <ArrowRight className="h-4 w-4" />
                                                 </span>
                                             </Link>
                                         )}

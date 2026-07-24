@@ -36,6 +36,15 @@ type PilgrimageInfoModalProps = {
     transportImage?: string;
 };
 
+function normalizeListItems(items: string[]) {
+    const normalizedItems = items
+        .flatMap((item) => String(item || '').split(/[\n,;•]+/u))
+        .map((item) => item.trim())
+        .filter(Boolean);
+
+    return Array.from(new Set(normalizedItems));
+}
+
 export default function PilgrimageInfoModal({
     mode,
     isOpen,
@@ -91,6 +100,8 @@ export default function PilgrimageInfoModal({
 
     const isIncludedMode = mode === 'included';
     const countryBasedFlightPolicy = parseCountryBasedFlightPolicy(flightRegistrationPolicy);
+    const normalizedIncludedItems = normalizeListItems(includedItems);
+    const normalizedNotIncludedItems = normalizeListItems(notIncludedItems);
 
     return (
         <div className="fixed inset-0 z-[100000000]">
@@ -103,7 +114,7 @@ export default function PilgrimageInfoModal({
 
             <div className="absolute inset-0 overflow-y-auto z-10">
                 <div className="flex min-h-full items-end justify-center md:items-center p-0 md:p-6 pt-16">
-                    <div className="relative flex w-full flex-col overflow-hidden rounded-t-[28px] bg-white shadow-2xl md:max-w-2xl md:rounded-[32px]">
+                    <div className="relative flex w-full flex-col overflow-hidden rounded-t-[28px] bg-white shadow-2xl md:max-w-4xl md:rounded-[32px]">
                         <div className="border-b border-slate-100 px-5 py-6 md:px-8 md:py-8">
                         <div className="mb-3 flex items-start justify-between gap-4 md:mb-4">
                             <div>
@@ -112,7 +123,7 @@ export default function PilgrimageInfoModal({
                                 </p>
                                 <h2 className="text-2xl font-bold text-slate-900 md:text-3xl">
                                     {isIncludedMode
-                                        ? (isEn ? 'Included in the land package' : 'Incluído no valor de terrestre')
+                                        ? (isEn ? 'Included in the land package' : 'Incluído no valor terrestre')
                                         : countryBasedFlightPolicy
                                             ? (isEn ? 'Mandatory flight rules' : 'Regras obrigatórias dos voos')
                                             : (isEn ? 'Flight options' : 'Opções de voo')}
@@ -227,41 +238,75 @@ export default function PilgrimageInfoModal({
                                     </div>
                                 )}
 
-                                <div className="grid gap-6 md:grid-cols-2">
-                                    <div className="rounded-3xl border border-emerald-100 bg-emerald-50 p-6">
-                                        <div className="mb-4 flex items-center gap-2 text-emerald-700">
-                                            <CheckCircle2 className="h-5 w-5" />
-                                            <h3 className="text-lg font-bold">{isEn ? 'Included in the price' : 'Incluído no valor'}</h3>
-                                        </div>
-                                        <ul className="space-y-3">
-                                            {includedItems.length > 0 ? includedItems.map((item, index) => (
-                                                <li key={`${item}-${index}`} className="flex items-start gap-3 text-sm font-medium leading-relaxed text-slate-700">
-                                                    <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
-                                                    <span>{item}</span>
-                                                </li>
-                                            )) : (
-                                                <li className="text-sm italic text-slate-500">{isEn ? 'No additional details.' : 'Sem detalhes adicionais.'}</li>
-                                            )}
-                                        </ul>
+                                <section aria-labelledby="land-package-contents-title">
+                                    <div className="mb-4">
+                                        <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-yellow-700">
+                                            {isEn ? 'Land package' : 'Pacote terrestre'}
+                                        </p>
+                                        <h3 id="land-package-contents-title" className="mt-1 text-xl font-bold text-slate-900">
+                                            {isEn ? 'What the advertised price covers' : 'O que o valor apresentado inclui'}
+                                        </h3>
+                                        <p className="mt-1 text-sm leading-relaxed text-slate-500">
+                                            {isEn
+                                                ? 'Each item is separated below so it is clear what is covered and what must be arranged separately.'
+                                                : 'Cada item está separado abaixo para ficar claro o que está abrangido e o que deve ser tratado à parte.'}
+                                        </p>
                                     </div>
 
-                                    <div className="rounded-3xl border border-slate-200 bg-white p-6">
-                                        <div className="mb-4 flex items-center gap-2 text-slate-700">
-                                            <ShieldCheck className="h-5 w-5" />
-                                            <h3 className="text-lg font-bold">{isEn ? 'Not included' : 'Não incluído'}</h3>
+                                    <div className="grid gap-4 md:grid-cols-2">
+                                        <div className="rounded-3xl border border-emerald-200 bg-emerald-50/80 p-5 md:p-6">
+                                            <div className="mb-4 flex items-center justify-between gap-3 text-emerald-800">
+                                                <div className="flex min-w-0 items-center gap-2">
+                                                    <CheckCircle2 className="h-5 w-5 shrink-0" />
+                                                    <h4 className="text-lg font-bold">{isEn ? 'Included in the price' : 'Incluído no valor'}</h4>
+                                                </div>
+                                                {normalizedIncludedItems.length > 0 && (
+                                                    <span className="rounded-full bg-white px-2.5 py-1 text-xs font-bold text-emerald-700 shadow-sm">
+                                                        {normalizedIncludedItems.length}
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <ul className="space-y-2.5">
+                                                {normalizedIncludedItems.length > 0 ? normalizedIncludedItems.map((item) => (
+                                                    <li key={item} className="flex min-w-0 items-start gap-3 rounded-2xl border border-emerald-100 bg-white/90 px-3.5 py-3 text-sm font-semibold leading-5 text-slate-700 shadow-sm">
+                                                        <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+                                                        <span className="min-w-0 break-words">{item}</span>
+                                                    </li>
+                                                )) : (
+                                                    <li className="rounded-2xl bg-white/70 px-4 py-3 text-sm italic text-slate-500">
+                                                        {isEn ? 'No additional details.' : 'Sem detalhes adicionais.'}
+                                                    </li>
+                                                )}
+                                            </ul>
                                         </div>
-                                        <ul className="space-y-3">
-                                            {notIncludedItems.length > 0 ? notIncludedItems.map((item, index) => (
-                                                <li key={`${item}-${index}`} className="flex items-start gap-3 text-sm leading-relaxed text-slate-600">
-                                                    <X className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
-                                                    <span>{item}</span>
-                                                </li>
-                                            )) : (
-                                                <li className="text-sm italic text-slate-500">{isEn ? 'Nothing relevant outside of the base package.' : 'Nada de relevante a assinalar fora do pacote base.'}</li>
-                                            )}
-                                        </ul>
+
+                                        <div className="rounded-3xl border border-rose-200 bg-rose-50/60 p-5 md:p-6">
+                                            <div className="mb-4 flex items-center justify-between gap-3 text-rose-800">
+                                                <div className="flex min-w-0 items-center gap-2">
+                                                    <ShieldCheck className="h-5 w-5 shrink-0" />
+                                                    <h4 className="text-lg font-bold">{isEn ? 'Not included' : 'Não incluído'}</h4>
+                                                </div>
+                                                {normalizedNotIncludedItems.length > 0 && (
+                                                    <span className="rounded-full bg-white px-2.5 py-1 text-xs font-bold text-rose-700 shadow-sm">
+                                                        {normalizedNotIncludedItems.length}
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <ul className="space-y-2.5">
+                                                {normalizedNotIncludedItems.length > 0 ? normalizedNotIncludedItems.map((item) => (
+                                                    <li key={item} className="flex min-w-0 items-start gap-3 rounded-2xl border border-rose-100 bg-white/90 px-3.5 py-3 text-sm font-semibold leading-5 text-slate-700 shadow-sm">
+                                                        <X className="mt-0.5 h-4 w-4 shrink-0 text-rose-500" />
+                                                        <span className="min-w-0 break-words">{item}</span>
+                                                    </li>
+                                                )) : (
+                                                    <li className="rounded-2xl bg-white/70 px-4 py-3 text-sm italic text-slate-500">
+                                                        {isEn ? 'Nothing relevant outside of the base package.' : 'Nada de relevante a assinalar fora do pacote base.'}
+                                                    </li>
+                                                )}
+                                            </ul>
+                                        </div>
                                     </div>
-                                </div>
+                                </section>
 
                                 {/* Financials & Policy */}
                                 {(paymentPlanText || cancellationPolicyText) && (
