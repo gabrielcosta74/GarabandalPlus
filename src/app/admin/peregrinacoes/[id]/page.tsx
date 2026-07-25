@@ -16,10 +16,13 @@ import {
     ChevronRight,
     ChevronLeft,
     CheckCircle2,
-    Eye
+    QrCode,
+    Eye,
+    Rocket
 } from 'lucide-react';
 import BookingsManager from '../../../../components/admin/BookingsManager';
 import WaitlistManager from '../../../../components/admin/WaitlistManager';
+import PilgrimageScanner from '../../../../components/admin/PilgrimageScanner';
 import AdminShell from '../../AdminShell';
 import GeneralInfoTab from './components/GeneralInfoTab';
 import LogisticsTab from './components/LogisticsTab';
@@ -28,6 +31,7 @@ import ItineraryTab from './components/ItineraryTab';
 import DetailedItineraryTab from './components/DetailedItineraryTab';
 import TeamTab from './components/TeamTab';
 import PreviewTab from './components/PreviewTab';
+import EarlyAccessTab from './components/EarlyAccessTab';
 import { Toaster, toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
 import { serializeCivilDateForStorage } from '../../../../lib/utils';
@@ -40,6 +44,7 @@ type Pilgrimage = {
     slug: string;
     description: string;
     cover_image: string;
+    cover_image_en?: string | null;
     start_date: string;
     end_date: string;
     total_vacancies: number;
@@ -78,6 +83,10 @@ type Pilgrimage = {
         };
         flight_registration_policy?: CountryBasedFlightPolicy | null;
         installment_deadline?: string | null;
+        early_access?: {
+            enabled?: boolean;
+            public_launch_at?: string | null;
+        } | null;
     } | null;
     // EN translations
     title_en?: string | null;
@@ -104,6 +113,7 @@ type DetailedItineraryItem = {
     description: string | null;
     description_en?: string | null;
     image_url: string | null;
+    images?: string[];
     display_order: number | null;
 };
 
@@ -129,7 +139,9 @@ const TABS = [
     { id: 'itinerary', label: 'Roteiro 3D', icon: MapPin, description: 'Mapa interativo' },
     { id: 'detailed', label: 'Itinerário', icon: List, description: 'Dia a dia detalhado' },
     { id: 'team', label: 'Equipa', icon: Users, description: 'Guias e convidados' },
+    { id: 'early_access', label: 'Lançamento', icon: Rocket, show: (isNew: boolean) => !isNew, description: 'Acesso antecipado com código privado' },
     { id: 'bookings', label: 'Inscrições', icon: Ticket, show: (isNew: boolean) => !isNew, description: 'Gestão de passageiros' },
+    { id: 'scanner', label: 'Autocarro', icon: QrCode, show: (isNew: boolean) => !isNew, description: 'Scanner mobile para entrada no autocarro' },
     { id: 'waitlist', label: 'Lista de Espera', icon: Clock, show: (isNew: boolean) => !isNew, description: 'Gestão de interessados' }
 ];
 
@@ -345,6 +357,11 @@ export default function PilgrimageEditorPage() {
                 .map((item, index) => {
                     const parsedDay = Number(item.day_number);
                     const safeDay = Number.isFinite(parsedDay) && parsedDay > 0 ? parsedDay : index + 1;
+                    const imgs = (Array.isArray(item.images) ? item.images : [])
+                        .map((u) => (u ?? '').toString().trim())
+                        .filter(Boolean);
+                    const legacy = (item.image_url ?? '').toString().trim();
+                    const finalImages = imgs.length ? imgs : (legacy ? [legacy] : []);
                     return {
                         id: isUuid(item.id) ? item.id : makeUuid(),
                         pilgrimage_id: pid,
@@ -353,7 +370,8 @@ export default function PilgrimageEditorPage() {
                         title_en: (item.title_en ?? '').toString(),
                         description: (item.description ?? '').toString(),
                         description_en: (item.description_en ?? '').toString(),
-                        image_url: (item.image_url ?? '').toString(),
+                        image_url: finalImages[0] || '',
+                        images: finalImages,
                         display_order: index + 1,
                     };
                 })
@@ -521,6 +539,7 @@ export default function PilgrimageEditorPage() {
             description: '',
             description_en: '',
             image_url: '',
+            images: [],
             display_order: detailedItems.length + 1
         }]);
     };
@@ -569,13 +588,13 @@ export default function PilgrimageEditorPage() {
     const isFirstTab = activeTabIndex === 0;
 
     const toolbarActions = (
-        <div className="flex items-center gap-3">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
             <Toaster position="bottom-right" />
-            <div className="flex items-center gap-3 mr-4">
+            <div className="flex items-center gap-3 sm:mr-4 min-w-0">
                 <span className={`text-[10px] px-2.5 py-1 rounded-full uppercase font-black tracking-widest ${form.status === 'open' ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-500 border border-slate-200'}`}>
                     {form.status}
                 </span>
-                {!isNew && <p className="text-[10px] text-slate-400 font-mono mt-0.5 uppercase tracking-tighter">ID: {id.substring(0, 8)}...</p>}
+                {!isNew && <p className="text-[10px] text-slate-400 font-mono mt-0.5 uppercase tracking-tighter truncate">ID: {id.substring(0, 8)}...</p>}
             </div>
             {!isNew && (
                 <button
@@ -590,7 +609,7 @@ export default function PilgrimageEditorPage() {
             <button
                 onClick={handleSave}
                 disabled={saving}
-                className="flex items-center gap-2 bg-indigo-600 text-white px-6 py-2.5 rounded-xl hover:bg-indigo-700 disabled:opacity-50 transition-all font-bold shadow-lg shadow-indigo-200 active:scale-95 text-xs group"
+                className="w-full sm:w-auto flex items-center justify-center gap-2 bg-indigo-600 text-white px-5 py-3 sm:py-2.5 rounded-xl hover:bg-indigo-700 disabled:opacity-50 transition-all font-bold shadow-lg shadow-indigo-200 active:scale-95 text-xs group"
             >
                 {saving ? (
                     'A Guardar...'
@@ -610,11 +629,11 @@ export default function PilgrimageEditorPage() {
             showBackLink={true}
             toolbar={toolbarActions}
         >
-            <div className="bg-slate-50 min-h-screen pb-32">
+            <div className="bg-slate-50 min-h-screen pb-24 md:pb-32">
                 {/* 1. Styled Tab Navigation */}
                 <div className="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
-                    <div className="w-full max-w-[1600px] mx-auto px-6 overflow-x-auto no-scrollbar">
-                        <div className="flex gap-2 min-w-max py-4">
+                    <div className="w-full max-w-[1600px] mx-auto px-2 sm:px-4 md:px-6 overflow-x-auto no-scrollbar">
+                        <div className="flex gap-1.5 md:gap-2 min-w-max py-3 md:py-4">
                             {TABS.filter(tab => !tab.show || tab.show(isNew)).map((tab) => {
                                 const isActive = activeTab === tab.id;
                                 return (
@@ -622,7 +641,7 @@ export default function PilgrimageEditorPage() {
                                         key={tab.id}
                                         onClick={() => setActiveTab(tab.id)}
                                         className={`
-                                            relative flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold transition-all
+                                            relative flex items-center gap-2 px-3 md:px-4 py-2.5 md:py-2 rounded-full text-xs font-bold transition-all
                                             ${isActive ? 'text-white' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800'}
                                         `}
                                     >
@@ -646,7 +665,7 @@ export default function PilgrimageEditorPage() {
                 </div>
 
                 {/* 2. Content Area with Transitions */}
-                <main className="px-6 py-8 w-full max-w-[1600px] mx-auto">
+                <main className="px-0 sm:px-2 md:px-6 py-4 md:py-8 w-full max-w-[1600px] mx-auto">
                     <AnimatePresence mode="wait">
                         <motion.div
                             key={activeTab}
@@ -654,15 +673,15 @@ export default function PilgrimageEditorPage() {
                             animate={{ opacity: 1, y: 0 }}
                             exit={{ opacity: 0, y: -10 }}
                             transition={{ duration: 0.2 }}
-                            className={activeTab === 'preview'
+                            className={activeTab === 'scanner' || activeTab === 'preview'
                                 ? 'min-h-[400px]'
                                 : 'bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden min-h-[400px]'
                             }
                         >
                             {/* Tab Header (Purely Visual) */}
-                            {activeTab !== 'preview' && <div className="px-4 md:px-8 py-4 md:py-6 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
+                            {activeTab !== 'scanner' && activeTab !== 'preview' && <div className="px-4 md:px-8 py-4 md:py-6 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
                                 <div>
-                                    <h2 className="text-xl font-bold text-slate-800 flex items-center gap-3">
+                                    <h2 className="text-lg md:text-xl font-bold text-slate-800 flex items-center gap-3">
                                         {(() => {
                                             const t = TABS.find(t => t.id === activeTab);
                                             const Icon = t?.icon || FileText;
@@ -676,13 +695,13 @@ export default function PilgrimageEditorPage() {
                                             );
                                         })()}
                                     </h2>
-                                    <p className="text-slate-400 text-xs mt-1 ml-14">
+                                    <p className="hidden sm:block text-slate-400 text-xs mt-1 ml-14">
                                         {TABS.find(t => t.id === activeTab)?.description}
                                     </p>
                                 </div>
                             </div>}
 
-                            <div className={activeTab === 'preview' ? 'p-0' : 'p-4 md:p-8'}>
+                            <div className={activeTab === 'scanner' || activeTab === 'preview' ? 'p-0' : 'p-4 md:p-8'}>
                                 {activeTab === 'general' && <GeneralInfoTab form={form} setForm={setForm} />}
                                 {activeTab === 'preview' && (
                                     <PreviewTab
@@ -715,12 +734,21 @@ export default function PilgrimageEditorPage() {
                                     />
                                 )}
                                 {activeTab === 'team' && <TeamTab teamMembers={teamMembers} setTeamMembers={setTeamMembers} />}
+                                {activeTab === 'early_access' && (
+                                    <EarlyAccessTab
+                                        form={form}
+                                        setForm={setForm}
+                                        pilgrimageId={id}
+                                        onSave={handleSave}
+                                    />
+                                )}
                                 {activeTab === 'bookings' && <BookingsManager pilgrimageId={id} />}
+                                {activeTab === 'scanner' && <PilgrimageScanner pilgrimageId={id} />}
                                 {activeTab === 'waitlist' && <WaitlistManager pilgrimageId={id} />}
                             </div>
 
                             {/* 3. Footer Navigation */}
-                            {activeTab !== 'preview' && <div className="p-3 md:p-4 bg-slate-50 border-t border-slate-100 flex justify-between items-center sticky bottom-0 gap-2">
+                            {activeTab !== 'scanner' && activeTab !== 'preview' && <div className="p-3 md:p-4 bg-slate-50 border-t border-slate-100 flex justify-between items-center sticky bottom-0 gap-2">
                                 <button
                                     onClick={handlePrevTab}
                                     disabled={isFirstTab}
@@ -730,14 +758,14 @@ export default function PilgrimageEditorPage() {
                                     `}
                                 >
                                     <ChevronLeft className="w-4 h-4" />
-                                    Anterior
+                                    <span className="hidden sm:inline">Anterior</span>
                                 </button>
 
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-2 min-w-0">
                                     {/* Optional quick save in footer */}
                                     <button
                                         onClick={handleSave}
-                                        className="text-xs font-bold text-indigo-600 hover:text-indigo-700 px-4 py-2 hover:bg-indigo-50 rounded-lg transition-colors"
+                                        className="hidden sm:block text-xs font-bold text-indigo-600 hover:text-indigo-700 px-4 py-2 hover:bg-indigo-50 rounded-lg transition-colors"
                                     >
                                         Guardar Rascunho
                                     </button>
@@ -747,7 +775,8 @@ export default function PilgrimageEditorPage() {
                                             onClick={handleNextTab}
                                             className="flex items-center gap-2 px-6 py-2.5 bg-slate-900 text-white rounded-xl hover:bg-slate-800 transition-all font-bold text-xs shadow-md shadow-slate-200 active:scale-95"
                                         >
-                                            Próximo Passo
+                                            <span className="hidden sm:inline">Próximo Passo</span>
+                                            <span className="sm:hidden">Próximo</span>
                                             <ChevronRight className="w-4 h-4" />
                                         </button>
                                     ) : (
@@ -756,7 +785,8 @@ export default function PilgrimageEditorPage() {
                                             className="flex items-center gap-2 px-6 py-2.5 bg-green-600 text-white rounded-xl hover:bg-green-700 transition-all font-bold text-xs shadow-lg shadow-green-200 active:scale-95"
                                         >
                                             <CheckCircle2 className="w-4 h-4" />
-                                            Finalizar Edição
+                                            <span className="hidden sm:inline">Finalizar Edição</span>
+                                            <span className="sm:hidden">Finalizar</span>
                                         </button>
                                     )}
                                 </div>

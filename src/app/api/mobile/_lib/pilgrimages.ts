@@ -52,6 +52,7 @@ export function isMobilePublicPilgrimage(row: PilgrimageRow) {
     title: textOrNull(row.title),
     slug: textOrNull(row.slug),
     status: textOrNull(row.status),
+    pricing_config: (row as any).pricing_config ?? null,
   });
 }
 

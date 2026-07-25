@@ -937,8 +937,19 @@ export default function PilgrimageBookingPage() {
             const { data: pData, error } = isLocalDraftPreview && draftId
                 ? await pilgrimageQuery.eq('id', draftId).eq('status', 'draft').single()
                 : await pilgrimageQuery.eq('slug', slug).single();
-            if (error || !pData) return;
-            setPilgrimage(pData);
+
+            let resolved = pData;
+            // Early-access pilgrimages are hidden from anon reads by RLS; a
+            // code-holder (valid grant cookie) loads them through the gated API.
+            if (!isLocalDraftPreview && (error || !pData)) {
+                const ea = await fetch(`/api/pilgrimages/${encodeURIComponent(slug)}/early-access`, { cache: 'no-store' })
+                    .then((r) => (r.ok ? r.json() : null))
+                    .catch(() => null);
+                if (ea?.pilgrimage) resolved = ea.pilgrimage;
+            }
+
+            if (!resolved) { setLoading(false); return; }
+            setPilgrimage(resolved);
 
             const { data: { user } } = await supabaseBrowser.auth.getUser();
             if (user) {

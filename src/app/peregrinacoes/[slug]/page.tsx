@@ -21,7 +21,7 @@ import {
 import { format } from 'date-fns';
 import { enUS, pt } from 'date-fns/locale';
 import dynamic from 'next/dynamic';
-import { getAvailabilityHighlightLabel, isNovemberCampaignPilgrimage, parseCivilDate } from '../../../lib/utils';
+import { isNovemberCampaignPilgrimage, parseCivilDate } from '../../../lib/utils';
 import PilgrimageInfoModal from '../../../components/pilgrimage/PilgrimageInfoModal';
 import PilgrimagePaymentWarningModal from '../../../components/pilgrimage/PilgrimagePaymentWarningModal';
 import { useLocale } from '../../../contexts/LocaleContext';
@@ -45,8 +45,14 @@ import UniversalStickyBar from '../../../components/pilgrimage/UniversalStickyBa
 // import ExitIntentPopup from '../../../components/pilgrimage/ExitIntentPopup'; // Removed
 import { SpecificWaitlistForm } from '../../../components/pilgrimage/SpecificWaitlistForm';
 import { useCurrency } from '../../../components/providers/CurrencyProvider';
-import { PilgrimagePrice } from '../../../components/pilgrimage/PilgrimagePrice';
 import ChatWidget from '../../../components/pilgrimage/ChatWidget';
+import RichText from '../../../components/pilgrimage/RichText';
+import PilgrimageTeam from '../../../components/pilgrimage/PilgrimageTeam';
+import PilgrimageItineraryDays from '../../../components/pilgrimage/PilgrimageItineraryDays';
+import PilgrimageScarcityNote from '../../../components/pilgrimage/PilgrimageScarcityNote';
+import PilgrimageAccessGate, { type GateInfo } from '../../../components/pilgrimage/PilgrimageAccessGate';
+import EarlyAccessBanner from '../../../components/pilgrimage/EarlyAccessBanner';
+import { getPublicLaunchTimestamp } from '../../../lib/pilgrimage-early-access';
 import {
     CountryBasedFlightPolicy,
     getCountryBasedFlightPolicy,
@@ -62,6 +68,7 @@ type Pilgrimage = {
     slug: string;
     description: string;
     cover_image: string;
+    cover_image_en?: string | null;
     start_date: string;
     end_date: string;
     total_vacancies: number;
@@ -150,6 +157,7 @@ type ItineraryItem = {
     description: string;
     description_en?: string | null;
     image_url: string;
+    images?: string[] | null;
 };
 
 type TeamMember = {
@@ -176,7 +184,7 @@ const toSlug = (value?: string | null) =>
 export default function PilgrimageDetailPage() {
     const params = useParams();
     const searchParams = useSearchParams();
-    const { currency } = useCurrency();
+    const { currency, formatEUR, formatConverted } = useCurrency();
     const { locale } = useLocale();
     const isEn = locale === 'en';
     const listPath = isEn ? '/en/pilgrimages' : '/peregrinacoes';
@@ -192,6 +200,8 @@ export default function PilgrimageDetailPage() {
     const [loading, setLoading] = useState(true);
     const [activeInfoModal, setActiveInfoModal] = useState<'included' | 'flights' | null>(null);
     const [isPaymentWarningOpen, setIsPaymentWarningOpen] = useState(false);
+    const [gateInfo, setGateInfo] = useState<GateInfo | null>(null);
+    const [reloadKey, setReloadKey] = useState(0);
 
     useEffect(() => {
         const fetchAllData = async () => {
@@ -234,6 +244,42 @@ export default function PilgrimageDetailPage() {
 
             if (pError) console.error("❌ [RPC Error]", pError);
             let pData: Pilgrimage | null = rpcData?.status === 'draft' ? null : rpcData;
+
+            if (!pData) {
+                // The public RPC + RLS hide early-access pilgrimages until launch,
+                // so a null here may be a private pre-launch trip. Ask the gate.
+                const gateRes = await fetch(`/api/pilgrimages/${encodeURIComponent(slug)}/gate-info`, { cache: 'no-store' })
+                    .then((r) => (r.ok ? r.json() : null))
+                    .catch(() => null);
+
+                if (gateRes?.preLaunch) {
+                    setGateInfo(gateRes as GateInfo);
+                    // If we already hold a valid grant cookie, load the real content.
+                    const ea = await fetch(`/api/pilgrimages/${encodeURIComponent(slug)}/early-access`, { cache: 'no-store' })
+                        .then((r) => (r.ok ? r.json() : null))
+                        .catch(() => null);
+
+                    if (ea?.pilgrimage) {
+                        setPilgrimage(ea.pilgrimage as Pilgrimage);
+                        setGlobalLogistics((ea.globalLogistics ?? null) as GlobalLogistics | null);
+                        setStages((ea.stages || []) as Stage[]);
+                        setItineraryItems((ea.itineraryItems || []) as ItineraryItem[]);
+                        setTeamMembers((ea.teamMembers || []) as TeamMember[]);
+                        const { data: { user } } = await supabaseBrowser.auth.getUser();
+                        if (user) {
+                            const { data: bData } = await supabaseBrowser
+                                .from('bookings')
+                                .select('id')
+                                .eq('pilgrimage_id', ea.pilgrimage.id)
+                                .eq('user_id', user.id)
+                                .maybeSingle();
+                            if (bData) setExistingBooking(bData.id);
+                        }
+                    }
+                    setLoading(false);
+                    return;
+                }
+            }
 
             if (!pData) {
                 const { data: fallbackRows, error: fallbackError } = await supabaseBrowser
@@ -299,8 +345,15 @@ export default function PilgrimageDetailPage() {
             }
             setLoading(false);
         };
-        fetchAllData();
-    }, [previewId, slug]);
+        // Never let a rejected/aborted request (e.g. HMR or navigation aborting an
+        // in-flight fetch) leave the page stuck on the loading spinner.
+        fetchAllData().catch((err) => {
+            if (err?.name !== 'AbortError') {
+                console.error('[Pilgrimage load] failed:', err);
+            }
+            setLoading(false);
+        });
+    }, [previewId, slug, reloadKey]);
 
     if (loading) {
         return (
@@ -309,6 +362,21 @@ export default function PilgrimageDetailPage() {
                     <div className="animate-spin w-10 h-10 border-4 border-yellow-600 border-t-transparent rounded-full" />
                 </div>
             </VIPLayout>
+        );
+    }
+
+    // Private early-access gate: shown when the pilgrimage is pre-launch and the
+    // visitor has not unlocked it yet. Full-screen cinematic takeover.
+    // `?gate=1` forces the gate even after unlocking (design review convenience).
+    const forceGate = searchParams.get('gate') === '1';
+    if (gateInfo && (forceGate || !pilgrimage)) {
+        return (
+            <PilgrimageAccessGate
+                slug={slug}
+                gateInfo={gateInfo}
+                isEn={isEn}
+                onUnlocked={() => setReloadKey((k) => k + 1)}
+            />
         );
     }
 
@@ -391,11 +459,29 @@ export default function PilgrimageDetailPage() {
         : pilgrimage.transport_description || globalLogistics?.transport_description || '';
     const pilgrimageTitle = isEn ? pilgrimage.title_en || pilgrimage.title : pilgrimage.title;
     const pilgrimageDescription = isEn ? pilgrimage.description_en || pilgrimage.description : pilgrimage.description;
+    const coverImageToShow = isEn ? (pilgrimage.cover_image_en || pilgrimage.cover_image) : pilgrimage.cover_image;
+
+    // Sidebar price — presentation only, mirrors the mobile sticky bar
+    // (base value + registration shown separately, each with its own currency
+    // conversion). No amount maths changed.
+    const sidebarBaseEUR = formatEUR(pilgrimage.base_price || 0);
+    const sidebarDepositEUR = formatEUR(pilgrimage.deposit_value || 0);
+    const sidebarBaseConverted = formatConverted(pilgrimage.base_price || 0);
+    const sidebarDepositConverted = formatConverted(pilgrimage.deposit_value || 0);
     const isNovemberCampaign = isNovemberCampaignPilgrimage(pilgrimage);
+    const publicLaunchTs = getPublicLaunchTimestamp(pilgrimage);
+    const inEarlyAccess = publicLaunchTs !== null && Date.now() < publicLaunchTs;
 
     return (
         <VIPLayout allowPublic={true}>
             <div className="-mx-4 bg-slate-50 min-h-screen relative pb-20 md:mx-0">
+                {inEarlyAccess && publicLaunchTs !== null && (
+                    <EarlyAccessBanner
+                        target={publicLaunchTs}
+                        isEn={isEn}
+                        onExpire={() => setReloadKey((k) => k + 1)}
+                    />
+                )}
                 {isAdminPreview && (
                     <div className="sticky top-0 z-[100] flex items-center justify-center gap-2 border-b border-amber-300 bg-amber-100 px-4 py-2.5 text-center text-xs font-black uppercase tracking-wider text-amber-950 shadow-sm">
                         <Eye className="h-4 w-4" />
@@ -405,9 +491,9 @@ export default function PilgrimageDetailPage() {
                 {/* Hero Header */}
                 <div className="relative min-h-[560px] w-full overflow-hidden md:h-[68vh] md:min-h-[620px]">
                     <div className="absolute inset-0 bg-slate-950/35 z-10" />
-                    {pilgrimage.cover_image && (
+                    {coverImageToShow && (
                         <img
-                            src={pilgrimage.cover_image}
+                            src={coverImageToShow}
                             alt={pilgrimageTitle}
                             className="absolute inset-0 w-full h-full object-cover"
                         />
@@ -442,7 +528,7 @@ export default function PilgrimageDetailPage() {
                                 }`}>
                                     {isNovemberCampaign ? <AlertTriangle className="h-4 w-4" /> : null}
                                     <Users className="h-4 w-4" />
-                                    {isClosed ? (isEn ? 'Closed' : 'Encerradas') : isWaitlist ? (isEn ? 'Waiting List' : 'Lista de Espera') : getAvailabilityHighlightLabel(remainingSpots, locale, pilgrimage)}
+                                    {isClosed ? (isEn ? 'Closed' : 'Encerradas') : isWaitlist ? (isEn ? 'Waiting List' : 'Lista de Espera') : (isEn ? 'Limited spots, filling fast' : 'Vagas limitadas, esgotam rápido')}
                                 </span>
                             </div>
                         </div>
@@ -460,7 +546,7 @@ export default function PilgrimageDetailPage() {
                                     {isEn ? 'Programme and mission' : 'Programa e missão'}
                                 </div>
                                 <h2 className="text-2xl md:text-3xl font-serif font-bold text-slate-900 mb-4">{isEn ? 'About this pilgrimage' : 'Sobre esta peregrinação'}</h2>
-                                <p className="text-slate-700 text-base md:text-lg leading-8 whitespace-pre-line">{pilgrimageDescription}</p>
+                                <RichText value={pilgrimageDescription} className="text-slate-700 text-base md:text-lg leading-8" />
                                 <div className="mt-8 border-t border-slate-100 pt-6">
                                     <h3 className="font-serif text-xl font-bold text-slate-950">
                                         {isEn ? 'A Catholic Marian pilgrimage with spiritual guidance' : 'Uma peregrinação mariana católica com acompanhamento espiritual'}
@@ -486,40 +572,7 @@ export default function PilgrimageDetailPage() {
                             </div>
 
                             {/* Equipa da Peregrinação */}
-                            {teamMembers.length > 0 && (
-                                <div>
-                                    <h2 className="px-5 text-2xl font-serif font-bold text-slate-900 mb-6 flex items-center gap-2 md:px-0">
-                                        <Users className="w-6 h-6 text-yellow-600" /> {isEn ? 'Pilgrimage Team' : 'Equipa da Peregrinação'}
-                                    </h2>
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-0 md:gap-6">
-                                        {teamMembers.map((member) => (
-                                            <div key={member.id} className="bg-white rounded-none p-5 shadow-sm border-y border-slate-100 flex gap-4 items-start hover:shadow-md transition-shadow md:rounded-2xl md:border">
-                                                <div className="w-16 h-16 rounded-full overflow-hidden shrink-0 bg-slate-100 border-2 border-yellow-100">
-                                                    {member.image_url ? (
-                                                        <img src={member.image_url} alt={member.name} className="w-full h-full object-cover" />
-                                                    ) : (
-                                                        <div className="w-full h-full flex items-center justify-center text-slate-400">
-                                                            <Users className="w-8 h-8 opacity-50" />
-                                                        </div>
-                                                    )}
-                                                </div>
-                                                <div className="flex-1">
-                                                    <div className="flex items-start justify-between gap-2 mb-1">
-                                                        <h3 className="font-bold text-slate-900 text-base leading-tight">{member.name}</h3>
-                                                        {member.is_special_guest && (
-                                                            <span className="px-2 py-0.5 bg-yellow-100 text-yellow-800 text-[10px] font-bold uppercase tracking-wider rounded-full shrink-0">{isEn ? 'Guest' : 'Convidado'}</span>
-                                                        )}
-                                                    </div>
-                                                    <p className="text-sm font-medium text-yellow-600 mb-2">{(isEn ? member.role_en || member.role : member.role)} • {member.country}</p>
-                                                    {(isEn ? member.description_en || member.description : member.description) && (
-                                                        <p className="text-sm text-slate-600 leading-relaxed text-balance">{isEn ? member.description_en || member.description : member.description}</p>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
+                            <PilgrimageTeam members={teamMembers} isEn={isEn} />
 
                             {/* Itinerary */}
                             <div className="rounded-none bg-white p-5 shadow-xl border-y border-slate-100 md:rounded-[2rem] md:border md:p-8">
@@ -534,38 +587,7 @@ export default function PilgrimageDetailPage() {
                                     </p>
                                 </div>
                                 {stages.length > 0 && <div className="mb-8 overflow-hidden rounded-2xl"><SpiritMap stages={stages} height={360} /></div>}
-                                <div className="space-y-4 md:space-y-5">
-                                    {itineraryItems.length > 0 ? itineraryItems.map((item) => (
-                                        <div key={item.id} className="group overflow-hidden rounded-2xl border border-slate-100 bg-slate-50/70 shadow-sm transition-all hover:border-yellow-200 hover:bg-white hover:shadow-md">
-                                            {item.image_url && (
-                                                <div className="relative aspect-[4/3] w-full overflow-hidden bg-slate-100 md:hidden">
-                                                    <img src={item.image_url} alt={isEn ? item.title_en || item.title : item.title} className="h-full w-full object-contain transition-transform duration-700 group-hover:scale-[1.02]" />
-                                                    <div className="absolute left-4 top-4 rounded-full bg-yellow-300 px-3 py-1 text-xs font-black uppercase tracking-wide text-slate-950">
-                                                        {isEn ? `Day ${item.day_number}` : `Dia ${item.day_number}`}
-                                                    </div>
-                                                </div>
-                                            )}
-                                            <div className="flex gap-4 p-4 md:p-5">
-                                                <div className="hidden md:flex flex-col items-center">
-                                                    <div className="w-11 h-11 rounded-2xl bg-yellow-100 text-yellow-800 font-black flex items-center justify-center border border-yellow-200 shadow-sm group-hover:scale-105 transition-transform">{item.day_number}</div>
-                                                    <div className="w-0.5 bg-slate-200 flex-1 my-2 group-last:hidden" />
-                                                </div>
-                                                <div className="min-w-0 flex-1">
-                                                    {!item.image_url && (
-                                                        <div className="mb-2 flex items-center gap-2 md:hidden">
-                                                        <span className="rounded-full bg-yellow-100 px-2.5 py-1 text-[11px] font-black uppercase tracking-wide text-yellow-800">
-                                                            {isEn ? `Day ${item.day_number}` : `Dia ${item.day_number}`}
-                                                        </span>
-                                                        </div>
-                                                    )}
-                                                    <h3 className="font-serif font-bold text-slate-950 text-xl leading-tight mb-2">{isEn ? item.title_en || item.title : item.title}</h3>
-                                                    <p className="text-slate-600 text-base leading-7 whitespace-pre-line">{isEn ? item.description_en || item.description : item.description}</p>
-                                                    {item.image_url && <div className="mt-4 hidden md:block rounded-xl overflow-hidden aspect-[16/9] w-full bg-slate-100"><img src={item.image_url} alt={isEn ? item.title_en || item.title : item.title} className="w-full h-full object-contain transition-transform duration-700 group-hover:scale-[1.02]" /></div>}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    )) : <p className="text-slate-500 italic">{isEn ? 'Detailed itinerary coming soon.' : 'Roteiro detalhado em breve.'}</p>}
-                                </div>
+                                <PilgrimageItineraryDays items={itineraryItems} isEn={isEn} />
                             </div>
 
 
@@ -589,13 +611,27 @@ export default function PilgrimageDetailPage() {
                                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">
                                                 {isEn ? 'Land package · flights not included' : 'Terrestre · voo não incluído'}
                                             </p>
-                                            <PilgrimagePrice
-                                                amountInEur={(pilgrimage.base_price || 0) + (pilgrimage.deposit_value || 0)}
-                                                layout="stacked"
-                                                primaryClassName="text-4xl font-black"
-                                                secondaryClassName="text-2xl font-black"
-                                                showLabels={true}
-                                            />
+                                            {/* Base value + its conversion */}
+                                            <div className="flex items-baseline gap-x-2.5 gap-y-0.5 flex-wrap">
+                                                <span className="text-4xl font-black text-slate-900 leading-none">{sidebarBaseEUR}</span>
+                                                {sidebarBaseConverted && (
+                                                    <span className="text-sm font-bold text-slate-400 leading-none">≈ {sidebarBaseConverted}</span>
+                                                )}
+                                            </div>
+                                            {/* Registration fee + its conversion */}
+                                            <div className="mt-1.5 flex items-baseline gap-x-2 gap-y-0.5 flex-wrap">
+                                                <span className="text-lg font-black text-slate-600 leading-none">+ {sidebarDepositEUR}</span>
+                                                <span className="text-[11px] font-bold uppercase tracking-wide text-slate-400">{isEn ? 'registration' : 'inscrição'}</span>
+                                                {sidebarDepositConverted && (
+                                                    <span className="text-xs font-bold text-slate-400 leading-none">≈ {sidebarDepositConverted}</span>
+                                                )}
+                                            </div>
+                                            <p className="mt-2.5 text-[10px] uppercase tracking-widest font-bold text-emerald-600">
+                                                {isEn ? 'Fixed price in EUR' : 'Preço fixo em EUR'}
+                                                {sidebarBaseConverted && (
+                                                    <span className="text-amber-500"> · {currency} {isEn ? "today's rate" : 'câmbio do dia'}</span>
+                                                )}
+                                            </p>
                                             <div className="flex items-center gap-2 mt-3">
                                                 <span className="text-xs text-slate-500 font-medium">/ {isEn ? 'person' : 'pessoa'}</span>
                                                 <span className="h-3 w-px bg-slate-200" />
@@ -664,14 +700,14 @@ export default function PilgrimageDetailPage() {
                                                     <span className="text-red-600 font-bold">{format(parseCivilDate(pilgrimage.registration_deadline), shortDateFmt, { locale: dateLocale })}</span>
                                                 </div>
                                             )}
-                                            {/* Vacancy Logic for UI */}
-                                            <div className="flex justify-between py-2.5 border-b text-slate-600 font-medium">
-                                                <span className="flex items-center gap-2"><Users className="w-4 h-4" /> {isEn ? 'Available Spots' : 'Vagas Disponíveis'}</span>
-                                                <span className="text-slate-900 font-bold">
-                                                    {isClosed ? (isEn ? 'Closed' : 'Encerradas') : isWaitlist ? (isEn ? 'Waiting List' : 'Lista de Espera') : getAvailabilityHighlightLabel(remainingSpots, locale, pilgrimage)}
-                                                </span>
-                                            </div>
                                         </div>
+                                        <PilgrimageScarcityNote
+                                            remainingSpots={remainingSpots}
+                                            isEn={isEn}
+                                            isWaitlist={isWaitlist}
+                                            isClosed={isClosed}
+                                            className="mb-4"
+                                        />
                                         {isClosed ? (
                                             <button disabled className="w-full bg-slate-100 text-slate-400 font-bold py-4 rounded-xl cursor-not-allowed">{isEn ? 'Closed' : 'Encerradas'}</button>
                                         ) : existingBooking ? (

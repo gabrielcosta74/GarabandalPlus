@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import { APP_URL } from '../../../lib/config';
+import { richTextToPlain } from '../../../lib/rich-text';
 import { supabaseServer } from '../../../lib/supabase';
+import { isPreLaunch } from '../../../lib/pilgrimage-early-access';
 import {
   BRAND_NAME,
   DEFAULT_OG_IMAGE,
@@ -24,7 +26,7 @@ const fetchPilgrimage = async (slug: string) => {
   if (!supabaseServer) return null;
   const { data } = await supabaseServer
     .from('pilgrimages')
-    .select('title, description, cover_image, start_date, end_date, base_price, status, registration_deadline, meeting_point_text, meeting_end_text, itinerary_summary, created_at')
+    .select('title, description, cover_image, start_date, end_date, base_price, status, registration_deadline, meeting_point_text, meeting_end_text, itinerary_summary, created_at, pricing_config')
     .eq('slug', slug)
     .maybeSingle();
   return data || null;
@@ -46,6 +48,17 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   try {
     const data = await fetchPilgrimage(slug);
+
+    // Private early-access window: never expose the real title/description/OG
+    // to crawlers or link previews before launch.
+    if (data && isPreLaunch(data)) {
+      return {
+        title: 'Acesso privado | Apostolado de Garabandal',
+        description: 'Página de acesso privado por convite.',
+        robots: { index: false, follow: false },
+        alternates: { canonical: url },
+      };
+    }
 
     const title = data?.title
       ? `${data.title} | Peregrinação Mariana Católica`
@@ -134,7 +147,8 @@ export default async function PeregrinacaoLayout({ children, params }: Props) {
   const { slug } = await params;
   const pilgrimage = await fetchPilgrimage(slug);
 
-  if (!pilgrimage) {
+  // No structured data for a not-found or private pre-launch pilgrimage.
+  if (!pilgrimage || isPreLaunch(pilgrimage)) {
     return children;
   }
 
@@ -154,7 +168,7 @@ export default async function PeregrinacaoLayout({ children, params }: Props) {
     alternateName: pilgrimage.title
       ? `${pilgrimage.title} - Peregrinação Mariana Católica`
       : 'Peregrinação Mariana Católica a Garabandal',
-    description: pilgrimage.description || 'Peregrinação mariana católica organizada pelo Apostolado de Garabandal.',
+    description: richTextToPlain(pilgrimage.description) || 'Peregrinação mariana católica organizada pelo Apostolado de Garabandal.',
     url: pageUrl,
     startDate: pilgrimage.start_date || undefined,
     endDate: pilgrimage.end_date || undefined,
@@ -209,7 +223,7 @@ export default async function PeregrinacaoLayout({ children, params }: Props) {
     '@type': 'TouristTrip',
     '@id': `${pageUrl}#trip`,
     name: pilgrimage.title || 'Peregrinação Mariana Católica',
-    description: pilgrimage.description || 'Viagem espiritual mariana organizada pelo Apostolado de Garabandal.',
+    description: richTextToPlain(pilgrimage.description) || 'Viagem espiritual mariana organizada pelo Apostolado de Garabandal.',
     image: images,
     url: pageUrl,
     provider: { '@id': ORGANIZATION_ID },

@@ -8,7 +8,7 @@ import Image from 'next/image';
 import { format } from 'date-fns';
 import { enUS, pt } from 'date-fns/locale';
 import { useLocale } from '../../contexts/LocaleContext';
-import { getAvailabilityHighlightLabel, parseCivilDate } from '../../lib/utils';
+import { parseCivilDate } from '../../lib/utils';
 import { supabaseBrowser } from '../../lib/supabase-browser';
 
 interface FeaturedPilgrimage {
@@ -17,6 +17,7 @@ interface FeaturedPilgrimage {
     title_en?: string | null;
     slug: string;
     cover_image?: string | null;
+    cover_image_en?: string | null;
     start_date: string;
     end_date: string;
     base_price: number;
@@ -173,7 +174,7 @@ export function PilgrimageHero({ featuredPilgrimage }: { featuredPilgrimage?: Fe
                                 {(featuredPilgrimage.cover_image || heroImages[currentImage]) && (
                                     <>
                                         <Image
-                                            src={featuredPilgrimage.cover_image || heroImages[currentImage]}
+                                            src={(isEn && featuredPilgrimage.cover_image_en) || featuredPilgrimage.cover_image || heroImages[currentImage]}
                                             alt={isEn ? featuredPilgrimage.title_en || featuredPilgrimage.title : featuredPilgrimage.title}
                                             fill
                                             className="object-cover opacity-55"
@@ -223,7 +224,7 @@ export function PilgrimageHero({ featuredPilgrimage }: { featuredPilgrimage?: Fe
                                                     </span>
                                                     <span className="inline-flex items-center gap-1.5 rounded-full bg-red-600 px-3 py-1.5 text-[11px] font-black uppercase tracking-widest text-white shadow-lg shadow-red-950/30 ring-2 ring-white/80">
                                                         <AlertTriangle className="h-3.5 w-3.5" />
-                                                        {getAvailabilityHighlightLabel(remainingSpots, locale, featuredPilgrimage)}
+                                                        {isEn ? 'Limited spots, filling fast' : 'Vagas limitadas, esgotam rápido'}
                                                     </span>
                                                 </div>
                                             )

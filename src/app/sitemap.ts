@@ -7,6 +7,7 @@ import { localizeStoreProductText } from '../lib/store-i18n';
 import { type StoreProductSitemapRecord } from '../lib/store-products';
 import { CATEGORIES, PUBLIC_NAV_ORDER, type CategoryKey } from '../lib/cms/categories';
 import { hreflangKey } from '../lib/content/locale-paths';
+import { isPreLaunch } from '../lib/pilgrimage-early-access';
 
 export const revalidate = 3600;
 
@@ -373,7 +374,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
     let pilgrimagesQuery = supabaseServer
       .from('pilgrimages')
-      .select('slug, status, cover_image, updated_at, created_at')
+      .select('slug, status, cover_image, updated_at, created_at, pricing_config')
       .order('start_date', { ascending: true });
 
     if (statusFilter.length > 0) {
@@ -383,7 +384,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     const { data: pilgrimages } = await pilgrimagesQuery;
 
     (pilgrimages || []).forEach((pilgrimage: any) => {
-      if (pilgrimage?.slug) {
+      // Never expose a private early-access pilgrimage to crawlers before launch.
+      if (pilgrimage?.slug && !isPreLaunch(pilgrimage)) {
         const ptUrl = `${APP_URL}/peregrinacoes/${pilgrimage.slug}`;
         const enUrl = `${APP_URL}/en/pilgrimages/${pilgrimage.slug}`;
         dynamicRoutes.push({

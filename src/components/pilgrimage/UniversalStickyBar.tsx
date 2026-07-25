@@ -7,7 +7,7 @@ import { ArrowRight, Info, Plane } from 'lucide-react';
 // import { BrochureDownloadModal } from './BrochureDownloadModal';
 import { cn } from '../../lib/utils';
 import { useLocale } from '../../contexts/LocaleContext';
-import { PilgrimagePrice } from './PilgrimagePrice';
+import { useCurrency } from '../providers/CurrencyProvider';
 
 type UniversalStickyBarProps = {
     price: number;
@@ -41,8 +41,14 @@ export default function UniversalStickyBar({
 }: UniversalStickyBarProps) {
     const [mounted, setMounted] = useState(false);
     const { locale } = useLocale();
+    const { formatEUR, formatConverted } = useCurrency();
     const isEn = locale === 'en';
     const resolvedButtonText = buttonText ?? (isEn ? 'Start Registration' : 'Iniciar Inscrição');
+
+    // Presentation only — values come straight from props, no amount maths here.
+    const baseEUR = formatEUR(price || 0);
+    const depositEUR = formatEUR(deposit || 0);
+    const totalConverted = formatConverted((price || 0) + (deposit || 0));
 
     useEffect(() => {
         setMounted(true);
@@ -66,28 +72,26 @@ export default function UniversalStickyBar({
             <div className="container mx-auto px-3 py-2.5">
                 <div className="flex flex-col gap-2">
 
-                    {/* Top Row: Price and Small Info */}
-                    <div className="flex items-center justify-between gap-3 border-b border-slate-100 pb-1.5">
-                        <div className="flex flex-col">
-                            <span className="text-[9px] uppercase font-bold text-slate-400 tracking-widest">{isEn ? 'Land package (no flight)' : 'Terrestre (sem voo)'}</span>
-                            <div className="flex items-baseline gap-2">
-                                <PilgrimagePrice
-                                    amountInEur={(price || 0) + (deposit || 0)}
-                                    layout="compact"
-                                    primaryClassName="text-xl font-black text-slate-900 leading-none"
-                                    secondaryClassName="text-sm font-bold text-slate-500"
-                                    showLabels={false}
-                                />
-                                <span className="text-[9px] text-slate-500 font-bold leading-tight">
-                                    {isEn ? '/ person' : '/ pess.'}
-                                    <br />
-                                    <span className="text-emerald-600 uppercase">
-                                        {isEn
-                                            ? `Up to ${maxInstallments} instalments`
-                                            : `Até ${maxInstallments} prestações`}
-                                    </span>
+                    {/* Top Row: Price breakdown (base + registration), per person */}
+                    <div className="border-b border-slate-100 pb-2">
+                        <span className="block text-[10px] uppercase font-bold text-slate-400 tracking-wide">
+                            {isEn ? 'Land package (no flight) · per person' : 'Terrestre (sem voo) · por pessoa'}
+                        </span>
+                        <div className="mt-1 flex items-baseline gap-x-2 gap-y-0.5 flex-wrap">
+                            <span className="text-2xl font-black text-slate-900 leading-none">{baseEUR}</span>
+                            <span className="text-sm font-bold text-slate-600 leading-none">
+                                + {depositEUR} {isEn ? 'registration' : 'inscrição'}
+                            </span>
+                        </div>
+                        <div className="mt-2 flex flex-wrap items-center gap-2">
+                            {totalConverted && (
+                                <span className="text-xs font-semibold text-slate-500">
+                                    ≈ {totalConverted} {isEn ? '(variable)' : '(variável)'}
                                 </span>
-                            </div>
+                            )}
+                            <span className="inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-0.5 text-[11px] font-black uppercase tracking-wide text-emerald-700 ring-1 ring-emerald-200">
+                                {isEn ? `Up to ${maxInstallments} instalments` : `Até ${maxInstallments} prestações`}
+                            </span>
                         </div>
                     </div>
 

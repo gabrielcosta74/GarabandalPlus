@@ -1,5 +1,6 @@
 import { type ClassValue, clsx } from "clsx"
 import { twMerge } from "tailwind-merge"
+import { isPreLaunch } from "./pilgrimage-early-access"
 
 
 export function cn(...inputs: ClassValue[]) {
@@ -77,10 +78,12 @@ type CampaignPilgrimage = {
 // peregrinações arquivadas/canceladas, nem entradas de teste/demo. As páginas
 // de detalhe por slug NÃO usam este filtro (permitem pré-visualização direta).
 export const isPubliclyListedPilgrimage = (
-    pilgrimage: { title?: string | null; slug?: string | null; status?: string | null },
+    pilgrimage: { title?: string | null; slug?: string | null; status?: string | null; pricing_config?: { early_access?: unknown } | null },
 ) => {
     const status = String(pilgrimage.status || '').toLowerCase();
     if (['draft', 'archived', 'cancelled', 'canceled', 'hidden'].includes(status)) return false;
+    // Private early-access window: hidden from all public listings until launch.
+    if (isPreLaunch(pilgrimage)) return false;
     const label = `${pilgrimage.title || ''} ${pilgrimage.slug || ''}`.toLowerCase();
     if (/\[?\s*teste\s*\]?|fict[ií]cia|\bdemo\b/.test(label)) return false;
     return true;

@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { APP_URL } from '../../../../lib/config';
 import { supabaseServer } from '../../../../lib/supabase';
+import { isPreLaunch } from '../../../../lib/pilgrimage-early-access';
 import {
   DEFAULT_OG_IMAGE,
   getPilgrimageSeoImages,
@@ -24,7 +25,7 @@ const fetchPilgrimage = async (slug: string) => {
   if (!supabaseServer) return null;
   const { data } = await supabaseServer
     .from('pilgrimages')
-    .select('title, title_en, description, description_en, cover_image, start_date, end_date, base_price, status, registration_deadline, itinerary_summary, itinerary_summary_en, created_at')
+    .select('title, title_en, description, description_en, cover_image, cover_image_en, start_date, end_date, base_price, status, registration_deadline, itinerary_summary, itinerary_summary_en, created_at, pricing_config')
     .eq('slug', slug)
     .maybeSingle();
   return data || null;
@@ -50,6 +51,17 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   try {
     const data = await fetchPilgrimage(slug);
+
+    // Private early-access window: hide real metadata from crawlers/previews.
+    if (data && isPreLaunch(data)) {
+      return {
+        title: 'Private access | Garabandal Apostolate',
+        description: 'Invitation-only private access page.',
+        robots: { index: false, follow: false },
+        alternates: { canonical: enUrl },
+      };
+    }
+
     const titleSource = data?.title_en || data?.title;
     const descriptionSource = data?.description_en || data?.description;
 
@@ -58,7 +70,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       : fallbackTitle;
     const description = truncateMetaDescription(descriptionSource, fallbackDescription, 158);
 
-    const seoImages = getPilgrimageSeoImages(data?.cover_image);
+    const seoImages = getPilgrimageSeoImages(data?.cover_image_en || data?.cover_image);
     const ogImages = seoImages.slice(0, 3).map((imageUrl) => ({
       url: imageUrl,
       width: 1200,
@@ -126,7 +138,8 @@ export default async function EnPilgrimageLayout({ children, params }: Props) {
   const { slug } = await params;
   const pilgrimage = await fetchPilgrimage(slug);
 
-  if (!pilgrimage) {
+  // No structured data for a not-found or private pre-launch pilgrimage.
+  if (!pilgrimage || isPreLaunch(pilgrimage)) {
     return children;
   }
 
