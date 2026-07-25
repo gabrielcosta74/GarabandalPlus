@@ -9,6 +9,7 @@ export type CookieConsentPreferences = {
 };
 
 export const COOKIE_CONSENT_STORAGE_KEY = 'garabandal_cookie_consent_v1';
+export const ANALYTICS_CONSENT_COOKIE = 'garabandal_analytics_consent';
 export const COOKIE_CONSENT_CHANGED_EVENT = 'garabandal-cookie-consent-changed';
 export const COOKIE_CONSENT_OPEN_EVENT = 'garabandal-cookie-consent-open';
 
@@ -47,7 +48,14 @@ export const readCookieConsent = (): CookieConsentPreferences | null => {
 export const saveCookieConsent = (preferences: CookieConsentPreferences) => {
   if (typeof window === 'undefined') return;
   window.localStorage.setItem(COOKIE_CONSENT_STORAGE_KEY, JSON.stringify(preferences));
+  syncAnalyticsConsentCookie(preferences);
   window.dispatchEvent(new CustomEvent(COOKIE_CONSENT_CHANGED_EVENT, { detail: preferences }));
+};
+
+export const syncAnalyticsConsentCookie = (preferences: CookieConsentPreferences) => {
+  if (typeof document === 'undefined') return;
+  const secure = window.location.protocol === 'https:' ? '; Secure' : '';
+  document.cookie = `${ANALYTICS_CONSENT_COOKIE}=${preferences.analytics ? 'granted' : 'denied'}; Path=/; Max-Age=15552000; SameSite=Lax${secure}`;
 };
 
 export const openCookiePreferences = () => {

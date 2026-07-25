@@ -6,6 +6,7 @@ import { parseRoomInfo } from '../../../../lib/utils';
 import { generateViewToken, generateIdempotencyKey } from '../../../../lib/auth-utils';
 import { isActiveMember } from '../../../../lib/store-discounts';
 import { getPostHogClient } from '../../../../lib/posthog-server';
+import { analyticsSessionProperties, getServerAnalyticsContext } from '../../../../lib/analytics-consent-server';
 import {
     deriveFlightOption,
     getCountryBasedFlightPolicy,
@@ -51,6 +52,7 @@ export async function POST(req: Request) {
 
     try {
         const body = await req.json();
+        const analyticsContext = getServerAnalyticsContext(req, body?.analytics);
         const { email, pilgrim_data, pilgrimage_id, payment_method, room_distribution, idempotency_key, locale } = body;
         const bookingLocale: 'pt' | 'en' = locale === 'en' ? 'en' : 'pt';
         let bookingEmail = String(email || '').trim().toLowerCase();
@@ -483,21 +485,23 @@ export async function POST(req: Request) {
 
         // Track booking creation server-side
         try {
-            const posthog = getPostHogClient();
-            posthog?.capture({
-                distinctId: userId,
-                event: 'booking_created',
-                properties: {
-                    booking_id: booking.id,
-                    pilgrimage_id: pilgrimage_id,
-                    pilgrimage_name: pilgrimage.title,
-                    pilgrim_count: pilgrimsToInsert.length,
-                    total_amount: totalAmount,
-                    payment_method: payment_method,
-                    new_account: isNewUser,
-                    locale: bookingLocale,
-                },
-            });
+            if (analyticsContext) {
+                const posthog = getPostHogClient();
+                posthog?.capture({
+                    distinctId: analyticsContext.distinctId,
+                    event: 'booking_created',
+                    properties: {
+                        ...analyticsSessionProperties(analyticsContext),
+                        pilgrimage_id: pilgrimage_id,
+                        pilgrimage_name: pilgrimage.title,
+                        pilgrim_count: pilgrimsToInsert.length,
+                        total_amount: totalAmount,
+                        payment_method: payment_method,
+                        new_account: isNewUser,
+                        locale: bookingLocale,
+                    },
+                });
+            }
         } catch (phErr) {
             console.warn('⚠️ [API] PostHog capture failed:', phErr);
         }

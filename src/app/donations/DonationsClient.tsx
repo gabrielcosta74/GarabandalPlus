@@ -11,6 +11,7 @@ import DonationVideo from '../../components/donations/DonationVideo';
 import AuctionSection from '../../components/donations/AuctionSection';
 import MobileDonationCTA from '../../components/donations/MobileDonationCTA';
 import { useLocale } from '../../contexts/LocaleContext';
+import { captureAnalyticsEvent } from '../../lib/analytics';
 
 type ProgressMeta = {
     goal: number;
@@ -39,6 +40,7 @@ export default function DonationsClient() {
     const [reduniqLoading, setReduniqLoading] = useState(false);
     const [showReduniqBanner, setShowReduniqBanner] = useState(true);
     const lastConfirmKeyRef = useRef<string | null>(null);
+    const handledDonationLinkRef = useRef(false);
     const searchParams = useSearchParams();
 
     const reduniqParams = useMemo(() => {
@@ -63,6 +65,16 @@ export default function DonationsClient() {
     useEffect(() => {
         loadProgress();
     }, [loadProgress]);
+
+    useEffect(() => {
+        if (handledDonationLinkRef.current || searchParams.get('donate') !== '1') return;
+        handledDonationLinkRef.current = true;
+        setModalOpen(true);
+        captureAnalyticsEvent('donation_modal_opened_from_link', {
+            locale,
+            source: searchParams.get('source') || 'direct-link',
+        });
+    }, [locale, searchParams]);
 
     useEffect(() => {
         const loadReduniqResult = async () => {
@@ -98,6 +110,11 @@ export default function DonationsClient() {
                 }
                 setReduniqResult(data);
                 if (String(data?.transactionStatus || '') === '4') {
+                    captureAnalyticsEvent('donation_completed', {
+                        amount: data?.paymentAmount ? Number(data.paymentAmount) : null,
+                        payment_provider: 'reduniq',
+                        locale,
+                    });
                     await loadProgress();
                 }
             } catch (error: any) {

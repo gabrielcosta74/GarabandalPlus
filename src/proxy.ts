@@ -4,7 +4,9 @@ import { lookupRedirect } from "./lib/redirects-edge"
 
 const CANONICAL_HOST = 'apostoladodegarabandal.com';
 
-export async function middleware(request: NextRequest) {
+// Renamed from `middleware` to `proxy` for Next.js 16 (the `middleware` file
+// convention is deprecated). Behaviour is unchanged.
+export async function proxy(request: NextRequest) {
     const pathname = request.nextUrl.pathname;
     // `nextUrl.pathname` may already be normalized by Next.js. Keep the raw
     // browser pathname so legacy trailing slashes can be collapsed together
@@ -144,6 +146,6 @@ export const config = {
          * - favicon.ico (favicon file)
          * Feel free to modify this pattern to include more paths.
          */
-        '/((?!_next/static|_next/image|images|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+        '/((?!maria-sinais|_next/static|_next/image|images|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
     ],
 }

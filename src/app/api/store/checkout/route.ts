@@ -14,6 +14,7 @@ import { inferRequestLocale, withLocalePrefix } from '../../../../lib/locale-rou
 import { localizeStoreProductText } from '../../../../lib/store-i18n';
 import { getPostHogClient } from '../../../../lib/posthog-server';
 import { applyStoreBookPromo } from '../../../../lib/store-promo';
+import { analyticsSessionProperties, getServerAnalyticsContext } from '../../../../lib/analytics-consent-server';
 
 const itemSchema = z.object({
   id: z.string().min(1),
@@ -61,6 +62,11 @@ const bodySchema = z.object({
     postalCode: z.string().min(1),
     country: z.string().min(1),
   }),
+  analytics: z.object({
+    consent: z.literal(true),
+    distinctId: z.string().min(1).max(200),
+    sessionId: z.string().min(1).max(200).optional(),
+  }).nullable().optional(),
 });
 
 
@@ -88,6 +94,7 @@ export async function POST(request: Request) {
     const json = await request.json();
     const parsedBody = bodySchema.parse(json);
     const { items, total, applyStoreCredits, appliedCreditsValue: clientCreditsValue, provider, reduniqSolution, buyer, shipping, billing } = parsedBody;
+    const analyticsContext = getServerAnalyticsContext(request, parsedBody.analytics);
     locale = parsedBody.locale || locale;
     const isEn = locale === 'en';
     const thankYouPath = withLocalePrefix('/thank-you', locale);
@@ -420,24 +427,25 @@ export async function POST(request: Request) {
 
         // Track checkout initiation server-side
         try {
-          const posthog = getPostHogClient();
-          const distinctId = buyerUserId ?? (buyerEmail || buyer.email);
-          posthog?.capture({
-            distinctId,
-            event: 'store_checkout_initiated',
-            properties: {
-              order_ref: orderRef,
-              provider: isFullyPaidByWallet ? 'wallet' : paymentProvider,
-              total_amount: roundedTotal,
-              net_amount: netAmountToPay,
-              item_count: itemsResolved.reduce((sum, item) => sum + item.qty, 0),
-              has_physical: hasPhysical,
-              shipping_country: shipping?.country ?? null,
-              credits_applied: verifiedCreditsToApply,
-              member_discount: memberDiscountRate > 0,
-              locale,
-            },
-          });
+          if (analyticsContext) {
+            const posthog = getPostHogClient();
+            posthog?.capture({
+              distinctId: analyticsContext.distinctId,
+              event: 'store_checkout_initiated',
+              properties: {
+                ...analyticsSessionProperties(analyticsContext),
+                provider: isFullyPaidByWallet ? 'wallet' : paymentProvider,
+                total_amount: roundedTotal,
+                net_amount: netAmountToPay,
+                item_count: itemsResolved.reduce((sum, item) => sum + item.qty, 0),
+                has_physical: hasPhysical,
+                shipping_country: shipping?.country ?? null,
+                credits_applied: verifiedCreditsToApply,
+                member_discount: memberDiscountRate > 0,
+                locale,
+              },
+            });
+          }
         } catch (phErr) {
           console.warn('PostHog capture failed:', phErr);
         }

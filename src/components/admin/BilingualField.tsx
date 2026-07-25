@@ -3,8 +3,10 @@
 import { useState, useCallback } from 'react';
 import { Languages, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
 import { getBrowserAccessToken } from '../../lib/supabase-browser';
+import RichTextField from './RichTextField';
+import { isRichTextEmpty } from '../../lib/rich-text';
 
-type FieldType = 'input' | 'textarea';
+type FieldType = 'input' | 'textarea' | 'rich';
 
 interface BilingualFieldProps {
   label: string;
@@ -84,7 +86,7 @@ export default function BilingualField({
     }
   }, [ptValue, onChangeEn]);
 
-  const enHasContent = !!enValue?.trim();
+  const enHasContent = type === 'rich' ? !isRichTextEmpty(enValue) : !!enValue?.trim();
 
   return (
     <div className="space-y-2">
@@ -121,7 +123,16 @@ export default function BilingualField({
         {/* PT */}
         <div className="relative">
           <span className="absolute top-2.5 left-3 text-[10px] font-black text-slate-400 uppercase tracking-widest z-10">🇵🇹</span>
-          {type === 'textarea' ? (
+          {type === 'rich' ? (
+            <RichTextField
+              value={ptValue}
+              onChange={onChangePt}
+              placeholder={placeholder}
+              minRows={rows}
+              ariaLabel={`${label} (PT)`}
+              className="pt-6"
+            />
+          ) : type === 'textarea' ? (
             <textarea
               className={`${baseClass} pl-9 resize-none`}
               style={{ minHeight: `${rows * 1.6}rem` }}
@@ -143,7 +154,16 @@ export default function BilingualField({
         {/* EN */}
         <div className="relative">
           <span className="absolute top-2.5 left-3 text-[10px] font-black text-slate-400 uppercase tracking-widest z-10">🇬🇧</span>
-          {type === 'textarea' ? (
+          {type === 'rich' ? (
+            <RichTextField
+              value={enValue}
+              onChange={onChangeEn}
+              placeholder={placeholderEn ?? 'English version...'}
+              minRows={rows}
+              ariaLabel={`${label} (EN)`}
+              className={`pt-6 ${!enHasContent ? 'border-amber-200 bg-amber-50/30' : 'border-emerald-200 bg-emerald-50/20'}`}
+            />
+          ) : type === 'textarea' ? (
             <textarea
               className={`${baseClass} pl-9 resize-none ${!enHasContent ? 'border-amber-200 bg-amber-50/30' : 'border-emerald-200 bg-emerald-50/20'}`}
               style={{ minHeight: `${rows * 1.6}rem` }}

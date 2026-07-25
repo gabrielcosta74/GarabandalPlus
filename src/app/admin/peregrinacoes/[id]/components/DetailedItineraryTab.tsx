@@ -1,5 +1,6 @@
-import { Trash2 } from 'lucide-react';
+import { Trash2, Images } from 'lucide-react';
 import BilingualField from '../../../../../components/admin/BilingualField';
+import MultiImageUpload from '../../../../../components/admin/MultiImageUpload';
 
 interface DetailedItineraryItem {
     id?: string;
@@ -10,6 +11,7 @@ interface DetailedItineraryItem {
     description: string | null;
     description_en?: string | null;
     image_url: string | null;
+    images?: string[];
     display_order: number | null;
 }
 
@@ -92,36 +94,25 @@ export default function DetailedItineraryTab({
                                 enValue={item.description_en || ''}
                                 onChangePt={value => updateDetailedItem(idx, 'description', value)}
                                 onChangeEn={value => updateDetailedItem(idx, 'description_en', value)}
-                                type="textarea"
+                                type="rich"
                                 rows={5}
                                 placeholder="Detalhe o programa para este dia..."
                                 placeholderEn="Describe the plan for this day..."
                             />
 
-                            <div>
-                                <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Imagem (URL)</label>
-                                <input
-                                    value={item.image_url || ''}
-                                    onChange={e => updateDetailedItem(idx, 'image_url', e.target.value)}
-                                    className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-sm"
-                                    placeholder="https://..."
+                            <div className="rounded-xl border border-slate-100 bg-slate-50/50 p-4">
+                                <div className="mb-3 flex items-center gap-2">
+                                    <Images className="h-4 w-4 text-yellow-600" />
+                                    <span className="text-xs font-bold uppercase tracking-wider text-slate-600">Fotos do dia (slideshow)</span>
+                                </div>
+                                <MultiImageUpload
+                                    bucket="site-content"
+                                    path="pilgrimages/itinerary"
+                                    value={(item.images && item.images.length > 0)
+                                        ? item.images
+                                        : (item.image_url ? [item.image_url] : [])}
+                                    onChange={(urls) => updateDetailedItem(idx, 'images', urls)}
                                 />
-                                {item.image_url?.trim() && (
-                                    <div className="mt-3">
-                                        <span className="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Preview</span>
-                                        <div className="mt-1 w-full max-w-sm rounded-lg overflow-hidden border border-slate-200 bg-slate-50">
-                                            <img
-                                                src={item.image_url}
-                                                alt={`Preview dia ${item.day_number}`}
-                                                className="w-full h-40 object-cover"
-                                                loading="lazy"
-                                                onError={(e) => {
-                                                    e.currentTarget.src = '/images/produto-placeholder.jpg';
-                                                }}
-                                            />
-                                        </div>
-                                    </div>
-                                )}
                             </div>
                         </div>
                     </div>

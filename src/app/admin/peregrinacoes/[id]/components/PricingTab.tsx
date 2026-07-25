@@ -113,7 +113,7 @@ export default function PricingTab({ form, setForm }: PricingTabProps) {
                             enValue={form.payment_plan_text_en || ''}
                             onChangePt={v => setForm({ ...form, payment_plan_text: v })}
                             onChangeEn={v => setForm({ ...form, payment_plan_text_en: v })}
-                            type="textarea"
+                            type="rich"
                             rows={5}
                             placeholder="Ex: Pode parcelar em até 8x sem juros..."
                             placeholderEn="Ex: Payment can be split into up to 8 interest-free installments..."
@@ -125,7 +125,7 @@ export default function PricingTab({ form, setForm }: PricingTabProps) {
                             enValue={form.cancellation_policy_text_en || ''}
                             onChangePt={v => setForm({ ...form, cancellation_policy_text: v })}
                             onChangeEn={v => setForm({ ...form, cancellation_policy_text_en: v })}
-                            type="textarea"
+                            type="rich"
                             rows={6}
                             placeholder="Insira o texto da política ou HTML básico..."
                             placeholderEn="Enter the policy text or basic HTML..."

@@ -1,6 +1,8 @@
 // Shared client-side helper for the "Estou mesmo interessado em ir" flow.
 // Fire-and-forget: records a soft demand signal, then the caller opens WhatsApp.
 
+import { getAnalyticsRequestContext } from './analytics';
+
 const ANON_KEY = 'interest:anon-id';
 
 // Stable per-browser id so repeated taps dedupe server-side.
@@ -36,7 +38,7 @@ export function captureInterest(payload: InterestPayload) {
         fetch('/api/leads/interest', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ anonId: getInterestAnonId(), ...payload }),
+            body: JSON.stringify({ anonId: getInterestAnonId(), ...payload, analytics: getAnalyticsRequestContext() }),
         }).catch(() => { /* non-critical */ });
     } catch { /* non-critical */ }
 }

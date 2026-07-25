@@ -1,6 +1,7 @@
 "use client";
 
 import { usePathname } from 'next/navigation';
+import { captureAnalyticsEvent } from '../../lib/analytics';
 
 // Apostolado WhatsApp contact number (international format, digits only for wa.me).
 const WHATSAPP_NUMBER = '351915206815';
@@ -61,6 +62,10 @@ export default function WhatsAppFloatingButton() {
             rel="noopener noreferrer"
             aria-label={`Contactar o Apostolado por WhatsApp (${WHATSAPP_DISPLAY})`}
             title="Fale connosco no WhatsApp"
+            onClick={() => captureAnalyticsEvent('whatsapp_contact_clicked', {
+                source: 'floating_button',
+                path: pathname || '/',
+            })}
             // Raised on mobile/tablet to clear the fixed MobileBottomNav (hidden at lg+).
             // z-40: above page content, but below modals/overlays (z-50+) and the mobile nav.
             className="fixed right-5 bottom-[calc(5rem+env(safe-area-inset-bottom,0px))] lg:bottom-5 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-[#25D366] text-white shadow-lg transition-transform hover:scale-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#25D366] focus-visible:ring-offset-2"

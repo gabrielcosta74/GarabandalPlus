@@ -9,6 +9,7 @@ import { pt as ptLocale, enUS } from 'date-fns/locale';
 import { useCurrency } from "../providers/CurrencyProvider";
 import { getAvailabilityHighlightLabel, isNovemberCampaignPilgrimage, parseCivilDate } from '../../lib/utils';
 import { useLocale } from '../../contexts/LocaleContext';
+import { richTextToPlain } from '../../lib/rich-text';
 
 
 type PilgrimageCardProps = {
@@ -45,6 +46,7 @@ export function PilgrimageCard({ pilgrimage, index }: PilgrimageCardProps) {
     const isLastSpots = !isClosed && !isWaitlist && remainingSpots > 0 && remainingSpots <= 5;
     const safeSlug = (pilgrimage.slug || '').trim() || toSlug(pilgrimage.title);
     const isEn = locale === 'en';
+    const coverImage = isEn ? (pilgrimage.cover_image_en || pilgrimage.cover_image) : pilgrimage.cover_image;
     const listHref = isEn ? '/en/pilgrimages' : '/peregrinacoes';
     const detailHref = safeSlug ? `${listHref}/${safeSlug}` : listHref;
     const isNovemberCampaign = isNovemberCampaignPilgrimage(pilgrimage);
@@ -128,10 +130,10 @@ export function PilgrimageCard({ pilgrimage, index }: PilgrimageCardProps) {
             >
                 {/* Image Section */}
                 <div className="md:w-5/12 relative h-72 md:h-auto overflow-hidden">
-                    {pilgrimage.cover_image ? (
+                    {coverImage ? (
                         <>
                             <Image
-                                src={pilgrimage.cover_image}
+                                src={coverImage}
                                 alt={pilgrimage.title}
                                 fill
                                 sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
@@ -170,7 +172,7 @@ export function PilgrimageCard({ pilgrimage, index }: PilgrimageCardProps) {
                     )}
 
                     <p className="text-slate-500 text-base leading-relaxed mb-8 line-clamp-3">
-                        {(locale === 'en' && pilgrimage.description_en) ? pilgrimage.description_en : pilgrimage.description}
+                        {richTextToPlain((locale === 'en' && pilgrimage.description_en) ? pilgrimage.description_en : pilgrimage.description)}
                     </p>
 
                     <div className="flex flex-col md:flex-row md:items-end justify-end border-t border-slate-100/50 pt-6 mt-auto gap-4">

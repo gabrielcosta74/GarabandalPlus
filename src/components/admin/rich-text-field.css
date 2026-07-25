@@ -1,0 +1,98 @@
+/* Lightweight prose styling for the inline RichTextField editor (admin).
+   Scoped under .rtf-content so it never leaks into the rest of the admin UI. */
+
+.rtf-content {
+  outline: none;
+  font-size: 0.875rem;
+  line-height: 1.7;
+  color: #334155; /* slate-700 */
+}
+
+.rtf-content > * + * {
+  margin-top: 0.65rem;
+}
+
+.rtf-content p {
+  margin: 0;
+}
+
+.rtf-content h3 {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #0f172a; /* slate-900 */
+  line-height: 1.4;
+}
+
+.rtf-content h4 {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #1e293b; /* slate-800 */
+}
+
+.rtf-content strong { font-weight: 700; color: #0f172a; }
+.rtf-content em { font-style: italic; }
+.rtf-content u { text-decoration: underline; }
+.rtf-content s { text-decoration: line-through; }
+
+.rtf-content ul,
+.rtf-content ol {
+  padding-left: 1.35rem;
+  margin: 0;
+}
+.rtf-content ul { list-style: disc; }
+.rtf-content ol { list-style: decimal; }
+.rtf-content li { margin: 0.15rem 0; }
+.rtf-content li > p { margin: 0; }
+
+.rtf-content blockquote {
+  border-left: 3px solid #c7d2fe; /* indigo-200 */
+  padding-left: 0.9rem;
+  color: #475569; /* slate-600 */
+  font-style: italic;
+}
+
+.rtf-content a {
+  color: #4f46e5; /* indigo-600 */
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* Placeholder (TipTap adds data-placeholder on the first empty node) */
+.rtf-content p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+  color: #cbd5e1; /* slate-300 */
+}
+
+/* Floating bubble toolbar */
+.rtf-bubble {
+  display: flex;
+  align-items: center;
+  gap: 0.125rem;
+  padding: 0.25rem;
+  background: #0f172a; /* slate-900 */
+  border-radius: 0.65rem;
+  box-shadow: 0 12px 30px -8px rgba(15, 23, 42, 0.5);
+}
+
+.rtf-bubble-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 0.4rem;
+  color: #cbd5e1; /* slate-300 */
+  transition: background 0.12s ease, color 0.12s ease;
+}
+.rtf-bubble-btn:hover { background: rgba(255, 255, 255, 0.1); color: #fff; }
+.rtf-bubble-btn[data-active='true'] { background: #6366f1; color: #fff; }
+
+.rtf-bubble-sep {
+  width: 1px;
+  height: 1.1rem;
+  background: rgba(255, 255, 255, 0.15);
+  margin: 0 0.2rem;
+}

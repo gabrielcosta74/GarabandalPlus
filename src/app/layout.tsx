@@ -3,6 +3,7 @@ import { headers } from 'next/headers';
 import { Inter, Playfair_Display } from 'next/font/google';
 import Script from 'next/script';
 import ClientLayout from '../components/layouts/ClientLayout';
+import AbortErrorSilencer from '../components/system/AbortErrorSilencer';
 import './globals.css';
 import { APP_URL } from '../lib/config';
 
@@ -111,7 +112,7 @@ export default async function RootLayout({
   const htmlLang = localeSeg === 'en' ? 'en' : localeSeg === 'es' ? 'es' : localeSeg === 'fr' ? 'fr' : localeSeg === 'it' ? 'it' : 'pt-BR';
   const navV2Enabled = process.env.NEXT_PUBLIC_NAV_V2 === '1';
   return (
-    <html lang={htmlLang}>
+    <html lang={htmlLang} suppressHydrationWarning>
       <head>
         <meta name="supported-color-schemes" content="light dark" />
         {/* Hide the SSR'd cookie banner before first paint for visitors who already
@@ -145,6 +146,7 @@ export default async function RootLayout({
         </Script>
       </head>
       <body className={`${inter.variable} ${playfair.variable} ${inter.className}`}>
+        <AbortErrorSilencer />
         <script
           type="application/ld+json"
           // eslint-disable-next-line react/no-danger

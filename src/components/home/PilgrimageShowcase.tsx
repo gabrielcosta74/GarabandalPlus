@@ -11,12 +11,14 @@ import { parseCivilDate } from '../../lib/utils';
 import { useLocale } from '../../contexts/LocaleContext';
 import { useCurrency } from '../providers/CurrencyProvider';
 import { PilgrimagePrice } from '../pilgrimage/PilgrimagePrice';
+import { richTextToPlain } from '../../lib/rich-text';
 
 interface Pilgrimage {
     id: string;
     title: string;
     slug: string;
     cover_image: string;
+    cover_image_en?: string | null;
     start_date: string;
     end_date?: string;
     description: string;
@@ -70,7 +72,7 @@ const PilgrimageShowcase: React.FC<PilgrimageShowcaseProps> = ({ pilgrimages }) 
             <div className="absolute inset-0 z-0 select-none pointer-events-none">
                 <motion.div style={{ y: yParallax, opacity: opacityFade }} className="absolute inset-0 w-full h-[120%] -top-[10%]">
                     <Image
-                        src={pilgrimages[0].cover_image || '/images/pilgrimage-placeholder.jpg'}
+                        src={(isEn && pilgrimages[0].cover_image_en) || pilgrimages[0].cover_image || '/images/pilgrimage-placeholder.jpg'}
                         alt="Background Texture"
                         fill
                         className="object-cover opacity-10 grayscale-[50%] blur-xl"
@@ -197,7 +199,7 @@ const PilgrimageShowcase: React.FC<PilgrimageShowcaseProps> = ({ pilgrimages }) 
                                         ${badgeType === 'danger' ? 'border-red-500/30 hover:border-red-400/50 grayscale-[50%]' : 'border-white/10 hover:border-white/20'}`}
                                 >
                                     <Image
-                                        src={pilgrimage.cover_image || '/images/pilgrimage-placeholder.jpg'}
+                                        src={(isEn && pilgrimage.cover_image_en) || pilgrimage.cover_image || '/images/pilgrimage-placeholder.jpg'}
                                         alt={pilgrimage.title}
                                         fill
                                         className="object-cover transition-transform duration-[2s] ease-in-out group-hover:scale-110"
@@ -250,7 +252,7 @@ const PilgrimageShowcase: React.FC<PilgrimageShowcaseProps> = ({ pilgrimages }) 
                                         </h3>
 
                                         <p className="text-sm text-slate-300 line-clamp-2 mb-6">
-                                            {pilgrimage.description}
+                                            {richTextToPlain(pilgrimage.description)}
                                         </p>
 
                                         <div className="flex items-center justify-between mt-auto">

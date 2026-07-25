@@ -7,6 +7,7 @@
 
 import { Session } from '@supabase/supabase-js';
 import { supabaseBrowser } from './supabase-browser';
+import { getAnalyticsRequestContext } from './analytics';
 
 export interface BookingResponse {
     success: boolean;
@@ -47,7 +48,7 @@ export async function createBooking(formData: BookingFormData): Promise<BookingR
             'Content-Type': 'application/json',
             ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({ ...formData, analytics: getAnalyticsRequestContext() }),
     });
 
     if (!response.ok) {

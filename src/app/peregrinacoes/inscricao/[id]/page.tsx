@@ -18,7 +18,11 @@ import {
     Loader2,
     Package,
     Landmark,
-    X
+    X,
+    QrCode,
+    ShieldCheck,
+    UserRound,
+    Bus,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { enUS, pt } from 'date-fns/locale';
@@ -57,6 +61,22 @@ type Booking = {
     };
     payments: any[];
     payment_plan?: { date: string; amount: number }[];
+};
+
+type PilgrimPass = {
+    id: string;
+    status: 'active' | 'revoked';
+    issued_at: string;
+    pilgrim: {
+        id: string;
+        full_name: string;
+        email?: string | null;
+        phone?: string | null;
+        room_type?: string | null;
+        flight_option?: string | null;
+    };
+    qrSvg: string;
+    qrPayload: string;
 };
 
 type PaymentOption = {
@@ -255,6 +275,10 @@ export default function BookingDashboardPage() {
     const [booking, setBooking] = useState<Booking | null>(null);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
+    const [passes, setPasses] = useState<PilgrimPass[]>([]);
+    const [passesLoading, setPassesLoading] = useState(false);
+    const [passesMessage, setPassesMessage] = useState<string | null>(null);
+    const [activePassIndex, setActivePassIndex] = useState(0);
     const [uploading, setUploading] = useState(false);
     const [showPilgrims, setShowPilgrims] = useState(false);
     const [authError, setAuthError] = useState(false);
@@ -451,10 +475,53 @@ export default function BookingDashboardPage() {
         }
     };
 
+    const getBookingViewToken = () => {
+        const urlParams = new URLSearchParams(window.location.search);
+        const directViewToken = urlParams.get('viewToken');
+        const tokenValues = urlParams.getAll('token');
+        const legacyViewTokenFromDuplicate = providerParam === 'reduniq' && !directViewToken && tokenValues.length > 1
+            ? tokenValues[0]
+            : null;
+        return directViewToken || (providerParam === 'reduniq' ? legacyViewTokenFromDuplicate : (tokenValues[0] || null));
+    };
+
+    const fetchPilgrimPasses = async () => {
+        setPassesLoading(true);
+        setPassesMessage(null);
+        try {
+            const viewToken = getBookingViewToken();
+            const url = viewToken
+                ? `/api/pilgrimage-passes/booking/${id}?token=${encodeURIComponent(viewToken)}`
+                : `/api/pilgrimage-passes/booking/${id}`;
+            const res = await fetch(url, { cache: 'no-store' });
+            const data = await res.json();
+
+            if (!res.ok) throw new Error(data?.error || (isEn ? 'Could not load pilgrim pass.' : 'Não foi possível carregar o passe.'));
+
+            setPasses(Array.isArray(data?.passes) ? data.passes : []);
+            setActivePassIndex(0);
+            setPassesMessage(data?.available ? null : (data?.message || null));
+        } catch (err: any) {
+            console.error('Pass fetch error:', err);
+            setPasses([]);
+            setPassesMessage(err?.message || (isEn ? 'Could not load pilgrim pass.' : 'Não foi possível carregar o passe.'));
+        } finally {
+            setPassesLoading(false);
+        }
+    };
+
     //  Initial fetch
     useEffect(() => {
         if (id) fetchBooking(false);
     }, [id, providerParam]);
+
+    useEffect(() => {
+        if (!booking || !isFullyPaid) {
+            setPasses([]);
+            return;
+        }
+        fetchPilgrimPasses();
+    }, [booking?.id, isFullyPaid]);
 
     useEffect(() => {
         const fetchBankTransferDetails = async () => {
@@ -974,6 +1041,17 @@ export default function BookingDashboardPage() {
                                     </div>
                                 </div>
 
+                                <PilgrimPassPanel
+                                    isEn={isEn}
+                                    isFullyPaid={isFullyPaid}
+                                    passes={passes}
+                                    loading={passesLoading}
+                                    message={passesMessage}
+                                    activeIndex={activePassIndex}
+                                    onSelect={setActivePassIndex}
+                                    onRefresh={fetchPilgrimPasses}
+                                />
+
                                 {/* Schedule list (single source of truth) */}
                                 {!isFullPaymentFlow && (
                                     <div className="bg-white rounded-3xl p-5 md:p-6 shadow-sm border border-slate-100">
@@ -1122,5 +1200,144 @@ export default function BookingDashboardPage() {
                 onUploadClick={handleManualUpload}
             />
         </VIPLayout>
+    );
+}
+
+function PilgrimPassPanel({
+    isEn,
+    isFullyPaid,
+    passes,
+    loading,
+    message,
+    activeIndex,
+    onSelect,
+    onRefresh,
+}: {
+    isEn: boolean;
+    isFullyPaid: boolean;
+    passes: PilgrimPass[];
+    loading: boolean;
+    message: string | null;
+    activeIndex: number;
+    onSelect: (index: number) => void;
+    onRefresh: () => void;
+}) {
+    const activePass = passes[activeIndex] || passes[0];
+
+    if (!isFullyPaid) {
+        return (
+            <div className="bg-white rounded-3xl p-5 md:p-6 shadow-sm border border-slate-100">
+                <div className="flex items-start gap-4">
+                    <div className="w-11 h-11 rounded-2xl bg-slate-100 text-slate-500 flex items-center justify-center shrink-0">
+                        <QrCode className="w-5 h-5" />
+                    </div>
+                    <div>
+                        <h2 className="text-lg md:text-xl font-bold text-slate-900">{isEn ? 'Pilgrim Pass' : 'Passe de Peregrino'}</h2>
+                        <p className="text-sm text-slate-500 mt-1">
+                            {isEn
+                                ? 'Your digital pass will appear here when the registration is fully paid.'
+                                : 'O teu passe digital aparece aqui quando a inscrição estiver totalmente paga.'}
+                        </p>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div className="bg-white rounded-3xl p-5 md:p-6 shadow-sm border border-emerald-100 overflow-hidden">
+            <div className="flex items-start justify-between gap-4 mb-5">
+                <div className="flex items-start gap-4">
+                    <div className="w-11 h-11 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+                        <ShieldCheck className="w-5 h-5" />
+                    </div>
+                    <div>
+                        <p className="text-[11px] font-black uppercase tracking-[0.18em] text-emerald-600 mb-1">
+                            {isEn ? 'Confirmed' : 'Confirmada'}
+                        </p>
+                        <h2 className="text-lg md:text-xl font-bold text-slate-900">{isEn ? 'Pilgrim Pass' : 'Passe de Peregrino'}</h2>
+                    </div>
+                </div>
+                <button
+                    onClick={onRefresh}
+                    disabled={loading}
+                    className="text-xs font-bold text-slate-500 hover:text-slate-900 disabled:opacity-50"
+                >
+                    {loading ? (isEn ? 'Loading...' : 'A carregar...') : (isEn ? 'Refresh' : 'Atualizar')}
+                </button>
+            </div>
+
+            {passes.length > 1 && (
+                <div className="flex gap-2 overflow-x-auto pb-2 mb-4 no-scrollbar">
+                    {passes.map((pass, index) => (
+                        <button
+                            key={pass.id}
+                            onClick={() => onSelect(index)}
+                            className={`shrink-0 px-3 py-2 rounded-2xl text-xs font-bold border transition-all ${index === activeIndex
+                                ? 'bg-slate-900 text-white border-slate-900 shadow-lg'
+                                : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-white'
+                                }`}
+                        >
+                            {pass.pilgrim.full_name?.split(' ').slice(0, 2).join(' ') || (isEn ? 'Pilgrim' : 'Peregrino')}
+                        </button>
+                    ))}
+                </div>
+            )}
+
+            {loading && passes.length === 0 ? (
+                <div className="rounded-3xl bg-slate-50 border border-slate-100 p-8 text-center text-slate-500">
+                    <div className="animate-spin w-8 h-8 border-2 border-emerald-600 border-t-transparent rounded-full mx-auto mb-3" />
+                    {isEn ? 'Preparing your pass...' : 'A preparar o teu passe...'}
+                </div>
+            ) : activePass ? (
+                <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_190px] gap-5 items-center">
+                    <div className="space-y-4">
+                        <div className="rounded-3xl bg-slate-950 text-white p-5 relative overflow-hidden">
+                            <div className="absolute -right-10 -top-10 w-32 h-32 rounded-full bg-emerald-400/10" />
+                            <div className="relative">
+                                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-emerald-300 mb-2">
+                                    {isEn ? 'Personal identifier' : 'Identificador pessoal'}
+                                </p>
+                                <h3 className="text-2xl font-black leading-tight">{activePass.pilgrim.full_name}</h3>
+                                <div className="mt-4 grid grid-cols-2 gap-3 text-xs">
+                                    <div className="rounded-2xl bg-white/8 p-3">
+                                        <p className="text-white/40 uppercase font-bold tracking-wider mb-1">{isEn ? 'Room' : 'Quarto'}</p>
+                                        <p className="font-bold">{activePass.pilgrim.room_type || '-'}</p>
+                                    </div>
+                                    <div className="rounded-2xl bg-white/8 p-3">
+                                        <p className="text-white/40 uppercase font-bold tracking-wider mb-1">{isEn ? 'Flight' : 'Voo'}</p>
+                                        <p className="font-bold">{activePass.pilgrim.flight_option || '-'}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="flex items-start gap-3 text-sm text-slate-500">
+                            <Bus className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+                            <p>
+                                {isEn
+                                    ? 'Show this code to the organization when boarding the bus.'
+                                    : 'Mostra este código à organização ao entrar no autocarro.'}
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="rounded-3xl bg-white border border-slate-200 shadow-sm p-3 mx-auto w-full max-w-[220px]">
+                        <div
+                            className="w-full aspect-square [&_svg]:w-full [&_svg]:h-full"
+                            dangerouslySetInnerHTML={{ __html: activePass.qrSvg }}
+                            aria-label={isEn ? 'Pilgrim pass QR Code' : 'QR Code do Passe de Peregrino'}
+                        />
+                    </div>
+                </div>
+            ) : (
+                <div className="rounded-3xl bg-amber-50 border border-amber-100 p-5 flex gap-3 text-amber-800">
+                    <UserRound className="w-5 h-5 shrink-0 mt-0.5" />
+                    <div>
+                        <p className="font-bold">{isEn ? 'Pass unavailable' : 'Passe indisponível'}</p>
+                        <p className="text-sm mt-1">{message || (isEn ? 'Could not prepare the pass yet.' : 'Ainda não foi possível preparar o passe.')}</p>
+                    </div>
+                </div>
+            )}
+        </div>
     );
 }

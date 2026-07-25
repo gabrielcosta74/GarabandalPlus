@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { CheckCircle2, Plane, Users, X, MapPin, ShieldCheck, ArrowRight } from 'lucide-react';
 import { useLocale } from '../../contexts/LocaleContext';
 import { PilgrimagePrice } from './PilgrimagePrice';
+import RichText from './RichText';
 import {
     CountryBasedFlightPolicy,
     formatFlightEstimate,
@@ -208,9 +209,10 @@ export default function PilgrimageInfoModal({
                                                         )}
                                                     </h4>
                                                 </div>
-                                                <p className="text-sm text-slate-600 leading-relaxed whitespace-pre-line flex-1">
-                                                    {accommodationDescription || (isEn ? 'Accommodation details not specified.' : 'Detalhes de alojamento não especificados.')}
-                                                </p>
+                                                <RichText
+                                                    value={accommodationDescription || (isEn ? 'Accommodation details not specified.' : 'Detalhes de alojamento não especificados.')}
+                                                    className="text-sm text-slate-600 leading-relaxed flex-1"
+                                                />
                                             </div>
                                         )}
                                         {(transportType || transportDescription) && (
@@ -230,9 +232,10 @@ export default function PilgrimageInfoModal({
                                                         )}
                                                     </h4>
                                                 </div>
-                                                <p className="text-sm text-slate-600 leading-relaxed whitespace-pre-line flex-1">
-                                                    {transportDescription || (isEn ? 'Transport details not specified.' : 'Detalhes de transporte não especificados.')}
-                                                </p>
+                                                <RichText
+                                                    value={transportDescription || (isEn ? 'Transport details not specified.' : 'Detalhes de transporte não especificados.')}
+                                                    className="text-sm text-slate-600 leading-relaxed flex-1"
+                                                />
                                             </div>
                                         )}
                                     </div>
@@ -356,7 +359,7 @@ export default function PilgrimageInfoModal({
                                                         </div>
                                                         <div>
                                                             <h4 className="font-bold text-indigo-900 mb-2">{isEn ? 'Donation Options' : 'Facilidades de Doação'}</h4>
-                                                            <p className="text-indigo-800/80 leading-relaxed whitespace-pre-line text-sm">{paymentPlanText}</p>
+                                                            <RichText value={paymentPlanText} className="text-indigo-800/80 leading-relaxed text-sm" />
                                                         </div>
                                                     </div>
                                                 </div>
@@ -374,8 +377,8 @@ export default function PilgrimageInfoModal({
                                                                 <ArrowRight className="w-4 h-4 rotate-90" />
                                                             </div>
                                                         </summary>
-                                                        <div className="px-6 pb-8 text-sm text-slate-600 leading-relaxed whitespace-pre-line border-t border-slate-100 pt-4 bg-slate-50/30">
-                                                            {cancellationPolicyText}
+                                                        <div className="px-6 pb-8 border-t border-slate-100 pt-4 bg-slate-50/30">
+                                                            <RichText value={cancellationPolicyText} className="text-sm text-slate-600 leading-relaxed" />
                                                         </div>
                                                     </details>
                                                 </div>
@@ -496,9 +499,10 @@ export default function PilgrimageInfoModal({
                                         <p className="mb-3 text-xs font-bold uppercase tracking-wider text-slate-500">
                                             {isEn ? 'Flexibility' : 'Flexibilidade'}
                                         </p>
-                                        <p className="text-sm leading-relaxed text-slate-700 whitespace-pre-line">
-                                            {flightInfoText || (isEn ? 'You can arrange your own flight and meet the group at the point indicated by the organisation.' : 'Pode tratar do seu voo diretamente e encontrar-se com o grupo no ponto indicado pela organização.')}
-                                        </p>
+                                        <RichText
+                                            value={flightInfoText || (isEn ? 'You can arrange your own flight and meet the group at the point indicated by the organisation.' : 'Pode tratar do seu voo diretamente e encontrar-se com o grupo no ponto indicado pela organização.')}
+                                            className="text-sm leading-relaxed text-slate-700"
+                                        />
                                     </div>
 
                                     <div className="rounded-3xl border border-indigo-100 bg-indigo-50 p-6">
@@ -512,8 +516,8 @@ export default function PilgrimageInfoModal({
                                                     {isEn ? 'If you prefer, you can travel on the flight organised by the agency. This price is separate from the land package.' : 'Se preferir, pode seguir no voo organizado pela agência. Este valor é separado do terrestre.'}
                                                 </p>
                                                 {groupFlightDetails && (
-                                                    <div className="mb-4 rounded-2xl border border-indigo-100 bg-white/80 p-4 text-sm leading-relaxed text-indigo-900 whitespace-pre-line">
-                                                        {groupFlightDetails}
+                                                    <div className="mb-4 rounded-2xl border border-indigo-100 bg-white/80 p-4">
+                                                        <RichText value={groupFlightDetails} className="text-sm leading-relaxed text-indigo-900" />
                                                     </div>
                                                 )}
                                                 <div className="rounded-2xl bg-white p-4 shadow-sm">
@@ -549,13 +553,13 @@ export default function PilgrimageInfoModal({
                                             {meetingPointText && (
                                                 <div className="rounded-2xl bg-slate-50 p-4">
                                                     <p className="mb-2 text-xs font-bold uppercase tracking-wider text-emerald-600">{isEn ? 'Meeting point' : 'Ponto de encontro'}</p>
-                                                    <p className="text-sm leading-relaxed text-slate-700 whitespace-pre-line">{meetingPointText}</p>
+                                                    <RichText value={meetingPointText} className="text-sm leading-relaxed text-slate-700" />
                                                 </div>
                                             )}
                                             {meetingEndText && (
                                                 <div className="rounded-2xl bg-slate-50 p-4">
                                                     <p className="mb-2 text-xs font-bold uppercase tracking-wider text-rose-500">{isEn ? 'End of trip' : 'Fim da viagem'}</p>
-                                                    <p className="text-sm leading-relaxed text-slate-700 whitespace-pre-line">{meetingEndText}</p>
+                                                    <RichText value={meetingEndText} className="text-sm leading-relaxed text-slate-700" />
                                                 </div>
                                             )}
                                         </div>

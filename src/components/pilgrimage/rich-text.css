@@ -1,0 +1,51 @@
+/* Public typography for pilgrimage rich-text fields.
+   Structural only — font-size and base color are inherited from the caller's
+   className so it adapts to each context (description, day, bio, modal). */
+
+.pilgrimage-rich > * + * { margin-top: 0.75em; }
+.pilgrimage-rich p { margin: 0; }
+
+.pilgrimage-rich strong,
+.pilgrimage-rich b { font-weight: 700; color: #0f172a; }
+.pilgrimage-rich em,
+.pilgrimage-rich i { font-style: italic; }
+.pilgrimage-rich u { text-decoration: underline; }
+.pilgrimage-rich s { text-decoration: line-through; }
+
+.pilgrimage-rich h3 {
+  font-size: 1.15em;
+  font-weight: 700;
+  color: #0f172a;
+  line-height: 1.35;
+  margin-top: 1.1em;
+}
+.pilgrimage-rich h4 {
+  font-size: 1.02em;
+  font-weight: 700;
+  color: #1e293b;
+  margin-top: 1em;
+}
+
+.pilgrimage-rich ul,
+.pilgrimage-rich ol {
+  padding-left: 1.4em;
+  margin: 0;
+}
+.pilgrimage-rich ul { list-style: disc; }
+.pilgrimage-rich ol { list-style: decimal; }
+.pilgrimage-rich li { margin: 0.2em 0; }
+.pilgrimage-rich li > p { margin: 0; }
+
+.pilgrimage-rich blockquote {
+  border-left: 3px solid currentColor;
+  opacity: 0.9;
+  padding-left: 1em;
+  font-style: italic;
+}
+
+.pilgrimage-rich a {
+  color: #4f46e5;
+  text-decoration: underline;
+  font-weight: 600;
+}
+.pilgrimage-rich a:hover { color: #4338ca; }

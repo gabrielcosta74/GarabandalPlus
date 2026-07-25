@@ -100,7 +100,7 @@ export default function GeneralInfoTab({ form, setForm }: GeneralInfoTabProps) {
                             enValue={form.description_en ?? ''}
                             onChangePt={v => setForm({ ...form, description: v })}
                             onChangeEn={v => setForm({ ...form, description_en: v })}
-                            type="textarea"
+                            type="rich"
                             rows={6}
                             placeholder="Descreva os pontos altos da viagem, o tema espiritual e o que os peregrinos podem esperar..."
                             placeholderEn="Describe the highlights of the trip, the spiritual theme and what pilgrims can expect..."
@@ -269,9 +269,14 @@ export default function GeneralInfoTab({ form, setForm }: GeneralInfoTabProps) {
                         </h3>
                     </div>
                     <div className="p-8 flex-1 flex flex-col gap-6">
-                        <div className="flex-1">
+                        {/* PT cover */}
+                        <div>
+                            <div className="flex items-center gap-2 mb-2">
+                                <span className="text-sm">🇵🇹</span>
+                                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Capa (Português)</span>
+                            </div>
                             <ImageUpload
-                                label="Imagem de Capa"
+                                label="Imagem de Capa PT"
                                 bucket="site-content"
                                 path="pilgrimages/covers"
                                 value={form.cover_image}
@@ -280,6 +285,34 @@ export default function GeneralInfoTab({ form, setForm }: GeneralInfoTabProps) {
                             <p className="text-[10px] text-slate-400 mt-2">
                                 Formatos aceites: JPG, PNG, WEBP. A imagem será otimizada automaticamente.
                             </p>
+                        </div>
+
+                        {/* EN cover (optional) */}
+                        <div className="pt-6 border-t border-slate-100">
+                            <div className="flex items-center gap-2 mb-2">
+                                <span className="text-sm">🇬🇧</span>
+                                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Capa (Inglês)</span>
+                                <span className="text-[10px] font-semibold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">Opcional</span>
+                            </div>
+                            <ImageUpload
+                                label="Imagem de Capa EN"
+                                bucket="site-content"
+                                path="pilgrimages/covers"
+                                value={form.cover_image_en ?? ''}
+                                onChange={(url: string) => setForm({ ...form, cover_image_en: url })}
+                            />
+                            <p className="text-[10px] text-slate-400 mt-2">
+                                Se ficar vazia, os visitantes em inglês veem a imagem de capa em português.
+                            </p>
+                            {form.cover_image_en?.trim() && (
+                                <button
+                                    type="button"
+                                    onClick={() => setForm({ ...form, cover_image_en: '' })}
+                                    className="mt-2 text-[11px] font-semibold text-red-500 hover:text-red-600 hover:underline"
+                                >
+                                    Remover capa EN (voltar a usar a PT)
+                                </button>
+                            )}
                         </div>
                     </div>
                 </div>

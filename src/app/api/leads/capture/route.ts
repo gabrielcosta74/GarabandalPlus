@@ -6,6 +6,7 @@ import { sendBrochureEmail } from '../../../../lib/email';
 import { inferRequestLocale } from '../../../../lib/locale-routing';
 import { checkRateLimit } from '../../../../lib/rate-limit';
 import { getPostHogClient } from '../../../../lib/posthog-server';
+import { analyticsSessionProperties, getServerAnalyticsContext } from '../../../../lib/analytics-consent-server';
 
 export async function POST(req: Request) {
     const rateLimit = checkRateLimit(req, {
@@ -29,6 +30,7 @@ export async function POST(req: Request) {
 
     try {
         const body = await req.json();
+        const analyticsContext = getServerAnalyticsContext(req, body?.analytics);
         const { email, phone, name, pilgrimageId, step, data, type, channel_preference } = body;
         const locale = body?.locale === 'en' || data?.locale === 'en' ? 'en' : inferRequestLocale(req);
 
@@ -175,21 +177,23 @@ export async function POST(req: Request) {
 
         // Track lead capture server-side
         try {
-            const posthog = getPostHogClient();
-            posthog?.capture({
-                distinctId: email || 'anonymous',
-                event: 'lead_captured',
-                properties: {
-                    lead_id: result.id,
-                    lead_type: type || (isGeneralLead ? 'general_waitlist' : 'draft'),
-                    is_brochure: isBrochure,
-                    is_general_waitlist: isGeneralLead,
-                    pilgrimage_id: pilgrimageId || null,
-                    channel: channel_preference || null,
-                    locale,
-                    is_new_lead: !existingLead,
-                },
-            });
+            if (analyticsContext) {
+                const posthog = getPostHogClient();
+                posthog?.capture({
+                    distinctId: analyticsContext.distinctId,
+                    event: 'lead_captured',
+                    properties: {
+                        ...analyticsSessionProperties(analyticsContext),
+                        lead_type: type || (isGeneralLead ? 'general_waitlist' : 'draft'),
+                        is_brochure: isBrochure,
+                        is_general_waitlist: isGeneralLead,
+                        pilgrimage_id: pilgrimageId || null,
+                        channel: channel_preference || null,
+                        locale,
+                        is_new_lead: !existingLead,
+                    },
+                });
+            }
         } catch (phErr) {
             console.warn('[API] PostHog capture failed:', phErr);
         }

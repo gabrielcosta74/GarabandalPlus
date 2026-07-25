@@ -115,7 +115,7 @@ export default function TeamTab({ teamMembers, setTeamMembers }: TeamTabProps) {
                                 enValue={member.description_en || ''}
                                 onChangePt={value => updateTeamMember(idx, 'description', value)}
                                 onChangeEn={value => updateTeamMember(idx, 'description_en', value)}
-                                type="textarea"
+                                type="rich"
                                 rows={4}
                                 placeholder="Pequena biografia..."
                                 placeholderEn="Short biography..."

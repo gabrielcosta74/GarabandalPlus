@@ -9,6 +9,7 @@ import {
   createCookieConsentPreferences,
   readCookieConsent,
   saveCookieConsent,
+  syncAnalyticsConsentCookie,
 } from '../../lib/cookie-consent';
 
 type Copy = {
@@ -82,6 +83,7 @@ export default function CookieConsentBanner() {
   useEffect(() => {
     const existing = readCookieConsent();
     if (existing) {
+      syncAnalyticsConsentCookie(existing);
       setAnalytics(existing.analytics);
       setMarketing(existing.marketing);
       setIsVisible(false);

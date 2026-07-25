@@ -76,7 +76,7 @@ export default function LogisticsTab({ form, setForm }: LogisticsTabProps) {
                             enValue={form.accommodation_description_en ?? ''}
                             onChangePt={v => setForm({ ...form, accommodation_description: v })}
                             onChangeEn={v => setForm({ ...form, accommodation_description_en: v })}
-                            type="textarea"
+                            type="rich"
                             rows={3}
                             placeholder="Detalhes sobre o alojamento..."
                             placeholderEn="Accommodation details..."
@@ -107,7 +107,7 @@ export default function LogisticsTab({ form, setForm }: LogisticsTabProps) {
                             enValue={form.transport_description_en ?? ''}
                             onChangePt={v => setForm({ ...form, transport_description: v })}
                             onChangeEn={v => setForm({ ...form, transport_description_en: v })}
-                            type="textarea"
+                            type="rich"
                             rows={3}
                             placeholder="Detalhes sobre transfers, autocarros no local..."
                             placeholderEn="Transfer and transport details..."
@@ -130,7 +130,7 @@ export default function LogisticsTab({ form, setForm }: LogisticsTabProps) {
                                 enValue={form.meeting_point_text_en ?? ''}
                                 onChangePt={v => setForm({ ...form, meeting_point_text: v })}
                                 onChangeEn={v => setForm({ ...form, meeting_point_text_en: v })}
-                                type="textarea"
+                                type="rich"
                                 rows={3}
                                 placeholder="Ex: Aeroporto de Lisboa, dia 11 de Outubro às 09:00"
                                 placeholderEn="Ex: Lisbon Airport, October 11th at 09:00"
@@ -141,7 +141,7 @@ export default function LogisticsTab({ form, setForm }: LogisticsTabProps) {
                                 enValue={form.meeting_end_text_en ?? ''}
                                 onChangePt={v => setForm({ ...form, meeting_end_text: v })}
                                 onChangeEn={v => setForm({ ...form, meeting_end_text_en: v })}
-                                type="textarea"
+                                type="rich"
                                 rows={3}
                                 placeholder="Ex: Paris, dia 24 de Outubro às 16:00"
                                 placeholderEn="Ex: Paris, October 24th at 16:00"
@@ -217,7 +217,7 @@ export default function LogisticsTab({ form, setForm }: LogisticsTabProps) {
                                     enValue={form.group_flight_details_en ?? ''}
                                     onChangePt={v => setForm({ ...form, group_flight_details: v })}
                                     onChangeEn={v => setForm({ ...form, group_flight_details_en: v })}
-                                    type="textarea"
+                                    type="rich"
                                     rows={3}
                                     placeholder="Ex: Ida: TP123 Lisboa-Madrid 08:00... Volta: ..."
                                     placeholderEn="Ex: Outbound: TP123 Lisbon-Madrid 08:00... Return: ..."
@@ -229,7 +229,7 @@ export default function LogisticsTab({ form, setForm }: LogisticsTabProps) {
                                 enValue={form.flight_info_text_en ?? ''}
                                 onChangePt={v => setForm({ ...form, flight_info_text: v })}
                                 onChangeEn={v => setForm({ ...form, flight_info_text_en: v })}
-                                type="textarea"
+                                type="rich"
                                 rows={4}
                                 placeholder="Ex: Não inclui voos. Recomendamos voo TP123..."
                                 placeholderEn="Ex: Flights not included. We recommend flight TP123..."

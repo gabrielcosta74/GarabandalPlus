@@ -6,7 +6,7 @@ import { FileText, Mail, X, CheckCircle, ShieldCheck } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { useCurrency } from "../providers/CurrencyProvider";
 import { useLocale } from "../../contexts/LocaleContext";
-import { captureAnalyticsEvent } from "../../lib/analytics";
+import { captureAnalyticsEvent, getAnalyticsRequestContext } from "../../lib/analytics";
 
 interface BrochureDownloadModalProps {
     pilgrimageId: string;
@@ -47,7 +47,8 @@ export function BrochureDownloadModal({ pilgrimageId, slug, className, trigger, 
                     type: "brochure_request",
                     channel_preference: "email",
                     locale,
-                    currency: currency // Pass currency preference
+                    currency, // Pass currency preference
+                    analytics: getAnalyticsRequestContext(),
                 }),
             });
 

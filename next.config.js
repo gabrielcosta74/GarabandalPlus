@@ -33,12 +33,9 @@ const nextConfig = {
   },
   async headers() {
     return [
-      {
-        source: '/_next/static/:path*',
-        headers: [
-          { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
-        ],
-      },
+      // Note: Next.js already sets immutable caching on hashed /_next/static
+      // assets. A manual Cache-Control here breaks dev HMR (Next 16 warns), so
+      // we only manage caching for our own /images/* files.
       {
         source: '/images/:path*',
         headers: [
@@ -48,7 +45,25 @@ const nextConfig = {
       },
     ];
   },
+  async rewrites() {
+    return [
+      {
+        source: '/maria-sinais/static/:path*',
+        destination: 'https://us-assets.i.posthog.com/static/:path*',
+      },
+      {
+        source: '/maria-sinais/array/:path*',
+        destination: 'https://us-assets.i.posthog.com/array/:path*',
+      },
+      {
+        source: '/maria-sinais/:path*',
+        destination: 'https://us.i.posthog.com/:path*',
+      },
+    ];
+  },
   images: {
+    // Next 16 requires every `quality` used by <Image> to be declared here.
+    qualities: [75, 85],
     remotePatterns: [
       {
         protocol: 'https',

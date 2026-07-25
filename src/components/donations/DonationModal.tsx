@@ -19,6 +19,7 @@ import {
     normalizeBankTransferDetails,
 } from '../../lib/bank-transfer-details';
 import { useLocale } from '../../contexts/LocaleContext';
+import { captureAnalyticsEvent } from '../../lib/analytics';
 
 const impactOptions = [
     { value: 25, label: "Argamassas", impact: "Sacos de cimento para sanear paredes", icon: BrickWall },
@@ -136,6 +137,19 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
     const postalPlaceholder = selectedCountryMeta?.postalPlaceholder || (isEn ? 'Postal code / ZIP' : 'Código postal');
 
     useEffect(() => {
+        if (!isOpen) return;
+        captureAnalyticsEvent('donation_modal_opened', { locale });
+    }, [isOpen, locale]);
+
+    useEffect(() => {
+        if (!isOpen) return;
+        captureAnalyticsEvent('donation_step_viewed', {
+            step,
+            locale,
+        });
+    }, [isOpen, locale, step]);
+
+    useEffect(() => {
         const fetchBankTransferDetails = async () => {
             if (!supabaseBrowser) return;
 
@@ -246,6 +260,12 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
 
         setLoading(true);
         setError(null);
+        captureAnalyticsEvent('donation_payment_submitted', {
+            amount,
+            payment_provider: 'bank_transfer',
+            receipt_requested: receiptRequired,
+            locale,
+        });
         try {
             const res = await fetch('/api/donations/manual', {
                 method: 'POST',
@@ -271,8 +291,19 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
             }
 
             setStep(4); // Success step
+            captureAnalyticsEvent('donation_manual_registered', {
+                amount,
+                payment_provider: 'bank_transfer',
+                receipt_requested: receiptRequired,
+                locale,
+            });
         } catch (err: unknown) {
             setError(getErrorMessage(err, isEn ? 'Could not register the donation. Please check the details and try again.' : "Não foi possível registar a doação. Verifique os dados e tente novamente."));
+            captureAnalyticsEvent('donation_payment_failed', {
+                amount,
+                payment_provider: 'bank_transfer',
+                locale,
+            });
         } finally {
             setLoading(false);
         }
@@ -325,6 +356,13 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
         setError(null);
 
         const chosenProvider = selectedPayment.provider === 'reduniq' ? 'reduniq' : 'stripe';
+        captureAnalyticsEvent('donation_payment_submitted', {
+            amount,
+            payment_provider: chosenProvider,
+            payment_method: selectedPaymentId,
+            receipt_requested: receiptRequired,
+            locale,
+        });
         try {
             // Checkout for donations (Stripe or Reduniq)
             const res = await fetch('/api/checkout', {
@@ -356,9 +394,23 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
             const { url } = await res.json();
             if (!url) throw new Error(isEn ? 'Server response error.' : "Erro de resposta do servidor.");
 
+            captureAnalyticsEvent('donation_payment_started', {
+                amount,
+                payment_provider: chosenProvider,
+                payment_method: selectedPaymentId,
+                receipt_requested: receiptRequired,
+                locale,
+            });
+
             window.location.href = url;
         } catch (err: unknown) {
             setError(getErrorMessage(err, isEn ? 'Could not start the donation.' : 'Não foi possível iniciar a doação.'));
+            captureAnalyticsEvent('donation_payment_failed', {
+                amount,
+                payment_provider: chosenProvider,
+                payment_method: selectedPaymentId,
+                locale,
+            });
             setLoading(false);
         }
     };

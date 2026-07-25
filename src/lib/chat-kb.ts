@@ -2,6 +2,10 @@ import fs from 'fs';
 import path from 'path';
 import { APP_URL } from './config';
 import { INTEREST_MARKER } from './chat-config';
+import {
+    formatFlightEstimate,
+    getCountryBasedFlightPolicy,
+} from './pilgrimage-flight-policy';
 
 let cachedKb: string | null = null;
 
@@ -49,6 +53,7 @@ type Pilgrimage = {
     itinerary_summary?: string | null;
     pricing_config?: {
         room_supplements?: Record<string, number | null | undefined>;
+        flight_registration_policy?: unknown;
     } | null;
 };
 type ItineraryItem = { day_number: number; title: string; description: string };
@@ -119,13 +124,18 @@ export function buildPilgrimageContext(
         : '(ver na página da peregrinação)';
     const singleSupplement = supplements.single ?? null;
 
+    const countryBasedFlightPolicy = getCountryBasedFlightPolicy(p);
     const hasGroupFlight = Boolean(p.flight_price_from || oneLine(p.group_flight_details));
-    const flightSummary = hasGroupFlight
-        ? `Há opção de voo de grupo/agência publicada. O valor do voo, quando indicado, é separado do terrestre${p.flight_price_from ? ` e tem valor de referência de ${money(p.flight_price_from)}` : ''}.`
-        : 'Não há opção de voo de grupo/agência publicada nesta peregrinação. O valor apresentado no site é terrestre e o voo/passagem aérea não está incluído.';
-    const ownFlightSummary = p.flight_info_text
-        ? oneLine(p.flight_info_text)
-        : 'A pessoa pode tratar do próprio voo e encontrar o grupo no ponto indicado pela organização, quando essa opção estiver disponível na página.';
+    const flightSummary = countryBasedFlightPolicy
+        ? `A regra é obrigatória por país de residência: Portugal e Brasil contratam o pacote completo diretamente com a agência indicada pelo Apostolado; todos os restantes países compram os próprios voos. O aéreo nunca é somado ao valor terrestre da inscrição. Estimativa Brasil: ${formatFlightEstimate(countryBasedFlightPolicy.estimates_eur.BR)}. Estimativa Portugal: ${formatFlightEstimate(countryBasedFlightPolicy.estimates_eur.PT)}.`
+        : hasGroupFlight
+            ? `Há opção de voo de grupo/agência publicada. O valor do voo, quando indicado, é separado do terrestre${p.flight_price_from ? ` e tem valor de referência de ${money(p.flight_price_from)}` : ''}.`
+            : 'Não há opção de voo de grupo/agência publicada nesta peregrinação. O valor apresentado no site é terrestre e o voo/passagem aérea não está incluído.';
+    const ownFlightSummary = countryBasedFlightPolicy
+        ? `Para residentes fora de Portugal e do Brasil: estar no ${countryBasedFlightPolicy.own_flight_schedule.rome_arrival.airport} até às ${countryBasedFlightPolicy.own_flight_schedule.rome_arrival.by} de 5 de abril de 2027; reservar Roma–Split para a tarde de 14 de abril; reservar Split–destino de regresso para a tarde de 17 de abril.`
+        : p.flight_info_text
+            ? oneLine(p.flight_info_text)
+            : 'A pessoa pode tratar do próprio voo e encontrar o grupo no ponto indicado pela organização, quando essa opção estiver disponível na página.';
 
     const cancellationSummary = p.cancellation_policy_text
         ? 'Cancelamento pessoal: os valores já entregues em doações, incluindo a taxa/primeira doação de inscrição, não são reembolsados. A alternativa indicada é encontrar outra pessoa que ocupe o lugar na mesma peregrinação, quando aceite pela organização. Recomendar seguro de viagem quando a pessoa demonstrar receio.'
@@ -199,7 +209,9 @@ VOOS / AÉREO:
 - Detalhes de voo de grupo/agência: ${p.group_flight_details || '(não publicado no contexto)'}
 - Valor de referência do voo de grupo/agência: ${p.flight_price_from ? money(p.flight_price_from) : 'não publicado no contexto'}
 - Se perguntarem nome/telefone da agência e não estiver nos detalhes acima, dizer que essa informação específica não está publicada e encaminhar para WhatsApp/email.
-- Quando houver voo organizado/agência publicado, recomendar essa opção com carinho: ajuda a pessoa a viajar acompanhada, chegar com outros peregrinos e, quando aplicável, voar com o sacerdote/diretor espiritual. Também ajuda a apoiar as despesas de voo do sacerdote. Fazer isto como convite, nunca como pressão.
+${countryBasedFlightPolicy
+    ? '- Nesta peregrinação a regra não é uma preferência: para residentes em Portugal/Brasil o pacote da agência é obrigatório; para todos os outros países, os voos próprios são obrigatórios. Não apresentar alternativas.'
+    : '- Quando houver voo organizado/agência publicado, recomendar essa opção com carinho: ajuda a pessoa a viajar acompanhada, chegar com outros peregrinos e, quando aplicável, voar com o sacerdote/diretor espiritual. Também ajuda a apoiar as despesas de voo do sacerdote. Fazer isto como convite, nunca como pressão.'}
 
 PLANO DE PAGAMENTO:
 ${p.payment_plan_text || '(ver condições gerais)'}

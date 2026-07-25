@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
-import { capturePublicPageView } from '../../lib/analytics';
+import { capturePublicPageView, syncAnalyticsScope } from '../../lib/analytics';
 import { COOKIE_CONSENT_CHANGED_EVENT } from '../../lib/cookie-consent';
 
 function PublicAnalyticsPageView() {
@@ -10,11 +10,13 @@ function PublicAnalyticsPageView() {
   const searchParams = useSearchParams();
 
   useEffect(() => {
+    syncAnalyticsScope(pathname || '/');
     capturePublicPageView(pathname || '/', searchParams?.toString() || '');
   }, [pathname, searchParams]);
 
   useEffect(() => {
     const captureAfterConsent = () => {
+      syncAnalyticsScope(pathname || '/');
       capturePublicPageView(pathname || '/', searchParams?.toString() || '');
     };
 

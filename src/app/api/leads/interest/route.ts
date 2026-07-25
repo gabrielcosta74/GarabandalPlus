@@ -3,6 +3,7 @@ import { supabaseServer } from '../../../../lib/supabase';
 import { inferRequestLocale } from '../../../../lib/locale-routing';
 import { checkRateLimit } from '../../../../lib/rate-limit';
 import { getPostHogClient } from '../../../../lib/posthog-server';
+import { analyticsSessionProperties, getServerAnalyticsContext } from '../../../../lib/analytics-consent-server';
 
 /**
  * Lightweight "Estou interessado em ir" capture (one-tap → WhatsApp flow).
@@ -44,6 +45,7 @@ export async function POST(req: Request) {
             source,
             locale: bodyLocale,
         } = body || {};
+        const analyticsContext = getServerAnalyticsContext(req, body?.analytics);
 
         const locale = bodyLocale === 'en' ? 'en' : inferRequestLocale(req);
         const dedupeKey = String(sessionId || anonId || '').trim() || `anon-${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -105,18 +107,20 @@ export async function POST(req: Request) {
         }
 
         try {
-            const posthog = getPostHogClient();
-            posthog?.capture({
-                distinctId: safeEmail,
-                event: 'pilgrimage_interest',
-                properties: {
-                    lead_id: leadId,
-                    pilgrimage_id: pilgrimageId || null,
-                    source: leadData.source,
-                    locale,
-                    is_new: !existing,
-                },
-            });
+            if (analyticsContext) {
+                const posthog = getPostHogClient();
+                posthog?.capture({
+                    distinctId: analyticsContext.distinctId,
+                    event: 'pilgrimage_interest',
+                    properties: {
+                        ...analyticsSessionProperties(analyticsContext),
+                        pilgrimage_id: pilgrimageId || null,
+                        source: leadData.source,
+                        locale,
+                        is_new: !existing,
+                    },
+                });
+            }
         } catch (phErr) {
             console.warn('[API] PostHog interest capture failed:', phErr);
         }

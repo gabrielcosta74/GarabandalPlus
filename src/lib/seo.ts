@@ -29,7 +29,14 @@ export const getPilgrimageSeoImages = (coverImage?: string | null) =>
   );
 
 export const truncateMetaDescription = (value: string | null | undefined, fallback: string, max = 155) => {
-  const text = String(value || fallback).replace(/\s+/g, ' ').trim();
+  const text = String(value || fallback)
+    .replace(/<\/(p|div|h[1-6]|li|blockquote)>/gi, ' ')
+    .replace(/<br\s*\/?>/gi, ' ')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/\s+/g, ' ')
+    .trim();
   if (text.length <= max) return text;
   return `${text.slice(0, max - 1).replace(/\s+\S*$/, '')}…`;
 };

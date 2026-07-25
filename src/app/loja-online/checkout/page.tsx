@@ -22,7 +22,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Check, ChevronRight, CreditCard, User, ShoppingBag, MapPin, ArrowLeft, ShieldCheck, Loader2, QrCode, Wallet } from 'lucide-react';
 import { useLocale } from '../../../contexts/LocaleContext';
 import { getStoreHomePath } from '../../../lib/store-i18n';
-import { captureStoreEvent } from '../../../lib/analytics';
+import { captureStoreEvent, getAnalyticsRequestContext } from '../../../lib/analytics';
 import { applyStoreBookPromo } from '../../../lib/store-promo';
 
 const getVatRate = (product: Product) => (product.isPhysical ? 0.06 : 0.23);
@@ -587,6 +587,7 @@ export default function CheckoutPage() {
           buyer,
           shipping: hasPhysical ? shipping : null,
           billing: billingSameAsShipping ? { ...shipping, address1: `${shipping.address1} ${shipping.doorNumber}`.trim() } : billing,
+          analytics: getAnalyticsRequestContext(),
         }),
       });
       if (!res.ok) {
@@ -598,7 +599,6 @@ export default function CheckoutPage() {
       captureStoreEvent('store_payment_started', {
         ...checkoutAnalyticsBase,
         payment_provider: totalToPay === 0 ? 'wallet' : selectedPayment.provider,
-        order_ref: orderRef || null,
       });
       window.location.href = url;
     } catch (err: any) {
