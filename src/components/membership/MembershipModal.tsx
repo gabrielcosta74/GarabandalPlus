@@ -325,6 +325,39 @@ export default function MembershipModal({ isOpen, onClose, impact, referralCode 
         return null;
     };
 
+    // Traduz erros técnicos do Supabase para mensagens PT/EN claras.
+    // Mensagens que já lançamos nós (ex.: emailAlreadyRegistered) passam intactas.
+    const friendlyAuthError = (err: unknown): string => {
+        if (!(err instanceof Error)) return m.step1.errorGeneric;
+        const status = (err as { status?: number }).status;
+        const code = String((err as { code?: string }).code || '').toLowerCase();
+        const raw = err.message || '';
+        const msg = raw.toLowerCase();
+
+        // Demasiadas tentativas / limite de envio de email.
+        if (status === 429 || code.startsWith('over_') || msg.includes('rate limit') || msg.includes('too many')) {
+            return m.step1.errorRateLimited;
+        }
+        // Email com formato inválido.
+        if (code === 'email_address_invalid' || (msg.includes('email') && msg.includes('invalid') && !msg.includes('credential'))) {
+            return m.step1.errorInvalidEmail;
+        }
+        // Credenciais erradas no login.
+        if (code === 'invalid_credentials' || msg.includes('invalid login credentials')) {
+            return m.step1.errorInvalidCredentials;
+        }
+        // Falha ao enviar o email de confirmação (SMTP / endereço suprimido ou com bounce).
+        if (msg.includes('confirmation email') || msg.includes('error sending') || (msg.includes('sending') && msg.includes('email'))) {
+            return m.step1.errorEmailSend;
+        }
+        // Falha de rede.
+        if (msg.includes('failed to fetch') || msg.includes('network') || msg.includes('load failed')) {
+            return m.step1.errorNetwork;
+        }
+        // Já é uma das nossas mensagens amigáveis (ou algo inesperado) — mostra tal como está.
+        return raw || m.step1.errorGeneric;
+    };
+
     const handleAuth = async () => {
         if (sessionUserId) {
             setStep(2);
@@ -408,7 +441,7 @@ export default function MembershipModal({ isOpen, onClose, impact, referralCode 
             }
         } catch (err) {
             trackMembershipEvent('membership_auth_failed', { selected_auth_mode: authMode });
-            setError(err instanceof Error ? err.message : m.step1.errorGeneric);
+            setError(friendlyAuthError(err));
         } finally {
             setAuthLoading(false);
         }
@@ -437,7 +470,7 @@ export default function MembershipModal({ isOpen, onClose, impact, referralCode 
             if (err?.status === 429 || message.toLowerCase().includes('only request')) {
                 setError(m.step1.resendRateLimited);
             } else {
-                setError(message || m.step1.errorGeneric);
+                setError(friendlyAuthError(err));
             }
         } finally {
             setResendLoading(false);
