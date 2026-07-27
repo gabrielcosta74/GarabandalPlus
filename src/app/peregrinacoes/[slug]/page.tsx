@@ -16,7 +16,8 @@ import {
     ArrowRight,
     Star,
     AlertTriangle,
-    Eye
+    Eye,
+    Flame
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { enUS, pt } from 'date-fns/locale';
@@ -96,6 +97,8 @@ type Pilgrimage = {
         };
         flight_registration_policy?: CountryBasedFlightPolicy | null;
         installment_deadline?: string | null;
+        /** Optional per-pilgrimage override for the vacancy-ring fill %. Defaults to 50. */
+        scarcity_fill_pct?: number;
     };
     // New fields for upgrade
     meeting_point_text?: string;
@@ -406,6 +409,10 @@ export default function PilgrimageDetailPage() {
             ? Math.max(0, Number(pilgrimage.current_vacancies))
             : Math.max(0, pilgrimage.total_vacancies - confirmedPax);
     const isWaitlist = pilgrimage.status === 'waitlist' || remainingSpots <= 0;
+    // Fixed marketing scarcity figure (default 50%), overridable per pilgrimage.
+    const scarcityPct = typeof pilgrimage.pricing_config?.scarcity_fill_pct === 'number'
+        ? pilgrimage.pricing_config.scarcity_fill_pct
+        : 50;
     const includedItemsToShow =
         isEn && (pilgrimage.included_items_en?.length || 0) > 0
             ? (pilgrimage.included_items_en || [])
@@ -507,11 +514,21 @@ export default function PilgrimageDetailPage() {
                         >
                             <ArrowLeft className="w-4 h-4" /> {isAdminPreview ? 'Voltar ao editor' : (isEn ? 'Back to list' : 'Voltar à lista')}
                         </Link>
-                        <div className="mb-4 flex w-fit items-center gap-2 rounded-full bg-yellow-300 px-3 py-1.5 text-xs font-black uppercase tracking-widest text-slate-950 shadow-lg">
+                        <div className="mb-2.5 flex w-fit items-center gap-2 rounded-full bg-yellow-300 px-3 py-1.5 text-xs font-black uppercase tracking-widest text-slate-950 shadow-lg">
                             <Plane className="w-4 h-4" />
                             <Star className="w-3.5 h-3.5 fill-slate-950" />
                             {isEn ? 'Official Pilgrimage' : 'Peregrinação Oficial'}
                         </div>
+                        {!isClosed && !isWaitlist && remainingSpots > 6 && (
+                            <div className="mb-4 flex w-fit items-center gap-2 rounded-full border border-red-400/40 bg-red-600/95 px-3 py-1.5 text-xs font-black uppercase tracking-wide text-white shadow-lg shadow-red-950/30 backdrop-blur-sm">
+                                <span className="relative flex h-2 w-2" aria-hidden>
+                                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-300 opacity-75" />
+                                    <span className="relative inline-flex h-2 w-2 rounded-full bg-red-200" />
+                                </span>
+                                <Flame className="h-3.5 w-3.5" strokeWidth={2.5} />
+                                {isEn ? `${scarcityPct}% of spots already gone` : `${scarcityPct}% das vagas já esgotaram`}
+                            </div>
+                        )}
                         <div className="max-w-4xl rounded-3xl border border-white/10 bg-slate-950/30 p-4 shadow-2xl backdrop-blur-sm md:bg-transparent md:p-0 md:shadow-none md:backdrop-blur-0 md:border-0">
                             <h1 className="text-3xl sm:text-4xl md:text-6xl font-serif font-bold text-white mb-4 leading-tight drop-shadow-xl">
                                 {pilgrimageTitle}

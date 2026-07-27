@@ -4,17 +4,14 @@ import { useEffect, useState } from 'react';
 import VIPLayout from '../../components/member/VIPLayout';
 import Link from 'next/link';
 import { supabaseBrowser } from '../../lib/supabase-browser';
-import { MapPin, Calendar, Users, ShieldCheck, Heart, ArrowRight, AlertTriangle } from 'lucide-react';
+import { MapPin, Calendar, Users, ShieldCheck, Heart, ArrowRight, Flame } from 'lucide-react';
 import { PilgrimageHero } from '../../components/pilgrimage/PilgrimageHero';
 import { useLocale } from '../../contexts/LocaleContext';
 import { PilgrimageCard } from '../../components/pilgrimage/PilgrimageCard';
 import { PastPilgrimagesGallery } from '../../components/pilgrimage/PastPilgrimagesGallery';
 import { PilgrimageTestimonials } from '../../components/pilgrimage/PilgrimageTestimonials';
 import { getPilgrimagesAction } from './actions';
-import { getCivilDateTimestamp, getAvailabilityHighlightLabel, isNovemberCampaignPilgrimage, isPubliclyListedPilgrimage, todayCivilTimestamp } from '../../lib/utils';
-import { buildInterestWhatsAppLink } from '../../lib/chat-config';
-import { captureInterest } from '../../lib/interest-capture';
-import { WhatsAppIcon } from '../../components/icons/WhatsAppIcon';
+import { getCivilDateTimestamp, getScarcitySoldLabel, getScarcitySoldPercent, isNovemberCampaignPilgrimage, isPubliclyListedPilgrimage, todayCivilTimestamp } from '../../lib/utils';
 
 type Pilgrimage = {
     id: string;
@@ -36,6 +33,7 @@ type Pilgrimage = {
     payment_plan_text?: string;
     cancellation_policy_text?: string;
     not_included_items?: string[];
+    pricing_config?: { scarcity_fill_pct?: number; early_access?: unknown } | null;
 };
 
 export default function PilgrimagesPage() {
@@ -124,22 +122,24 @@ export default function PilgrimagesPage() {
         const bDate = getCivilDateTimestamp(b.start_date);
         return (Number.isFinite(aDate) ? aDate : 0) - (Number.isFinite(bDate) ? bDate : 0);
     });
-    const novemberPilgrimage = sortedPilgrimages.find((pilgrimage) => isNovemberCampaignPilgrimage(pilgrimage) && isBookable(pilgrimage))
-        || sortedPilgrimages.find(isNovemberCampaignPilgrimage);
-    const nextPilgrimageWithVacancies = novemberPilgrimage
+    const isItalyPilgrimage = (pilgrimage: Pilgrimage) =>
+        /it[áa]lia|medjugorje/i.test(`${pilgrimage.slug || ''} ${pilgrimage.title || ''}`);
+    const italyPilgrimage = sortedPilgrimages.find((pilgrimage) => isItalyPilgrimage(pilgrimage) && isBookable(pilgrimage))
+        || sortedPilgrimages.find(isItalyPilgrimage);
+    const nextPilgrimageWithVacancies = italyPilgrimage
         || sortedPilgrimages.find(isBookable)
         || visiblePilgrimages.find((pilgrimage) => getRemainingSpots(pilgrimage) > 0)
         || visiblePilgrimages[0];
     const basePilgrimagePath = locale === 'en' ? '/en/pilgrimages' : '/peregrinacoes';
     const donationsPath = locale === 'en' ? '/en/donations' : '/donations';
-    const novemberHref = novemberPilgrimage ? `${basePilgrimagePath}/${novemberPilgrimage.slug}` : basePilgrimagePath;
-    const novemberSoldOut = novemberPilgrimage ? getRemainingSpots(novemberPilgrimage) <= 0 : false;
+    const italyHref = italyPilgrimage ? `${basePilgrimagePath}/${italyPilgrimage.slug}` : basePilgrimagePath;
+    const italyScarcityPct = getScarcitySoldPercent(italyPilgrimage);
 
     return (
         <VIPLayout allowPublic={true}>
             <div className="bg-[#f8fafc] min-h-screen pb-12 shadow-sm overflow-hidden relative -mx-4 -mt-24 md:-mx-8 -mb-12">
 
-                <PilgrimageHero featuredPilgrimage={nextPilgrimageWithVacancies} />
+                <PilgrimageHero featuredPilgrimage={italyPilgrimage || nextPilgrimageWithVacancies} />
 
                 <div className="relative z-10 max-w-6xl mx-auto px-4 md:px-8 lg:px-12">
                     {/* Testimonials Section - Strategic Position: Social Proof before Product */}
@@ -152,91 +152,55 @@ export default function PilgrimagesPage() {
                         <PastPilgrimagesGallery />
                     </div>
 
-                    {novemberPilgrimage && (
-                        <section className="mb-10 md:mb-14 overflow-hidden rounded-3xl border border-yellow-200/80 bg-white shadow-[0_18px_60px_-32px_rgba(15,23,42,0.35)]">
+                    {italyPilgrimage && (
+                        <section className="mb-10 md:mb-14 overflow-hidden rounded-3xl border border-red-200/80 bg-white shadow-[0_18px_60px_-32px_rgba(15,23,42,0.35)]">
                             <div className="grid gap-0 md:grid-cols-[1fr,0.72fr]">
                                 <div className="p-6 md:p-10">
-                                    <div className={`mb-4 inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-black uppercase tracking-widest text-white shadow-lg ${novemberSoldOut ? 'bg-slate-700 shadow-slate-900/20 ring-2 ring-slate-200' : 'bg-red-600 shadow-red-900/20 ring-2 ring-red-100'}`}>
-                                        {!novemberSoldOut && <AlertTriangle className="h-4 w-4" />}
-                                        {novemberSoldOut
-                                            ? (locale === 'en' ? 'Waiting list' : 'Lista de espera')
-                                            : getAvailabilityHighlightLabel(getRemainingSpots(novemberPilgrimage), locale, novemberPilgrimage)}
+                                    <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-red-600 px-4 py-2 text-xs font-black uppercase tracking-widest text-white shadow-lg shadow-red-900/20 ring-2 ring-red-100">
+                                        <Flame className="h-4 w-4" strokeWidth={2.5} />
+                                        {getScarcitySoldLabel(italyScarcityPct, locale === 'en' ? 'en' : 'pt')}
                                     </div>
                                     <h2 className="font-serif text-3xl font-bold leading-tight text-slate-950 md:text-4xl">
-                                        {novemberSoldOut
-                                            ? (locale === 'en' ? 'The November pilgrimage is full — but there may be a chance of more spots opening.' : 'A peregrinação de novembro está esgotada — mas poderá haver chance de abrirem mais lugares disponíveis.')
-                                            : (locale === 'en'
-                                                ? `The available date is November — only ${getRemainingSpots(novemberPilgrimage)} spots left.`
-                                                : `A data disponível é novembro — restam apenas ${getRemainingSpots(novemberPilgrimage)} vagas.`)}
+                                        {locale === 'en'
+                                            ? `Italy & Medjugorje — ${italyScarcityPct}% of the spots are already gone.`
+                                            : `Itália e Medjugorje — ${italyScarcityPct}% das vagas já esgotaram.`}
                                     </h2>
                                     <p className="mt-4 max-w-2xl text-base leading-relaxed text-slate-600 md:text-lg">
                                         {locale === 'en'
-                                            ? 'First see the full programme, flights, price and spiritual rhythm. Each pilgrimage also supports the House of the Apostolate and the mission of spreading Garabandal.'
+                                            ? 'See the full programme, flights, price and spiritual rhythm first. Each pilgrimage also supports the House of the Apostolate and the mission of spreading Garabandal.'
                                             : 'Veja primeiro o programa completo, voos, preço e ritmo espiritual. Cada peregrinação ajuda também a erguer a Casa do Apostolado e a missão de dar a conhecer Garabandal.'}
                                     </p>
-                                    {novemberSoldOut && (
-                                        <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50/70 p-4">
-                                            <p className="text-sm font-bold text-amber-900">
-                                                {locale === 'en' ? 'Only a limited number will be selected to go.' : 'Só um número limitado de pessoas será selecionado para ir.'}
-                                            </p>
-                                            <p className="mt-1 text-xs leading-relaxed text-amber-800/90">
-                                                {locale === 'en'
-                                                    ? 'Show your interest now and talk to the Apostolate on WhatsApp — the sooner you do, the greater your chance of being considered.'
-                                                    : 'Mostre já o seu interesse e fale com o Apostolado no WhatsApp — quanto antes o fizer, maior a possibilidade de ser considerado(a).'}
-                                            </p>
-                                        </div>
-                                    )}
                                     <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-                                        {novemberSoldOut && novemberPilgrimage && (
-                                            <a
-                                                href={buildInterestWhatsAppLink(novemberPilgrimage.title, locale === 'en')}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                onClick={() => captureInterest({
-                                                    source: 'pilgrimage_page_interest',
-                                                    pilgrimageId: novemberPilgrimage.id,
-                                                    pilgrimageTitle: novemberPilgrimage.title,
-                                                    locale: locale === 'en' ? 'en' : 'pt',
-                                                })}
-                                                className="inline-flex min-h-14 items-center justify-center gap-2 rounded-2xl bg-[#25D366] px-6 py-4 text-sm font-black uppercase tracking-wide text-white shadow-lg shadow-emerald-700/20 transition-colors hover:bg-[#1fb858]"
-                                            >
-                                                <WhatsAppIcon className="h-5 w-5" />
-                                                {locale === 'en' ? "I'm really interested" : 'Estou mesmo interessado'}
-                                            </a>
-                                        )}
                                         <Link
-                                            href={novemberHref}
-                                            className={`inline-flex min-h-14 items-center justify-center gap-2 rounded-2xl px-6 py-4 text-sm font-black uppercase tracking-wide transition-colors ${novemberSoldOut ? 'border border-slate-200 bg-white text-slate-800 hover:bg-slate-50' : 'bg-yellow-400 text-slate-950 shadow-lg shadow-yellow-700/20 ring-1 ring-yellow-200 hover:bg-yellow-300'}`}
+                                            href={italyHref}
+                                            className="inline-flex min-h-14 items-center justify-center gap-2 rounded-2xl bg-yellow-400 px-6 py-4 text-sm font-black uppercase tracking-wide text-slate-950 shadow-lg shadow-yellow-700/20 ring-1 ring-yellow-200 transition-colors hover:bg-yellow-300"
                                         >
-                                            {locale === 'en' ? 'View November pilgrimage' : 'Ver peregrinação de novembro'}
+                                            {locale === 'en' ? 'View Italy & Medjugorje pilgrimage' : 'Ver peregrinação a Itália e Medjugorje'}
                                             <ArrowRight className="h-4 w-4" />
                                         </Link>
-                                        {!novemberSoldOut && (
-                                            <Link
-                                                href={donationsPath}
-                                                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-6 py-4 text-sm font-bold text-slate-800 transition-colors hover:bg-slate-50"
-                                            >
-                                                <Heart className="h-4 w-4 text-red-500" />
-                                                {locale === 'en' ? 'Know the mission' : 'Conhecer a missão'}
-                                            </Link>
-                                        )}
+                                        <Link
+                                            href={donationsPath}
+                                            className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-6 py-4 text-sm font-bold text-slate-800 transition-colors hover:bg-slate-50"
+                                        >
+                                            <Heart className="h-4 w-4 text-red-500" />
+                                            {locale === 'en' ? 'Know the mission' : 'Conhecer a missão'}
+                                        </Link>
                                     </div>
                                 </div>
-                                <div className="border-t border-yellow-100 bg-yellow-50/80 p-6 md:border-l md:border-t-0 md:p-8">
+                                <div className="border-t border-red-100 bg-red-50/70 p-6 md:border-l md:border-t-0 md:p-8">
                                     <div className="space-y-5">
                                         <div>
-                                            <p className="text-xs font-black uppercase tracking-widest text-yellow-800">{locale === 'en' ? 'Why now' : 'Porque agora'}</p>
+                                            <p className="text-xs font-black uppercase tracking-widest text-red-700">{locale === 'en' ? 'Why now' : 'Porque agora'}</p>
                                             <p className="mt-2 text-sm leading-relaxed text-slate-700 md:text-base">
-                                                {novemberSoldOut
-                                                    ? (locale === 'en' ? 'This departure has reached capacity, but with the huge demand there may be a chance of more spots opening. Register your interest and we will contact you if a place opens or a new date is confirmed.' : 'Esta partida atingiu a lotação, mas com a enorme procura poderá haver chance de abrirem mais lugares disponíveis. Registe já o seu interesse e contactamos se abrir uma vaga ou for confirmada uma nova data.')
-                                                    : (locale === 'en' ? 'Other departures have already reached capacity or waitlist. This is the date to discern calmly before registration.' : 'As outras partidas já chegaram a esgotado ou lista de espera. Esta é a data para discernir com calma antes da inscrição.')}
+                                                {locale === 'en'
+                                                    ? 'Half the spots for this departure are already gone. This is the moment to discern calmly and secure your place before it fills up.'
+                                                    : 'Metade das vagas desta partida já esgotaram. Este é o momento para discernir com calma e garantir o seu lugar antes de encher.'}
                                             </p>
                                         </div>
                                         <div>
-                                            <p className="text-xs font-black uppercase tracking-widest text-yellow-800">{locale === 'en' ? 'Availability' : 'Disponibilidade'}</p>
-                                            <p className="mt-2 text-lg font-black text-slate-950">{novemberSoldOut
-                                                ? (locale === 'en' ? 'Waiting list' : 'Lista de espera')
-                                                : getAvailabilityHighlightLabel(getRemainingSpots(novemberPilgrimage), locale, novemberPilgrimage)}</p>
+                                            <p className="text-xs font-black uppercase tracking-widest text-red-700">{locale === 'en' ? 'Availability' : 'Disponibilidade'}</p>
+                                            <p className="mt-2 text-lg font-black text-slate-950">{locale === 'en' ? 'Limited spots' : 'Vagas limitadas'}</p>
+                                            <p className="mt-1 text-sm font-bold text-red-600">{getScarcitySoldLabel(italyScarcityPct, locale === 'en' ? 'en' : 'pt')}</p>
                                         </div>
                                     </div>
                                 </div>

@@ -3,11 +3,11 @@
 import { motion } from "framer-motion";
 import Link from 'next/link';
 import Image from 'next/image';
-import { AlertTriangle, Calendar, Users, ChevronRight, Clock } from 'lucide-react';
+import { AlertTriangle, Calendar, Users, ChevronRight, Clock, Flame } from 'lucide-react';
 import { format } from 'date-fns';
 import { pt as ptLocale, enUS } from 'date-fns/locale';
 import { useCurrency } from "../providers/CurrencyProvider";
-import { getAvailabilityHighlightLabel, isNovemberCampaignPilgrimage, parseCivilDate } from '../../lib/utils';
+import { getAvailabilityHighlightLabel, getScarcitySoldLabel, getScarcitySoldPercent, isNovemberCampaignPilgrimage, parseCivilDate } from '../../lib/utils';
 import { useLocale } from '../../contexts/LocaleContext';
 import { richTextToPlain } from '../../lib/rich-text';
 
@@ -183,6 +183,12 @@ export function PilgrimageCard({ pilgrimage, index }: PilgrimageCardProps) {
                                     <Users className="w-4 h-4" />
                                     {isClosed ? p.card.soldOut : isWaitlist ? p.card.waitlist : getAvailabilityHighlightLabel(remainingSpots, locale, pilgrimage)}
                                 </div>
+                                {!isClosed && !isWaitlist && (
+                                    <span className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-red-200 bg-red-50 px-2.5 py-1 text-[11px] font-black uppercase tracking-wide text-red-600">
+                                        <Flame className="h-3 w-3" strokeWidth={2.5} />
+                                        {getScarcitySoldLabel(getScarcitySoldPercent(pilgrimage), locale)}
+                                    </span>
+                                )}
                             </div>
 
                             {/* Dynamic Action Button */}

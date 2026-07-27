@@ -53,20 +53,25 @@ export const serializeCivilDateForStorage = (value?: string | null) => {
 export const todayCivilTimestamp = (now: Date = new Date()) =>
     new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12, 0, 0, 0).getTime();
 
-// Mostra sempre o número real de vagas (pedido do operador, 2026-07-09):
-// urgência honesta em vez de "lugares limitados" genérico.
-export const getPublicAvailabilityLabel = (remainingSpots: number, locale: 'pt' | 'en' = 'pt') => {
-    if (!Number.isFinite(remainingSpots) || remainingSpots <= 0) {
-        return locale === 'en' ? 'Limited spots' : 'Lugares limitados';
-    }
-    if (remainingSpots === 1) {
-        return locale === 'en' ? 'Only 1 spot left' : 'Resta apenas 1 vaga';
-    }
-    if (remainingSpots <= 9) {
-        return locale === 'en' ? `Only ${remainingSpots} spots left` : `Restam apenas ${remainingSpots} vagas`;
-    }
-    return locale === 'en' ? `${remainingSpots} spots available` : `${remainingSpots} vagas disponíveis`;
+// Nunca revela o número exato de vagas nas listagens públicas (pedido do
+// operador, 2026-07-27): apenas "Vagas limitadas". A escassez concreta ("X% já
+// esgotaram") é comunicada à parte por uma pill de marketing.
+export const getPublicAvailabilityLabel = (_remainingSpots: number, locale: 'pt' | 'en' = 'pt') => {
+    return locale === 'en' ? 'Limited spots' : 'Vagas limitadas';
 };
+
+// Percentagem fixa de escassez de marketing (default 50%), afinável por
+// peregrinação via pricing_config.scarcity_fill_pct.
+export const getScarcitySoldPercent = (
+    pilgrimage?: { pricing_config?: { scarcity_fill_pct?: unknown } | null } | null,
+): number => {
+    const raw = pilgrimage?.pricing_config?.scarcity_fill_pct;
+    const pct = typeof raw === 'number' && Number.isFinite(raw) ? raw : 50;
+    return Math.min(100, Math.max(0, Math.round(pct)));
+};
+
+export const getScarcitySoldLabel = (pct: number, locale: 'pt' | 'en' = 'pt') =>
+    locale === 'en' ? `${pct}% of spots already gone` : `${pct}% das vagas já esgotaram`;
 
 type CampaignPilgrimage = {
     slug?: string | null;

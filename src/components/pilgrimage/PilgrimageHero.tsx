@@ -1,14 +1,14 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowRight, Star, Heart, Calendar, AlertTriangle, User } from "lucide-react";
+import { ArrowRight, Star, Heart, Calendar, AlertTriangle, User, Flame } from "lucide-react";
 import { useEffect, useState } from "react";
 import Link from 'next/link';
 import Image from 'next/image';
 import { format } from 'date-fns';
 import { enUS, pt } from 'date-fns/locale';
 import { useLocale } from '../../contexts/LocaleContext';
-import { parseCivilDate } from '../../lib/utils';
+import { getScarcitySoldLabel, getScarcitySoldPercent, parseCivilDate } from '../../lib/utils';
 import { supabaseBrowser } from '../../lib/supabase-browser';
 
 interface FeaturedPilgrimage {
@@ -25,6 +25,7 @@ interface FeaturedPilgrimage {
     current_vacancies?: number;
     confirmed_pax: number;
     effective_vacancies: number;
+    pricing_config?: { scarcity_fill_pct?: number } | null;
 }
 
 const HERO_IMAGES = [
@@ -219,12 +220,12 @@ export function PilgrimageHero({ featuredPilgrimage }: { featuredPilgrimage?: Fe
                                                 </div>
                                             ) : (
                                                 <div className="flex flex-wrap items-center gap-2">
-                                                    <span className="rounded-full bg-yellow-300 px-3 py-1.5 text-[11px] font-black uppercase tracking-widest text-slate-950 shadow-sm">
-                                                        {isEn ? 'November still available' : 'Novembro ainda disponível'}
+                                                    <span className="inline-flex items-center gap-1.5 rounded-full bg-yellow-300 px-3 py-1.5 text-[11px] font-black uppercase tracking-widest text-slate-950 shadow-sm">
+                                                        {isEn ? 'Limited spots' : 'Vagas limitadas'}
                                                     </span>
                                                     <span className="inline-flex items-center gap-1.5 rounded-full bg-red-600 px-3 py-1.5 text-[11px] font-black uppercase tracking-widest text-white shadow-lg shadow-red-950/30 ring-2 ring-white/80">
-                                                        <AlertTriangle className="h-3.5 w-3.5" />
-                                                        {isEn ? 'Limited spots, filling fast' : 'Vagas limitadas, esgotam rápido'}
+                                                        <Flame className="h-3.5 w-3.5" strokeWidth={2.5} />
+                                                        {getScarcitySoldLabel(getScarcitySoldPercent(featuredPilgrimage), locale)}
                                                     </span>
                                                 </div>
                                             )

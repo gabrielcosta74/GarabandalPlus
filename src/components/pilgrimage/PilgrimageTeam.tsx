@@ -50,10 +50,10 @@ function MemberCard({ member, isEn }: { member: TeamMember; isEn: boolean }) {
     }, [bio, expanded]);
 
     return (
-        <figure className="group flex flex-col">
-            {/* Portrait */}
+        <figure className="group flex flex-row gap-4 sm:flex-col sm:gap-0">
+            {/* Portrait — compact thumbnail on mobile, full-width card on sm+ */}
             <div
-                className={`relative aspect-[4/5] w-full overflow-hidden rounded-3xl bg-slate-100 shadow-sm transition-all duration-500 group-hover:shadow-xl ${member.is_special_guest ? 'ring-2 ring-yellow-300' : 'ring-1 ring-slate-200/70'
+                className={`relative aspect-[4/5] w-24 shrink-0 overflow-hidden rounded-2xl bg-slate-100 shadow-sm transition-all duration-500 group-hover:shadow-xl sm:w-full sm:rounded-3xl ${member.is_special_guest ? 'ring-2 ring-yellow-300' : 'ring-1 ring-slate-200/70'
                     }`}
             >
                 {member.image_url ? (
@@ -70,14 +70,14 @@ function MemberCard({ member, isEn }: { member: TeamMember; isEn: boolean }) {
                 )}
 
                 {member.is_special_guest && (
-                    <span className="absolute left-3 top-3 rounded-full bg-yellow-400/95 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-yellow-950 shadow-sm backdrop-blur-sm">
+                    <span className="absolute left-1.5 top-1.5 rounded-full bg-yellow-400/95 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-yellow-950 shadow-sm backdrop-blur-sm sm:left-3 sm:top-3 sm:px-3 sm:py-1 sm:text-[10px] sm:tracking-widest">
                         {isEn ? 'Guest' : 'Convidado'}
                     </span>
                 )}
             </div>
 
             {/* Caption */}
-            <figcaption className="pt-4">
+            <figcaption className="min-w-0 flex-1 pt-0 sm:pt-4">
                 <h3 className="font-serif text-lg font-bold leading-tight text-slate-900">{member.name}</h3>
                 <p className="mt-1 flex items-center gap-2 text-sm font-semibold text-yellow-700">
                     <span>{role}</span>
