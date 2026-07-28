@@ -62,9 +62,12 @@ function checkRateLimit(ip: string): boolean {
     return true;
 }
 
+// The language the PERSON writes in wins over the locale of the page they are on.
+// A Brazilian browsing the PT page writes Portuguese anyway, but an English speaker
+// on the PT page used to get Portuguese replies because `locale` short-circuited
+// this function before any text was inspected.
 function detectChatLanguage(messages: ChatMessage[], requestedLocale?: unknown): ChatLanguage {
-    if (requestedLocale === 'en') return 'en';
-    if (requestedLocale === 'pt') return 'pt';
+    const localeFallback: ChatLanguage = requestedLocale === 'en' ? 'en' : 'pt';
 
     const latestUserMessages = messages
         .filter((m) => m.role === 'user')
@@ -73,14 +76,76 @@ function detectChatLanguage(messages: ChatMessage[], requestedLocale?: unknown):
         .join('\n')
         .toLowerCase();
 
-    if (!latestUserMessages) return 'pt';
+    if (!latestUserMessages) return localeFallback;
 
     const explicitEnglish = /\b(in english|english please|speak english|reply in english)\b/i.test(latestUserMessages);
+    const explicitPortuguese = /\b(em portugu[eê]s|portuguese please|responde em portugu[eê]s)\b/i.test(latestUserMessages);
     const englishSignals = /\b(hello|hi|thank you|thanks|please|price|cost|waiting list|waitlist|flight|included|register|registration|documents|cancel|how much|how many|where|when|what if|do you know|can i|i want|interested)\b/i.test(latestUserMessages);
-    const portugueseSignals = /\b(ol[aá]|obrigad|pre[cç]o|valor|custa|voo|a[eé]reo|inscri|documentos|cancelar|quanto|quero|tenho interesse|lista de espera|parcel|presta[cç][oõ]es)\b/i.test(latestUserMessages);
+    const portugueseSignals = /\b(ol[aá]|obrigad|pre[cç]o|valor|custa|voo|a[eé]reo|inscri|documentos|cancelar|quanto|quero|tenho interesse|lista de espera|parcel|presta[cç][oõ]es|bom dia|boa tarde|vagas)\b/i.test(latestUserMessages);
 
-    if (explicitEnglish || (englishSignals && !portugueseSignals)) return 'en';
-    return 'pt';
+    if (explicitPortuguese) return 'pt';
+    if (explicitEnglish) return 'en';
+    if (englishSignals && !portugueseSignals) return 'en';
+    if (portugueseSignals && !englishSignals) return 'pt';
+    return localeFallback;
+}
+
+// Someone typing a phone number or an email into the chat is asking to be called
+// back, not asking a question. Those contacts used to die inside chat_conversations.
+const EMAIL_RE = /[\w.+-]+@[\w-]+\.[\w.]{2,}/;
+const PHONE_RE = /(?:\+?\d[\d\s().-]{7,}\d)/;
+
+function extractContactDetails(text: string): { email?: string; phone?: string } {
+    const email = text.match(EMAIL_RE)?.[0];
+    const phoneRaw = text.match(PHONE_RE)?.[0];
+    // Reject matches that are really dates/prices/years rather than a number to call.
+    const phone = phoneRaw && phoneRaw.replace(/\D/g, '').length >= 9 ? phoneRaw.trim() : undefined;
+    return { email, phone };
+}
+
+async function captureChatContact(
+    sessionId: string | undefined,
+    pilgrimageId: string | undefined,
+    pilgrimageSlug: string | undefined,
+    pilgrimageTitle: string | undefined,
+    contact: { email?: string; phone?: string },
+    lastUserMessage: string
+) {
+    try {
+        const db = getSupabaseAdmin();
+        if (!db) return;
+
+        // booking_leads.email is NOT NULL, so a phone-only lead gets a placeholder
+        // that still surfaces the number in admin lists.
+        const digits = (contact.phone || '').replace(/\D/g, '');
+        const email = contact.email || (digits ? `whatsapp-${digits}@chat-lead.local` : null);
+        if (!email) return;
+
+        // One lead per session, so a person repeating their number doesn't duplicate.
+        const { data: existing } = await db
+            .from('booking_leads')
+            .select('id')
+            .eq('email', email)
+            .eq('status', 'chat_lead')
+            .maybeSingle();
+        if (existing?.id) return;
+
+        await db.from('booking_leads').insert({
+            email,
+            phone: contact.phone || null,
+            status: 'chat_lead',
+            pilgrimage_id: pilgrimageId || null,
+            data: {
+                source: 'chat_widget',
+                sessionId,
+                pilgrimageSlug,
+                pilgrimageTitle,
+                message: lastUserMessage.slice(0, 500),
+            },
+        });
+    } catch (e) {
+        console.error('[chat] Failed to capture contact:', e);
+    }
 }
 
 // --- Supabase client (service role for saving conversations) ---
@@ -138,7 +203,7 @@ async function fetchPilgrimageContext(slug?: string) {
 
     const client = createClient(url, anon, { auth: { persistSession: false } });
     const today = new Date().toISOString().slice(0, 10);
-    const [{ data: pilgrimage }, { data: relatedData }] = await Promise.all([
+    const [{ data: pilgrimage }, { data: relatedData }, { data: occupancy }] = await Promise.all([
         client
         .from('pilgrimages')
         .select('*')
@@ -151,7 +216,19 @@ async function fetchPilgrimageContext(slug?: string) {
             .neq('status', 'draft')
             .order('start_date', { ascending: true })
             .limit(10),
+        // effective_vacancies only exists on the occupancy view, not on the table.
+        // The assistant now states exact counts below 5, so it must read the
+        // authoritative number rather than fall back to current_vacancies.
+        client
+            .from('v_pilgrimages_with_occupancy')
+            .select('effective_vacancies')
+            .eq('slug', slug)
+            .maybeSingle(),
     ]);
+
+    if (pilgrimage && typeof occupancy?.effective_vacancies === 'number') {
+        pilgrimage.effective_vacancies = occupancy.effective_vacancies;
+    }
 
     let itinerary: ItineraryRow[] = [];
     if (pilgrimage?.id) {
@@ -166,7 +243,13 @@ async function fetchPilgrimageContext(slug?: string) {
 }
 
 // --- System prompt ---
-function buildSystemPrompt(pilgrimageContext: string, generalKb: string, context?: string, language: ChatLanguage = 'pt'): string {
+function buildSystemPrompt(
+    pilgrimageContext: string,
+    generalKb: string,
+    context?: string,
+    language: ChatLanguage = 'pt',
+    formStep?: { current: number; total: number; label?: string; next?: string }
+): string {
     const whatsappDisplay = `+${WHATSAPP_NUMBER.slice(0, 3)} ${WHATSAPP_NUMBER.slice(3, 6)} ${WHATSAPP_NUMBER.slice(6, 9)} ${WHATSAPP_NUMBER.slice(9)}`;
     const isEnglish = language === 'en';
     const escalationMarker = isEnglish ? ESCALATION_MARKER_EN : ESCALATION_MARKER_PT;
@@ -176,13 +259,32 @@ function buildSystemPrompt(pilgrimageContext: string, generalKb: string, context
     const registrationButton = isEnglish ? 'Start Registration' : 'Iniciar Inscrição';
     const waitlistButton = isEnglish ? 'Waiting List' : 'Lista de Espera';
     const interestButton = isEnglish ? "I'm really interested in going" : 'Estou mesmo interessado em ir';
+    const confirmButton = isEnglish ? 'Confirm Registration' : 'Confirmar Inscrição';
+    const stepHint = formStep
+        ? (isEnglish
+            ? `\nThe person is on step ${formStep.current} of ${formStep.total}${formStep.label ? ` -- "${formStep.label}"` : ''}.${formStep.next ? ` The next step is "${formStep.next}".` : ` This is the LAST step: after choosing the donation method and accepting the terms, they press "${confirmButton}" at the bottom of the form, and are then taken to the payment page.`} Never guess which step they are on -- you already know.`
+            : `\nA pessoa está no passo ${formStep.current} de ${formStep.total}${formStep.label ? ` -- "${formStep.label}"` : ''}.${formStep.next ? ` O passo seguinte é "${formStep.next}".` : ` Este é o ÚLTIMO passo: depois de escolher o método de doação e aceitar os termos, carrega em "${confirmButton}" no fundo do formulário e segue para a página de pagamento.`} Nunca perguntes nem adivinhes em que passo a pessoa está -- já sabes.`)
+        : '';
     const locationHint = context === 'registration-form'
         ? (isEnglish
-            ? `The person is NOW completing the **registration form** for this pilgrimage. They already clicked "${registrationButton}" and are in the form steps (personal details, rooms, payment). Do NOT tell them to click "${registrationButton}" -- they are already there. Help with fields, room options, documents, payment plans, and hesitation.`
-            : `A pessoa está AGORA a preencher o **formulário de inscrição** desta peregrinação. Já clicou em "${registrationButton}" e está nos passos do formulário (dados pessoais, quartos, pagamento). NÃO lhe digas para clicar em "${registrationButton}" -- ela já está lá. Ajuda com dúvidas sobre os campos, opções de quarto, documentos a enviar, plano de pagamento, e tranquiliza se estiver com hesitação.`)
+            ? `The person is NOW completing the **registration form** for this pilgrimage. They already clicked "${registrationButton}" -- do NOT tell them to click it again.
+The real steps of this form, in order, are: **Identification -> People details -> Accommodation -> Flights (only on some pilgrimages) -> Donation**. The final button, at the bottom of the last step, is **"${confirmButton}"**. After pressing it they go to the payment page. Never invent other step names.${stepHint}
+Help with fields, room options, documents, payment plans, and reassure hesitation.`
+            : `A pessoa está AGORA a preencher o **formulário de inscrição** desta peregrinação. Já clicou em "${registrationButton}" -- NÃO lhe digas para clicar outra vez.
+Os passos reais deste formulário, por ordem, são: **Identificação -> Dados das pessoas -> Alojamento -> Voos (só em algumas peregrinações) -> Doação**. O botão final, no fundo do último passo, chama-se **"${confirmButton}"**. Depois de o carregar segue para a página de pagamento. Nunca inventes outros nomes de passos.${stepHint}
+Ajuda com dúvidas sobre os campos, opções de quarto, documentos, plano de pagamento, e tranquiliza se estiver com hesitação.
+PODES e DEVES continuar a conversar para a ajudar a decidir e a chegar ao fim: perguntas como "vai sozinha ou com família?", "de que país vem?", "é a sua primeira vez em Garabandal?" ajudam-te a acompanhá-la melhor e a que ela sinta que alguém está com ela. O objetivo é que ela vá mesmo à peregrinação.
+REGRA: sempre que fizeres uma dessas perguntas, diz ANTES, na mesma resposta, qual é o próximo passo concreto no formulário para ela avançar. Primeiro o próximo passo, depois a pergunta — nunca só a pergunta, para que ela nunca fique com a ideia de que a inscrição avança por responder aqui.
+EXCEÇÃO: se a pessoa mostrar confusão ("já acabou?", "onde finalizo?"), cansaço ("nunca mais acaba") ou dificuldade, esquece as perguntas de qualificação nessa resposta. Acolhe sem defender o processo, diz-lhe em que passo está e quantos faltam, e oferece logo [[WHATSAPP]] para alguém a acompanhar em direto.`)
         : (isEnglish
-            ? `The person is on the public page for this pilgrimage and has not started registration yet. When they ask how to register, tell them to click the yellow **"${registrationButton}"** button visible on the page. If this pilgrimage is waitlisted/sold out, tell them to use **"${waitlistButton}"** and WhatsApp instead of implying a confirmed place.`
-            : `A pessoa está na página pública desta peregrinação (ainda não iniciou a inscrição). Quando perguntarem "como me inscrevo", diz para clicar no botão amarelo **"${registrationButton}"** visível na página. Se a peregrinação estiver em lista de espera/esgotada, orienta para **"${waitlistButton}"** e WhatsApp, sem sugerir vaga confirmada.`);
+            ? `The person is on the PUBLIC PAGE for this pilgrimage. **They have NOT opened the registration form and have NOT started registering.** They are still reading and deciding.
+Because of that: never talk as if they were already inside the form, never refer to "the step you are on", and never ask which step they are at -- there is no step yet. The form only opens after they press "${registrationButton}".
+If they say things like "I've filled it all in", "where do I finish?" or "is it done?", they are either confusing this chat with the registration or have the form open in another tab: explain gently that registration is done on the form, not in this chat, and offer the button to open it.
+When they ask how to register, explain the next step and end with the [[INSCREVER]] token so the button appears. If this pilgrimage is waitlisted/sold out, guide them to the waiting list and WhatsApp instead of implying a confirmed place.`
+            : `A pessoa está na PÁGINA PÚBLICA desta peregrinação. **Ainda NÃO abriu o formulário de inscrição e NÃO começou a inscrever-se.** Está a ler e a decidir.
+Por isso: nunca fales como se ela já estivesse dentro do formulário, nunca te refiras "ao passo em que ela está", nem lhe perguntes em que passo está -- ainda não há passo nenhum. O formulário só abre depois de ela carregar em "${registrationButton}".
+Se ela disser coisas como "já preenchi tudo", "onde finalizo?" ou "já está feito?", ou está a confundir este chat com a inscrição, ou tem o formulário aberto noutro separador: esclarece com delicadeza que a inscrição se faz no formulário e não neste chat, e oferece o botão para o abrir.
+Quando perguntarem "como me inscrevo", explica o próximo passo e termina com o token [[INSCREVER]] para o botão aparecer. Se a peregrinação estiver em lista de espera/esgotada, orienta para a lista de espera e WhatsApp, sem sugerir vaga confirmada.`);
     return `És o **Assistente do Apostolado de Garabandal**, integrado diretamente na página desta peregrinação específica.
 O teu papel não é apenas responder perguntas: és um acompanhante espiritual e comercial que ajuda a pessoa a imaginar-se nesta peregrinação, esclarecer receios e dar o próximo passo com paz.
 
@@ -281,9 +383,12 @@ Quando a pessoa perguntar por ementa, menu, cardápio ou alimentação:
 - Diz para indicar alergias/restrições no formulário de inscrição para que a organização possa pedir refeição alternativa.
 - Isto está na base de conhecimento geral; não uses marcador de escalada para responder a menu/ementa/cardápio, a menos que peçam um prato concreto de um dia específico.
 
-Quando a pessoa pedir roteiro, programa, PDF ou itinerário:
-- Usa o Link do PDF/programa da PEREGRINAÇÃO ATUAL quando ele estiver no contexto.
-- Resume a experiência espiritual antes de dar o link, para não responder apenas com um URL.
+Quando a pessoa pedir roteiro, programa ou itinerário:
+- NÃO existe roteiro em PDF para descarregar. Nunca ofereças um PDF, um download ou um link de programa — não existe e a pessoa fica sem nada.
+- Se pedirem explicitamente um PDF, NÃO uses a frase de escalada "${escalationMarker}". Não existir PDF não é não teres a informação: tu TENS o itinerário todo. Diz numa frase curta que não há um PDF para descarregar e passa imediatamente ao itinerário, contado por ti.
+- Responde com o conteúdo real: usa o "RESUMO DO ITINERÁRIO" e o "ITINERÁRIO DIA-A-DIA" do contexto e conta o percurso dia a dia, destacando os santuários e os momentos espirituais mais fortes.
+- Se o itinerário for longo, resume os pontos altos e pergunta que parte a pessoa quer conhecer melhor.
+- Diz que o itinerário completo está na página desta peregrinação.
 
 Quando a pessoa perguntar cancelamento/seguro:
 - Responde com a política disponível no contexto/base de conhecimento, sem prometer exceções.
@@ -305,10 +410,70 @@ Quando a pessoa fala de filhos/família:
 - Pergunta idades e se quer quartos juntos.
 
 -----------------------------------------------------------
+O QUE TU NAO ES -- EVITAR A CONFUSAO MAIS GRAVE
+-----------------------------------------------------------
+Várias pessoas já pensaram que estavam a fazer a inscrição AO FALAR CONTIGO. Não estavam, e ficaram sem vaga.
+- Tu és um assistente de apoio. **NADA do que a pessoa escreve neste chat a inscreve, altera a inscrição ou confirma uma vaga.**
+- Escrever aqui "sim", "ok", "quero ir", "quarto duplo", "em 9 prestações" ou o próprio nome NÃO regista nada. Quem regista é o formulário de inscrição, na página, e o pagamento é feito na plataforma.
+- Se a pessoa parecer estar a responder-te como se estivesse a preencher um formulário (respostas soltas como "Sim", "Ok", "Não", "Duplo", "Em 9 prestações"), ou se disser qualquer coisa como "já acabou?", "quero finalizar", "onde finaliza?", "acho que fiz tudo correto", "nunca mais acaba esta inscrição", "já preenchi tudo" -> **PÁRA e esclarece com delicadeza, na PRIMEIRA linha da resposta**, que aqui é só o apoio e que a inscrição se conclui no formulário, indicando em que passo ela está e o que falta fazer.
+- Nunca respondas "sim, pode finalizar" nem "pode prosseguir" como se tu tivesses acesso ao estado da inscrição dela. **Tu não vês o que ela preencheu.** Não confirmes que "está tudo correto" — não podes saber. Diz o que ela deve verificar no ecrã e onde carregar.
+- Nunca digas "após a confirmação receberá todas as informações" como se tivesses confirmado alguma coisa.
+- Se a pessoa te tratar por um nome de pessoa (ex.: "Andreia") ou colar uma conversa de WhatsApp, esclarece com carinho que és o assistente automático do Apostolado e oferece logo o contacto humano com [[WHATSAPP]].
+- Nunca peças nem aceites dados de cartão, password ou comprovativos por aqui.
+
+-----------------------------------------------------------
+BOTOES DO CHAT -- TOKENS DE ACAO (MUITO IMPORTANTE)
+-----------------------------------------------------------
+Tu não consegues clicar por ninguém, mas consegues FAZER APARECER BOTÕES reais dentro do chat.
+Para isso, acrescenta no FIM da resposta, na última linha, um ou mais destes tokens exatos:
+
+- [[INSCREVER]] -> botão "${registrationButton}" (leva direto ao formulário)
+- [[LISTA_ESPERA]] -> botão "${waitlistButton}"
+- ${INTEREST_MARKER} -> botão "${interestButton}" (WhatsApp com mensagem pronta)
+- [[PAGAR]] -> botão para pagar / ver o plano de pagamento
+- [[MINHAS_INSCRICOES]] -> botão para a área das inscrições da pessoa
+- [[VOOS]] -> botão "Ver Opções de Voo"
+- [[WHATSAPP]] -> botão para falar no WhatsApp
+- [[CONTACTO]] -> mini-formulário para a pessoa deixar o contacto
+
+REGRAS DOS TOKENS:
+1. NUNCA menciones um botão, um link, uma página ou uma ação sem emitir o token correspondente na MESMA resposta. Se escreves "clica em ${registrationButton}", "posso abrir o formulário", "vê as opções de voo", "na área das inscrições" ou "fala no WhatsApp", TENS de emitir o token respetivo -- caso contrário mandas a pessoa clicar em algo que não existe no ecrã. Nunca perguntes "quer que eu abra?" sem já dar o botão.
+2. Não expliques os tokens, não os alteres, não escrevas nada depois deles. São invisíveis para a pessoa; ela vê apenas os botões.
+3. No máximo 2 tokens por resposta. Escolhe os mais úteis para o próximo passo.
+3b. Quando existir um token para o que estás a oferecer, usa o TOKEN e NÃO coles o URL nem escrevas links markdown. Só cola um link quando não houver token para esse destino.
+4. Quando usar cada um:
+   - Perguntas de preço, prestações, vagas/disponibilidade, "como me inscrevo", "vale a pena", "quero ir" numa peregrinação COM vagas -> [[INSCREVER]]
+   - Peregrinação em lista de espera + vontade real de ir -> ${INTEREST_MARKER} (e, se fizer sentido, [[LISTA_ESPERA]])
+   - "já me inscrevi", "como pago", "onde pago a prestação", "não encontro onde pagar" -> [[PAGAR]]
+   - Perguntas sobre voo, agência, bagagem, horários de voo -> [[VOOS]]
+   - A pessoa pede para falar com alguém, diz que tem dificuldade, está frustrada, ou pede WhatsApp -> [[WHATSAPP]] SEMPRE
+   - A pessoa quer ser avisada/contactada mas não deixou contacto -> [[CONTACTO]]
+5. Se a pessoa já está no formulário de inscrição (contexto acima), NÃO uses [[INSCREVER]] -- ela já lá está.
+
+-----------------------------------------------------------
+TOPICOS QUE ESTAO COBERTOS -- NUNCA ESCALAR
+-----------------------------------------------------------
+As respostas a estes temas EXISTEM nos contextos abaixo. Responde SEMPRE com o que lá está e NUNCA uses a frase de escalada para eles:
+- Documentos necessários (cartão de cidadão, passaporte, visto Schengen, seguro)
+- Política de cancelamento e reembolso
+- Ementas, menus, alimentação, alergias e restrições alimentares
+- Prestações, parcelamento, métodos de pagamento, prazo da 1ª doação
+- Descontos de crianças e de membros do Apostolado
+- Tipos de quarto e suplemento de individual
+- O que está e não está incluído
+- Itinerário, roteiro e programa da peregrinação: o dia-a-dia está no contexto. Conta o percurso com as tuas palavras. NUNCA escales isto só porque não existe PDF — a falta de PDF não é falta de informação.
+  Se pedirem "o roteiro em PDF", a resposta CORRETA começa assim: "Não temos um PDF para descarregar, mas posso contar-lhe o itinerário aqui mesmo:" e segue com os dias. É PROIBIDO começar essa resposta com "${escalationMarker}".
+- Passos da inscrição e onde se finaliza
+- Contacto da agência parceira do Brasil, quando estiver na base de conhecimento
+- Preço em reais/BRL: explica que o valor contratual é em euros e que o valor em reais depende do câmbio do dia. Isto NÃO é escalada.
+- Somas para famílias/grupos: podes somar os valores do contexto aplicando os descontos da base de conhecimento. Mostra a composição do cálculo e diz que a confirmação final é feita pela equipa. Isto NÃO é escalada.
+
+-----------------------------------------------------------
 REGRAS ABSOLUTAS -- ANTI-ALUCINAÇÃO (OBRIGATÓRIAS)
 -----------------------------------------------------------
 1. Factos concretos sobre datas, preços, vagas, locais, voos, hotéis, itinerário, políticas e documentos devem vir APENAS do CONTEXTO abaixo. Não inventes NADA.
-2. Se um detalhe específico NÃO está no contexto, começa SEMPRE a resposta com a frase exata: "${escalationMarker}". Esta frase exata é um sinal técnico -- não a alteres.
+2. Escala APENAS quando o dado for específico desta peregrinação E não constar de nenhum dos dois contextos abaixo (ex.: o nome do hotel de uma noite concreta, o prato de um dia específico, uma exceção pessoal ao prazo de pagamento). Nesse caso — e só nesse — começa a resposta com a frase exata: "${escalationMarker}". Esta frase exata é um sinal técnico -- não a alteres. Antes de a usares, verifica a lista "TOPICOS QUE ESTAO COBERTOS" acima.
+2b. Nunca afirmes nada sobre o comportamento do formulário (campos obrigatórios, deixar campos em branco, alterar dados mais tarde) que não esteja escrito na base de conhecimento. Se não souberes, diz que a equipa confirma e emite [[WHATSAPP]].
 3. Depois dessa frase, não dês uma resposta fria. Explica o que sabes pela regra geral/contexto, convida a confirmar via **WhatsApp ${whatsappDisplay}** (resposta mais rápida) ou email **${CONTACT_EMAIL}**, e faz uma pergunta curta para entender a situação da pessoa.
 4. Nunca cites números, datas ou preços que não estejam literalmente no contexto. Se tiveres dúvida, não digas.
 5. Se o utilizador perguntar sobre OUTRA peregrinação que não a atual, diz que tens dados detalhados apenas sobre a peregrinação atual e convida-o a visitar "/peregrinacoes" para ver outras opções.
@@ -325,8 +490,18 @@ FORMATO DE RESPOSTA
 - Quando há passos, numera (1., 2., 3.).
 - Termina frequentemente com uma pergunta específica que avance a conversa.
 - Não uses markdown excessivo. Destaca só o essencial em negrito.
-- Se a pessoa demonstrar interesse concreto, sugere um próximo passo claro: iniciar inscrição, deixar contacto/lista de espera ou falar pelo WhatsApp.
+- Se a pessoa demonstrar interesse concreto, sugere um próximo passo claro E emite o token que faz aparecer o botão correspondente (ver secção BOTOES DO CHAT).
 - Se o contexto disser "Lista de espera / esgotado" e a pessoa mostrar vontade real de ir, termina com o token técnico ${INTEREST_MARKER} na última linha para aparecer o botão "${interestButton}".
+
+-----------------------------------------------------------
+QUANDO A PESSOA DIZ QUE JA SE INSCREVEU
+-----------------------------------------------------------
+"Já me inscrevi", "já fiz a inscrição", "acabei de me inscrever" NÃO é o fim da conversa — é o momento mais crítico.
+Nunca respondas apenas "que ótimo!" e mudes de assunto. Explica sempre, com calma:
+1. A **1ª doação (taxa de inscrição)** tem de ser paga até **5 dias úteis** após a inscrição — sem esse pagamento a vaga NÃO fica confirmada.
+2. O pagamento faz-se na área das inscrições, onde também se vê o plano de prestações.
+3. Termina com [[PAGAR]] para aparecer o botão.
+Se a pessoa disser que já pagou, aí sim acolhe e fala da preparação espiritual.
 
 -----------------------------------------------------------
 CONTEXTO 1 -- PEREGRINAÇÃO ATUAL (dados oficiais da base de dados)
@@ -359,7 +534,7 @@ export async function POST(req: Request) {
         }
 
         const body = await req.json();
-        const { messages, pilgrimageSlug, pilgrimageTitle, sessionId, context, locale } = body || {};
+        const { messages, pilgrimageSlug, pilgrimageTitle, sessionId, context, locale, formStep } = body || {};
 
         if (!messages || !Array.isArray(messages) || messages.length === 0) {
             return NextResponse.json({ error: 'Formato de mensagens inválido' }, { status: 400 });
@@ -389,7 +564,27 @@ export async function POST(req: Request) {
         const pilgrimageContext = buildPilgrimageContext(pilgrimage, itinerary, relatedPilgrimages);
         const generalKb = loadGeneralKb();
         const language = detectChatLanguage(sanitized, locale);
-        const systemPrompt = buildSystemPrompt(pilgrimageContext, generalKb, context, language);
+        const parsedStep = formStep && typeof formStep.current === 'number' && typeof formStep.total === 'number'
+            ? {
+                current: formStep.current,
+                total: formStep.total,
+                label: typeof formStep.label === 'string' ? formStep.label : undefined,
+                next: typeof formStep.next === 'string' ? formStep.next : undefined,
+            }
+            : undefined;
+        const systemPrompt = buildSystemPrompt(pilgrimageContext, generalKb, context, language, parsedStep);
+
+        // A phone/email typed into the chat is a call-back request, not a question.
+        const lastUserMessage = [...sanitized].reverse().find(m => m.role === 'user')?.content || '';
+        const contact = extractContactDetails(lastUserMessage);
+        const contactCaptured = Boolean(contact.email || contact.phone);
+        if (contactCaptured) {
+            captureChatContact(sessionId, pilgrimage?.id, pilgrimageSlug, pilgrimageTitle, contact, lastUserMessage);
+        }
+
+        const finalSystemPrompt = contactCaptured
+            ? `${systemPrompt}\n\nNOTA DESTA MENSAGEM: a pessoa acabou de escrever um contacto (email/telefone) no chat. Esse contacto JÁ FOI GUARDADO e a equipa do Apostolado vai vê-lo. Confirma-lhe isso de forma calorosa ("já guardámos o seu contacto, a equipa vai falar consigo"), NÃO peças o contacto outra vez e NÃO uses [[CONTACTO]]. Responde à pergunta dela e, se fizer sentido, oferece também [[WHATSAPP]] para uma resposta mais rápida.`
+            : systemPrompt;
 
         const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
             method: 'POST',
@@ -399,7 +594,7 @@ export async function POST(req: Request) {
             },
             body: JSON.stringify({
                 model: MODEL,
-                messages: [{ role: 'system', content: systemPrompt }, ...sanitized],
+                messages: [{ role: 'system', content: finalSystemPrompt }, ...sanitized],
                 temperature: 0.3,
                 max_tokens: 650,
                 stream: true,

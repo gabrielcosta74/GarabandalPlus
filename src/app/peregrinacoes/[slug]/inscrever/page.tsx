@@ -1645,7 +1645,14 @@ export default function PilgrimageBookingPage() {
                     )}
                 </div>
             </main>
-            <ChatWidget pilgrimageSlug={slug} pilgrimageTitle={pilgrimage?.title} context="registration-form" />
+            <ChatWidget
+                pilgrimageSlug={slug}
+                pilgrimageTitle={pilgrimage?.title}
+                pilgrimageId={pilgrimage?.id}
+                context="registration-form"
+                currentStep={step}
+                stepLabels={stepLabels}
+            />
         </VIPLayout>
     );
 }

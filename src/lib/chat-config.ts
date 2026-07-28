@@ -15,6 +15,79 @@ export const ESCALATION_MARKER = ESCALATION_MARKER_PT;
 // one-tap WhatsApp CTA. Kept ASCII + bracketed so gpt-4o-mini emits it reliably.
 export const INTEREST_MARKER = '[[QUERO_IR]]';
 
+// --- Action tokens -------------------------------------------------------
+// The assistant ends a reply with one or more of these tokens; the widget strips
+// them from the visible text and renders real buttons instead. This exists because
+// telling someone to "click the yellow button" fails on mobile, where the chat
+// covers the page. INTEREST_MARKER above is the original member of this family.
+export type ChatAction =
+    | 'QUERO_IR'
+    | 'INSCREVER'
+    | 'LISTA_ESPERA'
+    | 'PAGAR'
+    | 'MINHAS_INSCRICOES'
+    | 'VOOS'
+    | 'WHATSAPP'
+    | 'CONTACTO';
+
+export const CHAT_ACTIONS: ChatAction[] = [
+    'QUERO_IR',
+    'INSCREVER',
+    'LISTA_ESPERA',
+    'PAGAR',
+    'MINHAS_INSCRICOES',
+    'VOOS',
+    'WHATSAPP',
+    'CONTACTO',
+];
+
+export const ACTION_LABELS: Record<ChatAction, { pt: string; en: string }> = {
+    QUERO_IR: { pt: 'Estou mesmo interessado em ir', en: "I'm really interested in going" },
+    INSCREVER: { pt: 'Iniciar Inscrição', en: 'Start Registration' },
+    LISTA_ESPERA: { pt: 'Entrar na Lista de Espera', en: 'Join the Waiting List' },
+    PAGAR: { pt: 'Pagar / ver o meu plano', en: 'Pay / see my plan' },
+    MINHAS_INSCRICOES: { pt: 'Ver as minhas inscrições', en: 'See my registrations' },
+    VOOS: { pt: 'Ver Opções de Voo', en: 'See Flight Options' },
+    WHATSAPP: { pt: 'Falar no WhatsApp', en: 'Talk on WhatsApp' },
+    CONTACTO: { pt: 'Deixar o meu contacto', en: 'Leave my contact' },
+};
+
+// Matches any [[TOKEN]] we know about, plus a trailing partial token still being
+// streamed (so half-written markers never flash on screen).
+const ACTION_PATTERN = new RegExp(`\\[\\[(${CHAT_ACTIONS.join('|')})\\]\\]`, 'g');
+
+/**
+ * Splits an assistant reply into the text the person should see and the actions
+ * the widget should render. Tolerates the model repeating a token.
+ */
+export function parseChatActions(text: string): { visibleText: string; actions: ChatAction[] } {
+    const actions: ChatAction[] = [];
+    let visibleText = text.replace(ACTION_PATTERN, (_match, token: ChatAction) => {
+        if (!actions.includes(token)) actions.push(token);
+        return '';
+    });
+
+    // Hide a partial token mid-stream, e.g. "[[INSCRE" -> nothing yet.
+    const openIdx = visibleText.lastIndexOf('[[');
+    if (openIdx !== -1 && !visibleText.slice(openIdx).includes(']]')) {
+        const tail = visibleText.slice(openIdx);
+        if (CHAT_ACTIONS.some(a => `[[${a}]]`.startsWith(tail))) {
+            visibleText = visibleText.slice(0, openIdx);
+        }
+    }
+
+    // The model sometimes writes a token mid-sentence ("o acesso direto: [[PAGAR]].").
+    // Removing it would leave orphaned punctuation, so tidy up what it left behind.
+    visibleText = visibleText
+        .replace(/[ \t]{2,}/g, ' ')
+        .replace(/[:;,-]\s*([.!?])/g, '$1')
+        .replace(/\s+([.,!?;:])/g, '$1')
+        .replace(/[:;,]\s*$/gm, '')
+        .replace(/\n{3,}/g, '\n\n');
+
+    return { visibleText: visibleText.trimEnd(), actions };
+}
+
 export function buildWhatsAppLink(pilgrimageTitle?: string, prefilled?: string, isEn?: boolean) {
     const base = `https://wa.me/${WHATSAPP_NUMBER}`;
     const msg = prefilled

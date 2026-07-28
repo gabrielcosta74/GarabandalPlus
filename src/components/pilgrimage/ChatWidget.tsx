@@ -2,9 +2,18 @@
 
 import { useState, useRef, useEffect, useMemo } from 'react';
 import Link from 'next/link';
-import { MessageCircle, X, Send, Bot, User, Sparkles, Phone, Users, ArrowRight } from 'lucide-react';
-import { buildWhatsAppLink, buildInterestWhatsAppLink, ESCALATION_MARKERS, INTEREST_MARKER, CONTACT_EMAIL } from '../../lib/chat-config';
+import { MessageCircle, X, Send, Bot, User, Sparkles, Phone, Users, ArrowRight, CreditCard, Plane, ClipboardList, Check } from 'lucide-react';
+import {
+    buildWhatsAppLink,
+    buildInterestWhatsAppLink,
+    ESCALATION_MARKERS,
+    CONTACT_EMAIL,
+    parseChatActions,
+    ACTION_LABELS,
+    type ChatAction,
+} from '../../lib/chat-config';
 import { captureInterest } from '../../lib/interest-capture';
+import { captureAnalyticsEvent } from '../../lib/analytics';
 import { WhatsAppIcon } from '../icons/WhatsAppIcon';
 import { useLocale } from '../../contexts/LocaleContext';
 import { isNovemberCampaignPilgrimage } from '../../lib/utils';
@@ -29,6 +38,10 @@ type Props = {
     registrationLink?: string;
     /** If true, replace the CTA with a subtle "Lista de espera" note. */
     isWaitlist?: boolean;
+    /** 1-based step the person is on inside the registration form. */
+    currentStep?: number;
+    /** Ordered labels of the registration form steps, for the in-chat stepper. */
+    stepLabels?: string[];
 };
 
 // Keyed by pilgrimage slug so different peregrinações keep separate sessions.
@@ -52,20 +65,22 @@ const CHIPS_PAGE_EN = [
     'What if I need to cancel?',
 ];
 
+// Form chips lead with the moments people actually get stuck at — the old set was
+// all informational and none of them unblocked anyone mid-form.
 const CHIPS_FORM_PT = [
+    'Onde finalizo a inscrição?',
+    'Já preenchi tudo, e agora?',
+    'Não consigo preencher um campo',
+    'Quanto tenho de pagar agora?',
     'Que tipo de quarto escolher?',
-    'Como funciona o pagamento em prestações?',
-    'Que documentos tenho de enviar?',
-    'Posso inscrever familiares agora?',
-    'Qual é o valor da entrada?',
     'Tenho alergias alimentares, o que indico?',
 ];
 const CHIPS_FORM_EN = [
+    'Where do I finish the registration?',
+    "I've filled everything, what now?",
+    "I can't fill in a field",
+    'How much do I pay now?',
     'Which room type should I choose?',
-    'How do installment payments work?',
-    'What documents must I send?',
-    'Can I register family members now?',
-    'What is the deposit amount?',
     'I have food allergies, what do I put?',
 ];
 
@@ -105,6 +120,16 @@ function useSessionId(slug?: string) {
     return ref.current;
 }
 
+type ResolvedAction = {
+    key: ChatAction;
+    label: string;
+    href: string;
+    external?: boolean;
+    icon: React.ReactNode;
+    /** Primary actions get the yellow treatment; the rest stay quiet. */
+    primary?: boolean;
+};
+
 export default function ChatWidget({
     pilgrimageSlug,
     pilgrimageTitle,
@@ -113,6 +138,8 @@ export default function ChatWidget({
     remainingSpots,
     registrationLink,
     isWaitlist,
+    currentStep,
+    stepLabels,
 }: Props) {
     const { locale } = useLocale();
     const isEn = locale === 'en';
@@ -144,9 +171,11 @@ export default function ChatWidget({
         id: 'greeting',
         role: 'assistant',
         content: context === 'registration-form'
+            // Says out loud that the chat does not register anyone — people have finished
+            // a whole conversation here believing they had signed up.
             ? (isEn
-                ? `Hello! 🙏 I'm here with you while you complete the registration for **${pilgrimageTitle || 'this pilgrimage'}**. If anything feels unclear - rooms, documents, payments, flights, or the next step - tell me and I'll help you move forward calmly.`
-                : `Olá! 🙏 Estou aqui com você enquanto faz a inscrição da **${pilgrimageTitle || 'peregrinação'}**. Se surgir qualquer dúvida sobre quartos, documentos, pagamentos, voo ou próximo passo, me diga e eu ajudo você a avançar com calma.`)
+                ? `Hello! 🙏 I'm here to help while you complete the registration for **${pilgrimageTitle || 'this pilgrimage'}**.\n\nJust so it's clear: **the registration is completed on the form behind this window, not here in the chat.** I'm only here to help you through it. Ask me anything about rooms, documents, payments, flights or the next step.`
+                : `Olá! 🙏 Estou aqui para ajudar enquanto você faz a inscrição da **${pilgrimageTitle || 'peregrinação'}**.\n\nSó para ficar claro: **a inscrição conclui-se no formulário atrás desta janela, não aqui no chat.** Eu só ajudo você a avançar. Pode me perguntar sobre quartos, documentos, pagamentos, voo ou o próximo passo.`)
             : pilgrimageTitle
                 ? (isEn
                     ? `Hello! 🙏 I'm the Apostolate of Garabandal assistant. I can help you understand the **${pilgrimageTitle}** - the spiritual experience, itinerary, prices, flights, payments, and whether this pilgrimage is the right step for you. What would you like to know first?`
@@ -180,6 +209,18 @@ export default function ChatWidget({
             window.sessionStorage.setItem(messagesKey(pilgrimageSlug), JSON.stringify(serializable));
         } catch { /* ignore quota errors */ }
     }, [messages, pilgrimageSlug]);
+
+    // Sent to the API so the assistant knows exactly where the person is instead of
+    // guessing step names — the single biggest source of bad answers in the form.
+    const formStepInfo = useMemo(() => {
+        if (context !== 'registration-form' || !currentStep || !stepLabels?.length) return undefined;
+        return {
+            current: currentStep,
+            total: stepLabels.length,
+            label: stepLabels[currentStep - 1],
+            next: stepLabels[currentStep],
+        };
+    }, [context, currentStep, stepLabels]);
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -223,6 +264,7 @@ export default function ChatWidget({
                     sessionId,
                     context,
                     locale,
+                    formStep: formStepInfo,
                 }),
             });
 
@@ -294,9 +336,22 @@ export default function ChatWidget({
         sendMessage(input);
     };
 
-    // Show lead capture card after 2nd user message, only on pilgrimage page, once per session.
+    // 68% of conversations never reached a 2nd user message, so the old threshold meant
+    // the lead card was almost never seen. One message is enough intent.
     const userMessageCount = messages.filter(m => m.role === 'user').length;
-    const showLeadCapture = context === 'pilgrimage-page' && userMessageCount >= 2 && !leadDone;
+    const showLeadCapture = context === 'pilgrimage-page' && userMessageCount >= 1 && !isLoading && !leadDone;
+
+    // Inside the form the header CTA is absent and "start registration" is meaningless,
+    // so the standing offer is human help — the thing people ask for when stuck.
+    const persistentAction: ResolvedAction | null = context === 'registration-form'
+        ? {
+            key: 'WHATSAPP',
+            label: isEn ? 'I need help — talk to us' : 'Preciso de ajuda — falar connosco',
+            href: buildWhatsAppLink(pilgrimageTitle, undefined, isEn),
+            external: true,
+            icon: <WhatsAppIcon className="w-3.5 h-3.5" />,
+        }
+        : null;
 
     const submitLead = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -338,24 +393,92 @@ export default function ChatWidget({
         });
     };
 
-    // Strip the hidden INTEREST_MARKER (and any partial token still streaming) from the visible text.
-    const stripInterestMarker = (text: string) => {
-        const idx = text.lastIndexOf('[[');
-        if (idx === -1) return text;
-        const tail = text.slice(idx);
-        if (INTEREST_MARKER.startsWith(tail) || tail.startsWith(INTEREST_MARKER)) {
-            return text.slice(0, idx).trimEnd();
+    // Turns the tokens the assistant emitted into real, tappable buttons. Telling
+    // someone to "click the yellow button" fails on mobile, where the chat covers it.
+    const resolveAction = (key: ChatAction): ResolvedAction | null => {
+        const label = ACTION_LABELS[key][isEn ? 'en' : 'pt'];
+        const registrationsHref = isEn ? '/en/my-registrations' : '/peregrinacoes/minhas-inscricoes';
+
+        switch (key) {
+            case 'INSCREVER':
+                // Never offer "start registration" to someone already inside the form.
+                if (!registrationLink || context === 'registration-form') return null;
+                return { key, label, href: registrationLink, icon: <ArrowRight className="w-3.5 h-3.5" />, primary: true };
+            case 'LISTA_ESPERA':
+                if (!registrationLink) return null;
+                return { key, label, href: registrationLink, icon: <ClipboardList className="w-3.5 h-3.5" />, primary: true };
+            case 'QUERO_IR':
+                return {
+                    key,
+                    label,
+                    href: buildInterestWhatsAppLink(pilgrimageTitle, isEn),
+                    external: true,
+                    icon: <WhatsAppIcon className="w-3.5 h-3.5" />,
+                    primary: true,
+                };
+            case 'PAGAR':
+                return { key, label, href: registrationsHref, icon: <CreditCard className="w-3.5 h-3.5" />, primary: true };
+            case 'MINHAS_INSCRICOES':
+                return { key, label, href: registrationsHref, icon: <ClipboardList className="w-3.5 h-3.5" /> };
+            case 'VOOS':
+                if (!pilgrimageSlug) return null;
+                return {
+                    key,
+                    label,
+                    href: `${isEn ? '/en/pilgrimages' : '/peregrinacoes'}/${pilgrimageSlug}#voos`,
+                    icon: <Plane className="w-3.5 h-3.5" />,
+                };
+            case 'WHATSAPP':
+                return {
+                    key,
+                    label,
+                    href: buildWhatsAppLink(pilgrimageTitle, undefined, isEn),
+                    external: true,
+                    icon: <WhatsAppIcon className="w-3.5 h-3.5" />,
+                };
+            case 'CONTACTO':
+                return null; // Rendered as the inline form below, not as a link.
+            default:
+                return null;
         }
-        return text;
     };
 
+    const onActionClick = (key: ChatAction) => {
+        captureAnalyticsEvent('chat_cta_clicked', {
+            action: key,
+            pilgrimage_slug: pilgrimageSlug,
+            chat_context: context,
+        });
+        if (key === 'QUERO_IR') handleInterestClick();
+    };
+
+    // Handles **bold** plus markdown and bare links — the model pastes URLs (PDFs,
+    // payment pages) often enough that raw "[text](url)" was showing up on screen.
     const renderContent = (text: string) => {
-        const parts = text.split(/(\*\*[^*]+\*\*)/g);
-        return parts.map((part, i) =>
-            part.startsWith('**') && part.endsWith('**')
-                ? <strong key={i}>{part.slice(2, -2)}</strong>
-                : <span key={i}>{part}</span>
-        );
+        const parts = text.split(/(\*\*[^*]+\*\*|\[[^\]]+\]\(https?:\/\/[^)\s]+\)|https?:\/\/[^\s)]+)/g);
+        return parts.map((part, i) => {
+            if (part.startsWith('**') && part.endsWith('**')) {
+                return <strong key={i}>{part.slice(2, -2)}</strong>;
+            }
+            const md = part.match(/^\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)$/);
+            if (md) {
+                return (
+                    <a key={i} href={md[2]} target="_blank" rel="noopener noreferrer"
+                       className="text-yellow-700 font-semibold underline underline-offset-2 hover:text-yellow-800 break-words">
+                        {md[1]}
+                    </a>
+                );
+            }
+            if (/^https?:\/\//.test(part)) {
+                return (
+                    <a key={i} href={part} target="_blank" rel="noopener noreferrer"
+                       className="text-yellow-700 font-semibold underline underline-offset-2 hover:text-yellow-800 break-all">
+                        {part.replace(/^https?:\/\//, '').slice(0, 40)}{part.length > 48 ? '…' : ''}
+                    </a>
+                );
+            }
+            return <span key={i}>{part}</span>;
+        });
     };
 
     return (
@@ -394,6 +517,37 @@ export default function ChatWidget({
                             </button>
                         </div>
                     </div>
+
+                    {/* Registration progress -- makes it visually obvious that the form,
+                        not this conversation, is what completes the registration. */}
+                    {formStepInfo && (
+                        <div className="bg-slate-50 border-b border-slate-200/80 px-4 py-2.5">
+                            <div className="flex items-center justify-between mb-1.5">
+                                <span className="text-[10px] uppercase tracking-widest text-slate-400 font-bold">
+                                    {isEn ? 'Your registration' : 'A sua inscrição'}
+                                </span>
+                                <span className="text-[10px] font-bold text-slate-500">
+                                    {isEn ? 'Step' : 'Passo'} {formStepInfo.current}/{formStepInfo.total}
+                                </span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                                {Array.from({ length: formStepInfo.total }).map((_, i) => (
+                                    <span
+                                        key={i}
+                                        className={`h-1.5 flex-1 rounded-full transition-colors ${
+                                            i < formStepInfo.current ? 'bg-yellow-400' : 'bg-slate-200'
+                                        }`}
+                                    />
+                                ))}
+                            </div>
+                            <p className="text-[11px] text-slate-600 mt-1.5 leading-tight">
+                                <span className="font-bold text-slate-800">{formStepInfo.label}</span>
+                                {formStepInfo.next
+                                    ? <span className="text-slate-400"> → {formStepInfo.next}</span>
+                                    : <span className="text-slate-400"> {isEn ? '→ press "Confirm Registration"' : '→ carregue em "Confirmar Inscrição"'}</span>}
+                            </p>
+                        </div>
+                    )}
 
                     {/* Contextual CTA (vacancies + Reservar) -- only on pilgrimage page */}
                     {registrationLink && (
@@ -453,14 +607,19 @@ export default function ChatWidget({
                     {/* Messages */}
                     <div className="flex-1 overflow-y-auto p-4 bg-slate-50/50 space-y-4">
                         {messages.map((msg) => {
+                            const { visibleText, actions } = msg.role === 'assistant'
+                                ? parseChatActions(msg.content)
+                                : { visibleText: msg.content, actions: [] as ChatAction[] };
                             const needsEscalation =
                                 msg.role === 'assistant' &&
                                 !msg.streaming &&
-                                ESCALATION_MARKERS.some(marker => msg.content.includes(marker));
-                            const showInterest =
-                                msg.role === 'assistant' &&
-                                !msg.streaming &&
-                                msg.content.includes(INTEREST_MARKER);
+                                ESCALATION_MARKERS.some(marker => msg.content.includes(marker)) &&
+                                !actions.includes('WHATSAPP');
+                            const resolvedActions = msg.role === 'assistant' && !msg.streaming
+                                ? actions.map(resolveAction).filter(Boolean) as ResolvedAction[]
+                                : [];
+                            const showContactForm =
+                                msg.role === 'assistant' && !msg.streaming && actions.includes('CONTACTO');
                             return (
                                 <div key={msg.id} className="space-y-2">
                                     <div className={`flex gap-2 max-w-[88%] ${msg.role === 'user' ? 'ml-auto flex-row-reverse' : ''}`}>
@@ -472,8 +631,8 @@ export default function ChatWidget({
                                                 ? 'bg-yellow-500 text-slate-900 rounded-2xl rounded-br-sm'
                                                 : 'bg-white text-slate-700 border border-slate-100 rounded-2xl rounded-bl-sm'
                                         }`}>
-                                            {msg.content
-                                                ? renderContent(stripInterestMarker(msg.content))
+                                            {visibleText
+                                                ? renderContent(visibleText)
                                                 : msg.streaming && (
                                                     <span className="inline-flex gap-1 items-center h-4">
                                                         <span className="w-1.5 h-1.5 bg-slate-300 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
@@ -506,24 +665,75 @@ export default function ChatWidget({
                                             </a>
                                         </div>
                                     )}
-                                    {showInterest && (
-                                        <div className="ml-9 space-y-1.5">
-                                            <a
-                                                href={buildInterestWhatsAppLink(pilgrimageTitle, isEn)}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                onClick={handleInterestClick}
-                                                className="inline-flex items-center gap-2 text-xs font-black bg-[#25D366] hover:bg-[#1fb858] text-white px-4 py-2.5 rounded-full shadow-md hover:shadow-lg transition-all animate-in fade-in slide-in-from-bottom-2 duration-300"
-                                            >
-                                                <WhatsAppIcon className="w-4 h-4" />
-                                                {isEn ? "I'm really interested in going" : 'Estou mesmo interessado em ir'}
-                                            </a>
-                                            <p className="text-[10px] text-slate-400 leading-tight max-w-[250px]">
-                                                {isEn
-                                                    ? 'The Apostolate will select a limited number of people. Register now and talk on WhatsApp to be considered.'
-                                                    : 'O Apostolado vai selecionar um número limitado de pessoas. Registe já e fale no WhatsApp para ser considerado(a).'}
-                                            </p>
+                                    {resolvedActions.length > 0 && (
+                                        <div className="ml-9 space-y-1.5 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                                            <div className="flex flex-wrap gap-2">
+                                                {resolvedActions.map(action => {
+                                                    const className = action.primary
+                                                        ? `inline-flex items-center gap-2 text-xs font-black px-4 py-2.5 rounded-full shadow-md hover:shadow-lg transition-all ${
+                                                            action.key === 'QUERO_IR' || action.key === 'WHATSAPP'
+                                                                ? 'bg-[#25D366] hover:bg-[#1fb858] text-white'
+                                                                : 'bg-gradient-to-r from-yellow-400 to-amber-500 hover:from-yellow-500 hover:to-amber-600 text-slate-900'
+                                                        }`
+                                                        : 'inline-flex items-center gap-1.5 text-xs font-semibold bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 px-3 py-2 rounded-full shadow-sm transition-colors';
+                                                    return action.external ? (
+                                                        <a
+                                                            key={action.key}
+                                                            href={action.href}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            onClick={() => onActionClick(action.key)}
+                                                            className={className}
+                                                        >
+                                                            {action.icon}{action.label}
+                                                        </a>
+                                                    ) : (
+                                                        <Link
+                                                            key={action.key}
+                                                            href={action.href}
+                                                            onClick={() => onActionClick(action.key)}
+                                                            className={className}
+                                                        >
+                                                            {action.icon}{action.label}
+                                                        </Link>
+                                                    );
+                                                })}
+                                            </div>
+                                            {resolvedActions.some(a => a.key === 'QUERO_IR') && (
+                                                <p className="text-[10px] text-slate-400 leading-tight max-w-[250px]">
+                                                    {isEn
+                                                        ? 'The Apostolate will select a limited number of people. Register now and talk on WhatsApp to be considered.'
+                                                        : 'O Apostolado vai selecionar um número limitado de pessoas. Registe já e fale no WhatsApp para ser considerado(a).'}
+                                                </p>
+                                            )}
                                         </div>
+                                    )}
+                                    {showContactForm && !leadDone && (
+                                        <div className="ml-9">
+                                            <form onSubmit={submitLead} className="flex gap-2 max-w-[280px]">
+                                                <input
+                                                    type="email"
+                                                    value={leadEmail}
+                                                    onChange={e => setLeadEmail(e.target.value)}
+                                                    placeholder={isEn ? 'your@email.com' : 'o-seu@email.com'}
+                                                    required
+                                                    className="flex-1 min-w-0 text-xs bg-white border border-yellow-300 focus:border-yellow-400 focus:ring-1 focus:ring-yellow-400/30 rounded-lg px-3 py-2 outline-none"
+                                                />
+                                                <button
+                                                    type="submit"
+                                                    disabled={leadSubmitting || !leadEmail.trim()}
+                                                    className="shrink-0 text-xs font-bold bg-yellow-400 hover:bg-yellow-500 disabled:opacity-50 text-slate-900 px-3 py-2 rounded-lg transition-colors"
+                                                >
+                                                    {leadSubmitting ? '...' : (isEn ? 'Send' : 'Enviar')}
+                                                </button>
+                                            </form>
+                                        </div>
+                                    )}
+                                    {showContactForm && leadDone && (
+                                        <p className="ml-9 text-xs text-green-700 font-semibold inline-flex items-center gap-1.5">
+                                            <Check className="w-3.5 h-3.5" />
+                                            {isEn ? 'Thank you! We will be in touch shortly.' : 'Obrigado! Entraremos em contacto brevemente.'}
+                                        </p>
                                     )}
                                 </div>
                             );
@@ -588,6 +798,22 @@ export default function ChatWidget({
 
                         <div ref={messagesEndRef} />
                     </div>
+
+                    {/* Persistent next-step bar -- the CTA no longer depends on the
+                        assistant remembering to emit a token. */}
+                    {persistentAction && (
+                        <div className="px-3 pt-2.5 bg-white border-t border-slate-100">
+                            <a
+                                href={persistentAction.href}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={() => onActionClick(persistentAction.key)}
+                                className="flex items-center justify-center gap-2 w-full text-xs font-black bg-[#25D366] hover:bg-[#1fb858] text-white px-4 py-2.5 rounded-xl shadow-sm hover:shadow-md transition-all"
+                            >
+                                {persistentAction.icon}{persistentAction.label}
+                            </a>
+                        </div>
+                    )}
 
                     {/* Input */}
                     <div className="p-3 bg-white border-t border-slate-100">

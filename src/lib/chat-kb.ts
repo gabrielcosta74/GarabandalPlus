@@ -82,17 +82,19 @@ export function buildPilgrimageContext(
     const cleanSlug = String(p.slug || '').trim();
     const pilgrimageUrl = cleanSlug ? `${APP_URL}/peregrinacoes/${cleanSlug}` : `${APP_URL}/peregrinacoes`;
     const registrationUrl = cleanSlug ? `${APP_URL}/peregrinacoes/${cleanSlug}/inscrever` : `${APP_URL}/peregrinacoes`;
-    const pdfUrl = cleanSlug ? `${APP_URL}/api/pilgrimages/${cleanSlug}/pdf` : '';
-    const pdfBrlUrl = cleanSlug ? `${APP_URL}/api/pilgrimages/${cleanSlug}/pdf?currency=BRL` : '';
 
     const vacanciesRaw = typeof p.effective_vacancies === 'number'
         ? p.effective_vacancies
         : typeof p.current_vacancies === 'number'
             ? p.current_vacancies
             : null;
-    const availabilityLabel = p.status === 'waitlist' || p.status === 'closed' || vacanciesRaw === 0
+    // Exact counts stay hidden while there is comfortable availability, but below 5
+    // the real number is the honest urgency — so the assistant may state it.
+    const isSoldOut = p.status === 'waitlist' || p.status === 'closed' || vacanciesRaw === 0;
+    const canRevealCount = !isSoldOut && typeof vacanciesRaw === 'number' && vacanciesRaw > 0 && vacanciesRaw < 5;
+    const availabilityLabel = isSoldOut
         ? 'Lista de espera / esgotado'
-        : typeof vacanciesRaw === 'number' && vacanciesRaw > 0
+        : canRevealCount
             ? (vacanciesRaw === 1 ? 'Resta apenas 1 vaga' : `Restam apenas ${vacanciesRaw} vagas`)
             : 'Lugares limitados';
     const isNovemberPilgrimage = [p.slug, p.title]
@@ -170,8 +172,7 @@ Slug: ${p.slug}
 Descrição: ${p.description || '(sem descrição)'}
 Link da página: ${pilgrimageUrl}
 Link de inscrição/lista de espera: ${registrationUrl}
-Link do PDF/programa: ${pdfUrl}
-Link do PDF com valores aproximados em BRL: ${pdfBrlUrl}
+NOTA: não existe roteiro/programa em PDF para descarregar. Nunca ofereças um PDF nem inventes um link de download. O itinerário está na página da peregrinação e no bloco "ITINERÁRIO DIA-A-DIA" mais abaixo — usa esse conteúdo para descrever o programa.
 
 DATAS:
 - Início: ${fmtDate(p.start_date)}
@@ -182,14 +183,17 @@ PREÇOS:
 - Valor total apresentado no site para o terrestre, sem voo/passagem aérea: ${hasDisplayedPrice ? money(totalDisplayedPrice) : 'N/D'}
 - Composição do valor: restante/base ${money(p.base_price)} + 1ª doação/taxa de inscrição ${money(p.deposit_value)}
 - Se perguntarem "custo total da viagem", explicar que o terrestre é o valor acima e que voo, seguro, despesas pessoais, quarto individual e outros extras podem alterar o total conforme a pessoa.
-- Se perguntarem em reais/BRL, dizer que o preço contratual é em euros; para valor aproximado em BRL, indicar o PDF com currency=BRL ou explicar que depende do câmbio do dia. Não inventar cotação.
+- Se perguntarem em reais/BRL, explicar que o valor contratual é sempre em euros e que o valor em reais depende do câmbio do dia e do banco/operadora usados; sugerir consultar a cotação no próprio banco. Não inventar cotação nem indicar PDFs.
 - Suplementos de quarto:
 ${supplementsText}
 - Suplemento de quarto individual: ${singleSupplement !== null && singleSupplement !== undefined ? `+${money(singleSupplement)}` : 'não publicado no contexto'}
 
 VAGAS:
 - Disponibilidade pública: ${availabilityLabel}
-- Não indicar números exatos de vagas; usar apenas "lugares limitados", "últimas vagas" ou "lista de espera/esgotado".
+${canRevealCount
+            ? `- Restam MENOS DE 5 lugares, por isso PODES dizer o número exato (${vacanciesRaw}). Di-lo com urgência serena e verdadeira, como um convite a não deixar para depois, nunca como pressão.
+- Se pedirem lugares para mais pessoas do que os ${vacanciesRaw} disponíveis, não desqualifiques ninguém: explica quantos lugares restam, convida a garantir já os que existem e a falar no WhatsApp para o Apostolado ver o que é possível fazer para o resto do grupo.`
+            : '- NÃO indicar números exatos de vagas nem quantas pessoas já se inscreveram. Usar apenas "lugares limitados". O número exato só pode ser dito quando restarem menos de 5 lugares, o que não é o caso.'}
 - Se a disponibilidade pública for lista de espera/esgotado, o próximo passo é entrar na lista de espera/deixar contacto; não dizer que há vaga confirmada.
 ${availabilityLabel === 'Lista de espera / esgotado'
             ? `- Esta peregrinação está em LISTA DE ESPERA devido à grande procura${isNovemberPilgrimage ? ' (a de novembro tem tido uma procura enorme)' : ''}. Segue a secção "Lista de Espera e Peregrinações Esgotadas" da base de conhecimento.
