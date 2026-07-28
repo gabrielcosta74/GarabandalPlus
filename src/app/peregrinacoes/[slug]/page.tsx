@@ -22,7 +22,7 @@ import {
 import { format } from 'date-fns';
 import { enUS, pt } from 'date-fns/locale';
 import dynamic from 'next/dynamic';
-import { isNovemberCampaignPilgrimage, parseCivilDate } from '../../../lib/utils';
+import { getScarcitySoldPercent, isNovemberCampaignPilgrimage, parseCivilDate } from '../../../lib/utils';
 import PilgrimageInfoModal from '../../../components/pilgrimage/PilgrimageInfoModal';
 import PilgrimagePaymentWarningModal from '../../../components/pilgrimage/PilgrimagePaymentWarningModal';
 import { useLocale } from '../../../contexts/LocaleContext';
@@ -97,7 +97,7 @@ type Pilgrimage = {
         };
         flight_registration_policy?: CountryBasedFlightPolicy | null;
         installment_deadline?: string | null;
-        /** Optional per-pilgrimage override for the vacancy-ring fill %. Defaults to 50. */
+        /** Optional per-pilgrimage override for the vacancy-ring fill %. */
         scarcity_fill_pct?: number;
     };
     // New fields for upgrade
@@ -409,10 +409,7 @@ export default function PilgrimageDetailPage() {
             ? Math.max(0, Number(pilgrimage.current_vacancies))
             : Math.max(0, pilgrimage.total_vacancies - confirmedPax);
     const isWaitlist = pilgrimage.status === 'waitlist' || remainingSpots <= 0;
-    // Fixed marketing scarcity figure (default 50%), overridable per pilgrimage.
-    const scarcityPct = typeof pilgrimage.pricing_config?.scarcity_fill_pct === 'number'
-        ? pilgrimage.pricing_config.scarcity_fill_pct
-        : 50;
+    const scarcityPct = getScarcitySoldPercent(pilgrimage);
     const includedItemsToShow =
         isEn && (pilgrimage.included_items_en?.length || 0) > 0
             ? (pilgrimage.included_items_en || [])
@@ -526,7 +523,7 @@ export default function PilgrimageDetailPage() {
                                     <span className="relative inline-flex h-2 w-2 rounded-full bg-red-200" />
                                 </span>
                                 <Flame className="h-3.5 w-3.5" strokeWidth={2.5} />
-                                {isEn ? `${scarcityPct}% of spots already gone` : `${scarcityPct}% das vagas já esgotaram`}
+                                {isEn ? `${scarcityPct}% of spots already filled` : `${scarcityPct}% das vagas já preenchidas`}
                             </div>
                         )}
                         <div className="max-w-4xl rounded-3xl border border-white/10 bg-slate-950/30 p-4 shadow-2xl backdrop-blur-sm md:bg-transparent md:p-0 md:shadow-none md:backdrop-blur-0 md:border-0">

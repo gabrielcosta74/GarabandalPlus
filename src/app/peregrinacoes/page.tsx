@@ -162,8 +162,8 @@ export default function PilgrimagesPage() {
                                     </div>
                                     <h2 className="font-serif text-3xl font-bold leading-tight text-slate-950 md:text-4xl">
                                         {locale === 'en'
-                                            ? `Italy & Medjugorje — ${italyScarcityPct}% of the spots are already gone.`
-                                            : `Itália e Medjugorje — ${italyScarcityPct}% das vagas já esgotaram.`}
+                                            ? `Italy & Medjugorje — ${italyScarcityPct}% of the spots are already filled.`
+                                            : `Itália e Medjugorje — ${italyScarcityPct}% das vagas já estão preenchidas.`}
                                     </h2>
                                     <p className="mt-4 max-w-2xl text-base leading-relaxed text-slate-600 md:text-lg">
                                         {locale === 'en'
@@ -193,8 +193,8 @@ export default function PilgrimagesPage() {
                                             <p className="text-xs font-black uppercase tracking-widest text-red-700">{locale === 'en' ? 'Why now' : 'Porque agora'}</p>
                                             <p className="mt-2 text-sm leading-relaxed text-slate-700 md:text-base">
                                                 {locale === 'en'
-                                                    ? 'Half the spots for this departure are already gone. This is the moment to discern calmly and secure your place before it fills up.'
-                                                    : 'Metade das vagas desta partida já esgotaram. Este é o momento para discernir com calma e garantir o seu lugar antes de encher.'}
+                                                    ? `${italyScarcityPct}% of the spots for this departure are already filled. Only a few remain, so this is the moment to discern calmly and secure your place.`
+                                                    : `${italyScarcityPct}% das vagas desta partida já estão preenchidas. Restam poucas, por isso este é o momento para discernir com calma e garantir o seu lugar.`}
                                             </p>
                                         </div>
                                         <div>

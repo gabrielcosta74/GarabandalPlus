@@ -60,18 +60,27 @@ export const getPublicAvailabilityLabel = (_remainingSpots: number, locale: 'pt'
     return locale === 'en' ? 'Limited spots' : 'Vagas limitadas';
 };
 
-// Percentagem fixa de escassez de marketing (default 50%), afinável por
-// peregrinação via pricing_config.scarcity_fill_pct.
+// Percentagem fixa de escassez de marketing, afinável por peregrinação via
+// pricing_config.scarcity_fill_pct. Itália–Medjugorje mantém 75% mesmo quando
+// a listagem vem do RPC resumido sem pricing_config.
 export const getScarcitySoldPercent = (
-    pilgrimage?: { pricing_config?: { scarcity_fill_pct?: unknown } | null } | null,
+    pilgrimage?: {
+        slug?: string | null;
+        title?: string | null;
+        pricing_config?: { scarcity_fill_pct?: unknown } | null;
+    } | null,
 ): number => {
     const raw = pilgrimage?.pricing_config?.scarcity_fill_pct;
-    const pct = typeof raw === 'number' && Number.isFinite(raw) ? raw : 50;
+    const isItalyMedjugorje = /it[áa]lia|medjugorje/i.test(
+        `${pilgrimage?.slug || ''} ${pilgrimage?.title || ''}`,
+    );
+    const fallbackPct = isItalyMedjugorje ? 75 : 50;
+    const pct = typeof raw === 'number' && Number.isFinite(raw) ? raw : fallbackPct;
     return Math.min(100, Math.max(0, Math.round(pct)));
 };
 
 export const getScarcitySoldLabel = (pct: number, locale: 'pt' | 'en' = 'pt') =>
-    locale === 'en' ? `${pct}% of spots already gone` : `${pct}% das vagas já esgotaram`;
+    locale === 'en' ? `${pct}% of spots already filled` : `${pct}% das vagas já preenchidas`;
 
 type CampaignPilgrimage = {
     slug?: string | null;
