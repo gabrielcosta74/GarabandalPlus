@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import VIPLayout from '../../../../components/member/VIPLayout';
 import { supabaseBrowser } from '../../../../lib/supabase-browser';
-import { useExchangeRate } from '../../../../hooks/useExchangeRate'; // Import Hook
 import {
     CreditCard,
     // ... rest of imports
@@ -37,6 +36,10 @@ import {
 } from '../../../../lib/bank-transfer-details';
 import { calculatePilgrimageReduniqCharge } from '../../../../lib/pilgrimage-reduniq-fees';
 import { useLocale } from '../../../../contexts/LocaleContext';
+import { useCurrency } from '../../../../components/providers/CurrencyProvider';
+import PaymentCurrencyDisplay, {
+    LocalizedPilgrimageAmount,
+} from '../../../../components/pilgrimage/PaymentCurrencyDisplay';
 
 /* -------------------------------------------------------------------------- */
 /*                                    Types                                   */
@@ -107,6 +110,7 @@ export default function BookingDashboardPage() {
     const params = useParams();
     const router = useRouter();
     const { locale } = useLocale();
+    const { formatEUR } = useCurrency();
     const id = params.id as string;
     const isEn = locale === 'en';
     const dateLocale = isEn ? enUS : pt;
@@ -122,12 +126,6 @@ export default function BookingDashboardPage() {
     const reduniqTokenParam = searchParams?.getAll('token')?.at(-1) || null;
     const statusParam = (searchParams?.get('status') || '').toLowerCase();
     const canceledParam = (searchParams?.get('canceled') || '').toLowerCase();
-    const currencyParam = searchParams?.get('currency') === 'BRL' ? 'BRL' : 'EUR';
-
-    // Currency Hook
-    const { format: formatPrice, rate: exchangeRate, loading: rateLoading } = useExchangeRate(currencyParam);
-    const isConverted = currencyParam !== 'EUR';
-
     const sessionId = searchParams?.get('session_id');
     const [selectedPaymentId, setSelectedPaymentId] = useState(paymentOptions[0].id);
     const [reduniqConfirming, setReduniqConfirming] = useState(false);
@@ -779,16 +777,11 @@ export default function BookingDashboardPage() {
                 <p className="text-yellow-400 font-bold uppercase tracking-widest text-[11px] md:text-xs mb-1">
                     {isEn ? 'Pay Now' : 'Pagar Agora'} · {effectiveLabel}
                 </p>
-                {isConverted && exchangeRate && (
-                    <p className="text-white/50 text-[11px] mt-1 font-medium">
-                        {isEn ? 'Approx.' : 'Aprox.'} {effectiveAmountToPay} € · {isEn ? 'Rate' : 'Taxa'} {exchangeRate}
-                    </p>
-                )}
             </div>
 
             {/* Custom amount: input + chips (always visible when applicable) */}
-            {canUseCustomAmount ? (
-                <div className="mb-6">
+            {canUseCustomAmount && (
+                <div className="mb-4">
                     <CustomPaymentAmount
                         suggestedAmount={amountToPay}
                         minAmount={customMinAmount}
@@ -797,34 +790,52 @@ export default function BookingDashboardPage() {
                         paymentPlan={paymentPlan}
                         depositValue={depositValue}
                         paidAmount={paidAmount}
-                        formatPrice={formatPrice}
+                        formatPrice={formatEUR}
                         active={useCustomAmount}
                         customAmount={customAmount}
                         onChange={setCustomAmount}
                     />
                 </div>
-            ) : (
-                <div className="text-center mb-8">
-                    <p className="text-4xl md:text-5xl font-black text-white tracking-tight break-words drop-shadow-sm" title={formatPrice(effectiveAmountToPay)}>
-                        {formatPrice(effectiveAmountToPay)}
-                    </p>
-                </div>
             )}
+
+            <PaymentCurrencyDisplay
+                amountInEur={effectiveAmountToPay}
+                label={effectiveLabel}
+                isEn={isEn}
+            />
 
             {/* Reduniq fee preview */}
             {showReduniqFeePreview && (
                 <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 mb-6 space-y-2 text-left shadow-inner">
                     <div className="flex items-center justify-between text-xs text-amber-50/80">
                         <span>{isEn ? 'Pilgrimage amount' : 'Valor peregrinação'}</span>
-                        <span className="font-bold">{formatPrice(reduniqChargePreview.baseAmount)}</span>
+                        <LocalizedPilgrimageAmount
+                            amountInEur={reduniqChargePreview.baseAmount}
+                            isEn={isEn}
+                            className="items-end text-right"
+                            eurClassName="font-bold"
+                            convertedClassName="text-amber-100/55"
+                        />
                     </div>
                     <div className="flex items-center justify-between text-xs text-amber-50/80">
                         <span>{isEn ? 'Reduniq fee' : 'Taxa Reduniq'}</span>
-                        <span className="font-bold">{formatPrice(reduniqChargePreview.feeAmount)}</span>
+                        <LocalizedPilgrimageAmount
+                            amountInEur={reduniqChargePreview.feeAmount}
+                            isEn={isEn}
+                            className="items-end text-right"
+                            eurClassName="font-bold"
+                            convertedClassName="text-amber-100/55"
+                        />
                     </div>
                     <div className="flex items-center justify-between text-sm text-white pt-2 border-t border-white/10">
                         <span className="font-semibold">{isEn ? 'Total at terminal' : 'Total no terminal'}</span>
-                        <span className="font-black text-base">{formatPrice(reduniqChargePreview.chargedAmount)}</span>
+                        <LocalizedPilgrimageAmount
+                            amountInEur={reduniqChargePreview.chargedAmount}
+                            isEn={isEn}
+                            className="items-end text-right"
+                            eurClassName="font-black text-base"
+                            convertedClassName="text-white/45"
+                        />
                     </div>
                 </div>
             )}
@@ -1013,7 +1024,7 @@ export default function BookingDashboardPage() {
                                     {/* Progress bar */}
                                     <div className="mb-4">
                                         <div className="flex items-center justify-between text-xs font-semibold text-slate-500 mb-1.5">
-                                            <span>{isEn ? 'Paid' : 'Pago'} {formatPrice(paidAmount)}</span>
+                                            <span>{isEn ? 'Paid' : 'Pago'} {formatEUR(paidAmount)}</span>
                                             <span>{percentPaid.toFixed(0)}%</span>
                                         </div>
                                         <div className="h-2.5 bg-slate-100 rounded-full overflow-hidden">
@@ -1028,15 +1039,32 @@ export default function BookingDashboardPage() {
                                     <div className="grid grid-cols-3 gap-2 md:gap-3">
                                         <div className="rounded-xl bg-slate-50 border border-slate-100 p-3 text-center">
                                             <p className="text-[10px] md:text-xs font-bold uppercase tracking-wider text-slate-400 mb-0.5">{isEn ? 'Total' : 'Total'}</p>
-                                            <p className="text-sm md:text-base font-bold text-slate-900 break-words">{formatPrice(totalAmount)}</p>
+                                            <LocalizedPilgrimageAmount
+                                                amountInEur={totalAmount}
+                                                isEn={isEn}
+                                                className="items-center"
+                                                eurClassName="text-sm md:text-base font-bold text-slate-900 break-words"
+                                            />
                                         </div>
                                         <div className="rounded-xl bg-green-50 border border-green-100 p-3 text-center">
                                             <p className="text-[10px] md:text-xs font-bold uppercase tracking-wider text-green-600 mb-0.5">{isEn ? 'Paid' : 'Pago'}</p>
-                                            <p className="text-sm md:text-base font-bold text-green-700 break-words">{formatPrice(paidAmount)}</p>
+                                            <LocalizedPilgrimageAmount
+                                                amountInEur={paidAmount}
+                                                isEn={isEn}
+                                                className="items-center"
+                                                eurClassName="text-sm md:text-base font-bold text-green-700 break-words"
+                                                convertedClassName="text-green-600/70"
+                                            />
                                         </div>
                                         <div className="rounded-xl bg-amber-50 border border-amber-100 p-3 text-center">
                                             <p className="text-[10px] md:text-xs font-bold uppercase tracking-wider text-amber-600 mb-0.5">{isEn ? 'Outstanding' : 'Em Falta'}</p>
-                                            <p className="text-sm md:text-base font-bold text-amber-700 break-words">{formatPrice(Math.max(0, totalAmount - paidAmount))}</p>
+                                            <LocalizedPilgrimageAmount
+                                                amountInEur={Math.max(0, totalAmount - paidAmount)}
+                                                isEn={isEn}
+                                                className="items-center"
+                                                eurClassName="text-sm md:text-base font-bold text-amber-700 break-words"
+                                                convertedClassName="text-amber-600/70"
+                                            />
                                         </div>
                                     </div>
                                 </div>
@@ -1072,7 +1100,12 @@ export default function BookingDashboardPage() {
                                                             : (isVerifying ? (isEn ? 'Awaiting validation' : 'A aguardar validação') : (isEn ? 'Pending' : 'Pendente'))}
                                                     </p>
                                                 </div>
-                                                <p className="text-base md:text-lg font-bold text-slate-900 shrink-0">{formatPrice(depositValue)}</p>
+                                                <LocalizedPilgrimageAmount
+                                                    amountInEur={depositValue}
+                                                    isEn={isEn}
+                                                    className="shrink-0 items-end text-right"
+                                                    eurClassName="text-base md:text-lg font-bold text-slate-900"
+                                                />
                                             </li>
                                             {/* Installment rows */}
                                             {paymentPlan.map((step: any, idx: number) => {
@@ -1097,7 +1130,12 @@ export default function BookingDashboardPage() {
                                                                             : `Vence ${format(new Date(step.date), "dd 'de' MMM yyyy", { locale: dateLocale })}`)}
                                                             </p>
                                                         </div>
-                                                        <p className="text-base md:text-lg font-bold text-slate-900 shrink-0">{formatPrice(Number(step.amount))}</p>
+                                                        <LocalizedPilgrimageAmount
+                                                            amountInEur={Number(step.amount)}
+                                                            isEn={isEn}
+                                                            className="shrink-0 items-end text-right"
+                                                            eurClassName="text-base md:text-lg font-bold text-slate-900"
+                                                        />
                                                     </li>
                                                 );
                                             })}
@@ -1123,11 +1161,16 @@ export default function BookingDashboardPage() {
                                                             ? (isEn ? 'Paid in full' : 'Totalmente pago')
                                                             : (isVerifying ? (isEn ? 'Awaiting validation' : 'A aguardar validação') :
                                                                 paidAmount > 0
-                                                                    ? (isEn ? `Paid ${formatPrice(paidAmount)} of ${formatPrice(totalAmount)}` : `Pago ${formatPrice(paidAmount)} de ${formatPrice(totalAmount)}`)
+                                                                    ? (isEn ? `Paid ${formatEUR(paidAmount)} of ${formatEUR(totalAmount)}` : `Pago ${formatEUR(paidAmount)} de ${formatEUR(totalAmount)}`)
                                                                     : (isEn ? 'Pending' : 'Pendente'))}
                                                     </p>
                                                 </div>
-                                                <p className="text-base md:text-lg font-bold text-slate-900 shrink-0">{formatPrice(totalAmount)}</p>
+                                                <LocalizedPilgrimageAmount
+                                                    amountInEur={totalAmount}
+                                                    isEn={isEn}
+                                                    className="shrink-0 items-end text-right"
+                                                    eurClassName="text-base md:text-lg font-bold text-slate-900"
+                                                />
                                             </li>
                                         </ul>
                                     </div>
@@ -1186,7 +1229,7 @@ export default function BookingDashboardPage() {
                 isOpen={showBankModal}
                 onClose={() => setShowBankModal(false)}
                 totalAmount={effectiveAmountToPay}
-                formattedTotal={formatPrice(effectiveAmountToPay)}
+                formattedTotal={formatEUR(effectiveAmountToPay)}
                 iban={bankTransferDetails.iban}
                 beneficiaryName={bankTransferDetails.beneficiary_name}
                 bankName={bankTransferDetails.bank_name}
