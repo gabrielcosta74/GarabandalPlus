@@ -233,6 +233,15 @@ export default function ChatWidget({
         return () => clearTimeout(timer);
     }, []);
 
+    // On phones the chat is a full-screen sheet, so the sticky booking bar has to
+    // step aside and the page behind must stop scrolling. Both are driven by this
+    // class (see globals.css) because the bar renders through its own portal.
+    useEffect(() => {
+        if (typeof document === 'undefined') return;
+        document.body.classList.toggle('chat-open', isOpen);
+        return () => document.body.classList.remove('chat-open');
+    }, [isOpen]);
+
     const toggleChat = () => {
         setIsOpen(v => !v);
         setShowTooltip(false);
@@ -482,11 +491,16 @@ export default function ChatWidget({
     };
 
     return (
-        <div className="fixed bottom-44 right-4 md:bottom-8 md:right-12 z-[2147483647] flex flex-col items-end pointer-events-none">
+        // The FAB sits above the sticky booking bar, whose height it reads from the
+        // --sticky-bar-h variable the bar publishes. Pages without a bar (the
+        // registration form) resolve to 0px and the FAB drops to a normal offset.
+        <div className="fixed right-4 bottom-[calc(var(--sticky-bar-h,0px)+1rem)] lg:bottom-8 lg:right-12 z-[2147483647] flex flex-col items-end pointer-events-none">
             {isOpen && (
-                <div className="mb-4 w-[calc(100vw-32px)] sm:w-[380px] h-[540px] max-h-[calc(100vh-140px)] bg-white/95 backdrop-blur-xl rounded-3xl shadow-[0_30px_60px_rgba(0,0,0,0.15)] border border-white/50 flex flex-col overflow-hidden pointer-events-auto animate-in slide-in-from-bottom-10 fade-in duration-300 origin-bottom-right">
+                <div className="pointer-events-auto flex flex-col overflow-hidden bg-white/95 backdrop-blur-xl shadow-[0_30px_60px_rgba(0,0,0,0.15)] animate-in fade-in
+                    max-sm:fixed max-sm:inset-0 max-sm:z-[2147483647] max-sm:h-[100dvh] max-sm:w-full max-sm:rounded-none max-sm:slide-in-from-bottom-4 max-sm:duration-200
+                    sm:mb-4 sm:w-[380px] sm:h-[540px] sm:max-h-[calc(100vh-140px)] sm:rounded-3xl sm:border sm:border-white/50 sm:slide-in-from-bottom-10 sm:duration-300 sm:origin-bottom-right">
                     {/* Header */}
-                    <div className="bg-gradient-to-r from-yellow-400 to-yellow-500 p-4 flex items-center justify-between text-slate-900 shadow-sm relative z-10">
+                    <div className="bg-gradient-to-r from-yellow-400 to-yellow-500 p-4 max-sm:pt-[max(1rem,env(safe-area-inset-top))] flex items-center justify-between text-slate-900 shadow-sm relative z-10 shrink-0">
                         <div className="flex items-center gap-3">
                             <div className="relative">
                                 <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-md">
@@ -816,7 +830,7 @@ export default function ChatWidget({
                     )}
 
                     {/* Input */}
-                    <div className="p-3 bg-white border-t border-slate-100">
+                    <div className="p-3 bg-white border-t border-slate-100 shrink-0">
                         <form onSubmit={handleSend} className="flex gap-2 items-center">
                             <input
                                 type="text"
@@ -836,14 +850,15 @@ export default function ChatWidget({
                             </button>
                         </form>
                     </div>
-                    <div className="bg-slate-50/80 text-[9px] text-slate-400 text-center py-2 border-t border-slate-100">
+                    <div className="bg-slate-50/80 text-[9px] text-slate-400 text-center py-2 max-sm:pb-[max(0.5rem,env(safe-area-inset-bottom))] border-t border-slate-100 shrink-0">
                         {isEn ? 'Apostolate AI • For official confirmation: ' : 'IA do Apostolado • Para confirmação oficial: '}geral@apostoladodegarabandal.com
                     </div>
                 </div>
             )}
 
-            {/* FAB */}
-            <div className="relative pointer-events-auto flex items-center gap-4">
+            {/* FAB — hidden on phones while the sheet is open, since the sheet has
+                its own close button and the floating one would sit on top of it. */}
+            <div className={`relative pointer-events-auto items-center gap-4 ${isOpen ? 'hidden sm:flex' : 'flex'}`}>
                 {!isOpen && showTooltip && (
                     <div className="hidden sm:flex items-center bg-white px-4 py-2.5 rounded-2xl shadow-lg border border-slate-100 animate-in fade-in slide-in-from-right-5 duration-500 cursor-pointer" onClick={toggleChat}>
                         <span className="text-sm font-bold text-slate-700">{isEn ? 'Got questions? Ask the AI 🙏' : 'Tem dúvidas? Pergunte à IA 🙏'}</span>

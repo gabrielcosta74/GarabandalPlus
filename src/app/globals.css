@@ -600,3 +600,22 @@ textarea {
 html.cc-done #cookie-consent {
   display: none;
 }
+
+/* Real safe-area padding — the .safe-area-bottom class used by the sticky
+   booking bar had no definition, so notched iPhones lost the bottom inset. */
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* On phones the AI chat opens as a full-screen sheet. The sticky booking bar
+   would otherwise sit on top of the chat input, so it steps aside while the
+   chat is open, and the page behind stops scrolling. */
+@media (max-width: 639px) {
+  body.chat-open .js-sticky-booking-bar {
+    display: none;
+  }
+
+  body.chat-open {
+    overflow: hidden;
+  }
+}
