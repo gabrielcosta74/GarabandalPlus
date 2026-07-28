@@ -166,6 +166,7 @@ export default function ChatWidget({
     const [leadEmail, setLeadEmail] = useState('');
     const [leadSubmitting, setLeadSubmitting] = useState(false);
     const [leadDone, setLeadDone] = useState(leadCaptured);
+    const [leadError, setLeadError] = useState(false);
 
     const initialGreeting = useMemo<Message>(() => ({
         id: 'greeting',
@@ -366,25 +367,33 @@ export default function ChatWidget({
         e.preventDefault();
         if (!leadEmail.trim() || leadSubmitting) return;
         setLeadSubmitting(true);
+        setLeadError(false);
         try {
-            await fetch('/api/leads/capture', {
+            const res = await fetch('/api/leads/capture', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     email: leadEmail.trim(),
                     type: 'chat_lead',
                     channel_preference: 'email',
-                    step: 'chat_interest',
-                    data: { pilgrimageTitle, sessionId },
+                    // step_reached is an integer column — sending a label here made
+                    // every chat lead fail with a 500 and silently vanish.
+                    data: { pilgrimageTitle, pilgrimageId, pilgrimageSlug, sessionId, source: 'chat_widget' },
                 }),
             });
-        } catch { /* non-critical */ } finally {
-            setLeadSubmitting(false);
+            if (!res.ok) throw new Error(`capture failed: ${res.status}`);
             setLeadDone(true);
             setLeadCaptured(true);
             if (typeof window !== 'undefined') {
                 window.sessionStorage.setItem(leadCapturedKey, '1');
             }
+        } catch (err) {
+            // Never claim success we did not get — the person would wait for an
+            // email that was never going to arrive.
+            console.error('[ChatWidget] Lead capture failed:', err);
+            setLeadError(true);
+        } finally {
+            setLeadSubmitting(false);
         }
     };
 
@@ -526,8 +535,15 @@ export default function ChatWidget({
                             >
                                 <Phone className="w-4 h-4" />
                             </a>
-                            <button onClick={toggleChat} className="p-2 hover:bg-yellow-600/50 rounded-full transition-colors" aria-label={isEn ? 'Close chat' : 'Fechar chat'}>
-                                <X className="w-5 h-5" />
+                            {/* High-contrast close button: on a yellow header a plain
+                                icon reads as decoration, and people could not find the exit. */}
+                            <button
+                                onClick={toggleChat}
+                                className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-900 text-white shadow-md ring-2 ring-white/70 transition-all hover:bg-slate-800 active:scale-95 shrink-0"
+                                aria-label={isEn ? 'Close chat' : 'Fechar chat'}
+                                title={isEn ? 'Close chat' : 'Fechar chat'}
+                            >
+                                <X className="w-5 h-5" strokeWidth={3} />
                             </button>
                         </div>
                     </div>
@@ -724,6 +740,11 @@ export default function ChatWidget({
                                     )}
                                     {showContactForm && !leadDone && (
                                         <div className="ml-9">
+                                            {leadError && (
+                                                <p className="text-xs text-red-600 font-semibold mb-1.5">
+                                                    {isEn ? 'We could not save it. Please try again.' : 'Não conseguimos guardar. Tente novamente.'}
+                                                </p>
+                                            )}
                                             <form onSubmit={submitLead} className="flex gap-2 max-w-[280px]">
                                                 <input
                                                     type="email"
@@ -781,12 +802,19 @@ export default function ChatWidget({
                                 </div>
                                 <div className="bg-white border border-yellow-200 rounded-2xl rounded-bl-sm p-3.5 shadow-sm flex-1">
                                     {leadDone ? (
-                                        <p className="text-sm text-green-700 font-semibold">{isEn ? '✓ Thank you! We will be in touch shortly. 🙏' : '✓ Obrigado! Entraremos em contacto brevemente. 🙏'}</p>
+                                        <p className="text-sm text-green-700 font-semibold">{isEn ? '✓ Thank you! Our team will contact you shortly. 🙏' : '✓ Obrigado! A nossa equipa entra em contacto consigo em breve. 🙏'}</p>
                                     ) : (
                                         <>
+                                            {/* Promises only what actually happens: the lead reaches the team
+                                                and a person follows up. There is no automated itinerary email. */}
                                             <p className="text-sm text-slate-700 mb-3">
-                                                {isEn ? <>Would you like to receive the <strong>itinerary and detailed information</strong> about this pilgrimage by email?</> : <>Quer receber o <strong>itinerário e informações detalhadas</strong> desta peregrinação por email?</>}
+                                                {isEn ? <>Would you like our team to send you the <strong>details of this pilgrimage</strong> by email?</> : <>Quer que a nossa equipa lhe envie os <strong>detalhes desta peregrinação</strong> por email?</>}
                                             </p>
+                                            {leadError && (
+                                                <p className="text-xs text-red-600 font-semibold mb-2">
+                                                    {isEn ? 'We could not save it. Please try again or talk to us on WhatsApp.' : 'Não conseguimos guardar. Tente novamente ou fale connosco no WhatsApp.'}
+                                                </p>
+                                            )}
                                             <form onSubmit={submitLead} className="flex gap-2">
                                                 <input
                                                     type="email"
