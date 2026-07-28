@@ -619,3 +619,14 @@ html.cc-done #cookie-consent {
     overflow: hidden;
   }
 }
+
+/* Horizontal chip rows (quick payment amounts, pilgrim pass tabs) scroll but
+   should not show a scrollbar — the class was already in use with no definition. */
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}

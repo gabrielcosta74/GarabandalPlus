@@ -27,7 +27,7 @@ import { format } from 'date-fns';
 import { enUS, pt } from 'date-fns/locale';
 import BookingOnboardingModal from '../../../../components/booking/BookingOnboardingModal';
 import BankTransferModal from '../../../../components/booking/BankTransferModal'; // Imported BankTransferModal
-import CustomPaymentAmount from '../../../../components/booking/CustomPaymentAmount';
+import CustomPaymentAmount, { buildPaymentPreview } from '../../../../components/booking/CustomPaymentAmount';
 import { UNIFIED_ONLINE_PAYMENT_OPTIONS } from '../../../../lib/payment-options';
 import {
     BANK_TRANSFER_SITE_CONTENT_KEY,
@@ -128,6 +128,9 @@ export default function BookingDashboardPage() {
     const canceledParam = (searchParams?.get('canceled') || '').toLowerCase();
     const sessionId = searchParams?.get('session_id');
     const [selectedPaymentId, setSelectedPaymentId] = useState(paymentOptions[0].id);
+    // Which method the pay button acts on. Purely presentational — both branches
+    // call the exact same handlers as before.
+    const [payMethod, setPayMethod] = useState<'card' | 'transfer'>('card');
     const [reduniqConfirming, setReduniqConfirming] = useState(false);
     const [reduniqHandledKey, setReduniqHandledKey] = useState<string | null>(null);
     const REDUNIQ_CONFIRM_MAX_ATTEMPTS = 8;
@@ -568,33 +571,34 @@ export default function BookingDashboardPage() {
             return (
                 <VIPLayout allowPublic={true}>
                     <div className="min-h-[60vh] flex flex-col items-center justify-center text-center px-4 animate-in fade-in slide-in-from-bottom-8 duration-700">
-                        <div className="bg-white p-8 rounded-3xl shadow-xl border border-slate-100 max-w-lg w-full">
-                            <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center text-green-600 mx-auto mb-6 shadow-sm">
-                                <CheckCircle2 className="w-10 h-10" />
+                        <div className="w-full max-w-lg rounded-3xl bg-[#0d1117] p-7 ring-1 ring-white/10 md:p-8">
+                            <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-400/15 text-emerald-400">
+                                <CheckCircle2 className="h-7 w-7" />
                             </div>
-                            <h2 className="text-3xl font-bold text-slate-900 mb-2">{isEn ? 'ALMOST THERE!' : 'QUASE LÁ!'}</h2>
-                            <div className="bg-amber-50 border-2 border-amber-200 rounded-2xl p-6 text-left my-6 animate-pulse">
-                                <div className="flex items-start gap-4">
-                                    <div className="bg-amber-100 p-2 rounded-full text-amber-700 mt-1"><Clock className="w-6 h-6" /></div>
+                            <h2 className="text-2xl font-bold text-white">{isEn ? 'ALMOST THERE!' : 'QUASE LÁ!'}</h2>
+
+                            <div className="my-6 rounded-2xl bg-amber-400/10 p-5 text-left ring-1 ring-amber-400/20">
+                                <div className="flex items-start gap-3.5">
+                                    <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-amber-400/15 text-amber-400"><Clock className="h-5 w-5" /></div>
                                     <div>
-                                        <h3 className="font-bold text-amber-900 text-lg">{isEn ? '1 Step Left: Validation & Payment' : 'Falta 1 Passo: Validação & Pagamento'}</h3>
-                                        <p className="text-amber-800 text-sm mt-1">{isEn ? <>We have just sent you an email. <strong>You must open that email</strong> and click the link to access your account and pay, otherwise the booking will not become valid.</> : <>Enviámos agora mesmo um email para ti. <strong>Tens de abrir esse email</strong> e clicar no link para acederes à tua conta e pagares, senão a reserva não fica válida.</>}</p>
+                                        <h3 className="text-base font-bold text-white">{isEn ? '1 Step Left: Validation & Payment' : 'Falta 1 Passo: Validação & Pagamento'}</h3>
+                                        <p className="mt-1.5 text-sm leading-relaxed text-white/55">{isEn ? <>We have just sent you an email. <strong className="text-white/85">You must open that email</strong> and click the link to access your account and pay, otherwise the booking will not become valid.</> : <>Enviámos agora mesmo um email para ti. <strong className="text-white/85">Tens de abrir esse email</strong> e clicar no link para acederes à tua conta e pagares, senão a reserva não fica válida.</>}</p>
                                     </div>
                                 </div>
                             </div>
 
-                            <div className="bg-slate-50 rounded-2xl p-6 border border-slate-100 mb-8 text-left">
-                                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">{isEn ? 'Reference (save this number)' : 'Referência (Guarda este número)'}</p>
-                                <p className="text-2xl font-mono font-bold text-slate-800 tracking-wider">#{id.slice(0, 8).toUpperCase()}</p>
+                            <div className="mb-7 rounded-2xl bg-white/[0.04] p-5 text-left">
+                                <p className="mb-1.5 text-xs font-bold uppercase tracking-[0.16em] text-white/35">{isEn ? 'Reference (save this number)' : 'Referência (Guarda este número)'}</p>
+                                <p className="font-mono text-2xl font-bold tracking-wider text-white">#{id.slice(0, 8).toUpperCase()}</p>
                             </div>
 
-                            <p className="text-sm text-slate-400 mb-6">
+                            <p className="mb-6 text-sm leading-relaxed text-white/40">
                                 {isEn ? 'You can access this area later through the secure link we sent to your email.' : 'Podes aceder a esta área mais tarde através do link seguro que enviámos para o teu email.'}
                             </p>
 
                             <button
                                 onClick={() => window.location.href = homePath}
-                                className="w-full py-4 px-6 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold transition-all"
+                                className="min-h-[52px] w-full rounded-2xl bg-white px-6 text-base font-bold text-slate-950 transition-colors hover:bg-white/90"
                             >
                                 {isEn ? 'Back to Home Page' : 'Voltar à Página Inicial'}
                             </button>
@@ -607,16 +611,16 @@ export default function BookingDashboardPage() {
         return (
             <VIPLayout allowPublic={true}>
                 <div className="min-h-[60vh] flex flex-col items-center justify-center text-center px-4">
-                    <div className="bg-white p-8 rounded-3xl shadow-xl border border-slate-100 max-w-md w-full">
-                        <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center text-yellow-600 mx-auto mb-6">
-                            <Users className="w-8 h-8" />
+                    <div className="w-full max-w-md rounded-3xl bg-[#0d1117] p-7 ring-1 ring-white/10 md:p-8">
+                        <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-full bg-amber-400/15 text-amber-400">
+                            <Users className="h-7 w-7" />
                         </div>
-                        <h2 className="text-2xl font-bold text-slate-900 mb-2">{isEn ? 'Confirm Your Identity' : 'Confirma a tua Identidade'}</h2>
-                        <p className="text-slate-500 mb-6">{isEn ? 'To view your booking details, please sign in with the account you used.' : 'Para veres os detalhes da tua reserva, por favor faz login com a conta que usaste.'}</p>
+                        <h2 className="text-2xl font-bold text-white">{isEn ? 'Confirm Your Identity' : 'Confirma a tua Identidade'}</h2>
+                        <p className="mb-7 mt-2 text-base leading-relaxed text-white/45">{isEn ? 'To view your booking details, please sign in with the account you used.' : 'Para veres os detalhes da tua reserva, por favor faz login com a conta que usaste.'}</p>
 
                         <button
                             onClick={() => window.location.href = `${loginPath}?next=${encodeURIComponent(window.location.pathname)}`}
-                            className="w-full py-3 px-6 bg-yellow-600 hover:bg-yellow-700 text-white rounded-xl font-bold transition-all"
+                            className="min-h-[52px] w-full rounded-2xl bg-amber-400 px-6 text-base font-bold text-slate-950 transition-colors hover:bg-amber-300"
                         >
                             {isEn ? 'Sign In to My Account' : 'Entrar na Minha Conta'}
                         </button>
@@ -626,11 +630,11 @@ export default function BookingDashboardPage() {
         );
     }
 
-    if (loading) return <VIPLayout allowPublic={true}><div className="flex justify-center py-20"><div className="animate-spin w-8 h-8 border-2 border-yellow-600 border-t-transparent rounded-full" /></div></VIPLayout>;
+    if (loading) return <VIPLayout allowPublic={true}><div className="flex justify-center py-20"><div className="h-8 w-8 animate-spin rounded-full border-2 border-amber-400 border-t-transparent" /></div></VIPLayout>;
 
     if (!booking) return (
         <VIPLayout allowPublic={true}>
-            <div className="flex justify-center py-20 text-slate-500">{isEn ? 'Booking not found.' : 'Reserva não encontrada.'}</div>
+            <div className="flex justify-center py-20 text-white/40">{isEn ? 'Booking not found.' : 'Reserva não encontrada.'}</div>
         </VIPLayout>
     );
 
@@ -760,9 +764,18 @@ export default function BookingDashboardPage() {
         }
     };
 
+    const paymentPreview = buildPaymentPreview({
+        amount: effectiveAmountToPay,
+        paymentPlan,
+        depositValue,
+        paidAmount,
+        maxAmount: totalRemaining,
+        isEn,
+    });
+
     // Reusable payment panel (used both in desktop sticky aside and in the mobile inline view).
     const paymentPanel = (
-        <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-slate-950 p-5 shadow-2xl ring-1 ring-white/5 md:p-7">
+        <div className="relative overflow-hidden rounded-3xl bg-[#0d1117] ring-1 ring-white/10">
             {uploadSuccess && (
                 <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-green-600 p-6 text-white animate-in fade-in zoom-in duration-300">
                     <CheckCircle2 className="mb-4 h-16 w-16 animate-bounce" />
@@ -772,172 +785,257 @@ export default function BookingDashboardPage() {
                 </div>
             )}
 
-            {/* Heading */}
-            <div className="mb-5 flex items-center justify-between gap-3">
-                <h2 className="text-xl font-black tracking-tight text-white md:text-2xl">
-                    {isEn ? 'Make a payment' : 'Fazer pagamento'}
-                </h2>
-                <span className="shrink-0 rounded-full bg-yellow-400/15 px-3 py-1 text-xs font-bold uppercase tracking-wide text-yellow-300">
+            {/* ---------- 1. HOW MUCH ---------- */}
+            <div className="px-5 pb-6 pt-6 text-center md:px-7">
+                <p className="text-xs font-bold uppercase tracking-[0.16em] text-white/35">
                     {effectiveLabel}
-                </span>
+                </p>
+
+                <div className="mt-4">
+                    {canUseCustomAmount ? (
+                        <CustomPaymentAmount
+                            suggestedAmount={amountToPay}
+                            minAmount={customMinAmount}
+                            maxAmount={totalRemaining}
+                            minLabel={nextLabel}
+                            paymentPlan={paymentPlan}
+                            depositValue={depositValue}
+                            paidAmount={paidAmount}
+                            formatPrice={formatEUR}
+                            active={useCustomAmount}
+                            customAmount={customAmount}
+                            onChange={setCustomAmount}
+                            belowAmount={
+                                <PaymentCurrencyDisplay
+                                    amountInEur={effectiveAmountToPay}
+                                    label={effectiveLabel}
+                                    isEn={isEn}
+                                />
+                            }
+                        />
+                    ) : (
+                        <>
+                            <p className="text-5xl font-black tracking-tight text-white">
+                                {formatEUR(effectiveAmountToPay)}
+                            </p>
+                            <div className="mt-1 flex justify-center">
+                                <PaymentCurrencyDisplay
+                                    amountInEur={effectiveAmountToPay}
+                                    label={effectiveLabel}
+                                    isEn={isEn}
+                                />
+                            </div>
+                        </>
+                    )}
+                </div>
             </div>
 
-            <div className="space-y-4">
-                {/* Step 1 — how much */}
-                {canUseCustomAmount && (
-                    <CustomPaymentAmount
-                        suggestedAmount={amountToPay}
-                        minAmount={customMinAmount}
-                        maxAmount={totalRemaining}
-                        minLabel={nextLabel}
-                        paymentPlan={paymentPlan}
-                        depositValue={depositValue}
-                        paidAmount={paidAmount}
-                        formatPrice={formatEUR}
-                        active={useCustomAmount}
-                        customAmount={customAmount}
-                        onChange={setCustomAmount}
-                    />
-                )}
+            {/* ---------- 2. HOW TO PAY ---------- */}
+            <div className="border-t border-white/[0.07] px-5 py-5 md:px-7">
+                <p className="mb-3 text-xs font-bold uppercase tracking-[0.16em] text-white/35">
+                    {isEn ? 'How to pay' : 'Como pagar'}
+                </p>
 
-                {/* Step 2 — what it costs, in your currency */}
-                <PaymentCurrencyDisplay
-                    amountInEur={effectiveAmountToPay}
-                    label={effectiveLabel}
-                    isEn={isEn}
-                />
+                <div className="space-y-2.5">
+                    <button
+                        type="button"
+                        onClick={() => setPayMethod('card')}
+                        aria-pressed={payMethod === 'card'}
+                        className={`w-full rounded-2xl border p-4 text-left transition-all ${payMethod === 'card'
+                            ? 'border-amber-400/60 bg-amber-400/[0.08]'
+                            : 'border-white/10 bg-white/[0.03] hover:bg-white/[0.06]'
+                            }`}
+                    >
+                        <div className="flex items-center gap-3">
+                            <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors ${payMethod === 'card' ? 'border-amber-400' : 'border-white/25'
+                                }`}>
+                                {payMethod === 'card' && <span className="h-2.5 w-2.5 rounded-full bg-amber-400" />}
+                            </span>
+                            <span className="min-w-0 flex-1 text-base font-semibold text-white">
+                                {isEn ? 'Pay Online' : 'Pagar Online'}
+                            </span>
+                            <span className="shrink-0 text-sm text-white/40">
+                                {isEn ? 'Instant' : 'Imediato'}
+                            </span>
+                        </div>
 
-                {/* Reduniq fee preview */}
-                {showReduniqFeePreview && (
-                    <div className="space-y-2.5 rounded-2xl border border-white/10 bg-white/[0.04] p-4 text-left">
-                        <div className="flex items-center justify-between gap-3 text-sm text-white/60">
-                            <span>{isEn ? 'Pilgrimage amount' : 'Valor peregrinação'}</span>
-                            <LocalizedPilgrimageAmount
-                                amountInEur={reduniqChargePreview.baseAmount}
-                                isEn={isEn}
-                                className="items-end text-right"
-                                eurClassName="font-bold text-white"
-                                convertedClassName="text-white/40"
-                            />
+                        {/* Everything the gateway accepts */}
+                        <div className="mt-3 flex flex-wrap items-center gap-2 pl-8">
+                            {paymentOptions.map((opt) => (
+                                <span
+                                    key={opt.id}
+                                    title={opt.label}
+                                    className="flex h-8 w-12 items-center justify-center rounded-md bg-white p-1.5"
+                                >
+                                    {opt.iconSrc ? (
+                                        <img
+                                            src={opt.iconSrc}
+                                            alt={opt.iconAlt || opt.label}
+                                            className="max-h-full max-w-full object-contain"
+                                            onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                                        />
+                                    ) : (
+                                        <CreditCard className="h-4 w-4 text-slate-700" />
+                                    )}
+                                </span>
+                            ))}
                         </div>
-                        <div className="flex items-center justify-between gap-3 text-sm text-white/60">
-                            <span>{isEn ? 'Reduniq fee' : 'Taxa Reduniq'}</span>
-                            <LocalizedPilgrimageAmount
-                                amountInEur={reduniqChargePreview.feeAmount}
-                                isEn={isEn}
-                                className="items-end text-right"
-                                eurClassName="font-bold text-white"
-                                convertedClassName="text-white/40"
-                            />
+                    </button>
+
+                    <button
+                        type="button"
+                        onClick={() => setPayMethod('transfer')}
+                        aria-pressed={payMethod === 'transfer'}
+                        disabled={isVerifying}
+                        className={`w-full rounded-2xl border p-4 text-left transition-all disabled:opacity-40 ${payMethod === 'transfer'
+                            ? 'border-amber-400/60 bg-amber-400/[0.08]'
+                            : 'border-white/10 bg-white/[0.03] hover:bg-white/[0.06]'
+                            }`}
+                    >
+                        <div className="flex items-center gap-3">
+                            <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors ${payMethod === 'transfer' ? 'border-amber-400' : 'border-white/25'
+                                }`}>
+                                {payMethod === 'transfer' && <span className="h-2.5 w-2.5 rounded-full bg-amber-400" />}
+                            </span>
+                            <span className="min-w-0 flex-1 text-base font-semibold text-white">
+                                {isEn ? 'Bank Transfer' : 'Transferência Bancária'}
+                            </span>
+                            <span className="shrink-0 text-sm text-white/40">
+                                {isEn ? '1–2 days' : '1–2 dias'}
+                            </span>
                         </div>
-                        <div className="flex items-center justify-between gap-3 border-t border-white/10 pt-3 text-base text-white">
-                            <span className="font-semibold">{isEn ? 'Total on card' : 'Total no cartão'}</span>
+                        <p className="mt-2 pl-8 text-sm text-white/40">
+                            <Landmark className="mr-1.5 inline h-4 w-4 align-text-bottom" />
+                            {isEn ? 'IBAN + upload receipt' : 'IBAN + envio de comprovativo'}
+                        </p>
+                    </button>
+                </div>
+            </div>
+
+            {/* ---------- 3. SUMMARY ---------- */}
+            <div className="border-t border-white/[0.07] px-5 py-5 md:px-7">
+                {payMethod === 'card' && showReduniqFeePreview ? (
+                    <div className="space-y-2.5">
+                        <div className="flex items-baseline justify-between gap-3 text-sm">
+                            <span className="text-white/45">{isEn ? 'Payment' : 'Pagamento'}</span>
+                            <span className="font-medium text-white/70">{formatEUR(reduniqChargePreview.baseAmount)}</span>
+                        </div>
+                        <div className="flex items-baseline justify-between gap-3 text-sm">
+                            <span className="text-white/45">{isEn ? 'Processing fee' : 'Taxa de processamento'}</span>
+                            <span className="font-medium text-white/70">{formatEUR(reduniqChargePreview.feeAmount)}</span>
+                        </div>
+                        <div className="flex items-baseline justify-between gap-3 border-t border-white/[0.07] pt-3">
+                            <span className="text-base font-semibold text-white">{isEn ? 'Total' : 'Total'}</span>
                             <LocalizedPilgrimageAmount
                                 amountInEur={reduniqChargePreview.chargedAmount}
                                 isEn={isEn}
                                 className="items-end text-right"
-                                eurClassName="text-lg font-black"
-                                convertedClassName="text-amber-300/80"
+                                eurClassName="text-xl font-black text-white"
+                                convertedClassName="text-white/35"
                             />
                         </div>
                     </div>
+                ) : (
+                    <div className="flex items-baseline justify-between gap-3">
+                        <span className="text-base font-semibold text-white">{isEn ? 'Total' : 'Total'}</span>
+                        <LocalizedPilgrimageAmount
+                            amountInEur={effectiveAmountToPay}
+                            isEn={isEn}
+                            className="items-end text-right"
+                            eurClassName="text-xl font-black text-white"
+                            convertedClassName="text-white/35"
+                        />
+                    </div>
                 )}
 
-                {/* Step 3 — pay */}
-                <button
-                    onClick={() => handleOnlinePayment(paymentOptions[0].id)}
-                    disabled={processing}
-                    className="flex min-h-[60px] w-full items-center justify-center gap-3 rounded-2xl bg-yellow-400 text-lg font-black text-slate-900 shadow-lg shadow-yellow-500/20 transition-all hover:bg-yellow-300 active:scale-[0.99] disabled:opacity-50 md:text-xl"
-                >
-                    {processing ? (
-                        <>
-                            <Loader2 className="h-6 w-6 animate-spin" />
-                            <span>{isEn ? 'Opening…' : 'A abrir…'}</span>
-                        </>
-                    ) : (
-                        <>
-                            <CreditCard className="h-6 w-6" />
-                            <span>{isEn ? 'Pay Online' : 'Pagar Online'}</span>
-                        </>
-                    )}
-                </button>
+                {paymentPreview && paymentPreview.steps.length > 0 && (
+                    <details className="group mt-3">
+                        <summary className="flex min-h-9 cursor-pointer list-none items-center gap-1.5 text-sm text-white/40 transition-colors hover:text-white/70">
+                            <span>{isEn ? 'What this settles' : 'O que este valor liquida'}</span>
+                            <ChevronRight className="h-4 w-4 transition-transform group-open:rotate-90" />
+                        </summary>
+                        <ul className="mt-3 space-y-2 border-l border-white/10 pl-3.5">
+                            {paymentPreview.steps.map((step, i) => (
+                                <li key={i} className="text-sm leading-snug text-white/60">
+                                    {step.settles
+                                        ? (isEn
+                                            ? `Settles ${step.label} (${formatEUR(step.expected)})`
+                                            : `Liquida ${step.label} (${formatEUR(step.expected)})`)
+                                        : (isEn
+                                            ? `Advances ${formatEUR(step.applied)} of ${step.label} — ${formatEUR(Math.round((step.expected - step.paidAfter) * 100) / 100)} still due`
+                                            : `Adianta ${formatEUR(step.applied)} de ${step.label} — falta ${formatEUR(Math.round((step.expected - step.paidAfter) * 100) / 100)}`)}
+                                </li>
+                            ))}
+                            <li className="pt-1 text-sm text-white/40">
+                                {isEn
+                                    ? `Balance afterwards: ${formatEUR(paymentPreview.balanceAfter)}`
+                                    : `Saldo depois: ${formatEUR(paymentPreview.balanceAfter)}`}
+                            </li>
+                        </ul>
+                    </details>
+                )}
+            </div>
 
-                {/* Accepted methods */}
-                <div className="flex flex-wrap items-center justify-center gap-2">
-                    {paymentOptions.map((opt) => (
-                        <div
-                            key={opt.id}
-                            title={opt.label}
-                            className="flex h-11 w-16 items-center justify-center rounded-lg bg-white p-2 shadow-sm"
-                        >
-                            {opt.iconSrc ? (
-                                <img
-                                    src={opt.iconSrc}
-                                    alt={opt.iconAlt || opt.label}
-                                    className="max-h-full max-w-full object-contain"
-                                    onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                                />
-                            ) : (
-                                <CreditCard className="h-5 w-5 text-slate-700" />
-                            )}
-                        </div>
-                    ))}
+            {/* ---------- 4. PAY ---------- */}
+            <div className="px-5 pb-6 md:px-7">
+                {isVerifying && payMethod === 'transfer' ? (
+                    <div className="flex min-h-[58px] items-center justify-center gap-2 rounded-2xl bg-amber-400/10 px-4 text-sm font-semibold text-amber-300">
+                        <Clock className="h-5 w-5 animate-pulse" />
+                        <span>{isEn ? 'Receipt under review' : 'Comprovativo em análise'}</span>
+                    </div>
+                ) : payMethod === 'card' ? (
+                    <button
+                        onClick={() => handleOnlinePayment(paymentOptions[0].id)}
+                        disabled={processing}
+                        className="flex min-h-[58px] w-full items-center justify-center gap-2.5 rounded-2xl bg-amber-400 text-lg font-bold text-slate-950 transition-all hover:bg-amber-300 active:scale-[0.99] disabled:opacity-50"
+                    >
+                        {processing ? (
+                            <>
+                                <Loader2 className="h-5 w-5 animate-spin" />
+                                <span>{isEn ? 'Opening…' : 'A abrir…'}</span>
+                            </>
+                        ) : (
+                            <span>
+                                {isEn ? 'Pay' : 'Pagar'} {formatEUR(showReduniqFeePreview ? reduniqChargePreview.chargedAmount : effectiveAmountToPay)}
+                            </span>
+                        )}
+                    </button>
+                ) : (
+                    <button
+                        onClick={() => { setShowMobilePaySheet(false); setShowBankModal(true); }}
+                        className="flex min-h-[58px] w-full items-center justify-center gap-2.5 rounded-2xl bg-white text-lg font-bold text-slate-950 transition-all hover:bg-white/90 active:scale-[0.99]"
+                    >
+                        <span>{isEn ? 'View IBAN details' : 'Ver dados do IBAN'}</span>
+                    </button>
+                )}
+
+                <div className="mt-4 flex items-center justify-center gap-2">
+                    <ShieldCheck className="h-4 w-4 text-white/25" />
+                    <span className="text-sm text-white/30">
+                        {payMethod === 'card'
+                            ? (isEn ? 'Secure payment · you pick the method next' : 'Pagamento seguro · escolhes o método a seguir')
+                            : (isEn ? 'Reviewed within 1–2 business days' : 'Validamos em 1–2 dias úteis')}
+                    </span>
                 </div>
 
                 {/* Reduniq feedback */}
                 {(reduniqConfirming || reduniqFeedback) && (
-                    <div className={`rounded-2xl border px-4 py-3 text-sm ${reduniqConfirming
-                        ? 'border-blue-500/40 bg-blue-500/15 text-blue-100'
+                    <div className={`mt-4 rounded-2xl px-4 py-3 text-sm ${reduniqConfirming
+                        ? 'bg-blue-500/10 text-blue-200'
                         : reduniqFeedback?.kind === 'success'
-                            ? 'border-green-500/40 bg-green-500/15 text-green-100'
+                            ? 'bg-green-500/10 text-green-200'
                             : reduniqFeedback?.kind === 'info'
-                                ? 'border-amber-500/40 bg-amber-500/15 text-amber-100'
-                                : 'border-red-500/40 bg-red-500/15 text-red-100'
+                                ? 'bg-amber-500/10 text-amber-200'
+                                : 'bg-red-500/10 text-red-200'
                         }`}>
-                        <p className="flex items-center gap-2 font-bold">
+                        <p className="flex items-center gap-2 font-semibold">
                             {reduniqConfirming && <Loader2 className="h-4 w-4 animate-spin" />}
                             {reduniqConfirming ? (isEn ? 'Confirming…' : 'A confirmar…') : reduniqFeedback?.title}
                         </p>
-                        <p className="mt-1 leading-relaxed opacity-90">
+                        <p className="mt-1 leading-relaxed opacity-80">
                             {reduniqConfirming ? (isEn ? 'Please wait while we verify your payment.' : 'Aguarde enquanto verificamos o pagamento.') : reduniqFeedback?.message}
                         </p>
                     </div>
-                )}
-
-                {/* Divider */}
-                <div className="relative py-1">
-                    <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-white/10" /></div>
-                    <div className="relative flex justify-center">
-                        <span className="bg-slate-950 px-4 text-xs font-bold uppercase tracking-widest text-white/35">
-                            {isEn ? 'or pay by' : 'ou pagar por'}
-                        </span>
-                    </div>
-                </div>
-
-                {/* Bank transfer */}
-                {isVerifying ? (
-                    <div className="flex items-center justify-center gap-2 rounded-2xl border border-amber-500/20 bg-amber-500/10 p-4 text-sm font-semibold text-amber-300">
-                        <Clock className="h-5 w-5 animate-pulse" />
-                        <span>{isEn ? 'Receipt under review' : 'Comprovativo em análise'}</span>
-                    </div>
-                ) : (
-                    <button
-                        onClick={() => { setShowMobilePaySheet(false); setShowBankModal(true); }}
-                        className="group flex w-full items-center gap-4 rounded-2xl border border-white/10 bg-white/[0.04] p-4 text-left transition-all hover:border-white/20 hover:bg-white/[0.09]"
-                    >
-                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/10 text-white">
-                            <Landmark className="h-5 w-5" />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                            <p className="text-base font-bold text-white">
-                                {isEn ? 'Bank Transfer' : 'Transferência Bancária'}
-                            </p>
-                            <p className="mt-0.5 text-sm text-white/50">
-                                {isEn ? 'IBAN + upload receipt' : 'IBAN + envio de comprovativo'}
-                            </p>
-                        </div>
-                        <ChevronRight className="h-5 w-5 shrink-0 text-white/30 transition-colors group-hover:text-white" />
-                    </button>
                 )}
             </div>
 
@@ -958,15 +1056,15 @@ export default function BookingDashboardPage() {
 
                 {/* --- 0. ERROR/EMPTY STATE --- */}
                 {totalAmount === 0 && !loading && (
-                    <div className="bg-amber-50 border-2 border-amber-200 rounded-4xl p-10 text-center space-y-4 shadow-xl">
-                        <div className="w-20 h-20 bg-amber-100 rounded-full flex items-center justify-center text-amber-600 mx-auto mb-4">
-                            <AlertCircle className="w-10 h-10" />
+                    <div className="rounded-3xl bg-[#0d1117] p-8 text-center ring-1 ring-amber-400/20 md:p-10">
+                        <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-full bg-amber-400/15 text-amber-400">
+                            <AlertCircle className="h-7 w-7" />
                         </div>
-                        <h2 className="text-3xl font-bold text-amber-900">{isEn ? 'Waiting for Validation' : 'Aguarde pela Validação'}</h2>
-                        <p className="text-amber-800 text-lg max-w-xl mx-auto">
-                            {isEn ? <>Your registration was recorded, but the total amounts are still being calculated by our system.<strong> You will receive an email shortly with the payment details.</strong></> : <>A sua inscrição foi registada, mas os valores totais ainda estão a ser calculados pelo nosso sistema.<strong> Receberá um email em breve com os dados de pagamento.</strong></>}
+                        <h2 className="text-2xl font-bold text-white">{isEn ? 'Waiting for Validation' : 'Aguarde pela Validação'}</h2>
+                        <p className="mx-auto mt-3 max-w-xl text-base leading-relaxed text-white/50">
+                            {isEn ? <>Your registration was recorded, but the total amounts are still being calculated by our system.<strong className="text-white/80"> You will receive an email shortly with the payment details.</strong></> : <>A sua inscrição foi registada, mas os valores totais ainda estão a ser calculados pelo nosso sistema.<strong className="text-white/80"> Receberá um email em breve com os dados de pagamento.</strong></>}
                         </p>
-                        <button onClick={() => window.location.reload()} className="bg-amber-600 text-white px-8 py-4 rounded-2xl font-bold text-xl hover:bg-amber-700 transition-all">{isEn ? 'Refresh Page' : 'Atualizar Página'}</button>
+                        <button onClick={() => window.location.reload()} className="mt-6 min-h-[52px] rounded-2xl bg-amber-400 px-7 text-base font-bold text-slate-950 transition-colors hover:bg-amber-300">{isEn ? 'Refresh Page' : 'Atualizar Página'}</button>
                     </div>
                 )}
 
@@ -997,73 +1095,73 @@ export default function BookingDashboardPage() {
                             {/* ============== LEFT: SCHEDULE & PROGRESS ============== */}
                             <section className="lg:col-span-7 order-2 lg:order-1 space-y-6">
 
-                                {/* Summary chips */}
-                                <div className="bg-white rounded-3xl p-5 md:p-6 shadow-sm border border-slate-100">
-                                    <div className="flex items-center justify-between mb-4">
-                                        <h2 className="text-lg md:text-xl font-bold text-slate-900">
+                {/* Progress */}
+                                <div className="rounded-3xl bg-[#0d1117] ring-1 ring-white/10">
+                                    <div className="flex items-start justify-between gap-3 px-5 pt-5 md:px-6">
+                                        <p className="text-xs font-bold uppercase tracking-[0.16em] text-white/35">
                                             {isFullyPaid
                                                 ? (isEn ? 'Trip Confirmed' : 'Viagem Confirmada')
                                                 : (isEn ? 'Payment Progress' : 'Estado dos Pagamentos')}
-                                        </h2>
+                                        </p>
                                         <button
                                             onClick={() => fetchBooking(true)}
                                             disabled={refreshing}
-                                            className="flex items-center gap-1.5 text-xs font-semibold text-indigo-600 hover:text-indigo-800 disabled:text-slate-400 transition-colors"
+                                            className="-mt-1.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white/35 transition-colors hover:bg-white/[0.06] hover:text-white disabled:opacity-40"
                                             aria-label={isEn ? 'Refresh payments' : 'Atualizar pagamentos'}
+                                            title={isEn ? 'Refresh' : 'Atualizar'}
                                         >
-                                            {refreshing ? <Loader2 className="w-4 h-4 animate-spin" /> : (
-                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            {refreshing ? <Loader2 className="h-4 w-4 animate-spin" /> : (
+                                                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                                                 </svg>
                                             )}
-                                            <span>{refreshing ? (isEn ? 'Updating' : 'A atualizar') : (isEn ? 'Refresh' : 'Atualizar')}</span>
                                         </button>
                                     </div>
 
-                                    {/* Progress bar */}
-                                    <div className="mb-4">
-                                        <div className="flex items-center justify-between text-xs font-semibold text-slate-500 mb-1.5">
-                                            <span>{isEn ? 'Paid' : 'Pago'} {formatEUR(paidAmount)}</span>
-                                            <span>{percentPaid.toFixed(0)}%</span>
-                                        </div>
-                                        <div className="h-2.5 bg-slate-100 rounded-full overflow-hidden">
+                                    <div className="px-5 pb-5 pt-3 md:px-6">
+                                        {isFullyPaid ? (
+                                            <>
+                                                <p className="text-3xl font-black tracking-tight text-emerald-400 md:text-4xl">
+                                                    {isEn ? 'Fully paid' : 'Tudo pago'}
+                                                </p>
+                                                <p className="mt-1 text-sm text-white/40">
+                                                    {isEn
+                                                        ? `${formatEUR(totalAmount)} settled — nothing left to pay.`
+                                                        : `${formatEUR(totalAmount)} liquidados — não falta nada.`}
+                                                </p>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <LocalizedPilgrimageAmount
+                                                    amountInEur={Math.max(0, totalAmount - paidAmount)}
+                                                    isEn={isEn}
+                                                    eurClassName="text-3xl md:text-4xl font-black tracking-tight text-white"
+                                                    convertedClassName="text-white/35"
+                                                />
+                                                <p className="mt-1 text-sm text-white/40">
+                                                    {isEn
+                                                        ? `Still to pay · ${percentPaid.toFixed(0)}% complete`
+                                                        : `Ainda por pagar · ${percentPaid.toFixed(0)}% concluído`}
+                                                </p>
+                                            </>
+                                        )}
+
+                                        <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-white/[0.08]">
                                             <div
-                                                className={`h-full rounded-full transition-all duration-500 ${isFullyPaid ? 'bg-green-500' : 'bg-indigo-500'}`}
+                                                className={`h-full rounded-full transition-all duration-500 ${isFullyPaid ? 'bg-emerald-400' : 'bg-amber-400'}`}
                                                 style={{ width: `${Math.min(100, percentPaid)}%` }}
                                             />
                                         </div>
-                                    </div>
 
-                                    {/* Three chips */}
-                                    <div className="grid grid-cols-3 gap-2 md:gap-3">
-                                        <div className="rounded-xl bg-slate-50 border border-slate-100 p-3 text-center">
-                                            <p className="text-[10px] md:text-xs font-bold uppercase tracking-wider text-slate-400 mb-0.5">{isEn ? 'Total' : 'Total'}</p>
-                                            <LocalizedPilgrimageAmount
-                                                amountInEur={totalAmount}
-                                                isEn={isEn}
-                                                className="items-center"
-                                                eurClassName="text-sm md:text-base font-bold text-slate-900 break-words"
-                                            />
-                                        </div>
-                                        <div className="rounded-xl bg-green-50 border border-green-100 p-3 text-center">
-                                            <p className="text-[10px] md:text-xs font-bold uppercase tracking-wider text-green-600 mb-0.5">{isEn ? 'Paid' : 'Pago'}</p>
-                                            <LocalizedPilgrimageAmount
-                                                amountInEur={paidAmount}
-                                                isEn={isEn}
-                                                className="items-center"
-                                                eurClassName="text-sm md:text-base font-bold text-green-700 break-words"
-                                                convertedClassName="text-green-600/70"
-                                            />
-                                        </div>
-                                        <div className="rounded-xl bg-amber-50 border border-amber-100 p-3 text-center">
-                                            <p className="text-[10px] md:text-xs font-bold uppercase tracking-wider text-amber-600 mb-0.5">{isEn ? 'Outstanding' : 'Em Falta'}</p>
-                                            <LocalizedPilgrimageAmount
-                                                amountInEur={Math.max(0, totalAmount - paidAmount)}
-                                                isEn={isEn}
-                                                className="items-center"
-                                                eurClassName="text-sm md:text-base font-bold text-amber-700 break-words"
-                                                convertedClassName="text-amber-600/70"
-                                            />
+                                        <div className="mt-4 flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1 text-sm">
+                                            <span className="text-white/35">
+                                                {isEn ? 'Total' : 'Total'}{' '}
+                                                <span className="font-semibold text-white/70">{formatEUR(totalAmount)}</span>
+                                            </span>
+                                            <span className="text-white/35">
+                                                {isEn ? 'Paid' : 'Pago'}{' '}
+                                                <span className="font-semibold text-emerald-400">{formatEUR(paidAmount)}</span>
+                                            </span>
                                         </div>
                                     </div>
                                 </div>
@@ -1080,20 +1178,18 @@ export default function BookingDashboardPage() {
                                 />
 
                                 {/* Schedule list (single source of truth) */}
-                                {!isFullPaymentFlow && (
-                                    <div className="bg-white rounded-3xl p-5 md:p-6 shadow-sm border border-slate-100">
-                                        <h2 className="text-lg md:text-xl font-bold text-slate-900 mb-4">
+                {!isFullPaymentFlow && (
+                                    <div className="rounded-3xl bg-[#0d1117] ring-1 ring-white/10">
+                                        <p className="px-5 pt-5 text-xs font-bold uppercase tracking-[0.16em] text-white/35 md:px-6">
                                             {isEn ? 'Payment Schedule' : 'Calendário de Pagamentos'}
-                                        </h2>
-                                        <ul className="divide-y divide-slate-100">
+                                        </p>
+                                        <ul className="mt-1 divide-y divide-white/[0.06] px-5 md:px-6">
                                             {/* Deposit row */}
-                                            <li className="flex items-center gap-3 md:gap-4 py-3 md:py-4">
-                                                <div className={`w-10 h-10 md:w-11 md:h-11 rounded-xl flex items-center justify-center shrink-0 ${isDepositPaid ? 'bg-green-100 text-green-700' : (isVerifying ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-500')}`}>
-                                                    {isDepositPaid ? <Check className="w-5 h-5" /> : (isVerifying ? <Clock className="w-5 h-5" /> : <CreditCard className="w-5 h-5" />)}
-                                                </div>
-                                                <div className="flex-1 min-w-0">
-                                                    <p className="font-bold text-base text-slate-900">{isEn ? 'Registration Deposit' : 'Sinal de Inscrição'}</p>
-                                                    <p className="text-xs md:text-sm text-slate-500">
+                                            <li className="flex items-center gap-3.5 py-4">
+                                                <ScheduleMarker state={isDepositPaid ? 'paid' : (isVerifying ? 'verifying' : 'pending')} />
+                                                <div className="min-w-0 flex-1">
+                                                    <p className="text-base font-semibold text-white">{isEn ? 'Registration Deposit' : 'Sinal de Inscrição'}</p>
+                                                    <p className="mt-0.5 text-sm text-white/40">
                                                         {isDepositPaid
                                                             ? (isEn ? 'Paid' : 'Pago')
                                                             : (isVerifying ? (isEn ? 'Awaiting validation' : 'A aguardar validação') : (isEn ? 'Pending' : 'Pendente'))}
@@ -1103,25 +1199,19 @@ export default function BookingDashboardPage() {
                                                     amountInEur={depositValue}
                                                     isEn={isEn}
                                                     className="shrink-0 items-end text-right"
-                                                    eurClassName="text-base md:text-lg font-bold text-slate-900"
+                                                    eurClassName={`text-base font-bold ${isDepositPaid ? 'text-white/45' : 'text-white'}`}
+                                                    convertedClassName="text-white/25"
                                                 />
                                             </li>
                                             {/* Installment rows */}
                                             {paymentPlan.map((step: any, idx: number) => {
                                                 const state = getInstallmentState(idx, Number(step.amount));
                                                 return (
-                                                    <li key={idx} className="flex items-center gap-3 md:gap-4 py-3 md:py-4">
-                                                        <div className={`w-10 h-10 md:w-11 md:h-11 rounded-xl flex items-center justify-center shrink-0
-                                                            ${state === 'paid' ? 'bg-green-100 text-green-700' :
-                                                                state === 'verifying' ? 'bg-amber-100 text-amber-700' :
-                                                                    'bg-slate-100 text-slate-500'}`}>
-                                                            {state === 'paid' ? <Check className="w-5 h-5" /> :
-                                                                state === 'verifying' ? <Clock className="w-5 h-5" /> :
-                                                                    <CreditCard className="w-5 h-5" />}
-                                                        </div>
-                                                        <div className="flex-1 min-w-0">
-                                                            <p className="font-bold text-base text-slate-900">{isEn ? 'Installment' : 'Prestação'} {idx + 1}</p>
-                                                            <p className="text-xs md:text-sm text-slate-500">
+                                                    <li key={idx} className="flex items-center gap-3.5 py-4">
+                                                        <ScheduleMarker state={state} />
+                                                        <div className="min-w-0 flex-1">
+                                                            <p className="text-base font-semibold text-white">{isEn ? 'Installment' : 'Prestação'} {idx + 1}</p>
+                                                            <p className="mt-0.5 text-sm text-white/40">
                                                                 {state === 'paid' ? (isEn ? 'Paid' : 'Pago') :
                                                                     state === 'verifying' ? (isEn ? 'Awaiting validation' : 'A aguardar validação') :
                                                                         (isEn
@@ -1133,52 +1223,51 @@ export default function BookingDashboardPage() {
                                                             amountInEur={Number(step.amount)}
                                                             isEn={isEn}
                                                             className="shrink-0 items-end text-right"
-                                                            eurClassName="text-base md:text-lg font-bold text-slate-900"
+                                                            eurClassName={`text-base font-bold ${state === 'paid' ? 'text-white/45' : 'text-white'}`}
+                                                            convertedClassName="text-white/25"
                                                         />
                                                     </li>
                                                 );
                                             })}
                                         </ul>
+                                        <div className="h-2" />
                                     </div>
                                 )}
 
                                 {/* Full payment summary (when not on installments) */}
                                 {isFullPaymentFlow && (
-                                    <div className="bg-white rounded-3xl p-5 md:p-6 shadow-sm border border-slate-100">
-                                        <h2 className="text-lg md:text-xl font-bold text-slate-900 mb-4">
+                                    <div className="rounded-3xl bg-[#0d1117] ring-1 ring-white/10">
+                                        <p className="px-5 pt-5 text-xs font-bold uppercase tracking-[0.16em] text-white/35 md:px-6">
                                             {isEn ? 'Full Payment' : 'Pagamento Total'}
-                                        </h2>
-                                        <ul className="divide-y divide-slate-100">
-                                            <li className="flex items-center gap-3 md:gap-4 py-3 md:py-4">
-                                                <div className={`w-10 h-10 md:w-11 md:h-11 rounded-xl flex items-center justify-center shrink-0 ${isFullyPaid ? 'bg-green-100 text-green-700' : (isVerifying ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-500')}`}>
-                                                    {isFullyPaid ? <Check className="w-5 h-5" /> : (isVerifying ? <Clock className="w-5 h-5" /> : <CreditCard className="w-5 h-5" />)}
-                                                </div>
-                                                <div className="flex-1 min-w-0">
-                                                    <p className="font-bold text-base text-slate-900">{isEn ? 'Total amount' : 'Valor total'}</p>
-                                                    <p className="text-xs md:text-sm text-slate-500">
-                                                        {isFullyPaid
-                                                            ? (isEn ? 'Paid in full' : 'Totalmente pago')
-                                                            : (isVerifying ? (isEn ? 'Awaiting validation' : 'A aguardar validação') :
-                                                                paidAmount > 0
-                                                                    ? (isEn ? `Paid ${formatEUR(paidAmount)} of ${formatEUR(totalAmount)}` : `Pago ${formatEUR(paidAmount)} de ${formatEUR(totalAmount)}`)
-                                                                    : (isEn ? 'Pending' : 'Pendente'))}
-                                                    </p>
-                                                </div>
-                                                <LocalizedPilgrimageAmount
-                                                    amountInEur={totalAmount}
-                                                    isEn={isEn}
-                                                    className="shrink-0 items-end text-right"
-                                                    eurClassName="text-base md:text-lg font-bold text-slate-900"
-                                                />
-                                            </li>
-                                        </ul>
+                                        </p>
+                                        <div className="flex items-center gap-3.5 px-5 py-4 md:px-6">
+                                            <ScheduleMarker state={isFullyPaid ? 'paid' : (isVerifying ? 'verifying' : 'pending')} />
+                                            <div className="min-w-0 flex-1">
+                                                <p className="text-base font-semibold text-white">{isEn ? 'Total amount' : 'Valor total'}</p>
+                                                <p className="mt-0.5 text-sm text-white/40">
+                                                    {isFullyPaid
+                                                        ? (isEn ? 'Paid in full' : 'Totalmente pago')
+                                                        : (isVerifying ? (isEn ? 'Awaiting validation' : 'A aguardar validação') :
+                                                            paidAmount > 0
+                                                                ? (isEn ? `Paid ${formatEUR(paidAmount)} of ${formatEUR(totalAmount)}` : `Pago ${formatEUR(paidAmount)} de ${formatEUR(totalAmount)}`)
+                                                                : (isEn ? 'Pending' : 'Pendente'))}
+                                                </p>
+                                            </div>
+                                            <LocalizedPilgrimageAmount
+                                                amountInEur={totalAmount}
+                                                isEn={isEn}
+                                                className="shrink-0 items-end text-right"
+                                                eurClassName={`text-base font-bold ${isFullyPaid ? 'text-white/45' : 'text-white'}`}
+                                                convertedClassName="text-white/25"
+                                            />
+                                        </div>
                                     </div>
                                 )}
 
                                 {/* Print button */}
-                                <div className="text-center pt-2 pb-4">
-                                    <button onClick={() => window.print()} className="text-slate-400 hover:text-slate-600 font-semibold text-sm flex items-center justify-center gap-2 mx-auto transition-colors">
-                                        <Upload className="w-4 h-4 rotate-180" /> {isEn ? 'Download / Print Summary' : 'Descarregar / Imprimir Resumo'}
+                                <div className="pb-4 pt-1 text-center">
+                                    <button onClick={() => window.print()} className="mx-auto flex min-h-9 items-center justify-center gap-2 rounded-full px-4 text-sm text-white/30 transition-colors hover:bg-white/[0.05] hover:text-white/70">
+                                        <Upload className="h-4 w-4 rotate-180" /> {isEn ? 'Download / Print Summary' : 'Descarregar / Imprimir Resumo'}
                                     </button>
                                 </div>
                             </section>
@@ -1188,13 +1277,13 @@ export default function BookingDashboardPage() {
                                 {!isFullyPaid && paymentPanel}
 
                                 {isFullyPaid && (
-                                    <div className="bg-green-50 rounded-3xl p-6 md:p-8 text-center border-2 border-green-200 border-dashed">
-                                        <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center text-green-600 mx-auto mb-4 shadow-sm">
-                                            <CheckCircle2 className="w-8 h-8" />
+                                    <div className="rounded-3xl bg-[#0d1117] p-7 text-center ring-1 ring-emerald-400/20">
+                                        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-400/15 text-emerald-400">
+                                            <CheckCircle2 className="h-7 w-7" />
                                         </div>
-                                        <h4 className="text-xl font-bold text-green-900">{isEn ? 'Registration Confirmed!' : 'Inscrição Confirmada!'}</h4>
-                                        <p className="text-green-700 mt-1 font-medium text-sm">{isEn ? 'Your payment was received successfully.' : 'O seu pagamento foi recebido com sucesso.'}</p>
-                                        <p className="text-green-800 mt-3 text-sm">{isEn ? 'We wish you an excellent pilgrimage.' : 'Desejamos-lhe uma excelente peregrinação.'}</p>
+                                        <h4 className="text-xl font-bold text-white">{isEn ? 'Registration Confirmed!' : 'Inscrição Confirmada!'}</h4>
+                                        <p className="mt-1.5 text-sm text-white/50">{isEn ? 'Your payment was received successfully.' : 'O seu pagamento foi recebido com sucesso.'}</p>
+                                        <p className="mt-3 text-sm text-emerald-400/80">{isEn ? 'We wish you an excellent pilgrimage.' : 'Desejamos-lhe uma excelente peregrinação.'}</p>
                                     </div>
                                 )}
                             </aside>
@@ -1207,12 +1296,12 @@ export default function BookingDashboardPage() {
                             )}
 
                             {isFullyPaid && (
-                                <div className="lg:hidden col-span-1 order-1 bg-green-50 rounded-3xl p-6 text-center border-2 border-green-200 border-dashed">
-                                    <div className="w-14 h-14 bg-green-100 rounded-full flex items-center justify-center text-green-600 mx-auto mb-3 shadow-sm">
-                                        <CheckCircle2 className="w-7 h-7" />
+                                <div className="col-span-1 order-1 rounded-3xl bg-[#0d1117] p-6 text-center ring-1 ring-emerald-400/20 lg:hidden">
+                                    <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-400/15 text-emerald-400">
+                                        <CheckCircle2 className="h-7 w-7" />
                                     </div>
-                                    <h4 className="text-lg font-bold text-green-900">{isEn ? 'Registration Confirmed!' : 'Inscrição Confirmada!'}</h4>
-                                    <p className="text-green-700 mt-1 font-medium text-sm">{isEn ? 'Payment received.' : 'Pagamento recebido.'}</p>
+                                    <h4 className="text-lg font-bold text-white">{isEn ? 'Registration Confirmed!' : 'Inscrição Confirmada!'}</h4>
+                                    <p className="mt-1.5 text-sm text-white/50">{isEn ? 'Payment received.' : 'Pagamento recebido.'}</p>
                                 </div>
                             )}
                         </div>
@@ -1245,6 +1334,25 @@ export default function BookingDashboardPage() {
     );
 }
 
+/** Small status dot for a schedule row — filled when settled, hollow when still due. */
+function ScheduleMarker({ state }: { state: 'paid' | 'verifying' | 'pending' }) {
+    if (state === 'paid') {
+        return (
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-400/15 text-emerald-400">
+                <Check className="h-4 w-4" />
+            </span>
+        );
+    }
+    if (state === 'verifying') {
+        return (
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-amber-400/15 text-amber-400">
+                <Clock className="h-4 w-4" />
+            </span>
+        );
+    }
+    return <span className="h-7 w-7 shrink-0 rounded-full border-2 border-white/[0.12]" />;
+}
+
 function PilgrimPassPanel({
     isEn,
     isFullyPaid,
@@ -1268,14 +1376,14 @@ function PilgrimPassPanel({
 
     if (!isFullyPaid) {
         return (
-            <div className="bg-white rounded-3xl p-5 md:p-6 shadow-sm border border-slate-100">
+            <div className="rounded-3xl bg-[#0d1117] p-5 ring-1 ring-white/10 md:p-6">
                 <div className="flex items-start gap-4">
-                    <div className="w-11 h-11 rounded-2xl bg-slate-100 text-slate-500 flex items-center justify-center shrink-0">
-                        <QrCode className="w-5 h-5" />
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white/[0.06] text-white/35">
+                        <QrCode className="h-5 w-5" />
                     </div>
                     <div>
-                        <h2 className="text-lg md:text-xl font-bold text-slate-900">{isEn ? 'Pilgrim Pass' : 'Passe de Peregrino'}</h2>
-                        <p className="text-sm text-slate-500 mt-1">
+                        <h2 className="text-lg font-bold text-white">{isEn ? 'Pilgrim Pass' : 'Passe de Peregrino'}</h2>
+                        <p className="mt-1 text-sm leading-relaxed text-white/40">
                             {isEn
                                 ? 'Your digital pass will appear here when the registration is fully paid.'
                                 : 'O teu passe digital aparece aqui quando a inscrição estiver totalmente paga.'}
@@ -1287,37 +1395,37 @@ function PilgrimPassPanel({
     }
 
     return (
-        <div className="bg-white rounded-3xl p-5 md:p-6 shadow-sm border border-emerald-100 overflow-hidden">
-            <div className="flex items-start justify-between gap-4 mb-5">
+        <div className="overflow-hidden rounded-3xl bg-[#0d1117] p-5 ring-1 ring-emerald-400/20 md:p-6">
+            <div className="mb-5 flex items-start justify-between gap-4">
                 <div className="flex items-start gap-4">
-                    <div className="w-11 h-11 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
-                        <ShieldCheck className="w-5 h-5" />
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-400/15 text-emerald-400">
+                        <ShieldCheck className="h-5 w-5" />
                     </div>
                     <div>
-                        <p className="text-[11px] font-black uppercase tracking-[0.18em] text-emerald-600 mb-1">
+                        <p className="mb-1 text-xs font-bold uppercase tracking-[0.16em] text-emerald-400">
                             {isEn ? 'Confirmed' : 'Confirmada'}
                         </p>
-                        <h2 className="text-lg md:text-xl font-bold text-slate-900">{isEn ? 'Pilgrim Pass' : 'Passe de Peregrino'}</h2>
+                        <h2 className="text-lg font-bold text-white">{isEn ? 'Pilgrim Pass' : 'Passe de Peregrino'}</h2>
                     </div>
                 </div>
                 <button
                     onClick={onRefresh}
                     disabled={loading}
-                    className="text-xs font-bold text-slate-500 hover:text-slate-900 disabled:opacity-50"
+                    className="shrink-0 rounded-full px-3 py-1.5 text-sm text-white/35 transition-colors hover:bg-white/[0.06] hover:text-white disabled:opacity-50"
                 >
                     {loading ? (isEn ? 'Loading...' : 'A carregar...') : (isEn ? 'Refresh' : 'Atualizar')}
                 </button>
             </div>
 
             {passes.length > 1 && (
-                <div className="flex gap-2 overflow-x-auto pb-2 mb-4 no-scrollbar">
+                <div className="no-scrollbar mb-4 flex gap-2 overflow-x-auto pb-2">
                     {passes.map((pass, index) => (
                         <button
                             key={pass.id}
                             onClick={() => onSelect(index)}
-                            className={`shrink-0 px-3 py-2 rounded-2xl text-xs font-bold border transition-all ${index === activeIndex
-                                ? 'bg-slate-900 text-white border-slate-900 shadow-lg'
-                                : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-white'
+                            className={`min-h-9 shrink-0 rounded-full px-4 text-sm transition-colors ${index === activeIndex
+                                ? 'bg-white font-bold text-slate-900'
+                                : 'bg-white/[0.07] font-medium text-white/60 hover:bg-white/[0.13] hover:text-white'
                                 }`}
                         >
                             {pass.pilgrim.full_name?.split(' ').slice(0, 2).join(' ') || (isEn ? 'Pilgrim' : 'Peregrino')}
@@ -1327,34 +1435,34 @@ function PilgrimPassPanel({
             )}
 
             {loading && passes.length === 0 ? (
-                <div className="rounded-3xl bg-slate-50 border border-slate-100 p-8 text-center text-slate-500">
-                    <div className="animate-spin w-8 h-8 border-2 border-emerald-600 border-t-transparent rounded-full mx-auto mb-3" />
+                <div className="rounded-2xl bg-white/[0.04] p-8 text-center text-sm text-white/40">
+                    <div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-2 border-emerald-400 border-t-transparent" />
                     {isEn ? 'Preparing your pass...' : 'A preparar o teu passe...'}
                 </div>
             ) : activePass ? (
-                <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_190px] gap-5 items-center">
+                <div className="grid grid-cols-1 items-center gap-5 sm:grid-cols-[minmax(0,1fr)_190px]">
                     <div className="space-y-4">
-                        <div className="rounded-3xl bg-slate-950 text-white p-5 relative overflow-hidden">
-                            <div className="absolute -right-10 -top-10 w-32 h-32 rounded-full bg-emerald-400/10" />
+                        <div className="relative overflow-hidden rounded-2xl bg-white/[0.04] p-5">
+                            <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-emerald-400/10" />
                             <div className="relative">
-                                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-emerald-300 mb-2">
+                                <p className="mb-2 text-xs font-bold uppercase tracking-[0.16em] text-emerald-400">
                                     {isEn ? 'Personal identifier' : 'Identificador pessoal'}
                                 </p>
-                                <h3 className="text-2xl font-black leading-tight">{activePass.pilgrim.full_name}</h3>
-                                <div className="mt-4 grid grid-cols-2 gap-3 text-xs">
-                                    <div className="rounded-2xl bg-white/8 p-3">
-                                        <p className="text-white/40 uppercase font-bold tracking-wider mb-1">{isEn ? 'Room' : 'Quarto'}</p>
-                                        <p className="font-bold">{activePass.pilgrim.room_type || '-'}</p>
+                                <h3 className="text-2xl font-black leading-tight text-white">{activePass.pilgrim.full_name}</h3>
+                                <div className="mt-4 grid grid-cols-2 gap-3">
+                                    <div className="rounded-xl bg-white/[0.05] p-3">
+                                        <p className="mb-1 text-xs font-bold uppercase tracking-wider text-white/35">{isEn ? 'Room' : 'Quarto'}</p>
+                                        <p className="text-sm font-bold text-white">{activePass.pilgrim.room_type || '-'}</p>
                                     </div>
-                                    <div className="rounded-2xl bg-white/8 p-3">
-                                        <p className="text-white/40 uppercase font-bold tracking-wider mb-1">{isEn ? 'Flight' : 'Voo'}</p>
-                                        <p className="font-bold">{activePass.pilgrim.flight_option || '-'}</p>
+                                    <div className="rounded-xl bg-white/[0.05] p-3">
+                                        <p className="mb-1 text-xs font-bold uppercase tracking-wider text-white/35">{isEn ? 'Flight' : 'Voo'}</p>
+                                        <p className="text-sm font-bold text-white">{activePass.pilgrim.flight_option || '-'}</p>
                                     </div>
                                 </div>
                             </div>
                         </div>
-                        <div className="flex items-start gap-3 text-sm text-slate-500">
-                            <Bus className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+                        <div className="flex items-start gap-3 text-sm text-white/40">
+                            <Bus className="mt-0.5 h-5 w-5 shrink-0 text-emerald-400" />
                             <p>
                                 {isEn
                                     ? 'Show this code to the organization when boarding the bus.'
@@ -1372,11 +1480,11 @@ function PilgrimPassPanel({
                     </div>
                 </div>
             ) : (
-                <div className="rounded-3xl bg-amber-50 border border-amber-100 p-5 flex gap-3 text-amber-800">
-                    <UserRound className="w-5 h-5 shrink-0 mt-0.5" />
+                <div className="flex gap-3 rounded-2xl bg-amber-400/10 p-5 text-amber-200">
+                    <UserRound className="mt-0.5 h-5 w-5 shrink-0" />
                     <div>
                         <p className="font-bold">{isEn ? 'Pass unavailable' : 'Passe indisponível'}</p>
-                        <p className="text-sm mt-1">{message || (isEn ? 'Could not prepare the pass yet.' : 'Ainda não foi possível preparar o passe.')}</p>
+                        <p className="mt-1 text-sm opacity-80">{message || (isEn ? 'Could not prepare the pass yet.' : 'Ainda não foi possível preparar o passe.')}</p>
                     </div>
                 </div>
             )}

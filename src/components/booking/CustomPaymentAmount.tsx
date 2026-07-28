@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { Check, AlertCircle } from 'lucide-react';
+import { ReactNode, useEffect, useMemo, useRef, useState } from 'react';
+import { AlertCircle } from 'lucide-react';
 import { useLocale } from '../../contexts/LocaleContext';
 
 interface CustomPaymentAmountProps {
@@ -16,9 +16,82 @@ interface CustomPaymentAmountProps {
     active: boolean;
     customAmount: number | null;
     onChange: (amount: number | null) => void;
+    /** Rendered right under the amount — used for the local-currency estimate. */
+    belowAmount?: ReactNode;
 }
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
+
+export type PaymentPreviewStep = {
+    label: string;
+    settles: boolean;
+    applied: number;
+    expected: number;
+    paidBefore: number;
+    paidAfter: number;
+};
+
+/**
+ * Works out how a payment cascades over the deposit and the installments,
+ * plus the balance left afterwards. Shared by the amount picker and the
+ * payment summary so both always tell the same story.
+ */
+export function buildPaymentPreview({
+    amount,
+    paymentPlan,
+    depositValue,
+    paidAmount,
+    maxAmount,
+    isEn,
+}: {
+    amount: number;
+    paymentPlan: Array<{ date: string; amount: number }>;
+    depositValue: number;
+    paidAmount: number;
+    maxAmount: number;
+    isEn: boolean;
+}): { steps: PaymentPreviewStep[]; balanceAfter: number } | null {
+    if (!Number.isFinite(amount) || amount <= 0) return null;
+
+    const sequence: Array<{ label: string; expected: number }> = [
+        { label: isEn ? 'Registration deposit' : 'Sinal de inscrição', expected: depositValue },
+        ...paymentPlan.map((p, idx) => ({
+            label: `${isEn ? 'Installment' : 'Prestação'} ${idx + 1}`,
+            expected: Number(p.amount) || 0,
+        })),
+    ];
+
+    let remainingPaid = paidAmount;
+    const alreadyCovered: number[] = sequence.map(({ expected }) => {
+        const used = Math.min(remainingPaid, expected);
+        remainingPaid -= used;
+        return used;
+    });
+
+    let remainingNew = amount;
+    const steps: PaymentPreviewStep[] = [];
+
+    for (let i = 0; i < sequence.length; i++) {
+        if (remainingNew <= 0.0001) break;
+        const { label, expected } = sequence[i];
+        const before = alreadyCovered[i];
+        const stillNeeded = Math.max(0, expected - before);
+        if (stillNeeded <= 0.0001) continue;
+        const apply = Math.min(remainingNew, stillNeeded);
+        remainingNew = round2(remainingNew - apply);
+        const after = round2(before + apply);
+        steps.push({
+            label,
+            expected,
+            paidBefore: before,
+            paidAfter: after,
+            applied: round2(apply),
+            settles: after >= expected - 0.009,
+        });
+    }
+
+    return { steps, balanceAfter: round2(Math.max(0, maxAmount - amount)) };
+}
 
 export default function CustomPaymentAmount({
     suggestedAmount,
@@ -32,6 +105,7 @@ export default function CustomPaymentAmount({
     active,
     customAmount,
     onChange,
+    belowAmount,
 }: CustomPaymentAmountProps) {
     const { locale } = useLocale();
     const isEn = locale === 'en';
@@ -134,166 +208,87 @@ export default function CustomPaymentAmount({
 
     const isSelectedChip = (val: number) => parsed != null && Math.abs(parsed - val) < 0.009;
 
-    const preview = useMemo(() => {
-        if (!valid || parsed == null) return null;
-
-        const sequence: Array<{ label: string; expected: number }> = [
-            { label: isEn ? 'Registration deposit' : 'Sinal de inscrição', expected: depositValue },
-            ...paymentPlan.map((p, idx) => ({
-                label: `${isEn ? 'Installment' : 'Prestação'} ${idx + 1}`,
-                expected: Number(p.amount) || 0,
-            })),
-        ];
-
-        let remainingPaid = paidAmount;
-        const alreadyCovered: number[] = sequence.map(({ expected }) => {
-            const used = Math.min(remainingPaid, expected);
-            remainingPaid -= used;
-            return used;
-        });
-
-        let remainingNew = parsed;
-        const steps: Array<{
-            label: string;
-            settles: boolean;
-            applied: number;
-            expected: number;
-            paidBefore: number;
-            paidAfter: number;
-        }> = [];
-
-        for (let i = 0; i < sequence.length; i++) {
-            if (remainingNew <= 0.0001) break;
-            const { label, expected } = sequence[i];
-            const before = alreadyCovered[i];
-            const stillNeeded = Math.max(0, expected - before);
-            if (stillNeeded <= 0.0001) continue;
-            const apply = Math.min(remainingNew, stillNeeded);
-            remainingNew = round2(remainingNew - apply);
-            const after = round2(before + apply);
-            steps.push({
-                label,
-                expected,
-                paidBefore: before,
-                paidAfter: after,
-                applied: round2(apply),
-                settles: after >= expected - 0.009,
-            });
-        }
-
-        const balanceAfter = round2(Math.max(0, safeMax - parsed));
-        return { steps, balanceAfter };
-    }, [valid, parsed, paymentPlan, depositValue, paidAmount, safeMax, isEn]);
-
     const handleChip = (value: number) => {
         const v = round2(Math.min(Math.max(value, safeMin), safeMax));
         setInputValue(String(v).replace('.', ','));
     };
 
+    // Keep the giant figure from overflowing on narrow phones. The size goes in an
+    // inline style because globals.css sets an unlayered `input { font: inherit }`,
+    // which in Tailwind v4 outranks any layered text-* utility on the input.
+    const amountFontSize =
+        inputValue.length > 9 ? 32
+            : inputValue.length > 7 ? 40
+                : 52;
+
     return (
-        <div className="space-y-3">
-            {/* Quick amounts first — most people just tap one */}
-            <div className="grid grid-cols-2 gap-2">
-                {chips.map((chip) => {
-                    const selected = isSelectedChip(chip.value);
-                    const baseClasses = 'min-h-[64px] rounded-2xl px-3 py-2.5 text-left transition-colors border';
-                    const toneClasses = chip.tone === 'gold'
-                        ? selected
-                            ? 'bg-yellow-400 text-slate-900 border-yellow-300'
-                            : 'bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-200 border-yellow-500/25'
-                        : selected
-                            ? 'bg-white text-slate-900 border-white'
-                            : 'bg-white/[0.06] hover:bg-white/[0.12] text-white border-white/10';
-                    return (
-                        <button
-                            key={chip.value}
-                            type="button"
-                            onClick={() => handleChip(chip.value)}
-                            aria-pressed={selected}
-                            className={`${baseClasses} ${toneClasses}`}
-                        >
-                            <span className="block text-sm font-semibold leading-tight opacity-70">{chip.label}</span>
-                            <span className="mt-0.5 block text-lg font-black leading-tight">{formatPrice(chip.value)}</span>
-                        </button>
-                    );
-                })}
-            </div>
-
-            {/* Or type another amount */}
-            <div className="flex items-baseline justify-between pt-1">
-                <label htmlFor="custom-pay-input" className="block text-sm font-semibold text-white/60">
-                    {isEn ? 'Or type another amount' : 'Ou escreve outro valor'}
-                </label>
-                <span className="text-sm text-white/35">
-                    {isEn ? `Max ${formatPrice(safeMax)}` : `Máx ${formatPrice(safeMax)}`}
-                </span>
-            </div>
-
-            <div className="relative">
+        <div>
+            {/* The amount itself is the input — tap the number to change it */}
+            <div className="flex items-baseline justify-center gap-1.5 py-1">
                 <input
                     id="custom-pay-input"
                     type="text"
                     inputMode="decimal"
                     value={inputValue}
                     onChange={(e) => setInputValue(e.target.value)}
+                    onFocus={(e) => e.currentTarget.select()}
+                    aria-label={isEn ? 'Amount to pay' : 'Valor a pagar'}
                     aria-invalid={error ? true : undefined}
-                    className={`w-full rounded-2xl border-2 bg-white py-4 pl-5 pr-14 text-3xl font-black text-slate-900 outline-none transition-colors ${
-                        error
-                            ? 'border-red-400 focus:border-red-500'
-                            : valid
-                                ? 'border-green-400 focus:border-green-500'
-                                : 'border-transparent focus:border-yellow-400'
+                    style={{
+                        width: `${Math.max(inputValue.length, 1)}ch`,
+                        fontSize: `${amountFontSize}px`,
+                        lineHeight: 1.1,
+                    }}
+                    className={`min-w-[2ch] bg-transparent p-0 text-right font-black tabular-nums tracking-tight caret-amber-400 outline-none transition-colors ${
+                        error ? 'text-red-400' : 'text-white'
                     }`}
                 />
-                <span className="pointer-events-none absolute right-5 top-1/2 -translate-y-1/2 text-2xl font-bold text-slate-400">€</span>
+                <span
+                    style={{ fontSize: `${amountFontSize * 0.62}px`, lineHeight: 1.1 }}
+                    className={`font-bold tracking-tight ${error ? 'text-red-400/40' : 'text-white/30'}`}
+                >
+                    €
+                </span>
             </div>
 
-            {/* Error */}
-            {error && (
-                <div className="flex items-start gap-2 rounded-xl border border-red-500/30 bg-red-500/15 px-3 py-2.5 text-sm text-red-200">
-                    <AlertCircle className="mt-0.5 w-4 h-4 shrink-0" />
+            {belowAmount}
+
+            {/* Quick amounts — one tap covers almost everyone */}
+            <div className="-mx-1 mt-5 flex gap-2 overflow-x-auto px-1 pb-1 no-scrollbar">
+                {chips.map((chip) => {
+                    const selected = isSelectedChip(chip.value);
+                    return (
+                        <button
+                            key={chip.value}
+                            type="button"
+                            onClick={() => handleChip(chip.value)}
+                            aria-pressed={selected}
+                            className={`flex min-h-10 shrink-0 items-center gap-1.5 rounded-full px-4 text-sm transition-colors ${
+                                selected
+                                    ? 'bg-white font-bold text-slate-900'
+                                    : 'bg-white/[0.07] font-medium text-white/70 hover:bg-white/[0.13] hover:text-white'
+                            }`}
+                        >
+                            <span>{chip.label}</span>
+                            <span className={selected ? 'text-slate-500' : 'text-white/40'}>
+                                {formatPrice(chip.value)}
+                            </span>
+                        </button>
+                    );
+                })}
+            </div>
+
+            {error ? (
+                <div className="mt-3 flex items-start gap-2 rounded-xl bg-red-500/10 px-3 py-2.5 text-sm text-red-200">
+                    <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
                     <span>{error}</span>
                 </div>
-            )}
-
-            {/* Preview */}
-            {valid && preview && (
-                <details className="group overflow-hidden rounded-2xl border border-white/10 bg-white/[0.04]">
-                    <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between px-4 py-3 text-sm font-semibold text-white/60 hover:bg-white/5">
-                        <span>{isEn ? 'How it will be applied' : 'Como será aplicado'}</span>
-                        <span className="text-white/40 transition-transform group-open:rotate-180">▾</span>
-                    </summary>
-                    <div className="space-y-2 px-4 pb-4 pt-1">
-                        <ul className="space-y-2">
-                            {preview.steps.map((s, i) => (
-                                <li key={i} className="flex items-start gap-2.5 text-sm leading-snug text-white">
-                                    <span
-                                        className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-xs ${
-                                            s.settles ? 'bg-green-500/30 text-green-200' : 'bg-amber-500/30 text-amber-200'
-                                        }`}
-                                    >
-                                        {s.settles ? <Check className="w-3 h-3" /> : '↑'}
-                                    </span>
-                                    <span className="flex-1">
-                                        {s.settles
-                                            ? (isEn
-                                                ? `Settles ${s.label} (${formatPrice(s.expected)})`
-                                                : `Liquida ${s.label} (${formatPrice(s.expected)})`)
-                                            : (isEn
-                                                ? `Advances ${formatPrice(s.applied)} of ${s.label} — ${formatPrice(round2(s.expected - s.paidAfter))} still due`
-                                                : `Adianta ${formatPrice(s.applied)} de ${s.label} — falta ${formatPrice(round2(s.expected - s.paidAfter))}`)}
-                                    </span>
-                                </li>
-                            ))}
-                        </ul>
-                        <div className="mt-1 flex items-center justify-between border-t border-white/10 pt-3 text-sm">
-                            <span className="text-white/60">
-                                {isEn ? 'Balance after payment' : 'Saldo após pagamento'}
-                            </span>
-                            <span className="text-base font-black text-white">{formatPrice(preview.balanceAfter)}</span>
-                        </div>
-                    </div>
-                </details>
+            ) : (
+                <p className="mt-3 text-center text-sm text-white/35">
+                    {isEn
+                        ? `Any amount between ${formatPrice(safeMin)} and ${formatPrice(safeMax)}`
+                        : `Qualquer valor entre ${formatPrice(safeMin)} e ${formatPrice(safeMax)}`}
+                </p>
             )}
         </div>
     );
