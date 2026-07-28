@@ -13,6 +13,7 @@
     "cron:membership-rules": "CRON_PATH=/api/cron/membership-rules CRON_JOB_NAME=membership-rules node scripts/railway-cron.mjs",
     "cron:pilgrimage-payment-reminders": "CRON_PATH=/api/cron/pilgrimage-payment-reminders CRON_JOB_NAME=pilgrimage-payment-reminders node scripts/railway-cron.mjs",
     "cron:marketing-automations": "CRON_PATH=/api/cron/marketing-automations CRON_JOB_NAME=marketing-automations node scripts/railway-cron.mjs",
+    "cron:italy-campaign": "CRON_PATH=/api/cron/italy-campaign CRON_JOB_NAME=italy-campaign node scripts/railway-cron.mjs",
     "cron:monthly-reports": "CRON_PATH=/api/cron/monthly-reports CRON_JOB_NAME=monthly-reports node scripts/railway-cron.mjs",
     "cron:reduniq-reconcile": "node scripts/railway-cron-reduniq-reconcile.mjs",
     "cron:auction-close": "CRON_PATH=/api/cron/auction-close CRON_JOB_NAME=auction-close node scripts/railway-cron.mjs",

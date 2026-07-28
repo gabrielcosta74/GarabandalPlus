@@ -953,6 +953,367 @@ const pilgrimageRecoveryContent = (locale: EmailLocale, stage: 'start' | 'faq' |
       ${Text(supportSentence(locale))}`;
 };
 
+/* -------------------------------------------------------------------------- */
+/*        CAMPANHA ITÁLIA + MEDJUGORJE — abril 2027 (widgets + conteúdo)       */
+/* -------------------------------------------------------------------------- */
+
+// Números reais da peregrinação (tabela `pilgrimages`, slug abaixo). O
+// `pricing_config.scarcity_fill_pct` do site está alinhado com `scarcityPct`
+// para que email e página pública nunca digam coisas diferentes.
+const ITALY_CAMPAIGN = {
+  slug: 'italia-medjugorje-abril-2027',
+  scarcityPct: 75,
+  landPriceEur: 1850,
+  depositEur: 500,
+  singleSupplementEur: 950,
+  installments: 10,
+  path: { pt: '/peregrinacoes/italia-medjugorje-abril-2027', en: '/en/pilgrimages/italia-medjugorje-abril-2027' },
+  dates: { pt: '5 a 17 de abril de 2027', en: '5–17 April 2027' },
+  deadline: { pt: '30 de novembro de 2026', en: '30 November 2026' },
+  price: { pt: '1.850 €', en: '€1,850' },
+  deposit: { pt: '500 €', en: '€500' },
+  single: { pt: '950 €', en: '€950' },
+  stops: [
+    { pt: 'Roma', en: 'Rome', note: { pt: 'Vaticano e Basílicas Maiores', en: 'The Vatican and the Major Basilicas' } },
+    { pt: 'Cássia', en: 'Cascia', note: { pt: 'Santa Rita', en: 'Saint Rita' } },
+    { pt: 'Perúgia', en: 'Perugia', note: { pt: 'coração da Úmbria', en: 'the heart of Umbria' } },
+    { pt: 'Assis', en: 'Assisi', note: { pt: 'São Francisco e Santa Clara', en: 'Saint Francis and Saint Clare' } },
+    { pt: 'Loreto', en: 'Loreto', note: { pt: 'a Santa Casa de Nazaré', en: 'the Holy House of Nazareth' } },
+    { pt: 'Lanciano', en: 'Lanciano', note: { pt: 'o milagre eucarístico', en: 'the Eucharistic miracle' } },
+    { pt: 'San Giovanni Rotondo', en: 'San Giovanni Rotondo', note: { pt: 'Padre Pio', en: 'Padre Pio' } },
+    { pt: 'Monte Gargano', en: 'Monte Gargano', note: { pt: 'gruta de São Miguel Arcanjo', en: 'the cave of Saint Michael the Archangel' } },
+    { pt: 'Pompeia', en: 'Pompeii', note: { pt: 'Nossa Senhora do Rosário', en: 'Our Lady of the Rosary' } },
+    { pt: 'Medjugorje', en: 'Medjugorje', note: { pt: 'onde a peregrinação termina', en: 'where the pilgrimage ends' } },
+  ],
+};
+
+const italyUrl = (locale: EmailLocale) => `${APP_URL}${ITALY_CAMPAIGN.path[locale === 'en' ? 'en' : 'pt']}`;
+
+// Barra de escassez — a percentagem é a mesma que o site mostra na pill.
+// Cartão claro de propósito: o override de dark mode do Layout força
+// `div/span/td` para a cor de texto clara, pelo que um cartão escuro fica
+// ilegível nos clientes em modo escuro. Aqui as classes `email-heading` /
+// `email-text` recebem exatamente as cores certas nos dois modos.
+const italyScarcityBar = (locale: EmailLocale) => {
+  const isEn = locale === 'en';
+  const pct = ITALY_CAMPAIGN.scarcityPct;
+  return `
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#FEFCE8" style="margin:24px 0;border:2px solid ${COLORS.primary};border-radius:18px;background:#FEFCE8;background-color:#FEFCE8;overflow:hidden;">
+  <tr><td style="padding:24px 26px;">
+    <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 12px;">
+      <tr><td bgcolor="${COLORS.primary}" class="gold-badge" style="background:${COLORS.primary};background-color:${COLORS.primary};border-radius:999px;padding:5px 13px;font-size:11px;line-height:16px;font-weight:900;letter-spacing:1.4px;text-transform:uppercase;color:${COLORS.primaryDark};">${isEn ? 'Availability' : 'Disponibilidade'}</td></tr>
+    </table>
+    <div class="email-heading" style="font-size:27px;line-height:33px;font-weight:900;color:${COLORS.heading};font-family:${FONTS.serif};margin:0 0 16px;">${isEn ? `${pct}% of the places are gone` : `${pct}% das vagas já foram`}</div>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#e7e0c4" style="border-radius:999px;background:#e7e0c4;background-color:#e7e0c4;overflow:hidden;">
+      <tr>
+        <td width="${pct}%" bgcolor="${COLORS.primary}" height="14" style="width:${pct}%;height:14px;background:${COLORS.primary};background-color:${COLORS.primary};border-radius:999px;font-size:0;line-height:14px;">&nbsp;</td>
+        <td width="${100 - pct}%" height="14" style="width:${100 - pct}%;height:14px;font-size:0;line-height:14px;">&nbsp;</td>
+      </tr>
+    </table>
+    <div class="email-text" style="font-size:14px;line-height:22px;color:${COLORS.text};margin:14px 0 0;">${isEn
+      ? 'Only a small group travels — and the remaining places are the last of this pilgrimage. There is no second departure in 2027.'
+      : 'Só um grupo pequeno viaja — e as vagas que restam são as últimas desta peregrinação. Não há uma segunda saída em 2027.'}</div>
+    <div style="margin:14px 0 0;"><a href="${italyUrl(locale)}" style="font-size:14px;line-height:20px;font-weight:900;color:${COLORS.primaryDark};text-decoration:underline;">${isEn ? 'See the remaining places' : 'Ver as vagas que restam'} &rarr;</a></div>
+  </td></tr>
+</table>`;
+};
+
+// Conversão de moeda para leitura: o valor cobrado é sempre o de EUR, por isso
+// a conversão aparece sempre ao lado e marcada como aproximada.
+const italyLocalPrice = (eur: number, payload: MarketingTemplatePayload) => {
+  const rate = Number(payload.localCurrency?.rate || 0);
+  const code = String(payload.localCurrency?.code || '');
+  if (!rate || !code || code === 'EUR') return '';
+  const localeTag = code === 'BRL' ? 'pt-BR' : 'en-US';
+  return new Intl.NumberFormat(localeTag, {
+    style: 'currency',
+    currency: code,
+    maximumFractionDigits: 0,
+  }).format(eur * rate);
+};
+
+// Roteiro em duas colunas: cada paragem com o santuário/santo que a justifica.
+const italyRouteWidget = (locale: EmailLocale) => {
+  const isEn = locale === 'en';
+  const stops = ITALY_CAMPAIGN.stops;
+  const rows: string[] = [];
+  for (let index = 0; index < stops.length; index += 2) {
+    const cell = (stop: (typeof stops)[number] | undefined) =>
+      stop
+        ? `<td width="50%" valign="top" style="width:50%;padding:7px 8px 7px 0;">
+             <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#ffffff" style="border:1px solid ${COLORS.border};border-radius:12px;background:#ffffff;background-color:#ffffff;">
+               <tr><td style="padding:12px 14px;">
+                 <div style="font-size:15px;line-height:20px;font-weight:900;color:${COLORS.heading};">${isEn ? stop.en : stop.pt}</div>
+                 <div style="font-size:12px;line-height:18px;color:${COLORS.textLight};margin:3px 0 0;">${isEn ? stop.note.en : stop.note.pt}</div>
+               </td></tr>
+             </table>
+           </td>`
+        : '<td width="50%" style="width:50%;">&nbsp;</td>';
+    rows.push(`<tr>${cell(stops[index])}${cell(stops[index + 1])}</tr>`);
+  }
+  return `
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#f8fafc" style="margin:24px 0;border:1px solid ${COLORS.border};border-radius:16px;background:#f8fafc;background-color:#f8fafc;">
+  <tr><td style="padding:22px 22px 16px;">
+    <div style="font-size:11px;line-height:16px;font-weight:900;letter-spacing:1.3px;text-transform:uppercase;color:${COLORS.primary};margin:0 0 6px;">${isEn ? '13 days · 2 countries' : '13 dias · 2 países'}</div>
+    <div style="font-size:20px;line-height:26px;font-weight:900;color:${COLORS.heading};font-family:${FONTS.serif};margin:0 0 4px;">${isEn ? 'From Rome to Medjugorje' : 'De Roma a Medjugorje'}</div>
+    <div class="email-text" style="font-size:14px;line-height:22px;color:${COLORS.text};margin:0 0 12px;">${isEn ? '10 of the greatest shrines in Europe, in one single journey.' : '10 dos maiores santuários da Europa, numa só viagem.'}</div>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0">${rows.join('')}</table>
+  </td></tr>
+</table>`;
+};
+
+// Cartão de preço: terrestre + inscrição + parcelamento. Valores de leitura —
+// nenhum cálculo de pagamento vive aqui.
+const italyPriceWidget = (locale: EmailLocale, payload: MarketingTemplatePayload) => {
+  const isEn = locale === 'en';
+  const price = isEn ? ITALY_CAMPAIGN.price.en : ITALY_CAMPAIGN.price.pt;
+  const deposit = isEn ? ITALY_CAMPAIGN.deposit.en : ITALY_CAMPAIGN.deposit.pt;
+  const localLand = italyLocalPrice(ITALY_CAMPAIGN.landPriceEur, payload);
+  const localDeposit = italyLocalPrice(ITALY_CAMPAIGN.depositEur, payload);
+  const localSingle = italyLocalPrice(ITALY_CAMPAIGN.singleSupplementEur, payload);
+  const localInstalment = italyLocalPrice(
+    (ITALY_CAMPAIGN.landPriceEur - ITALY_CAMPAIGN.depositEur) / ITALY_CAMPAIGN.installments,
+    payload,
+  );
+  const instalmentEur = isEn
+    ? `€${Math.round((ITALY_CAMPAIGN.landPriceEur - ITALY_CAMPAIGN.depositEur) / ITALY_CAMPAIGN.installments)}`
+    : `${Math.round((ITALY_CAMPAIGN.landPriceEur - ITALY_CAMPAIGN.depositEur) / ITALY_CAMPAIGN.installments)} €`;
+  const beside = (value: string) =>
+    value ? `<span style="font-size:13px;line-height:19px;font-weight:800;color:${COLORS.textLight};">&nbsp;· ≈&nbsp;${value}</span>` : '';
+  return `
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#ffffff" style="margin:24px 0;border:2px solid ${COLORS.primary};border-radius:18px;background:#ffffff;background-color:#ffffff;overflow:hidden;">
+  <tr><td bgcolor="#FEFCE8" style="padding:22px 24px 18px;background:#FEFCE8;background-color:#FEFCE8;text-align:center;">
+    <div style="font-size:11px;line-height:16px;font-weight:900;letter-spacing:1.4px;text-transform:uppercase;color:${COLORS.primary};margin:0 0 8px;">${isEn ? 'Land package (no flight) · per person' : 'Terrestre (sem voo) · por pessoa'}</div>
+    <div class="email-heading" style="font-size:42px;line-height:46px;font-weight:900;color:${COLORS.heading};font-family:${FONTS.serif};">${price}</div>
+    ${localLand ? `<div class="email-text" style="font-size:15px;line-height:22px;font-weight:800;color:${COLORS.textLight};margin:4px 0 0;">≈ ${localLand}</div>` : ''}
+    <div class="email-text" style="font-size:14px;line-height:22px;color:${COLORS.text};margin:8px 0 0;">${isEn
+      ? `Hotel, all meals, drinks and coach travel included — for ${ITALY_CAMPAIGN.stops.length} shrines across 13 days.`
+      : `Hotel, alimentação completa, bebidas e transporte incluídos — para ${ITALY_CAMPAIGN.stops.length} santuários em 13 dias.`}</div>
+  </td></tr>
+  <tr><td style="padding:18px 24px 22px;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+      <tr>
+        <td valign="top" style="padding:8px 0;border-bottom:1px solid ${COLORS.border};font-size:14px;line-height:21px;color:${COLORS.textLight};">${isEn ? 'Registration (deposit)' : 'Inscrição (entrada)'}</td>
+        <td valign="top" align="right" style="padding:8px 0;border-bottom:1px solid ${COLORS.border};font-size:14px;line-height:21px;font-weight:900;color:${COLORS.heading};">${deposit}${beside(localDeposit)}</td>
+      </tr>
+      <tr>
+        <td valign="top" style="padding:8px 0;border-bottom:1px solid ${COLORS.border};font-size:14px;line-height:21px;color:${COLORS.textLight};">${isEn ? `The rest, in up to ${ITALY_CAMPAIGN.installments} instalments` : `O restante, em até ${ITALY_CAMPAIGN.installments}x`}</td>
+        <td valign="top" align="right" style="padding:8px 0;border-bottom:1px solid ${COLORS.border};font-size:14px;line-height:21px;font-weight:900;color:#047857;">${instalmentEur}${beside(localInstalment)}<span style="font-size:12px;font-weight:800;color:${COLORS.textLight};"> ${isEn ? '· interest-free' : '· sem juros'}</span></td>
+      </tr>
+      <tr>
+        <td valign="top" style="padding:8px 0;font-size:14px;line-height:21px;color:${COLORS.textLight};">${isEn ? 'Single room (optional)' : 'Quarto individual (opcional)'}</td>
+        <td valign="top" align="right" style="padding:8px 0;font-size:14px;line-height:21px;font-weight:900;color:${COLORS.heading};">+ ${isEn ? ITALY_CAMPAIGN.single.en : ITALY_CAMPAIGN.single.pt}${beside(localSingle)}</td>
+      </tr>
+    </table>
+    <div class="email-text" style="font-size:13px;line-height:20px;color:${COLORS.textLight};margin:14px 0 0;">${isEn
+      ? 'Pay by card, bank transfer, MB WAY or Multibanco (Portugal), or PIX (Brazil).'
+      : 'Pague por PIX (Brasil), cartão, MB WAY, Multibanco ou transferência bancária.'}</div>
+    ${localLand ? `<div class="email-text" style="font-size:12px;line-height:19px;color:${COLORS.textLight};margin:8px 0 0;">${isEn
+      ? 'Amounts are charged in euros; the conversion shown is indicative and follows the exchange rate of the day.'
+      : 'Os valores são cobrados em euros; a conversão indicada é aproximada e segue o câmbio do dia.'}</div>` : ''}
+  </td></tr>
+</table>`;
+};
+
+// Incluído / não incluído lado a lado. A honestidade sobre o voo evita a
+// objeção surgir depois, já dentro do formulário de inscrição.
+const italyIncludedWidget = (locale: EmailLocale) => {
+  const isEn = locale === 'en';
+  const included = isEn
+    ? ['4★ hotels', 'All meals', 'Drinks with meals', 'Coach travel throughout', 'Airport transfers']
+    : ['Hotéis 4★', 'Alimentação completa', 'Bebidas às refeições', 'Transporte em autocarro', 'Transferes de aeroporto'];
+  const excluded = isEn
+    ? ['Flights', 'Travel insurance']
+    : ['Bilhetes de avião', 'Seguro de viagem'];
+  const column = (title: string, items: string[], mark: string, markColor: string) => `
+    <td width="50%" valign="top" style="width:50%;padding:0 6px;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#ffffff" style="border:1px solid ${COLORS.border};border-radius:14px;background:#ffffff;background-color:#ffffff;height:100%;">
+        <tr><td style="padding:16px 16px 14px;">
+          <div style="font-size:11px;line-height:16px;font-weight:900;letter-spacing:1.2px;text-transform:uppercase;color:${markColor};margin:0 0 10px;">${title}</div>
+          ${items.map((item) => `<div class="email-text" style="font-size:14px;line-height:22px;color:${COLORS.text};padding:3px 0;"><span style="color:${markColor};font-weight:900;">${mark}</span>&nbsp; ${item}</div>`).join('')}
+        </td></tr>
+      </table>
+    </td>`;
+  return `
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:22px 0;">
+  <tr>
+    ${column(isEn ? 'Included' : 'Está incluído', included, '✓', '#047857')}
+    ${column(isEn ? 'Not included' : 'Não está incluído', excluded, '–', COLORS.textLight)}
+  </tr>
+</table>`;
+};
+
+const italyDeadlineWidget = (locale: EmailLocale) => {
+  const isEn = locale === 'en';
+  return emailNotePanel(
+    isEn ? `Registrations close on ${ITALY_CAMPAIGN.deadline.en}` : `As inscrições fecham a ${ITALY_CAMPAIGN.deadline.pt}`,
+    isEn
+      ? 'After that date the group is closed with the travel agency and no further places can be added — not even if someone cancels. Departure is on 5 April 2027.'
+      : 'Depois dessa data o grupo é fechado junto da agência e não é possível acrescentar mais ninguém — nem se alguém desistir. A partida é a 5 de abril de 2027.',
+  );
+};
+
+const italyFlightNote = (locale: EmailLocale) =>
+  locale === 'en'
+    ? emailNotePanel(
+        'About the flights',
+        'Pilgrims living in Portugal or Brazil travel on the flight package arranged by our travel agency (paid directly to the agency, never added to the land price). From any other country you book your own flights — you only need to be in Rome by 10:00 on 5 April 2027. We tell you exactly what to book.',
+      )
+    : emailNotePanel(
+        'Sobre os voos',
+        'Quem mora em Portugal ou no Brasil viaja no pacote aéreo da nossa agência (pago direto à agência, nunca somado ao terrestre). De qualquer outro país, você compra a própria passagem — só precisa estar em Roma até às 10:00 do dia 5 de abril de 2027. A gente diz exatamente o que reservar.',
+      );
+
+// CTA secundário: quem tem dúvida raramente clica no botão principal, mas fala
+// no WhatsApp. Os emails saem de no-reply@, por isso nunca pedimos resposta.
+const italyTalkToUs = (locale: EmailLocale) =>
+  locale === 'en'
+    ? `${Text(`Any question at all — flights, rooms, travelling alone, paying in instalments — message us on ${contactWa} or email ${contactMail}. A real person answers.`)}`
+    : `${Text(`Qualquer dúvida — voos, quarto, viajar sozinho(a), parcelamento — fale com a gente pelo ${contactWa} ou por ${contactMail}. Quem responde é uma pessoa de verdade.`)}`;
+
+const italyLaunchContent = (locale: EmailLocale) => {
+  const isEn = locale === 'en';
+  const intro = isEn
+    ? [
+        '<strong>{{greeting}}</strong>,',
+        'In April 2027 the Garabandal Apostolate is taking a group to <strong>Italy and Medjugorje</strong> — 13 days, 10 shrines, from the tomb of Padre Pio to the hill of the apparitions in Medjugorje.',
+        'We are writing to you because the places are going faster than we expected.',
+      ]
+    : [
+        '<strong>{{greeting}}</strong>,',
+        'Em abril de 2027 o Apostolado de Garabandal leva um grupo à <strong>Itália e a Medjugorje</strong> — 13 dias, 10 santuários, do túmulo do Padre Pio à colina das aparições em Medjugorje.',
+        'Estamos escrevendo porque as vagas estão saindo mais rápido do que esperávamos.',
+      ];
+  const closing = isEn
+    ? 'Take a look at the full programme, day by day, with no commitment. If it speaks to your heart, the place is secured on the same page.'
+    : 'Veja o programa completo, dia a dia, sem compromisso nenhum. Se falar ao seu coração, a vaga é garantida na mesma página.';
+  return `${intro.map((paragraph) => Text(paragraph)).join('')}
+    ${italyScarcityBar(locale)}
+    ${italyRouteWidget(locale)}
+    ${testimonialCard(locale, 1)}
+    ${italyIncludedWidget(locale)}
+    ${Text(closing)}`;
+};
+
+const italyStoryContent = (locale: EmailLocale) => {
+  const isEn = locale === 'en';
+  const intro = isEn
+    ? [
+        '<strong>{{greeting}}</strong>,',
+        'There is a reason this pilgrimage goes to Italy — and it is not tourism.',
+        'When Conchita went to San Giovanni Rotondo, <strong>Padre Pio</strong> had already died. And yet she was given his veil, and the message he had left for her. The story of Garabandal and the story of Italy are tied together — and Medjugorje continues the same call to prayer, fasting and conversion.',
+      ]
+    : [
+        '<strong>{{greeting}}</strong>,',
+        'Existe um motivo para esta peregrinação passar pela Itália — e não é turismo.',
+        'Quando Conchita foi a San Giovanni Rotondo, o <strong>Padre Pio</strong> já tinha morrido. Ainda assim, entregaram a ela o véu dele e a mensagem que ele havia deixado. A história de Garabandal e a história da Itália estão amarradas — e Medjugorje continua o mesmo chamado à oração, ao jejum e à conversão.',
+      ];
+  const highlights = isEn
+    ? benefitChecklist('Four moments people never forget', [
+        '<strong>San Giovanni Rotondo</strong> — Mass at the tomb of Padre Pio',
+        '<strong>Lanciano</strong> — the oldest Eucharistic miracle in the Church, still visible today',
+        '<strong>Assisi</strong> — the tombs of Saint Francis and Saint Clare',
+        '<strong>Medjugorje</strong> — Apparition Hill and the evening prayer programme',
+      ])
+    : benefitChecklist('Quatro momentos que ninguém esquece', [
+        '<strong>San Giovanni Rotondo</strong> — Missa junto ao túmulo do Padre Pio',
+        '<strong>Lanciano</strong> — o milagre eucarístico mais antigo da Igreja, visível até hoje',
+        '<strong>Assis</strong> — os túmulos de São Francisco e de Santa Clara',
+        '<strong>Medjugorje</strong> — a Colina das Aparições e o programa de oração da noite',
+      ]);
+  const closing = isEn
+    ? 'This is what we mean when we say this is not a trip. You come back different.'
+    : 'É isso que queremos dizer quando falamos que não é uma viagem. Você volta diferente.';
+  return `${intro.map((paragraph) => Text(paragraph)).join('')}
+    ${emailFeatureBlock({
+      image: '{{pilgrimage_image_url}}',
+      eyebrow: isEn ? 'Italy and Medjugorje · April 2027' : 'Itália e Medjugorje · Abril de 2027',
+      title: isEn ? 'Where Garabandal and Padre Pio meet' : 'Onde Garabandal e o Padre Pio se encontram',
+      desc: isEn
+        ? 'Thirteen days walking through the places that shaped this message — accompanied by our team, in a spirit of prayer and fellowship.'
+        : 'Treze dias percorrendo os lugares que formaram esta mensagem — acompanhado pela nossa equipe, com espírito de oração e comunhão.',
+    })}
+    ${highlights}
+    ${testimonialCard(locale, 3)}
+    ${italyScarcityBar(locale)}
+    ${Text(closing)}`;
+};
+
+const italyValueContent = (locale: EmailLocale, payload: MarketingTemplatePayload) => {
+  const isEn = locale === 'en';
+  const intro = isEn
+    ? [
+        '<strong>{{greeting}}</strong>,',
+        'The question we get most is always the same: <em>"how much is it, really?"</em>',
+        'So here is everything, with nothing hidden.',
+      ]
+    : [
+        '<strong>{{greeting}}</strong>,',
+        'A pergunta que mais recebemos é sempre a mesma: <em>"quanto custa, de verdade?"</em>',
+        'Então aqui está tudo, sem letras miúdas.',
+      ];
+  const steps = isEn
+    ? emailSteps('How registration works', [
+        'Open the pilgrimage page and choose your room.',
+        'Complete the registration form and confirm your details.',
+        `Settle the amount in up to ${ITALY_CAMPAIGN.installments} interest-free instalments, until April 2027.`,
+      ])
+    : emailSteps('Como funciona a inscrição', [
+        'Abra a página da peregrinação e escolha o seu quarto.',
+        'Preencha a inscrição e confirme os seus dados.',
+        `Pague em até ${ITALY_CAMPAIGN.installments}x sem juros, até abril de 2027.`,
+      ]);
+  const mission = isEn
+    ? emailNotePanel(
+        'Your place also builds something',
+        'Part of what this pilgrimage raises goes to the Apostolate\'s mission house project in Garabandal. You travel — and you leave something standing behind you.',
+      )
+    : emailNotePanel(
+        'A sua vaga também constrói algo',
+        'Parte do que esta peregrinação arrecada vai para o projeto da casa de missão do Apostolado em Garabandal. Você viaja — e deixa algo de pé atrás de si.',
+      );
+  return `${intro.map((paragraph) => Text(paragraph)).join('')}
+    ${italyPriceWidget(locale, payload)}
+    ${italyIncludedWidget(locale)}
+    ${italyFlightNote(locale)}
+    ${steps}
+    ${mission}
+    ${italyTalkToUs(locale)}`;
+};
+
+const italyLastCallContent = (locale: EmailLocale, payload: MarketingTemplatePayload) => {
+  const isEn = locale === 'en';
+  const intro = isEn
+    ? [
+        '<strong>{{greeting}}</strong>,',
+        'This is the last email we will send you about <strong>Italy and Medjugorje 2027</strong>. If the timing is not right, we leave it here with respect — and you stay in our prayers either way.',
+        'But if this has been on your mind these past weeks, please read this one short thing:',
+      ]
+    : [
+        '<strong>{{greeting}}</strong>,',
+        'Este é o último email que enviamos sobre a <strong>Itália e Medjugorje 2027</strong>. Se o momento não for o certo, ficamos por aqui com respeito — e você continua na nossa oração de qualquer forma.',
+        'Mas se isso ficou na sua cabeça nas últimas semanas, leia só isto:',
+      ];
+  const closing = isEn
+    ? 'Most people who go tell us the same sentence afterwards: <em>"I almost didn\'t come."</em> If your heart is saying yes, this is the week to answer it.'
+    : 'Quase todo mundo que vai nos diz a mesma frase depois: <em>"eu quase não vim."</em> Se o seu coração está dizendo sim, esta é a semana de responder.';
+  const localLand = italyLocalPrice(ITALY_CAMPAIGN.landPriceEur, payload);
+  return `${intro.map((paragraph) => Text(paragraph)).join('')}
+    ${italyScarcityBar(locale)}
+    ${italyDeadlineWidget(locale)}
+    ${emailFeatureBlock({
+      image: '{{pilgrimage_image_url}}',
+      eyebrow: isEn ? `Departure ${ITALY_CAMPAIGN.dates.en}` : `Partida ${ITALY_CAMPAIGN.dates.pt}`,
+      title: isEn ? 'Rome · Assisi · Padre Pio · Medjugorje' : 'Roma · Assis · Padre Pio · Medjugorje',
+      desc: isEn
+        ? `13 days, 10 shrines, ${ITALY_CAMPAIGN.price.en}${localLand ? ` (≈ ${localLand})` : ''} for the land package with hotel, meals and travel included — payable in up to ${ITALY_CAMPAIGN.installments} interest-free instalments.`
+        : `13 dias, 10 santuários, ${ITALY_CAMPAIGN.price.pt}${localLand ? ` (≈ ${localLand})` : ''} no terrestre com hotel, alimentação e transporte incluídos — em até ${ITALY_CAMPAIGN.installments}x sem juros.`,
+    })}
+    ${testimonialCard(locale, 2)}
+    ${italyTalkToUs(locale)}
+    ${Text(closing)}`;
+};
+
 const waitlistContent = (locale: EmailLocale, variant: 'welcome' | 'open_spot' | 'more_spots') => {
   const isEn = locale === 'en';
   if (variant === 'more_spots') {
@@ -1949,6 +2310,10 @@ export type MarketingTemplateKey =
   | 'brochure_followup_1'
   | 'pilgrimage_testimony'
   | 'pilgrimage_faq_objections'
+  | 'italy_medjugorje_launch'
+  | 'italy_medjugorje_story'
+  | 'italy_medjugorje_value'
+  | 'italy_medjugorje_last_call'
   | 'abandoned_registration_1'
   | 'abandoned_registration_faq'
   | 'abandoned_registration_final'
@@ -2026,6 +2391,10 @@ export type MarketingTemplatePayload = {
   productImageUrl?: string | null;
   productUrl?: string | null;
   recommendation?: string | null;
+  // Conversão de moeda para emails com preços: o público brasileiro lê em BRL e
+  // o inglês em USD, mas o valor em EUR fica sempre ao lado (é o valor cobrado).
+  // A taxa é obtida no envio; sem ela, os preços mostram só EUR.
+  localCurrency?: { code: string; rate: number } | null;
   subjectOverride?: string | null;
   bodyOverride?: string | null;
   unsubscribeUrl?: string | null;
@@ -2046,7 +2415,10 @@ type MarketingTemplateDefinition = {
   requiredVariables: string[];
   // Optional rich HTML body (image cards, etc.). When present it replaces the
   // generic paragraph rendering. Locale-aware via the email's language.
-  contentHtml?: (locale: EmailLocale) => string;
+  contentHtml?: (locale: EmailLocale, payload: MarketingTemplatePayload) => string;
+  // Quando true, o cabeçalho usa a capa real da peregrinação
+  // (`payload.pilgrimageImageUrl`) em vez da imagem genérica do Apostolado.
+  useHeroImage?: boolean;
 };
 
 type MarketingTemplateLocalizedContent = Pick<
@@ -2234,6 +2606,86 @@ export const MARKETING_EMAIL_TEMPLATES: Record<MarketingTemplateKey, MarketingTe
       '"Adoraria ir, mas não sei se consigo..." — reconhece esse pensamento? É completamente normal querer ter tudo claro antes de decidir.',
       'As dúvidas mais frequentes — valor total, quartos individuais ou compartilhados, viagem incluída, pagamento parcelado, cancelamento, quem acompanha o grupo — têm resposta na página da peregrinação.',
       `Se algo continuar em aberto, fale com a gente pelo ${contactWa} ou por ${contactMail}. Queremos que você decida com clareza, confiança e paz. Sem pressão de nenhum tipo.`,
+    ],
+  },
+  italy_medjugorje_launch: {
+    key: 'italy_medjugorje_launch',
+    name: 'Itália + Medjugorje · 1. Lançamento',
+    category: 'Peregrinações',
+    goal: 'Apresentar a peregrinação de Itália e Medjugorje e criar urgência com as vagas restantes.',
+    defaultSubject: 'Itália e Medjugorje 2027: 75% das vagas já foram',
+    previewText: '13 dias, 10 santuários, do túmulo do Padre Pio a Medjugorje. Veja o roteiro.',
+    ctaLabel: 'Ver Roteiro e Garantir a Minha Vaga',
+    ctaUrl: (payload) => payload.pilgrimageUrl || italyUrl(payload.language === 'en' ? 'en' : 'pt'),
+    title: 'Itália e Medjugorje',
+    subtitle: '5 a 17 de abril de 2027 · 13 dias · 10 santuários',
+    requiredVariables: ['name', 'pilgrimage_url'],
+    useHeroImage: true,
+    contentHtml: (locale) => italyLaunchContent(locale),
+    paragraphs: [
+      '<strong>{{greeting}}</strong>,',
+      'Em abril de 2027 o Apostolado de Garabandal leva um grupo à <strong>Itália e a Medjugorje</strong> — 13 dias, 10 santuários, do túmulo do Padre Pio à colina das aparições.',
+      'As vagas estão saindo rápido: 75% já foram. Veja o programa completo, dia a dia, sem compromisso.',
+    ],
+  },
+  italy_medjugorje_story: {
+    key: 'italy_medjugorje_story',
+    name: 'Itália + Medjugorje · 2. Padre Pio e Garabandal',
+    category: 'Peregrinações',
+    goal: 'Construir desejo espiritual ligando Garabandal, Padre Pio e Medjugorje.',
+    defaultSubject: 'O Padre Pio viu Garabandal antes de morrer',
+    previewText: 'Existe um motivo para esta peregrinação passar pela Itália — e não é turismo.',
+    ctaLabel: 'Ver a Peregrinação Completa',
+    ctaUrl: (payload) => payload.pilgrimageUrl || italyUrl(payload.language === 'en' ? 'en' : 'pt'),
+    title: 'Onde Garabandal e o Padre Pio se encontram',
+    subtitle: 'Itália e Medjugorje · abril de 2027',
+    requiredVariables: ['name', 'pilgrimage_url'],
+    useHeroImage: true,
+    contentHtml: (locale) => italyStoryContent(locale),
+    paragraphs: [
+      '<strong>{{greeting}}</strong>,',
+      'Quando Conchita foi a San Giovanni Rotondo, o <strong>Padre Pio</strong> já tinha morrido — e ainda assim entregaram a ela o véu dele e a mensagem que havia deixado.',
+      'A história de Garabandal e a da Itália estão amarradas. E Medjugorje continua o mesmo chamado à oração e à conversão.',
+    ],
+  },
+  italy_medjugorje_value: {
+    key: 'italy_medjugorje_value',
+    name: 'Itália + Medjugorje · 3. Preço e parcelamento',
+    category: 'Peregrinações',
+    goal: 'Remover a objeção financeira: preço claro, 10x sem juros, o que está incluído.',
+    defaultSubject: '1.850 € com tudo incluído — e dá para parcelar em 10x',
+    previewText: 'Hotel, alimentação, bebidas e transporte incluídos, em até 10x sem juros.',
+    ctaLabel: 'Ver Valores e Fazer a Minha Inscrição',
+    ctaUrl: (payload) => payload.pilgrimageUrl || italyUrl(payload.language === 'en' ? 'en' : 'pt'),
+    title: 'Quanto custa, de verdade',
+    subtitle: 'Itália e Medjugorje · 5 a 17 de abril de 2027',
+    requiredVariables: ['name', 'pilgrimage_url'],
+    useHeroImage: true,
+    contentHtml: (locale, payload) => italyValueContent(locale, payload),
+    paragraphs: [
+      '<strong>{{greeting}}</strong>,',
+      'A pergunta que mais recebemos é sempre a mesma: "quanto custa, de verdade?"',
+      'São 1.850 € no terrestre, com hotel, alimentação completa, bebidas e transporte incluídos — em até 10x sem juros.',
+    ],
+  },
+  italy_medjugorje_last_call: {
+    key: 'italy_medjugorje_last_call',
+    name: 'Itália + Medjugorje · 4. Última chamada',
+    category: 'Peregrinações',
+    goal: 'Fechar as últimas vagas antes do prazo de inscrição.',
+    defaultSubject: 'Últimas vagas para Itália e Medjugorje',
+    previewText: 'As inscrições fecham a 30 de novembro. Depois disso o grupo é fechado.',
+    ctaLabel: 'Garantir a Última Vaga',
+    ctaUrl: (payload) => payload.pilgrimageUrl || italyUrl(payload.language === 'en' ? 'en' : 'pt'),
+    title: 'Últimas vagas',
+    subtitle: 'Itália e Medjugorje · inscrições até 30 de novembro de 2026',
+    requiredVariables: ['name', 'pilgrimage_url'],
+    useHeroImage: true,
+    contentHtml: (locale, payload) => italyLastCallContent(locale, payload),
+    paragraphs: [
+      '<strong>{{greeting}}</strong>,',
+      'Este é o último email que enviamos sobre a <strong>Itália e Medjugorje 2027</strong>. Se o momento não for o certo, ficamos por aqui com respeito.',
+      'As inscrições fecham a 30 de novembro de 2026 — depois disso o grupo é fechado junto da agência e não é possível acrescentar mais ninguém.',
     ],
   },
   abandoned_registration_1: {
@@ -2871,6 +3323,58 @@ const MARKETING_EMAIL_TEMPLATE_EN: Record<MarketingTemplateKey, MarketingTemplat
       `If anything is still unclear, message us on ${contactWa} or email ${contactMail}. We want you to decide with clarity, confidence and peace. No pressure of any kind.`,
     ],
   },
+  italy_medjugorje_launch: {
+    goal: 'Introduce the Italy and Medjugorje pilgrimage and create urgency around the remaining places.',
+    defaultSubject: 'Italy and Medjugorje 2027: 75% of the places are gone',
+    previewText: '13 days, 10 shrines, from the tomb of Padre Pio to Medjugorje. See the route.',
+    ctaLabel: 'See the Route and Secure My Place',
+    title: 'Italy and Medjugorje',
+    subtitle: '5–17 April 2027 · 13 days · 10 shrines',
+    paragraphs: [
+      '<strong>{{greeting}}</strong>,',
+      'In April 2027 the Garabandal Apostolate is taking a group to <strong>Italy and Medjugorje</strong> — 13 days, 10 shrines, from the tomb of Padre Pio to the hill of the apparitions.',
+      'Places are going quickly: 75% are already taken. Take a look at the full day-by-day programme, with no commitment.',
+    ],
+  },
+  italy_medjugorje_story: {
+    goal: 'Build spiritual desire by connecting Garabandal, Padre Pio and Medjugorje.',
+    defaultSubject: 'Padre Pio saw Garabandal before he died',
+    previewText: 'There is a reason this pilgrimage goes to Italy — and it is not tourism.',
+    ctaLabel: 'See the Full Pilgrimage',
+    title: 'Where Garabandal and Padre Pio meet',
+    subtitle: 'Italy and Medjugorje · April 2027',
+    paragraphs: [
+      '<strong>{{greeting}}</strong>,',
+      'When Conchita reached San Giovanni Rotondo, <strong>Padre Pio</strong> had already died — and still she was given his veil and the message he had left for her.',
+      'The story of Garabandal and the story of Italy are tied together. And Medjugorje carries on the same call to prayer and conversion.',
+    ],
+  },
+  italy_medjugorje_value: {
+    goal: 'Remove the financial objection: clear price, interest-free instalments, what is included.',
+    defaultSubject: '€1,850 all-in — and you can split it into 10',
+    previewText: 'Hotel, all meals, drinks and travel included, in up to 10 interest-free instalments.',
+    ctaLabel: 'See the Full Cost and Register',
+    title: 'What it really costs',
+    subtitle: 'Italy and Medjugorje · 5–17 April 2027',
+    paragraphs: [
+      '<strong>{{greeting}}</strong>,',
+      'The question we are asked most is always the same: "how much is it, really?"',
+      'It is €1,850 for the land package, with hotel, all meals, drinks and travel included — payable in up to 10 interest-free instalments.',
+    ],
+  },
+  italy_medjugorje_last_call: {
+    goal: 'Close the final places before the registration deadline.',
+    defaultSubject: 'Final places for Italy and Medjugorje',
+    previewText: 'Registrations close on 30 November. After that the group is closed.',
+    ctaLabel: 'Secure the Last Place',
+    title: 'Final places',
+    subtitle: 'Italy and Medjugorje · registrations until 30 November 2026',
+    paragraphs: [
+      '<strong>{{greeting}}</strong>,',
+      'This is the last email we will send you about <strong>Italy and Medjugorje 2027</strong>. If the timing is not right, we leave it here with respect.',
+      'Registrations close on 30 November 2026 — after that the group is closed with the agency and no one else can be added.',
+    ],
+  },
   abandoned_registration_1: {
     goal: 'Recover a started but unfinished pilgrimage registration.',
     defaultSubject: '{{first_name}}, your spot in {{pilgrimage_name}} is almost secured',
@@ -3329,7 +3833,7 @@ export const renderMarketingTemplateEmail = (payload: MarketingTemplatePayload) 
       : template.ctaLabel;
   const richContent =
     !payload.bodyOverride && baseTemplate.contentHtml
-      ? fillMarketingVariables(baseTemplate.contentHtml(locale), payload)
+      ? fillMarketingVariables(baseTemplate.contentHtml(locale, payload), payload)
       : null;
   const productItems =
     Array.isArray(payload.products) && payload.products.length
@@ -3374,6 +3878,7 @@ export const renderMarketingTemplateEmail = (payload: MarketingTemplatePayload) 
           title: fillMarketingVariables(template.title, payload),
           subtitle: fillMarketingVariables(template.subtitle, payload),
           category: template.category,
+          ...(baseTemplate.useHeroImage && payload.pilgrimageImageUrl ? { image: payload.pilgrimageImageUrl } : {}),
         })}
         ${Section({
           children: `
