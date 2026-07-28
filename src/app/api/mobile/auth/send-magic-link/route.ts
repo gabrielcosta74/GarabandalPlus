@@ -3,12 +3,33 @@ import { supabaseServer } from '../../../../../lib/supabase';
 import { normalizeEmail } from '../../../../../lib/normalize';
 import { checkRateLimit } from '../../../../../lib/rate-limit';
 import { sendAuthMagicLinkEmail } from '../../../../../lib/email';
+import { getAppUrl } from '../../../../../lib/config';
 
 export const dynamic = 'force-dynamic';
 
-const MOBILE_APP_REDIRECT = 'garabandalmembros://';
-const EXPO_GO_DEV_PREFIX = 'exp://';
-const LOCAL_DEV_PREFIXES = ['http://localhost:', 'http://127.0.0.1:'];
+const MOBILE_APP_LOGIN_REDIRECT = 'garabandalmembros://login';
+
+function isPrivateIpv4(hostname: string) {
+  const octets = hostname.split('.').map(Number);
+  if (octets.length !== 4 || octets.some((octet) => !Number.isInteger(octet) || octet < 0 || octet > 255)) {
+    return false;
+  }
+
+  return (
+    octets[0] === 10 ||
+    octets[0] === 127 ||
+    (octets[0] === 172 && octets[1] >= 16 && octets[1] <= 31) ||
+    (octets[0] === 192 && octets[1] === 168)
+  );
+}
+
+function isAllowedExpoGoRedirect(url: URL) {
+  return (
+    url.protocol === 'exp:' &&
+    (url.hostname === 'localhost' || isPrivateIpv4(url.hostname)) &&
+    url.pathname.endsWith('/--/login')
+  );
+}
 
 async function authUserExists(email: string) {
   if (!supabaseServer) return false;
@@ -30,17 +51,19 @@ async function authUserExists(email: string) {
 }
 
 function sanitizeRedirectTo(value: unknown) {
-  if (value == null || value === '') return MOBILE_APP_REDIRECT;
+  if (value == null || value === '') return MOBILE_APP_LOGIN_REDIRECT;
   if (typeof value !== 'string') return null;
 
   const redirectTo = value.trim();
-  if (!redirectTo) return MOBILE_APP_REDIRECT;
+  if (!redirectTo) return MOBILE_APP_LOGIN_REDIRECT;
 
-  if (redirectTo.startsWith(MOBILE_APP_REDIRECT)) return redirectTo;
+  if (redirectTo === MOBILE_APP_LOGIN_REDIRECT) return redirectTo;
 
-  if (process.env.NODE_ENV !== 'production') {
-    if (redirectTo.startsWith(EXPO_GO_DEV_PREFIX)) return redirectTo;
-    if (LOCAL_DEV_PREFIXES.some((prefix) => redirectTo.startsWith(prefix))) return redirectTo;
+  try {
+    const parsed = new URL(redirectTo);
+    if (isAllowedExpoGoRedirect(parsed)) return parsed.toString();
+  } catch {
+    return null;
   }
 
   return null;
@@ -82,10 +105,13 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: true });
     }
 
+    const mobileCallbackUrl = new URL('/auth/mobile-callback', getAppUrl());
+    mobileCallbackUrl.searchParams.set('return_to', redirectTo);
+
     const { data, error } = await supabaseServer.auth.admin.generateLink({
       type: 'magiclink',
       email,
-      options: { redirectTo },
+      options: { redirectTo: mobileCallbackUrl.toString() },
     });
 
     if (error) {
