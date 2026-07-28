@@ -192,17 +192,43 @@ export default function CustomPaymentAmount({
 
     return (
         <div className="space-y-3">
-            {/* Label */}
-            <div className="flex items-center justify-between">
-                <label htmlFor="custom-pay-input" className="block text-[11px] font-bold uppercase tracking-widest text-white/70">
-                    {isEn ? 'Amount to pay' : 'Valor a pagar'}
+            {/* Quick amounts first — most people just tap one */}
+            <div className="grid grid-cols-2 gap-2">
+                {chips.map((chip) => {
+                    const selected = isSelectedChip(chip.value);
+                    const baseClasses = 'min-h-[64px] rounded-2xl px-3 py-2.5 text-left transition-colors border';
+                    const toneClasses = chip.tone === 'gold'
+                        ? selected
+                            ? 'bg-yellow-400 text-slate-900 border-yellow-300'
+                            : 'bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-200 border-yellow-500/25'
+                        : selected
+                            ? 'bg-white text-slate-900 border-white'
+                            : 'bg-white/[0.06] hover:bg-white/[0.12] text-white border-white/10';
+                    return (
+                        <button
+                            key={chip.value}
+                            type="button"
+                            onClick={() => handleChip(chip.value)}
+                            aria-pressed={selected}
+                            className={`${baseClasses} ${toneClasses}`}
+                        >
+                            <span className="block text-sm font-semibold leading-tight opacity-70">{chip.label}</span>
+                            <span className="mt-0.5 block text-lg font-black leading-tight">{formatPrice(chip.value)}</span>
+                        </button>
+                    );
+                })}
+            </div>
+
+            {/* Or type another amount */}
+            <div className="flex items-baseline justify-between pt-1">
+                <label htmlFor="custom-pay-input" className="block text-sm font-semibold text-white/60">
+                    {isEn ? 'Or type another amount' : 'Ou escreve outro valor'}
                 </label>
-                <span className="text-[11px] text-white/40">
+                <span className="text-sm text-white/35">
                     {isEn ? `Max ${formatPrice(safeMax)}` : `Máx ${formatPrice(safeMax)}`}
                 </span>
             </div>
 
-            {/* Input with € suffix */}
             <div className="relative">
                 <input
                     id="custom-pay-input"
@@ -211,7 +237,7 @@ export default function CustomPaymentAmount({
                     value={inputValue}
                     onChange={(e) => setInputValue(e.target.value)}
                     aria-invalid={error ? true : undefined}
-                    className={`w-full bg-white text-slate-900 font-bold text-3xl md:text-4xl pl-5 pr-12 py-4 rounded-2xl border-2 outline-none transition-colors ${
+                    className={`w-full rounded-2xl border-2 bg-white py-4 pl-5 pr-14 text-3xl font-black text-slate-900 outline-none transition-colors ${
                         error
                             ? 'border-red-400 focus:border-red-500'
                             : valid
@@ -219,56 +245,30 @@ export default function CustomPaymentAmount({
                                 : 'border-transparent focus:border-yellow-400'
                     }`}
                 />
-                <span className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-2xl md:text-3xl pointer-events-none">€</span>
-            </div>
-
-            {/* Chips */}
-            <div className="flex flex-wrap gap-2">
-                {chips.map((chip) => {
-                    const selected = isSelectedChip(chip.value);
-                    const baseClasses = 'text-xs font-bold px-3 py-2 rounded-xl transition-colors text-center flex-1 min-w-[80px]';
-                    const toneClasses = chip.tone === 'gold'
-                        ? selected
-                            ? 'bg-yellow-400 text-slate-900 ring-2 ring-yellow-300'
-                            : 'bg-yellow-500/20 hover:bg-yellow-500/30 text-yellow-200'
-                        : selected
-                            ? 'bg-white text-slate-900 ring-2 ring-white/60'
-                            : 'bg-white/10 hover:bg-white/20 text-white';
-                    return (
-                        <button
-                            key={chip.value}
-                            type="button"
-                            onClick={() => handleChip(chip.value)}
-                            className={`${baseClasses} ${toneClasses}`}
-                        >
-                            <span className="block leading-tight">{chip.label}</span>
-                            <span className="block leading-tight text-[11px] opacity-80">{formatPrice(chip.value)}</span>
-                        </button>
-                    );
-                })}
+                <span className="pointer-events-none absolute right-5 top-1/2 -translate-y-1/2 text-2xl font-bold text-slate-400">€</span>
             </div>
 
             {/* Error */}
             {error && (
-                <div className="flex items-start gap-2 text-xs text-red-200 bg-red-500/15 border border-red-500/30 rounded-lg px-3 py-2">
-                    <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                <div className="flex items-start gap-2 rounded-xl border border-red-500/30 bg-red-500/15 px-3 py-2.5 text-sm text-red-200">
+                    <AlertCircle className="mt-0.5 w-4 h-4 shrink-0" />
                     <span>{error}</span>
                 </div>
             )}
 
             {/* Preview */}
             {valid && preview && (
-                <details className="rounded-xl bg-white/5 border border-white/10 overflow-hidden group">
-                    <summary className="cursor-pointer list-none px-3 py-2.5 flex items-center justify-between text-[11px] font-bold uppercase tracking-widest text-white/60 hover:bg-white/5">
+                <details className="group overflow-hidden rounded-2xl border border-white/10 bg-white/[0.04]">
+                    <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between px-4 py-3 text-sm font-semibold text-white/60 hover:bg-white/5">
                         <span>{isEn ? 'How it will be applied' : 'Como será aplicado'}</span>
-                        <span className="text-white/40 group-open:rotate-180 transition-transform">▾</span>
+                        <span className="text-white/40 transition-transform group-open:rotate-180">▾</span>
                     </summary>
-                    <div className="px-3 pb-3 pt-1 space-y-2">
-                        <ul className="space-y-1.5">
+                    <div className="space-y-2 px-4 pb-4 pt-1">
+                        <ul className="space-y-2">
                             {preview.steps.map((s, i) => (
-                                <li key={i} className="flex items-center gap-2 text-xs text-white">
+                                <li key={i} className="flex items-start gap-2.5 text-sm leading-snug text-white">
                                     <span
-                                        className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 ${
+                                        className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-xs ${
                                             s.settles ? 'bg-green-500/30 text-green-200' : 'bg-amber-500/30 text-amber-200'
                                         }`}
                                     >
@@ -286,11 +286,11 @@ export default function CustomPaymentAmount({
                                 </li>
                             ))}
                         </ul>
-                        <div className="pt-2 mt-1 border-t border-white/10 flex items-center justify-between text-xs">
+                        <div className="mt-1 flex items-center justify-between border-t border-white/10 pt-3 text-sm">
                             <span className="text-white/60">
                                 {isEn ? 'Balance after payment' : 'Saldo após pagamento'}
                             </span>
-                            <span className="font-bold text-white">{formatPrice(preview.balanceAfter)}</span>
+                            <span className="text-base font-black text-white">{formatPrice(preview.balanceAfter)}</span>
                         </div>
                     </div>
                 </details>

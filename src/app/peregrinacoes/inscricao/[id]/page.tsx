@@ -762,26 +762,29 @@ export default function BookingDashboardPage() {
 
     // Reusable payment panel (used both in desktop sticky aside and in the mobile inline view).
     const paymentPanel = (
-        <div className="bg-gradient-to-b from-slate-900 to-slate-950 rounded-[2rem] p-6 md:p-8 shadow-2xl border border-white/10 ring-1 ring-white/5 relative overflow-hidden">
+        <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-slate-950 p-5 shadow-2xl ring-1 ring-white/5 md:p-7">
             {uploadSuccess && (
-                <div className="absolute inset-0 bg-green-600 flex flex-col items-center justify-center p-6 text-white z-10 animate-in fade-in zoom-in duration-300">
-                    <CheckCircle2 className="w-16 h-16 mb-4 animate-bounce" />
+                <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-green-600 p-6 text-white animate-in fade-in zoom-in duration-300">
+                    <CheckCircle2 className="mb-4 h-16 w-16 animate-bounce" />
                     <h3 className="text-2xl font-bold">{isEn ? 'Uploaded!' : 'Enviado!'}</h3>
-                    <p className="text-green-100 text-base mt-2 text-center max-w-xs">{isEn ? 'Your receipt was received. We will validate it shortly.' : 'Comprovativo recebido. Vamos validar em breve.'}</p>
-                    <button onClick={() => window.location.reload()} className="mt-6 px-6 py-3 bg-white text-green-700 font-bold rounded-xl shadow-lg text-sm hover:bg-green-50 transition-colors">{isEn ? 'Understood' : 'Entendido'}</button>
+                    <p className="mt-2 max-w-xs text-center text-base text-green-100">{isEn ? 'Your receipt was received. We will validate it shortly.' : 'Comprovativo recebido. Vamos validar em breve.'}</p>
+                    <button onClick={() => window.location.reload()} className="mt-6 rounded-xl bg-white px-6 py-3 text-sm font-bold text-green-700 shadow-lg transition-colors hover:bg-green-50">{isEn ? 'Understood' : 'Entendido'}</button>
                 </div>
             )}
 
             {/* Heading */}
-            <div className="text-center mb-6">
-                <p className="text-yellow-400 font-bold uppercase tracking-widest text-[11px] md:text-xs mb-1">
-                    {isEn ? 'Pay Now' : 'Pagar Agora'} · {effectiveLabel}
-                </p>
+            <div className="mb-5 flex items-center justify-between gap-3">
+                <h2 className="text-xl font-black tracking-tight text-white md:text-2xl">
+                    {isEn ? 'Make a payment' : 'Fazer pagamento'}
+                </h2>
+                <span className="shrink-0 rounded-full bg-yellow-400/15 px-3 py-1 text-xs font-bold uppercase tracking-wide text-yellow-300">
+                    {effectiveLabel}
+                </span>
             </div>
 
-            {/* Custom amount: input + chips (always visible when applicable) */}
-            {canUseCustomAmount && (
-                <div className="mb-4">
+            <div className="space-y-4">
+                {/* Step 1 — how much */}
+                {canUseCustomAmount && (
                     <CustomPaymentAmount
                         suggestedAmount={amountToPay}
                         minAmount={customMinAmount}
@@ -795,81 +798,77 @@ export default function BookingDashboardPage() {
                         customAmount={customAmount}
                         onChange={setCustomAmount}
                     />
-                </div>
-            )}
-
-            <PaymentCurrencyDisplay
-                amountInEur={effectiveAmountToPay}
-                label={effectiveLabel}
-                isEn={isEn}
-            />
-
-            {/* Reduniq fee preview */}
-            {showReduniqFeePreview && (
-                <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 mb-6 space-y-2 text-left shadow-inner">
-                    <div className="flex items-center justify-between text-xs text-amber-50/80">
-                        <span>{isEn ? 'Pilgrimage amount' : 'Valor peregrinação'}</span>
-                        <LocalizedPilgrimageAmount
-                            amountInEur={reduniqChargePreview.baseAmount}
-                            isEn={isEn}
-                            className="items-end text-right"
-                            eurClassName="font-bold"
-                            convertedClassName="text-amber-100/55"
-                        />
-                    </div>
-                    <div className="flex items-center justify-between text-xs text-amber-50/80">
-                        <span>{isEn ? 'Reduniq fee' : 'Taxa Reduniq'}</span>
-                        <LocalizedPilgrimageAmount
-                            amountInEur={reduniqChargePreview.feeAmount}
-                            isEn={isEn}
-                            className="items-end text-right"
-                            eurClassName="font-bold"
-                            convertedClassName="text-amber-100/55"
-                        />
-                    </div>
-                    <div className="flex items-center justify-between text-sm text-white pt-2 border-t border-white/10">
-                        <span className="font-semibold">{isEn ? 'Total at terminal' : 'Total no terminal'}</span>
-                        <LocalizedPilgrimageAmount
-                            amountInEur={reduniqChargePreview.chargedAmount}
-                            isEn={isEn}
-                            className="items-end text-right"
-                            eurClassName="font-black text-base"
-                            convertedClassName="text-white/45"
-                        />
-                    </div>
-                </div>
-            )}
-
-            {/* Primary CTA */}
-            <button
-                onClick={() => handleOnlinePayment(paymentOptions[0].id)}
-                disabled={processing}
-                className="w-full bg-gradient-to-r from-yellow-400 to-yellow-500 hover:from-yellow-300 hover:to-yellow-400 text-slate-900 font-black text-lg md:text-xl py-4 md:py-5 rounded-2xl shadow-xl shadow-yellow-500/20 flex items-center justify-center gap-3 transition-all disabled:opacity-50 hover:scale-[1.02] active:scale-[0.98]"
-            >
-                {processing ? (
-                    <>
-                        <Loader2 className="w-6 h-6 animate-spin" />
-                        <span>{isEn ? 'Opening…' : 'A abrir…'}</span>
-                    </>
-                ) : (
-                    <>
-                        <CreditCard className="w-6 h-6" />
-                        <span>{isEn ? `Pay Online` : `Pagar Online`}</span>
-                    </>
                 )}
-            </button>
 
-            {/* Accepted methods (bigger logos) */}
-            <div className="mt-6">
-                <p className="text-[11px] uppercase tracking-widest text-white/50 font-semibold text-center mb-3">
-                    {isEn ? 'Accepted methods' : 'Métodos aceites'}
-                </p>
-                <div className="flex items-center justify-center gap-3 flex-wrap">
+                {/* Step 2 — what it costs, in your currency */}
+                <PaymentCurrencyDisplay
+                    amountInEur={effectiveAmountToPay}
+                    label={effectiveLabel}
+                    isEn={isEn}
+                />
+
+                {/* Reduniq fee preview */}
+                {showReduniqFeePreview && (
+                    <div className="space-y-2.5 rounded-2xl border border-white/10 bg-white/[0.04] p-4 text-left">
+                        <div className="flex items-center justify-between gap-3 text-sm text-white/60">
+                            <span>{isEn ? 'Pilgrimage amount' : 'Valor peregrinação'}</span>
+                            <LocalizedPilgrimageAmount
+                                amountInEur={reduniqChargePreview.baseAmount}
+                                isEn={isEn}
+                                className="items-end text-right"
+                                eurClassName="font-bold text-white"
+                                convertedClassName="text-white/40"
+                            />
+                        </div>
+                        <div className="flex items-center justify-between gap-3 text-sm text-white/60">
+                            <span>{isEn ? 'Reduniq fee' : 'Taxa Reduniq'}</span>
+                            <LocalizedPilgrimageAmount
+                                amountInEur={reduniqChargePreview.feeAmount}
+                                isEn={isEn}
+                                className="items-end text-right"
+                                eurClassName="font-bold text-white"
+                                convertedClassName="text-white/40"
+                            />
+                        </div>
+                        <div className="flex items-center justify-between gap-3 border-t border-white/10 pt-3 text-base text-white">
+                            <span className="font-semibold">{isEn ? 'Total on card' : 'Total no cartão'}</span>
+                            <LocalizedPilgrimageAmount
+                                amountInEur={reduniqChargePreview.chargedAmount}
+                                isEn={isEn}
+                                className="items-end text-right"
+                                eurClassName="text-lg font-black"
+                                convertedClassName="text-amber-300/80"
+                            />
+                        </div>
+                    </div>
+                )}
+
+                {/* Step 3 — pay */}
+                <button
+                    onClick={() => handleOnlinePayment(paymentOptions[0].id)}
+                    disabled={processing}
+                    className="flex min-h-[60px] w-full items-center justify-center gap-3 rounded-2xl bg-yellow-400 text-lg font-black text-slate-900 shadow-lg shadow-yellow-500/20 transition-all hover:bg-yellow-300 active:scale-[0.99] disabled:opacity-50 md:text-xl"
+                >
+                    {processing ? (
+                        <>
+                            <Loader2 className="h-6 w-6 animate-spin" />
+                            <span>{isEn ? 'Opening…' : 'A abrir…'}</span>
+                        </>
+                    ) : (
+                        <>
+                            <CreditCard className="h-6 w-6" />
+                            <span>{isEn ? 'Pay Online' : 'Pagar Online'}</span>
+                        </>
+                    )}
+                </button>
+
+                {/* Accepted methods */}
+                <div className="flex flex-wrap items-center justify-center gap-2">
                     {paymentOptions.map((opt) => (
                         <div
                             key={opt.id}
                             title={opt.label}
-                            className="h-14 w-20 md:h-16 md:w-24 rounded-xl bg-white flex items-center justify-center p-2.5 shadow-md hover:shadow-lg transition-shadow"
+                            className="flex h-11 w-16 items-center justify-center rounded-lg bg-white p-2 shadow-sm"
                         >
                             {opt.iconSrc ? (
                                 <img
@@ -879,68 +878,68 @@ export default function BookingDashboardPage() {
                                     onError={(e) => { e.currentTarget.style.display = 'none'; }}
                                 />
                             ) : (
-                                <CreditCard className="w-6 h-6 text-slate-700" />
+                                <CreditCard className="h-5 w-5 text-slate-700" />
                             )}
                         </div>
                     ))}
                 </div>
-            </div>
 
-            {/* Reduniq feedback */}
-            {(reduniqConfirming || reduniqFeedback) && (
-                <div className={`mt-6 rounded-xl border px-4 py-3 text-sm shadow-inner ${reduniqConfirming
-                    ? 'border-blue-500/40 bg-blue-500/15 text-blue-100'
-                    : reduniqFeedback?.kind === 'success'
-                        ? 'border-green-500/40 bg-green-500/15 text-green-100'
-                        : reduniqFeedback?.kind === 'info'
-                            ? 'border-amber-500/40 bg-amber-500/15 text-amber-100'
-                            : 'border-red-500/40 bg-red-500/15 text-red-100'
-                    }`}>
-                    <p className="font-bold flex items-center gap-2">
-                        {reduniqConfirming && <Loader2 className="w-4 h-4 animate-spin" />}
-                        {reduniqConfirming ? (isEn ? 'Confirming…' : 'A confirmar…') : reduniqFeedback?.title}
-                    </p>
-                    <p className="text-[12px] mt-1 opacity-90 leading-relaxed">
-                        {reduniqConfirming ? (isEn ? 'Please wait while we verify your payment.' : 'Aguarde enquanto verificamos o pagamento.') : reduniqFeedback?.message}
-                    </p>
-                </div>
-            )}
-
-            {/* Divider */}
-            <div className="relative my-6">
-                <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-white/10" /></div>
-                <div className="relative flex justify-center">
-                    <span className="bg-slate-950 px-4 text-[11px] text-white/40 uppercase tracking-widest font-bold">
-                        {isEn ? 'or pay by' : 'ou pagar por'}
-                    </span>
-                </div>
-            </div>
-
-            {/* Bank transfer — mais destacado */}
-            {isVerifying ? (
-                <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-2xl text-amber-300 text-sm font-semibold flex items-center justify-center gap-2 shadow-inner">
-                    <Clock className="w-5 h-5 animate-pulse" />
-                    <span>{isEn ? 'Receipt under review' : 'Comprovativo em análise'}</span>
-                </div>
-            ) : (
-                <button
-                    onClick={() => { setShowMobilePaySheet(false); setShowBankModal(true); }}
-                    className="w-full rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 transition-all p-4 md:p-5 flex items-center gap-4 text-left group"
-                >
-                    <div className="w-12 h-12 md:w-14 md:h-14 rounded-xl bg-white/10 flex items-center justify-center shrink-0 text-white shadow-sm group-hover:scale-105 transition-transform">
-                        <Landmark className="w-6 h-6 md:w-7 md:h-7" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                        <p className="font-bold text-base md:text-lg text-white">
-                            {isEn ? 'Bank Transfer' : 'Transferência Bancária'}
+                {/* Reduniq feedback */}
+                {(reduniqConfirming || reduniqFeedback) && (
+                    <div className={`rounded-2xl border px-4 py-3 text-sm ${reduniqConfirming
+                        ? 'border-blue-500/40 bg-blue-500/15 text-blue-100'
+                        : reduniqFeedback?.kind === 'success'
+                            ? 'border-green-500/40 bg-green-500/15 text-green-100'
+                            : reduniqFeedback?.kind === 'info'
+                                ? 'border-amber-500/40 bg-amber-500/15 text-amber-100'
+                                : 'border-red-500/40 bg-red-500/15 text-red-100'
+                        }`}>
+                        <p className="flex items-center gap-2 font-bold">
+                            {reduniqConfirming && <Loader2 className="h-4 w-4 animate-spin" />}
+                            {reduniqConfirming ? (isEn ? 'Confirming…' : 'A confirmar…') : reduniqFeedback?.title}
                         </p>
-                        <p className="text-[12px] text-white/55 mt-0.5 font-medium">
-                            {isEn ? 'IBAN + upload receipt for validation' : 'IBAN + envio de comprovativo'}
+                        <p className="mt-1 leading-relaxed opacity-90">
+                            {reduniqConfirming ? (isEn ? 'Please wait while we verify your payment.' : 'Aguarde enquanto verificamos o pagamento.') : reduniqFeedback?.message}
                         </p>
                     </div>
-                    <ChevronRight className="w-5 h-5 text-white/30 group-hover:text-white transition-colors shrink-0" />
-                </button>
-            )}
+                )}
+
+                {/* Divider */}
+                <div className="relative py-1">
+                    <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-white/10" /></div>
+                    <div className="relative flex justify-center">
+                        <span className="bg-slate-950 px-4 text-xs font-bold uppercase tracking-widest text-white/35">
+                            {isEn ? 'or pay by' : 'ou pagar por'}
+                        </span>
+                    </div>
+                </div>
+
+                {/* Bank transfer */}
+                {isVerifying ? (
+                    <div className="flex items-center justify-center gap-2 rounded-2xl border border-amber-500/20 bg-amber-500/10 p-4 text-sm font-semibold text-amber-300">
+                        <Clock className="h-5 w-5 animate-pulse" />
+                        <span>{isEn ? 'Receipt under review' : 'Comprovativo em análise'}</span>
+                    </div>
+                ) : (
+                    <button
+                        onClick={() => { setShowMobilePaySheet(false); setShowBankModal(true); }}
+                        className="group flex w-full items-center gap-4 rounded-2xl border border-white/10 bg-white/[0.04] p-4 text-left transition-all hover:border-white/20 hover:bg-white/[0.09]"
+                    >
+                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/10 text-white">
+                            <Landmark className="h-5 w-5" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                            <p className="text-base font-bold text-white">
+                                {isEn ? 'Bank Transfer' : 'Transferência Bancária'}
+                            </p>
+                            <p className="mt-0.5 text-sm text-white/50">
+                                {isEn ? 'IBAN + upload receipt' : 'IBAN + envio de comprovativo'}
+                            </p>
+                        </div>
+                        <ChevronRight className="h-5 w-5 shrink-0 text-white/30 transition-colors group-hover:text-white" />
+                    </button>
+                )}
+            </div>
 
             {/* Hidden file input */}
             <input

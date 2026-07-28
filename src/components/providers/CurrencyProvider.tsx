@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useState, ReactNode } from 'react';
 import { getExchangeRate } from '../../lib/currency';
 
 type Currency = 'EUR' | 'BRL' | 'USD';
@@ -12,6 +12,8 @@ interface CurrencyContextType {
     convertPrice: (amountInEur: number) => number;
     formatEUR: (amountInEur: number) => string;
     formatConverted: (amountInEur: number) => string | null;
+    /** Lets the user pick the reference currency manually (persisted in localStorage). */
+    setPreferredCurrency: (next: Currency) => void;
 }
 
 const CurrencyContext = createContext<CurrencyContextType | undefined>(undefined);
@@ -25,6 +27,9 @@ const US_TIMEZONE_CITIES = [
 export function CurrencyProvider({ children }: { children: ReactNode }) {
     const [currency, setCurrency] = useState<Currency>('EUR');
     const [rate, setRate] = useState<number>(1);
+    // Which currency the rate above belongs to — avoids converting with a stale
+    // rate for a split second right after the currency changes.
+    const [rateCurrency, setRateCurrency] = useState<Currency>('EUR');
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
@@ -76,6 +81,7 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
                     const fetchedRate = await getExchangeRate(targetCurrency);
                     setRate(fetchedRate);
                 }
+                setRateCurrency(targetCurrency);
             } catch (error) {
                 console.error("Failed to detect currency:", error);
             } finally {
@@ -85,6 +91,37 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
 
         initCurrency();
     }, []);
+
+    const setPreferredCurrency = useCallback((next: Currency) => {
+        setCurrency((previous) => {
+            if (previous === next) return previous;
+
+            if (typeof window !== 'undefined') {
+                try {
+                    localStorage.setItem('gplus_preferred_currency', next);
+                } catch { /* ignore localStorage errors */ }
+            }
+
+            if (next === 'EUR') {
+                setRate(1);
+                setRateCurrency('EUR');
+            } else {
+                setIsLoading(true);
+                getExchangeRate(next)
+                    .then((fetchedRate) => {
+                        setRate(fetchedRate);
+                        setRateCurrency(next);
+                    })
+                    .catch(() => setRateCurrency(next))
+                    .finally(() => setIsLoading(false));
+            }
+
+            return next;
+        });
+    }, []);
+
+    // True while the fetched rate does not yet match the selected currency.
+    const rateIsStale = currency !== 'EUR' && rateCurrency !== currency;
 
     const convertPrice = (amountInEur: number) => {
         if (currency === 'EUR') return amountInEur;
@@ -130,12 +167,12 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
     };
 
     const formatConverted = (amountInEur: number) => {
-        if (currency === 'EUR') return null;
+        if (currency === 'EUR' || rateIsStale) return null;
         return formatPrice(amountInEur);
     };
 
     return (
-        <CurrencyContext.Provider value={{ currency, isLoading, formatPrice, convertPrice, formatEUR, formatConverted }}>
+        <CurrencyContext.Provider value={{ currency, isLoading, formatPrice, convertPrice, formatEUR, formatConverted, setPreferredCurrency }}>
             {children}
         </CurrencyContext.Provider>
     );
@@ -148,6 +185,7 @@ const DEFAULT_CURRENCY_CONTEXT: CurrencyContextType = {
     formatPrice: (amount) => new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount),
     convertPrice: (amount) => amount,
     formatConverted: () => null,
+    setPreferredCurrency: () => {},
 };
 
 export function useCurrency() {

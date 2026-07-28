@@ -35,9 +35,9 @@ export default function ExchangeRateChart({
     isEn,
 }: ExchangeRateChartProps) {
     return (
-        <div className="h-64 min-h-64 min-w-0 w-full rounded-2xl border border-slate-100 bg-slate-50/70 px-1 pb-2 pt-5 sm:h-72 sm:min-h-72">
-            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={240}>
-                <AreaChart data={points} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
+        <div className="h-[260px] min-h-[260px] w-full min-w-0 overflow-hidden rounded-2xl border border-slate-100 bg-slate-50/70 sm:h-[300px] sm:min-h-[300px]">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                <AreaChart data={points} margin={{ top: 18, right: 16, left: 4, bottom: 8 }}>
                     <defs>
                         <linearGradient id="exchangeRateFill" x1="0" y1="0" x2="0" y2="1">
                             <stop offset="5%" stopColor="#d97706" stopOpacity={0.28} />
@@ -48,7 +48,7 @@ export default function ExchangeRateChart({
                     <XAxis
                         dataKey="date"
                         tickFormatter={(value) => formatDate(value, isEn)}
-                        tick={{ fontSize: 10, fill: '#64748b' }}
+                        tick={{ fontSize: 12, fill: '#64748b' }}
                         axisLine={false}
                         tickLine={false}
                         minTickGap={30}
@@ -56,10 +56,10 @@ export default function ExchangeRateChart({
                     <YAxis
                         domain={['dataMin - 0.02', 'dataMax + 0.02']}
                         tickFormatter={(value) => Number(value).toFixed(currency === 'BRL' ? 2 : 3)}
-                        tick={{ fontSize: 10, fill: '#64748b' }}
+                        tick={{ fontSize: 12, fill: '#64748b' }}
                         axisLine={false}
                         tickLine={false}
-                        width={44}
+                        width={52}
                     />
                     <Tooltip
                         labelFormatter={(value) => formatDate(String(value), isEn, true)}
@@ -71,7 +71,7 @@ export default function ExchangeRateChart({
                             borderRadius: 14,
                             border: '1px solid #e2e8f0',
                             boxShadow: '0 12px 30px rgba(15,23,42,.12)',
-                            fontSize: 12,
+                            fontSize: 13,
                         }}
                     />
                     <Area
