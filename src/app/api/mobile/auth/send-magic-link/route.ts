@@ -3,11 +3,13 @@ import { supabaseServer } from '../../../../../lib/supabase';
 import { normalizeEmail } from '../../../../../lib/normalize';
 import { checkRateLimit } from '../../../../../lib/rate-limit';
 import { sendAuthMagicLinkEmail } from '../../../../../lib/email';
-import { getAppUrl } from '../../../../../lib/config';
 
 export const dynamic = 'force-dynamic';
 
 const MOBILE_APP_LOGIN_REDIRECT = 'garabandalmembros://login';
+const MOBILE_AUTH_CALLBACK_URL =
+  process.env.MOBILE_AUTH_CALLBACK_URL ||
+  'https://apostoladodegarabandal.com/auth/mobile-callback';
 
 function isPrivateIpv4(hostname: string) {
   const octets = hostname.split('.').map(Number);
@@ -105,7 +107,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: true });
     }
 
-    const mobileCallbackUrl = new URL('/auth/mobile-callback', getAppUrl());
+    const mobileCallbackUrl = new URL(MOBILE_AUTH_CALLBACK_URL);
     mobileCallbackUrl.searchParams.set('return_to', redirectTo);
 
     const { data, error } = await supabaseServer.auth.admin.generateLink({
