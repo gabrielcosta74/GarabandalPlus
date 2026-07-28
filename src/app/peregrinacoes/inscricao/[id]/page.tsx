@@ -799,8 +799,6 @@ export default function BookingDashboardPage() {
                             maxAmount={totalRemaining}
                             minLabel={nextLabel}
                             paymentPlan={paymentPlan}
-                            depositValue={depositValue}
-                            paidAmount={paidAmount}
                             formatPrice={formatEUR}
                             active={useCustomAmount}
                             customAmount={customAmount}

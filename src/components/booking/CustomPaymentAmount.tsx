@@ -10,8 +10,6 @@ interface CustomPaymentAmountProps {
     maxAmount: number;
     minLabel: string;
     paymentPlan: Array<{ date: string; amount: number }>;
-    depositValue: number;
-    paidAmount: number;
     formatPrice: (value: number) => string;
     active: boolean;
     customAmount: number | null;
@@ -99,8 +97,6 @@ export default function CustomPaymentAmount({
     maxAmount,
     minLabel,
     paymentPlan,
-    depositValue,
-    paidAmount,
     formatPrice,
     active,
     customAmount,
@@ -169,31 +165,32 @@ export default function CustomPaymentAmount({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [parsed, valid, suggestedAmount]);
 
-    // Build dynamic chips: next installment, +1, +2, all.
+    // Build dynamic chips: next installment, +1, +2, all. Labelled by how many
+    // installments each option covers, so the choice reads as "how many do I pay".
     const chips = useMemo(() => {
         const next = safeMin;
         const items: Array<{ label: string; value: number; tone: 'default' | 'gold' }> = [];
         items.push({
-            label: isEn ? 'Next' : 'Próxima',
+            label: isEn ? '1 installment' : '1 prestação',
             value: round2(next),
             tone: 'default',
         });
         if (paymentPlan.length >= 2 && next * 2 <= safeMax + 0.009) {
             items.push({
-                label: isEn ? '+1 installment' : '+1 prestação',
+                label: isEn ? '2 installments' : '2 prestações',
                 value: round2(Math.min(next * 2, safeMax)),
                 tone: 'default',
             });
         }
         if (paymentPlan.length >= 3 && next * 3 <= safeMax + 0.009) {
             items.push({
-                label: isEn ? '+2 installments' : '+2 prestações',
+                label: isEn ? '3 installments' : '3 prestações',
                 value: round2(Math.min(next * 3, safeMax)),
                 tone: 'default',
             });
         }
         items.push({
-            label: isEn ? 'Pay all' : 'Tudo',
+            label: isEn ? 'Everything' : 'Tudo',
             value: round2(safeMax),
             tone: 'gold',
         });
@@ -253,8 +250,14 @@ export default function CustomPaymentAmount({
 
             {belowAmount}
 
-            {/* Quick amounts — one tap covers almost everyone */}
-            <div className="-mx-1 mt-5 flex gap-2 overflow-x-auto px-1 pb-1 no-scrollbar">
+            {/* All options visible at once — scrolling a row hid the fact that you
+                can choose how many installments to cover. */}
+            {chips.length > 1 && (
+                <p className="mb-2.5 mt-6 text-left text-sm font-semibold text-white/50">
+                    {isEn ? 'How many installments?' : 'Quantas prestações queres pagar?'}
+                </p>
+            )}
+            <div className="grid grid-cols-2 gap-2.5">
                 {chips.map((chip) => {
                     const selected = isSelectedChip(chip.value);
                     return (
@@ -263,14 +266,22 @@ export default function CustomPaymentAmount({
                             type="button"
                             onClick={() => handleChip(chip.value)}
                             aria-pressed={selected}
-                            className={`flex min-h-10 shrink-0 items-center gap-1.5 rounded-full px-4 text-sm transition-colors ${
+                            className={`min-h-[74px] rounded-2xl border px-3.5 py-3 text-left transition-all active:scale-[0.98] ${
                                 selected
-                                    ? 'bg-white font-bold text-slate-900'
-                                    : 'bg-white/[0.07] font-medium text-white/70 hover:bg-white/[0.13] hover:text-white'
+                                    ? 'border-white bg-white'
+                                    : chip.tone === 'gold'
+                                        ? 'border-amber-400/25 bg-amber-400/[0.07] hover:border-amber-400/50 hover:bg-amber-400/[0.12]'
+                                        : 'border-white/10 bg-white/[0.05] hover:border-white/25 hover:bg-white/[0.1]'
                             }`}
                         >
-                            <span>{chip.label}</span>
-                            <span className={selected ? 'text-slate-500' : 'text-white/40'}>
+                            <span className={`block text-sm font-semibold leading-tight ${
+                                selected ? 'text-slate-500' : chip.tone === 'gold' ? 'text-amber-300' : 'text-white/50'
+                            }`}>
+                                {chip.label}
+                            </span>
+                            <span className={`mt-1 block text-lg font-black leading-tight ${
+                                selected ? 'text-slate-900' : 'text-white'
+                            }`}>
                                 {formatPrice(chip.value)}
                             </span>
                         </button>
@@ -286,8 +297,8 @@ export default function CustomPaymentAmount({
             ) : (
                 <p className="mt-3 text-center text-sm text-white/35">
                     {isEn
-                        ? `Any amount between ${formatPrice(safeMin)} and ${formatPrice(safeMax)}`
-                        : `Qualquer valor entre ${formatPrice(safeMin)} e ${formatPrice(safeMax)}`}
+                        ? `Or tap the amount above to type any value up to ${formatPrice(safeMax)}`
+                        : `Ou toca no valor acima para escrever outro, até ${formatPrice(safeMax)}`}
                 </p>
             )}
         </div>

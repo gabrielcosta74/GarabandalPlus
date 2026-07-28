@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import dynamic from 'next/dynamic';
-import { Check, ChevronDown, Info, Loader2, X } from 'lucide-react';
+import { Check, ChevronDown, Info, LineChart, Loader2, X } from 'lucide-react';
 import { useCurrency } from '../providers/CurrencyProvider';
 
 export type HistoryPoint = {
@@ -140,20 +140,29 @@ export default function PaymentCurrencyDisplay({
 
     return (
         <>
-            {/* Quiet trigger, sits right under the amount */}
+            {/* Sits right under the amount. Reads as a control, not as a caption —
+                people were not realising the day's rate lives behind it. */}
             <button
                 type="button"
                 onClick={() => setIsOpen(true)}
-                className="mx-auto flex min-h-9 items-center gap-1.5 rounded-full px-3 text-sm text-white/45 transition-colors hover:bg-white/5 hover:text-white/80"
+                className="mx-auto flex min-h-11 items-center gap-2 rounded-full border border-white/15 bg-white/[0.05] px-4 transition-colors hover:border-amber-400/40 hover:bg-white/[0.1] active:scale-[0.98]"
             >
+                <LineChart className="h-4 w-4 shrink-0 text-amber-400" />
                 {currency === 'EUR' ? (
-                    <span>{isEn ? 'See in another currency' : 'Ver noutra moeda'}</span>
+                    <span className="text-sm font-semibold text-white/80">
+                        {isEn ? 'See rate in R$ or US$' : 'Ver cotação em R$ ou US$'}
+                    </span>
                 ) : isLoading || !converted ? (
-                    <span className="inline-block h-3.5 w-28 animate-pulse rounded bg-white/10" />
+                    <span className="inline-block h-3.5 w-24 animate-pulse rounded bg-white/10" />
                 ) : (
-                    <span>≈ {converted}</span>
+                    <>
+                        <span className="text-sm font-bold text-white">≈ {converted}</span>
+                        <span className="text-sm text-white/40">
+                            {isEn ? "· today's rate" : '· câmbio de hoje'}
+                        </span>
+                    </>
                 )}
-                <ChevronDown className="h-4 w-4" />
+                <ChevronDown className="h-4 w-4 shrink-0 text-white/40" />
             </button>
 
             {isOpen && (
