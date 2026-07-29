@@ -32,30 +32,64 @@ if (process.env.REDUNIQ_RECONCILE_WINDOW_DAYS) {
 }
 url.searchParams.set('minAgeMinutes', process.env.REDUNIQ_RECONCILE_MIN_AGE_MINUTES || '30');
 
-const startedAt = Date.now();
-const response = await fetch(url, {
-  method: 'GET',
-  headers: {
-    Authorization: `Bearer ${cronSecret}`,
-    Accept: 'application/json',
-  },
-});
+const RETRYABLE_STATUSES = new Set([408, 425, 429, 500, 502, 503, 504]);
+const RETRY_DELAYS_MS = [15_000, 45_000];
 
-const bodyText = await response.text();
-let body = bodyText;
-try {
-  body = JSON.parse(bodyText);
-} catch {
-  // Keep raw body text.
+const wait = (delayMs) => new Promise((resolve) => setTimeout(resolve, delayMs));
+
+async function runAttempt(attempt) {
+  const startedAt = Date.now();
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${cronSecret}`,
+        Accept: 'application/json',
+      },
+      signal: AbortSignal.timeout(90_000),
+    });
+
+    const bodyText = await response.text();
+    let body = bodyText;
+    try {
+      body = JSON.parse(bodyText);
+    } catch {
+      // Keep raw body text.
+    }
+
+    console.log('[railway-cron-reduniq-reconcile]', JSON.stringify({
+      attempt,
+      ok: response.ok,
+      status: response.status,
+      durationMs: Date.now() - startedAt,
+      body,
+    }));
+
+    return {
+      ok: response.ok,
+      retryable: RETRYABLE_STATUSES.has(response.status),
+    };
+  } catch (error) {
+    console.error('[railway-cron-reduniq-reconcile]', JSON.stringify({
+      attempt,
+      ok: false,
+      status: 'network_error',
+      durationMs: Date.now() - startedAt,
+      error: error instanceof Error ? error.message : String(error),
+    }));
+    return { ok: false, retryable: true };
+  }
 }
 
-console.log('[railway-cron-reduniq-reconcile]', JSON.stringify({
-  ok: response.ok,
-  status: response.status,
-  durationMs: Date.now() - startedAt,
-  body,
-}));
-
-if (!response.ok) {
-  process.exit(1);
+let succeeded = false;
+for (let attempt = 1; attempt <= RETRY_DELAYS_MS.length + 1; attempt += 1) {
+  const result = await runAttempt(attempt);
+  if (result.ok) {
+    succeeded = true;
+    break;
+  }
+  if (!result.retryable || attempt > RETRY_DELAYS_MS.length) break;
+  await wait(RETRY_DELAYS_MS[attempt - 1]);
 }
+
+if (!succeeded) process.exit(1);
