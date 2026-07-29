@@ -44,7 +44,7 @@ const SpiritMap = dynamic(() => import('../../../components/pilgrimage/SpiritMap
 });
 import UniversalStickyBar from '../../../components/pilgrimage/UniversalStickyBar';
 // import ExitIntentPopup from '../../../components/pilgrimage/ExitIntentPopup'; // Removed
-import { SpecificWaitlistForm } from '../../../components/pilgrimage/SpecificWaitlistForm';
+import WaitlistModal from '../../../components/pilgrimage/WaitlistModal';
 import { useCurrency } from '../../../components/providers/CurrencyProvider';
 import ChatWidget from '../../../components/pilgrimage/ChatWidget';
 import RichText from '../../../components/pilgrimage/RichText';
@@ -203,6 +203,7 @@ export default function PilgrimageDetailPage() {
     const [loading, setLoading] = useState(true);
     const [activeInfoModal, setActiveInfoModal] = useState<'included' | 'flights' | null>(null);
     const [isPaymentWarningOpen, setIsPaymentWarningOpen] = useState(false);
+    const [isWaitlistOpen, setIsWaitlistOpen] = useState(false);
     const [gateInfo, setGateInfo] = useState<GateInfo | null>(null);
     const [reloadKey, setReloadKey] = useState(0);
 
@@ -611,13 +612,7 @@ export default function PilgrimageDetailPage() {
                         <div className="md:px-0 lg:col-span-1">
                             <div className="sticky top-24 space-y-6">
                                 {/* Waitlist OR Booking Card */}
-                                {isWaitlist ? (
-                                    <SpecificWaitlistForm
-                                        pilgrimageId={pilgrimage.id}
-                                        pilgrimageTitle={pilgrimageTitle}
-                                    />
-                                ) : (
-                                    <div className="bg-white rounded-none shadow-2xl border-y border-yellow-500/10 relative overflow-hidden md:rounded-3xl md:border">
+                                <div className="bg-white rounded-none shadow-2xl border-y border-yellow-500/10 relative overflow-hidden md:rounded-3xl md:border">
                                         <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-yellow-400 to-yellow-600" />
 
                                         {/* Price block */}
@@ -724,6 +719,17 @@ export default function PilgrimageDetailPage() {
                                         />
                                         {isClosed ? (
                                             <button disabled className="w-full bg-slate-100 text-slate-400 font-bold py-4 rounded-xl cursor-not-allowed">{isEn ? 'Closed' : 'Encerradas'}</button>
+                                        ) : isWaitlist ? (
+                                            <button
+                                                type="button"
+                                                onClick={() => setIsWaitlistOpen(true)}
+                                                className="group flex w-full items-center justify-center gap-3 rounded-2xl border border-amber-300 bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-300 px-5 py-4 text-slate-950 shadow-xl shadow-amber-500/20 transition-all hover:-translate-y-0.5 hover:from-amber-300 hover:via-yellow-200 hover:to-amber-200 hover:shadow-2xl active:translate-y-0 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-amber-300/50"
+                                            >
+                                                <span className="text-base font-extrabold tracking-tight text-slate-950">{isEn ? 'Join the waiting list' : 'Entrar na lista de espera'}</span>
+                                                <span className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-950 text-white shadow-sm transition-transform group-hover:translate-x-1">
+                                                    <ArrowRight className="h-4 w-4" />
+                                                </span>
+                                            </button>
                                         ) : existingBooking ? (
                                             <Link href={registrationLink} className="flex w-full items-center justify-center gap-2 rounded-xl bg-green-600 py-4 font-bold !text-white shadow-lg"><CheckCircle2 className="w-5 h-5" /> {isEn ? 'Manage Registration' : 'Gerir Inscrição'}</Link>
                                         ) : shouldWarnBeforeRegistration ? (
@@ -746,8 +752,7 @@ export default function PilgrimageDetailPage() {
                                             </Link>
                                         )}
                                         </div>
-                                    </div>
-                                )}
+                                </div>
                                 {/* AI Chat Widget replaces WhatsApp */}                            </div>
                         </div>
                     </div>
@@ -758,10 +763,11 @@ export default function PilgrimageDetailPage() {
                             price={pilgrimage.base_price}
                             deposit={pilgrimage.deposit_value || pilgrimage.min_deposit || 0}
                             link={isWaitlist ? '#' : registrationLink}
-                            isClosed={isClosed || isWaitlist}
+                            isClosed={isClosed}
+                            isWaitlist={isWaitlist}
                             pilgrimageId={pilgrimage.id}
                             slug={pilgrimage.slug}
-                            buttonText={existingBooking ? (isEn ? 'Manage Registration' : 'Gerir Inscrição') : (isWaitlist ? (isEn ? 'Waiting List' : 'Lista de Espera') : (isEn ? 'Start Registration' : 'Iniciar Inscrição'))}
+                            buttonText={existingBooking ? (isEn ? 'Manage Registration' : 'Gerir Inscrição') : (isWaitlist ? (isEn ? 'Join the waiting list' : 'Entrar na lista de espera') : (isEn ? 'Start registration' : 'Começar inscrição'))}
                             depositValue={pilgrimage.deposit_value || 0}
                             showIncludedButton={hasIncludedInfo}
                             showFlightsButton={hasFlightInfo}
@@ -769,14 +775,22 @@ export default function PilgrimageDetailPage() {
                             onOpenFlights={() => setActiveInfoModal('flights')}
                             onPrimaryClick={isAdminPreview
                                 ? () => undefined
-                                : shouldWarnBeforeRegistration
-                                    ? () => setIsPaymentWarningOpen(true)
-                                    : undefined}
+                                : isWaitlist
+                                    ? () => setIsWaitlistOpen(true)
+                                    : shouldWarnBeforeRegistration
+                                        ? () => setIsPaymentWarningOpen(true)
+                                        : undefined}
                             maxInstallments={publicMaxInstallments}
                         />
                     </div>
                 </div>
             </div>
+            <WaitlistModal
+                isOpen={isWaitlistOpen}
+                onClose={() => setIsWaitlistOpen(false)}
+                pilgrimageId={pilgrimage.id}
+                pilgrimageTitle={pilgrimageTitle}
+            />
             <PilgrimageInfoModal
                 mode={activeInfoModal || 'included'}
                 isOpen={activeInfoModal !== null}

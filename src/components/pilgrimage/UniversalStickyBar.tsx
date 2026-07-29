@@ -14,6 +14,8 @@ type UniversalStickyBarProps = {
     deposit: number;
     link: string;
     isClosed: boolean;
+    /** Registrations are full but the waiting list is open — the bar stays up. */
+    isWaitlist?: boolean;
     pilgrimageId: string;
     slug: string;
     buttonText?: string;
@@ -31,6 +33,7 @@ export default function UniversalStickyBar({
     deposit,
     link,
     isClosed,
+    isWaitlist = false,
     buttonText,
     showIncludedButton = false,
     showFlightsButton = false,
@@ -43,7 +46,9 @@ export default function UniversalStickyBar({
     const { locale } = useLocale();
     const { formatEUR, formatConverted } = useCurrency();
     const isEn = locale === 'en';
-    const resolvedButtonText = buttonText ?? (isEn ? 'Start Registration' : 'Iniciar Inscrição');
+    const resolvedButtonText = buttonText ?? (isWaitlist
+        ? (isEn ? 'Join the waiting list' : 'Entrar na lista de espera')
+        : (isEn ? 'Start registration' : 'Começar inscrição'));
 
     // Presentation only — values come straight from props, no amount maths here.
     const baseEUR = formatEUR(price || 0);
@@ -73,13 +78,15 @@ export default function UniversalStickyBar({
             ro.disconnect();
             root.style.setProperty('--sticky-bar-h', '0px');
         };
-    }, [mounted, isClosed]);
+    }, [mounted, isClosed, isWaitlist]);
 
     if (!mounted) {
         return null;
     }
 
-    if (isClosed) {
+    // Closed hides the bar; a full pilgrimage with an open waiting list keeps it,
+    // so people still see the price, the flights and a way in.
+    if (isClosed && !isWaitlist) {
         return null;
     }
 
@@ -152,7 +159,7 @@ export default function UniversalStickyBar({
                                     onClick={onPrimaryClick}
                                     className="group flex min-h-[54px] w-full items-center justify-center gap-2.5 rounded-2xl border border-amber-300 bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-300 px-4 shadow-lg shadow-amber-500/25 transition-all active:scale-[0.98] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-amber-300/50"
                                 >
-                                    <span className="text-[17px] font-black tracking-tight leading-none text-slate-950">{isEn ? resolvedButtonText : 'Começar inscrição'}</span>
+                                    <span className="text-[17px] font-black tracking-tight leading-none text-slate-950">{resolvedButtonText}</span>
                                     <span className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-950 text-white transition-transform group-hover:translate-x-0.5">
                                         <ArrowRight className="h-3.5 w-3.5" />
                                     </span>
@@ -162,7 +169,7 @@ export default function UniversalStickyBar({
                                     href={link}
                                     className="group flex min-h-[54px] w-full items-center justify-center gap-2.5 rounded-2xl border border-amber-300 bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-300 px-4 shadow-lg shadow-amber-500/25 transition-all active:scale-[0.98] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-amber-300/50"
                                 >
-                                    <span className="text-[17px] font-black tracking-tight leading-none !text-slate-950">{isEn ? resolvedButtonText : 'Começar inscrição'}</span>
+                                    <span className="text-[17px] font-black tracking-tight leading-none !text-slate-950">{resolvedButtonText}</span>
                                     <span className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-950 !text-white transition-transform group-hover:translate-x-0.5">
                                         <ArrowRight className="h-3.5 w-3.5" />
                                     </span>
