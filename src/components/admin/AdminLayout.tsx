@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import AdminSidebar from './AdminSidebar';
 import AdminHeader from './AdminHeader';
@@ -16,9 +16,33 @@ type AdminLayoutProps = {
     hideHeader?: boolean;
 };
 
-export default function AdminLayout({ children, title = "Dashboard", userEmail, isLoading, hideHeader = false }: AdminLayoutProps) {
+const SIDEBAR_STORAGE_KEY = 'admin:sidebar-collapsed';
+
+export default function AdminLayout({ children, title = "Dashboard", description, isLoading, hideHeader = false }: AdminLayoutProps) {
     const [isMobileOpen, setIsMobileOpen] = useState(false);
+    const [isCollapsed, setIsCollapsed] = useState(false);
     const router = useRouter();
+
+    // Lido depois da montagem para não divergir do HTML do servidor.
+    useEffect(() => {
+        try {
+            setIsCollapsed(window.localStorage.getItem(SIDEBAR_STORAGE_KEY) === '1');
+        } catch {
+            // localStorage indisponível (modo privado): fica expandida.
+        }
+    }, []);
+
+    const toggleSidebar = () => {
+        setIsCollapsed(prev => {
+            const next = !prev;
+            try {
+                window.localStorage.setItem(SIDEBAR_STORAGE_KEY, next ? '1' : '0');
+            } catch {
+                // Sem persistência, mas a sessão atual continua a funcionar.
+            }
+            return next;
+        });
+    };
 
     const handleLogout = async () => {
         if (supabaseBrowser) {
@@ -41,9 +65,9 @@ export default function AdminLayout({ children, title = "Dashboard", userEmail, 
     }
 
     return (
-        <div className="min-h-screen bg-gray-50 flex font-sans">
+        <div className="min-h-screen bg-gray-50 flex font-admin">
             {/* Sidebar Desktop */}
-            <AdminSidebar onLogout={handleLogout} className="hidden lg:flex" />
+            <AdminSidebar onLogout={handleLogout} className="hidden lg:flex" collapsed={isCollapsed} />
 
             {/* Mobile Sidebar Overlay */}
             <AnimatePresence>
@@ -74,8 +98,10 @@ export default function AdminLayout({ children, title = "Dashboard", userEmail, 
                 {!hideHeader && (
                     <AdminHeader
                         title={title}
+                        description={description}
                         onMobileMenuOpen={() => setIsMobileOpen(true)}
-                        userEmail={userEmail}
+                        onToggleSidebar={toggleSidebar}
+                        sidebarCollapsed={isCollapsed}
                     />
                 )}
 

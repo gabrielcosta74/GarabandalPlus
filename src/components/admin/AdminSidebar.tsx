@@ -52,7 +52,7 @@ type NavGroup = {
     items: NavItem[];
 };
 
-export default function AdminSidebar({ onLogout, className }: { onLogout: () => void; className?: string }) {
+export default function AdminSidebar({ onLogout, className, collapsed = false }: { onLogout: () => void; className?: string; collapsed?: boolean }) {
     const pathname = usePathname();
     const { counts } = useAdminNotifications();
     const [openGroups, setOpenGroups] = useState<string[]>(['Visão Geral', 'Gestão Principal']);
@@ -141,33 +141,44 @@ export default function AdminSidebar({ onLogout, className }: { onLogout: () => 
     ];
 
     return (
-        <aside className={cn("flex flex-col w-72 bg-garabandal-dark text-white h-screen sticky top-0 border-r border-white/10 flex-shrink-0", className)}>
+        <aside className={cn(
+            "flex flex-col bg-garabandal-dark text-white h-screen sticky top-0 border-r border-white/10 flex-shrink-0 transition-[width] duration-200 ease-out",
+            collapsed ? "w-[68px]" : "w-72",
+            className
+        )}>
             {/* Brand */}
-            <div className="p-6 border-b border-white/10">
-                <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-garabandal-gold flex items-center justify-center text-garabandal-dark font-bold font-serif">
+            <div className={cn("border-b border-white/10", collapsed ? "p-4" : "p-6")}>
+                <div className={cn("flex items-center gap-3", collapsed && "justify-center")}>
+                    <div className="w-9 h-9 rounded-lg bg-garabandal-gold flex items-center justify-center text-garabandal-dark font-bold font-serif flex-shrink-0">
                         G
                     </div>
-                    <div>
-                        <h1 className="font-serif font-bold text-lg tracking-wide">Admin</h1>
-                        <p className="text-xs text-white/50 uppercase tracking-wider">Garabandal</p>
-                    </div>
+                    {!collapsed && (
+                        <div className="min-w-0">
+                            <h1 className="font-serif font-bold text-lg tracking-wide">Admin</h1>
+                            <p className="text-xs text-white/50 uppercase tracking-wider">Garabandal</p>
+                        </div>
+                    )}
                 </div>
             </div>
 
             {/* Navigation */}
-            <nav className="flex-1 overflow-y-auto p-4 space-y-8 custom-scrollbar">
+            <nav className={cn("flex-1 overflow-y-auto custom-scrollbar", collapsed ? "p-2 space-y-2" : "p-4 space-y-8")}>
                 {navGroups.map((group, idx) => {
-                    const isOpen = openGroups.includes(group.label);
+                    // Recolhida, os grupos ficam sempre abertos: só há ícones para mostrar.
+                    const isOpen = collapsed || openGroups.includes(group.label);
                     return (
                         <div key={idx}>
-                            <button
-                                onClick={() => toggleGroup(group.label)}
-                                className="w-full flex items-center justify-between text-xs font-bold uppercase tracking-wider text-white/40 mb-3 px-3 hover:text-white transition-colors group/header"
-                            >
-                                {group.label}
-                                {isOpen ? <ChevronDown className="w-3 h-3 text-white/30 group-hover/header:text-white" /> : <ChevronRight className="w-3 h-3 text-white/30 group-hover/header:text-white" />}
-                            </button>
+                            {collapsed ? (
+                                idx > 0 && <div className="mx-auto my-2 h-px w-6 bg-white/10" />
+                            ) : (
+                                <button
+                                    onClick={() => toggleGroup(group.label)}
+                                    className="w-full flex items-center justify-between text-xs font-bold uppercase tracking-wider text-white/40 mb-3 px-3 hover:text-white transition-colors group/header"
+                                >
+                                    {group.label}
+                                    {isOpen ? <ChevronDown className="w-3 h-3 text-white/30 group-hover/header:text-white" /> : <ChevronRight className="w-3 h-3 text-white/30 group-hover/header:text-white" />}
+                                </button>
+                            )}
 
                             <AnimatePresence initial={false}>
                                 {isOpen && (
@@ -186,23 +197,26 @@ export default function AdminSidebar({ onLogout, className }: { onLogout: () => 
                                                     key={item.href}
                                                     href={item.href}
                                                     target={item.target || '_self'}
-                                                    className={`
-                                                        flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group
-                                                        ${isActive
+                                                    title={collapsed ? item.label : undefined}
+                                                    className={cn(
+                                                        'relative flex items-center rounded-xl transition-all duration-200 group',
+                                                        collapsed ? 'justify-center p-2.5' : 'gap-3 px-3 py-2.5',
+                                                        isActive
                                                             ? 'bg-garabandal-gold text-garabandal-dark font-medium shadow-lg shadow-garabandal-gold/20'
                                                             : 'text-white/70 hover:bg-white/5 hover:text-white'
-                                                        }
-                                                    `}
+                                                    )}
                                                 >
                                                     <item.icon
-                                                        className={`w-5 h-5 transition-colors ${isActive ? 'text-garabandal-dark' : 'text-white/50 group-hover:text-white'}`}
+                                                        className={`w-5 h-5 flex-shrink-0 transition-colors ${isActive ? 'text-garabandal-dark' : 'text-white/50 group-hover:text-white'}`}
                                                     />
-                                                    {item.label}
-                                                    {badge > 0 && (
+                                                    {!collapsed && item.label}
+                                                    {badge > 0 && (collapsed ? (
+                                                        <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-red-500 ring-2 ring-garabandal-dark" />
+                                                    ) : (
                                                         <span className="ml-auto bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full shadow-sm animate-pulse">
                                                             {badge}
                                                         </span>
-                                                    )}
+                                                    ))}
                                                 </Link>
                                             );
                                         })}
@@ -215,20 +229,28 @@ export default function AdminSidebar({ onLogout, className }: { onLogout: () => 
             </nav>
 
             {/* Footer */}
-            <div className="p-4 border-t border-white/10 bg-white/5 space-y-1">
+            <div className={cn("border-t border-white/10 bg-white/5 space-y-1", collapsed ? "p-2" : "p-4")}>
                 <Link
                     href="/"
-                    className="flex items-center gap-3 px-3 py-2.5 text-white/60 hover:bg-white/5 hover:text-white rounded-xl w-full transition-all text-sm font-medium"
+                    title={collapsed ? 'Voltar ao Site' : undefined}
+                    className={cn(
+                        "flex items-center text-white/60 hover:bg-white/5 hover:text-white rounded-xl w-full transition-all text-sm font-medium",
+                        collapsed ? "justify-center p-2.5" : "gap-3 px-3 py-2.5"
+                    )}
                 >
-                    <Home className="w-5 h-5" />
-                    Voltar ao Site
+                    <Home className="w-5 h-5 flex-shrink-0" />
+                    {!collapsed && 'Voltar ao Site'}
                 </Link>
                 <button
                     onClick={onLogout}
-                    className="flex items-center gap-3 px-3 py-2.5 text-red-400 hover:bg-red-500/10 hover:text-red-300 rounded-xl w-full transition-all text-sm font-medium"
+                    title={collapsed ? 'Terminar Sessão' : undefined}
+                    className={cn(
+                        "flex items-center text-red-400 hover:bg-red-500/10 hover:text-red-300 rounded-xl w-full transition-all text-sm font-medium",
+                        collapsed ? "justify-center p-2.5" : "gap-3 px-3 py-2.5"
+                    )}
                 >
-                    <LogOut className="w-5 h-5" />
-                    Terminar Sessão
+                    <LogOut className="w-5 h-5 flex-shrink-0" />
+                    {!collapsed && 'Terminar Sessão'}
                 </button>
             </div>
         </aside>

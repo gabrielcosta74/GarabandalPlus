@@ -4,19 +4,13 @@ import { Fragment, useState } from 'react';
 import {
     X,
     Copy,
-    CheckCircle,
+    Check,
     FileText,
-    CreditCard,
-    User,
-    MapPin,
-    Calendar,
     Package,
     Heart,
     Plane,
     Users,
-    AlertCircle,
-    ExternalLink,
-    Clock
+    CreditCard
 } from 'lucide-react';
 
 export type TransactionDetail = {
@@ -36,26 +30,42 @@ export type TransactionDetail = {
     method: string | null;
     provider: string | null;
     created_at: string;
-    invoice_sent_at?: string | null;
     items?: Array<{ name: string; qty: number; price: number; total: number }>;
     notes?: string;
     proof_url?: string;
+    subject?: string | null;
+    subject_detail?: string | null;
+    external_reference?: string | null;
+    gateway_transaction_id?: string | null;
+    payment_token?: string | null;
+    charged_amount?: number | null;
+    gateway_description?: string | null;
+    date_is_approximate?: boolean;
 };
 
 type TransactionDetailsModalProps = {
     transaction: TransactionDetail;
     onClose: () => void;
-    onToggleInvoice: (t: TransactionDetail) => void;
 };
 
-export default function TransactionDetailsModal({ transaction, onClose, onToggleInvoice }: TransactionDetailsModalProps) {
+const CATEGORY_META = {
+    shop: { label: 'Loja Online', Icon: Package, tone: 'bg-violet-50 text-violet-600' },
+    donation: { label: 'Doação', Icon: Heart, tone: 'bg-rose-50 text-rose-600' },
+    pilgrimage: { label: 'Peregrinação', Icon: Plane, tone: 'bg-amber-50 text-amber-600' },
+    quota: { label: 'Quota de Membro', Icon: Users, tone: 'bg-teal-50 text-teal-600' },
+} as const;
+
+const PAID = ['paid', 'pago', 'succeeded', 'verified'];
+const PENDING = ['pending', 'pendente', 'verifying', 'pending_verification'];
+
+export default function TransactionDetailsModal({ transaction, onClose }: TransactionDetailsModalProps) {
     const [copied, setCopied] = useState<string | null>(null);
 
     const handleCopy = (text: string, id: string) => {
         if (!text) return;
         navigator.clipboard.writeText(text);
         setCopied(id);
-        setTimeout(() => setCopied(null), 2000);
+        setTimeout(() => setCopied(null), 1600);
     };
 
     const formatCurrency = (val: number, cur: string) =>
@@ -66,27 +76,16 @@ export default function TransactionDetailsModal({ transaction, onClose, onToggle
             day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit'
         });
 
-    const isPaid = ['paid', 'pago', 'succeeded', 'verified'].includes(transaction.status?.toLowerCase());
+    const status = transaction.status?.toLowerCase() || '';
+    const statusTone = PAID.includes(status)
+        ? 'bg-emerald-50 text-emerald-700'
+        : PENDING.includes(status)
+            ? 'bg-amber-50 text-amber-700'
+            : 'bg-slate-100 text-slate-600';
 
-    const getCategoryIcon = () => {
-        switch (transaction.category) {
-            case 'shop': return <Package className="w-5 h-5" />;
-            case 'donation': return <Heart className="w-5 h-5" />;
-            case 'pilgrimage': return <Plane className="w-5 h-5" />;
-            case 'quota': return <Users className="w-5 h-5" />;
-            default: return <CreditCard className="w-5 h-5" />;
-        }
-    };
-
-    const getCategoryLabel = () => {
-        switch (transaction.category) {
-            case 'shop': return 'Loja Online';
-            case 'donation': return 'Doação';
-            case 'pilgrimage': return 'Peregrinação';
-            case 'quota': return 'Quota de Membro';
-            default: return 'Transação';
-        }
-    };
+    const meta = CATEGORY_META[transaction.category] || { label: 'Transação', Icon: CreditCard, tone: 'bg-slate-100 text-slate-600' };
+    const chargedDiffers = typeof transaction.charged_amount === 'number'
+        && Math.abs(transaction.charged_amount - transaction.amount) >= 0.01;
 
     const copyBillingInfo = () => {
         const lines = [
@@ -96,253 +95,165 @@ export default function TransactionDetailsModal({ transaction, onClose, onToggle
             `Morada: ${transaction.customer_address || ''}`,
             `${transaction.customer_zip || ''} ${transaction.customer_city || ''}`,
             `${transaction.customer_country || ''}`
-        ].filter(l => l.trim() !== '');
+        ].filter(l => l.trim().replace(/^[^:]+:$/, '') !== '');
 
-        handleCopy(lines.join('\n'), 'billing-full');
+        handleCopy(lines.join('\n'), 'billing');
     };
 
     return (
-        <Transition appear show={true} as={Fragment}>
+        <Transition appear show as={Fragment}>
             <Dialog as="div" className="relative z-50" onClose={onClose}>
                 <Transition.Child
                     as={Fragment}
-                    enter="ease-out duration-300"
-                    enterFrom="opacity-0"
-                    enterTo="opacity-100"
-                    leave="ease-in duration-200"
-                    leaveFrom="opacity-100"
-                    leaveTo="opacity-0"
+                    enter="ease-out duration-200" enterFrom="opacity-0" enterTo="opacity-100"
+                    leave="ease-in duration-150" leaveFrom="opacity-100" leaveTo="opacity-0"
                 >
-                    <div className="fixed inset-0 bg-black/30 backdrop-blur-sm" />
+                    <div className="fixed inset-0 bg-slate-900/25 backdrop-blur-[2px]" />
                 </Transition.Child>
 
                 <div className="fixed inset-0 overflow-y-auto">
-                    <div className="flex min-h-full items-center justify-center p-4 text-center">
+                    <div className="flex min-h-full items-center justify-center p-4">
                         <Transition.Child
                             as={Fragment}
-                            enter="ease-out duration-300"
-                            enterFrom="opacity-0 scale-95"
-                            enterTo="opacity-100 scale-100"
-                            leave="ease-in duration-200"
-                            leaveFrom="opacity-100 scale-100"
-                            leaveTo="opacity-0 scale-95"
+                            enter="ease-out duration-200" enterFrom="opacity-0 scale-[0.98]" enterTo="opacity-100 scale-100"
+                            leave="ease-in duration-150" leaveFrom="opacity-100 scale-100" leaveTo="opacity-0 scale-[0.98]"
                         >
-                            <Dialog.Panel className="w-full max-w-2xl transform overflow-hidden rounded-2xl bg-white text-left align-middle shadow-xl transition-all">
+                            <Dialog.Panel className="w-full max-w-xl transform overflow-hidden rounded-2xl bg-white text-left shadow-2xl shadow-slate-900/10 transition-all">
 
-                                {/* Header */}
-                                <div className="bg-slate-50 border-b border-slate-100 px-6 py-4 flex items-center justify-between">
-                                    <div className="flex items-center gap-3">
-                                        <div className={`p-2 rounded-lg ${transaction.category === 'donation' ? 'bg-rose-100 text-rose-600' :
-                                            transaction.category === 'shop' ? 'bg-indigo-100 text-indigo-600' :
-                                                'bg-emerald-100 text-emerald-600'
-                                            }`}>
-                                            {getCategoryIcon()}
-                                        </div>
-                                        <div>
-                                            <Dialog.Title as="h3" className="text-lg font-bold text-gray-900 leading-none">
-                                                {getCategoryLabel()} <span className="text-gray-400 font-normal text-sm">#{transaction.reference}</span>
+                                {/* Cabeçalho */}
+                                <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-5 py-4">
+                                    <div className="flex min-w-0 items-start gap-3">
+                                        <span className={`rounded-lg p-2 ${meta.tone}`}>
+                                            <meta.Icon className="h-4 w-4" />
+                                        </span>
+                                        <div className="min-w-0">
+                                            <Dialog.Title as="h3" className="truncate text-[15px] font-semibold leading-tight text-slate-900">
+                                                {transaction.subject || meta.label}
                                             </Dialog.Title>
-                                            <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
-                                                <Calendar className="w-3 h-3" />
-                                                {formatDate(transaction.created_at)}
+                                            <p className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-[11px] text-slate-400">
+                                                <span>{meta.label}</span>
+                                                {transaction.subject_detail && <><span>·</span><span>{transaction.subject_detail}</span></>}
+                                                <span>·</span>
+                                                <span className="font-mono">
+                                                    {transaction.date_is_approximate && '≈ '}
+                                                    {formatDate(transaction.created_at)}
+                                                </span>
                                             </p>
                                         </div>
                                     </div>
-                                    <button onClick={onClose} className="p-2 text-gray-400 hover:bg-gray-200 rounded-full transition-colors">
-                                        <X className="w-5 h-5" />
+                                    <button
+                                        onClick={onClose}
+                                        className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
+                                    >
+                                        <X className="h-4 w-4" />
                                     </button>
                                 </div>
 
-                                <div className="p-6 space-y-8">
-
-                                    {/* Action Banner */}
-                                    <div className="flex flex-col sm:flex-row gap-4 items-center justify-between bg-slate-50 p-4 rounded-xl border border-slate-200">
-                                        <div className="flex items-center gap-3">
-                                            <div className="flex flex-col">
-                                                <span className="text-xs uppercase font-bold text-gray-400">Estado Pagamento</span>
-                                                <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold uppercase ${isPaid ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
-                                                    }`}>
-                                                    {isPaid ? <CheckCircle className="w-3 h-3" /> : <Clock className="w-3 h-3" />}
-                                                    {transaction.status}
-                                                </div>
-                                            </div>
-
-                                            <div className="h-8 w-px bg-gray-300 mx-2 hidden sm:block"></div>
-
-                                            <div className="flex flex-col">
-                                                <span className="text-xs uppercase font-bold text-gray-400">Estado Recibo</span>
-                                                <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold uppercase transition-all cursor-pointer hover:ring-2 hover:ring-offset-1 ${transaction.invoice_sent_at
-                                                    ? 'bg-blue-100 text-blue-700 hover:ring-blue-200'
-                                                    : 'bg-gray-100 text-gray-500 hover:ring-gray-200'
-                                                    }`} onClick={() => onToggleInvoice(transaction)}>
-                                                    <FileText className="w-3 h-3" />
-                                                    {transaction.invoice_sent_at ? 'Enviada' : 'Não Enviada'}
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <button
-                                            onClick={() => onToggleInvoice(transaction)}
-                                            className={`px-4 py-2 rounded-lg font-bold text-sm shadow-sm transition-all flex items-center gap-2 ${transaction.invoice_sent_at
-                                                ? 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50 border'
-                                                : 'bg-blue-600 text-white hover:bg-blue-700 hover:shadow-md'
-                                                }`}
-                                        >
-                                            <FileText className="w-4 h-4" />
-                                            {transaction.invoice_sent_at ? 'Marcar Não Enviada' : 'Marcar Recibo Enviado'}
-                                        </button>
-                                    </div>
-
-                                    {/* Content Grid */}
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-
-                                        {/* Left Col: Customer Info */}
-                                        <div className="space-y-6">
-                                            <div>
-                                                <div className="flex items-center justify-between mb-3">
-                                                    <h4 className="text-sm font-bold text-gray-900 uppercase tracking-wider flex items-center gap-2">
-                                                        <User className="w-4 h-4 text-gray-400" />
-                                                        Entidade
-                                                    </h4>
-                                                    <button onClick={copyBillingInfo} className="text-[10px] font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded flex items-center gap-1 transition-colors">
-                                                        {copied === 'billing-full' ? <CheckCircle className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-                                                        Copiar Dados Faturação
-                                                    </button>
-                                                </div>
-                                                <div className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm space-y-3">
-                                                    <div className="group flex justify-between items-start">
-                                                        <div>
-                                                            <p className="text-[10px] text-gray-400 uppercase font-bold">Nome</p>
-                                                            <p className="font-medium text-gray-900">{transaction.customer_name || 'Anónimo'}</p>
-                                                        </div>
-                                                    </div>
-                                                    <div className="group flex justify-between items-start relative">
-                                                        <div>
-                                                            <p className="text-[10px] text-gray-400 uppercase font-bold">Email</p>
-                                                            <p className="font-medium text-gray-900 break-all">{transaction.customer_email || '—'}</p>
-                                                        </div>
-                                                        {transaction.customer_email && (
-                                                            <button onClick={() => handleCopy(transaction.customer_email!, 'email')} className="opacity-0 group-hover:opacity-100 p-1 hover:bg-gray-100 rounded transition-all absolute right-0 top-0">
-                                                                {copied === 'email' ? <CheckCircle className="w-3 h-3 text-green-500" /> : <Copy className="w-3 h-3 text-gray-400" />}
-                                                            </button>
-                                                        )}
-                                                    </div>
-                                                    <div className="group flex justify-between items-start relative">
-                                                        <div>
-                                                            <p className="text-[10px] text-gray-400 uppercase font-bold">NIF</p>
-                                                            <p className="font-mono text-gray-700 bg-gray-50 px-1.5 rounded">{transaction.customer_nif || '—'}</p>
-                                                        </div>
-                                                        {transaction.customer_nif && (
-                                                            <button onClick={() => handleCopy(transaction.customer_nif!, 'nif')} className="opacity-0 group-hover:opacity-100 p-1 hover:bg-gray-100 rounded transition-all absolute right-0 top-0">
-                                                                {copied === 'nif' ? <CheckCircle className="w-3 h-3 text-green-500" /> : <Copy className="w-3 h-3 text-gray-400" />}
-                                                            </button>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            {transaction.customer_address && (
-                                                <div>
-                                                    <h4 className="text-sm font-bold text-gray-900 uppercase tracking-wider flex items-center gap-2 mb-3">
-                                                        <MapPin className="w-4 h-4 text-gray-400" />
-                                                        Morada
-                                                    </h4>
-                                                    <div className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm relative group">
-                                                        <p className="text-gray-700 text-sm leading-relaxed">
-                                                            {transaction.customer_address}<br />
-                                                            {transaction.customer_zip} {transaction.customer_city}<br />
-                                                            {transaction.customer_country}
-                                                        </p>
-                                                        <button
-                                                            onClick={() => handleCopy(`${transaction.customer_address}\n${transaction.customer_zip} ${transaction.customer_city}\n${transaction.customer_country}`, 'addr')}
-                                                            className="opacity-0 group-hover:opacity-100 absolute top-2 right-2 p-1.5 hover:bg-gray-100 rounded text-gray-400 hover:text-gray-600 transition-all"
-                                                        >
-                                                            {copied === 'addr' ? <CheckCircle className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
-                                                        </button>
-                                                    </div>
-                                                </div>
+                                <div className="max-h-[70vh] overflow-y-auto">
+                                    {/* Valor + estado */}
+                                    <div className="flex flex-wrap items-end justify-between gap-4 border-b border-slate-100 px-5 py-4">
+                                        <div>
+                                            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                                                {chargedDiffers ? 'Valor base' : 'Total'}
+                                            </p>
+                                            <p className="font-mono text-3xl font-semibold tracking-tight text-slate-900 tabular-nums">
+                                                {formatCurrency(transaction.amount, transaction.currency)}
+                                            </p>
+                                            {chargedDiffers && (
+                                                <p className="mt-1 font-mono text-xs text-amber-600 tabular-nums">
+                                                    {formatCurrency(transaction.charged_amount!, transaction.currency)} debitados no gateway (c/ taxa)
+                                                </p>
                                             )}
                                         </div>
-
-                                        {/* Right Col: Transaction Details */}
-                                        <div className="space-y-6">
-                                            <div>
-                                                <h4 className="text-sm font-bold text-gray-900 uppercase tracking-wider flex items-center gap-2 mb-3">
-                                                    <CreditCard className="w-4 h-4 text-gray-400" />
-                                                    Detalhes Financeiros
-                                                </h4>
-                                                <div className="bg-slate-50 border border-slate-200 rounded-xl overflow-hidden">
-                                                    <div className="p-4 border-b border-slate-200 flex justify-between items-center bg-white">
-                                                        <span className="text-sm text-gray-500 font-medium">Total Pago</span>
-                                                        <span className="text-xl font-black text-gray-900">{formatCurrency(transaction.amount, transaction.currency)}</span>
-                                                    </div>
-                                                    <div className="p-4 bg-slate-50 space-y-2">
-                                                        <div className="flex justify-between text-xs">
-                                                            <span className="text-gray-500">Método</span>
-                                                            <span className="font-medium text-gray-900 capitalize">{transaction.method?.replace('_', ' ') || 'N/A'}</span>
-                                                        </div>
-                                                        <div className="flex justify-between text-xs">
-                                                            <span className="text-gray-500">Provider</span>
-                                                            <span className="font-medium text-gray-900">{transaction.provider || 'N/A'}</span>
-                                                        </div>
-                                                        {transaction.proof_url && (
-                                                            <div className="pt-2 border-t border-slate-200 mt-2">
-                                                                <a
-                                                                    href={transaction.proof_url}
-                                                                    target="_blank"
-                                                                    rel="noopener noreferrer"
-                                                                    className="flex items-center justify-center gap-2 w-full py-2 bg-white border border-gray-300 rounded-lg text-xs font-bold text-gray-700 hover:bg-gray-50 transition-colors"
-                                                                >
-                                                                    <FileText className="w-3 h-3" />
-                                                                    Ver Comprovativo
-                                                                </a>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            {/* Items or Notes */}
-                                            {transaction.items && transaction.items.length > 0 && (
-                                                <div>
-                                                    <h4 className="text-sm font-bold text-gray-900 uppercase tracking-wider flex items-center gap-2 mb-3">
-                                                        Itens
-                                                    </h4>
-                                                    <div className="bg-white border border-gray-100 rounded-xl overflow-hidden shadow-sm">
-                                                        <table className="w-full text-sm text-left">
-                                                            <thead className="bg-gray-50 text-xs text-gray-500 uppercase font-bold">
-                                                                <tr>
-                                                                    <th className="px-4 py-2">Qtd</th>
-                                                                    <th className="px-4 py-2">Item</th>
-                                                                    <th className="px-4 py-2 text-right">Total</th>
-                                                                </tr>
-                                                            </thead>
-                                                            <tbody className="divide-y divide-gray-100">
-                                                                {transaction.items.map((item, i) => (
-                                                                    <tr key={i}>
-                                                                        <td className="px-4 py-2 text-gray-500">{item.qty}x</td>
-                                                                        <td className="px-4 py-2 font-medium text-gray-900">{item.name}</td>
-                                                                        <td className="px-4 py-2 text-right font-bold text-gray-900">
-                                                                            {formatCurrency(item.total, transaction.currency)}
-                                                                        </td>
-                                                                    </tr>
-                                                                ))}
-                                                            </tbody>
-                                                        </table>
-                                                    </div>
-                                                </div>
-                                            )}
-
-                                            {transaction.notes && (
-                                                <div>
-                                                    <h4 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-2">Notas</h4>
-                                                    <div className="bg-yellow-50 text-yellow-800 p-3 rounded-lg text-sm border border-yellow-100 italic">
-                                                        "{transaction.notes}"
-                                                    </div>
-                                                </div>
-                                            )}
+                                        <div className="flex items-center gap-2">
+                                            <span className={`rounded-md px-2 py-1 text-[11px] font-medium capitalize ${statusTone}`}>
+                                                {transaction.status}
+                                            </span>
+                                            <span className="rounded-md bg-slate-100 px-2 py-1 text-[11px] font-medium text-slate-600">
+                                                {transaction.provider || transaction.method || '—'}
+                                            </span>
                                         </div>
                                     </div>
+
+                                    {/* Identificadores */}
+                                    <Section title="Identificadores no gateway">
+                                        <Row label="Descrição Reduniq" value={transaction.gateway_description} copyKey="gw-desc" copied={copied} onCopy={handleCopy}
+                                            empty="Pagamento fora do Reduniq (transferência, manual ou legacy)" />
+                                        <Row label="Referência" value={transaction.external_reference || transaction.reference} copyKey="ref" copied={copied} onCopy={handleCopy} />
+                                        <Row label="ID da transação" value={transaction.gateway_transaction_id} copyKey="tx" copied={copied} onCopy={handleCopy}
+                                            empty="Só existe em pagamentos concluídos" />
+                                        <Row label="Token" value={transaction.payment_token} copyKey="token" copied={copied} onCopy={handleCopy} />
+                                    </Section>
+
+                                    {/* Entidade */}
+                                    <Section
+                                        title="Entidade"
+                                        action={
+                                            <button
+                                                onClick={copyBillingInfo}
+                                                className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900"
+                                            >
+                                                {copied === 'billing' ? <Check className="h-3 w-3 text-emerald-500" /> : <Copy className="h-3 w-3" />}
+                                                Copiar dados de faturação
+                                            </button>
+                                        }
+                                    >
+                                        <Row label="Nome" value={transaction.customer_name} copyKey="name" copied={copied} onCopy={handleCopy} mono={false} />
+                                        <Row label="Email" value={transaction.customer_email} copyKey="email" copied={copied} onCopy={handleCopy} mono={false} />
+                                        <Row label="NIF" value={transaction.customer_nif} copyKey="nif" copied={copied} onCopy={handleCopy} empty="Não fornecido" />
+                                        {transaction.customer_address && (
+                                            <Row
+                                                label="Morada"
+                                                value={[
+                                                    transaction.customer_address,
+                                                    [transaction.customer_zip, transaction.customer_city].filter(Boolean).join(' '),
+                                                    transaction.customer_country,
+                                                ].filter(Boolean).join(', ')}
+                                                copyKey="addr" copied={copied} onCopy={handleCopy} mono={false}
+                                            />
+                                        )}
+                                    </Section>
+
+                                    {/* Itens */}
+                                    {transaction.items && transaction.items.length > 0 && (
+                                        <Section title="Itens">
+                                            <div className="space-y-1.5">
+                                                {transaction.items.map((item, i) => (
+                                                    <div key={i} className="flex items-baseline justify-between gap-3 text-[13px]">
+                                                        <span className="min-w-0 truncate text-slate-700">
+                                                            <span className="font-mono text-slate-400">{item.qty}×</span> {item.name}
+                                                        </span>
+                                                        <span className="flex-shrink-0 font-mono text-slate-900 tabular-nums">
+                                                            {formatCurrency(item.total, transaction.currency)}
+                                                        </span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </Section>
+                                    )}
+
+                                    {/* Notas */}
+                                    {transaction.notes && (
+                                        <Section title="Notas">
+                                            <p className="rounded-lg bg-slate-50 p-3 text-[12px] leading-relaxed text-slate-600">
+                                                {transaction.notes}
+                                            </p>
+                                        </Section>
+                                    )}
+
+                                    {transaction.proof_url && (
+                                        <div className="px-5 pb-5">
+                                            <a
+                                                href={transaction.proof_url}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-slate-200 py-2.5 text-[13px] font-medium text-slate-700 transition-colors hover:bg-slate-50"
+                                            >
+                                                <FileText className="h-3.5 w-3.5" />
+                                                Ver comprovativo
+                                            </a>
+                                        </div>
+                                    )}
                                 </div>
                             </Dialog.Panel>
                         </Transition.Child>
@@ -350,5 +261,47 @@ export default function TransactionDetailsModal({ transaction, onClose, onToggle
                 </div>
             </Dialog>
         </Transition>
+    );
+}
+
+function Section({ title, action, children }: { title: string; action?: React.ReactNode; children: React.ReactNode }) {
+    return (
+        <div className="border-b border-slate-100 px-5 py-4 last:border-0">
+            <div className="mb-2.5 flex items-center justify-between">
+                <h4 className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">{title}</h4>
+                {action}
+            </div>
+            <div className="space-y-1.5">{children}</div>
+        </div>
+    );
+}
+
+function Row({ label, value, copyKey, copied, onCopy, empty, mono = true }: {
+    label: string;
+    value?: string | null;
+    copyKey: string;
+    copied: string | null;
+    onCopy: (text: string, id: string) => void;
+    empty?: string;
+    mono?: boolean;
+}) {
+    return (
+        <div className="flex items-baseline justify-between gap-4">
+            <span className="flex-shrink-0 text-[12px] text-slate-400">{label}</span>
+            {value ? (
+                <button
+                    onClick={() => onCopy(value, copyKey)}
+                    title="Clique para copiar"
+                    className="group flex min-w-0 items-center gap-1.5 rounded px-1 text-right transition-colors hover:bg-slate-100"
+                >
+                    <span className={`truncate text-[12px] text-slate-900 ${mono ? 'font-mono' : ''}`}>{value}</span>
+                    {copied === copyKey
+                        ? <Check className="h-3 w-3 flex-shrink-0 text-emerald-500" />
+                        : <Copy className="h-3 w-3 flex-shrink-0 text-slate-300 opacity-0 transition-opacity group-hover:opacity-100" />}
+                </button>
+            ) : (
+                <span className="truncate text-right text-[12px] italic text-slate-300">{empty || '—'}</span>
+            )}
+        </div>
     );
 }
