@@ -16,6 +16,7 @@
     "cron:italy-campaign": "CRON_PATH=/api/cron/italy-campaign CRON_JOB_NAME=italy-campaign node scripts/railway-cron.mjs",
     "cron:monthly-reports": "CRON_PATH=/api/cron/monthly-reports CRON_JOB_NAME=monthly-reports node scripts/railway-cron.mjs",
     "cron:reduniq-reconcile": "node scripts/railway-cron-reduniq-reconcile.mjs",
+    "cron:factpt": "CRON_PATH=/api/cron/factpt CRON_JOB_NAME=factpt node scripts/railway-cron.mjs",
     "cron:auction-close": "CRON_PATH=/api/cron/auction-close CRON_JOB_NAME=auction-close node scripts/railway-cron.mjs",
     "lint": "next lint",
     "preprod:check": "bash scripts/preprod-check.sh",

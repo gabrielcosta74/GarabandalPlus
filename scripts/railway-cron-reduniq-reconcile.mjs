@@ -27,7 +27,9 @@ if (!cronSecret) {
 }
 
 const url = new URL('/api/cron/reduniq-reconcile', baseUrl);
-url.searchParams.set('windowDays', process.env.REDUNIQ_RECONCILE_WINDOW_DAYS || '7');
+if (process.env.REDUNIQ_RECONCILE_WINDOW_DAYS) {
+  url.searchParams.set('windowDays', process.env.REDUNIQ_RECONCILE_WINDOW_DAYS);
+}
 url.searchParams.set('minAgeMinutes', process.env.REDUNIQ_RECONCILE_MIN_AGE_MINUTES || '30');
 
 const startedAt = Date.now();

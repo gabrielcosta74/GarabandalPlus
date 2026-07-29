@@ -17,7 +17,8 @@ import {
     AlertCircle,
     FileText,
     ArrowUpRight,
-    Inbox
+    Inbox,
+    ReceiptText,
 } from 'lucide-react';
 import { supabaseBrowser } from '../../lib/supabase-browser';
 import { format } from 'date-fns';
@@ -27,7 +28,7 @@ import TransactionFilters, {
     DEFAULT_TRANSACTION_FILTERS,
     resolveDateRange,
 } from './TransactionFilters';
-import TransactionDetailsModal from './TransactionDetailsModal';
+import TransactionDetailsModal, { type FactptDocumentSummary } from './TransactionDetailsModal';
 
 type ConsolidatedTransaction = {
     id: string;
@@ -67,6 +68,9 @@ type ConsolidatedTransaction = {
     date_is_approximate?: boolean;
     /** Descrição enviada ao Reduniq no checkout — é o texto que aparece no backoffice. */
     gateway_description?: string | null;
+    /** Documento fiscal oficial. O invoice_sent_at antigo não é fonte de verdade. */
+    factpt_document?: FactptDocumentSummary | null;
+    legacy_invoice_sent_at?: string | null;
 };
 
 type SortKey = 'created_at' | 'amount';
@@ -99,6 +103,8 @@ export default function TransactionsUnifiedManager() {
     const [copied, setCopied] = useState<string | null>(null);
     const [selectedTransaction, setSelectedTransaction] = useState<ConsolidatedTransaction | null>(null);
     const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+    const [factptAvailable, setFactptAvailable] = useState<boolean | null>(null);
+    const [productionFactPtReady, setProductionFactPtReady] = useState(false);
 
     const [filters, setFilters] = useState<TransactionFiltersState>(DEFAULT_TRANSACTION_FILTERS);
     const [sort, setSort] = useState<{ key: SortKey; direction: SortDirection }>({ key: 'created_at', direction: 'desc' });
@@ -128,7 +134,22 @@ export default function TransactionsUnifiedManager() {
 
             if (!res.ok) throw new Error(`Erro na API: ${res.status}`);
             const data = await res.json();
-            setTransactions(data.transactions || []);
+            const nextTransactions = data.transactions || [];
+            setTransactions(nextTransactions);
+            setSelectedTransaction(current => {
+                if (!current) return null;
+                return nextTransactions.find((transaction: ConsolidatedTransaction) =>
+                    transaction.id === current.id && transaction.category === current.category
+                ) || current;
+            });
+            setFactptAvailable(data.factpt?.available !== false);
+            setProductionFactPtReady(Boolean(
+                data.factpt?.production?.serverEnabled
+                && data.factpt?.production?.database?.auto_enabled
+                && data.factpt?.production?.database?.production_pilgrimages_only
+                && !data.factpt?.production?.database?.require_approval
+                && !data.factpt?.production?.database?.pilot_private_only
+            ));
             setLastUpdated(new Date());
         } catch (err) {
             console.error('Error fetching transactions:', err);
@@ -154,6 +175,11 @@ export default function TransactionsUnifiedManager() {
 
         return transactions.filter(t => {
             if (filters.category !== 'all' && t.category !== filters.category) return false;
+            if (filters.fiscalStatus !== 'all') {
+                const fiscalStatus = t.factpt_document?.status || 'unregistered';
+                if (fiscalStatus !== filters.fiscalStatus) return false;
+            }
+            if (filters.fiscalSeries !== 'all' && t.factpt_document?.series_code !== filters.fiscalSeries) return false;
 
             const hasNif = typeof t.customer_nif === 'string' && t.customer_nif.trim().length > 0;
             if (filters.nif === 'with_nif' && !hasNif) return false;
@@ -177,6 +203,8 @@ export default function TransactionsUnifiedManager() {
                     t.external_reference,
                     t.gateway_transaction_id,
                     t.payment_token,
+                    t.factpt_document?.factpt_number,
+                    t.factpt_document?.series_code,
                 ];
                 if (!haystack.some(v => v?.toLowerCase().includes(searchLower))) return false;
             }
@@ -233,7 +261,9 @@ export default function TransactionsUnifiedManager() {
         const headers = [
             'Data', 'Data Aproximada', 'Categoria', 'Descricao', 'Detalhe', 'Descricao Reduniq',
             'Referencia', 'ID Transacao', 'Token', 'Nome', 'Email', 'NIF',
-            'Valor Base', 'Total Cobrado', 'Moeda', 'Provider', 'Metodo', 'Estado'
+            'Valor Base', 'Total Cobrado', 'Moeda', 'Provider', 'Metodo', 'Estado',
+            'Ambiente FACT', 'Estado FACT', 'Serie FACT', 'Tipo Documento',
+            'Numero FACT', 'Emitido Em', 'Email Fiscal Enviado Em'
         ];
         const rows = sortedTransactions.map(t => [
             format(new Date(t.created_at), 'yyyy-MM-dd HH:mm'),
@@ -254,6 +284,13 @@ export default function TransactionsUnifiedManager() {
             t.provider || '-',
             t.method || '-',
             t.status,
+            t.factpt_document?.environment || '-',
+            t.factpt_document?.status || 'sem_registo',
+            t.factpt_document?.series_code || '-',
+            t.factpt_document?.document_type || '-',
+            t.factpt_document?.factpt_number || '-',
+            t.factpt_document?.issued_at || '-',
+            t.factpt_document?.email_sent_at || '-',
         ]);
 
         // Descrições podem conter ";" ou aspas (nomes de artigos, títulos de viagens).
@@ -317,6 +354,29 @@ export default function TransactionsUnifiedManager() {
                 </div>
             )}
 
+            <div className={`flex items-start gap-3 rounded-lg border px-4 py-3 ${
+                factptAvailable === false
+                    ? 'border-amber-200 bg-amber-50 text-amber-800'
+                    : 'border-sky-200 bg-sky-50 text-sky-800'
+            }`}>
+                <ReceiptText className="mt-0.5 h-4 w-4 flex-shrink-0" />
+                <div>
+                    <p className="text-sm font-semibold">
+                        FACT.pt · Peregrinações em produção
+                        <span className="ml-2 font-normal opacity-70">
+                            {productionFactPtReady ? 'automático' : 'desativado'}
+                        </span>
+                    </p>
+                    <p className="mt-0.5 text-xs leading-relaxed opacity-80">
+                        {factptAvailable === false
+                            ? 'A tabela fiscal ainda não está disponível. As transações continuam acessíveis, mas os estados FACT.pt só surgem depois da migration.'
+                            : productionFactPtReady
+                                ? 'Cada novo pagamento confirmado de peregrinação entra uma única vez na série 2026D, é emitido automaticamente e o PDF segue por email ao titular da reserva.'
+                                : 'A estrutura automática de peregrinações está preparada mas desligada. A sandbox continua disponível para as restantes séries.'}
+                    </p>
+                </div>
+            </div>
+
             {/* KPIs */}
             <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
                 <StatTile
@@ -363,6 +423,7 @@ export default function TransactionsUnifiedManager() {
                                 <Header label="Referência" />
                                 <SortableHeader label="Valor" sortKey="amount" sort={sort} onSort={toggleSort} align="right" />
                                 <Header label="Estado" />
+                                <Header label="FACT.pt" />
                                 <Header label="" align="right" />
                             </tr>
                         </thead>
@@ -371,7 +432,7 @@ export default function TransactionsUnifiedManager() {
                                 Array.from({ length: 8 }).map((_, i) => <SkeletonRow key={i} />)
                             ) : pageRows.length === 0 ? (
                                 <tr>
-                                    <td colSpan={7} className="px-6 py-20 text-center">
+                                    <td colSpan={8} className="px-6 py-20 text-center">
                                         <Inbox className="mx-auto mb-3 h-8 w-8 text-slate-300" />
                                         <p className="text-sm font-medium text-slate-500">Nenhuma transação corresponde aos filtros</p>
                                         <button
@@ -473,6 +534,10 @@ export default function TransactionsUnifiedManager() {
                                             <StatusPill group={group} label={t.status} />
                                         </td>
 
+                                        <td className="px-4 py-3 align-middle">
+                                            <FiscalPill document={t.factpt_document} legacySentAt={t.legacy_invoice_sent_at} />
+                                        </td>
+
                                         <td className="whitespace-nowrap px-4 py-3 text-right align-middle">
                                             <div className="flex items-center justify-end gap-0.5">
                                                 {t.proof_url && (
@@ -540,6 +605,7 @@ export default function TransactionsUnifiedManager() {
                 <TransactionDetailsModal
                     transaction={selectedTransaction}
                     onClose={() => setSelectedTransaction(null)}
+                    onFactptChanged={fetchData}
                 />
             )}
         </div>
@@ -593,6 +659,46 @@ function StatusPill({ group, label }: { group: 'paid' | 'pending' | 'failed'; la
     );
 }
 
+function FiscalPill({
+    document,
+    legacySentAt,
+}: {
+    document?: FactptDocumentSummary | null;
+    legacySentAt?: string | null;
+}) {
+    if (!document) {
+        return (
+            <span
+                title={legacySentAt ? 'Existe apenas um registo manual legado; não é um documento FACT.pt.' : 'Sem documento FACT.pt associado.'}
+                className="inline-flex items-center gap-1.5 rounded-md bg-slate-100 px-2 py-1 text-[11px] font-medium text-slate-500"
+            >
+                <span className="h-1.5 w-1.5 rounded-full bg-slate-300" />
+                {legacySentAt ? 'Legado' : 'Sem registo'}
+            </span>
+        );
+    }
+
+    const styles = {
+        awaiting_approval: { label: 'Aguarda aprovação', bg: 'bg-amber-50', text: 'text-amber-800', dot: 'bg-amber-500' },
+        pending: { label: 'Por emitir', bg: 'bg-amber-50', text: 'text-amber-700', dot: 'bg-amber-500' },
+        needs_data: { label: 'Requer dados', bg: 'bg-orange-50', text: 'text-orange-700', dot: 'bg-orange-500' },
+        processing: { label: 'A processar', bg: 'bg-blue-50', text: 'text-blue-700', dot: 'bg-blue-500' },
+        issued: { label: document.factpt_number || 'Emitido', bg: 'bg-emerald-50', text: 'text-emerald-700', dot: 'bg-emerald-500' },
+        failed: { label: 'Erro', bg: 'bg-rose-50', text: 'text-rose-700', dot: 'bg-rose-500' },
+        email_failed: { label: 'Email falhou', bg: 'bg-fuchsia-50', text: 'text-fuchsia-700', dot: 'bg-fuchsia-500' },
+    }[document.status] || { label: document.status, bg: 'bg-slate-100', text: 'text-slate-600', dot: 'bg-slate-400' };
+
+    return (
+        <div className="flex flex-col items-start gap-0.5">
+            <span className={`inline-flex max-w-[150px] items-center gap-1.5 rounded-md px-2 py-1 text-[11px] font-medium ${styles.bg} ${styles.text}`}>
+                <span className={`h-1.5 w-1.5 flex-shrink-0 rounded-full ${styles.dot}`} />
+                <span className="truncate">{styles.label}</span>
+            </span>
+            <span className="pl-1 font-mono text-[10px] text-slate-400">{document.series_code}</span>
+        </div>
+    );
+}
+
 function CopyValue({ value, copyKey, copied, onCopy }: {
     value: string;
     copyKey: string;
@@ -643,9 +749,9 @@ function StatTile({ label, value, hint, rule, loading }: {
 function SkeletonRow() {
     return (
         <tr className="border-b border-slate-100">
-            {Array.from({ length: 7 }).map((_, i) => (
+            {Array.from({ length: 8 }).map((_, i) => (
                 <td key={i} className="px-4 py-3.5">
-                    <div className="h-3 animate-pulse rounded bg-slate-100" style={{ width: `${[45, 85, 70, 60, 50, 55, 20][i]}%` }} />
+                    <div className="h-3 animate-pulse rounded bg-slate-100" style={{ width: `${[45, 85, 70, 60, 50, 55, 55, 20][i]}%` }} />
                 </td>
             ))}
         </tr>

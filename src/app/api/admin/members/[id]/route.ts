@@ -122,6 +122,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
         if (body.telefone !== undefined) updates.telefone = body.telefone;
         if (body.address !== undefined) updates.address = body.address;
         if (body.postal_code !== undefined) updates.postal_code = body.postal_code;
+        if (body.city !== undefined) updates.city = body.city;
         if (body.country !== undefined) updates.country = body.country;
 
         const nextIsMember = updates.is_membro ?? currentMember?.is_membro ?? false;

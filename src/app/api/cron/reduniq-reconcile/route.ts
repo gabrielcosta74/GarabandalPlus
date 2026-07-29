@@ -18,8 +18,19 @@ export async function GET(req: Request) {
     }
 
     const url = new URL(req.url);
-    const windowDays = Number(url.searchParams.get('windowDays') || 7);
+    const windowParam = url.searchParams.get('windowDays');
+    const windowDays = windowParam === null ? undefined : Number(windowParam);
     const minAgeMinutes = Number(url.searchParams.get('minAgeMinutes') || 30);
+    if (
+        (windowDays !== undefined && (!Number.isFinite(windowDays) || windowDays <= 0))
+        || !Number.isFinite(minAgeMinutes)
+        || minAgeMinutes < 0
+    ) {
+        return NextResponse.json(
+            { ok: false, error: 'Parâmetros de reconciliação inválidos.' },
+            { status: 400 },
+        );
+    }
 
     try {
         const { results, summary } = await runReconcile(supabaseServer, {
@@ -41,8 +52,28 @@ export async function GET(req: Request) {
                 markedFailed: r.markedFailed,
                 gatewayTxId: r.gatewayTxId,
             }));
+        const failures = results
+            .filter((r) => Boolean(r.error))
+            .map((r) => ({
+                kind: r.row.kind,
+                orderRef: r.row.order_ref,
+                classification: r.classification,
+                error: r.error,
+            }));
 
-        console.log('[cron/reduniq-reconcile]', JSON.stringify({ summary, windowDays, minAgeMinutes, reconciled }));
+        console.log('[cron/reduniq-reconcile]', JSON.stringify({
+            summary,
+            windowDays: windowDays ?? 'all',
+            minAgeMinutes,
+            reconciled,
+            failures,
+        }));
+        if (failures.length > 0) {
+            return NextResponse.json(
+                { ok: false, summary, reconciled, failures },
+                { status: 502 },
+            );
+        }
         return NextResponse.json({ ok: true, summary, reconciled });
     } catch (e: any) {
         console.error('[cron/reduniq-reconcile] error', e);

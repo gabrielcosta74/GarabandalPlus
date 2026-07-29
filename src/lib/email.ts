@@ -6,6 +6,7 @@ import {
   renderDonationReceiptEmail,
   renderQuotaReminderEmail,
   renderPilgrimagePaymentReminderEmail,
+  renderFactPtFiscalDocumentEmail,
   renderStoreOwnerEmail,
   renderStoreBuyerEmail,
   renderStoreShippingEmail,
@@ -37,6 +38,7 @@ import {
   DonationReceiptInput,
   QuotaReminderInput,
   PilgrimagePaymentReminderInput,
+  FactPtFiscalDocumentRendererInput,
   StoreItem,
   GeneralLeadInput,
   AbandonmentRecoveryInput,
@@ -59,6 +61,7 @@ export type {
   DonationReceiptInput,
   QuotaReminderInput,
   PilgrimagePaymentReminderInput,
+  FactPtFiscalDocumentRendererInput,
   StoreItem,
   GeneralLeadInput,
   AbandonmentRecoveryInput,
@@ -79,6 +82,7 @@ export {
   renderDonationReceiptEmail,
   renderQuotaReminderEmail,
   renderPilgrimagePaymentReminderEmail,
+  renderFactPtFiscalDocumentEmail,
   renderStoreOwnerEmail,
   renderStoreBuyerEmail,
   renderStoreShippingEmail,
@@ -118,6 +122,48 @@ const notifyFrom = formatFromWithBrand(process.env.NOTIFY_EMAIL_FROM);
 const storeOwnerEmail = process.env.STORE_OWNER_EMAIL || notifyTo;
 
 const resendClient = resendApiKey ? new Resend(resendApiKey) : null;
+
+export type FactPtFiscalDocumentEmailInput = {
+  toEmail: string;
+  sandbox?: boolean;
+  recipientName?: string | null;
+  documentNumber: string;
+  documentLabel: string;
+  sourceLabel: string;
+  attachment: {
+    filename: string;
+    content: Buffer;
+    contentType: 'application/pdf';
+  };
+  idempotencyKey: string;
+};
+
+export const sendFactPtFiscalDocumentEmail = async (
+  payload: FactPtFiscalDocumentEmailInput,
+): Promise<{ sent: boolean; messageId: string | null }> => {
+  if (!resendClient) {
+    throw new Error('Resend não configurado para enviar o documento fiscal.');
+  }
+
+  const content = renderFactPtFiscalDocumentEmail(payload);
+
+  const { data, error } = await resendClient.emails.send(
+    {
+      from: notifyFrom,
+      to: [payload.toEmail],
+      subject: content.subject,
+      html: content.html,
+      attachments: [payload.attachment],
+    },
+    { idempotencyKey: payload.idempotencyKey },
+  );
+
+  if (error) {
+    throw new Error(error.message || 'Falha ao enviar o documento fiscal.');
+  }
+
+  return { sent: true, messageId: data?.id ?? null };
+};
 
 // Sending Functions that use the Renderers
 

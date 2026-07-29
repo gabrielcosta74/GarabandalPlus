@@ -46,6 +46,7 @@ export default function MemberProfileModal({
     setTelefone(data.telefone || '');
     setAddress(data.address || data.morada || '');
     setPostalCode(data.postal_code || data.postalCode || '');
+    setCity(data.city || data.cidade || '');
 
     const countryRaw = data.country || data.pais || 'PT';
     const countryInfo = resolveCountryMeta(countryRaw);
@@ -60,6 +61,7 @@ export default function MemberProfileModal({
   const [telefone, setTelefone] = useState(initialData.telefone || '');
   const [address, setAddress] = useState(initialData.address || initialData.morada || '');
   const [postalCode, setPostalCode] = useState(initialData.postal_code || initialData.postalCode || '');
+  const [city, setCity] = useState(initialData.city || initialData.cidade || '');
 
   const initialCountryRaw = initialData.country || initialData.pais || 'PT';
   const initialCountryMeta = resolveCountryMeta(initialCountryRaw);
@@ -215,6 +217,7 @@ export default function MemberProfileModal({
         telefone: normalizePhone(withCountryPrefix(telefone, country)),
         address: address.trim() || null,
         postal_code: postalCode.trim() || null,
+        city: city.trim() || null,
         country: country.trim() || null,
         nif: nif.trim() || null,
         avatar_url: finalAvatarUrl,
@@ -374,6 +377,15 @@ export default function MemberProfileModal({
                       inputMode={getPostalInputMode(country)}
                       className={inputClass}
                       placeholder={countryMeta?.postalPlaceholder}
+                    />
+                  </div>
+                  <div>
+                    <label className={labelClass}>{isEn ? 'City (optional)' : 'Cidade (opcional)'}</label>
+                    <input
+                      value={city}
+                      onChange={(e) => { setDirty(true); setCity(e.target.value); }}
+                      className={inputClass}
+                      placeholder={isEn ? 'City' : 'Cidade'}
                     />
                   </div>
                 </div>

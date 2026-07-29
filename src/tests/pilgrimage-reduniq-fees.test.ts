@@ -3,6 +3,7 @@ import {
   REDUNIQ_PILGRIMAGE_FEE_RATE,
   buildPilgrimageReduniqFeeNote,
   calculatePilgrimageReduniqCharge,
+  resolvePilgrimagePaymentKind,
 } from '../lib/pilgrimage-reduniq-fees';
 
 describe('pilgrimage reduniq fee calculation', () => {
@@ -22,5 +23,19 @@ describe('pilgrimage reduniq fee calculation', () => {
     expect(note).toContain('Valor base: 100.00€');
     expect(note).toContain('Taxa Reduniq: 1.90€');
     expect(note).toContain('Total cobrado: 101.90€');
+  });
+
+  it('charges exactly ten cents when the rounded fee is zero', () => {
+    expect(calculatePilgrimageReduniqCharge(0.10)).toMatchObject({
+      baseAmount: 0.10,
+      feeAmount: 0,
+      chargedAmount: 0.10,
+    });
+  });
+
+  it('classifies payments after the deposit as installments', () => {
+    expect(resolvePilgrimagePaymentKind('deposit', 1.50, 0.50)).toBe('installment');
+    expect(resolvePilgrimagePaymentKind('deposit', 0, 0.50)).toBe('deposit');
+    expect(resolvePilgrimagePaymentKind('full', 0.50, 0.50)).toBe('balance');
   });
 });

@@ -313,9 +313,19 @@ export async function handleMembershipSuccess(ctx: PaymentHandlerContext) {
     const userId = metadata.userId || null;
 
     // Update Payment Record
+    const membershipPaymentUpdate: Record<string, unknown> = {
+        estado: 'pago',
+        valor: amountCents / 100,
+        payment_intent_id: paymentReference,
+    };
+    // Preliminary Reduniq rows keep the concrete option selected by the user
+    // (card, MB WAY, PIX or Multibanco). A generic webhook method must not erase it.
+    if (method !== 'reduniq') {
+        membershipPaymentUpdate.metodo_pagamento = method;
+    }
     await supabaseServer
         .from('pagamentos_quotas')
-        .update({ estado: 'pago', valor: amountCents / 100, metodo_pagamento: method, payment_intent_id: paymentReference })
+        .update(membershipPaymentUpdate)
         .match(externalReference ? { external_reference: externalReference } : { payment_intent_id: paymentReference });
 
     // Check Notification Status
@@ -528,14 +538,27 @@ export async function handlePilgrimageSuccess(ctx: PaymentHandlerContext) {
         ? (existingNotes.includes(confirmedNote) ? existingNotes : `${existingNotes} | ${confirmedNote}`)
         : confirmedNote;
 
+    const { data: existingPayment } = externalReference
+        ? await supabaseServer
+            .from('pilgrimage_payments')
+            .select('method, processing_fee_amount')
+            .eq('external_reference', externalReference)
+            .maybeSingle()
+        : { data: null };
+    const persistedPaymentMethod =
+        method === 'reduniq' && String(existingPayment?.method || '').startsWith('reduniq_')
+            ? String(existingPayment?.method)
+            : method;
+
     const { error: paymentUpsertError } = await supabaseServer.from('pilgrimage_payments').upsert({
         booking_id: bookingId,
         user_id: bookingUserId,
         amount: amountPaid,
+        processing_fee_amount: Number(existingPayment?.processing_fee_amount || 0),
         payment_intent_id: paymentReference,
         external_reference: externalReference,
         status: 'verified',
-        method,
+        method: persistedPaymentMethod,
         verified_at: verifiedAt,
         transaction_id: String((metadata as any)?.reduniqTransactionId || paymentReference || ''),
         notes
@@ -579,7 +602,13 @@ export async function handlePilgrimageSuccess(ctx: PaymentHandlerContext) {
         await supabaseServer.rpc('recalculate_pilgrimage_vacancies', { p_pilgrimage_id: (booking as any).pilgrimage_id });
     }
 
-    await createAdminNotification('booking', 'Pagamento Peregrinação', `Reserva #${bookingId} - €${amountPaid.toFixed(2)}`, `/admin/peregrinacoes/inscricao/${bookingId}`);
+    await createAdminNotification(
+        'booking',
+        'Pagamento Peregrinação',
+        `Reserva #${bookingId} - €${amountPaid.toFixed(2)}`,
+        `/admin/peregrinacoes/inscricao/${bookingId}`,
+        `pilgrimage-payment:${externalReference || paymentReference}`,
+    );
 }
 
 /* -------------------------------------------------------------------------- */

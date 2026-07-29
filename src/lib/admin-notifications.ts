@@ -101,7 +101,8 @@ export async function createAdminNotification(
     type: 'order' | 'member' | 'booking' | 'donation' | 'auction',
     title: string,
     message: string,
-    link?: string
+    link?: string,
+    dedupeKey?: string,
 ) {
     if (!supabaseServer) return;
 
@@ -111,9 +112,12 @@ export async function createAdminNotification(
             title,
             message,
             link,
+            dedupe_key: dedupeKey || null,
             created_at: new Date().toISOString()
         });
-        if (error) {
+        // Repeated callbacks/webhooks are expected. The unique key turns those
+        // into a harmless no-op without hiding unrelated database failures.
+        if (error && !(dedupeKey && error.code === '23505')) {
             console.error('Failed to create admin notification:', error);
         }
     } catch (err) {

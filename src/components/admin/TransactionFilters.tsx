@@ -18,6 +18,17 @@ export type TransactionFiltersState = {
     category: 'all' | 'shop' | 'donation' | 'quota' | 'pilgrimage';
     /** 'active' = pagos + pendentes, o que interessa no dia-a-dia. */
     status: 'active' | 'all' | 'paid' | 'pending' | 'failed';
+    fiscalStatus:
+        | 'all'
+        | 'unregistered'
+        | 'awaiting_approval'
+        | 'pending'
+        | 'needs_data'
+        | 'processing'
+        | 'issued'
+        | 'failed'
+        | 'email_failed';
+    fiscalSeries: 'all' | '2026Q' | '2026L' | '2026D';
     nif: 'all' | 'with_nif' | 'without_nif';
     search: string;
     datePreset: DatePreset;
@@ -34,6 +45,8 @@ export type TransactionFiltersState = {
 export const DEFAULT_TRANSACTION_FILTERS: TransactionFiltersState = {
     category: 'all',
     status: 'active',
+    fiscalStatus: 'all',
+    fiscalSeries: 'all',
     nif: 'all',
     search: '',
     datePreset: 'all',
@@ -125,6 +138,25 @@ const NIF_LABELS: Record<TransactionFiltersState['nif'], string> = {
     without_nif: 'Sem NIF',
 };
 
+const FISCAL_STATUS_LABELS: Record<TransactionFiltersState['fiscalStatus'], string> = {
+    all: 'Todos',
+    unregistered: 'Sem registo fiscal',
+    awaiting_approval: 'Aguarda aprovação',
+    pending: 'Por emitir',
+    needs_data: 'Requer dados',
+    processing: 'A processar',
+    issued: 'Emitido',
+    failed: 'Erro de emissão',
+    email_failed: 'Erro de email',
+};
+
+const FISCAL_SERIES_LABELS: Record<TransactionFiltersState['fiscalSeries'], string> = {
+    all: 'Todas',
+    '2026Q': '2026Q · Quotas',
+    '2026L': '2026L · Loja',
+    '2026D': '2026D · Doações',
+};
+
 type TransactionFiltersProps = {
     filters: TransactionFiltersState;
     setFilters: React.Dispatch<React.SetStateAction<TransactionFiltersState>>;
@@ -140,6 +172,8 @@ export default function TransactionFilters({ filters, setFilters }: TransactionF
     const advancedCount =
         (filters.category !== 'all' ? 1 : 0) +
         (filters.status !== 'active' ? 1 : 0) +
+        (filters.fiscalStatus !== 'all' ? 1 : 0) +
+        (filters.fiscalSeries !== 'all' ? 1 : 0) +
         (filters.nif !== 'all' ? 1 : 0) +
         (filters.includeFuture ? 1 : 0);
 
@@ -170,6 +204,20 @@ export default function TransactionFilters({ filters, setFilters }: TransactionF
     }
     if (filters.nif !== 'all') {
         chips.push({ key: 'nif', label: NIF_LABELS[filters.nif], onRemove: () => update('nif', 'all') });
+    }
+    if (filters.fiscalStatus !== 'all') {
+        chips.push({
+            key: 'fiscal-status',
+            label: `FACT: ${FISCAL_STATUS_LABELS[filters.fiscalStatus]}`,
+            onRemove: () => update('fiscalStatus', 'all'),
+        });
+    }
+    if (filters.fiscalSeries !== 'all') {
+        chips.push({
+            key: 'fiscal-series',
+            label: `Série ${filters.fiscalSeries}`,
+            onRemove: () => update('fiscalSeries', 'all'),
+        });
     }
     if (filters.includeFuture) {
         chips.push({ key: 'future', label: 'Inclui datas futuras', onRemove: () => update('includeFuture', false) });
@@ -251,7 +299,7 @@ export default function TransactionFilters({ filters, setFilters }: TransactionF
                         leaveFrom="opacity-100 translate-y-0"
                         leaveTo="opacity-0 translate-y-1"
                     >
-                        <Popover.Panel className="absolute right-0 z-30 mt-2 w-72 origin-top-right rounded-xl border border-slate-200 bg-white p-4 shadow-lg shadow-slate-900/5">
+                        <Popover.Panel className="absolute right-0 z-30 mt-2 max-h-[75vh] w-72 origin-top-right overflow-y-auto rounded-xl border border-slate-200 bg-white p-4 shadow-lg shadow-slate-900/5">
                             <div className="space-y-4">
                                 <RadioGroup
                                     label="Origem"
@@ -270,6 +318,18 @@ export default function TransactionFilters({ filters, setFilters }: TransactionF
                                     value={filters.nif}
                                     onChange={v => update('nif', v)}
                                     options={Object.entries(NIF_LABELS) as [TransactionFiltersState['nif'], string][]}
+                                />
+                                <RadioGroup
+                                    label="Estado FACT.pt"
+                                    value={filters.fiscalStatus}
+                                    onChange={v => update('fiscalStatus', v)}
+                                    options={Object.entries(FISCAL_STATUS_LABELS) as [TransactionFiltersState['fiscalStatus'], string][]}
+                                />
+                                <RadioGroup
+                                    label="Série FACT.pt"
+                                    value={filters.fiscalSeries}
+                                    onChange={v => update('fiscalSeries', v)}
+                                    options={Object.entries(FISCAL_SERIES_LABELS) as [TransactionFiltersState['fiscalSeries'], string][]}
                                 />
 
                                 <label className="flex cursor-pointer items-start gap-2 border-t border-slate-100 pt-3">

@@ -200,6 +200,7 @@ export default function AccountProfilePage() {
                 <Field label={isEn ? 'Address' : 'Endereço'} value={profileDisplay.address} />
               </div>
               <Field label={isEn ? 'Postal Code / ZIP' : 'Código Postal / CEP'} value={profileDisplay.postal_code} />
+              <Field label={isEn ? 'City' : 'Cidade'} value={profileDisplay.city} />
               <Field label={isEn ? 'Country' : 'País'} value={profileDisplay.country} />
             </div>
           </div>

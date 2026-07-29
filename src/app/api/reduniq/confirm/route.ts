@@ -484,6 +484,21 @@ export async function POST(request: Request) {
       }
     }
 
+    if (isSuccess && !updated) {
+      console.error('[Reduniq][Confirm] Confirmed transaction has no local payment association.', {
+        orderRef: resolvedReference,
+        transactionId,
+      });
+      return NextResponse.json({
+        success: false,
+        updated: false,
+        message: 'A Reduniq confirmou o pagamento, mas a reserva ainda não foi atualizada. Não repitas o pagamento; contacta o suporte.',
+        orderRef: resolvedReference,
+        transactionStatus,
+        transactionId,
+      }, { status: 409 });
+    }
+
     return NextResponse.json({
       success: true,
       updated,

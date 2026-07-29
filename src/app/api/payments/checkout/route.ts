@@ -7,7 +7,10 @@ import { inferRequestLocale } from '../../../../lib/locale-routing';
 import {
     buildPilgrimageReduniqFeeNote,
     calculatePilgrimageReduniqCharge,
+    resolvePilgrimagePaymentKind,
 } from '../../../../lib/pilgrimage-reduniq-fees';
+import { createSupabaseServerClient } from '../../../../lib/auth-utils';
+import { getPrivatePilgrimageTestUserId } from '../../../../lib/pilgrimage-private-test';
 
 const normalizeRedirectUrl = (candidate: string, baseOrigin: string): string => {
     const raw = String(candidate || '').trim();
@@ -90,6 +93,14 @@ export async function POST(req: Request) {
         const bookingId = typeof body?.bookingId === 'string' ? body.bookingId : null;
         const priceType = body?.priceType === 'deposit' ? 'deposit' : 'full';
         const provider = body?.provider === 'reduniq' ? 'reduniq' : null;
+        const paymentOptionId = [
+            'reduniq_card',
+            'reduniq_mbway',
+            'reduniq_pix',
+            'reduniq_multibanco',
+        ].includes(String(body?.paymentOptionId || ''))
+            ? String(body.paymentOptionId)
+            : 'reduniq_card';
         const dryRun = body?.dryRun === true;
         const requestedAmountRaw = Number(body?.amountToPay);
         const requestedAmount = Number.isFinite(requestedAmountRaw) && requestedAmountRaw > 0
@@ -112,8 +123,8 @@ export async function POST(req: Request) {
             .from('bookings')
             .select(`
                 *,
-                pilgrimage:pilgrimages(title, deposit_value),
-                payments:pilgrimage_payments(amount, status)
+                pilgrimage:pilgrimages(title, deposit_value, pricing_config),
+                payments:pilgrimage_payments(amount, status, deleted)
             `)
             .eq('id', bookingId)
             .single();
@@ -127,6 +138,22 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: "Reserva não encontrada" }, { status: 404 });
         }
 
+        const privateTestUserId = getPrivatePilgrimageTestUserId(booking.pilgrimage);
+        if (privateTestUserId) {
+            const sessionClient = await createSupabaseServerClient();
+            const { data: { user } } = await sessionClient.auth.getUser();
+            if (
+                !user
+                || user.id !== privateTestUserId
+                || booking.user_id !== privateTestUserId
+            ) {
+                return NextResponse.json(
+                    { error: 'Reserva não encontrada' },
+                    { status: 404 },
+                );
+            }
+        }
+
         // 2. Determine Amount
         let amountToPay = 0;
         let lineItemTitle = `Pagamento - ${booking.pilgrimage.title}`;
@@ -134,18 +161,26 @@ export async function POST(req: Request) {
         const total = Number(booking.total_amount) || 0;
         const successfulStatuses = ['verified', 'succeeded', 'paid', 'manual'];
         const successfulPaidFromPayments = (booking.payments || [])
-            .filter((p: any) => successfulStatuses.includes(String(p?.status || '').toLowerCase()))
+            .filter((p: any) => (
+                !p?.deleted
+                && successfulStatuses.includes(String(p?.status || '').toLowerCase())
+            ))
             .reduce((sum: number, p: any) => sum + (Number(p?.amount) || 0), 0);
         const paid = Math.max(Number(booking.paid_amount) || 0, successfulPaidFromPayments);
-        const deposit = booking.pilgrimage.deposit_value;
+        const deposit = Number(booking.pilgrimage.deposit_value) || 0;
+        const paymentKind = resolvePilgrimagePaymentKind(priceType, paid, deposit);
 
         if (priceType === 'deposit') {
             amountToPay = deposit - paid; // Pay remaining deposit
-            lineItemTitle = `Sinal - ${booking.pilgrimage.title}`;
+            lineItemTitle = paymentKind === 'installment'
+                ? `Prestação - ${booking.pilgrimage.title}`
+                : `Sinal - ${booking.pilgrimage.title}`;
         } else {
             // Full Payment
             amountToPay = total - paid;
-            lineItemTitle = `Pagamento Total - ${booking.pilgrimage.title}`;
+            lineItemTitle = paymentKind === 'balance'
+                ? `Valor Restante - ${booking.pilgrimage.title}`
+                : `Pagamento Total - ${booking.pilgrimage.title}`;
         }
 
         const totalRemaining = Math.max(0, Math.round((total - paid) * 100) / 100);
@@ -200,7 +235,7 @@ export async function POST(req: Request) {
                 chargedAmount,
                 totalRemaining,
                 orderRefPreview: orderRef,
-                notesPreview: `${feeNote} | Tipo: ${priceType}`,
+                notesPreview: `${feeNote} | Tipo: ${paymentKind}`,
             });
         }
 
@@ -253,20 +288,34 @@ export async function POST(req: Request) {
             );
         }
 
-        try {
-            await supabaseAdmin.from('pilgrimage_payments').insert({
+        const { error: pendingPaymentError } = await supabaseAdmin
+            .from('pilgrimage_payments')
+            .insert({
                 booking_id: booking.id,
                 user_id: booking.user_id,
                 amount: safeAmountToPay,
-                method: 'reduniq',
+                processing_fee_amount: charge.feeAmount,
+                method: paymentOptionId,
                 status: 'pending',
                 payment_intent_id: initResult.token || initResult.transactionId || orderRef,
                 external_reference: orderRef,
                 created_at: nowIso,
-                notes: `${feeNote} | Tipo: ${priceType}`,
+                notes: `${feeNote} | Tipo: ${paymentKind}`,
             });
-        } catch (dbErr) {
-            console.warn('Não foi possível criar registo preliminar de peregrinação (Reduniq):', dbErr);
+
+        if (pendingPaymentError) {
+            console.error('[Reduniq][Pilgrimage] Pending payment persistence failed', {
+                bookingId: booking.id,
+                orderRef,
+                code: pendingPaymentError.code,
+                message: pendingPaymentError.message,
+            });
+            return NextResponse.json(
+                {
+                    error: 'Não foi possível preparar o registo do pagamento. Não foi efetuada qualquer cobrança; tenta novamente.',
+                },
+                { status: 500 },
+            );
         }
 
         const normalizedGatewayUrl = normalizeRedirectUrl(initResult.url, selectedOrigin);

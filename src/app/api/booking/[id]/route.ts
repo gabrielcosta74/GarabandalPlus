@@ -3,6 +3,28 @@ import { supabaseServer } from '../../../../lib/supabase';
 import { createSupabaseServerClient } from '../../../../lib/auth-utils';
 import { toSignedReceiptUrl } from '../../../../lib/receipt-utils';
 
+type BookingPaymentRecord = {
+    id: string;
+    amount: number | string | null;
+    status?: string | null;
+    receipt_url?: string | null;
+    [key: string]: unknown;
+};
+
+type BookingRecord = {
+    id: string;
+    paid_amount?: number | string | null;
+    payments?: BookingPaymentRecord[] | null;
+    [key: string]: unknown;
+};
+
+type FactPtPaymentStatus = {
+    status: string | null;
+    factpt_number: string | null;
+    issued_at: string | null;
+    email_sent_at: string | null;
+};
+
 /**
  * GET /api/booking/[id]
  * 
@@ -24,13 +46,50 @@ export async function GET(
 
     try {
             const successfulStatuses = ['verified', 'succeeded', 'paid', 'manual'];
-            const normalizeBookingPaidAmount = async (booking: any) => {
+            const attachFactPtStatus = async (booking: BookingRecord) => {
+                const paymentIds = (booking?.payments || [])
+                    .map((payment) => payment.id)
+                    .filter((paymentId: unknown): paymentId is string => typeof paymentId === 'string');
+                if (paymentIds.length === 0) return booking;
+
+                const { data: fiscalDocuments, error: fiscalError } = await supabaseServer!
+                    .from('factpt_documents')
+                    .select('source_id, status, factpt_number, issued_at, email_sent_at, created_at')
+                    .eq('source_type', 'pilgrimage')
+                    .in('source_id', paymentIds)
+                    .order('created_at', { ascending: false });
+
+                if (fiscalError) {
+                    console.error('[API Booking] FACT.pt status lookup failed:', fiscalError);
+                    return booking;
+                }
+
+                const latestByPayment = new Map<string, FactPtPaymentStatus>();
+                for (const document of fiscalDocuments || []) {
+                    if (!latestByPayment.has(document.source_id)) {
+                        latestByPayment.set(document.source_id, {
+                            status: document.status,
+                            factpt_number: document.factpt_number,
+                            issued_at: document.issued_at,
+                            email_sent_at: document.email_sent_at,
+                        });
+                    }
+                }
+
+                booking.payments = (booking.payments || []).map((payment) => ({
+                    ...payment,
+                    factpt_document: latestByPayment.get(payment.id) || null,
+                }));
+                return booking;
+            };
+
+            const normalizeBookingPaidAmount = async (booking: BookingRecord) => {
                 if (!booking) return booking;
 
             const payments = Array.isArray(booking.payments) ? booking.payments : [];
             const successfulPaidTotal = payments
-                .filter((p: any) => successfulStatuses.includes(String(p?.status || '').toLowerCase()))
-                .reduce((sum: number, p: any) => sum + (Number(p?.amount) || 0), 0);
+                .filter((payment) => successfulStatuses.includes(String(payment.status || '').toLowerCase()))
+                .reduce((sum, payment) => sum + (Number(payment.amount) || 0), 0);
 
                 const currentPaid = Number(booking.paid_amount) || 0;
                 const normalizedPaid = Math.max(currentPaid, successfulPaidTotal);
@@ -44,7 +103,7 @@ export async function GET(
                 }
 
                 if (payments.length > 0) {
-                    booking.payments = await Promise.all(payments.map(async (payment: any) => ({
+                    booking.payments = await Promise.all(payments.map(async (payment) => ({
                         ...payment,
                         receipt_url: payment?.receipt_url ? await toSignedReceiptUrl(payment.receipt_url, 3600) : null,
                     })));
@@ -78,6 +137,9 @@ export async function GET(
                         status,
                         method,
                         notes,
+                        external_reference,
+                        processing_fee_amount,
+                        charged_amount,
                         created_at
                     )
                 `)
@@ -97,13 +159,14 @@ export async function GET(
 
             if (booking?.payments) {
                 console.log(`[API] Token Access: Loaded ${booking.payments.length} payments`);
-                booking.payments = booking.payments.map((p: any) => ({
-                    ...p,
-                    amount: Number(p.amount)
+                booking.payments = booking.payments.map((payment: BookingPaymentRecord) => ({
+                    ...payment,
+                    amount: Number(payment.amount)
                 }));
             }
 
             await normalizeBookingPaidAmount(booking);
+            await attachFactPtStatus(booking);
 
             console.log("✅ [API] Booking found with token, returning data");
             return NextResponse.json(booking);
@@ -118,8 +181,10 @@ export async function GET(
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
-        // Use regular client with RLS - will only return if user owns booking
-        const { data: booking, error } = await supabase
+        // The server client is required for private test pilgrimages, which are
+        // deliberately hidden by pilgrimage RLS. Ownership is enforced in the
+        // same query so the service role never broadens what the user can read.
+        const { data: booking, error } = await supabaseServer
             .from('bookings')
             .select(`
                 *,
@@ -140,10 +205,14 @@ export async function GET(
                     status,
                     created_at,
                     notes,
+                    external_reference,
+                    processing_fee_amount,
+                    charged_amount,
                     receipt_url
                 )
             `)
             .eq('id', id)
+            .eq('user_id', user.id)
             .single();
 
         if (error) {
@@ -154,18 +223,22 @@ export async function GET(
         if (booking?.payments) {
             console.log(`[API Booking] Loaded ${booking.payments.length} payments for ${id}`);
             // Ensure amounts are numbers
-            booking.payments = booking.payments.map((p: any) => ({
-                ...p,
-                amount: Number(p.amount)
+            booking.payments = booking.payments.map((payment: BookingPaymentRecord) => ({
+                ...payment,
+                amount: Number(payment.amount)
             }));
         }
 
         await normalizeBookingPaidAmount(booking);
+        await attachFactPtStatus(booking);
 
         return NextResponse.json(booking);
 
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error("🚨 [API Booking GET] Critical Error:", error);
-        return NextResponse.json({ error: error.message || "Internal Server Error" }, { status: 500 });
+        return NextResponse.json(
+            { error: error instanceof Error ? error.message : "Internal Server Error" },
+            { status: 500 },
+        );
     }
 }

@@ -90,6 +90,7 @@ export async function POST(req: Request) {
             const nif = body.nif ? String(body.nif).trim() : null;
             const address = body.address ? String(body.address).trim() : null;
             const postal_code = body.postal_code ? String(body.postal_code).trim() : null;
+            const city = body.city ? String(body.city).trim() : null;
             const country = String(body.country || '').trim();
             const providedEmail = body.email ? String(body.email).trim().toLowerCase() : '';
 
@@ -157,6 +158,7 @@ export async function POST(req: Request) {
                     nif,
                     address,
                     postal_code,
+                    city,
                     country,
                     data_adesao: joinDate,
                     is_membro: initial_payment,

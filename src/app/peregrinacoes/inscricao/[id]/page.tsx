@@ -27,6 +27,9 @@ import { format } from 'date-fns';
 import { enUS, pt } from 'date-fns/locale';
 import BookingOnboardingModal from '../../../../components/booking/BookingOnboardingModal';
 import BankTransferModal from '../../../../components/booking/BankTransferModal'; // Imported BankTransferModal
+import PaymentConfirmationModal, {
+    type PaymentConfirmationFiscalDocument,
+} from '../../../../components/booking/PaymentConfirmationModal';
 import CustomPaymentAmount, { buildPaymentPreview } from '../../../../components/booking/CustomPaymentAmount';
 import { UNIFIED_ONLINE_PAYMENT_OPTIONS } from '../../../../lib/payment-options';
 import {
@@ -62,8 +65,20 @@ type Booking = {
         base_price?: number;
         pricing_config?: any;
     };
-    payments: any[];
+    payments: BookingPayment[];
     payment_plan?: { date: string; amount: number }[];
+};
+
+type BookingPayment = {
+    id: string;
+    amount: number;
+    processing_fee_amount?: number | null;
+    charged_amount?: number | null;
+    status: string;
+    method: string;
+    external_reference?: string | null;
+    factpt_document?: PaymentConfirmationFiscalDocument;
+    [key: string]: unknown;
 };
 
 type PilgrimPass = {
@@ -102,6 +117,47 @@ const paymentOptions: PaymentOption[] = UNIFIED_ONLINE_PAYMENT_OPTIONS
         iconAlt: option.iconAlt,
     }));
 
+const findConfirmedPayment = (
+    booking: Booking | null,
+    orderReference: string | null,
+): BookingPayment | null => {
+    const payments = booking?.payments || [];
+    if (orderReference) {
+        const exact = payments.find(
+            (payment) => payment.external_reference === orderReference,
+        );
+        if (exact) return exact;
+    }
+
+    return payments.find(
+        (payment) =>
+            String(payment.method || '').startsWith('reduniq')
+            && ['verified', 'succeeded', 'paid'].includes(
+                String(payment.status || '').toLowerCase(),
+            ),
+    ) || null;
+};
+
+const getBookingApiUrl = (bookingId: string, provider: string): string => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const directViewToken = urlParams.get('viewToken');
+    const tokenValues = urlParams.getAll('token');
+    const legacyViewTokenFromDuplicate =
+        provider === 'reduniq'
+        && !directViewToken
+        && tokenValues.length > 1
+            ? tokenValues[0]
+            : null;
+    const legacyToken = provider === 'reduniq'
+        ? legacyViewTokenFromDuplicate
+        : (tokenValues[0] || null);
+    const token = directViewToken || legacyToken;
+
+    return token
+        ? `/api/booking/${bookingId}?token=${encodeURIComponent(token)}`
+        : `/api/booking/${bookingId}`;
+};
+
 /* -------------------------------------------------------------------------- */
 /*                                  Component                                 */
 /* -------------------------------------------------------------------------- */
@@ -122,7 +178,7 @@ export default function BookingDashboardPage() {
     const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
     const isSuccess = searchParams?.get('success') === 'true';
     const providerParam = (searchParams?.get('provider') || '').toLowerCase();
-    const orderRefParam = searchParams?.get('orderRef');
+    const orderRefParam = searchParams?.get('orderRef') || null;
     const reduniqTokenParam = searchParams?.getAll('token')?.at(-1) || null;
     const statusParam = (searchParams?.get('status') || '').toLowerCase();
     const canceledParam = (searchParams?.get('canceled') || '').toLowerCase();
@@ -133,6 +189,8 @@ export default function BookingDashboardPage() {
     const [payMethod, setPayMethod] = useState<'card' | 'transfer'>('card');
     const [reduniqConfirming, setReduniqConfirming] = useState(false);
     const [reduniqHandledKey, setReduniqHandledKey] = useState<string | null>(null);
+    const [showPaymentConfirmation, setShowPaymentConfirmation] = useState(false);
+    const [confirmedPayment, setConfirmedPayment] = useState<BookingPayment | null>(null);
     const REDUNIQ_CONFIRM_MAX_ATTEMPTS = 8;
     const REDUNIQ_CONFIRM_RETRY_MS = 2500;
     const [reduniqFeedback, setReduniqFeedback] = useState<{
@@ -218,13 +276,22 @@ export default function BookingDashboardPage() {
                     finalMessage = String(data?.resultMessage || '');
 
                     if (txStatus === '4') {
+                        if (data?.updated !== true) {
+                            throw new Error(
+                                isEn
+                                    ? 'Reduniq confirmed the payment, but the booking has not been updated yet. Do not pay again; contact support.'
+                                    : 'A Reduniq confirmou o pagamento, mas a reserva ainda não foi atualizada. Não pagues novamente; contacta o suporte.',
+                            );
+                        }
                         gotTerminalStatus = true;
                         setReduniqFeedback({
                             kind: 'success',
                             title: isEn ? 'Payment confirmed' : 'Pagamento confirmado',
                             message: isEn ? 'We received your payment. The booking has been updated.' : 'Recebemos o teu pagamento. A reserva foi atualizada.',
                         });
-                        await fetchBooking(true);
+                        setShowPaymentConfirmation(true);
+                        const refreshedBooking = await fetchBooking(true);
+                        setConfirmedPayment(findConfirmedPayment(refreshedBooking, orderRefParam));
                         break;
                     }
 
@@ -431,50 +498,81 @@ export default function BookingDashboardPage() {
 
 
     // Fetch Booking Data - Extracted for reuse
-    const fetchBooking = async (isRefresh = false) => {
+    const fetchBooking = async (isRefresh = false): Promise<Booking | null> => {
         if (isRefresh) {
             setRefreshing(true);
             console.log('🔄 [Client] Refreshing booking data...');
         }
 
         try {
-            // Check for secure booking view token in URL
-            const urlParams = new URLSearchParams(window.location.search);
-            const directViewToken = urlParams.get('viewToken');
-            const tokenValues = urlParams.getAll('token');
-            const legacyViewTokenFromDuplicate = providerParam === 'reduniq' && !directViewToken && tokenValues.length > 1
-                ? tokenValues[0]
-                : null;
-            const legacyToken = providerParam === 'reduniq'
-                ? legacyViewTokenFromDuplicate
-                : (tokenValues[0] || null);
-            const token = directViewToken || legacyToken;
-
-            // Use token if available, otherwise use session
-            const url = token
-                ? `/api/booking/${id}?token=${token}`
-                : `/api/booking/${id}`;
-
-            const res = await fetch(url);
+            const res = await fetch(getBookingApiUrl(id, providerParam), {
+                cache: 'no-store',
+            });
             const data = await res.json();
 
             if (!res.ok) {
                 // Check if it's an auth issue or just not found
-                if (res.status === 401) setAuthError(true);
-                else throw new Error(data.error || (isEn ? 'Error loading' : 'Erro ao carregar'));
+                if (res.status === 401) {
+                    setAuthError(true);
+                    return null;
+                }
+                throw new Error(data.error || (isEn ? 'Error loading' : 'Erro ao carregar'));
             } else {
-                setBooking(data);
+                const normalizedBooking = data as Booking;
+                setBooking(normalizedBooking);
                 if (isRefresh) {
                     console.log('✅ [Client] Booking refreshed successfully');
                 }
+                return normalizedBooking;
             }
         } catch (err: any) {
             console.error("Fetch error:", err);
+            return null;
         } finally {
             if (isRefresh) setRefreshing(false);
             setLoading(false);
         }
     };
+
+    useEffect(() => {
+        if (
+            !showPaymentConfirmation
+            || confirmedPayment?.factpt_document?.email_sent_at
+        ) {
+            return;
+        }
+
+        let canceled = false;
+        const pollFiscalStatus = async () => {
+            while (!canceled) {
+                await new Promise((resolve) => setTimeout(resolve, 5000));
+                if (canceled) return;
+
+                const response = await fetch(getBookingApiUrl(id, providerParam), {
+                    cache: 'no-store',
+                });
+                if (canceled || !response.ok) continue;
+
+                const refreshedBooking = await response.json() as Booking;
+                setBooking(refreshedBooking);
+
+                const payment = findConfirmedPayment(refreshedBooking, orderRefParam);
+                setConfirmedPayment(payment);
+                if (payment?.factpt_document?.email_sent_at) return;
+            }
+        };
+
+        void pollFiscalStatus();
+        return () => {
+            canceled = true;
+        };
+    }, [
+        showPaymentConfirmation,
+        id,
+        orderRefParam,
+        providerParam,
+        confirmedPayment?.factpt_document?.email_sent_at,
+    ]);
 
     const getBookingViewToken = () => {
         const urlParams = new URLSearchParams(window.location.search);
@@ -656,6 +754,7 @@ export default function BookingDashboardPage() {
                     bookingId: id,
                     priceType: paymentMode,
                     provider: selectedOption.provider,
+                    paymentOptionId: selectedOption.id,
                     amountToPay: effectiveAmountToPay,
                 }),
             });
@@ -1050,6 +1149,22 @@ export default function BookingDashboardPage() {
 
     return (
         <VIPLayout allowPublic={true}>
+            <PaymentConfirmationModal
+                open={showPaymentConfirmation}
+                onClose={() => setShowPaymentConfirmation(false)}
+                isEn={isEn}
+                amountLabel={
+                    confirmedPayment
+                        ? formatEUR(
+                            Number(
+                                confirmedPayment.charged_amount
+                                ?? confirmedPayment.amount,
+                            ),
+                        )
+                        : null
+                }
+                fiscalDocument={confirmedPayment?.factpt_document || null}
+            />
             <div className="max-w-6xl mx-auto px-4 py-8 space-y-8 animate-in fade-in duration-700">
 
                 {/* --- 0. ERROR/EMPTY STATE --- */}

@@ -2,8 +2,49 @@ import { NextResponse } from 'next/server';
 import { supabaseServer } from '../../../../../lib/supabase';
 
 import { verifyAdmin } from '../../../../../lib/admin-auth';
+import { isFactPtProductionEnabled } from '../../../../../lib/factpt/config';
 
 export const dynamic = 'force-dynamic';
+
+type FactptDocumentSummary = {
+    id: string;
+    environment: 'sandbox' | 'production';
+    status: string;
+    series_code: string;
+    document_type: string | null;
+    client_action: string | null;
+    factpt_number: string | null;
+    permanent_url: string | null;
+    last_error: string | null;
+    issued_at: string | null;
+    email_sent_at: string | null;
+    review_prepared_at: string | null;
+    approved_at: string | null;
+    amount: number | null;
+    payment_method: string | null;
+    comments: string | null;
+    fiscal_snapshot: Record<string, unknown> | null;
+};
+
+type FactptDocumentRow = FactptDocumentSummary & {
+    source_type: string;
+    source_table: string | null;
+    source_id: string;
+};
+
+const normalizeFiscalSource = (sourceType: unknown, sourceTable?: unknown): string => {
+    const table = String(sourceTable || '').toLowerCase();
+    const sourceByTable: Record<string, string> = {
+        donations: 'donation',
+        store_orders: 'shop',
+        pilgrimage_payments: 'pilgrimage',
+        pagamentos_quotas: 'quota',
+    };
+    if (sourceByTable[table]) return sourceByTable[table];
+
+    const source = String(sourceType || '').toLowerCase();
+    return source === 'store' ? 'shop' : source;
+};
 
 export async function GET(req: Request) {
     const { authorized, error } = await verifyAdmin(req);
@@ -48,7 +89,7 @@ export async function GET(req: Request) {
         // 3. Fetch Pilgrimage Payments (receipt_url is the correct column name)
         const { data: pilgrimagePayments } = await supabaseServer
             .from('pilgrimage_payments')
-            .select('id, booking_id, amount, method, status, receipt_url, proof_url, transaction_id, payment_intent_id, created_at, external_reference, notes, invoice_sent_at, bookings(id, user_id, pilgrimages(title, start_date, end_date))')
+            .select('id, booking_id, amount, processing_fee_amount, charged_amount, method, status, receipt_url, proof_url, transaction_id, payment_intent_id, created_at, external_reference, notes, invoice_sent_at, bookings(id, user_id, pilgrimages(title, start_date, end_date))')
             .not('deleted', 'is', true)
             .order('created_at', { ascending: false });
 
@@ -57,6 +98,84 @@ export async function GET(req: Request) {
             .from('pagamentos_quotas')
             .select('*')
             .order('data_pagamento', { ascending: false });
+
+        // FACT.pt is being introduced through a migration. Keep the financial admin usable
+        // during deployment even if the API instance sees the application before that migration.
+        const fiscalDocumentsBySource = new Map<string, FactptDocumentSummary>();
+        let factptAvailable = true;
+        let productionSettings: {
+            auto_enabled: boolean;
+            require_approval: boolean;
+            pilot_private_only: boolean;
+            production_pilgrimages_only: boolean;
+            go_live_at: string | null;
+        } | null = null;
+        const fiscalSourceIds = Array.from(new Set([
+            ...(donations || []).map(row => row.id),
+            ...(orders || []).map(row => row.id),
+            ...(pilgrimagePayments || []).map(row => row.id),
+            ...(quotaPayments || []).map(row => row.id),
+        ].filter((id): id is string => typeof id === 'string' && id.length > 0)));
+
+        const fiscalSelect = 'id, environment, source_type, source_table, source_id, status, series_code, document_type, client_action, factpt_number, permanent_url, last_error, issued_at, email_sent_at, review_prepared_at, approved_at, amount, payment_method, comments, fiscal_snapshot';
+        const sourceIdBatches = fiscalSourceIds.length > 0
+            ? Array.from({ length: Math.ceil(fiscalSourceIds.length / 100) }, (_, index) =>
+                fiscalSourceIds.slice(index * 100, index * 100 + 100)
+            )
+            : [];
+        const fiscalResults = sourceIdBatches.length > 0
+            ? await Promise.all(sourceIdBatches.map(sourceIds =>
+                supabaseServer!
+                    .from('factpt_documents')
+                    .select(fiscalSelect)
+                    .in('source_id', sourceIds)
+            ))
+            : [await supabaseServer.from('factpt_documents').select(fiscalSelect).limit(1)];
+        const fiscalDocuments = fiscalResults.flatMap(result => result.data || []);
+        const fiscalDocumentsError = fiscalResults.find(result => result.error)?.error || null;
+
+        if (fiscalDocumentsError) {
+            factptAvailable = false;
+            const expectedMissingTableCodes = new Set(['42P01', 'PGRST204', 'PGRST205']);
+            if (!expectedMissingTableCodes.has(String(fiscalDocumentsError.code || ''))) {
+                console.warn('Could not load FACT.pt document summaries:', fiscalDocumentsError.message);
+            }
+        } else {
+            const { data: settings } = await supabaseServer
+                .from('factpt_settings')
+                .select('auto_enabled, require_approval, pilot_private_only, production_pilgrimages_only, go_live_at')
+                .eq('environment', 'production')
+                .maybeSingle();
+            productionSettings = settings;
+            const sortedFiscalDocuments = [...(fiscalDocuments || [])].sort(
+                (left: FactptDocumentRow, right: FactptDocumentRow) =>
+                    Number(left.environment === 'production')
+                    - Number(right.environment === 'production')
+            );
+            sortedFiscalDocuments.forEach((document: FactptDocumentRow) => {
+                if (!document?.source_id) return;
+                const source = normalizeFiscalSource(document.source_type, document.source_table);
+                fiscalDocumentsBySource.set(`${source}:${document.source_id}`, {
+                    id: document.id,
+                    environment: document.environment,
+                    status: document.status,
+                    series_code: document.series_code,
+                    document_type: document.document_type,
+                    client_action: document.client_action,
+                    factpt_number: document.factpt_number,
+                    permanent_url: document.permanent_url,
+                    last_error: document.last_error,
+                    issued_at: document.issued_at,
+                    email_sent_at: document.email_sent_at,
+                    review_prepared_at: document.review_prepared_at,
+                    approved_at: document.approved_at,
+                    amount: document.amount,
+                    payment_method: document.payment_method,
+                    comments: document.comments,
+                    fiscal_snapshot: document.fiscal_snapshot,
+                });
+            });
+        }
 
         // 5. Batch Fetch Profiles (Membros)
         const userIds = new Set<string>();
@@ -75,7 +194,7 @@ export async function GET(req: Request) {
         const { data: profiles } = userIds.size > 0
             ? await supabaseServer
                 .from('membros')
-                .select('id, nome, email, nif, address, postal_code')
+                .select('id, nome, email, nif, address, postal_code, city')
                 .in('id', Array.from(userIds))
             : { data: [] };
 
@@ -86,28 +205,25 @@ export async function GET(req: Request) {
         const { data: pilgrimsByBooking } = bookingIds.size > 0
             ? await supabaseServer
                 .from('pilgrims')
-                .select('booking_id, full_name, email, cpf_nif')
+                .select('booking_id, full_name, email, cpf_nif, city')
                 .in('booking_id', Array.from(bookingIds))
             : { data: [] };
 
-        const bookingNifMap = new Map<string, string | null>();
-        const bookingNameMap = new Map<string, string>();
-        const bookingEmailMap = new Map<string, string>();
+        type PilgrimBillingRow = {
+            booking_id: string | null;
+            full_name: string | null;
+            email: string | null;
+            cpf_nif: string | null;
+            city: string | null;
+        };
+        const pilgrimsMap = new Map<string, PilgrimBillingRow[]>();
 
-        (pilgrimsByBooking || []).forEach((row: any) => {
-            const bookingId = row?.booking_id as string | undefined;
+        (pilgrimsByBooking || []).forEach((row) => {
+            const bookingId = row?.booking_id || undefined;
             if (!bookingId) return;
-            // Only store the first pilgrim per booking (the lead pilgrim)
-            if (!bookingNifMap.has(bookingId)) {
-                const nif = typeof row?.cpf_nif === 'string' ? row.cpf_nif.trim() : '';
-                if (nif) bookingNifMap.set(bookingId, nif);
-            }
-            if (!bookingNameMap.has(bookingId) && row?.full_name) {
-                bookingNameMap.set(bookingId, row.full_name);
-            }
-            if (!bookingEmailMap.has(bookingId) && row?.email) {
-                bookingEmailMap.set(bookingId, row.email);
-            }
+            const current = pilgrimsMap.get(bookingId) || [];
+            current.push(row);
+            pilgrimsMap.set(bookingId, current);
         });
 
         // Fallback: For any user_id that still doesn't have an email in profilesMap, fetch directly from auth
@@ -164,8 +280,8 @@ export async function GET(req: Request) {
             }
         };
 
-        // O `amount` guardado é o valor base; o Reduniq cobra base + taxa. O total efetivamente
-        // cobrado só existe na nota ("Total cobrado: 1019.00€"), e é esse que aparece no backoffice.
+        // Legacy Reduniq rows stored the charged total only in notes. New rows
+        // use dedicated numeric columns and keep this parser only as fallback.
         const chargedAmountFromNotes = (notes?: string | null): number | null => {
             const match = /Total cobrado:\s*([\d.,]+)/i.exec(String(notes || ''));
             if (!match) return null;
@@ -288,24 +404,36 @@ export async function GET(req: Request) {
             const userId = (p.bookings as any)?.user_id;
             const bookingId = (p as any).booking_id as string | undefined;
             const profile = profilesMap.get(userId);
-            const bookingNif = (bookingId ? bookingNifMap.get(bookingId) : null) || null;
+            const holderEmail = clean(profile?.email)?.toLowerCase() || null;
+            const accountPilgrim = bookingId && holderEmail
+                ? (pilgrimsMap.get(bookingId) || []).find(
+                    pilgrim => clean(pilgrim?.email)?.toLowerCase() === holderEmail
+                )
+                : null;
+            const bookingNif = clean(accountPilgrim?.cpf_nif);
             const resolvedNif = (typeof profile?.nif === 'string' && profile.nif.trim()) || bookingNif || null;
 
-            // Resolve customer name: member profile > pilgrim name.
-            // Never fall back to the trip title — a viagem não é a entidade que pagou.
+            // The fiscal customer is always the booking account holder.
             const resolvedName = profile?.nome
-                || (bookingId ? bookingNameMap.get(bookingId) : null)
-                || 'Peregrino sem perfil';
+                || clean(accountPilgrim?.full_name)
+                || 'Responsável da reserva sem perfil';
 
-            // Resolve customer email: member profile > pilgrim email.
             const resolvedEmail = profile?.email
-                || (bookingId ? bookingEmailMap.get(bookingId) : null)
                 || '—';
 
             // Qual peregrinação + que parcela do pagamento (sinal / total / prestação).
             const tripYear = yearFrom(trip?.start_date);
             const kind = pilgrimagePaymentKind(p.notes);
             const pilgrimageProvider = resolveProvider('pilgrimage', p.method, null);
+
+            const persistedChargedAmount = Number(p.charged_amount);
+            const legacyChargedAmount = chargedAmountFromNotes(p.notes);
+            const chargedAmount = legacyChargedAmount && legacyChargedAmount > Number(p.amount)
+                ? legacyChargedAmount
+                : Number.isFinite(persistedChargedAmount) && persistedChargedAmount > 0
+                    ? persistedChargedAmount
+                    : Number(p.amount);
+            const persistedFeeAmount = Number(p.processing_fee_amount);
 
             transactions.push({
                 gateway_description: gatewayDescription(pilgrimageProvider, 'pilgrimage', p),
@@ -319,6 +447,7 @@ export async function GET(req: Request) {
                 customer_nif: resolvedNif,
                 customer_address: profile?.address,
                 customer_zip: profile?.postal_code,
+                customer_city: profile?.city || clean(accountPilgrim?.city),
                 status: p.status,
                 method: p.method,
                 provider: pilgrimageProvider,
@@ -332,7 +461,10 @@ export async function GET(req: Request) {
                     ? (tripYear && !tripTitle.includes(tripYear) ? `${tripTitle} (${tripYear})` : tripTitle)
                     : 'Peregrinação (viagem não identificada)',
                 subject_detail: kind,
-                charged_amount: chargedAmountFromNotes(p.notes),
+                processing_fee_amount: Number.isFinite(persistedFeeAmount) && persistedFeeAmount > 0
+                    ? persistedFeeAmount
+                    : Math.max(0, Math.round((chargedAmount - Number(p.amount)) * 100) / 100),
+                charged_amount: chargedAmount,
                 external_reference: clean(p.external_reference),
                 gateway_transaction_id: clean(p.transaction_id),
                 payment_token: clean((p as any).payment_intent_id),
@@ -387,10 +519,28 @@ export async function GET(req: Request) {
             });
         });
 
+        transactions.forEach(transaction => {
+            transaction.factpt_document = fiscalDocumentsBySource.get(`${transaction.category}:${transaction.id}`) || null;
+            // Kept only as historical context. It is no longer an editable or authoritative
+            // fiscal state for the unified transactions admin.
+            transaction.legacy_invoice_sent_at = transaction.invoice_sent_at || null;
+            delete transaction.invoice_sent_at;
+        });
+
         // Sort globally by date descending
         transactions.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
-        return NextResponse.json({ transactions });
+        return NextResponse.json({
+            transactions,
+            factpt: {
+                available: factptAvailable,
+                environments: ['sandbox', 'production'],
+                production: {
+                    serverEnabled: isFactPtProductionEnabled(),
+                    database: productionSettings,
+                },
+            },
+        });
 
     } catch (error) {
         console.error('Consolidated API Error:', error);

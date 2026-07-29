@@ -34,6 +34,7 @@ type MemberDetail = {
   telefone?: string | null;
   address?: string | null;
   postal_code?: string | null;
+  city?: string | null;
   country?: string | null;
   nif?: string | null;
   numero_socio?: number | null;
@@ -110,6 +111,7 @@ export default function AdminMemberDetailPage() {
     telefone: '',
     address: '',
     postal_code: '',
+    city: '',
     country: '',
   });
 
@@ -163,6 +165,7 @@ export default function AdminMemberDetailPage() {
           telefone: payload.member?.telefone || '',
           address: payload.member?.address || '',
           postal_code: payload.member?.postal_code || '',
+          city: payload.member?.city || '',
           country: payload.member?.country || '',
         });
       } catch (err: any) {
@@ -248,6 +251,7 @@ export default function AdminMemberDetailPage() {
           telefone: formState.telefone,
           address: formState.address,
           postal_code: formState.postal_code,
+          city: formState.city,
           country: formState.country,
         }),
       });
@@ -725,6 +729,14 @@ export default function AdminMemberDetailPage() {
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-garabandal-gold/20"
                       value={formState.postal_code}
                       onChange={(e) => setFormState(prev => ({ ...prev, postal_code: e.target.value }))}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Cidade</label>
+                    <input
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-garabandal-gold/20"
+                      value={formState.city}
+                      onChange={(e) => setFormState(prev => ({ ...prev, city: e.target.value }))}
                     />
                   </div>
                   <div>

@@ -114,6 +114,14 @@ export type PilgrimagePaymentReminderInput = {
   locale?: EmailLocale;
 };
 
+export type FactPtFiscalDocumentRendererInput = {
+  sandbox?: boolean;
+  recipientName?: string | null;
+  documentNumber: string;
+  documentLabel: string;
+  sourceLabel: string;
+};
+
 export type GeneralLeadInput = {
   email: string;
   name?: string;
@@ -212,6 +220,14 @@ export const formatDate = (value?: string | null, locale: EmailLocale = "pt") =>
   if (Number.isNaN(parsed.getTime())) return value;
   return parsed.toLocaleDateString(locale === "en" ? "en-GB" : "pt-PT");
 };
+
+const escapeHtml = (value: string) =>
+  value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
 
 /* -------------------------------------------------------------------------- */
 /*                                 COMPONENTS                                 */
@@ -1571,6 +1587,55 @@ export const renderMemberReceiptEmail = (payload: MemberReceiptInput) => {
                     `,
       })}
             `,
+    }),
+  };
+};
+
+export const renderFactPtFiscalDocumentEmail = (
+  payload: FactPtFiscalDocumentRendererInput,
+) => {
+  const recipientName = escapeHtml(payload.recipientName?.trim() || "Cliente");
+  const documentLabelText = payload.documentLabel.trim() || "Fatura";
+  const documentLabel = escapeHtml(documentLabelText);
+  const documentNumberText = payload.documentNumber.trim().replace(/[\r\n]+/g, " ");
+  const documentNumber = escapeHtml(payload.documentNumber);
+  const sourceLabelText = payload.sourceLabel.trim().replace(/[\r\n]+/g, " ");
+  const sourceLabel = escapeHtml(payload.sourceLabel);
+  const sandboxNotice = payload.sandbox
+    ? `
+      <div style="margin:0 0 22px;padding:14px 16px;border:1px solid #fdba74;border-radius:12px;background:#fff7ed;color:#9a3412;font-size:14px;line-height:21px;font-weight:800;text-align:center;">
+        SANDBOX — TESTE SEM VALOR FISCAL
+      </div>
+    `
+    : "";
+
+  return {
+    subject: `${payload.sandbox ? "[SANDBOX] " : ""}${documentLabelText} ${documentNumberText} — ${sourceLabelText}`,
+    html: Layout({
+      title: documentLabelText,
+      preview: `${documentLabelText} ${documentNumberText}, referente a ${sourceLabelText}, segue em anexo.`,
+      children: `
+        ${Header({
+          title: `A sua ${documentLabel}`,
+          subtitle: sourceLabel,
+          category: "Faturação",
+        })}
+        ${Section({
+          children: `
+            ${sandboxNotice}
+            ${Text(`Olá <strong>${recipientName}</strong>,`)}
+            ${Text(`Confirmamos a emissão da sua <strong>${documentLabel} ${documentNumber}</strong>, referente a <strong>${sourceLabel}</strong>.`)}
+            ${Text("O PDF oficial segue em anexo e não precisa de fazer mais nada.")}
+            ${Card({
+              children: `
+                ${InfoRow({ label: "Documento", value: `${documentLabel} ${documentNumber}` })}
+                ${InfoRow({ label: "Referente", value: sourceLabel, isLast: true })}
+              `,
+            })}
+            ${Text("Guarde este email e a fatura em anexo para consulta futura.", `margin-bottom:0;color:${COLORS.textLight};`)}
+          `,
+        })}
+      `,
     }),
   };
 };
