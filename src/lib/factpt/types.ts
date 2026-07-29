@@ -102,10 +102,15 @@ export type FactPtDocumentItem = {
   id?: string | number;
   description: string;
   price: number;
-  reference: string;
-  retention: boolean;
-  type: FactPtItemType;
-  unitId: string | number;
+  reference?: string;
+  /**
+   * Product catalogue fields are required when creating an ad-hoc item.
+   * They must be omitted when selecting an existing FACT.pt item by id,
+   * otherwise the API interprets the block as a catalogue update.
+   */
+  retention?: boolean;
+  type?: FactPtItemType;
+  unitId?: string | number;
   taxId: string | number;
   quantity: number;
   discount?: number;

@@ -495,6 +495,18 @@ describe('FACT.pt fiscal rules and builders', () => {
     const document = buildFactPtDocument(snapshot, 'client-59');
     expect(document.payload.items[0].discount).toBe(10);
     expect(document.payload.items[0].id).toBe('product-121');
+    expect(document.payload.items[0]).toEqual({
+      id: 'product-121',
+      description: 'Produto com desconto',
+      price: 10,
+      taxId: 'tax-23',
+      quantity: 1,
+      discount: 10,
+    });
+    expect(document.payload.items[0]).not.toHaveProperty('type');
+    expect(document.payload.items[0]).not.toHaveProperty('unitId');
+    expect(document.payload.items[0]).not.toHaveProperty('retention');
+    expect(document.payload.items[0]).not.toHaveProperty('reference');
   });
 
   it('rejects a snapshot whose lines do not match the recorded total', () => {

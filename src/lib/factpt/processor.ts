@@ -384,8 +384,19 @@ async function resolveFiscalSnapshot(
       : undefined;
   const lines: FactPtFiscalLine[] = [];
   for (const line of fiscal.lines) {
+    const matchingProducts = await client.findProductsByReference(
+      line.reference,
+    );
+    if (matchingProducts.length > 1) {
+      throw new Error(
+        `A referência FACT.pt ${line.reference} corresponde a vários artigos; selecione o artigo manualmente.`,
+      );
+    }
     lines.push({
       ...line,
+      ...(matchingProducts[0]?.id === undefined
+        ? {}
+        : { productId: matchingProducts[0].id }),
       taxId: resolveFactPtTaxId(
         taxes,
         line.taxRate,

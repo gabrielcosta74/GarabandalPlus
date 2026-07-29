@@ -20,20 +20,41 @@ function isoDate(value: string): string {
 }
 
 function documentItems(snapshot: FactPtFiscalSnapshot): FactPtDocumentItem[] {
-  return snapshot.lines.map((line) => ({
-    ...(line.productId === undefined ? {} : { id: line.productId }),
-    description: line.description.trim(),
-    price: line.unitPriceNet,
-    reference: line.reference.trim(),
-    retention: line.retention ?? false,
-    type: line.type,
-    unitId: line.unitId,
-    taxId: line.taxId,
-    quantity: line.quantity,
-    ...(line.discount === undefined
-      ? {}
-      : { discount: line.discount }),
-  }));
+  return snapshot.lines.map((line) => {
+    const documentValues = {
+      description: line.description.trim(),
+      price: line.unitPriceNet,
+      reference: line.reference.trim(),
+      taxId: line.taxId,
+      quantity: line.quantity,
+      ...(line.discount === undefined
+        ? {}
+        : { discount: line.discount }),
+    };
+
+    if (line.productId !== undefined) {
+      // Selecting an existing FACT.pt item may override these values for the
+      // document. Sending catalogue fields (type/unitId/retention) would turn
+      // this into an update and require forceUpdate=true.
+      return {
+        id: line.productId,
+        description: documentValues.description,
+        price: documentValues.price,
+        taxId: documentValues.taxId,
+        quantity: documentValues.quantity,
+        ...(line.discount === undefined
+          ? {}
+          : { discount: line.discount }),
+      };
+    }
+
+    return {
+      ...documentValues,
+      retention: line.retention ?? false,
+      type: line.type,
+      unitId: line.unitId,
+    };
+  });
 }
 
 function donationComments(snapshot: FactPtFiscalSnapshot) {
