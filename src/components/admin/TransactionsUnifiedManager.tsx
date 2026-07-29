@@ -105,6 +105,7 @@ export default function TransactionsUnifiedManager() {
     const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
     const [factptAvailable, setFactptAvailable] = useState<boolean | null>(null);
     const [productionFactPtReady, setProductionFactPtReady] = useState(false);
+    const [productionDonationsReady, setProductionDonationsReady] = useState(false);
 
     const [filters, setFilters] = useState<TransactionFiltersState>(DEFAULT_TRANSACTION_FILTERS);
     const [sort, setSort] = useState<{ key: SortKey; direction: SortDirection }>({ key: 'created_at', direction: 'desc' });
@@ -149,6 +150,13 @@ export default function TransactionsUnifiedManager() {
                 && data.factpt?.production?.database?.production_pilgrimages_only
                 && !data.factpt?.production?.database?.require_approval
                 && !data.factpt?.production?.database?.pilot_private_only
+            ));
+            setProductionDonationsReady(Boolean(
+                data.factpt?.production?.serverEnabled
+                && data.factpt?.production?.database?.auto_enabled
+                && data.factpt?.production?.database?.production_donations_enabled
+                && data.factpt?.production?.database?.donations_go_live_at
+                && !data.factpt?.production?.database?.require_approval
             ));
             setLastUpdated(new Date());
         } catch (err) {
@@ -362,17 +370,19 @@ export default function TransactionsUnifiedManager() {
                 <ReceiptText className="mt-0.5 h-4 w-4 flex-shrink-0" />
                 <div>
                     <p className="text-sm font-semibold">
-                        FACT.pt · Peregrinações em produção
+                        FACT.pt · Série 2026D em produção
                         <span className="ml-2 font-normal opacity-70">
-                            {productionFactPtReady ? 'automático' : 'desativado'}
+                            Peregrinações: {productionFactPtReady ? 'automático' : 'desativado'}
+                            {' · '}
+                            Donativos: {productionDonationsReady ? 'automático' : 'desativado'}
                         </span>
                     </p>
                     <p className="mt-0.5 text-xs leading-relaxed opacity-80">
                         {factptAvailable === false
                             ? 'A tabela fiscal ainda não está disponível. As transações continuam acessíveis, mas os estados FACT.pt só surgem depois da migration.'
-                            : productionFactPtReady
-                                ? 'Cada novo pagamento confirmado de peregrinação entra uma única vez na série 2026D, é emitido automaticamente e o PDF segue por email ao titular da reserva.'
-                                : 'A estrutura automática de peregrinações está preparada mas desligada. A sandbox continua disponível para as restantes séries.'}
+                            : productionFactPtReady && productionDonationsReady
+                                ? 'Cada novo pagamento confirmado de peregrinação ou donativo direto entra uma única vez na série 2026D. O PDF oficial segue automaticamente para o email do pagamento.'
+                                : 'A área mostra separadamente quais as origens automáticas. Uma origem desligada não entra na fila fiscal de produção.'}
                     </p>
                 </div>
             </div>

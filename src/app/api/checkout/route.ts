@@ -5,6 +5,12 @@ export const runtime = 'nodejs';
 
 import { createCheckoutSession } from '../../../lib/payments';
 import { validatePostalCode } from '../../../lib/country-utils';
+import {
+  donationRequiresFullFiscalData,
+  hasCompleteDonationFiscalData,
+  isValidDonationEmail,
+  isValidDonationTaxId,
+} from '../../../lib/donation-fiscal';
 import { getAppUrl } from '../../../lib/config';
 import { getMembershipAmountServer } from '../../../lib/membership-pricing';
 import { inferRequestLocale } from '../../../lib/locale-routing';
@@ -50,10 +56,41 @@ export async function POST(request: Request) {
     }
 
     if (type === 'donation') {
-      if (!donorName || !donorEmail || !donorEmail.includes('@')) {
+      if (!donorName || !isValidDonationEmail(donorEmail)) {
         return NextResponse.json({ message: 'Nome e email são obrigatórios.' }, { status: 400 });
       }
-      // ... (Keep existing postal code validation if desired, omitting for brevity/focus on Stripe)
+      if (provider !== 'reduniq') {
+        return NextResponse.json({ message: 'As doações online usam exclusivamente a Reduniq.' }, { status: 400 });
+      }
+
+      const requiresFullFiscalData =
+        data.receiptRequired || donationRequiresFullFiscalData(data.amount);
+      if (requiresFullFiscalData && !hasCompleteDonationFiscalData({
+        name: data.donorName,
+        email: data.donorEmail,
+        address: data.donorAddress,
+        city: data.donorCity,
+        zip: data.donorZip,
+        country: data.donorCountry,
+        nif: data.donorNif,
+      })) {
+        return NextResponse.json({
+          message: 'Preenche o NIF e a morada fiscal completa para emitir a Fatura-Recibo.',
+        }, { status: 400 });
+      }
+      if (
+        requiresFullFiscalData
+        && !validatePostalCode(data.donorCountry || '', data.donorZip || '')
+      ) {
+        return NextResponse.json({ message: 'Código postal inválido.' }, { status: 400 });
+      }
+      if (
+        requiresFullFiscalData
+        && !isValidDonationTaxId(data.donorNif, data.donorCountry)
+      ) {
+        return NextResponse.json({ message: 'NIF/CPF inválido.' }, { status: 400 });
+      }
+      data.receiptRequired = requiresFullFiscalData;
     }
 
     // 2. Create Session (Stripe or Reduniq)

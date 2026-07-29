@@ -60,7 +60,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
     const { data: currentDonation, error: currentError } = await supabaseServer
       .from('donations')
-      .select('id, status, receipt_required, receipt_status')
+      .select('id, status, receipt_required, receipt_status, metadata')
       .eq('id', donationId)
       .maybeSingle();
 
@@ -78,6 +78,15 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       updates.reviewed_at = new Date().toISOString();
       updates.reviewed_by = user?.id || null;
       if (reviewNote) updates.review_note = reviewNote;
+      if (nextStatus === 'succeeded') {
+        updates.metadata = {
+          ...(currentDonation.metadata && typeof currentDonation.metadata === 'object'
+            ? currentDonation.metadata
+            : {}),
+          accounting_v2: true,
+          confirmed_via: 'admin',
+        };
+      }
     } else if (reviewNote) {
       updates.review_note = reviewNote;
     }
@@ -105,6 +114,14 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       .single();
 
     if (updateError) throw updateError;
+
+    if (nextStatus === 'succeeded' && data?.metadata?.accounting_v2 === true) {
+      const { error: raisedError } = await supabaseServer.rpc(
+        'record_donation_in_raised_total',
+        { p_donation_id: donationId },
+      );
+      if (raisedError) throw raisedError;
+    }
 
     return NextResponse.json({ success: true, donation: data });
   } catch (err: any) {

@@ -1,5 +1,12 @@
 import { NextResponse } from 'next/server';
 import { supabaseServer } from '../../../../lib/supabase';
+import { validatePostalCode } from '../../../../lib/country-utils';
+import {
+    donationRequiresFullFiscalData,
+    hasCompleteDonationFiscalData,
+    isValidDonationEmail,
+    isValidDonationTaxId,
+} from '../../../../lib/donation-fiscal';
 
 export async function POST(request: Request) {
     try {
@@ -18,16 +25,48 @@ export async function POST(request: Request) {
             receiptRequired
         } = body;
 
-        if (!amount || amount < 1) {
+        const normalizedAmount = Number(amount);
+        if (!Number.isFinite(normalizedAmount) || normalizedAmount < 1) {
             return NextResponse.json({ message: "Valor inválido" }, { status: 400 });
         }
 
-        if (receiptRequired && (!donorName || !donorEmail)) {
-            return NextResponse.json({ message: "Nome e email são obrigatórios para emissão de recibo" }, { status: 400 });
+        if (!donorName?.trim() || !isValidDonationEmail(donorEmail)) {
+            return NextResponse.json({ message: "Nome e email são obrigatórios" }, { status: 400 });
+        }
+        if (!proofUrl || typeof proofUrl !== 'string') {
+            return NextResponse.json({ message: "O comprovativo da transferência é obrigatório" }, { status: 400 });
         }
 
-        const finalName = donorName || 'Doador Anónimo';
-        const finalEmail = donorEmail || 'anonimo@garabandal.pt';
+        const requiresFullFiscalData =
+            Boolean(receiptRequired) || donationRequiresFullFiscalData(normalizedAmount);
+        if (requiresFullFiscalData && !hasCompleteDonationFiscalData({
+            name: donorName,
+            email: donorEmail,
+            address: donorAddress,
+            city: donorCity,
+            zip: donorZip,
+            country: donorCountry,
+            nif: donorNif,
+        })) {
+            return NextResponse.json({
+                message: "Preenche o NIF e a morada fiscal completa para emitir a Fatura-Recibo",
+            }, { status: 400 });
+        }
+        if (
+            requiresFullFiscalData
+            && !validatePostalCode(donorCountry || '', donorZip || '')
+        ) {
+            return NextResponse.json({ message: "Código postal inválido" }, { status: 400 });
+        }
+        if (
+            requiresFullFiscalData
+            && !isValidDonationTaxId(donorNif, donorCountry)
+        ) {
+            return NextResponse.json({ message: "NIF/CPF inválido" }, { status: 400 });
+        }
+
+        const finalName = donorName.trim();
+        const finalEmail = donorEmail.trim().toLowerCase();
 
         if (!supabaseServer) {
             throw new Error("Supabase não configurado");
@@ -36,7 +75,7 @@ export async function POST(request: Request) {
         const { data, error } = await supabaseServer
             .from('donations')
             .insert({
-                amount_cents: Math.round(amount * 100),
+                amount_cents: Math.round(normalizedAmount * 100),
                 currency: 'EUR',
                 method: 'bank_transfer',
                 status: 'pending_verification',
@@ -46,10 +85,14 @@ export async function POST(request: Request) {
                 donor_city: donorCity || null,
                 donor_zip: donorZip || null,
                 donor_country: donorCountry || null,
-                donor_nif: donorNif || null,
-                description: donorMessage || 'Doação via Transferência Bancária',
+                donor_nif: donorNif ? String(donorNif).replace(/\D/g, '') : null,
+                description: 'Doação - Associação do Apostolado de Garabandal',
                 proof_url: proofUrl || null,
-                receipt_required: receiptRequired ?? true,
+                receipt_required: requiresFullFiscalData,
+                metadata: {
+                    provider: 'bank_transfer',
+                    donorMessage: donorMessage?.trim() || null,
+                },
             })
             .select()
             .single();
@@ -62,11 +105,11 @@ export async function POST(request: Request) {
             await sendDonationNotification({
                 donorName: finalName,
                 donorEmail: finalEmail,
-                amount: amount,
+                amount: normalizedAmount,
                 currency: 'EUR',
                 paymentMethod: 'bank_transfer',
                 status: 'pending_verification',
-                description: donorMessage || 'Doação via Transferência Bancária',
+                description: 'Doação - Associação do Apostolado de Garabandal',
                 paidAt: new Date().toISOString()
             });
         } catch (emailErr) {

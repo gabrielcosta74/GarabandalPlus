@@ -108,7 +108,9 @@ export async function GET(req: Request) {
             require_approval: boolean;
             pilot_private_only: boolean;
             production_pilgrimages_only: boolean;
+            production_donations_enabled: boolean;
             go_live_at: string | null;
+            donations_go_live_at: string | null;
         } | null = null;
         const fiscalSourceIds = Array.from(new Set([
             ...(donations || []).map(row => row.id),
@@ -143,7 +145,7 @@ export async function GET(req: Request) {
         } else {
             const { data: settings } = await supabaseServer
                 .from('factpt_settings')
-                .select('auto_enabled, require_approval, pilot_private_only, production_pilgrimages_only, go_live_at')
+                .select('auto_enabled, require_approval, pilot_private_only, production_pilgrimages_only, production_donations_enabled, go_live_at, donations_go_live_at')
                 .eq('environment', 'production')
                 .maybeSingle();
             productionSettings = settings;

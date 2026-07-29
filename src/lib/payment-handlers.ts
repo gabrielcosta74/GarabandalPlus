@@ -204,15 +204,18 @@ export async function handleDonationSuccess(ctx: PaymentHandlerContext) {
 
     const matchQuery = externalReference ? { external_reference: externalReference } : { payment_intent_id: paymentReference };
 
-    const { data: existingDonation } = await supabaseServer
+    const { data: existingDonation, error: existingDonationError } = await supabaseServer
         .from('donations')
-        .select('id, metadata, donor_name, donor_email, donor_address, donor_city, donor_zip, donor_country, donor_nif, receipt_required')
+        .select('id, status, metadata, donor_name, donor_email, donor_address, donor_city, donor_zip, donor_country, donor_nif, receipt_required')
         .match(matchQuery)
         .maybeSingle();
+    if (existingDonationError) throw existingDonationError;
 
     const emailLocale = metadata.locale === 'en' || (existingDonation?.metadata as any)?.locale === 'en' ? 'en' : 'pt';
+    const accountingV2Already = (existingDonation?.metadata as any)?.accounting_v2 === true;
     const mergedMetadata = {
         ...(existingDonation?.metadata || {}),
+        accounting_v2: true,
         provider: method === 'reduniq' ? 'reduniq' : ((existingDonation?.metadata as any)?.provider || 'stripe'),
         locale: emailLocale,
         reduniq_method: reduniqMethodHint || (existingDonation?.metadata as any)?.reduniq_method || null,
@@ -226,60 +229,77 @@ export async function handleDonationSuccess(ctx: PaymentHandlerContext) {
         receiptRequired: receiptRequiredMeta ?? (existingDonation?.metadata as any)?.receiptRequired ?? null,
     };
 
-    // Update existing or insert new
-    const { data: updated } = await supabaseServer
-        .from('donations')
-        .update({
-            status: 'succeeded',
-            donor_name: donorName ?? existingDonation?.donor_name ?? null,
-            donor_email: donorEmail ?? existingDonation?.donor_email ?? null,
-            donor_address: donorAddress ?? existingDonation?.donor_address ?? null,
-            donor_city: donorCity ?? existingDonation?.donor_city ?? null,
-            donor_zip: donorZip ?? existingDonation?.donor_zip ?? null,
-            donor_country: donorCountry ?? existingDonation?.donor_country ?? null,
-            donor_nif: donorNif ?? existingDonation?.donor_nif ?? null,
-            method: dbMethod,
-            payment_intent_id: paymentReference,
-            receipt_required: receiptRequiredMeta ?? existingDonation?.receipt_required ?? false,
-            metadata: mergedMetadata,
-        })
-        .match(matchQuery)
-        .select();
+    const succeededDonation = {
+        status: 'succeeded' as const,
+        donor_name: donorName ?? existingDonation?.donor_name ?? null,
+        donor_email: donorEmail ?? existingDonation?.donor_email ?? null,
+        donor_address: donorAddress ?? existingDonation?.donor_address ?? null,
+        donor_city: donorCity ?? existingDonation?.donor_city ?? null,
+        donor_zip: donorZip ?? existingDonation?.donor_zip ?? null,
+        donor_country: donorCountry ?? existingDonation?.donor_country ?? null,
+        donor_nif: donorNif ?? existingDonation?.donor_nif ?? null,
+        method: dbMethod,
+        payment_intent_id: paymentReference,
+        receipt_required: receiptRequiredMeta ?? existingDonation?.receipt_required ?? false,
+        metadata: mergedMetadata,
+    };
 
-    if (!updated?.length) {
-        // Fallback insert if not found
-        await supabaseServer.from('donations').insert({
-            user_id: userId,
-            amount_cents: amountCents,
-            currency,
-            method: dbMethod,
-            status: 'succeeded',
-            payment_intent_id: paymentReference,
-            external_reference: externalReference,
-            description: 'Doação',
-            donor_name: donorName,
-            donor_email: donorEmail,
-            donor_nif: donorNif,
-            donor_address: donorAddress,
-            donor_city: donorCity,
-            donor_zip: donorZip,
-            donor_country: donorCountry,
-            receipt_required: receiptRequiredMeta ?? false,
-            metadata: mergedMetadata,
-        });
+    let donationId = existingDonation?.id || null;
+    let transitionedToSucceeded = false;
+
+    if (existingDonation && existingDonation.status !== 'succeeded') {
+        // The status predicate makes concurrent/repeated Reduniq callbacks
+        // idempotent: only one request can own the transition to succeeded.
+        const { data: updated, error: updateError } = await supabaseServer
+            .from('donations')
+            .update(succeededDonation)
+            .match(matchQuery)
+            .neq('status', 'succeeded')
+            .select('id')
+            .maybeSingle();
+        if (updateError) throw updateError;
+        donationId = updated?.id || donationId;
+        transitionedToSucceeded = Boolean(updated?.id);
+    } else if (!existingDonation) {
+        const { data: inserted, error: insertError } = await supabaseServer
+            .from('donations')
+            .insert({
+                user_id: userId,
+                amount_cents: amountCents,
+                currency,
+                ...succeededDonation,
+                external_reference: externalReference,
+                description: 'Doação - Associação do Apostolado de Garabandal',
+            })
+            .select('id')
+            .single();
+        if (insertError) {
+            // A concurrent callback may have inserted the same payment first.
+            if (insertError.code !== '23505') throw insertError;
+            const { data: concurrentDonation, error: concurrentError } = await supabaseServer
+                .from('donations')
+                .select('id')
+                .match(matchQuery)
+                .maybeSingle();
+            if (concurrentError || !concurrentDonation) {
+                throw concurrentError || insertError;
+            }
+            donationId = concurrentDonation.id;
+        } else {
+            donationId = inserted.id;
+            transitionedToSucceeded = true;
+        }
     }
 
-    // Update Goals
-    const increment = amountCents / 100;
-    if (increment > 0) {
-        const { data: metaRow } = await supabaseServer.from('donations_meta').select('id, goal_eur, raised_eur').order('created_at', { ascending: false }).limit(1).maybeSingle();
-        const goal = metaRow?.goal_eur ?? 100000;
-        const newRaised = Number(metaRow?.raised_eur ?? 0) + increment;
-        if (metaRow?.id) {
-            await supabaseServer.from('donations_meta').update({ raised_eur: newRaised }).eq('id', metaRow.id);
-        } else {
-            await supabaseServer.from('donations_meta').insert({ goal_eur: goal, raised_eur: newRaised });
-        }
+    // The metadata marker distinguishes rows handled by this idempotent path
+    // from legacy callbacks. If the RPC failed after the status transition,
+    // a later callback safely retries the atomic accounting operation.
+    if (donationId && (transitionedToSucceeded || accountingV2Already)) {
+        const { error: raisedError } = await supabaseServer.rpc(
+            'record_donation_in_raised_total',
+            { p_donation_id: donationId },
+        );
+        if (raisedError) throw raisedError;
     }
 
     // Notifications — guarded by ensureNotificationRecord so webhook retries don't duplicate.

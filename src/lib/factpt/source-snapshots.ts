@@ -91,6 +91,10 @@ const normalizeTaxRate = (value: unknown, fallback: number): number => {
   return numeric > 0 && numeric < 1 ? numeric * 100 : numeric;
 };
 
+const FACTPT_DONATION_ITEM_REFERENCE = 'AAG-003';
+const FACTPT_DONATION_ITEM_DESCRIPTION =
+  'Doação - Associação do Apostolado de Garabandal';
+
 const paymentKindFromNotes = (notes: unknown): string => {
   const match = /Tipo:\s*([a-z_]+)/i.exec(String(notes || ''));
   switch (match?.[1]?.toLowerCase()) {
@@ -175,8 +179,8 @@ const loadDonationSnapshot = async (
       phone: clean(donation.donor_phone),
     },
     items: [{
-      reference: 'DONATIVO',
-      description: clean(donation.description) || 'Donativo',
+      reference: FACTPT_DONATION_ITEM_REFERENCE,
+      description: FACTPT_DONATION_ITEM_DESCRIPTION,
       price: amount,
       quantity: 1,
       taxRate: 0,
@@ -184,6 +188,7 @@ const loadDonationSnapshot = async (
     }],
     comments: 'Doação sem contrapartidas',
     language: metadata.locale === 'en' ? 'en' : 'pt',
+    emailSourceLabel: FACTPT_DONATION_ITEM_DESCRIPTION,
   };
 };
 
@@ -235,9 +240,9 @@ const loadQuotaSnapshot = async (
       phone: clean(member?.telefone),
     },
     items: [{
-      reference: isDonation ? 'DONATIVO' : 'QUOTA',
+      reference: isDonation ? FACTPT_DONATION_ITEM_REFERENCE : 'QUOTA',
       description: isDonation
-        ? 'Donativo'
+        ? FACTPT_DONATION_ITEM_DESCRIPTION
         : `Quota de membro${/^\d{4}$/.test(year) ? ` ${year}` : ''}`,
       price: amount,
       quantity: 1,
@@ -246,6 +251,7 @@ const loadQuotaSnapshot = async (
     }],
     comments: isDonation ? 'Doação sem contrapartidas' : null,
     language: String(payment.notes || '').includes('[locale:en]') ? 'en' : 'pt',
+    emailSourceLabel: isDonation ? FACTPT_DONATION_ITEM_DESCRIPTION : undefined,
   };
 };
 
@@ -420,8 +426,8 @@ const loadPilgrimageSnapshot = async (
       phone: clean(member?.telefone) || clean(accountPilgrim?.phone),
     },
     items: [{
-      reference: 'PEREGRINACAO',
-      description: 'Donativo para angariação de fundos',
+      reference: FACTPT_DONATION_ITEM_REFERENCE,
+      description: FACTPT_DONATION_ITEM_DESCRIPTION,
       price: amount,
       quantity: 1,
       taxRate: 0,

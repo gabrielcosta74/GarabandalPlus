@@ -20,6 +20,7 @@ import {
 } from '../../lib/bank-transfer-details';
 import { useLocale } from '../../contexts/LocaleContext';
 import { captureAnalyticsEvent } from '../../lib/analytics';
+import { donationRequiresFullFiscalData } from '../../lib/donation-fiscal';
 
 const impactOptions = [
     { value: 25, label: "Argamassas", impact: "Sacos de cimento para sanear paredes", icon: BrickWall },
@@ -87,8 +88,9 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
         }
         return selectedPreset;
     }, [customAmount, selectedPreset]);
+    const requiresFullFiscalData =
+        receiptRequired || donationRequiresFullFiscalData(amount);
 
-    const selectedPayment = UNIFIED_DONATION_PAYMENT_OPTIONS.find(p => p.id === selectedPaymentId) || UNIFIED_DONATION_PAYMENT_OPTIONS[0];
     const countryOptions = useMemo(() => listCountryOptions(isEn ? 'en' : 'pt-PT'), [isEn]);
     const selectedCountryMeta = useMemo(() => resolveCountryMeta(formData.pais), [formData.pais]);
     const localizedImpactOptions = useMemo(() => impactOptions.map((option) => ({
@@ -169,7 +171,7 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
 
     const isValidNif = (value: string, country: string) => {
         const digits = value.replace(/\D/g, '');
-        if (!digits) return true;
+        if (!digits) return false;
         if (country === 'PT') return digits.length === 9;
         if (country === 'BR') return digits.length === 11;
         return digits.length >= 6;
@@ -263,7 +265,7 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
         captureAnalyticsEvent('donation_payment_submitted', {
             amount,
             payment_provider: 'bank_transfer',
-            receipt_requested: receiptRequired,
+            receipt_requested: requiresFullFiscalData,
             locale,
         });
         try {
@@ -281,7 +283,7 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
                     donorNif: formData.nif,
                     donorMessage: formData.mensagem,
                     proofUrl,
-                    receiptRequired
+                    receiptRequired: requiresFullFiscalData
                 })
             });
 
@@ -294,7 +296,7 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
             captureAnalyticsEvent('donation_manual_registered', {
                 amount,
                 payment_provider: 'bank_transfer',
-                receipt_requested: receiptRequired,
+                receipt_requested: requiresFullFiscalData,
                 locale,
             });
         } catch (err: unknown) {
@@ -327,8 +329,14 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
                 return;
             }
 
-            if (receiptRequired) {
-                if (!formData.morada || !formData.cidade || !formData.codigoPostal || !formData.pais) {
+            if (requiresFullFiscalData) {
+                if (
+                    !formData.morada.trim()
+                    || !formData.cidade.trim()
+                    || !formData.codigoPostal.trim()
+                    || !formData.pais
+                    || !formData.nif.trim()
+                ) {
                     setError(isEn ? 'Full address is required for the receipt.' : "Endereço completo é necessário para o recibo fiscal.");
                     return;
                 }
@@ -337,7 +345,7 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
                     return;
                 }
                 const nifClean = formData.nif.replace(/\D/g, '');
-                if (nifClean && !isValidNif(nifClean, formData.pais)) {
+                if (!isValidNif(nifClean, formData.pais)) {
                     setError(isEn ? `Invalid ${nifLabel}.` : `${nifLabel} inválido.`);
                     return;
                 }
@@ -355,16 +363,16 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
         setLoading(true);
         setError(null);
 
-        const chosenProvider = selectedPayment.provider === 'reduniq' ? 'reduniq' : 'stripe';
+        const chosenProvider = 'reduniq';
         captureAnalyticsEvent('donation_payment_submitted', {
             amount,
             payment_provider: chosenProvider,
             payment_method: selectedPaymentId,
-            receipt_requested: receiptRequired,
+            receipt_requested: requiresFullFiscalData,
             locale,
         });
         try {
-            // Checkout for donations (Stripe or Reduniq)
+            // Online donations are processed exclusively by Reduniq.
             const res = await fetch('/api/checkout', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -376,13 +384,13 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
                     paymentOptionId: selectedPaymentId,
                     donorName: formData.nome,
                     donorEmail: formData.email,
-                    donorAddress: receiptRequired ? formData.morada : null,
-                    donorCity: receiptRequired ? formData.cidade : null,
-                    donorZip: receiptRequired ? formData.codigoPostal : null,
+                    donorAddress: requiresFullFiscalData ? formData.morada : null,
+                    donorCity: requiresFullFiscalData ? formData.cidade : null,
+                    donorZip: requiresFullFiscalData ? formData.codigoPostal : null,
                     donorCountry: formData.pais || undefined,
-                    donorNif: receiptRequired ? formData.nif.replace(/\D/g, '') : null,
+                    donorNif: requiresFullFiscalData ? formData.nif.replace(/\D/g, '') : null,
                     donorMessage: formData.mensagem || null,
-                    receiptRequired,
+                    receiptRequired: requiresFullFiscalData,
                 }),
             });
 
@@ -398,7 +406,7 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
                 amount,
                 payment_provider: chosenProvider,
                 payment_method: selectedPaymentId,
-                receipt_requested: receiptRequired,
+                receipt_requested: requiresFullFiscalData,
                 locale,
             });
 
@@ -553,14 +561,24 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
 
                                         <div className="bg-garabandal-gold/5 border border-garabandal-gold/20 rounded-2xl p-4 flex items-center justify-between">
                                             <div>
-                                                <p className="text-sm font-bold text-garabandal-dark">{isEn ? 'Do you want a receipt?' : 'Desejas um recibo fiscal?'}</p>
-                                                <p className="text-xs text-gray-500">{isEn ? 'Useful for tax purposes in Portugal.' : 'Para benefícios fiscais em Portugal.'}</p>
+                                                <p className="text-sm font-bold text-garabandal-dark">
+                                                    {isEn ? 'Add tax details to the invoice' : 'Adicionar NIF e dados fiscais à fatura'}
+                                                </p>
+                                                <p className="text-xs text-gray-500">
+                                                    {donationRequiresFullFiscalData(amount)
+                                                        ? (isEn ? 'Required for donations over €100.' : 'Obrigatório para donativos superiores a 100 €.')
+                                                        : (isEn ? 'The official invoice is always sent by email.' : 'A fatura oficial é sempre enviada por email.')}
+                                                </p>
                                             </div>
                                             <button
+                                                type="button"
                                                 onClick={() => setReceiptRequired(!receiptRequired)}
-                                                className={`w-14 h-7 rounded-full transition-all relative ${receiptRequired ? 'bg-garabandal-gold' : 'bg-gray-200'}`}
+                                                disabled={donationRequiresFullFiscalData(amount)}
+                                                aria-pressed={requiresFullFiscalData}
+                                                aria-label={isEn ? 'Add tax details to the invoice' : 'Adicionar NIF e dados fiscais à fatura'}
+                                                className={`w-14 h-7 rounded-full transition-all relative disabled:cursor-not-allowed ${requiresFullFiscalData ? 'bg-garabandal-gold' : 'bg-gray-200'}`}
                                             >
-                                                <div className={`absolute top-1 w-5 h-5 bg-white rounded-full transition-all ${receiptRequired ? 'left-8' : 'left-1'}`} />
+                                                <div className={`absolute top-1 w-5 h-5 bg-white rounded-full transition-all ${requiresFullFiscalData ? 'left-8' : 'left-1'}`} />
                                             </button>
                                         </div>
 
@@ -587,7 +605,7 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
                                                 </select>
                                             </div>
 
-                                            {receiptRequired && (
+                                            {requiresFullFiscalData && (
                                                 <>
                                                     <div className="space-y-2 animate-in fade-in slide-in-from-top-2">
                                                         <label className="text-sm font-medium text-gray-700">{isEn ? 'Postal Code / ZIP' : 'Código Postal / CEP'}</label>
@@ -745,7 +763,9 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
                                         <div className="space-y-2">
                                             <h2 className="text-3xl font-serif font-bold text-garabandal-dark">{isEn ? 'Thank You Very Much!' : 'Muitíssimo Obrigado!'}</h2>
                                             <p className="text-gray-500 max-w-sm mx-auto">
-                                                {isEn ? 'We received your submission. We will validate the transfer and you will soon receive a confirmation email.' : 'Recebemos o teu registo. Vamos validar a transferência e em breve receberás um email de confirmação.'}
+                                                {isEn
+                                                    ? 'We received your submission. After the transfer is validated, you will receive the confirmation and the official invoice by email.'
+                                                    : 'Recebemos o teu registo. Depois de validarmos a transferência, receberás a confirmação e a fatura oficial por email.'}
                                             </p>
                                         </div>
                                         <button onClick={onClose} className="px-10 py-3 bg-garabandal-dark text-white font-bold rounded-xl hover:bg-black transition-all">

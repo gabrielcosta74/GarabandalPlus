@@ -839,11 +839,11 @@ export async function approveFactPtDocument(
   if (
     data.environment === 'production'
     && (
-      data.source_type !== 'pilgrimage'
+      !['pilgrimage', 'donation'].includes(data.source_type)
       || !isFactPtProductionEnabled()
     )
   ) {
-    throw new Error('O piloto de produção não está autorizado neste servidor.');
+    throw new Error('A origem não está autorizada na FACT.pt de produção.');
   }
   if (data.environment === 'production' && !confirmProduction) {
     throw new Error(
@@ -903,13 +903,16 @@ export async function processFactPtQueue(
     }
     const { data: settings, error: settingsError } = await db
       .from('factpt_settings')
-      .select('auto_enabled, production_pilgrimages_only')
+      .select('auto_enabled, production_pilgrimages_only, production_donations_enabled')
       .eq('environment', 'production')
       .maybeSingle();
     if (settingsError) throw settingsError;
     if (
       !settings?.auto_enabled
-      || !settings.production_pilgrimages_only
+      || (
+        !settings.production_pilgrimages_only
+        && !settings.production_donations_enabled
+      )
     ) {
       return {
         claimed: 0,

@@ -93,7 +93,7 @@ describe('FACT.pt sandbox configuration', () => {
     expect(pilgrimage).toMatchObject({ series: '2026D', apiKey: 'donation-key' });
   });
 
-  it('keeps production limited to explicitly enabled pilgrimages', () => {
+  it('keeps production limited to explicitly enabled 2026D sources', () => {
     expect(() =>
       getFactPtConfig('pilgrimage', 'production', {
         FACTPT_PRODUCTION_KEY_2026D: 'production-donation-key',
@@ -105,7 +105,7 @@ describe('FACT.pt sandbox configuration', () => {
         FACTPT_PRODUCTION_ENABLED: 'true',
         FACTPT_PRODUCTION_KEY_2026D: 'production-donation-key',
       }),
-    ).toThrow(/exclusivamente.*peregrinações/i);
+    ).toThrow(/exclusivamente.*peregrinações.*doações/i);
 
     expect(
       getFactPtConfig('pilgrimage', 'production', {
@@ -117,6 +117,19 @@ describe('FACT.pt sandbox configuration', () => {
       baseUrl: 'https://api.fact.pt',
       series: '2026D',
       credentialSlot: 'D',
+    });
+
+    expect(
+      getFactPtConfig('donation', 'production', {
+        FACTPT_PRODUCTION_ENABLED: 'true',
+        FACTPT_PRODUCTION_KEY_2026D: 'production-donation-key',
+      }),
+    ).toMatchObject({
+      environment: 'production',
+      baseUrl: 'https://api.fact.pt',
+      series: '2026D',
+      credentialSlot: 'D',
+      apiKey: 'production-donation-key',
     });
 
     expect(

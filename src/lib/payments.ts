@@ -3,7 +3,13 @@ import { supabaseServer } from './supabase';
 import { getAppUrl } from './config';
 import { isPaidStatus } from './membership-status';
 import { reduniqClient } from './reduniq/client';
-import { resolveCountryMeta } from './country-utils';
+import { resolveCountryMeta, validatePostalCode } from './country-utils';
+import {
+  donationRequiresFullFiscalData,
+  hasCompleteDonationFiscalData,
+  isValidDonationEmail,
+  isValidDonationTaxId,
+} from './donation-fiscal';
 import { getMembershipAmountServer } from './membership-pricing';
 import { type AppLocale, withLocalePrefix } from './locale-routing';
 
@@ -138,6 +144,40 @@ export async function createCheckoutSession({
   const donorCountryMeta = resolveCountryMeta(donorCountry || null);
   const donorCountryValue = donorCountryMeta?.code || donorCountry?.trim().slice(0, 2).toUpperCase() || '';
   const donorNifValue = donorNif ? donorNif.replace(/\D/g, '').slice(0, 20) : '';
+  if (type === 'donation') {
+    if (provider !== 'reduniq') {
+      throw new Error('As doações online usam exclusivamente a Reduniq.');
+    }
+    if (!donorNameValue || !isValidDonationEmail(donorEmailValue)) {
+      throw new Error('Nome e email são obrigatórios.');
+    }
+    const requiresFullFiscalData =
+      receiptRequired || donationRequiresFullFiscalData(normalizedAmount);
+    if (requiresFullFiscalData && !hasCompleteDonationFiscalData({
+      name: donorNameValue,
+      email: donorEmailValue,
+      address: donorAddressValue,
+      city: donorCityValue,
+      zip: donorZipValue,
+      country: donorCountryValue,
+      nif: donorNifValue,
+    })) {
+      throw new Error('Preenche o NIF e a morada fiscal completa para emitir a Fatura-Recibo.');
+    }
+    if (
+      requiresFullFiscalData
+      && !validatePostalCode(donorCountryValue, donorZipValue)
+    ) {
+      throw new Error('Código postal inválido.');
+    }
+    if (
+      requiresFullFiscalData
+      && !isValidDonationTaxId(donorNifValue, donorCountryValue)
+    ) {
+      throw new Error('NIF/CPF inválido.');
+    }
+    receiptRequired = requiresFullFiscalData;
+  }
   const reduniqMethodHint =
     paymentOptionId === 'reduniq_mbway'
       ? 'mbway'
@@ -191,10 +231,11 @@ export async function createCheckoutSession({
     }
 
     // Record in DB
-    if (supabaseServer) {
-      try {
-        if (type === 'donation') {
-          await supabaseServer.from('donations').insert({
+    if (!supabaseServer) {
+      throw new Error('Não foi possível preparar o registo do pagamento.');
+    }
+    if (type === 'donation') {
+      const { error: donationError } = await supabaseServer.from('donations').insert({
             user_id: userId ?? null,
             amount_cents: Math.round(normalizedAmount * 100),
             currency: 'EUR',
@@ -205,7 +246,7 @@ export async function createCheckoutSession({
             status: 'pending',
             payment_intent_id: initResult.token || initResult.transactionId || orderRef,
             external_reference: orderRef,
-            description: 'Doação (Reduniq)',
+            description: 'Doação - Associação do Apostolado de Garabandal',
             receipt_required: !!receiptRequired,
             donor_name: donorNameValue || null,
             donor_email: donorEmailValue || null,
@@ -230,9 +271,10 @@ export async function createCheckoutSession({
               donorEmail: donorEmailValue || null,
               receiptRequired: !!receiptRequired,
             },
-          });
-        } else {
-          await supabaseServer.from('pagamentos_quotas').insert({
+      });
+      if (donationError) throw donationError;
+    } else {
+      const { error: membershipError } = await supabaseServer.from('pagamentos_quotas').insert({
             user_id: userId ?? null,
             valor: normalizedAmount,
             metodo_pagamento: 'reduniq',
@@ -241,11 +283,8 @@ export async function createCheckoutSession({
             external_reference: orderRef,
             data_pagamento: new Date().toISOString().slice(0, 10),
             notes: locale === 'en' ? '[locale:en]' : null,
-          });
-        }
-      } catch (err) {
-        console.warn('DB Error (Reduniq Pending):', err);
-      }
+      });
+      if (membershipError) throw membershipError;
     }
 
     return initResult.url;

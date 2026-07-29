@@ -111,9 +111,10 @@ describe('FACT.pt pilgrimage ownership', () => {
     expect(snapshot.amount).toBe(76.43);
     expect(snapshot.items[0].price).toBe(76.43);
     expect(snapshot.comments).toBe('Doação sem contrapartidas');
-    expect(snapshot.items[0].description).toBe(
-      'Donativo para angariação de fundos',
-    );
+    expect(snapshot.items[0]).toMatchObject({
+      reference: 'AAG-003',
+      description: 'Doação - Associação do Apostolado de Garabandal',
+    });
     expect(snapshot.emailSourceLabel).toBe(
       'Peregrinação de novembro — Prestação',
     );
@@ -260,12 +261,76 @@ describe('FACT.pt pilgrimage ownership', () => {
       'payment-private',
     );
 
-    expect(snapshot.items[0].description).toBe(
-      'Donativo para angariação de fundos',
-    );
+    expect(snapshot.items[0]).toMatchObject({
+      reference: 'AAG-003',
+      description: 'Doação - Associação do Apostolado de Garabandal',
+    });
     expect(snapshot.items[0].description).not.toContain('TESTE PRIVADO');
     expect(snapshot.emailSourceLabel).toBe(
       'Peregrinação 2026D — Sinal',
+    );
+  });
+});
+
+describe('FACT.pt direct donations', () => {
+  it('uses the official AAG-003 fiscal line and never the donor message', async () => {
+    const donation = {
+      id: 'donation-1',
+      user_id: null,
+      amount_cents: 2500,
+      currency: 'EUR',
+      method: 'stripe_card',
+      status: 'succeeded',
+      external_reference: 'reduniq-donation-1',
+      description: 'Mensagem livre que não deve entrar na linha fiscal',
+      donor_name: 'Doadora Exemplo',
+      donor_email: 'doadora@example.test',
+      donor_nif: null,
+      donor_address: null,
+      donor_city: null,
+      donor_zip: null,
+      donor_country: 'PT',
+      metadata: {
+        provider: 'reduniq',
+        reduniq_method: 'mbway',
+        locale: 'pt',
+      },
+      updated_at: '2026-07-29T20:00:00.000Z',
+    };
+    const db = {
+      from() {
+        const builder = {
+          select() { return builder; },
+          eq() { return builder; },
+          async maybeSingle() {
+            return { data: donation, error: null };
+          },
+        };
+        return builder;
+      },
+      auth: { admin: { getUserById: async () => ({ data: null, error: null }) } },
+    };
+
+    const snapshot = await loadFactPtSourceSnapshot(
+      db as never,
+      'donation',
+      donation.id,
+      'donations',
+    );
+
+    expect(snapshot.items).toEqual([{
+      reference: 'AAG-003',
+      description: 'Doação - Associação do Apostolado de Garabandal',
+      price: 25,
+      quantity: 1,
+      taxRate: 0,
+      type: 'other',
+    }]);
+    expect(snapshot.comments).toBe('Doação sem contrapartidas');
+    expect(snapshot.seriesCode).toBe('2026D');
+    expect(snapshot.paymentMethod).toBe('mbway');
+    expect(snapshot.emailSourceLabel).toBe(
+      'Doação - Associação do Apostolado de Garabandal',
     );
   });
 });

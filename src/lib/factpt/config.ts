@@ -45,6 +45,7 @@ const SOURCE_CONFIG: Record<
     series: '2026D',
     credentialSlot: 'D',
     sandboxApiKeyVariable: 'FACTPT_SANDBOX_KEY_2026D',
+    productionApiKeyVariable: 'FACTPT_PRODUCTION_KEY_2026D',
   },
   pilgrimage: {
     series: '2026D',
@@ -104,9 +105,13 @@ export function getFactPtConfig(
 ): FactPtConfig {
   assertNoPublicFactPtSecrets(env);
   const sourceConfig = SOURCE_CONFIG[sourceType];
-  if (environment === 'production' && sourceType !== 'pilgrimage') {
+  if (
+    environment === 'production'
+    && sourceType !== 'pilgrimage'
+    && sourceType !== 'donation'
+  ) {
     throw new Error(
-      'A FACT.pt de produção aceita exclusivamente pagamentos de peregrinações.',
+      'A FACT.pt de produção aceita exclusivamente peregrinações e doações diretas.',
     );
   }
 

@@ -410,6 +410,24 @@ export default function ThankYouPage() {
             </div>
           )}
 
+          {type === 'donation' && isReduniqSuccess && (
+            <div className="mb-8 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-6">
+              <div className="flex items-start gap-3">
+                <Mail className="mt-0.5 h-5 w-5 text-emerald-300" />
+                <div>
+                  <div className="font-bold text-white">
+                    {isEn ? 'Official invoice by email' : 'Fatura oficial por email'}
+                  </div>
+                  <p className="mt-1 text-sm leading-relaxed text-white/70">
+                    {isEn
+                      ? 'Your invoice is being prepared and will be sent automatically to the email used for this donation.'
+                      : 'A tua fatura está a ser preparada e será enviada automaticamente para o email usado neste donativo.'}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
           {type === 'store' && (showDigital || showPhysical) && (
             <div className="grid md:grid-cols-2 gap-6 mb-8">
               {showDigital && (
