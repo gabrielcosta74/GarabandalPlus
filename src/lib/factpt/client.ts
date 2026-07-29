@@ -217,6 +217,122 @@ function normalizedClientText(value: unknown): string {
   return String(value || '').trim().toLowerCase();
 }
 
+function normalizedClientName(value: unknown): string {
+  return normalizedClientText(value)
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+    .replace(/\s+/g, ' ');
+}
+
+function normalizedClientTin(value: unknown): string {
+  return String(value || '').replace(/\D/g, '');
+}
+
+function normalizedClientEmail(value: unknown): string {
+  const email = normalizedClientText(value);
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? email : '';
+}
+
+function clientNamesAreCompatible(localName: string, remoteName: string): boolean {
+  const local = normalizedClientName(localName);
+  const remote = normalizedClientName(remoteName);
+  if (!local || !remote) return false;
+  if (local === remote) return true;
+
+  const localTokens = local.split(' ').filter(Boolean);
+  const remoteTokens = new Set(remote.split(' ').filter(Boolean));
+  return localTokens.length >= 2
+    && localTokens.every((token) => remoteTokens.has(token));
+}
+
+function clientEmailsAreCompatible(localEmail: string, remoteEmail: string): boolean {
+  const local = normalizedClientEmail(localEmail);
+  const remote = normalizedClientEmail(remoteEmail);
+  if (!local || !remote) return false;
+  if (local === remote) return true;
+
+  const [localPart, localDomain] = local.split('@');
+  const [remotePart, remoteDomain] = remote.split('@');
+  if (localPart !== remotePart) return false;
+
+  // Accept only a single trailing-character typo in the domain. This covers
+  // cases such as ".brf" versus ".br" without fuzzy-matching unrelated
+  // addresses.
+  const longer = localDomain.length > remoteDomain.length
+    ? localDomain
+    : remoteDomain;
+  const shorter = longer === localDomain ? remoteDomain : localDomain;
+  return longer.length === shorter.length + 1 && longer.startsWith(shorter);
+}
+
+function hasCompleteRemoteBillingIdentity(client: FactPtRemoteClient): boolean {
+  return Boolean(
+    normalizedClientName(client.name)
+      && /^\d{5,15}$/.test(normalizedClientTin(client.tin))
+      && normalizedClientEmail(client.email)
+      && normalizedClientText(client.address)
+      && normalizedClientText(client.zip)
+      && normalizedClientText(client.city)
+      && /^[a-z]{2}$/i.test(String(client.country || '').trim()),
+  );
+}
+
+function canonicalRemoteClientScore(
+  client: FactPtRemoteClient,
+  identity: { name: string; email: string },
+): number {
+  const rawTin = String(client.tin || '').trim();
+  let score = 0;
+  if (normalizedClientEmail(client.email) === normalizedClientEmail(identity.email)) {
+    score += 100;
+  }
+  if (normalizedClientName(client.name) === normalizedClientName(identity.name)) {
+    score += 50;
+  }
+  if (/^[\d\s.-]+$/.test(rawTin)) {
+    score += 20;
+  }
+  return score;
+}
+
+export function selectExistingFactPtBillingClient(
+  clients: FactPtRemoteClient[],
+  identity: { name: string; email: string },
+): FactPtRemoteClient | null {
+  const uniqueById = new Map<string, FactPtRemoteClient>();
+  clients.forEach((client) => {
+    if (client?.id !== undefined && client?.id !== null && String(client.id)) {
+      uniqueById.set(String(client.id), client);
+    }
+  });
+
+  const compatible = [...uniqueById.values()].filter(
+    (client) =>
+      hasCompleteRemoteBillingIdentity(client)
+      && clientNamesAreCompatible(identity.name, client.name || '')
+      && clientEmailsAreCompatible(identity.email, client.email || ''),
+  );
+  if (compatible.length === 0) return null;
+
+  const tins = new Set(
+    compatible.map((client) => normalizedClientTin(client.tin)),
+  );
+  if (tins.size !== 1) {
+    // More than one fiscal identity matched the search. Never guess between
+    // homonyms or accounts that share a similar email.
+    return null;
+  }
+
+  return compatible
+    .sort(
+      (left, right) =>
+        canonicalRemoteClientScore(right, identity)
+        - canonicalRemoteClientScore(left, identity),
+    )[0] || null;
+}
+
 function isSameFinalConsumerClient(
   client: FactPtRemoteClient,
   input: FactPtClientCreateInput,
@@ -371,6 +487,19 @@ export class FactPtClient {
       `/clients?search=${encodeURIComponent(normalizedSearch)}`,
     );
     return result.data ?? [];
+  }
+
+  async findExistingBillingClient(identity: {
+    name: string;
+    email: string;
+  }): Promise<FactPtRemoteClient | null> {
+    const searchTerms = [identity.email.trim(), identity.name.trim()]
+      .filter(Boolean);
+    const results: FactPtRemoteClient[] = [];
+    for (const term of searchTerms) {
+      results.push(...await this.findClients(term));
+    }
+    return selectExistingFactPtBillingClient(results, identity);
   }
 
   async createClient(input: FactPtClientCreateInput): Promise<FactPtCreatedResource> {

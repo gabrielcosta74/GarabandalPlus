@@ -8,6 +8,8 @@ import {
   buildFactPtClientInput,
   calculateFactPtSnapshotTotal,
   decideFactPtDocument,
+  hasCompleteFactPtBillingData,
+  hasCompleteFactPtBillingIdentity,
   normalizeFactPtTin,
   parseFactPtPaymentMethod,
   resolveFactPtTaxId,
@@ -26,6 +28,7 @@ import type {
   FactPtEnvironment,
   FactPtFiscalLine,
   FactPtFiscalSnapshot,
+  FactPtRemoteClient,
   FactPtSourceType,
 } from './types';
 import {
@@ -115,6 +118,65 @@ function countryCode(value: string | null) {
     italy: 'it',
   };
   return /^[a-z]{2}$/.test(normalized) ? normalized : known[normalized] || null;
+}
+
+export function hydrateFactPtFiscalSnapshotFromClient(
+  fiscal: FactPtFiscalSnapshot,
+  remoteClient: FactPtRemoteClient,
+): FactPtFiscalSnapshot {
+  const tin = String(remoteClient.tin || '').replace(/\D/g, '');
+  const country = countryCode(remoteClient.country || null);
+  if (
+    !remoteClient.id
+    || !remoteClient.name?.trim()
+    || !remoteClient.email?.trim()
+    || !/^\d{5,15}$/.test(tin)
+    || !remoteClient.address?.trim()
+    || !remoteClient.zip?.trim()
+    || !remoteClient.city?.trim()
+    || !country
+  ) {
+    return fiscal;
+  }
+
+  return {
+    ...fiscal,
+    existingClientId: String(remoteClient.id),
+    customer: {
+      name: remoteClient.name.trim(),
+      email: remoteClient.email.trim().toLowerCase(),
+      nif: tin,
+      address: remoteClient.address.trim(),
+      postalCode: remoteClient.zip.trim(),
+      city: remoteClient.city.trim(),
+      country,
+      phone: remoteClient.phone?.trim() || fiscal.customer.phone || null,
+    },
+  };
+}
+
+async function enrichFiscalFromExistingFactPtClient(
+  fiscal: FactPtFiscalSnapshot,
+  client: FactPtClient,
+): Promise<FactPtFiscalSnapshot> {
+  const shouldSearch =
+    (
+      fiscal.sourceType === 'donation'
+      && !hasCompleteFactPtBillingData(fiscal.customer)
+    )
+    || (
+      fiscal.sourceType === 'pilgrimage'
+      && !hasCompleteFactPtBillingIdentity(fiscal.customer)
+    );
+  if (!shouldSearch) return fiscal;
+
+  const existingClient = await client.findExistingBillingClient({
+    name: fiscal.customer.name,
+    email: fiscal.customer.email,
+  });
+  return existingClient
+    ? hydrateFactPtFiscalSnapshotFromClient(fiscal, existingClient)
+    : fiscal;
 }
 
 export function factPtEmailSourceLabel(fiscal: FactPtFiscalSnapshot): string {
@@ -297,6 +359,8 @@ async function resolveFiscalSnapshot(
       getFactPtUnitId(job.environment),
     );
 
+  fiscal = await enrichFiscalFromExistingFactPtClient(fiscal, client);
+
   if (!storedSnapshot) {
     const { error } = await db
       .from('factpt_documents')
@@ -368,7 +432,22 @@ async function resolveRemoteClient(
     };
   }
 
-  const resolved = await client.findOrCreateClient(input);
+  const resolved = fiscal.existingClientId
+    ? {
+        client: {
+          id: fiscal.existingClientId,
+          name: fiscal.customer.name,
+          tin: fiscal.customer.nif || undefined,
+          email: fiscal.customer.email,
+          address: fiscal.customer.address || undefined,
+          zip: fiscal.customer.postalCode || undefined,
+          city: fiscal.customer.city || undefined,
+          country: fiscal.customer.country || undefined,
+        },
+        created: false,
+        updated: false,
+      }
+    : await client.findOrCreateClient(input);
   const { data: cachedRemote, error: cachedRemoteError } = await db
     .from('factpt_clients')
     .select('id')

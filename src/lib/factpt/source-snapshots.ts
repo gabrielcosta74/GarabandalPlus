@@ -106,6 +106,32 @@ const paymentKindFromNotes = (notes: unknown): string => {
   }
 };
 
+const chargedAmountFromNotes = (notes: unknown): number | null => {
+  const match = /Total cobrado:\s*([\d.,]+)/i.exec(String(notes || ''));
+  if (!match) return null;
+  const value = Number(
+    match[1].replace(/\.(?=\d{3}\b)/g, '').replace(',', '.'),
+  );
+  return Number.isFinite(value) && value > 0
+    ? Math.round(value * 100) / 100
+    : null;
+};
+
+const fiscalPilgrimagePaymentMethod = (
+  method: unknown,
+  notes: unknown,
+): string => {
+  const normalizedMethod = clean(method)?.toLowerCase() || '';
+  const normalizedNotes = String(notes || '').trim().toLowerCase();
+  if (
+    ['bank_transfer', 'transfer'].includes(normalizedMethod)
+    && normalizedNotes === 'por pix'
+  ) {
+    return 'pix';
+  }
+  return normalizedMethod || 'reduniq';
+};
+
 const fiscalPilgrimageTitle = (value: unknown): string => {
   const title = clean(value) || 'Peregrinação';
   return title
@@ -396,10 +422,22 @@ const loadPilgrimageSnapshot = async (
   const kind = paymentKindFromNotes(payment.notes);
   // `amount` is only the principal credited to the booking. Reduniq payments
   // invoice the gross amount actually collected from the account holder.
+  const paymentMethod = String(payment.method || '').trim().toLowerCase();
+  const isReduniq = paymentMethod === 'reduniq'
+    || paymentMethod.startsWith('reduniq_');
+  const legacyChargedAmount = chargedAmountFromNotes(payment.notes);
+  const persistedChargedAmount = Number(payment.charged_amount);
+  const baseAmount = Number(payment.amount);
   const amount = requirePositiveAmount(
-    String(payment.method || '').startsWith('reduniq_')
-      ? payment.charged_amount ?? payment.amount
-      : payment.amount,
+    isReduniq
+      ? (
+          legacyChargedAmount && legacyChargedAmount > baseAmount
+            ? legacyChargedAmount
+            : Number.isFinite(persistedChargedAmount) && persistedChargedAmount > 0
+              ? persistedChargedAmount
+              : baseAmount
+        )
+      : baseAmount,
     'pilgrimage',
   );
 
@@ -412,7 +450,10 @@ const loadPilgrimageSnapshot = async (
     seriesCode: '2026D',
     amount,
     currency: 'EUR',
-    paymentMethod: clean(payment.method) || 'reduniq',
+    paymentMethod: fiscalPilgrimagePaymentMethod(
+      payment.method,
+      payment.notes,
+    ),
     paymentDate: toPaymentDate(payment.verified_at, payment.updated_at, payment.created_at),
     customer: {
       userId: accountHolderId,

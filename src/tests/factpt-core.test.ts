@@ -15,12 +15,14 @@ import {
   parseFactPtPaymentMethod,
   resolveFactPtPaymentType,
   resolveFactPtTaxId,
+  selectExistingFactPtBillingClient,
   type FactPtConfig,
   type FactPtFiscalSnapshot,
 } from '../lib/factpt';
 import {
   factPtDocumentNumberFromFilename,
   factPtEmailSourceLabel,
+  hydrateFactPtFiscalSnapshotFromClient,
 } from '../lib/factpt/processor';
 
 const sandboxEnvironment = {
@@ -201,6 +203,7 @@ describe('FACT.pt fiscal rules and builders', () => {
     expect(parseFactPtPaymentMethod('multibanco')).toBe('reduniq_other');
     expect(parseFactPtPaymentMethod('reduniq')).toBe('reduniq_other');
     expect(parseFactPtPaymentMethod('reduniq_card')).toBe('reduniq_other');
+    expect(parseFactPtPaymentMethod('pix')).toBe('reduniq_other');
   });
 
   it('uses Fatura-Recibo only with complete billing data and a remote client', () => {
@@ -530,6 +533,109 @@ describe('FACT.pt fiscal rules and builders', () => {
 });
 
 describe('FACT.pt HTTP client', () => {
+  it('selects one existing fiscal identity by compatible name and email typo', () => {
+    const selected = selectExistingFactPtBillingClient(
+      [
+        {
+          id: '6110874',
+          name: 'Elayne Maria do Carmo Faria',
+          tin: '145.751.831-72',
+          address: 'Cond. Parque Jardim das Paineiras Q 03, casa 48',
+          zip: '71680-366',
+          city: 'Brasilia (DF)',
+          country: 'BR',
+          email: 'elayfa@uol.com.br',
+        },
+        {
+          id: '6934931',
+          name: 'ELAYNE MARIA DO CARMO FARIA',
+          tin: 'CPF14575183172',
+          address: 'Cond. Parque Jardim das Paineiras Q 03 casa 48',
+          zip: '71680-366',
+          city: 'Brasilia',
+          country: 'BR',
+          email: 'elayfa@uol.com.br',
+        },
+      ],
+      { name: 'Elayne Faria', email: 'elayfa@uol.com.brf' },
+    );
+
+    expect(selected?.id).toBe('6110874');
+  });
+
+  it('does not choose between distinct FACT.pt fiscal identities', () => {
+    expect(
+      selectExistingFactPtBillingClient(
+        [
+          {
+            id: 'one',
+            name: 'Maria Silva',
+            tin: '111111111',
+            address: 'Rua Um',
+            zip: '1000-001',
+            city: 'Lisboa',
+            country: 'PT',
+            email: 'maria@example.test',
+          },
+          {
+            id: 'two',
+            name: 'Maria Silva',
+            tin: '222222222',
+            address: 'Rua Dois',
+            zip: '2000-002',
+            city: 'Porto',
+            country: 'PT',
+            email: 'maria@example.test',
+          },
+        ],
+        { name: 'Maria Silva', email: 'maria@example.test' },
+      ),
+    ).toBeNull();
+  });
+
+  it('hydrates a donation snapshot from the matched FACT.pt client', () => {
+    const hydrated = hydrateFactPtFiscalSnapshotFromClient(
+      makeSnapshot({
+        sourceType: 'donation',
+        total: 1_000,
+        customer: {
+          name: 'Elayne Faria',
+          email: 'elayfa@uol.com.brf',
+          country: 'br',
+        },
+        lines: [{
+          reference: 'AAG-003',
+          description: 'Doação - Associação do Apostolado de Garabandal',
+          type: 'other',
+          quantity: 1,
+          unitPriceNet: 1_000,
+          taxRate: 0,
+          taxId: 'tax-0',
+          unitId: 1,
+        }],
+      }),
+      {
+        id: '6110874',
+        name: 'Elayne Maria do Carmo Faria',
+        tin: '145.751.831-72',
+        address: 'Cond. Parque Jardim das Paineiras Q 03, casa 48',
+        zip: '71680-366',
+        city: 'Brasilia (DF)',
+        country: 'BR',
+        email: 'elayfa@uol.com.br',
+      },
+    );
+
+    expect(hydrated.existingClientId).toBe('6110874');
+    expect(hydrated.customer).toMatchObject({
+      name: 'Elayne Maria do Carmo Faria',
+      email: 'elayfa@uol.com.br',
+      nif: '14575183172',
+      country: 'br',
+    });
+    expect(decideFactPtDocument(hydrated).type).toBe('invoice_receipt');
+  });
+
   it('sends required headers, searches NIF and never sends forceTin', async () => {
     const fetchMock = vi
       .fn<typeof fetch>()

@@ -3,6 +3,143 @@ import { describe, expect, it } from 'vitest';
 import { loadFactPtSourceSnapshot } from '../lib/factpt/source-snapshots';
 
 describe('FACT.pt pilgrimage ownership', () => {
+  it('maps an explicitly confirmed manual PIX note to FACT.pt Outros', async () => {
+    const rows: Record<string, unknown> = {
+      pilgrimage_payments: {
+        id: 'payment-manual-pix',
+        booking_id: 'booking-manual-pix',
+        amount: 500,
+        status: 'verified',
+        method: 'bank_transfer',
+        notes: 'Por Pix',
+        verified_at: '2026-07-29T10:00:00.000Z',
+      },
+      bookings: {
+        id: 'booking-manual-pix',
+        user_id: 'holder-manual-pix',
+        notes: '',
+        pilgrimages: {
+          title: 'Peregrinação',
+          start_date: '2027-04-05',
+        },
+      },
+      membros: {
+        id: 'holder-manual-pix',
+        nome: 'Titular',
+        email: 'titular@example.test',
+        nif: '123456789',
+        address: 'Rua do Titular',
+        postal_code: '1000-001',
+        city: 'Lisboa',
+        country: 'PT',
+      },
+      pilgrims: [],
+    };
+    const db = {
+      from(table: string) {
+        const builder = {
+          select() { return builder; },
+          eq() { return builder; },
+          async maybeSingle() {
+            return { data: rows[table] ?? null, error: null };
+          },
+          async order() {
+            return { data: rows[table] ?? [], error: null };
+          },
+        };
+        return builder;
+      },
+      auth: {
+        admin: {
+          async getUserById() {
+            return {
+              data: { user: { email: 'titular@example.test' } },
+              error: null,
+            };
+          },
+        },
+      },
+    };
+
+    const snapshot = await loadFactPtSourceSnapshot(
+      db as never,
+      'pilgrimage',
+      'payment-manual-pix',
+    );
+
+    expect(snapshot.paymentMethod).toBe('pix');
+  });
+
+  it('uses the legacy Reduniq charged total from notes when numeric columns lost the fee', async () => {
+    const rows: Record<string, unknown> = {
+      pilgrimage_payments: {
+        id: 'payment-legacy-fee',
+        booking_id: 'booking-legacy-fee',
+        amount: 500,
+        processing_fee_amount: 0,
+        charged_amount: 500,
+        status: 'verified',
+        method: 'reduniq',
+        notes: 'Valor base: 500.00€ | Taxa Reduniq: 9.50€ | Total cobrado: 509.50€ | Tipo: deposit',
+        verified_at: '2026-07-29T10:00:00.000Z',
+      },
+      bookings: {
+        id: 'booking-legacy-fee',
+        user_id: 'holder-legacy-fee',
+        notes: '',
+        pilgrimages: {
+          title: 'Peregrinação',
+          start_date: '2027-04-05',
+        },
+      },
+      membros: {
+        id: 'holder-legacy-fee',
+        nome: 'Titular',
+        email: 'titular@example.test',
+        nif: '123456789',
+        address: 'Rua do Titular',
+        postal_code: '1000-001',
+        city: 'Lisboa',
+        country: 'PT',
+      },
+      pilgrims: [],
+    };
+    const db = {
+      from(table: string) {
+        const builder = {
+          select() { return builder; },
+          eq() { return builder; },
+          async maybeSingle() {
+            return { data: rows[table] ?? null, error: null };
+          },
+          async order() {
+            return { data: rows[table] ?? [], error: null };
+          },
+        };
+        return builder;
+      },
+      auth: {
+        admin: {
+          async getUserById() {
+            return {
+              data: { user: { email: 'titular@example.test' } },
+              error: null,
+            };
+          },
+        },
+      },
+    };
+
+    const snapshot = await loadFactPtSourceSnapshot(
+      db as never,
+      'pilgrimage',
+      'payment-legacy-fee',
+    );
+
+    expect(snapshot.amount).toBe(509.5);
+    expect(snapshot.items[0].price).toBe(509.5);
+  });
+
   it('always invoices the booking account holder in a shared reservation', async () => {
     const rows: Record<string, unknown> = {
       pilgrimage_payments: {

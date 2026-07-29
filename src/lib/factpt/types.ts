@@ -34,6 +34,7 @@ export type FactPtRemoteClient = {
   zip?: string;
   city?: string;
   country?: string;
+  phone?: string;
   isFinalConsumer?: boolean;
 };
 
@@ -190,6 +191,12 @@ export type FactPtFiscalSnapshot = {
   language?: string;
   reference?: string;
   emailSourceLabel?: string;
+  /**
+   * Existing FACT.pt customer found while preparing the fiscal snapshot.
+   * It is persisted with the reviewed snapshot so emission reuses that exact
+   * customer instead of creating a duplicate.
+   */
+  existingClientId?: string;
 };
 
 export type FactPtDocumentDecision =
