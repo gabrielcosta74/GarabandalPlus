@@ -93,6 +93,7 @@ export type TransactionDetail = {
     details_link?: string;
     factpt_document?: FactptDocumentSummary | null;
     legacy_invoice_sent_at?: string | null;
+    manual_fiscal_record?: boolean;
 };
 
 type TransactionDetailsModalProps = {
@@ -506,6 +507,9 @@ function FactptSection({
     const document = transaction.factpt_document;
 
     if (!document) {
+        const manuallyIssued = Boolean(
+            transaction.manual_fiscal_record || transaction.legacy_invoice_sent_at,
+        );
         const canEnqueueSandbox =
             PAID.includes(transaction.status?.toLowerCase() || '')
             && (
@@ -515,13 +519,17 @@ function FactptSection({
         return (
             <Section title="Faturação FACT.pt">
                 <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-3 py-3">
-                    <p className="text-[12px] font-medium text-slate-600">Sem documento FACT.pt associado</p>
+                    <p className="text-[12px] font-medium text-slate-600">
+                        {manuallyIssued ? 'Emitida manualmente' : 'Sem documento FACT.pt associado'}
+                    </p>
                     <p className="mt-0.5 text-[11px] leading-relaxed text-slate-400">
-                        O registo manual antigo não é usado como prova de emissão fiscal.
+                        {manuallyIssued
+                            ? 'Documento emitido na FACT.pt antes da integração automática. O número não está sincronizado localmente.'
+                            : 'Este pagamento ainda não tem documento fiscal associado.'}
                     </p>
                     {transaction.legacy_invoice_sent_at && (
                         <p className="mt-2 text-[11px] text-slate-500">
-                            Legado: marcado como enviado em {formatFactptDate(transaction.legacy_invoice_sent_at)}.
+                            Registado em {formatFactptDate(transaction.legacy_invoice_sent_at)}.
                         </p>
                     )}
                     {canEnqueueSandbox && (

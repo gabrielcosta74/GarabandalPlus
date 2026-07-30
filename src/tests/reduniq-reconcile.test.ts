@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { reduniqClient } from '../lib/reduniq/client';
 import {
+  canAutoIssueReconciledFactPt,
   classifyRow,
   loadPendingRows,
   requireManualFactPtApproval,
@@ -245,6 +246,52 @@ describe('Reduniq pending reconciliation', () => {
       expect(calls).toContainEqual(['eq', 'id', 'payment-1']);
     },
   );
+
+  it('allows automatic fiscal queueing only for enabled donation and pilgrimage reconciliation', async () => {
+    const calls: Array<[string, ...unknown[]]> = [];
+    const builder = {
+      select(...args: unknown[]) {
+        calls.push(['select', ...args]);
+        return this;
+      },
+      eq(...args: unknown[]) {
+        calls.push(['eq', ...args]);
+        return this;
+      },
+      async maybeSingle() {
+        return {
+          data: { auto_issue_reconciled_reduniq: true },
+          error: null,
+        };
+      },
+    };
+    const client = {
+      from(table: string) {
+        calls.push(['from', table]);
+        return builder;
+      },
+    };
+
+    await expect(canAutoIssueReconciledFactPt(client as never, {
+      kind: 'pilgrimage',
+      id: 'payment-1',
+      order_ref: 'pil-test',
+      token: 'token',
+      amount: 10,
+      raw: {},
+    })).resolves.toBe(true);
+    await expect(canAutoIssueReconciledFactPt(client as never, {
+      kind: 'quota',
+      id: 'quota-1',
+      order_ref: 'quota-test',
+      token: 'token',
+      amount: 10,
+      raw: {},
+    })).resolves.toBe(false);
+
+    expect(calls).toContainEqual(['from', 'factpt_settings']);
+    expect(calls).toContainEqual(['eq', 'environment', 'production']);
+  });
 
   it('does not confirm a payment when the fiscal review marker cannot be saved', async () => {
     const builder = {

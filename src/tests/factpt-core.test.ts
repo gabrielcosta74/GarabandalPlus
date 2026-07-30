@@ -299,6 +299,43 @@ describe('FACT.pt fiscal rules and builders', () => {
     }
   });
 
+  it('always uses a named Fatura-Recibo for donors without NIF', () => {
+    const snapshot = makeSnapshot({
+      sourceType: 'donation',
+      sourceId: 'donation-final-consumer',
+      total: 1,
+      customer: {
+        name: 'Doadora Exemplo',
+        email: 'doadora@example.test',
+        address: 'Rua Principal, 1',
+        postalCode: '4000-001',
+        city: 'Porto',
+        country: 'pt',
+      },
+      lines: [
+        {
+          reference: 'AAG-003',
+          description: 'Doação - Associação do Apostolado de Garabandal',
+          type: 'other',
+          quantity: 1,
+          unitPriceNet: 1,
+          taxRate: 0,
+          taxId: 'tax-0',
+          unitId: 1,
+        },
+      ],
+    });
+
+    expect(decideFactPtDocument(snapshot)).toEqual({
+      type: 'invoice_receipt',
+      reason: 'donation_final_consumer',
+    });
+    expect(buildFactPtClientInput(snapshot.customer)).toMatchObject({
+      name: 'Doadora Exemplo',
+      finalConsumer: true,
+    });
+  });
+
   it('holds a pilgrimage invoice when the account holder address is incomplete', () => {
     const snapshot = makeSnapshot({
       sourceType: 'pilgrimage',
@@ -365,7 +402,7 @@ describe('FACT.pt fiscal rules and builders', () => {
     }
   });
 
-  it('blocks service/other FS above €100 and product FS above €1,000', () => {
+  it('requires a full identity for donations and keeps the store FS limit', () => {
     const donation = makeSnapshot({
       sourceType: 'donation',
       sourceId: 'donation-1',
@@ -403,7 +440,7 @@ describe('FACT.pt fiscal rules and builders', () => {
 
     expect(decideFactPtDocument(donation)).toMatchObject({
       type: 'needs_data',
-      reason: 'missing_billing_data_above_simplified_limit',
+      reason: 'missing_donation_billing_data',
     });
     expect(decideFactPtDocument(product)).toMatchObject({
       type: 'needs_data',
@@ -545,7 +582,7 @@ describe('FACT.pt fiscal rules and builders', () => {
 });
 
 describe('FACT.pt HTTP client', () => {
-  it('selects one existing fiscal identity by compatible name and email typo', () => {
+  it('does not reuse a fiscal identity when the email only looks similar', () => {
     const selected = selectExistingFactPtBillingClient(
       [
         {
@@ -572,7 +609,62 @@ describe('FACT.pt HTTP client', () => {
       { name: 'Elayne Faria', email: 'elayfa@uol.com.brf' },
     );
 
-    expect(selected?.id).toBe('6110874');
+    expect(selected).toBeNull();
+  });
+
+  it('only reuses a final consumer with the exact email and a unique identity', async () => {
+    const candidate = {
+      id: 'final-1',
+      name: 'Maria da Silva',
+      email: 'maria@example.test',
+      country: 'PT',
+      isFinalConsumer: true,
+    };
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            AppStatusMsg: 'OK',
+            AppResponse: { data: [candidate] },
+          }),
+          { status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            AppStatusMsg: 'OK',
+            AppResponse: {
+              data: [
+                candidate,
+                { ...candidate, id: 'final-2' },
+              ],
+            },
+          }),
+          { status: 200 },
+        ),
+      );
+    const client = new FactPtClient(sandboxConfig(), {
+      fetch: fetchMock,
+      rateLimiter: immediateRateLimiter(),
+    });
+    const input = {
+      name: 'Maria Silva',
+      email: 'maria@example.test',
+      address: 'Rua Um',
+      zip: '1000-001',
+      city: 'Lisboa',
+      country: 'pt',
+      finalConsumer: true,
+    };
+
+    await expect(client.findExistingFinalConsumerClient(input)).resolves.toEqual(
+      candidate,
+    );
+    await expect(client.findExistingFinalConsumerClient(input)).rejects.toThrow(
+      /vários clientes Consumidor Final/i,
+    );
   });
 
   it('does not choose between distinct FACT.pt fiscal identities', () => {

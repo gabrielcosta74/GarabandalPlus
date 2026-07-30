@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 
 import { verifyAdmin } from '../../../../../../../lib/admin-auth';
+import { logAdminAudit } from '../../../../../../../lib/admin-audit';
 import { resendFactPtDocument } from '../../../../../../../lib/factpt/processor';
 
 export const dynamic = 'force-dynamic';
@@ -11,7 +12,7 @@ export async function POST(
   request: Request,
   context: { params: Promise<{ id: string }> },
 ) {
-  const { authorized, error: authError } = await verifyAdmin(request);
+  const { authorized, user, error: authError } = await verifyAdmin(request);
   if (!authorized) {
     return NextResponse.json(
       { error: authError || 'Unauthorized' },
@@ -22,6 +23,11 @@ export async function POST(
   try {
     const { id } = await context.params;
     await resendFactPtDocument(id);
+    await logAdminAudit({
+      adminEmail: user?.email,
+      action: 'factpt_document_email_resent',
+      details: { documentId: id },
+    });
     return NextResponse.json({ ok: true, status: 'issued' });
   } catch (error) {
     return NextResponse.json(

@@ -1,25 +1,32 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  donationRequiresFullFiscalData,
+  hasCompleteDonationBillingIdentity,
   hasCompleteDonationFiscalData,
   isValidDonationEmail,
   isValidDonationTaxId,
 } from '../lib/donation-fiscal';
 
 describe('donation fiscal requirements', () => {
-  it('allows simplified invoices up to and including 100 euros', () => {
-    expect(donationRequiresFullFiscalData(100)).toBe(false);
-    expect(donationRequiresFullFiscalData(100.01)).toBe(true);
-  });
-
   it('requires a real email for every donation', () => {
     expect(isValidDonationEmail('doador@example.com')).toBe(true);
     expect(isValidDonationEmail('anonimo')).toBe(false);
     expect(isValidDonationEmail('')).toBe(false);
   });
 
-  it('recognizes complete data for a Fatura-Recibo', () => {
+  it('recognizes complete billing identity for a final consumer invoice-receipt', () => {
+    expect(hasCompleteDonationBillingIdentity({
+      name: 'Maria Exemplo',
+      email: 'maria@example.com',
+      address: 'Rua Principal, 1',
+      city: 'Porto',
+      zip: '4000-001',
+      country: 'PT',
+      nif: null,
+    })).toBe(true);
+  });
+
+  it('recognizes complete data when the taxpayer number is requested', () => {
     expect(hasCompleteDonationFiscalData({
       name: 'Maria Exemplo',
       email: 'maria@example.com',

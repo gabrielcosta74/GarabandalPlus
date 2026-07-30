@@ -106,7 +106,7 @@ const paymentKindFromNotes = (notes: unknown): string => {
   }
 };
 
-const chargedAmountFromNotes = (notes: unknown): number | null => {
+export const chargedAmountFromNotes = (notes: unknown): number | null => {
   const match = /Total cobrado:\s*([\d.,]+)/i.exec(String(notes || ''));
   if (!match) return null;
   const value = Number(
@@ -172,6 +172,9 @@ const loadDonationSnapshot = async (
   const metadata = donation.metadata && typeof donation.metadata === 'object'
     ? donation.metadata
     : {};
+  const taxIdRequested =
+    metadata.taxIdRequested === true
+    || donation.receipt_required === true;
   const amount = requirePositiveAmount(
     typeof donation.amount_cents === 'number' ? donation.amount_cents / 100 : donation.amount,
     'donation',
@@ -197,7 +200,7 @@ const loadDonationSnapshot = async (
       userId: clean(donation.user_id),
       name: clean(donation.donor_name) || 'Doador',
       email,
-      nif: normalizeNif(donation.donor_nif),
+      nif: taxIdRequested ? normalizeNif(donation.donor_nif) : null,
       address: clean(donation.donor_address),
       zip: clean(donation.donor_zip),
       city: clean(donation.donor_city),
@@ -401,7 +404,6 @@ const loadPilgrimageSnapshot = async (
   const accountHolderId = clean(booking.user_id);
   const member = await loadMember(supabase, accountHolderId);
   const authEmail = await loadAuthEmail(supabase, accountHolderId);
-  const holderEmail = requireEmail(authEmail || member?.email, 'pilgrimage');
 
   const { data: pilgrims, error: pilgrimError } = await supabase
     .from('pilgrims')
@@ -410,9 +412,24 @@ const loadPilgrimageSnapshot = async (
     .order('created_at', { ascending: true });
   if (pilgrimError) throw pilgrimError;
 
+  const currentHolderEmail = requireEmail(
+    authEmail || member?.email,
+    'pilgrimage',
+  );
   const accountPilgrim = (pilgrims || []).find(
-    (pilgrim) => clean(pilgrim.email)?.toLowerCase() === holderEmail,
+    (pilgrim) => clean(pilgrim.email)?.toLowerCase() === currentHolderEmail,
   ) || null;
+  const hasBillingSnapshot = Boolean(
+    clean(payment.billing_name)
+    || clean(payment.billing_email)
+    || clean(payment.billing_address)
+    || clean(payment.billing_postal_code)
+    || clean(payment.billing_city)
+    || clean(payment.billing_country),
+  );
+  const holderEmail = hasBillingSnapshot
+    ? requireEmail(payment.billing_email, 'pilgrimage')
+    : currentHolderEmail;
   const trip = Array.isArray(booking.pilgrimages)
     ? booking.pilgrimages[0]
     : booking.pilgrimages;
@@ -457,13 +474,29 @@ const loadPilgrimageSnapshot = async (
     paymentDate: toPaymentDate(payment.verified_at, payment.updated_at, payment.created_at),
     customer: {
       userId: accountHolderId,
-      name: clean(member?.nome) || clean(accountPilgrim?.full_name) || 'Responsável da reserva',
+      name: hasBillingSnapshot
+        ? clean(payment.billing_name) || 'Responsável da reserva'
+        : clean(member?.nome) || clean(accountPilgrim?.full_name) || 'Responsável da reserva',
       email: holderEmail,
-      nif: normalizeNif(member?.nif) || normalizeNif(accountPilgrim?.cpf_nif),
-      address: clean(member?.address) || clean(accountPilgrim?.address),
-      zip: clean(member?.postal_code) || clean(accountPilgrim?.postal_code),
-      city: clean(member?.city) || clean(accountPilgrim?.city),
-      country: clean(member?.country) || clean(accountPilgrim?.country),
+      nif: hasBillingSnapshot
+        ? (
+            payment.billing_tax_id_requested
+              ? normalizeNif(payment.billing_nif)
+              : null
+          )
+        : normalizeNif(member?.nif) || normalizeNif(accountPilgrim?.cpf_nif),
+      address: hasBillingSnapshot
+        ? clean(payment.billing_address)
+        : clean(member?.address) || clean(accountPilgrim?.address),
+      zip: hasBillingSnapshot
+        ? clean(payment.billing_postal_code)
+        : clean(member?.postal_code) || clean(accountPilgrim?.postal_code),
+      city: hasBillingSnapshot
+        ? clean(payment.billing_city)
+        : clean(member?.city) || clean(accountPilgrim?.city),
+      country: hasBillingSnapshot
+        ? clean(payment.billing_country)
+        : clean(member?.country) || clean(accountPilgrim?.country),
       phone: clean(member?.telefone) || clean(accountPilgrim?.phone),
     },
     items: [{

@@ -71,6 +71,7 @@ type ConsolidatedTransaction = {
     /** Documento fiscal oficial. O invoice_sent_at antigo não é fonte de verdade. */
     factpt_document?: FactptDocumentSummary | null;
     legacy_invoice_sent_at?: string | null;
+    manual_fiscal_record?: boolean;
 };
 
 type SortKey = 'created_at' | 'amount';
@@ -184,7 +185,10 @@ export default function TransactionsUnifiedManager() {
         return transactions.filter(t => {
             if (filters.category !== 'all' && t.category !== filters.category) return false;
             if (filters.fiscalStatus !== 'all') {
-                const fiscalStatus = t.factpt_document?.status || 'unregistered';
+                const fiscalStatus = t.factpt_document?.status
+                    || (t.manual_fiscal_record || t.legacy_invoice_sent_at
+                        ? 'manual'
+                        : 'unregistered');
                 if (fiscalStatus !== filters.fiscalStatus) return false;
             }
             if (filters.fiscalSeries !== 'all' && t.factpt_document?.series_code !== filters.fiscalSeries) return false;
@@ -293,7 +297,10 @@ export default function TransactionsUnifiedManager() {
             t.method || '-',
             t.status,
             t.factpt_document?.environment || '-',
-            t.factpt_document?.status || 'sem_registo',
+            t.factpt_document?.status
+                || (t.manual_fiscal_record || t.legacy_invoice_sent_at
+                    ? 'emitida_manualmente'
+                    : 'sem_registo'),
             t.factpt_document?.series_code || '-',
             t.factpt_document?.document_type || '-',
             t.factpt_document?.factpt_number || '-',
@@ -545,7 +552,11 @@ export default function TransactionsUnifiedManager() {
                                         </td>
 
                                         <td className="px-4 py-3 align-middle">
-                                            <FiscalPill document={t.factpt_document} legacySentAt={t.legacy_invoice_sent_at} />
+                                            <FiscalPill
+                                                document={t.factpt_document}
+                                                legacySentAt={t.legacy_invoice_sent_at}
+                                                manuallyIssued={t.manual_fiscal_record}
+                                            />
                                         </td>
 
                                         <td className="whitespace-nowrap px-4 py-3 text-right align-middle">
@@ -672,18 +683,29 @@ function StatusPill({ group, label }: { group: 'paid' | 'pending' | 'failed'; la
 function FiscalPill({
     document,
     legacySentAt,
+    manuallyIssued,
 }: {
     document?: FactptDocumentSummary | null;
     legacySentAt?: string | null;
+    manuallyIssued?: boolean;
 }) {
     if (!document) {
+        const isManual = Boolean(manuallyIssued || legacySentAt);
         return (
             <span
-                title={legacySentAt ? 'Existe apenas um registo manual legado; não é um documento FACT.pt.' : 'Sem documento FACT.pt associado.'}
-                className="inline-flex items-center gap-1.5 rounded-md bg-slate-100 px-2 py-1 text-[11px] font-medium text-slate-500"
+                title={isManual
+                    ? 'Documento emitido manualmente na FACT.pt antes da integração automática.'
+                    : 'Sem documento FACT.pt associado.'}
+                className={`inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] font-medium ${
+                    isManual
+                        ? 'bg-emerald-50 text-emerald-700'
+                        : 'bg-slate-100 text-slate-500'
+                }`}
             >
-                <span className="h-1.5 w-1.5 rounded-full bg-slate-300" />
-                {legacySentAt ? 'Legado' : 'Sem registo'}
+                <span className={`h-1.5 w-1.5 rounded-full ${
+                    isManual ? 'bg-emerald-500' : 'bg-slate-300'
+                }`} />
+                {isManual ? 'Emitida manualmente' : 'Sem registo'}
             </span>
         );
     }

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 
 import { verifyAdmin } from '../../../../../../../lib/admin-auth';
+import { logAdminAudit } from '../../../../../../../lib/admin-audit';
 import { getFactPtUnitId } from '../../../../../../../lib/factpt/config';
 import { buildInitialFactPtFiscalSnapshot } from '../../../../../../../lib/factpt/processor';
 import { loadFactPtSourceSnapshot } from '../../../../../../../lib/factpt/source-snapshots';
@@ -13,7 +14,7 @@ export async function POST(
   request: Request,
   context: { params: Promise<{ id: string }> },
 ) {
-  const { authorized, error: authError } = await verifyAdmin(request);
+  const { authorized, user, error: authError } = await verifyAdmin(request);
   if (!authorized) {
     return NextResponse.json(
       { error: authError || 'Unauthorized' },
@@ -109,8 +110,19 @@ export async function POST(
   if (updateError) {
     return NextResponse.json({ error: updateError.message }, { status: 500 });
   }
+  const nextStatus =
+    document.status === 'needs_data' ? 'awaiting_approval' : 'pending';
+  await logAdminAudit({
+    adminEmail: user?.email,
+    action: 'factpt_document_retried',
+    details: {
+      documentId: id,
+      previousStatus: document.status,
+      nextStatus,
+    },
+  });
   return NextResponse.json({
     ok: true,
-    status: document.status === 'needs_data' ? 'awaiting_approval' : 'pending',
+    status: nextStatus,
   });
 }

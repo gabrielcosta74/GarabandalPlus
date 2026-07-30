@@ -3,13 +3,15 @@ import { supabaseServer } from './supabase';
 import { getAppUrl } from './config';
 import { isPaidStatus } from './membership-status';
 import { reduniqClient } from './reduniq/client';
-import { resolveCountryMeta, validatePostalCode } from './country-utils';
+import { resolveCountryMeta } from './country-utils';
 import {
-  donationRequiresFullFiscalData,
-  hasCompleteDonationFiscalData,
   isValidDonationEmail,
-  isValidDonationTaxId,
 } from './donation-fiscal';
+import {
+  fiscalBillingErrorMessage,
+  fiscalBillingMissingFields,
+  normalizeFiscalBilling,
+} from './fiscal-billing';
 import { getMembershipAmountServer } from './membership-pricing';
 import { type AppLocale, withLocalePrefix } from './locale-routing';
 
@@ -136,14 +138,14 @@ export async function createCheckoutSession({
   const normalizedAmount = type === 'membership' ? membershipAmount : amount;
 
   // Prep Common Data
-  const donorNameValue = donorName?.trim().slice(0, 200) || '';
-  const donorEmailValue = donorEmail?.trim().slice(0, 200) || '';
-  const donorAddressValue = donorAddress?.trim().slice(0, 200) || '';
-  const donorCityValue = donorCity?.trim().slice(0, 100) || '';
-  const donorZipValue = donorZip?.trim().slice(0, 40) || '';
+  let donorNameValue = donorName?.trim().slice(0, 200) || '';
+  let donorEmailValue = donorEmail?.trim().slice(0, 200) || '';
+  let donorAddressValue = donorAddress?.trim().slice(0, 200) || '';
+  let donorCityValue = donorCity?.trim().slice(0, 100) || '';
+  let donorZipValue = donorZip?.trim().slice(0, 40) || '';
   const donorCountryMeta = resolveCountryMeta(donorCountry || null);
-  const donorCountryValue = donorCountryMeta?.code || donorCountry?.trim().slice(0, 2).toUpperCase() || '';
-  const donorNifValue = donorNif ? donorNif.replace(/\D/g, '').slice(0, 20) : '';
+  let donorCountryValue = donorCountryMeta?.code || donorCountry?.trim().slice(0, 2).toUpperCase() || '';
+  let donorNifValue = donorNif ? donorNif.replace(/\D/g, '').slice(0, 20) : '';
   if (type === 'donation') {
     if (provider !== 'reduniq') {
       throw new Error('As doações online usam exclusivamente a Reduniq.');
@@ -151,32 +153,28 @@ export async function createCheckoutSession({
     if (!donorNameValue || !isValidDonationEmail(donorEmailValue)) {
       throw new Error('Nome e email são obrigatórios.');
     }
-    const requiresFullFiscalData =
-      receiptRequired || donationRequiresFullFiscalData(normalizedAmount);
-    if (requiresFullFiscalData && !hasCompleteDonationFiscalData({
+    const billing = normalizeFiscalBilling({
       name: donorNameValue,
       email: donorEmailValue,
       address: donorAddressValue,
       city: donorCityValue,
-      zip: donorZipValue,
+      postalCode: donorZipValue,
       country: donorCountryValue,
+      taxIdRequested: receiptRequired,
       nif: donorNifValue,
-    })) {
-      throw new Error('Preenche o NIF e a morada fiscal completa para emitir a Fatura-Recibo.');
+    });
+    const missingBillingFields = fiscalBillingMissingFields(billing);
+    if (missingBillingFields.length > 0) {
+      throw new Error(fiscalBillingErrorMessage(missingBillingFields));
     }
-    if (
-      requiresFullFiscalData
-      && !validatePostalCode(donorCountryValue, donorZipValue)
-    ) {
-      throw new Error('Código postal inválido.');
-    }
-    if (
-      requiresFullFiscalData
-      && !isValidDonationTaxId(donorNifValue, donorCountryValue)
-    ) {
-      throw new Error('NIF/CPF inválido.');
-    }
-    receiptRequired = requiresFullFiscalData;
+    donorNameValue = billing.name;
+    donorEmailValue = billing.email;
+    donorAddressValue = billing.address;
+    donorCityValue = billing.city;
+    donorZipValue = billing.postalCode;
+    donorCountryValue = billing.country;
+    donorNifValue = billing.nif || '';
+    receiptRequired = billing.taxIdRequested;
   }
   const reduniqMethodHint =
     paymentOptionId === 'reduniq_mbway'
@@ -270,6 +268,7 @@ export async function createCheckoutSession({
               donorName: donorNameValue || null,
               donorEmail: donorEmailValue || null,
               receiptRequired: !!receiptRequired,
+              taxIdRequested: !!receiptRequired,
             },
       });
       if (donationError) throw donationError;
@@ -277,7 +276,7 @@ export async function createCheckoutSession({
       const { error: membershipError } = await supabaseServer.from('pagamentos_quotas').insert({
             user_id: userId ?? null,
             valor: normalizedAmount,
-            metodo_pagamento: 'reduniq',
+            metodo_pagamento: paymentOptionId || 'reduniq_card',
             estado: 'pendente',
             payment_intent_id: initResult.token || initResult.transactionId || orderRef,
             external_reference: orderRef,
@@ -361,6 +360,7 @@ export async function createCheckoutSession({
             donorName: donorNameValue || null,
             donorEmail: donorEmailValue || null,
             receiptRequired: !!receiptRequired,
+            taxIdRequested: !!receiptRequired,
           },
           receipt_required: !!receiptRequired,
           donor_name: donorNameValue || null,

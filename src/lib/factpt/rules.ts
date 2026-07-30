@@ -294,18 +294,25 @@ export function decideFactPtDocument(
     };
   }
 
-  if (snapshot.sourceType === 'pilgrimage') {
+  if (
+    snapshot.sourceType === 'pilgrimage'
+    || snapshot.sourceType === 'donation'
+  ) {
     const missingFields = factPtBillingIdentityMissingFields(snapshot.customer);
     if (missingFields.length > 0) {
       return {
         type: 'needs_data',
-        reason: 'missing_pilgrimage_holder_data',
+        reason: snapshot.sourceType === 'pilgrimage'
+          ? 'missing_pilgrimage_holder_data'
+          : 'missing_donation_billing_data',
         missingFields,
       };
     }
     return {
       type: 'invoice_receipt',
-      reason: 'pilgrimage_final_consumer',
+      reason: snapshot.sourceType === 'pilgrimage'
+        ? 'pilgrimage_final_consumer'
+        : 'donation_final_consumer',
     };
   }
 

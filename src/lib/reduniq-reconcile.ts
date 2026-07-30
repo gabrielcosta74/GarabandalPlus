@@ -280,13 +280,35 @@ export async function requireManualFactPtApproval(
     }
 }
 
+export async function canAutoIssueReconciledFactPt(
+    supabase: SupabaseClient,
+    row: ReconcileRow,
+): Promise<boolean> {
+    if (!['donation', 'pilgrimage'].includes(row.kind)) return false;
+
+    const { data, error } = await supabase
+        .from('factpt_settings')
+        .select('auto_issue_reconciled_reduniq')
+        .eq('environment', 'production')
+        .maybeSingle();
+    if (error) {
+        throw new Error(
+            `Falha ao carregar a configuração fiscal da reconciliação: ${error.message}`,
+        );
+    }
+    return data?.auto_issue_reconciled_reduniq === true;
+}
+
 export async function applyConfirmed(supabase: SupabaseClient, res: ReconcileResult): Promise<void> {
     if (res.classification !== 'CONFIRMED_PAID') return;
     const row = res.row;
-    // This marker is persisted before the paid transition. The FACT.pt trigger
-    // copies it into source_snapshot and atomically creates an
-    // awaiting_approval job, which the worker cannot claim.
-    await requireManualFactPtApproval(supabase, row);
+    // Existing explicit review blocks are never cleared here. When automatic
+    // reconciled issuance is disabled (or the source is outside this rollout),
+    // persist the block before the paid transition so the FACT.pt trigger
+    // creates an awaiting_approval job.
+    if (!await canAutoIssueReconciledFactPt(supabase, row)) {
+        await requireManualFactPtApproval(supabase, row);
+    }
     const amountCents = Math.round(row.amount * 100);
     const base: PaymentHandlerContext = {
         supabaseServer: supabase,
@@ -314,6 +336,7 @@ export async function applyConfirmed(supabase: SupabaseClient, res: ReconcileRes
                 donorZip: md.donorZip || null,
                 donorCountry: md.donorCountry || null,
                 receiptRequired: md.receiptRequired ?? false,
+                taxIdRequested: md.taxIdRequested ?? md.receiptRequired ?? false,
                 locale: md.locale || 'pt',
                 reduniq_method: md.reduniq_method || null,
                 reduniqTransactionId: res.gatewayTxId,

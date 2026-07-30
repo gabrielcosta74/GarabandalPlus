@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { supabaseServer } from '../../../../lib/supabase';
 import { createSupabaseServerClient } from '../../../../lib/auth-utils';
 import { toSignedReceiptUrl } from '../../../../lib/receipt-utils';
+import { loadPilgrimageBillingProfile } from '../../../../lib/pilgrimage-billing';
 
 type BookingPaymentRecord = {
     id: string;
@@ -112,6 +113,19 @@ export async function GET(
                 return booking;
             };
 
+            const attachBillingProfile = async (booking: BookingRecord) => {
+                try {
+                    booking.billing_profile = await loadPilgrimageBillingProfile(
+                        supabaseServer!,
+                        booking as BookingRecord & { user_id: string; pilgrims?: Array<Record<string, unknown>> },
+                    );
+                } catch (billingError) {
+                    console.error('[API Booking] Billing profile lookup failed:', billingError);
+                    booking.billing_profile = null;
+                }
+                return booking;
+            };
+
         // MODE 1: Token-based public view (for success page after booking)
         if (token) {
             console.log("🔑 [API] Token-based access attempt");
@@ -167,6 +181,7 @@ export async function GET(
 
             await normalizeBookingPaidAmount(booking);
             await attachFactPtStatus(booking);
+            await attachBillingProfile(booking);
 
             console.log("✅ [API] Booking found with token, returning data");
             return NextResponse.json(booking);
@@ -231,6 +246,7 @@ export async function GET(
 
         await normalizeBookingPaidAmount(booking);
         await attachFactPtStatus(booking);
+        await attachBillingProfile(booking);
 
         return NextResponse.json(booking);
 

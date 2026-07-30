@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic';
 export async function GET(req: Request) {
     if (!supabaseServer) {
         return NextResponse.json({
-            counts: { orders: 0, members: 0, bookings: 0, unreadNotifications: 0 },
+            counts: { orders: 0, members: 0, bookings: 0, factpt: 0, unreadNotifications: 0 },
             notifications: []
         });
     }
@@ -42,7 +42,7 @@ export async function GET(req: Request) {
     } catch (err: any) {
         console.error('Error fetching admin stats:', err);
         return NextResponse.json({
-            counts: { orders: 0, members: 0, bookings: 0, unreadNotifications: 0 },
+            counts: { orders: 0, members: 0, bookings: 0, factpt: 0, unreadNotifications: 0 },
             notifications: []
         });
     }

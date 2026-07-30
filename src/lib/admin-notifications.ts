@@ -2,7 +2,7 @@
 import { supabaseServer } from './supabase';
 
 export async function getAdminCounts() {
-    if (!supabaseServer) return { orders: 0, members: 0, bookings: 0 };
+    if (!supabaseServer) return { orders: 0, members: 0, bookings: 0, factpt: 0 };
 
     try {
         // 1. Orders: Paid AND (Not Shipped OR Not Invoiced)
@@ -13,21 +13,6 @@ export async function getAdminCounts() {
         // Let's do a broad query for "Paid" orders in the last X days or all active "Action Needed"?
         // Fetching "Action Needed" might be heavy if we have 10k orders.
         // Better: Use specific count queries.
-
-        // Count 1: Paid Physical Orders Not Shipped
-        const { count: pendingShip } = await supabaseServer
-            .from('store_orders') // Correct table name
-            .select('*', { count: 'exact', head: true })
-            .eq('status', 'paid')
-            .eq('has_physical', true)
-            .neq('shipping_status', 'enviado');
-
-        // Count 2: Paid Orders No Invoice
-        const { count: pendingInv } = await supabaseServer
-            .from('store_orders') // Correct table name
-            .select('*', { count: 'exact', head: true })
-            .eq('status', 'paid')
-            .is('invoice_sent_at', null);
 
         // Calculate Action Needed Orders (Matching Admin Encomendas Page precisely)
         const { data: ordersData } = await supabaseServer
@@ -74,26 +59,25 @@ export async function getAdminCounts() {
             .select('*', { count: 'exact', head: true })
             .eq('status', 'pending_payment');
 
-        // Let's assume table is 'pilgrimage_bookings' based on context usually.
-        // Safe check: The user has `src/app/api/admin/bookings/operate/[bookingId]/route.ts`.
-        // Let's check that file in next step if unsure.
-        // Actually, let's look for valid table name in previous file logs? 'bookings' was mentioned in my plan but I should verify.
-        // I'll proceed with 'val_pilgrimage_bookings' or similar if I recall correctly, but I'll stick to 'bookings' for now and fix if needed 
-        // or check `getPilgrimagesAction` logic.
-        // Actually, based on `AdminEncomendasPage`, orders table is `orders` (mapped from `store_products`? no orders is `orders` or `store_orders`).
-        // `src/app/admin/encomendas/page.tsx` fetches `/api/admin/orders`.
-        // Let's verify table names effectively?
-        // I will use `store_orders` (typically) and `pilgrimage_bookings`.
+        // 4. FACT.pt: only states that require an explicit admin decision or retry.
+        // Pending/processing documents are handled automatically by the worker and
+        // should not create noisy navigation badges.
+        const { count: pendingFactPt } = await supabaseServer
+            .from('factpt_documents')
+            .select('*', { count: 'exact', head: true })
+            .eq('environment', 'production')
+            .in('status', ['awaiting_approval', 'needs_data', 'failed', 'email_failed']);
 
         return {
             orders: ordersCount || 0,
             members: membersProblem || 0,
-            bookings: pendingBookings || 0
+            bookings: pendingBookings || 0,
+            factpt: pendingFactPt || 0,
         };
 
     } catch (err) {
         console.error("Error calculating admin counts:", err);
-        return { orders: 0, members: 0, bookings: 0 };
+        return { orders: 0, members: 0, bookings: 0, factpt: 0 };
     }
 }
 

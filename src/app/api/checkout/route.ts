@@ -4,13 +4,14 @@ import { z } from 'zod';
 export const runtime = 'nodejs';
 
 import { createCheckoutSession } from '../../../lib/payments';
-import { validatePostalCode } from '../../../lib/country-utils';
 import {
-  donationRequiresFullFiscalData,
-  hasCompleteDonationFiscalData,
   isValidDonationEmail,
-  isValidDonationTaxId,
 } from '../../../lib/donation-fiscal';
+import {
+  fiscalBillingErrorMessage,
+  fiscalBillingMissingFields,
+  normalizeFiscalBilling,
+} from '../../../lib/fiscal-billing';
 import { getAppUrl } from '../../../lib/config';
 import { getMembershipAmountServer } from '../../../lib/membership-pricing';
 import { inferRequestLocale } from '../../../lib/locale-routing';
@@ -63,34 +64,30 @@ export async function POST(request: Request) {
         return NextResponse.json({ message: 'As doações online usam exclusivamente a Reduniq.' }, { status: 400 });
       }
 
-      const requiresFullFiscalData =
-        data.receiptRequired || donationRequiresFullFiscalData(data.amount);
-      if (requiresFullFiscalData && !hasCompleteDonationFiscalData({
+      const billing = normalizeFiscalBilling({
         name: data.donorName,
         email: data.donorEmail,
         address: data.donorAddress,
         city: data.donorCity,
-        zip: data.donorZip,
+        postalCode: data.donorZip,
         country: data.donorCountry,
+        taxIdRequested: data.receiptRequired,
         nif: data.donorNif,
-      })) {
+      });
+      const missingBillingFields = fiscalBillingMissingFields(billing);
+      if (missingBillingFields.length > 0) {
         return NextResponse.json({
-          message: 'Preenche o NIF e a morada fiscal completa para emitir a Fatura-Recibo.',
+          message: fiscalBillingErrorMessage(missingBillingFields, locale === 'en'),
         }, { status: 400 });
       }
-      if (
-        requiresFullFiscalData
-        && !validatePostalCode(data.donorCountry || '', data.donorZip || '')
-      ) {
-        return NextResponse.json({ message: 'Código postal inválido.' }, { status: 400 });
-      }
-      if (
-        requiresFullFiscalData
-        && !isValidDonationTaxId(data.donorNif, data.donorCountry)
-      ) {
-        return NextResponse.json({ message: 'NIF/CPF inválido.' }, { status: 400 });
-      }
-      data.receiptRequired = requiresFullFiscalData;
+      data.donorName = billing.name;
+      data.donorEmail = billing.email;
+      data.donorAddress = billing.address;
+      data.donorCity = billing.city;
+      data.donorZip = billing.postalCode;
+      data.donorCountry = billing.country;
+      data.donorNif = billing.nif;
+      data.receiptRequired = billing.taxIdRequested;
     }
 
     // 2. Create Session (Stripe or Reduniq)

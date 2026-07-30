@@ -202,12 +202,18 @@ export type FactPtFiscalSnapshot = {
    * customer instead of creating a duplicate.
    */
   existingClientId?: string;
+  existingClientMatchReason?:
+    | 'exact_tin'
+    | 'exact_email_and_compatible_name';
 };
 
 export type FactPtDocumentDecision =
   | {
       type: 'invoice_receipt';
-      reason: 'complete_billing_data' | 'pilgrimage_final_consumer';
+      reason:
+        | 'complete_billing_data'
+        | 'pilgrimage_final_consumer'
+        | 'donation_final_consumer';
     }
   | {
       type: 'simplified_invoice';
@@ -218,6 +224,7 @@ export type FactPtDocumentDecision =
       reason:
         | 'missing_email'
         | 'missing_pilgrimage_holder_data'
+        | 'missing_donation_billing_data'
         | 'missing_billing_data_above_simplified_limit'
         | 'invalid_snapshot';
       missingFields?: string[];

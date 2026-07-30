@@ -199,8 +199,13 @@ export async function handleDonationSuccess(ctx: PaymentHandlerContext) {
     const donorCity = customerDetails?.address?.city || normalizeMeta(metadata.donorCity) || null;
     const donorZip = customerDetails?.address?.postal_code || normalizeMeta(metadata.donorZip) || null;
     const donorCountry = customerDetails?.address?.country || normalizeMeta(metadata.donorCountry) || null;
-    const donorNif = normalizeMeta(metadata.donorNif);
     const receiptRequiredMeta = parseBoolMeta(metadata.receiptRequired);
+    const taxIdRequestedMeta =
+        parseBoolMeta(metadata.taxIdRequested)
+        ?? receiptRequiredMeta;
+    const donorNif = taxIdRequestedMeta === false
+        ? null
+        : normalizeMeta(metadata.donorNif);
 
     const matchQuery = externalReference ? { external_reference: externalReference } : { payment_intent_id: paymentReference };
 
@@ -223,10 +228,16 @@ export async function handleDonationSuccess(ctx: PaymentHandlerContext) {
         donorCity: donorCity ?? (existingDonation?.metadata as any)?.donorCity ?? null,
         donorZip: donorZip ?? (existingDonation?.metadata as any)?.donorZip ?? null,
         donorCountry: donorCountry ?? (existingDonation?.metadata as any)?.donorCountry ?? null,
-        donorNif: donorNif ?? (existingDonation?.metadata as any)?.donorNif ?? null,
+        donorNif: taxIdRequestedMeta === false
+            ? null
+            : donorNif ?? (existingDonation?.metadata as any)?.donorNif ?? null,
         donorName: donorName ?? (existingDonation?.metadata as any)?.donorName ?? null,
         donorEmail: donorEmail ?? (existingDonation?.metadata as any)?.donorEmail ?? null,
         receiptRequired: receiptRequiredMeta ?? (existingDonation?.metadata as any)?.receiptRequired ?? null,
+        taxIdRequested:
+            taxIdRequestedMeta
+            ?? (existingDonation?.metadata as any)?.taxIdRequested
+            ?? false,
     };
 
     const succeededDonation = {
@@ -237,10 +248,16 @@ export async function handleDonationSuccess(ctx: PaymentHandlerContext) {
         donor_city: donorCity ?? existingDonation?.donor_city ?? null,
         donor_zip: donorZip ?? existingDonation?.donor_zip ?? null,
         donor_country: donorCountry ?? existingDonation?.donor_country ?? null,
-        donor_nif: donorNif ?? existingDonation?.donor_nif ?? null,
+        donor_nif: taxIdRequestedMeta === false
+            ? null
+            : donorNif ?? existingDonation?.donor_nif ?? null,
         method: dbMethod,
         payment_intent_id: paymentReference,
-        receipt_required: receiptRequiredMeta ?? existingDonation?.receipt_required ?? false,
+        receipt_required:
+            taxIdRequestedMeta
+            ?? receiptRequiredMeta
+            ?? existingDonation?.receipt_required
+            ?? false,
         metadata: mergedMetadata,
     };
 

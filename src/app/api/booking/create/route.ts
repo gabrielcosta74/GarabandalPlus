@@ -16,6 +16,7 @@ import {
     getConfiguredInstallmentDeadline,
     isPaymentPlanWithinDeadline,
 } from '../../../../lib/pilgrimage-installments';
+import { getPrivatePilgrimageTestUserId } from '../../../../lib/pilgrimage-private-test';
 
 async function findAuthUserByEmail(
     adminAuth: NonNullable<typeof supabaseServer>['auth']['admin'],
@@ -132,10 +133,12 @@ export async function POST(req: Request) {
         const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
 
         let existingUser: any = null;
+        let authenticatedUserId: string | null = null;
         if (bearerToken) {
             const { data: authUserData, error: authUserError } = await supabaseServer.auth.getUser(bearerToken);
             if (!authUserError && authUserData?.user?.id) {
                 existingUser = authUserData.user;
+                authenticatedUserId = authUserData.user.id;
                 console.log("✅ [API] Authenticated session user resolved:", existingUser.id);
 
                 const sessionEmail = String(authUserData.user.email || '').trim().toLowerCase();
@@ -184,6 +187,17 @@ export async function POST(req: Request) {
                 userId = newUser.user.id;
                 isNewUser = true;
             }
+        }
+
+        const privateTestUserId = getPrivatePilgrimageTestUserId(pilgrimage);
+        if (
+            privateTestUserId
+            && (
+                authenticatedUserId !== privateTestUserId
+                || userId !== privateTestUserId
+            )
+        ) {
+            return NextResponse.json({ error: 'Pilgrimage not found' }, { status: 404 });
         }
 
         // 1.5. SECURITY: Idempotency Check

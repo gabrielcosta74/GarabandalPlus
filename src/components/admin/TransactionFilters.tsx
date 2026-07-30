@@ -20,6 +20,7 @@ export type TransactionFiltersState = {
     status: 'active' | 'all' | 'paid' | 'pending' | 'failed';
     fiscalStatus:
         | 'all'
+        | 'manual'
         | 'unregistered'
         | 'awaiting_approval'
         | 'pending'
@@ -140,6 +141,7 @@ const NIF_LABELS: Record<TransactionFiltersState['nif'], string> = {
 
 const FISCAL_STATUS_LABELS: Record<TransactionFiltersState['fiscalStatus'], string> = {
     all: 'Todos',
+    manual: 'Emitida manualmente',
     unregistered: 'Sem registo fiscal',
     awaiting_approval: 'Aguarda aprovação',
     pending: 'Por emitir',

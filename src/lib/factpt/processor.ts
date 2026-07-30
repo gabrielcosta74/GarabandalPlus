@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 
@@ -8,8 +8,6 @@ import {
   buildFactPtClientInput,
   calculateFactPtSnapshotTotal,
   decideFactPtDocument,
-  hasCompleteFactPtBillingData,
-  hasCompleteFactPtBillingIdentity,
   normalizeFactPtTin,
   parseFactPtPaymentMethod,
   resolveFactPtTaxId,
@@ -84,6 +82,15 @@ export type FactPtReviewPreview = {
   comments?: string;
   lines: FactPtFiscalLine[];
   preparedAt: string | null;
+  clientResolution: {
+    action: 'reused' | 'created' | 'final_consumer';
+    factptClientId: string | null;
+    matchReason:
+      | 'exact_tin'
+      | 'exact_email_and_compatible_name'
+      | 'new_client'
+      | 'simplified_final_consumer';
+  } | null;
 };
 
 const VALID_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -142,6 +149,7 @@ export function hydrateFactPtFiscalSnapshotFromClient(
   return {
     ...fiscal,
     existingClientId: String(remoteClient.id),
+    existingClientMatchReason: 'exact_email_and_compatible_name',
     customer: {
       name: remoteClient.name.trim(),
       email: remoteClient.email.trim().toLowerCase(),
@@ -153,30 +161,6 @@ export function hydrateFactPtFiscalSnapshotFromClient(
       phone: remoteClient.phone?.trim() || fiscal.customer.phone || null,
     },
   };
-}
-
-async function enrichFiscalFromExistingFactPtClient(
-  fiscal: FactPtFiscalSnapshot,
-  client: FactPtClient,
-): Promise<FactPtFiscalSnapshot> {
-  const shouldSearch =
-    (
-      fiscal.sourceType === 'donation'
-      && !hasCompleteFactPtBillingData(fiscal.customer)
-    )
-    || (
-      fiscal.sourceType === 'pilgrimage'
-      && !hasCompleteFactPtBillingIdentity(fiscal.customer)
-    );
-  if (!shouldSearch) return fiscal;
-
-  const existingClient = await client.findExistingBillingClient({
-    name: fiscal.customer.name,
-    email: fiscal.customer.email,
-  });
-  return existingClient
-    ? hydrateFactPtFiscalSnapshotFromClient(fiscal, existingClient)
-    : fiscal;
 }
 
 export function factPtEmailSourceLabel(fiscal: FactPtFiscalSnapshot): string {
@@ -358,8 +342,6 @@ async function resolveFiscalSnapshot(
       ),
       getFactPtUnitId(job.environment),
     );
-
-  fiscal = await enrichFiscalFromExistingFactPtClient(fiscal, client);
 
   if (!storedSnapshot) {
     const { error } = await db
@@ -543,6 +525,7 @@ function reviewPreview(
   fiscal: FactPtFiscalSnapshot,
   decision: FactPtDocumentDecision,
   preparedAt: string | null,
+  clientResolution: FactPtReviewPreview['clientResolution'],
 ): FactPtReviewPreview {
   return {
     id: job.id,
@@ -568,6 +551,104 @@ function reviewPreview(
         : undefined,
     lines: fiscal.lines,
     preparedAt,
+    clientResolution,
+  };
+}
+
+async function resolveReviewClient(
+  db: SupabaseClient,
+  job: FactPtJob,
+  fiscal: FactPtFiscalSnapshot,
+  decision: FactPtDocumentDecision,
+  client: FactPtClient,
+): Promise<{
+  fiscal: FactPtFiscalSnapshot;
+  resolution: NonNullable<FactPtReviewPreview['clientResolution']>;
+}> {
+  if (decision.type === 'simplified_invoice') {
+    return {
+      fiscal,
+      resolution: {
+        action: 'final_consumer',
+        factptClientId: null,
+        matchReason: 'simplified_final_consumer',
+      },
+    };
+  }
+  if (decision.type !== 'invoice_receipt') {
+    throw new Error('Não é possível resolver o cliente sem um documento válido.');
+  }
+
+  if (fiscal.existingClientId) {
+    return {
+      fiscal,
+      resolution: {
+        action: 'reused',
+        factptClientId: fiscal.existingClientId,
+        matchReason:
+          fiscal.existingClientMatchReason
+          || 'exact_email_and_compatible_name',
+      },
+    };
+  }
+
+  const tin = normalizeFactPtTin(fiscal.customer.nif);
+  let remoteClient: FactPtRemoteClient | null = null;
+  let matchReason:
+    | 'exact_tin'
+    | 'exact_email_and_compatible_name' = 'exact_tin';
+  if (tin) {
+    const uniqueById = new Map<string, FactPtRemoteClient>();
+    (await client.findClientsByTin(tin)).forEach((candidate) => {
+      if (candidate?.id !== undefined && candidate?.id !== null) {
+        uniqueById.set(String(candidate.id), candidate);
+      }
+    });
+    const matches = [...uniqueById.values()];
+    if (matches.length > 1) {
+      throw new Error(
+        'Existem vários clientes FACT.pt com o mesmo NIF; é necessária revisão administrativa.',
+      );
+    }
+    remoteClient = matches[0] || null;
+  } else {
+    matchReason = 'exact_email_and_compatible_name';
+    remoteClient = await client.findExistingFinalConsumerClient(
+      buildFactPtClientInput(fiscal.customer),
+    );
+  }
+
+  if (!remoteClient) {
+    return {
+      fiscal,
+      resolution: {
+        action: 'created',
+        factptClientId: null,
+        matchReason: 'new_client',
+      },
+    };
+  }
+
+  const resolvedFiscal = {
+    ...fiscal,
+    existingClientId: String(remoteClient.id),
+    existingClientMatchReason: matchReason,
+  };
+  const { error } = await db
+    .from('factpt_documents')
+    .update({ fiscal_snapshot: resolvedFiscal })
+    .eq('id', job.id)
+    .in('status', ['awaiting_approval', 'needs_data'])
+    .is('approved_at', null);
+  if (error) throw error;
+
+  return {
+    fiscal: resolvedFiscal,
+    resolution: {
+      action: 'reused',
+      factptClientId: String(remoteClient.id),
+      matchReason,
+    },
   };
 }
 
@@ -602,6 +683,7 @@ async function sendIssuedDocumentEmail(
     type: FactPtDocumentType;
   },
   downloadedPdf?: Uint8Array,
+  emailIdempotencyKey = `factpt-${job.id}`,
 ) {
   const recipient =
     job.environment === 'sandbox'
@@ -626,7 +708,7 @@ async function sendIssuedDocumentEmail(
       content: Buffer.from(pdf),
       contentType: 'application/pdf',
     },
-    idempotencyKey: `factpt-${job.id}`,
+    idempotencyKey: emailIdempotencyKey,
   });
 
   const { error } = await db
@@ -663,6 +745,23 @@ async function updateFailure(
 ) {
   const message = serializeError(error);
   const factError = error instanceof FactPtError ? error : null;
+
+  if (
+    !state.emissionAttempted
+    && /(?:vários clientes|clientes?.*revisão administrativa|cliente.*ambígu)/i.test(message)
+  ) {
+    const { error: updateError } = await db
+      .from('factpt_documents')
+      .update({
+        status: 'awaiting_approval',
+        last_error_code: 'ambiguous_client_match',
+        last_error: message,
+        processing_started_at: null,
+      })
+      .eq('id', job.id);
+    if (updateError) throw updateError;
+    return 'failed';
+  }
 
   if (state.documentPersisted) {
     const emailAttemptCount = Number(job.email_attempt_count || 0) + 1;
@@ -866,7 +965,7 @@ export async function prepareFactPtDocumentForReview(
   }
 
   const client = new FactPtClient(config);
-  const fiscal = await resolveFiscalSnapshot(db, job, client);
+  let fiscal = await resolveFiscalSnapshot(db, job, client);
   const decision = decideFactPtDocument(fiscal);
   if (decision.type === 'needs_data') {
     const { error: updateError } = await db
@@ -881,9 +980,17 @@ export async function prepareFactPtDocumentForReview(
       })
       .eq('id', job.id);
     if (updateError) throw updateError;
-    return reviewPreview(job, fiscal, decision, null);
+    return reviewPreview(job, fiscal, decision, null, null);
   }
 
+  const clientReview = await resolveReviewClient(
+    db,
+    job,
+    fiscal,
+    decision,
+    client,
+  );
+  fiscal = clientReview.fiscal;
   const preparedAt = new Date().toISOString();
   const { error: updateError } = await db
     .from('factpt_documents')
@@ -900,7 +1007,13 @@ export async function prepareFactPtDocumentForReview(
     })
     .eq('id', job.id);
   if (updateError) throw updateError;
-  return reviewPreview(job, fiscal, decision, preparedAt);
+  return reviewPreview(
+    job,
+    fiscal,
+    decision,
+    preparedAt,
+    clientReview.resolution,
+  );
 }
 
 export async function approveFactPtDocument(
@@ -1080,12 +1193,20 @@ export async function resendFactPtDocument(
     getFactPtConfig(job.source_type, job.environment),
   );
   try {
-    await sendIssuedDocumentEmail(db, job, job.fiscal_snapshot, client, {
-      id: job.factpt_document_id,
-      number: job.factpt_number,
-      permanentUrl: job.permanent_url,
-      type: job.document_type || 'invoice_receipt',
-    });
+    await sendIssuedDocumentEmail(
+      db,
+      job,
+      job.fiscal_snapshot,
+      client,
+      {
+        id: job.factpt_document_id,
+        number: job.factpt_number,
+        permanentUrl: job.permanent_url,
+        type: job.document_type || 'invoice_receipt',
+      },
+      undefined,
+      `factpt-${job.id}-manual-${randomUUID()}`,
+    );
   } catch (emailError) {
     await db
       .from('factpt_documents')

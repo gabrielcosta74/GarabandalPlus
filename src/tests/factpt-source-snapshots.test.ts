@@ -332,6 +332,85 @@ describe('FACT.pt pilgrimage ownership', () => {
     expect(snapshot.customer.name).toBe('Titular sem dados fiscais');
   });
 
+  it('prefers the immutable payment billing snapshot and honours Final Consumer', async () => {
+    const tableRows: Record<string, unknown> = {
+      pilgrimage_payments: {
+        id: 'payment-snapshot',
+        booking_id: 'booking-snapshot',
+        amount: 10,
+        method: 'reduniq_card',
+        verified_at: '2026-07-30T10:00:00.000Z',
+        billing_name: 'Titular Congelado',
+        billing_email: 'snapshot@example.test',
+        billing_address: 'Rua Snapshot, 10',
+        billing_postal_code: '4000-010',
+        billing_city: 'Porto',
+        billing_country: 'PT',
+        billing_nif: null,
+        billing_tax_id_requested: false,
+      },
+      bookings: {
+        id: 'booking-snapshot',
+        user_id: 'holder-snapshot',
+        notes: '',
+        pilgrimages: { title: 'Peregrinação', start_date: '2026-11-01' },
+      },
+      membros: {
+        id: 'holder-snapshot',
+        nome: 'Nome Atual Alterado',
+        email: 'current@example.test',
+        nif: '256396078',
+        address: 'Morada Atual',
+        postal_code: '1000-001',
+        city: 'Lisboa',
+        country: 'PT',
+        telefone: null,
+      },
+      pilgrims: [],
+    };
+    const db = {
+      from(table: string) {
+        const builder = {
+          select() { return builder; },
+          eq() { return builder; },
+          async maybeSingle() {
+            return { data: tableRows[table] ?? null, error: null };
+          },
+          async order() {
+            return { data: tableRows[table] ?? [], error: null };
+          },
+        };
+        return builder;
+      },
+      auth: {
+        admin: {
+          async getUserById() {
+            return {
+              data: { user: { email: 'current@example.test' } },
+              error: null,
+            };
+          },
+        },
+      },
+    };
+
+    const snapshot = await loadFactPtSourceSnapshot(
+      db as never,
+      'pilgrimage',
+      'payment-snapshot',
+    );
+
+    expect(snapshot.customer).toMatchObject({
+      name: 'Titular Congelado',
+      email: 'snapshot@example.test',
+      nif: null,
+      address: 'Rua Snapshot, 10',
+      zip: '4000-010',
+      city: 'Porto',
+      country: 'PT',
+    });
+  });
+
   it('removes the private pilot marker from the fiscal description', async () => {
     const rows: Record<string, unknown> = {
       pilgrimage_payments: {

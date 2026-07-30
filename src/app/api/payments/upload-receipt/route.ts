@@ -1,7 +1,16 @@
 import { NextResponse } from 'next/server';
 import { supabaseServer } from '../../../../lib/supabase';
-import { requireAuth, verifyBookingOwnership } from '../../../../lib/auth-utils';
+import { requireAuth } from '../../../../lib/auth-utils';
 import { getSignedUrl } from '../../../../lib/receipt-utils';
+import {
+    fiscalBillingErrorMessage,
+    fiscalBillingMissingFields,
+    normalizeFiscalBilling,
+} from '../../../../lib/fiscal-billing';
+import {
+    pilgrimageBillingSnapshot,
+    savePilgrimageBillingProfile,
+} from '../../../../lib/pilgrimage-billing';
 
 /**
  * POST /api/payments/upload-receipt
@@ -27,6 +36,9 @@ export async function POST(req: Request) {
     try {
         const body = await req.json();
         const { bookingId, fileData, fileName, fileType, installmentLabel, installmentAmount, token } = body;
+        const billingInput = body?.billing && typeof body.billing === 'object'
+            ? body.billing
+            : body;
         const parsedAmount = typeof installmentAmount === 'number' ? installmentAmount : Number(installmentAmount);
         const hasAmount = Number.isFinite(parsedAmount) && parsedAmount > 0;
 
@@ -37,19 +49,27 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: "Missing data" }, { status: 400 });
         }
 
+        const { data: booking, error: bookingError } = await supabaseServer
+            .from('bookings')
+            .select(`
+                id,
+                user_id,
+                view_token,
+                pilgrims(id, full_name, email, address, postal_code, city, country, cpf_nif, created_at)
+            `)
+            .eq('id', bookingId)
+            .single();
+
+        if (bookingError || !booking) {
+            return NextResponse.json({ error: 'Reserva não encontrada.' }, { status: 404 });
+        }
+
         let userId: string;
 
         // SECURITY: Two authentication modes
         if (token) {
             // MODE 1: Token-based authentication (for users accessing via URL token)
-            const { data: booking, error } = await supabaseServer
-                .from('bookings')
-                .select('user_id')
-                .eq('id', bookingId)
-                .eq('view_token', token)
-                .single();
-
-            if (error || !booking) {
+            if (booking.view_token !== token) {
                 console.error(`❌ [API Upload] Invalid token for booking ${bookingId}`);
                 return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
             }
@@ -58,17 +78,30 @@ export async function POST(req: Request) {
             console.log(`✅ [API Upload] Token validated for user ${userId}`);
         } else {
             // MODE 2: Session-based authentication (for logged in users)
-            const { user, supabase } = await requireAuth();
+            const { user } = await requireAuth();
 
-            // Verify booking ownership
-            const ownsBooking = await verifyBookingOwnership(supabase, bookingId, user.id);
-            if (!ownsBooking) {
+            if (booking.user_id !== user.id) {
                 console.error(`❌ [API Upload] User ${user.id} does not own booking ${bookingId}`);
                 return NextResponse.json({ error: "Forbidden" }, { status: 403 });
             }
 
             userId = user.id;
         }
+
+        const billing = normalizeFiscalBilling(billingInput);
+        const missingBillingFields = fiscalBillingMissingFields(billing);
+        if (missingBillingFields.length > 0) {
+            return NextResponse.json(
+                {
+                    error: fiscalBillingErrorMessage(missingBillingFields),
+                    fields: missingBillingFields,
+                },
+                { status: 400 },
+            );
+        }
+
+        await savePilgrimageBillingProfile(supabaseServer, booking, billing);
+        const billingSnapshot = pilgrimageBillingSnapshot(billing);
 
         // 1. Convert base64 to Buffer
         const buffer = Buffer.from(fileData, 'base64');
@@ -109,6 +142,7 @@ export async function POST(req: Request) {
             .select('id')
             .eq('booking_id', bookingId)
             .eq('user_id', userId) // SECURITY: Double-check user ownership
+            .eq('method', 'bank_transfer')
             .in('status', ['pending', 'pending_verification'])
             .order('created_at', { ascending: false })
             .limit(1)
@@ -119,7 +153,8 @@ export async function POST(req: Request) {
                 receipt_url: filePath,
                 status: 'verifying',
                 verified_at: new Date().toISOString(),
-                notes: `Comprovativo enviado: ${installmentLabel || 'Pagamento Inscrição'}`
+                notes: `Comprovativo enviado: ${installmentLabel || 'Pagamento Inscrição'}`,
+                ...billingSnapshot,
             };
 
             if (hasAmount) {
@@ -146,7 +181,8 @@ export async function POST(req: Request) {
                     status: 'verifying',
                     receipt_url: filePath,
                     created_at: new Date().toISOString(),
-                    notes: `Novo Comprovativo (Sem registo prévio): ${installmentLabel || 'Pagamento'}`
+                    notes: `Novo Comprovativo (Sem registo prévio): ${installmentLabel || 'Pagamento'}`,
+                    ...billingSnapshot,
                 });
 
             if (insertError) {

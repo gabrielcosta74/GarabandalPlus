@@ -250,21 +250,7 @@ function clientNamesAreCompatible(localName: string, remoteName: string): boolea
 function clientEmailsAreCompatible(localEmail: string, remoteEmail: string): boolean {
   const local = normalizedClientEmail(localEmail);
   const remote = normalizedClientEmail(remoteEmail);
-  if (!local || !remote) return false;
-  if (local === remote) return true;
-
-  const [localPart, localDomain] = local.split('@');
-  const [remotePart, remoteDomain] = remote.split('@');
-  if (localPart !== remotePart) return false;
-
-  // Accept only a single trailing-character typo in the domain. This covers
-  // cases such as ".brf" versus ".br" without fuzzy-matching unrelated
-  // addresses.
-  const longer = localDomain.length > remoteDomain.length
-    ? localDomain
-    : remoteDomain;
-  const shorter = longer === localDomain ? remoteDomain : localDomain;
-  return longer.length === shorter.length + 1 && longer.startsWith(shorter);
+  return Boolean(local && remote && local === remote);
 }
 
 function hasCompleteRemoteBillingIdentity(client: FactPtRemoteClient): boolean {
@@ -354,7 +340,8 @@ function isSameFinalConsumerIdentity(
 ): boolean {
   return Boolean(
     client.isFinalConsumer
-      && normalizedClientText(client.name) === normalizedClientText(input.name)
+      && normalizedClientEmail(client.email) === normalizedClientEmail(input.email)
+      && clientNamesAreCompatible(input.name, client.name || '')
       && normalizedClientText(client.country) === normalizedClientText(input.country),
   );
 }
@@ -502,6 +489,29 @@ export class FactPtClient {
     return selectExistingFactPtBillingClient(results, identity);
   }
 
+  async findExistingFinalConsumerClient(
+    input: FactPtClientCreateInput,
+  ): Promise<FactPtRemoteClient | null> {
+    if (!input.finalConsumer) return null;
+    const uniqueById = new Map<string, FactPtRemoteClient>();
+    (await this.findClients(input.email)).forEach((candidate) => {
+      if (
+        candidate?.id !== undefined
+        && candidate?.id !== null
+        && isSameFinalConsumerIdentity(candidate, input)
+      ) {
+        uniqueById.set(String(candidate.id), candidate);
+      }
+    });
+    const compatible = [...uniqueById.values()];
+    if (compatible.length > 1) {
+      throw new Error(
+        'Existem vários clientes Consumidor Final com o mesmo email; é necessária revisão administrativa.',
+      );
+    }
+    return compatible[0] || null;
+  }
+
   async createClient(input: FactPtClientCreateInput): Promise<FactPtCreatedResource> {
     const normalizedTin = input.tin?.replace(/[\s.-]/g, '') || '';
     if (!input.finalConsumer && !/^\d{5,15}$/.test(normalizedTin)) {
@@ -567,16 +577,24 @@ export class FactPtClient {
   }> {
     if (input.finalConsumer) {
       const byEmail = await this.findClients(input.email);
-      const exactClient = byEmail.find((candidate) =>
-        isSameFinalConsumerClient(candidate, input),
-      );
-      if (exactClient) {
-        return { client: exactClient, created: false, updated: false };
-      }
-
       const byName = await this.findClients(input.name);
-      const existingClient = [...byEmail, ...byName].find((candidate) =>
-        isSameFinalConsumerIdentity(candidate, input));
+      const compatibleById = new Map<string, FactPtRemoteClient>();
+      [...byEmail, ...byName].forEach((candidate) => {
+        if (
+          candidate?.id !== undefined
+          && candidate?.id !== null
+          && isSameFinalConsumerIdentity(candidate, input)
+        ) {
+          compatibleById.set(String(candidate.id), candidate);
+        }
+      });
+      const compatibleClients = [...compatibleById.values()];
+      if (compatibleClients.length > 1) {
+        throw new Error(
+          'Existem vários clientes Consumidor Final com o mesmo email; é necessária revisão administrativa.',
+        );
+      }
+      const existingClient = compatibleClients[0];
       if (existingClient) {
         if (finalConsumerNeedsUpdate(existingClient, input)) {
           await this.updateClient(existingClient.id, input);

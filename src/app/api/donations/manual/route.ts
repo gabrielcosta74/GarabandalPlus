@@ -1,12 +1,13 @@
 import { NextResponse } from 'next/server';
 import { supabaseServer } from '../../../../lib/supabase';
-import { validatePostalCode } from '../../../../lib/country-utils';
 import {
-    donationRequiresFullFiscalData,
-    hasCompleteDonationFiscalData,
     isValidDonationEmail,
-    isValidDonationTaxId,
 } from '../../../../lib/donation-fiscal';
+import {
+    fiscalBillingErrorMessage,
+    fiscalBillingMissingFields,
+    normalizeFiscalBilling,
+} from '../../../../lib/fiscal-billing';
 
 export async function POST(request: Request) {
     try {
@@ -37,36 +38,25 @@ export async function POST(request: Request) {
             return NextResponse.json({ message: "O comprovativo da transferência é obrigatório" }, { status: 400 });
         }
 
-        const requiresFullFiscalData =
-            Boolean(receiptRequired) || donationRequiresFullFiscalData(normalizedAmount);
-        if (requiresFullFiscalData && !hasCompleteDonationFiscalData({
+        const billing = normalizeFiscalBilling({
             name: donorName,
             email: donorEmail,
             address: donorAddress,
             city: donorCity,
-            zip: donorZip,
+            postalCode: donorZip,
             country: donorCountry,
+            taxIdRequested: Boolean(receiptRequired),
             nif: donorNif,
-        })) {
+        });
+        const missingBillingFields = fiscalBillingMissingFields(billing);
+        if (missingBillingFields.length > 0) {
             return NextResponse.json({
-                message: "Preenche o NIF e a morada fiscal completa para emitir a Fatura-Recibo",
+                message: fiscalBillingErrorMessage(missingBillingFields),
             }, { status: 400 });
         }
-        if (
-            requiresFullFiscalData
-            && !validatePostalCode(donorCountry || '', donorZip || '')
-        ) {
-            return NextResponse.json({ message: "Código postal inválido" }, { status: 400 });
-        }
-        if (
-            requiresFullFiscalData
-            && !isValidDonationTaxId(donorNif, donorCountry)
-        ) {
-            return NextResponse.json({ message: "NIF/CPF inválido" }, { status: 400 });
-        }
 
-        const finalName = donorName.trim();
-        const finalEmail = donorEmail.trim().toLowerCase();
+        const finalName = billing.name;
+        const finalEmail = billing.email;
 
         if (!supabaseServer) {
             throw new Error("Supabase não configurado");
@@ -81,17 +71,18 @@ export async function POST(request: Request) {
                 status: 'pending_verification',
                 donor_name: finalName,
                 donor_email: finalEmail,
-                donor_address: donorAddress || null,
-                donor_city: donorCity || null,
-                donor_zip: donorZip || null,
-                donor_country: donorCountry || null,
-                donor_nif: donorNif ? String(donorNif).replace(/\D/g, '') : null,
+                donor_address: billing.address,
+                donor_city: billing.city,
+                donor_zip: billing.postalCode,
+                donor_country: billing.country,
+                donor_nif: billing.nif,
                 description: 'Doação - Associação do Apostolado de Garabandal',
                 proof_url: proofUrl || null,
-                receipt_required: requiresFullFiscalData,
+                receipt_required: billing.taxIdRequested,
                 metadata: {
                     provider: 'bank_transfer',
                     donorMessage: donorMessage?.trim() || null,
+                    taxIdRequested: billing.taxIdRequested,
                 },
             })
             .select()

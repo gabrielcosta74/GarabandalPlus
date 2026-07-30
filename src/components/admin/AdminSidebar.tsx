@@ -35,6 +35,7 @@ import {
     Activity,
     Search,
     Star,
+    ReceiptText,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAdminNotifications } from '../../context/AdminNotificationContext';
@@ -82,6 +83,7 @@ export default function AdminSidebar({ onLogout, className, collapsed = false }:
                 { label: 'Voluntariado em Garabandal', icon: HeartHandshake, href: '/admin/membros/voluntariado' },
                 { label: 'Loja & Stock', icon: ShoppingBag, href: '/admin/loja' },
                 { label: 'Transações', icon: CreditCard, href: '/admin/transacoes' },
+                { label: 'Faturação', icon: ReceiptText, href: '/admin/faturacao', badge: counts.factpt },
             ]
         },
         {

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 
 import { verifyAdmin } from '../../../../../../../lib/admin-auth';
+import { logAdminAudit } from '../../../../../../../lib/admin-audit';
 import { approveFactPtDocument } from '../../../../../../../lib/factpt/processor';
 
 export const dynamic = 'force-dynamic';
@@ -26,6 +27,15 @@ export async function POST(
       String(user.id),
       body?.confirmProduction === true,
     );
+    await logAdminAudit({
+      adminEmail: user.email,
+      action: 'factpt_document_approved',
+      details: {
+        documentId: id,
+        status: document.status,
+        productionConfirmed: body?.confirmProduction === true,
+      },
+    });
     return NextResponse.json({
       ok: true,
       document,

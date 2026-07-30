@@ -32,6 +32,17 @@ type FactptDocumentRow = FactptDocumentSummary & {
     source_id: string;
 };
 
+type ProductionFactPtSettings = {
+    auto_enabled: boolean;
+    require_approval: boolean;
+    pilot_private_only: boolean;
+    production_pilgrimages_only: boolean;
+    production_donations_enabled: boolean;
+    go_live_at: string | null;
+    donations_go_live_at: string | null;
+    historical_manual_cutoff_at: string | null;
+};
+
 const normalizeFiscalSource = (sourceType: unknown, sourceTable?: unknown): string => {
     const table = String(sourceTable || '').toLowerCase();
     const sourceByTable: Record<string, string> = {
@@ -103,15 +114,7 @@ export async function GET(req: Request) {
         // during deployment even if the API instance sees the application before that migration.
         const fiscalDocumentsBySource = new Map<string, FactptDocumentSummary>();
         let factptAvailable = true;
-        let productionSettings: {
-            auto_enabled: boolean;
-            require_approval: boolean;
-            pilot_private_only: boolean;
-            production_pilgrimages_only: boolean;
-            production_donations_enabled: boolean;
-            go_live_at: string | null;
-            donations_go_live_at: string | null;
-        } | null = null;
+        let productionSettings: ProductionFactPtSettings | null = null;
         const fiscalSourceIds = Array.from(new Set([
             ...(donations || []).map(row => row.id),
             ...(orders || []).map(row => row.id),
@@ -145,10 +148,11 @@ export async function GET(req: Request) {
         } else {
             const { data: settings } = await supabaseServer
                 .from('factpt_settings')
-                .select('auto_enabled, require_approval, pilot_private_only, production_pilgrimages_only, production_donations_enabled, go_live_at, donations_go_live_at')
+                .select('*')
                 .eq('environment', 'production')
                 .maybeSingle();
-            productionSettings = settings;
+            productionSettings =
+                settings as unknown as ProductionFactPtSettings | null;
             const sortedFiscalDocuments = [...(fiscalDocuments || [])].sort(
                 (left: FactptDocumentRow, right: FactptDocumentRow) =>
                     Number(left.environment === 'production')
@@ -523,6 +527,21 @@ export async function GET(req: Request) {
 
         transactions.forEach(transaction => {
             transaction.factpt_document = fiscalDocumentsBySource.get(`${transaction.category}:${transaction.id}`) || null;
+            const historicalCutoff = productionSettings?.historical_manual_cutoff_at
+                ? new Date(productionSettings.historical_manual_cutoff_at).getTime()
+                : Number.NaN;
+            const transactionTime = new Date(transaction.created_at).getTime();
+            const normalizedStatus = String(transaction.status || '').toLowerCase();
+            const confirmed = ['paid', 'pago', 'verified', 'succeeded', 'manual'].includes(normalizedStatus);
+            const beforeAutomaticCutoff =
+                Number.isFinite(historicalCutoff)
+                && Number.isFinite(transactionTime)
+                && transactionTime < historicalCutoff;
+            transaction.manual_fiscal_record = Boolean(
+                !transaction.factpt_document
+                && confirmed
+                && (beforeAutomaticCutoff || transaction.date_is_approximate === true)
+            );
             // Kept only as historical context. It is no longer an editable or authoritative
             // fiscal state for the unified transactions admin.
             transaction.legacy_invoice_sent_at = transaction.invoice_sent_at || null;

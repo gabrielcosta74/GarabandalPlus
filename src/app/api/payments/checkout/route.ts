@@ -11,6 +11,15 @@ import {
 } from '../../../../lib/pilgrimage-reduniq-fees';
 import { createSupabaseServerClient } from '../../../../lib/auth-utils';
 import { getPrivatePilgrimageTestUserId } from '../../../../lib/pilgrimage-private-test';
+import {
+    fiscalBillingErrorMessage,
+    fiscalBillingMissingFields,
+    normalizeFiscalBilling,
+} from '../../../../lib/fiscal-billing';
+import {
+    pilgrimageBillingSnapshot,
+    savePilgrimageBillingProfile,
+} from '../../../../lib/pilgrimage-billing';
 
 const normalizeRedirectUrl = (candidate: string, baseOrigin: string): string => {
     const raw = String(candidate || '').trim();
@@ -91,6 +100,10 @@ export async function POST(req: Request) {
 
         const body = await req.json();
         const bookingId = typeof body?.bookingId === 'string' ? body.bookingId : null;
+        const viewToken = typeof body?.viewToken === 'string' ? body.viewToken : null;
+        const billingInput = body?.billing && typeof body.billing === 'object'
+            ? body.billing
+            : body;
         const priceType = body?.priceType === 'deposit' ? 'deposit' : 'full';
         const provider = body?.provider === 'reduniq' ? 'reduniq' : null;
         const paymentOptionId = [
@@ -124,24 +137,26 @@ export async function POST(req: Request) {
             .select(`
                 *,
                 pilgrimage:pilgrimages(title, deposit_value, pricing_config),
+                pilgrims(id, full_name, email, address, postal_code, city, country, cpf_nif, created_at),
                 payments:pilgrimage_payments(amount, status, deleted)
             `)
             .eq('id', bookingId)
             .single();
 
-        console.log("DEBUG bookingError:", bookingError);
-        if (bookingError) {
-            require('fs').writeFileSync('/tmp/booking-error.txt', JSON.stringify(bookingError));
-        }
-
         if (bookingError || !booking) {
             return NextResponse.json({ error: "Reserva não encontrada" }, { status: 404 });
         }
 
+        const sessionClient = await createSupabaseServerClient();
+        const { data: { user } } = await sessionClient.auth.getUser();
+        const ownsBooking = user?.id === booking.user_id;
+        const hasValidViewToken = Boolean(viewToken && booking.view_token === viewToken);
+        if (!ownsBooking && !hasValidViewToken) {
+            return NextResponse.json({ error: 'Reserva não encontrada' }, { status: 404 });
+        }
+
         const privateTestUserId = getPrivatePilgrimageTestUserId(booking.pilgrimage);
         if (privateTestUserId) {
-            const sessionClient = await createSupabaseServerClient();
-            const { data: { user } } = await sessionClient.auth.getUser();
             if (
                 !user
                 || user.id !== privateTestUserId
@@ -152,6 +167,18 @@ export async function POST(req: Request) {
                     { status: 404 },
                 );
             }
+        }
+
+        const billing = normalizeFiscalBilling(billingInput);
+        const missingBillingFields = fiscalBillingMissingFields(billing);
+        if (missingBillingFields.length > 0) {
+            return NextResponse.json(
+                {
+                    error: fiscalBillingErrorMessage(missingBillingFields, locale === 'en'),
+                    fields: missingBillingFields,
+                },
+                { status: 400 },
+            );
         }
 
         // 2. Determine Amount
@@ -236,8 +263,11 @@ export async function POST(req: Request) {
                 totalRemaining,
                 orderRefPreview: orderRef,
                 notesPreview: `${feeNote} | Tipo: ${paymentKind}`,
+                billingPreview: billing,
             });
         }
+
+        await savePilgrimageBillingProfile(supabaseAdmin, booking, billing);
 
         let initResult: any = null;
         let selectedOrigin = fallbackOrigin;
@@ -295,12 +325,14 @@ export async function POST(req: Request) {
                 user_id: booking.user_id,
                 amount: safeAmountToPay,
                 processing_fee_amount: charge.feeAmount,
+                charged_amount: chargedAmount,
                 method: paymentOptionId,
                 status: 'pending',
                 payment_intent_id: initResult.token || initResult.transactionId || orderRef,
                 external_reference: orderRef,
                 created_at: nowIso,
                 notes: `${feeNote} | Tipo: ${paymentKind}`,
+                ...pilgrimageBillingSnapshot(billing),
             });
 
         if (pendingPaymentError) {

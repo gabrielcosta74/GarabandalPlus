@@ -20,7 +20,6 @@ import {
 } from '../../lib/bank-transfer-details';
 import { useLocale } from '../../contexts/LocaleContext';
 import { captureAnalyticsEvent } from '../../lib/analytics';
-import { donationRequiresFullFiscalData } from '../../lib/donation-fiscal';
 
 const impactOptions = [
     { value: 25, label: "Argamassas", impact: "Sacos de cimento para sanear paredes", icon: BrickWall },
@@ -88,8 +87,7 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
         }
         return selectedPreset;
     }, [customAmount, selectedPreset]);
-    const requiresFullFiscalData =
-        receiptRequired || donationRequiresFullFiscalData(amount);
+    const taxIdRequested = receiptRequired;
 
     const countryOptions = useMemo(() => listCountryOptions(isEn ? 'en' : 'pt-PT'), [isEn]);
     const selectedCountryMeta = useMemo(() => resolveCountryMeta(formData.pais), [formData.pais]);
@@ -265,7 +263,7 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
         captureAnalyticsEvent('donation_payment_submitted', {
             amount,
             payment_provider: 'bank_transfer',
-            receipt_requested: requiresFullFiscalData,
+            receipt_requested: taxIdRequested,
             locale,
         });
         try {
@@ -283,7 +281,7 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
                     donorNif: formData.nif,
                     donorMessage: formData.mensagem,
                     proofUrl,
-                    receiptRequired: requiresFullFiscalData
+                    receiptRequired: taxIdRequested
                 })
             });
 
@@ -296,7 +294,7 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
             captureAnalyticsEvent('donation_manual_registered', {
                 amount,
                 payment_provider: 'bank_transfer',
-                receipt_requested: requiresFullFiscalData,
+                receipt_requested: taxIdRequested,
                 locale,
             });
         } catch (err: unknown) {
@@ -329,19 +327,22 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
                 return;
             }
 
-            if (requiresFullFiscalData) {
-                if (
-                    !formData.morada.trim()
-                    || !formData.cidade.trim()
-                    || !formData.codigoPostal.trim()
-                    || !formData.pais
-                    || !formData.nif.trim()
-                ) {
-                    setError(isEn ? 'Full address is required for the receipt.' : "Endereço completo é necessário para o recibo fiscal.");
-                    return;
-                }
-                if (formData.codigoPostal && !validatePostalCode(formData.pais, formData.codigoPostal)) {
-                    setError(getPostalInvalidMessage(formData.pais, isEn ? 'en' : 'pt-PT'));
+            if (
+                !formData.morada.trim()
+                || !formData.cidade.trim()
+                || !formData.codigoPostal.trim()
+                || !formData.pais
+            ) {
+                setError(isEn ? 'Complete the billing address.' : 'Preenche a morada de faturação completa.');
+                return;
+            }
+            if (!validatePostalCode(formData.pais, formData.codigoPostal)) {
+                setError(getPostalInvalidMessage(formData.pais, isEn ? 'en' : 'pt-PT'));
+                return;
+            }
+            if (taxIdRequested) {
+                if (!formData.nif.trim()) {
+                    setError(isEn ? `Enter your ${nifLabel}.` : `Introduz o teu ${nifLabel}.`);
                     return;
                 }
                 const nifClean = formData.nif.replace(/\D/g, '');
@@ -368,7 +369,7 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
             amount,
             payment_provider: chosenProvider,
             payment_method: selectedPaymentId,
-            receipt_requested: requiresFullFiscalData,
+            receipt_requested: taxIdRequested,
             locale,
         });
         try {
@@ -384,13 +385,13 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
                     paymentOptionId: selectedPaymentId,
                     donorName: formData.nome,
                     donorEmail: formData.email,
-                    donorAddress: requiresFullFiscalData ? formData.morada : null,
-                    donorCity: requiresFullFiscalData ? formData.cidade : null,
-                    donorZip: requiresFullFiscalData ? formData.codigoPostal : null,
+                    donorAddress: formData.morada,
+                    donorCity: formData.cidade,
+                    donorZip: formData.codigoPostal,
                     donorCountry: formData.pais || undefined,
-                    donorNif: requiresFullFiscalData ? formData.nif.replace(/\D/g, '') : null,
+                    donorNif: taxIdRequested ? formData.nif.replace(/\D/g, '') : null,
                     donorMessage: formData.mensagem || null,
-                    receiptRequired: requiresFullFiscalData,
+                    receiptRequired: taxIdRequested,
                 }),
             });
 
@@ -406,7 +407,7 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
                 amount,
                 payment_provider: chosenProvider,
                 payment_method: selectedPaymentId,
-                receipt_requested: requiresFullFiscalData,
+                receipt_requested: taxIdRequested,
                 locale,
             });
 
@@ -562,23 +563,22 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
                                         <div className="bg-garabandal-gold/5 border border-garabandal-gold/20 rounded-2xl p-4 flex items-center justify-between">
                                             <div>
                                                 <p className="text-sm font-bold text-garabandal-dark">
-                                                    {isEn ? 'Add tax details to the invoice' : 'Adicionar NIF e dados fiscais à fatura'}
+                                                    {isEn ? 'Include tax number on the invoice' : 'Incluir NIF/CPF na fatura'}
                                                 </p>
                                                 <p className="text-xs text-gray-500">
-                                                    {donationRequiresFullFiscalData(amount)
-                                                        ? (isEn ? 'Required for donations over €100.' : 'Obrigatório para donativos superiores a 100 €.')
-                                                        : (isEn ? 'The official invoice is always sent by email.' : 'A fatura oficial é sempre enviada por email.')}
+                                                    {isEn
+                                                        ? 'Optional. Without it, the invoice is issued to Final Consumer.'
+                                                        : 'Opcional. Sem NIF/CPF, a fatura é emitida a Consumidor final.'}
                                                 </p>
                                             </div>
                                             <button
                                                 type="button"
                                                 onClick={() => setReceiptRequired(!receiptRequired)}
-                                                disabled={donationRequiresFullFiscalData(amount)}
-                                                aria-pressed={requiresFullFiscalData}
-                                                aria-label={isEn ? 'Add tax details to the invoice' : 'Adicionar NIF e dados fiscais à fatura'}
-                                                className={`w-14 h-7 rounded-full transition-all relative disabled:cursor-not-allowed ${requiresFullFiscalData ? 'bg-garabandal-gold' : 'bg-gray-200'}`}
+                                                aria-pressed={taxIdRequested}
+                                                aria-label={isEn ? 'Include tax number on the invoice' : 'Incluir NIF/CPF na fatura'}
+                                                className={`w-14 h-7 rounded-full transition-all relative ${taxIdRequested ? 'bg-garabandal-gold' : 'bg-gray-200'}`}
                                             >
-                                                <div className={`absolute top-1 w-5 h-5 bg-white rounded-full transition-all ${requiresFullFiscalData ? 'left-8' : 'left-1'}`} />
+                                                <div className={`absolute top-1 w-5 h-5 bg-white rounded-full transition-all ${taxIdRequested ? 'left-8' : 'left-1'}`} />
                                             </button>
                                         </div>
 
@@ -605,30 +605,28 @@ export default function DonationModal({ isOpen, onClose }: DonationModalProps) {
                                                 </select>
                                             </div>
 
-                                            {requiresFullFiscalData && (
-                                                <>
-                                                    <div className="space-y-2 animate-in fade-in slide-in-from-top-2">
-                                                        <label className="text-sm font-medium text-gray-700">{isEn ? 'Postal Code / ZIP' : 'Código Postal / CEP'}</label>
-                                                        <input value={formData.codigoPostal} onChange={e => setFormData({ ...formData, codigoPostal: formatPostalCode(e.target.value, formData.pais) })}
-                                                            inputMode={getPostalInputMode(formData.pais)} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none" placeholder={postalPlaceholder} />
-                                                    </div>
+                                            <div className="space-y-2">
+                                                <label className="text-sm font-medium text-gray-700">{isEn ? 'Postal Code / ZIP' : 'Código Postal / CEP'}</label>
+                                                <input value={formData.codigoPostal} onChange={e => setFormData({ ...formData, codigoPostal: formatPostalCode(e.target.value, formData.pais) })}
+                                                    inputMode={getPostalInputMode(formData.pais)} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none" placeholder={postalPlaceholder} />
+                                            </div>
+                                            {taxIdRequested && (
                                                     <div className="space-y-2 animate-in fade-in slide-in-from-top-2">
                                                         <label className="text-sm font-medium text-gray-700">{nifLabel}</label>
                                                         <input value={formData.nif} onChange={e => setFormData({ ...formData, nif: e.target.value })}
                                                             className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none" placeholder={isEn ? `Your ${nifLabel}` : 'Teu NIF/CPF'} />
                                                     </div>
-                                                    <div className="col-span-1 md:col-span-2 space-y-2 animate-in fade-in slide-in-from-top-2">
-                                                        <label className="text-sm font-medium text-gray-700">{isEn ? 'Address' : 'Morada'}</label>
-                                                        <input value={formData.morada} onChange={e => setFormData({ ...formData, morada: e.target.value })}
-                                                            className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none" placeholder={isEn ? 'Street, number, floor' : 'Rua, número, andar'} />
-                                                    </div>
-                                                    <div className="col-span-1 md:col-span-2 space-y-2 animate-in fade-in slide-in-from-top-2">
-                                                        <label className="text-sm font-medium text-gray-700">{isEn ? 'City' : 'Cidade'}</label>
-                                                        <input value={formData.cidade} onChange={e => setFormData({ ...formData, cidade: e.target.value })}
-                                                            className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none" placeholder={isEn ? 'Your city' : 'Sua cidade'} />
-                                                    </div>
-                                                </>
                                             )}
+                                            <div className="col-span-1 md:col-span-2 space-y-2">
+                                                <label className="text-sm font-medium text-gray-700">{isEn ? 'Billing address' : 'Morada de faturação'}</label>
+                                                <input value={formData.morada} onChange={e => setFormData({ ...formData, morada: e.target.value })}
+                                                    className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none" placeholder={isEn ? 'Street, number, floor' : 'Rua, número, andar'} />
+                                            </div>
+                                            <div className="col-span-1 md:col-span-2 space-y-2">
+                                                <label className="text-sm font-medium text-gray-700">{isEn ? 'City' : 'Cidade'}</label>
+                                                <input value={formData.cidade} onChange={e => setFormData({ ...formData, cidade: e.target.value })}
+                                                    className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none" placeholder={isEn ? 'Your city' : 'Sua cidade'} />
+                                            </div>
 
                                             <div className="col-span-1 md:col-span-2 space-y-2">
                                                 <label className="text-sm font-medium text-gray-700">{isEn ? 'Message (Optional)' : 'Mensagem (Opcional)'}</label>

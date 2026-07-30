@@ -17,6 +17,7 @@ type NotificationCounts = {
     orders: number;
     members: number;
     bookings: number;
+    factpt: number;
     unreadNotifications: number;
 };
 
@@ -36,6 +37,7 @@ export function AdminNotificationProvider({ children }: { children: React.ReactN
         orders: 0,
         members: 0,
         bookings: 0,
+        factpt: 0,
         unreadNotifications: 0,
     });
     const [notifications, setNotifications] = useState<AdminNotification[]>([]);
