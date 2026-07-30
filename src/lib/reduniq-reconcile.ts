@@ -251,9 +251,42 @@ export async function classifyRow(row: ReconcileRow): Promise<ReconcileResult> {
     }
 }
 
+export async function requireManualFactPtApproval(
+    supabase: SupabaseClient,
+    row: ReconcileRow,
+): Promise<void> {
+    const table = row.kind === 'donation'
+        ? 'donations'
+        : row.kind === 'quota'
+            ? 'pagamentos_quotas'
+            : row.kind === 'pilgrimage'
+                ? 'pilgrimage_payments'
+                : 'store_orders';
+    const { data, error } = await supabase
+        .from(table)
+        .update({ factpt_review_required: true })
+        .eq('id', row.id)
+        .select('id')
+        .maybeSingle();
+    if (error) {
+        throw new Error(
+            `Falha ao colocar ${row.kind} em revisão fiscal manual: ${error.message}`,
+        );
+    }
+    if (!data) {
+        throw new Error(
+            `Não foi possível colocar ${row.kind} em revisão fiscal manual: pagamento não encontrado.`,
+        );
+    }
+}
+
 export async function applyConfirmed(supabase: SupabaseClient, res: ReconcileResult): Promise<void> {
     if (res.classification !== 'CONFIRMED_PAID') return;
     const row = res.row;
+    // This marker is persisted before the paid transition. The FACT.pt trigger
+    // copies it into source_snapshot and atomically creates an
+    // awaiting_approval job, which the worker cannot claim.
+    await requireManualFactPtApproval(supabase, row);
     const amountCents = Math.round(row.amount * 100);
     const base: PaymentHandlerContext = {
         supabaseServer: supabase,

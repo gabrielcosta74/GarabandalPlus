@@ -4,6 +4,7 @@ import { reduniqClient } from '../lib/reduniq/client';
 import {
   classifyRow,
   loadPendingRows,
+  requireManualFactPtApproval,
   type ReconcileRow,
 } from '../lib/reduniq-reconcile';
 
@@ -191,5 +192,93 @@ describe('Reduniq pending reconciliation', () => {
       errorDisposition: 'retry',
       applied: false,
     });
+  });
+
+  it.each([
+    ['donation', 'donations'],
+    ['quota', 'pagamentos_quotas'],
+    ['pilgrimage', 'pilgrimage_payments'],
+    ['store', 'store_orders'],
+  ] as const)(
+    'marks a reconciled %s for manual fiscal approval before confirming it',
+    async (kind, expectedTable) => {
+      const calls: Array<[string, ...unknown[]]> = [];
+      const builder = {
+        update(value: unknown) {
+          calls.push(['update', value]);
+          return this;
+        },
+        eq(...args: unknown[]) {
+          calls.push(['eq', ...args]);
+          return this;
+        },
+        select(...args: unknown[]) {
+          calls.push(['select', ...args]);
+          return this;
+        },
+        async maybeSingle() {
+          return { data: { id: 'payment-1' }, error: null };
+        },
+      };
+      const client = {
+        from(table: string) {
+          calls.push(['from', table]);
+          return builder;
+        },
+      };
+      const row: ReconcileRow = {
+        kind,
+        id: 'payment-1',
+        order_ref: 'payment-reference',
+        token: 'payment-token',
+        amount: 10,
+        raw: {},
+      };
+
+      await requireManualFactPtApproval(client as never, row);
+
+      expect(calls).toContainEqual(['from', expectedTable]);
+      expect(calls).toContainEqual([
+        'update',
+        { factpt_review_required: true },
+      ]);
+      expect(calls).toContainEqual(['eq', 'id', 'payment-1']);
+    },
+  );
+
+  it('does not confirm a payment when the fiscal review marker cannot be saved', async () => {
+    const builder = {
+      update() {
+        return this;
+      },
+      eq() {
+        return this;
+      },
+      select() {
+        return this;
+      },
+      async maybeSingle() {
+        return { data: null, error: { message: 'database unavailable' } };
+      },
+    };
+    const client = {
+      from() {
+        return builder;
+      },
+    };
+    const row: ReconcileRow = {
+      kind: 'pilgrimage',
+      id: 'payment-1',
+      order_ref: 'payment-reference',
+      token: 'payment-token',
+      amount: 10,
+      raw: {},
+    };
+
+    await expect(
+      requireManualFactPtApproval(client as never, row),
+    ).rejects.toThrow(
+      /Falha ao colocar pilgrimage em revisão fiscal manual: database unavailable/,
+    );
   });
 });
