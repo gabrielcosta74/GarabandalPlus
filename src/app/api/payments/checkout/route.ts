@@ -325,7 +325,6 @@ export async function POST(req: Request) {
                 user_id: booking.user_id,
                 amount: safeAmountToPay,
                 processing_fee_amount: charge.feeAmount,
-                charged_amount: chargedAmount,
                 method: paymentOptionId,
                 status: 'pending',
                 payment_intent_id: initResult.token || initResult.transactionId || orderRef,
