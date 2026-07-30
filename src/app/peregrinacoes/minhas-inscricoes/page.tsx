@@ -2,7 +2,6 @@
 
 import Link from 'next/link';
 import DashboardShell from '../../../components/dashboard/DashboardShell';
-import { supabaseBrowser } from '../../../lib/supabase-browser';
 import {
     Calendar,
     MapPin,
@@ -10,7 +9,6 @@ import {
     Ticket,
     Clock,
     CheckCircle2,
-    AlertCircle,
     ArrowRight
 } from 'lucide-react';
 import { format } from 'date-fns';
@@ -38,21 +36,27 @@ type Booking = {
     };
 };
 
+type BookingResponse = Omit<Booking, 'pilgrimage'> & {
+    pilgrimage: Booking['pilgrimage'] | null;
+};
+
 const fetchBookings = async () => {
-    const { data: { session } } = await supabaseBrowser.auth.getSession();
-    if (!session) throw new Error("No Session");
+    const response = await fetch('/api/booking', {
+        credentials: 'same-origin',
+        cache: 'no-store',
+    });
+    const payload = await response.json().catch(() => null);
 
-    const { data, error } = await supabaseBrowser
-        .from('bookings')
-        .select(`
-            *,
-            pilgrimage:pilgrimages (title, slug, start_date, end_date, cover_image)
-        `)
-        .eq('user_id', session.user.id)
-        .order('created_at', { ascending: false });
+    if (!response.ok) {
+        throw new Error(payload?.error || 'Não foi possível carregar as inscrições.');
+    }
 
-    if (error) throw error;
-    return data as Booking[];
+    if (!Array.isArray(payload?.bookings)) return [];
+
+    return (payload.bookings as BookingResponse[]).filter(
+        (booking): booking is Booking =>
+            Boolean(booking?.pilgrimage?.start_date && booking.pilgrimage.end_date),
+    );
 };
 
 export default function MyBookingsPage() {
