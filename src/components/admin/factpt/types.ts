@@ -38,6 +38,8 @@ export type FactptDocument = {
   sourceTable: string | null;
   sourceId: string | null;
   sourceReference: string | null;
+  /** Detalhe da origem (ex.: peregrinação concreta), quando disponível. */
+  sourceLabel: string | null;
   seriesCode: string | null;
   documentType: string | null;
   factptNumber: string | null;
@@ -214,6 +216,7 @@ function normalizeDocument(value: unknown): FactptDocument | null {
     sourceTable: asString(pick(raw, 'source_table', 'sourceTable')),
     sourceId: asString(pick(raw, 'source_id', 'sourceId')),
     sourceReference: asString(pick(raw, 'source_reference', 'sourceReference')),
+    sourceLabel: asString(pick(raw, 'sourceLabel', 'source_label')),
     seriesCode: asString(pick(raw, 'series_code', 'seriesCode')),
     documentType: asString(pick(raw, 'document_type', 'documentType')),
     factptNumber: asString(pick(raw, 'factpt_number', 'factptNumber')),

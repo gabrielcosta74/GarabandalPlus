@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { Popover, Transition } from '@headlessui/react';
-import { Search, X, SlidersHorizontal, Check } from 'lucide-react';
+import { CalendarDays, Check, Search, SlidersHorizontal, X } from 'lucide-react';
 
 export type DatePreset =
     | 'all'
@@ -226,17 +226,17 @@ export default function TransactionFilters({ filters, setFilters }: TransactionF
     }
 
     return (
-        <div className="space-y-2">
-            <div className="flex flex-wrap items-center gap-2">
+        <div className="space-y-2.5">
+            <div className="flex flex-wrap items-center gap-3">
                 {/* Pesquisa */}
                 <div className="relative min-w-[240px] flex-1">
-                    <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                    <Search className="pointer-events-none absolute left-3.5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-slate-400" aria-hidden="true" />
                     <input
                         type="search"
-                        placeholder="Pesquisar por nome, email, NIF, referência ou descrição…"
+                        placeholder="Nome, email, NIF, referência ou descrição"
                         value={filters.search}
                         onChange={e => update('search', e.target.value)}
-                        className="h-9 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 text-sm text-slate-900 transition-colors placeholder:text-slate-400 focus:border-slate-400 focus:outline-none focus:ring-4 focus:ring-slate-900/5"
+                        className="h-11 w-full rounded-xl border border-slate-200/80 bg-white pl-11 pr-3.5 text-[14.5px] text-slate-800 outline-none transition-all duration-200 placeholder:text-slate-400 hover:border-slate-300 focus:border-slate-300 focus:ring-2 focus:ring-slate-900/10"
                     />
                 </div>
 
@@ -248,45 +248,46 @@ export default function TransactionFilters({ filters, setFilters }: TransactionF
                         datePreset: e.target.value as DatePreset,
                         ...(e.target.value === 'custom' ? {} : { dateFrom: '', dateTo: '' }),
                     }))}
-                    className="h-9 rounded-lg border border-slate-200 bg-white px-2.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 focus:border-slate-400 focus:outline-none"
+                    className="h-11 cursor-pointer rounded-xl border border-slate-200/80 bg-white px-3.5 text-[14px] font-semibold text-slate-700 outline-none transition-all duration-200 hover:border-slate-300 focus:border-slate-300 focus:ring-2 focus:ring-slate-900/10"
                 >
                     {(Object.keys(DATE_PRESET_LABELS) as DatePreset[]).map(key => (
                         <option key={key} value={key}>{DATE_PRESET_LABELS[key]}</option>
                     ))}
                 </select>
 
-                <div className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2 py-1">
+                <div className="flex h-11 items-center gap-2 rounded-xl border border-slate-200/80 bg-white px-3">
+                    <CalendarDays className="h-[18px] w-[18px] flex-shrink-0 text-slate-400" aria-hidden="true" />
                     <input
                         type="date"
                         aria-label="Data inicial"
                         value={filters.dateFrom}
                         max={filters.dateTo || undefined}
                         onChange={e => setCustomDate('dateFrom', e.target.value)}
-                        className="w-[112px] bg-transparent font-mono text-xs text-slate-700 focus:outline-none"
+                        className="w-[118px] bg-transparent text-[13.5px] font-medium text-slate-700 outline-none"
                     />
-                    <span className="text-slate-300">→</span>
+                    <span className="text-slate-300">–</span>
                     <input
                         type="date"
                         aria-label="Data final"
                         value={filters.dateTo}
                         min={filters.dateFrom || undefined}
                         onChange={e => setCustomDate('dateTo', e.target.value)}
-                        className="w-[112px] bg-transparent font-mono text-xs text-slate-700 focus:outline-none"
+                        className="w-[118px] bg-transparent text-[13.5px] font-medium text-slate-700 outline-none"
                     />
                 </div>
 
                 {/* Filtros avançados */}
                 <Popover className="relative">
                     <Popover.Button
-                        className={`inline-flex h-9 items-center gap-2 rounded-lg border px-3 text-sm font-medium transition-colors focus:outline-none ${advancedCount > 0
+                        className={`inline-flex h-11 items-center gap-2 rounded-xl border px-4 text-[14px] font-semibold transition-all duration-200 focus:outline-none ${advancedCount > 0
                             ? 'border-slate-900 bg-slate-900 text-white'
-                            : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                            : 'border-slate-200/80 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'
                             }`}
                     >
-                        <SlidersHorizontal className="h-3.5 w-3.5" />
+                        <SlidersHorizontal className="h-4 w-4" strokeWidth={2.25} />
                         Filtros
                         {advancedCount > 0 && (
-                            <span className="rounded bg-white/20 px-1.5 text-[11px] font-semibold tabular-nums">
+                            <span className="rounded-full bg-white/20 px-1.5 text-[12px] font-bold tabular-nums">
                                 {advancedCount}
                             </span>
                         )}
@@ -301,7 +302,7 @@ export default function TransactionFilters({ filters, setFilters }: TransactionF
                         leaveFrom="opacity-100 translate-y-0"
                         leaveTo="opacity-0 translate-y-1"
                     >
-                        <Popover.Panel className="absolute right-0 z-30 mt-2 max-h-[75vh] w-72 origin-top-right overflow-y-auto rounded-xl border border-slate-200 bg-white p-4 shadow-lg shadow-slate-900/5">
+                        <Popover.Panel className="absolute right-0 z-30 mt-2 max-h-[75vh] w-80 origin-top-right overflow-y-auto rounded-2xl border border-slate-200/80 bg-white p-4 shadow-[0_16px_40px_rgba(15,23,42,0.12)]">
                             <div className="space-y-4">
                                 <RadioGroup
                                     label="Origem"
@@ -341,9 +342,9 @@ export default function TransactionFilters({ filters, setFilters }: TransactionF
                                         onChange={e => update('includeFuture', e.target.checked)}
                                         className="mt-0.5 h-3.5 w-3.5 rounded border-slate-300 text-slate-900 focus:ring-0 focus:ring-offset-0"
                                     />
-                                    <span className="text-xs leading-snug text-slate-600">
+                                    <span className="text-[13.5px] font-medium leading-snug text-slate-600">
                                         Incluir datas futuras
-                                        <span className="mt-0.5 block text-[11px] text-slate-400">
+                                        <span className="mt-0.5 block text-[12.5px] font-normal text-slate-400">
                                             Quotas pagas adiantadamente foram importadas com data de 1 de Janeiro do ano que cobrem.
                                         </span>
                                     </span>
@@ -356,22 +357,22 @@ export default function TransactionFilters({ filters, setFilters }: TransactionF
 
             {/* Chips do que está aplicado */}
             {chips.length > 0 && (
-                <div className="flex flex-wrap items-center gap-1.5">
+                <div className="flex flex-wrap items-center gap-2">
                     {chips.map(chip => (
                         <button
                             key={chip.key}
                             onClick={chip.onRemove}
-                            className="group inline-flex items-center gap-1 rounded-md border border-slate-200 bg-slate-50 py-1 pl-2 pr-1 text-xs font-medium text-slate-600 transition-colors hover:border-slate-300 hover:bg-white"
+                            className="group inline-flex h-8 items-center gap-1.5 rounded-full bg-slate-100/80 pl-3 pr-2 text-[13px] font-semibold text-slate-600 transition-colors duration-200 hover:bg-slate-200/70 hover:text-slate-900"
                         >
                             {chip.label}
-                            <X className="h-3 w-3 text-slate-400 transition-colors group-hover:text-rose-500" />
+                            <X className="h-3.5 w-3.5 text-slate-400 transition-colors group-hover:text-rose-500" />
                         </button>
                     ))}
                     <button
                         onClick={() => setFilters(DEFAULT_TRANSACTION_FILTERS)}
-                        className="ml-1 text-xs font-medium text-slate-400 underline-offset-2 transition-colors hover:text-slate-700 hover:underline"
+                        className="ml-1 inline-flex h-8 items-center rounded-full px-3 text-[13px] font-semibold text-slate-400 transition-colors duration-200 hover:bg-slate-100 hover:text-slate-700"
                     >
-                        limpar tudo
+                        Limpar tudo
                     </button>
                 </div>
             )}
@@ -387,17 +388,17 @@ function RadioGroup<T extends string>({ label, value, onChange, options }: {
 }) {
     return (
         <div>
-            <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400">{label}</p>
+            <p className="mb-1.5 text-[11px] font-bold uppercase tracking-[0.08em] text-slate-400">{label}</p>
             <div className="space-y-0.5">
                 {options.map(([key, text]) => (
                     <button
                         key={key}
                         onClick={() => onChange(key)}
-                        className={`flex w-full items-center justify-between rounded-md px-2 py-1.5 text-left text-[13px] transition-colors ${value === key ? 'bg-slate-100 font-semibold text-slate-900' : 'text-slate-600 hover:bg-slate-50'
+                        className={`flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-left text-[14px] transition-colors duration-150 ${value === key ? 'bg-slate-900/[0.055] font-semibold text-slate-900' : 'font-medium text-slate-600 hover:bg-slate-100'
                             }`}
                     >
                         {text}
-                        {value === key && <Check className="h-3.5 w-3.5 text-slate-900" />}
+                        {value === key && <Check className="h-4 w-4 text-slate-900" strokeWidth={2.5} />}
                     </button>
                 ))}
             </div>

@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import { headers } from 'next/headers';
-import { Inter, Playfair_Display, Geist, Geist_Mono } from 'next/font/google';
+import { Inter, Playfair_Display, Plus_Jakarta_Sans, Geist_Mono } from 'next/font/google';
 import Script from 'next/script';
 import ClientLayout from '../components/layouts/ClientLayout';
 import AbortErrorSilencer from '../components/system/AbortErrorSilencer';
@@ -12,7 +12,7 @@ const playfair = Playfair_Display({ subsets: ['latin'], variable: '--font-playfa
 
 // Usadas apenas no painel de administração (ver AdminLayout). O site público
 // mantém a Inter, por isso só expomos as variáveis — nada muda por omissão.
-const geist = Geist({ subsets: ['latin'], variable: '--font-geist' });
+const adminSans = Plus_Jakarta_Sans({ subsets: ['latin'], variable: '--font-admin-sans', display: 'swap' });
 const geistMono = Geist_Mono({ subsets: ['latin'], variable: '--font-geist-mono' });
 
 // Advertise both schemes so Samsung Internet can prefer our media-query styles
@@ -150,7 +150,7 @@ export default async function RootLayout({
           sender('0c380a08998972')`}
         </Script>
       </head>
-      <body className={`${inter.variable} ${playfair.variable} ${geist.variable} ${geistMono.variable} ${inter.className}`}>
+      <body className={`${inter.variable} ${playfair.variable} ${adminSans.variable} ${geistMono.variable} ${inter.className}`}>
         <AbortErrorSilencer />
         <script
           type="application/ld+json"

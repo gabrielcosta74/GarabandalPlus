@@ -85,7 +85,7 @@ export default function AdminLayout({ children, title = "Dashboard", description
                             animate={{ x: 0 }}
                             exit={{ x: '-100%' }}
                             transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-                            className="fixed inset-y-0 left-0 w-72 z-50 lg:hidden"
+                            className="fixed inset-y-0 left-0 w-[264px] z-50 shadow-xl lg:hidden"
                         >
                             <AdminSidebar onLogout={handleLogout} className="h-full" />
                         </motion.div>

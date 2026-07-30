@@ -127,6 +127,31 @@ const isInsidePeriod = (value: string, period: FactPtAdminPeriod): boolean => {
     && timestamp < new Date(period.to).getTime();
 };
 
+/**
+ * Rótulo da origem já preparado pelos snapshots (para peregrinações traz o
+ * título da viagem, ex.: "Itália e Medjugorje 2027 — sinal"). Cai para a
+ * descrição da primeira linha fiscal quando o rótulo não foi gravado.
+ */
+const sourceLabelFromSnapshots = (
+  document: Pick<FactPtAdminDocumentRow, 'fiscal_snapshot' | 'source_snapshot'>,
+): string | null => {
+  const fiscal = document.fiscal_snapshot || {};
+  const source = document.source_snapshot || {};
+  const explicit = clean(fiscal.emailSourceLabel) || clean(source.emailSourceLabel);
+  if (explicit) return explicit;
+
+  const lines = Array.isArray(fiscal.lines)
+    ? fiscal.lines
+    : Array.isArray((source as { items?: unknown }).items)
+      ? (source as { items: unknown[] }).items
+      : [];
+  const first = lines[0];
+  if (first && typeof first === 'object') {
+    return clean((first as Record<string, unknown>).description);
+  }
+  return null;
+};
+
 const customerFromFiscalSnapshot = (
   fiscalSnapshot: Record<string, unknown> | null | undefined,
 ) => {
@@ -632,6 +657,9 @@ export function buildFactPtAdminOverview(input: {
         sourceTable: document.source_table,
         sourceId: document.source_id,
         sourceReference: document.source_reference || payment?.reference || null,
+        // Detalhe legível da origem (ex.: a peregrinação concreta) para o admin
+        // distinguir documentos sem abrir cada um.
+        sourceLabel: sourceLabelFromSnapshots(document),
         seriesCode: document.series_code,
         documentType: document.document_type || null,
         status: document.status,

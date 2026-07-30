@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 
 import { supabaseBrowser } from '../../../lib/supabase-browser';
-import styles from './factpt-dashboard.module.css';
+import styles from './factpt-drawer.module.css';
 import type { FactptDocument, FactptStatus } from './types';
 
 const STATUS_LABELS: Record<FactptStatus, string> = {
