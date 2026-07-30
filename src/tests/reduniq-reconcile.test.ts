@@ -130,6 +130,65 @@ describe('Reduniq pending reconciliation', () => {
     await expect(classifyRow(row)).resolves.toMatchObject({
       classification: 'REDUNIQ_ERROR',
       error: 'gateway unavailable',
+      errorDisposition: 'retry',
+      applied: false,
+    });
+  });
+
+  it('sends an invalid historic token to review without blocking the batch', async () => {
+    vi.spyOn(reduniqClient, 'getOrderStatus').mockResolvedValue({
+      success: false,
+      error: 'Invalid token',
+      resultCode: '00100007',
+    });
+    vi.spyOn(reduniqClient, 'searchTransactions').mockResolvedValue({
+      ok: true,
+      status: 200,
+      data: { transactions: [] },
+    });
+    const row: ReconcileRow = {
+      kind: 'donation',
+      id: 'donation-1',
+      user_id: 'user-1',
+      order_ref: 'reduniq-old-reference',
+      token: 'invalid-old-token',
+      amount: 1,
+      raw: {},
+    };
+
+    await expect(classifyRow(row)).resolves.toMatchObject({
+      classification: 'REDUNIQ_ERROR',
+      error: 'Invalid token',
+      errorDisposition: 'review',
+      applied: false,
+    });
+  });
+
+  it('keeps a failed fallback search retryable even after an invalid token', async () => {
+    vi.spyOn(reduniqClient, 'getOrderStatus').mockResolvedValue({
+      success: false,
+      error: 'Invalid token',
+      resultCode: '00100007',
+    });
+    vi.spyOn(reduniqClient, 'searchTransactions').mockResolvedValue({
+      ok: false,
+      status: 503,
+      error: 'gateway unavailable',
+    });
+    const row: ReconcileRow = {
+      kind: 'pilgrimage',
+      id: 'payment-1',
+      user_id: 'user-1',
+      order_ref: 'pilgrimage-reference',
+      token: 'invalid-token',
+      amount: 10,
+      raw: { booking_id: 'booking-1' },
+    };
+
+    await expect(classifyRow(row)).resolves.toMatchObject({
+      classification: 'REDUNIQ_ERROR',
+      error: 'gateway unavailable',
+      errorDisposition: 'retry',
       applied: false,
     });
   });

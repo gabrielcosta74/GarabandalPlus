@@ -59,22 +59,37 @@ export async function GET(req: Request) {
                 orderRef: r.row.order_ref,
                 classification: r.classification,
                 error: r.error,
+                disposition: r.errorDisposition || 'retry',
             }));
+        const blockingFailures = failures.filter((failure) => failure.disposition === 'retry');
+        const reviewRequired = failures.filter((failure) => failure.disposition === 'review');
 
         console.log('[cron/reduniq-reconcile]', JSON.stringify({
             summary,
             windowDays: windowDays ?? 'all',
             minAgeMinutes,
             reconciled,
-            failures,
+            blockingFailures,
+            reviewRequired,
         }));
-        if (failures.length > 0) {
+        if (blockingFailures.length > 0) {
             return NextResponse.json(
-                { ok: false, summary, reconciled, failures },
+                {
+                    ok: false,
+                    summary,
+                    reconciled,
+                    failures: blockingFailures,
+                    reviewRequired,
+                },
                 { status: 502 },
             );
         }
-        return NextResponse.json({ ok: true, summary, reconciled });
+        return NextResponse.json({
+            ok: true,
+            summary,
+            reconciled,
+            reviewRequired,
+        });
     } catch (e: any) {
         console.error('[cron/reduniq-reconcile] error', e);
         return NextResponse.json({ ok: false, error: e.message }, { status: 500 });

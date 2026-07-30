@@ -33,6 +33,7 @@ export type ReconcileResult = {
     applied: boolean;
     markedFailed?: boolean;
     error?: string;
+    errorDisposition?: 'retry' | 'review';
 };
 
 export type ReconcileOptions = {
@@ -177,6 +178,7 @@ export async function classifyRow(row: ReconcileRow): Promise<ReconcileResult> {
         let gatewayTxId: string | null = null;
         let gatewayDate: string | null = null;
         let reduniqError: string | null = null;
+        let errorDisposition: 'retry' | 'review' | undefined;
 
         if (row.token) {
             const gs = await reduniqClient.getOrderStatus(row.token);
@@ -186,6 +188,10 @@ export async function classifyRow(row: ReconcileRow): Promise<ReconcileResult> {
                 gatewayDate = (gs.raw as any)?.transaction?.date || null;
             } else {
                 reduniqError = gs.error || 'getOrderStatus failed';
+                errorDisposition = gs.resultCode === '00100007'
+                    || /invalid token/i.test(reduniqError)
+                    ? 'review'
+                    : 'retry';
             }
         }
 
@@ -203,8 +209,11 @@ export async function classifyRow(row: ReconcileRow): Promise<ReconcileResult> {
                         gatewayDate = best.date;
                     }
                 }
-            } else if (!reduniqError) {
+            } else {
                 reduniqError = search.error || `searchTransactions failed (${search.status})`;
+                // A failed fallback search is an operational failure even when
+                // getResult previously reported a permanently invalid token.
+                errorDisposition = 'retry';
             }
         }
 
@@ -224,9 +233,21 @@ export async function classifyRow(row: ReconcileRow): Promise<ReconcileResult> {
             error: classification === 'REDUNIQ_ERROR'
                 ? reduniqError || 'Falha desconhecida ao consultar a Reduniq.'
                 : undefined,
+            errorDisposition: classification === 'REDUNIQ_ERROR'
+                ? errorDisposition || 'retry'
+                : undefined,
         };
     } catch (e: any) {
-        return { row, classification: 'REDUNIQ_ERROR', gatewayStatus: null, gatewayTxId: null, gatewayDate: null, applied: false, error: e.message };
+        return {
+            row,
+            classification: 'REDUNIQ_ERROR',
+            gatewayStatus: null,
+            gatewayTxId: null,
+            gatewayDate: null,
+            applied: false,
+            error: e.message,
+            errorDisposition: 'retry',
+        };
     }
 }
 
