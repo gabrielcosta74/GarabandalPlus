@@ -16,6 +16,8 @@ import { listCountryOptions, resolveCountryMeta } from '../../../../lib/country-
 import {
     deriveFlightOption,
     getCountryBasedFlightPolicy,
+    getFlightRegistrationOptions,
+    type FlightRegistrationOption,
 } from '../../../../lib/pilgrimage-flight-policy';
 import {
     calculateInstallments,
@@ -593,6 +595,7 @@ const PilgrimCard = ({
     countries,
     hideFlightOption = false,
     countryValueMode = 'name',
+    flightRegistrationOptions = ['none', 'own', 'agency'],
 }: any) => {
     // Watch Country for Postal Code Helper
     const country = useWatch({
@@ -786,9 +789,27 @@ const PilgrimCard = ({
                             className={`w-full bg-slate-800 border-2 rounded-xl px-6 py-5 text-white text-xl focus:outline-none shadow-inner ${errors.pilgrims?.[index]?.flight_option ? 'border-red-500 error-ring' : 'border-slate-700 focus:border-yellow-500'}`}
                         >
                             <option value="" disabled>{isEn ? 'Select an option...' : 'Selecione uma opção...'}</option>
-                            <option value="none">{isEn ? "1. I don't need it (I live in Europe/Other)" : '1. Não preciso (Vivo na Europa/Outro)'}</option>
-                            <option value="own">{isEn ? '2. I will buy my own tickets' : '2. Eu compro as minhas passagens'}</option>
-                            <option value="agency">{isEn ? '3. I want to buy through the Agency' : '3. Quero comprar pela Agência'}</option>
+                            {(flightRegistrationOptions as FlightRegistrationOption[]).map((option, optionIndex) => {
+                                const selectableFlightOnly = flightRegistrationOptions.length === 2
+                                    && !flightRegistrationOptions.includes('none');
+                                const labels = selectableFlightOnly
+                                    ? {
+                                        own: isEn ? 'Own flight — I will buy my own tickets' : 'Voo próprio — Eu compro as minhas passagens',
+                                        agency: isEn ? 'Group flight — I want to buy through the Agency' : 'Voo de grupo — Quero comprar pela Agência',
+                                        none: isEn ? "I don't need it (I live in Europe/Other)" : 'Não preciso (Vivo na Europa/Outro)',
+                                    }
+                                    : {
+                                        none: isEn ? "I don't need it (I live in Europe/Other)" : 'Não preciso (Vivo na Europa/Outro)',
+                                        own: isEn ? 'I will buy my own tickets' : 'Eu compro as minhas passagens',
+                                        agency: isEn ? 'I want to buy through the Agency' : 'Quero comprar pela Agência',
+                                    };
+
+                                return (
+                                    <option key={option} value={option}>
+                                        {optionIndex + 1}. {labels[option]}
+                                    </option>
+                                );
+                            })}
                         </select>
                         {errors.pilgrims?.[index]?.flight_option && <span className="text-red-500 text-base font-bold mt-2 block flex items-center gap-2 animate-pulse"><AlertCircle className="w-5 h-5" /> {errors.pilgrims[index]?.flight_option?.message}</span>}
                     </div>
@@ -836,7 +857,12 @@ export default function PilgrimageBookingPage() {
         () => getCountryBasedFlightPolicy(pilgrimage),
         [pilgrimage],
     );
+    const flightRegistrationOptions = useMemo(
+        () => getFlightRegistrationOptions(pilgrimage),
+        [pilgrimage],
+    );
     const hasCountryBasedFlightStep = Boolean(countryBasedFlightPolicy);
+    const requiresExplicitFlightChoice = !flightRegistrationOptions.includes('none');
     const finalStep = hasCountryBasedFlightStep ? 5 : 4;
     const countriesList = useMemo(() => {
         if (!hasCountryBasedFlightStep) return getCountries(isEn);
@@ -1004,7 +1030,7 @@ export default function PilgrimageBookingPage() {
             append({
                 full_name: '', email: email, phone: '', birth_date: '', sex: 'M', // Phone will be overwritten on Submit for leader
                 address: '', postal_code: '', city: '', country: hasCountryBasedFlightStep ? '' : 'Portugal',
-                flight_option: (hasCountryBasedFlightStep ? '' : 'none') as any,
+                flight_option: (hasCountryBasedFlightStep || requiresExplicitFlightChoice ? '' : 'none') as any,
                 allergies: '', notes: '', cpf_nif: ''
             });
         }
@@ -1390,6 +1416,7 @@ export default function PilgrimageBookingPage() {
                                                     countries={countriesList}
                                                     hideFlightOption={hasCountryBasedFlightStep}
                                                     countryValueMode={hasCountryBasedFlightStep ? 'code' : 'name'}
+                                                    flightRegistrationOptions={flightRegistrationOptions}
                                                 />
                                             ))}
                                             <div className="bg-yellow-500/10 border-2 border-yellow-500/50 rounded-3xl p-6 text-center space-y-4">
@@ -1400,7 +1427,7 @@ export default function PilgrimageBookingPage() {
                                                         {isEn ? <>ATTENTION: You should only add members of your <span className="font-bold text-yellow-500 uppercase">Household</span> (Father, Mother, Children) who live with you.<br />For friends or acquaintances, each one must make their own separate registration.</> : <>ATENÇÃO: Só deves adicionar pessoas do teu <span className="font-bold text-yellow-500 uppercase">Agregado Familiar</span> (Pai, Mãe, Filhos) que vivam contigo.<br />Para amigos ou conhecidos, cada uno deve fazer a sua própria inscrição separadamente.</>}
                                                     </p>
                                                 </div>
-                                                <button type="button" onClick={() => append({ full_name: '', email: '', phone: '', birth_date: '', sex: 'M', address: '', postal_code: '', city: '', country: hasCountryBasedFlightStep ? '' : 'Portugal', flight_option: '' as any, allergies: isEn ? 'No' : 'Não', notes: '', cpf_nif: '' })} className="bg-yellow-500 hover:bg-yellow-400 text-black px-8 py-3 rounded-xl font-bold transition-all shadow-lg shadow-yellow-500/20 active:scale-95">
+                                                <button type="button" onClick={() => append({ full_name: '', email: '', phone: '', birth_date: '', sex: 'M', address: '', postal_code: '', city: '', country: hasCountryBasedFlightStep ? '' : 'Portugal', flight_option: (hasCountryBasedFlightStep || requiresExplicitFlightChoice ? '' : 'none') as any, allergies: isEn ? 'No' : 'Não', notes: '', cpf_nif: '' })} className="bg-yellow-500 hover:bg-yellow-400 text-black px-8 py-3 rounded-xl font-bold transition-all shadow-lg shadow-yellow-500/20 active:scale-95">
                                                     {isEn ? 'Understood, add family member' : 'Entendido, adicionar familiar'}
                                                 </button>
                                             </div>

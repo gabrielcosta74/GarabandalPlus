@@ -3,6 +3,7 @@ import {
     deriveFlightOption,
     formatFlightEstimate,
     getCountryBasedFlightPolicy,
+    getFlightRegistrationOptions,
     getFlightEstimate,
     normalizeResidenceCountryCode,
     parseCountryBasedFlightPolicy,
@@ -84,5 +85,31 @@ describe('country-based pilgrimage flight policy', () => {
 
         expect(getCountryBasedFlightPolicy({ pricing_config: pricingConfig })?.kind).toBe('country_based_v1');
         expect(pricingConfig.room_supplements).toEqual({ double: 0, single: 900 });
+    });
+});
+
+describe('selectable pilgrimage flight options', () => {
+    it('keeps the existing three options when no custom list is configured', () => {
+        expect(getFlightRegistrationOptions({ pricing_config: {} })).toEqual([
+            'none',
+            'own',
+            'agency',
+        ]);
+    });
+
+    it('supports an explicit own-flight and group-flight choice', () => {
+        expect(getFlightRegistrationOptions({
+            pricing_config: {
+                flight_registration_options: ['own', 'agency'],
+            },
+        })).toEqual(['own', 'agency']);
+    });
+
+    it('ignores duplicates and unsupported values', () => {
+        expect(getFlightRegistrationOptions({
+            pricing_config: {
+                flight_registration_options: ['own', 'unsupported', 'agency', 'own'],
+            },
+        })).toEqual(['own', 'agency']);
     });
 });

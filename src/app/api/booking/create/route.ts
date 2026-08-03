@@ -10,6 +10,7 @@ import { analyticsSessionProperties, getServerAnalyticsContext } from '../../../
 import {
     deriveFlightOption,
     getCountryBasedFlightPolicy,
+    getFlightRegistrationOptions,
     normalizeResidenceCountryCode,
 } from '../../../../lib/pilgrimage-flight-policy';
 import {
@@ -117,6 +118,19 @@ export async function POST(req: Request) {
                 });
             }
             bookingPilgrimData = normalizedPilgrims;
+        } else {
+            const allowedFlightOptions = getFlightRegistrationOptions(pilgrimage);
+            const hasInvalidFlightOption = pilgrim_data.some(
+                pilgrim => !allowedFlightOptions.includes(pilgrim?.flight_option),
+            );
+
+            if (hasInvalidFlightOption) {
+                return NextResponse.json({
+                    error: bookingLocale === 'en'
+                        ? 'Select a valid flight option for every pilgrim.'
+                        : 'Selecione uma opção de voo válida para cada peregrino.',
+                }, { status: 400 });
+            }
         }
 
         // 1. SECURITY: User Resolution (no user_id_hint accepted from frontend)

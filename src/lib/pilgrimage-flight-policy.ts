@@ -35,11 +35,20 @@ export type CountryBasedFlightPolicy = {
 };
 
 export type FlightOption = 'agency' | 'own';
+export type FlightRegistrationOption = FlightOption | 'none';
+
+export const DEFAULT_FLIGHT_REGISTRATION_OPTIONS: FlightRegistrationOption[] = [
+    'none',
+    'own',
+    'agency',
+];
 
 export type PilgrimageFlightPolicySource = {
     flight_registration_policy?: unknown;
+    flight_registration_options?: unknown;
     pricing_config?: {
         flight_registration_policy?: unknown;
+        flight_registration_options?: unknown;
     } | null;
 };
 
@@ -131,6 +140,27 @@ export const getCountryBasedFlightPolicy = (
         pilgrimage.flight_registration_policy
         ?? pilgrimage.pricing_config?.flight_registration_policy,
     );
+};
+
+export const getFlightRegistrationOptions = (
+    pilgrimage: PilgrimageFlightPolicySource | null | undefined,
+): FlightRegistrationOption[] => {
+    const configuredOptions = pilgrimage?.flight_registration_options
+        ?? pilgrimage?.pricing_config?.flight_registration_options;
+
+    if (!Array.isArray(configuredOptions)) {
+        return [...DEFAULT_FLIGHT_REGISTRATION_OPTIONS];
+    }
+
+    const options = configuredOptions.filter(
+        (option): option is FlightRegistrationOption =>
+            option === 'none' || option === 'own' || option === 'agency',
+    );
+    const uniqueOptions = [...new Set(options)];
+
+    return uniqueOptions.length > 0
+        ? uniqueOptions
+        : [...DEFAULT_FLIGHT_REGISTRATION_OPTIONS];
 };
 
 export const deriveFlightOption = (
