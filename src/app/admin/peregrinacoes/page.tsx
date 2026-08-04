@@ -12,7 +12,8 @@ import {
     Plane,
     CheckCircle2,
     Trash2,
-    Copy
+    Copy,
+    ClipboardList
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { pt } from 'date-fns/locale';
@@ -321,7 +322,16 @@ export default function AdminPilgrimagesPage() {
                                     <div className="text-right flex flex-col items-end gap-1">
                                         <span className="text-sm text-slate-400">Desde</span>
                                         <span className="text-xl font-bold text-slate-900">{item.base_price}€</span>
-                                        <div className="mt-2 flex items-center gap-2">
+                                        <div className="mt-2 flex items-center gap-2 flex-wrap justify-end">
+                                            <Link
+                                                href={`/admin/peregrinacoes/${item.id}/logistica`}
+                                                className="h-8 px-3 rounded-full bg-slate-900 !text-white flex items-center justify-center gap-1.5 hover:bg-slate-700 transition-colors text-xs font-semibold"
+                                                title="Logística, quartos, hotéis e contas"
+                                                style={{ color: 'white' }}
+                                            >
+                                                <ClipboardList className="w-4 h-4" />
+                                                Logística
+                                            </Link>
                                             <button
                                                 type="button"
                                                 onClick={() => handleDuplicate(item.id, item.title)}

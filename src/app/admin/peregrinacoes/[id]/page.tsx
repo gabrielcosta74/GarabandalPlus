@@ -18,8 +18,10 @@ import {
     CheckCircle2,
     QrCode,
     Eye,
-    Rocket
+    Rocket,
+    ClipboardList
 } from 'lucide-react';
+import Link from 'next/link';
 import BookingsManager from '../../../../components/admin/BookingsManager';
 import WaitlistManager from '../../../../components/admin/WaitlistManager';
 import PilgrimageScanner from '../../../../components/admin/PilgrimageScanner';
@@ -605,6 +607,16 @@ export default function PilgrimageEditorPage() {
                     <Eye className="w-4 h-4" />
                     Pré-visualizar
                 </button>
+            )}
+            {!isNew && (
+                <Link
+                    href={`/admin/peregrinacoes/${id}/logistica`}
+                    className="w-full sm:w-auto flex items-center justify-center gap-2 border border-slate-800 bg-slate-900 !text-white px-4 py-3 sm:py-2.5 rounded-xl hover:bg-slate-700 transition-all font-bold text-xs"
+                    style={{ color: 'white' }}
+                >
+                    <ClipboardList className="w-4 h-4" />
+                    Logística
+                </Link>
             )}
             <button
                 onClick={handleSave}

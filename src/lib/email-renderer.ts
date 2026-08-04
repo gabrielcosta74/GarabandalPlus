@@ -418,10 +418,14 @@ const Button = ({
   label,
   url,
   variant = "primary",
+  size = "md",
 }: {
   label: string;
   url: string;
   variant?: "primary" | "secondary" | "outline";
+  // `lg` ocupa toda a largura da coluna: alvo de toque grande no telemóvel,
+  // para emails cuja única ação é clicar.
+  size?: "md" | "lg";
 }) => {
   const styles = {
     primary: `background:${COLORS.primary};color:${COLORS.primaryDark};border:none;`,
@@ -429,11 +433,13 @@ const Button = ({
     outline: `background:transparent;color:${COLORS.primary};border:1px solid ${COLORS.primary};`,
   };
   const textColor = variant === "primary" ? COLORS.primaryDark : variant === "outline" ? COLORS.primary : COLORS.white;
+  const isLarge = size === "lg";
+  const radius = isLarge ? 16 : 12;
   return `
-    <table role="presentation" cellpadding="0" cellspacing="0" align="center" style="margin:32px auto;">
+    <table role="presentation" cellpadding="0" cellspacing="0" align="center" ${isLarge ? 'width="100%" style="width:100%;margin:30px auto;"' : 'style="margin:32px auto;"'}>
       <tr>
-        <td align="center" bgcolor="${variant === "primary" ? COLORS.primary : variant === "secondary" ? COLORS.heading : "transparent"}" class="${variant === "primary" ? "hover-gold gold-button" : ""}" style="${styles[variant]}border-radius:12px;">
-          <a href="${url}" style="display:inline-block;padding:16px 34px;border-radius:12px;text-decoration:none;font-weight:900;font-size:15px;line-height:18px;color:${textColor};letter-spacing:0.2px;">
+        <td align="center" bgcolor="${variant === "primary" ? COLORS.primary : variant === "secondary" ? COLORS.heading : "transparent"}" class="${variant === "primary" ? "hover-gold gold-button" : ""}" style="${styles[variant]}border-radius:${radius}px;${isLarge ? `box-shadow:0 6px 18px rgba(212,175,55,0.35);` : ''}">
+          <a href="${url}" style="display:${isLarge ? 'block' : 'inline-block'};padding:${isLarge ? '21px 28px' : '16px 34px'};border-radius:${radius}px;text-decoration:none;font-weight:900;font-size:${isLarge ? '18px' : '15px'};line-height:${isLarge ? '22px' : '18px'};color:${textColor};letter-spacing:0.2px;text-align:center;">
             ${label}
           </a>
         </td>
@@ -1187,6 +1193,40 @@ const italyTalkToUs = (locale: EmailLocale) =>
   locale === 'en'
     ? `${Text(`Any question at all — flights, rooms, travelling alone, paying in instalments — message us on ${contactWa} or email ${contactMail}. A real person answers.`)}`
     : `${Text(`Qualquer dúvida — voos, quarto, viajar sozinho(a), parcelamento — fale com a gente pelo ${contactWa} ou por ${contactMail}. Quem responde é uma pessoa de verdade.`)}`;
+
+// Vagas extra: um único bloco, com o número grande e a data/preço numa linha.
+// Deliberadamente curto — este email vive da capa da peregrinação e do botão,
+// não de widgets. Quem quiser o detalhe todo clica e lê na página.
+const italyExtraSpotsBar = (locale: EmailLocale, payload: MarketingTemplatePayload) => {
+  const isEn = locale === 'en';
+  const spots = Math.max(0, Number(payload.pilgrimageVacancies ?? 0));
+  const headline = isEn
+    ? spots === 1 ? 'special place' : 'special places'
+    : spots === 1 ? 'vaga especial' : 'vagas especiais';
+  const essentials = isEn
+    ? `${ITALY_CAMPAIGN.dates.en} · ${ITALY_CAMPAIGN.price.en} · up to ${ITALY_CAMPAIGN.installments} interest-free instalments`
+    : `${ITALY_CAMPAIGN.dates.pt} · ${ITALY_CAMPAIGN.price.pt} · em até ${ITALY_CAMPAIGN.installments}x sem juros`;
+  return `
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#FEFCE8" style="margin:26px 0;border:2px solid ${COLORS.primary};border-radius:18px;background:#FEFCE8;background-color:#FEFCE8;overflow:hidden;">
+  <tr><td style="padding:26px 26px 22px;" align="center">
+    <div class="email-heading" style="font-size:46px;line-height:50px;font-weight:900;color:${COLORS.heading};font-family:${FONTS.serif};margin:0;">${spots}</div>
+    <div class="email-heading" style="font-size:22px;line-height:29px;font-weight:900;color:${COLORS.heading};font-family:${FONTS.serif};margin:2px 0 14px;">${headline}</div>
+    <div class="email-text" style="font-size:14px;line-height:22px;color:${COLORS.text};margin:0;">${essentials}</div>
+  </td></tr>
+</table>`;
+};
+
+// Email curto de propósito: capa, uma frase, o número e o botão. Quem quiser
+// datas, roteiro e preço detalhado clica e lê na página da peregrinação.
+const italyMoreSpotsContent = (locale: EmailLocale, payload: MarketingTemplatePayload) => {
+  const isEn = locale === 'en';
+  const spots = Math.max(0, Number(payload.pilgrimageVacancies ?? 0));
+  const line = isEn
+    ? `We have opened <strong>${spots} special places</strong> for those on the waiting list for <strong>Italy and Medjugorje</strong>. You are hearing first.`
+    : `Abrimos <strong>${spots} vagas especiais</strong> para quem está na lista de espera da <strong>Itália e Medjugorje</strong>. Você é o primeiro a saber.`;
+  return `${Text('<strong>{{greeting}}</strong>,')}${Text(line)}
+    ${italyExtraSpotsBar(locale, payload)}`;
+};
 
 const italyLaunchContent = (locale: EmailLocale) => {
   const isEn = locale === 'en';
@@ -2013,6 +2053,115 @@ export const renderPilgrimagePaymentReminderEmail = (
   };
 };
 
+export type BookingPaymentPlanUpdatedInput = {
+  recipientName?: string | null;
+  pilgrimageName: string;
+  bookingUrl: string;
+  totalAmount: number;
+  depositAmount: number;
+  depositPending?: boolean;
+  pilgrimCount?: number | null;
+  installments: { date: string; amount: number }[];
+  locale?: EmailLocale;
+};
+
+export const renderBookingPaymentPlanUpdatedEmail = (
+  payload: BookingPaymentPlanUpdatedInput,
+) => {
+  const locale: EmailLocale = payload.locale === 'en' ? 'en' : 'pt';
+  const isEn = locale === 'en';
+  const installments = payload.installments || [];
+  const installmentsTotal = installments.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+  const firstDueDate = installments[0]?.date;
+  const heading = isEn ? 'Instalment Plan Activated' : 'Pagamento Parcelado Ativado';
+  const greetingName = (payload.recipientName || '').trim().split(' ')[0]
+    || (isEn ? 'pilgrim' : 'peregrino(a)');
+
+  return {
+    subject: isEn
+      ? `Your registration now pays in instalments: ${payload.pilgrimageName}`
+      : `Sua inscrição passou para pagamento parcelado: ${payload.pilgrimageName}`,
+    html: Layout({
+      title: heading,
+      preview: isEn
+        ? 'Your registration was updated to monthly instalments.'
+        : 'Sua inscrição foi atualizada para parcelas mensais.',
+      locale,
+      children: `
+        ${Header({
+          title: heading,
+          subtitle: payload.pilgrimageName,
+        })}
+        ${Section({
+          children: `
+            ${Text(`${isEn ? 'Hello' : 'Olá'} <strong>${greetingName}</strong>,`)}
+            ${Text(
+              isEn
+                ? 'As requested, we have updated your registration: instead of paying in full, the amount is now split into monthly instalments.'
+                : 'Conforme o seu pedido, atualizamos sua inscrição: em vez do pagamento integral, o valor passa a ser dividido em parcelas mensais.',
+            )}
+            ${Card({
+              children: `
+                ${InfoRow({ label: isEn ? 'Pilgrimage' : 'Peregrinação', value: payload.pilgrimageName })}
+                ${payload.pilgrimCount ? InfoRow({ label: isEn ? 'Pilgrims' : 'Peregrinos', value: payload.pilgrimCount }) : ''}
+                ${InfoRow({ label: isEn ? 'Total amount' : 'Valor total', value: formatCurrency(payload.totalAmount, 'EUR', locale) })}
+                ${InfoRow({ label: isEn ? 'Registration deposit' : 'Sinal de inscrição', value: formatCurrency(payload.depositAmount, 'EUR', locale) })}
+                ${InfoRow({
+                  label: isEn ? 'Split into instalments' : 'Dividido em parcelas',
+                  value: isEn
+                    ? `${formatCurrency(installmentsTotal, 'EUR', locale)} in ${installments.length}x`
+                    : `${formatCurrency(installmentsTotal, 'EUR', locale)} em ${installments.length}x`,
+                  isLast: true,
+                })}
+              `,
+            })}
+            ${HeadingSmall(isEn ? 'Instalment schedule' : 'Calendário das parcelas')}
+            ${Card({
+              children: installments
+                .map((item, index) =>
+                  InfoRow({
+                    label: `${index + 1}ª ${isEn ? 'instalment' : 'parcela'} — ${formatDate(item.date, locale)}`,
+                    value: formatCurrency(Number(item.amount) || 0, 'EUR', locale),
+                    isLast: index === installments.length - 1,
+                  }),
+                )
+                .join(''),
+            })}
+            ${payload.depositPending
+              ? Card({
+                  children: `
+                    <p style="margin:0;color:${COLORS.error};font-weight:700;">
+                      ${isEn
+                        ? `The registration deposit of ${formatCurrency(payload.depositAmount, 'EUR', locale)} is still pending.`
+                        : `O sinal de inscrição de ${formatCurrency(payload.depositAmount, 'EUR', locale)} continua pendente.`}
+                    </p>
+                    <p style="margin:12px 0 0;color:${COLORS.textLight};">
+                      ${isEn
+                        ? 'The deposit is what confirms your spot — it is paid separately from the instalments above.'
+                        : 'É o sinal que garante sua vaga — ele é pago separadamente das parcelas acima.'}
+                    </p>
+                  `,
+                })
+              : ''}
+            ${Text(
+              isEn
+                ? 'Use the button below to open your registration, pay and upload receipts.'
+                : 'Use o botão abaixo para abrir sua inscrição, pagar e enviar comprovantes.',
+            )}
+            ${Button({ label: isEn ? 'Pay My Registration' : 'Pagar a Minha Inscrição', url: payload.bookingUrl })}
+            ${Text(
+              isEn
+                ? `We will send a reminder before each due date${firstDueDate ? `, starting on ${formatDate(firstDueDate, locale)}` : ''}. If anything looks wrong, just reply to this email.`
+                : `Enviaremos um lembrete antes de cada vencimento${firstDueDate ? `, a começar em ${formatDate(firstDueDate, locale)}` : ''}. Se algo não estiver certo, é só responder a este email.`,
+              `font-size:13px;color:${COLORS.textLight};`,
+            )}
+          `,
+        })}
+      `,
+    }),
+  };
+};
+
 export const renderPaymentReceiptAdminNotification = (
   payload: PaymentReceiptAdminNotificationInput,
 ) => {
@@ -2436,6 +2585,7 @@ export type MarketingTemplateKey =
   | 'italy_medjugorje_story'
   | 'italy_medjugorje_value'
   | 'italy_medjugorje_last_call'
+  | 'italy_medjugorje_more_spots'
   | 'abandoned_registration_1'
   | 'abandoned_registration_faq'
   | 'abandoned_registration_final'
@@ -2541,6 +2691,9 @@ type MarketingTemplateDefinition = {
   // Quando true, o cabeçalho usa a capa real da peregrinação
   // (`payload.pilgrimageImageUrl`) em vez da imagem genérica do Apostolado.
   useHeroImage?: boolean;
+  // Botão principal em tamanho grande (largura total). Para emails curtos cuja
+  // única ação é clicar.
+  ctaSize?: 'md' | 'lg';
 };
 
 type MarketingTemplateLocalizedContent = Pick<
@@ -2788,6 +2941,27 @@ export const MARKETING_EMAIL_TEMPLATES: Record<MarketingTemplateKey, MarketingTe
       '<strong>{{greeting}}</strong>,',
       'A pergunta que mais recebemos é sempre a mesma: "quanto custa, de verdade?"',
       'São 1.850 € no terrestre, com hotel, alimentação completa, bebidas e transporte incluídos — em até 10x sem juros.',
+    ],
+  },
+  italy_medjugorje_more_spots: {
+    key: 'italy_medjugorje_more_spots',
+    name: 'Itália + Medjugorje · Vagas extra (lista de espera)',
+    category: 'Peregrinações',
+    goal: 'Avisar quem está na lista de espera de que abriram vagas extra e levar à inscrição imediata.',
+    defaultSubject: 'Abriram vagas para a Itália — você está na lista de espera',
+    previewText: 'O grupo estava lotado. Conseguimos mais alguns lugares e você soube primeiro.',
+    ctaLabel: 'Garantir a Minha Vaga Agora',
+    ctaUrl: (payload) => payload.pilgrimageUrl || italyUrl(payload.language === 'en' ? 'en' : 'pt'),
+    title: 'Abriram vagas extra',
+    subtitle: 'Itália e Medjugorje · 5 a 17 de abril de 2027',
+    requiredVariables: ['name', 'pilgrimage_url'],
+    useHeroImage: true,
+    ctaSize: 'lg',
+    contentHtml: (locale, payload) => italyMoreSpotsContent(locale, payload),
+    paragraphs: [
+      '<strong>{{greeting}}</strong>,',
+      'Você entrou na lista de espera da <strong>Itália e Medjugorje, abril de 2027</strong> porque o grupo já estava lotado.',
+      'Conseguimos garantir mais alguns quartos. As vagas ainda não foram anunciadas publicamente — a lista de espera vem primeiro.',
     ],
   },
   italy_medjugorje_last_call: {
@@ -3484,6 +3658,19 @@ const MARKETING_EMAIL_TEMPLATE_EN: Record<MarketingTemplateKey, MarketingTemplat
       'It is €1,850 for the land package, with hotel, all meals, drinks and travel included — payable in up to 10 interest-free instalments.',
     ],
   },
+  italy_medjugorje_more_spots: {
+    goal: 'Tell the waiting list that extra places have opened and drive immediate registration.',
+    defaultSubject: 'Places have opened for Italy — you are on the waiting list',
+    previewText: 'The group was full. We secured a few more rooms and you are hearing first.',
+    ctaLabel: 'Secure My Place Now',
+    title: 'Extra places have opened',
+    subtitle: 'Italy and Medjugorje · 5-17 April 2027',
+    paragraphs: [
+      '<strong>{{greeting}}</strong>,',
+      'You joined the waiting list for <strong>Italy and Medjugorje, April 2027</strong> because the group was already full.',
+      'We managed to secure a few more rooms. These places have not been announced publicly yet — the waiting list comes first.',
+    ],
+  },
   italy_medjugorje_last_call: {
     goal: 'Close the final places before the registration deadline.',
     defaultSubject: 'Final places for Italy and Medjugorje',
@@ -4007,7 +4194,7 @@ export const renderMarketingTemplateEmail = (payload: MarketingTemplatePayload) 
             ${richContent ?? bodyParagraphs.map((paragraph) => Text(fillMarketingVariables(paragraph, payload))).join('')}
             ${articleCards}
             ${productCard}
-            ${Button({ label: ctaLabel, url: ctaUrl })}
+            ${Button({ label: ctaLabel, url: ctaUrl, size: baseTemplate.ctaSize || 'md' })}
           `,
         })}
       `,
