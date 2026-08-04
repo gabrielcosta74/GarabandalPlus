@@ -52,6 +52,10 @@ import PaymentCurrencyDisplay, {
     LocalizedPilgrimageAmount,
 } from '../../../../components/pilgrimage/PaymentCurrencyDisplay';
 import type { FiscalBillingDetails } from '../../../../lib/fiscal-billing';
+import {
+    getInstallmentPaymentState,
+    resolveOutstandingInstallment,
+} from '../../../../lib/pilgrimage-payment-selection';
 
 /* -------------------------------------------------------------------------- */
 /*                                    Types                                   */
@@ -439,13 +443,16 @@ export default function BookingDashboardPage() {
     const totalAmount = booking?.total_amount || 0;
     const successfulStatuses = ['verified', 'succeeded', 'paid', 'manual'];
     const successfulPaidFromPayments = (booking?.payments || [])
-        .filter((p: any) => successfulStatuses.includes(String(p?.status || '').toLowerCase()))
-        .reduce((sum: number, p: any) => sum + (Number(p?.amount) || 0), 0);
+        .filter((payment) => successfulStatuses.includes(String(payment.status || '').toLowerCase()))
+        .reduce((sum, payment) => sum + (Number(payment.amount) || 0), 0);
     const paidAmount = Math.max(booking?.paid_amount || 0, successfulPaidFromPayments);
 
     const isFullyPaid = totalAmount > 0 && paidAmount >= totalAmount;
     const isDepositPaid = depositValue > 0 && paidAmount >= depositValue;
-    const isVerifying = booking?.payments?.some((p: any) => p.status === 'verifying' || p.status === 'pending_verification');
+    const isVerifying = booking?.payments?.some((payment) => payment.status === 'verifying' || payment.status === 'pending_verification');
+    const verifyingAmount = (booking?.payments || [])
+        .filter((payment) => payment.status === 'verifying' || payment.status === 'pending_verification')
+        .reduce((sum, payment) => sum + (Number(payment.amount) || 0), 0);
     const percentPaid = totalAmount > 0 ? (paidAmount / totalAmount) * 100 : 0;
 
     // -- Advanced Installment Logic --
@@ -474,21 +481,12 @@ export default function BookingDashboardPage() {
                     : 'full';
     const isFullPaymentFlow = paymentMode === 'full';
 
-    // Helper to find state of an installment
-    const getInstallmentState = (index: number, amount: number) => {
-        if (isFullyPaid) return 'paid';
-        // Calculate the target amount to reach this installment
-        const cumulativeTarget = depositValue + paymentPlan.slice(0, index + 1).reduce((acc: number, curr: any) => acc + Number(curr.amount), 0);
-
-        if (paidAmount >= cumulativeTarget) return 'paid';
-
-        // Check for pending/verifying payments
-        const pendingPayments = booking?.payments?.filter((p: any) => p.status === 'verifying' || p.status === 'pending_verification') || [];
-        const totalPending = pendingPayments.reduce((acc: number, curr: any) => acc + (Number(curr.amount) || 0), 0);
-
-        if (paidAmount + totalPending >= cumulativeTarget) return 'verifying';
-        return 'pending';
-    };
+    const outstandingInstallment = resolveOutstandingInstallment({
+        paidAmount,
+        pendingAmount: verifyingAmount,
+        depositValue,
+        paymentPlan,
+    });
 
     // Calculate Amount to Pay Now
     let nextAmountToPay = totalAmount - paidAmount;
@@ -502,20 +500,9 @@ export default function BookingDashboardPage() {
             nextAmountToPay = depositValue - paidAmount;
             nextLabel = isEn ? 'Registration Deposit' : 'Sinal de Inscrição';
         } else if (hasPlan && !isFullyPaid) {
-            // Find first installment not paid
-            const nextIdx = paymentPlan.findIndex((_: any, idx: number) => getInstallmentState(idx, 0) === 'pending');
-            if (nextIdx !== -1) {
-                // Calculate the cumulative target for this installment
-                const cumulativeTarget = depositValue + paymentPlan.slice(0, nextIdx + 1).reduce((acc: number, curr: any) => acc + Number(curr.amount), 0);
-
-                // The amount to pay is the difference between the target and what has been paid so far
-                // This handles partial payments correctly
-                nextAmountToPay = cumulativeTarget - paidAmount;
-
-                // Ensure we don't show negative values (floating point safety)
-                nextAmountToPay = Math.max(0, parseFloat(nextAmountToPay.toFixed(2)));
-
-                nextLabel = `${isEn ? 'Installment' : 'Prestação'} ${nextIdx + 1} (${format(new Date(paymentPlan[nextIdx].date), 'MMMM', { locale: dateLocale })})`;
+            if (outstandingInstallment) {
+                nextAmountToPay = outstandingInstallment.amountDue;
+                nextLabel = `${isEn ? 'Installment' : 'Prestação'} ${outstandingInstallment.index + 1} (${format(new Date(paymentPlan[outstandingInstallment.index].date), 'MMMM', { locale: dateLocale })})`;
             }
         }
     }
@@ -973,7 +960,7 @@ export default function BookingDashboardPage() {
                             minAmount={customMinAmount}
                             maxAmount={totalRemaining}
                             minLabel={nextLabel}
-                            paymentPlan={paymentPlan}
+                            remainingInstallmentAmounts={outstandingInstallment?.remainingAmounts || []}
                             formatPrice={formatEUR}
                             active={useCustomAmount}
                             customAmount={customAmount}
@@ -1414,8 +1401,14 @@ export default function BookingDashboardPage() {
                                                 />
                                             </li>
                                             {/* Installment rows */}
-                                            {paymentPlan.map((step: any, idx: number) => {
-                                                const state = getInstallmentState(idx, Number(step.amount));
+                                            {paymentPlan.map((step, idx) => {
+                                                const state = getInstallmentPaymentState({
+                                                    index: idx,
+                                                    paidAmount,
+                                                    pendingAmount: verifyingAmount,
+                                                    depositValue,
+                                                    paymentPlan,
+                                                });
                                                 return (
                                                     <li key={idx} className="flex items-center gap-3.5 py-4">
                                                         <ScheduleMarker state={state} />

@@ -3,13 +3,14 @@
 import { ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { AlertCircle } from 'lucide-react';
 import { useLocale } from '../../contexts/LocaleContext';
+import { buildInstallmentAmountChoices } from '../../lib/pilgrimage-payment-selection';
 
 interface CustomPaymentAmountProps {
     suggestedAmount: number;
     minAmount: number;
     maxAmount: number;
     minLabel: string;
-    paymentPlan: Array<{ date: string; amount: number }>;
+    remainingInstallmentAmounts: number[];
     formatPrice: (value: number) => string;
     active: boolean;
     customAmount: number | null;
@@ -96,7 +97,7 @@ export default function CustomPaymentAmount({
     minAmount,
     maxAmount,
     minLabel,
-    paymentPlan,
+    remainingInstallmentAmounts,
     formatPrice,
     active,
     customAmount,
@@ -165,43 +166,22 @@ export default function CustomPaymentAmount({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [parsed, valid, suggestedAmount]);
 
-    // Build dynamic chips: next installment, +1, +2, all. Labelled by how many
-    // installments each option covers, so the choice reads as "how many do I pay".
+    // Build dynamic chips from the actual outstanding installment amounts. The
+    // final installment can differ by a few cents because of plan rounding.
     const chips = useMemo(() => {
-        const next = safeMin;
-        const items: Array<{ label: string; value: number; tone: 'default' | 'gold' }> = [];
-        items.push({
-            label: isEn ? '1 installment' : '1 prestação',
-            value: round2(next),
-            tone: 'default',
-        });
-        if (paymentPlan.length >= 2 && next * 2 <= safeMax + 0.009) {
-            items.push({
-                label: isEn ? '2 installments' : '2 prestações',
-                value: round2(Math.min(next * 2, safeMax)),
-                tone: 'default',
-            });
-        }
-        if (paymentPlan.length >= 3 && next * 3 <= safeMax + 0.009) {
-            items.push({
-                label: isEn ? '3 installments' : '3 prestações',
-                value: round2(Math.min(next * 3, safeMax)),
-                tone: 'default',
-            });
-        }
-        items.push({
-            label: isEn ? 'Everything' : 'Tudo',
-            value: round2(safeMax),
-            tone: 'gold',
-        });
-        // Deduplicate by value
-        const seen = new Set<number>();
-        return items.filter((it) => {
-            if (seen.has(it.value)) return false;
-            seen.add(it.value);
-            return true;
-        });
-    }, [paymentPlan.length, safeMin, safeMax, isEn]);
+        return buildInstallmentAmountChoices({
+            remainingAmounts: remainingInstallmentAmounts,
+            maxAmount: safeMax,
+        }).map((choice) => ({
+            label: choice.count === null
+                ? (isEn ? 'Everything' : 'Tudo')
+                : `${choice.count} ${isEn
+                    ? (choice.count === 1 ? 'installment' : 'installments')
+                    : (choice.count === 1 ? 'prestação' : 'prestações')}`,
+            value: choice.amount,
+            tone: choice.count === null ? 'gold' as const : 'default' as const,
+        }));
+    }, [remainingInstallmentAmounts, safeMax, isEn]);
 
     const isSelectedChip = (val: number) => parsed != null && Math.abs(parsed - val) < 0.009;
 
