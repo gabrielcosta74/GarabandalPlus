@@ -22,6 +22,8 @@ import {
     ShieldCheck,
     UserRound,
     Bus,
+    Wallet,
+    Plane,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { enUS, pt } from 'date-fns/locale';
@@ -32,6 +34,11 @@ import PaymentConfirmationModal, {
     type PaymentConfirmationFiscalDocument,
 } from '../../../../components/booking/PaymentConfirmationModal';
 import CustomPaymentAmount, { buildPaymentPreview } from '../../../../components/booking/CustomPaymentAmount';
+import BookingTabs, { type BookingTabId } from '../../../../components/booking/BookingTabs';
+import TripInfoPanel, {
+    type TripItineraryItem,
+    type TripPilgrimage,
+} from '../../../../components/booking/TripInfoPanel';
 import { UNIFIED_ONLINE_PAYMENT_OPTIONS } from '../../../../lib/payment-options';
 import {
     BANK_TRANSFER_SITE_CONTENT_KEY,
@@ -66,10 +73,11 @@ type Booking = {
         deposit_value: number;
         base_price?: number;
         pricing_config?: any;
-    };
+    } & TripPilgrimage;
     payments: BookingPayment[];
     payment_plan?: { date: string; amount: number }[];
     billing_profile?: FiscalBillingDetails | null;
+    itinerary?: TripItineraryItem[];
 };
 
 type BookingPayment = {
@@ -373,6 +381,39 @@ export default function BookingDashboardPage() {
     const [bankTransferDetails, setBankTransferDetails] = useState(DEFAULT_BANK_TRANSFER_DETAILS);
     const [customAmount, setCustomAmount] = useState<number | null>(null);
     const [showMobilePaySheet, setShowMobilePaySheet] = useState(false);
+
+    // --- Tabs: payments (default) | trip logistics ---
+    // The tab lives in the URL so a refresh keeps it and the browser back button
+    // returns to the previous tab instead of leaving the page. It is read after
+    // mount to keep the server and client render identical.
+    const [activeTab, setActiveTab] = useState<BookingTabId>('payments');
+
+    useEffect(() => {
+        const syncTabFromUrl = () => {
+            const tab = new URLSearchParams(window.location.search).get('tab');
+            setActiveTab(tab === 'viagem' ? 'trip' : 'payments');
+        };
+
+        syncTabFromUrl();
+        window.addEventListener('popstate', syncTabFromUrl);
+        return () => window.removeEventListener('popstate', syncTabFromUrl);
+    }, []);
+
+    const handleTabChange = (tab: BookingTabId) => {
+        if (tab === activeTab) return;
+        setActiveTab(tab);
+
+        // Rewrite only the `tab` param — viewToken/token/provider must survive.
+        const params = new URLSearchParams(window.location.search);
+        if (tab === 'trip') {
+            params.set('tab', 'viagem');
+        } else {
+            params.delete('tab');
+        }
+        const query = params.toString();
+        window.history.pushState({}, '', `${window.location.pathname}${query ? `?${query}` : ''}`);
+        window.scrollTo({ top: 0 });
+    };
 
     useEffect(() => {
         const params = new URLSearchParams(window.location.search);
@@ -1240,8 +1281,26 @@ export default function BookingDashboardPage() {
                             </div>
                         </div>
 
-                        {/* --- 2. MAIN GRID: Payment panel + Schedule --- */}
-                        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
+                        {/* --- 2. TABS: payments (default) | trip --- */}
+                        <div className="sticky top-3 z-30 lg:top-24">
+                            <BookingTabs
+                                active={activeTab}
+                                onChange={handleTabChange}
+                                tabs={[
+                                    { id: 'payments', label: isEn ? 'Payment' : 'Pagamento', icon: Wallet },
+                                    { id: 'trip', label: isEn ? 'The trip' : 'A viagem', icon: Plane },
+                                ]}
+                            />
+                        </div>
+
+                        {/* --- 3. MAIN GRID: Payment panel + Schedule --- */}
+                        {activeTab === 'payments' && (
+                        <div
+                            id="booking-panel-payments"
+                            role="tabpanel"
+                            aria-labelledby="booking-tab-payments"
+                            className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start"
+                        >
 
                             {/* ============== LEFT: SCHEDULE & PROGRESS ============== */}
                             <section className="lg:col-span-7 order-2 lg:order-1 space-y-6">
@@ -1456,6 +1515,24 @@ export default function BookingDashboardPage() {
                                 </div>
                             )}
                         </div>
+                        )}
+
+                        {/* --- 4. TRIP LOGISTICS --- */}
+                        {activeTab === 'trip' && (
+                            <div
+                                id="booking-panel-trip"
+                                role="tabpanel"
+                                aria-labelledby="booking-tab-trip"
+                                className="mx-auto w-full max-w-2xl"
+                            >
+                                <TripInfoPanel
+                                    isEn={isEn}
+                                    pilgrimage={booking.pilgrimage}
+                                    pilgrims={booking.pilgrims || []}
+                                    itinerary={booking.itinerary || []}
+                                />
+                            </div>
+                        )}
                     </>
                 )}
 

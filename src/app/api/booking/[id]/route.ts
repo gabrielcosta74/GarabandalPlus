@@ -27,6 +27,31 @@ type FactPtPaymentStatus = {
 };
 
 /**
+ * Logistics fields shown in the "trip" tab of the private booking page.
+ * Kept in one place so the token and authenticated selects stay in sync.
+ */
+const PILGRIMAGE_TRIP_FIELDS = `
+    slug,
+    meeting_point_text,
+    meeting_point_text_en,
+    meeting_end_text,
+    meeting_end_text_en,
+    flight_departure_time,
+    flight_return_time,
+    flight_info_text,
+    flight_info_text_en,
+    group_flight_details,
+    group_flight_details_en,
+    flight_price_from,
+    itinerary_summary,
+    itinerary_summary_en,
+    included_items,
+    included_items_en,
+    not_included_items,
+    not_included_items_en
+`;
+
+/**
  * GET /api/booking/[id]
  * 
  * SECURITY: Two access modes:
@@ -113,6 +138,32 @@ export async function GET(
                 return booking;
             };
 
+            /**
+             * Day-by-day itinerary for the trip tab. Read with the service role so
+             * private pilgrimages (hidden by RLS) still show logistics to their own
+             * pilgrims. Failures degrade to an empty list — never block the booking.
+             */
+            const attachItinerary = async (booking: BookingRecord) => {
+                booking.itinerary = [];
+                const pilgrimageId = booking?.pilgrimage_id;
+                if (typeof pilgrimageId !== 'string' || !pilgrimageId) return booking;
+
+                const { data: itinerary, error: itineraryError } = await supabaseServer!
+                    .from('pilgrimage_itinerary_items')
+                    .select('id, title, title_en, description, description_en, day_number, display_order')
+                    .eq('pilgrimage_id', pilgrimageId)
+                    .order('day_number', { ascending: true })
+                    .order('display_order', { ascending: true });
+
+                if (itineraryError) {
+                    console.error('[API Booking] Itinerary lookup failed:', itineraryError);
+                    return booking;
+                }
+
+                booking.itinerary = itinerary || [];
+                return booking;
+            };
+
             const attachBillingProfile = async (booking: BookingRecord) => {
                 try {
                     booking.billing_profile = await loadPilgrimageBillingProfile(
@@ -142,7 +193,9 @@ export async function GET(
                         start_date,
                         end_date,
                         cover_image,
-                        deposit_value
+                        deposit_value,
+                        pricing_config,
+                        ${PILGRIMAGE_TRIP_FIELDS}
                     ),
                     pilgrims (*),
                     payments:pilgrimage_payments (
@@ -182,6 +235,7 @@ export async function GET(
             await normalizeBookingPaidAmount(booking);
             await attachFactPtStatus(booking);
             await attachBillingProfile(booking);
+            await attachItinerary(booking);
 
             console.log("✅ [API] Booking found with token, returning data");
             return NextResponse.json(booking);
@@ -207,10 +261,11 @@ export async function GET(
                     title, 
                     start_date, 
                     end_date, 
-                    cover_image, 
+                    cover_image,
                     deposit_value,
                     base_price,
-                    pricing_config
+                    pricing_config,
+                    ${PILGRIMAGE_TRIP_FIELDS}
                 ),
                 pilgrims (*),
                 payments:pilgrimage_payments (
@@ -247,6 +302,7 @@ export async function GET(
         await normalizeBookingPaidAmount(booking);
         await attachFactPtStatus(booking);
         await attachBillingProfile(booking);
+        await attachItinerary(booking);
 
         return NextResponse.json(booking);
 
