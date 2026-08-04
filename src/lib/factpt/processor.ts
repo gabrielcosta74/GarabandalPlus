@@ -88,6 +88,7 @@ export type FactPtReviewPreview = {
     matchReason:
       | 'exact_tin'
       | 'exact_email_and_compatible_name'
+      | 'admin_selected'
       | 'new_client'
       | 'simplified_final_consumer';
   } | null;
@@ -98,6 +99,21 @@ const VALID_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 function round(value: number, decimals = 8) {
   const multiplier = 10 ** decimals;
   return Math.round((value + Number.EPSILON) * multiplier) / multiplier;
+}
+
+function currentLisbonDate(now: Date = new Date()): string {
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Europe/Lisbon',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    })
+      .formatToParts(now)
+      .filter((part) => part.type !== 'literal')
+      .map((part) => [part.type, part.value]),
+  );
+  return `${parts.year}-${parts.month}-${parts.day}`;
 }
 
 function fiscalReference(value: string, index: number) {
@@ -275,6 +291,7 @@ export function buildInitialFactPtFiscalSnapshot(
     sourceType: source.sourceType,
     sourceId: source.sourceId,
     paidAt: source.paymentDate,
+    documentDate: currentLisbonDate(),
     total: Math.round(source.amount * 100) / 100,
     currency: 'EUR',
     paymentMethod: parseFactPtPaymentMethod(source.paymentMethod),
@@ -289,7 +306,8 @@ export function buildInitialFactPtFiscalSnapshot(
       phone: source.customer.phone,
     },
     lines,
-    language: source.language,
+    language: 'pt',
+    emailLanguage: source.language,
     reference: source.sourceReference,
     emailSourceLabel: source.emailSourceLabel,
   };
@@ -703,6 +721,14 @@ async function sendIssuedDocumentEmail(
         ? 'Fatura-Recibo'
         : 'Fatura Simplificada',
     sourceLabel: factPtEmailSourceLabel(fiscal),
+    locale:
+      fiscal.emailLanguage === 'en'
+        ? 'en'
+        : fiscal.emailLanguage === 'pt'
+          ? 'pt'
+          : fiscal.language === 'en'
+            ? 'en'
+            : 'pt',
     attachment: {
       filename: `${document.number.replace(/[^a-z0-9_-]+/gi, '-')}.pdf`,
       content: Buffer.from(pdf),

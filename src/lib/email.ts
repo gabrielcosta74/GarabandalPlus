@@ -130,6 +130,7 @@ export type FactPtFiscalDocumentEmailInput = {
   documentNumber: string;
   documentLabel: string;
   sourceLabel: string;
+  locale?: 'pt' | 'en';
   attachment: {
     filename: string;
     content: Buffer;

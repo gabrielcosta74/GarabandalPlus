@@ -252,6 +252,30 @@ describe('FACT.pt fiscal rules and builders', () => {
     ).toBe('Peregrinação 2026D — Sinal');
   });
 
+  it('always emits the official FACT.pt document in Portuguese', () => {
+    const document = buildFactPtDocument(
+      makeSnapshot({ language: 'en', emailLanguage: 'en' }),
+      'client-59',
+    );
+
+    expect(document.payload.document.language).toBe('pt');
+  });
+
+  it('keeps the payment date for audit but uses the explicit document date', () => {
+    const document = buildFactPtDocument(
+      makeSnapshot({
+        paidAt: '2026-08-03T20:00:00.000Z',
+        documentDate: '2026-08-04',
+      }),
+      'client-59',
+    );
+
+    expect(document.payload.document.date).toBe('2026-08-04');
+    if (document.type === 'invoice_receipt') {
+      expect(document.payload.document.duePayment).toBe('2026-08-04');
+    }
+  });
+
   it('always uses a named Fatura-Recibo for pilgrimage holders without NIF', () => {
     const snapshot = makeSnapshot({
       sourceType: 'pilgrimage',

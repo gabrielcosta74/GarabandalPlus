@@ -120,6 +120,7 @@ export type FactPtFiscalDocumentRendererInput = {
   documentNumber: string;
   documentLabel: string;
   sourceLabel: string;
+  locale?: EmailLocale;
 };
 
 export type GeneralLeadInput = {
@@ -1591,20 +1592,65 @@ export const renderMemberReceiptEmail = (payload: MemberReceiptInput) => {
   };
 };
 
+const localizeFactPtEmailSourceLabel = (
+  sourceLabel: string,
+  locale: EmailLocale | undefined,
+) => {
+  if (locale !== "en") return sourceLabel;
+
+  return sourceLabel
+    .replace(
+      /^Doação\s*-\s*Associação do Apostolado de Garabandal$/i,
+      "Donation - Association of the Apostolate of Garabandal",
+    )
+    .replace(/^Peregrinação\s+a\s+/i, "Pilgrimage to ")
+    .replace(/^Peregrinação\s+de\s+/i, "Pilgrimage ")
+    .replace(/\bItália\b/gi, "Italy")
+    .replace(/\bEspanha\b/gi, "Spain")
+    .replace(/\bFrança\b/gi, "France")
+    .replace(/\s+e\s+/gi, " and ")
+    .replace(/\bJaneiro\b/gi, "January")
+    .replace(/\bFevereiro\b/gi, "February")
+    .replace(/\bMarço\b/gi, "March")
+    .replace(/\bAbril\b/gi, "April")
+    .replace(/\bMaio\b/gi, "May")
+    .replace(/\bJunho\b/gi, "June")
+    .replace(/\bJulho\b/gi, "July")
+    .replace(/\bAgosto\b/gi, "August")
+    .replace(/\bSetembro\b/gi, "September")
+    .replace(/\bOutubro\b/gi, "October")
+    .replace(/\bNovembro\b/gi, "November")
+    .replace(/\bDezembro\b/gi, "December")
+    .replace(/\s+—\s+Pagamento total$/i, " — Full payment")
+    .replace(/\s+—\s+Valor restante$/i, " — Remaining balance")
+    .replace(/\s+—\s+Prestação$/i, " — Installment")
+    .replace(/\s+—\s+Sinal$/i, " — Deposit");
+};
+
 export const renderFactPtFiscalDocumentEmail = (
   payload: FactPtFiscalDocumentRendererInput,
 ) => {
+  const isEn = payload.locale === "en";
   const recipientName = escapeHtml(payload.recipientName?.trim() || "Cliente");
-  const documentLabelText = payload.documentLabel.trim() || "Fatura";
+  const documentLabelText = isEn
+    ? payload.documentLabel.trim() === "Fatura-Recibo"
+      ? "Invoice-Receipt"
+      : payload.documentLabel.trim() === "Fatura Simplificada"
+        ? "Simplified Invoice"
+        : payload.documentLabel.trim() || "Invoice"
+    : payload.documentLabel.trim() || "Fatura";
   const documentLabel = escapeHtml(documentLabelText);
   const documentNumberText = payload.documentNumber.trim().replace(/[\r\n]+/g, " ");
   const documentNumber = escapeHtml(payload.documentNumber);
-  const sourceLabelText = payload.sourceLabel.trim().replace(/[\r\n]+/g, " ");
-  const sourceLabel = escapeHtml(payload.sourceLabel);
+  const sourceLabelText = localizeFactPtEmailSourceLabel(
+    payload.sourceLabel.trim().replace(/\s+/g, " "),
+    payload.locale,
+  );
+  const sourceLabel = escapeHtml(sourceLabelText);
   const sandboxNotice = payload.sandbox
     ? `
       <div style="margin:0 0 22px;padding:14px 16px;border:1px solid #fdba74;border-radius:12px;background:#fff7ed;color:#9a3412;font-size:14px;line-height:21px;font-weight:800;text-align:center;">
-        SANDBOX — TESTE SEM VALOR FISCAL
+        ${isEn ? "SANDBOX — TEST WITHOUT FISCAL VALUE" : "SANDBOX — TESTE SEM VALOR FISCAL"}
       </div>
     `
     : "";
@@ -1613,26 +1659,37 @@ export const renderFactPtFiscalDocumentEmail = (
     subject: `${payload.sandbox ? "[SANDBOX] " : ""}${documentLabelText} ${documentNumberText} — ${sourceLabelText}`,
     html: Layout({
       title: documentLabelText,
-      preview: `${documentLabelText} ${documentNumberText}, referente a ${sourceLabelText}, segue em anexo.`,
+      preview: isEn
+        ? `${documentLabelText} ${documentNumberText}, regarding ${sourceLabelText}, is attached.`
+        : `${documentLabelText} ${documentNumberText}, referente a ${sourceLabelText}, segue em anexo.`,
       children: `
         ${Header({
-          title: `A sua ${documentLabel}`,
+          title: isEn ? `Your ${documentLabel}` : `A sua ${documentLabel}`,
           subtitle: sourceLabel,
-          category: "Faturação",
+          category: isEn ? "Billing" : "Faturação",
         })}
         ${Section({
           children: `
             ${sandboxNotice}
-            ${Text(`Olá <strong>${recipientName}</strong>,`)}
-            ${Text(`Confirmamos a emissão da sua <strong>${documentLabel} ${documentNumber}</strong>, referente a <strong>${sourceLabel}</strong>.`)}
-            ${Text("O PDF oficial segue em anexo e não precisa de fazer mais nada.")}
+            ${Text(isEn ? `Hello <strong>${recipientName}</strong>,` : `Olá <strong>${recipientName}</strong>,`)}
+            ${Text(isEn
+              ? `We confirm the issuance of your <strong>${documentLabel} ${documentNumber}</strong>, regarding <strong>${sourceLabel}</strong>.`
+              : `Confirmamos a emissão da sua <strong>${documentLabel} ${documentNumber}</strong>, referente a <strong>${sourceLabel}</strong>.`)}
+            ${Text(isEn
+              ? "The official PDF is attached. No further action is required."
+              : "O PDF oficial segue em anexo e não precisa de fazer mais nada.")}
             ${Card({
               children: `
-                ${InfoRow({ label: "Documento", value: `${documentLabel} ${documentNumber}` })}
-                ${InfoRow({ label: "Referente", value: sourceLabel, isLast: true })}
+                ${InfoRow({ label: isEn ? "Document" : "Documento", value: `${documentLabel} ${documentNumber}` })}
+                ${InfoRow({ label: isEn ? "Regarding" : "Referente", value: sourceLabel, isLast: true })}
               `,
             })}
-            ${Text("Guarde este email e a fatura em anexo para consulta futura.", `margin-bottom:0;color:${COLORS.textLight};`)}
+            ${Text(
+              isEn
+                ? "Please keep this email and the attached invoice for future reference."
+                : "Guarde este email e a fatura em anexo para consulta futura.",
+              `margin-bottom:0;color:${COLORS.textLight};`,
+            )}
           `,
         })}
       `,

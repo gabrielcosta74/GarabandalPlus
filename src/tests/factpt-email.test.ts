@@ -41,4 +41,23 @@ describe('FACT.pt fiscal document email', () => {
     expect(email.html).not.toContain('SANDBOX');
     expect(email.html).not.toContain('fact.pt');
   });
+
+  it('renders the email in English while keeping the attached fiscal document independent', () => {
+    const email = renderFactPtFiscalDocumentEmail({
+      sandbox: false,
+      recipientName: 'Cynthia Londo',
+      documentNumber: 'FR 2026D/900',
+      documentLabel: 'Fatura-Recibo',
+      sourceLabel: 'Peregrinação a Itália e Medjugorje - Abril 2027 — Prestação',
+      locale: 'en',
+    });
+
+    expect(email.subject).toBe(
+      'Invoice-Receipt FR 2026D/900 — Pilgrimage to Italy and Medjugorje - April 2027 — Installment',
+    );
+    expect(email.html).toContain('Hello <strong>Cynthia Londo</strong>');
+    expect(email.html).toContain('The official PDF is attached');
+    expect(email.html).toContain('No further action is required');
+    expect(email.html).not.toContain('O PDF oficial segue em anexo');
+  });
 });

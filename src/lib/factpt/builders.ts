@@ -89,7 +89,7 @@ export function buildFactPtDocument(
     snapshot.sourceType,
     snapshot.sourceId,
   );
-  const date = isoDate(snapshot.paidAt);
+  const date = isoDate(snapshot.documentDate || snapshot.paidAt);
   const commonDocument = {
     date,
     paymentType: resolveFactPtPaymentType(snapshot.paymentMethod),
@@ -98,7 +98,8 @@ export function buildFactPtDocument(
     download: false as const,
     allowRound: true as const,
     identifierId,
-    language: snapshot.language?.trim().slice(0, 2) || 'pt',
+    // FACT.pt fiscal PDFs are always Portuguese. Email locale is separate.
+    language: 'pt',
   };
 
   if (decision.type === 'invoice_receipt') {

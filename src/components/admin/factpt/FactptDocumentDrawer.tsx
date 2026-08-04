@@ -45,6 +45,7 @@ type ClientResolution = {
   matchReason:
     | 'exact_tin'
     | 'exact_email_and_compatible_name'
+    | 'admin_selected'
     | 'new_client'
     | 'simplified_final_consumer';
 };
@@ -52,6 +53,7 @@ type ClientResolution = {
 const CLIENT_RESOLUTION_LABELS: Record<ClientResolution['matchReason'], string> = {
   exact_tin: 'NIF exato',
   exact_email_and_compatible_name: 'Email exato + nome compatível',
+  admin_selected: 'Selecionado manualmente pelo admin',
   new_client: 'Novo cliente',
   simplified_final_consumer: 'Consumidor final',
 };

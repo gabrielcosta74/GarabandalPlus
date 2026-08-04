@@ -188,12 +188,16 @@ export type FactPtFiscalSnapshot = {
   sourceType: FactPtSourceType;
   sourceId: string;
   paidAt: string;
+  /** Date printed on the fiscal document; payment date remains in paidAt. */
+  documentDate?: string;
   total: number;
   currency: 'EUR';
   paymentMethod: FactPtPaymentMethod;
   customer: FactPtBillingCustomer;
   lines: FactPtFiscalLine[];
+  /** The PDF is Portuguese; customer-facing email locale is independent. */
   language?: string;
+  emailLanguage?: 'pt' | 'en';
   reference?: string;
   emailSourceLabel?: string;
   /**
@@ -204,7 +208,8 @@ export type FactPtFiscalSnapshot = {
   existingClientId?: string;
   existingClientMatchReason?:
     | 'exact_tin'
-    | 'exact_email_and_compatible_name';
+    | 'exact_email_and_compatible_name'
+    | 'admin_selected';
 };
 
 export type FactPtDocumentDecision =
