@@ -53,7 +53,7 @@ export function buildPaymentPreview({
     if (!Number.isFinite(amount) || amount <= 0) return null;
 
     const sequence: Array<{ label: string; expected: number }> = [
-        { label: isEn ? 'Registration deposit' : 'Sinal de inscrição', expected: depositValue },
+        { label: isEn ? 'Registration fee' : 'Taxa de inscrição', expected: depositValue },
         ...paymentPlan.map((p, idx) => ({
             label: `${isEn ? 'Installment' : 'Prestação'} ${idx + 1}`,
             expected: Number(p.amount) || 0,

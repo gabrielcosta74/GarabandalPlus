@@ -494,6 +494,7 @@ export const sendBookingConfirmationEmail = async (payload: {
   totalAmount: number;
   paymentMethod: string;
   magicLink: string;
+  directBookingUrl?: string | null;
   locale?: 'pt' | 'en';
 }) => {
   if (!resendClient) {
@@ -588,7 +589,9 @@ export const sendAuthRecoveryEmail = async (payload: { email: string; recoveryLi
 export const sendBookingAccessLinkEmail = async (payload: {
   email: string;
   accessLink: string;
+  directAccessLink?: string | null;
   pilgrimageName?: string | null;
+  locale?: 'pt' | 'en';
 }) => {
   if (!resendClient) {
     console.warn('Resend nao configurado. Ignorar envio de email.');
@@ -597,7 +600,9 @@ export const sendBookingAccessLinkEmail = async (payload: {
 
   const content = renderBookingAccessLinkEmail({
     accessLink: payload.accessLink,
+    directAccessLink: payload.directAccessLink,
     pilgrimageName: payload.pilgrimageName,
+    locale: payload.locale,
   });
   await resendClient.emails.send({
     from: notifyFrom,

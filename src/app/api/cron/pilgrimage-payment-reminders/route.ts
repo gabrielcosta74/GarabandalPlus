@@ -4,6 +4,7 @@ import { getAppUrl } from '../../../../lib/config';
 import { ensureNotificationRecord, markNotificationSent } from '../../../../lib/email-notifications';
 import { sendPilgrimagePaymentReminderEmail } from '../../../../lib/email';
 import { resolveReminderCandidate, type ReminderBooking } from '../../../../lib/pilgrimage-payment-reminders';
+import { generateBookingAutoLoginLink } from '../../../../lib/booking-email-access';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -178,6 +179,15 @@ export async function GET(request: Request) {
         continue;
       }
 
+      const locale = resolveBookingLocale(booking);
+      const autoLoginUrl = await generateBookingAutoLoginLink({
+        supabase: supabaseServer,
+        email: candidate.email,
+        bookingUrl: candidate.bookingUrl,
+        appUrl,
+        locale,
+      });
+
       const sent = await sendPilgrimagePaymentReminderEmail({
         toEmail: candidate.email,
         recipientName: candidate.recipientName,
@@ -187,8 +197,9 @@ export async function GET(request: Request) {
         amountDue: candidate.remainingAmount,
         totalRemaining: candidate.totalRemaining,
         bookingUrl: candidate.bookingUrl,
+        autoLoginUrl,
         stage: candidate.stage.kind,
-        locale: resolveBookingLocale(booking),
+        locale,
       });
 
       if (!sent) {

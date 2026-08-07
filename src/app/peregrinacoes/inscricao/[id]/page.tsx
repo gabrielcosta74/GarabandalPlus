@@ -24,6 +24,7 @@ import {
     Bus,
     Wallet,
     Plane,
+    CircleHelp,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { enUS, pt } from 'date-fns/locale';
@@ -376,6 +377,8 @@ export default function BookingDashboardPage() {
 
     // Onboarding State
     const [showOnboarding, setShowOnboarding] = useState(false);
+    const [tutorialRequested, setTutorialRequested] = useState(false);
+    const [tutorialIsNewAccount, setTutorialIsNewAccount] = useState(false);
     const [showBankModal, setShowBankModal] = useState(false); // New State for Bank Modal
     const [showBillingModal, setShowBillingModal] = useState(false);
     const [pendingBillingAction, setPendingBillingAction] = useState<
@@ -421,13 +424,10 @@ export default function BookingDashboardPage() {
 
     useEffect(() => {
         const params = new URLSearchParams(window.location.search);
-        if (params.get('first_time') === 'true') {
-            setShowOnboarding(true);
-
-            // Clean URL without refresh
-            const newUrl = window.location.pathname + window.location.search.replace(/&?first_time=true/, '');
-            window.history.replaceState({}, '', newUrl);
-        }
+        const firstTimeAccount = params.get('first_time') === 'true';
+        const paymentTutorial = params.get('payment_tutorial') === 'true';
+        setTutorialIsNewAccount(firstTimeAccount);
+        setTutorialRequested(firstTimeAccount || paymentTutorial);
     }, []);
 
     // -- Derived State (Moved to Top) --
@@ -453,7 +453,18 @@ export default function BookingDashboardPage() {
     const verifyingAmount = (booking?.payments || [])
         .filter((payment) => payment.status === 'verifying' || payment.status === 'pending_verification')
         .reduce((sum, payment) => sum + (Number(payment.amount) || 0), 0);
+    const registrationFeeRemaining = Math.max(0, depositValue - paidAmount);
+    const isRegistrationFeeReceiptUnderReview =
+        !isDepositPaid
+        && registrationFeeRemaining > 0
+        && verifyingAmount >= registrationFeeRemaining - 0.01;
     const percentPaid = totalAmount > 0 ? (paidAmount / totalAmount) * 100 : 0;
+
+    useEffect(() => {
+        if (tutorialRequested && !loading && booking && totalAmount > 0) {
+            setShowOnboarding(true);
+        }
+    }, [booking, loading, totalAmount, tutorialRequested]);
 
     // -- Advanced Installment Logic --
     // Parse paymentPlan from API safely
@@ -498,7 +509,7 @@ export default function BookingDashboardPage() {
     } else {
         if (!isDepositPaid) {
             nextAmountToPay = depositValue - paidAmount;
-            nextLabel = isEn ? 'Registration Deposit' : 'Sinal de Inscrição';
+            nextLabel = isEn ? 'Registration Fee' : 'Taxa de Inscrição';
         } else if (hasPlan && !isFullyPaid) {
             if (outstandingInstallment) {
                 nextAmountToPay = outstandingInstallment.amountDue;
@@ -926,6 +937,35 @@ export default function BookingDashboardPage() {
         }
     };
 
+    const clearPaymentTutorialParams = () => {
+        const urlParams = new URLSearchParams(window.location.search);
+        urlParams.delete('payment_tutorial');
+        urlParams.delete('first_time');
+        const query = urlParams.toString();
+        window.history.replaceState(
+            {},
+            '',
+            `${window.location.pathname}${query ? `?${query}` : ''}`,
+        );
+    };
+
+    const closePaymentTutorial = () => {
+        setShowOnboarding(false);
+        setTutorialRequested(false);
+        clearPaymentTutorialParams();
+    };
+
+    const showPaymentFromTutorial = () => {
+        closePaymentTutorial();
+        setActiveTab('payments');
+        window.requestAnimationFrame(() => {
+            document.getElementById('booking-panel-payments')?.scrollIntoView({
+                behavior: 'smooth',
+                block: 'start',
+            });
+        });
+    };
+
     const paymentPreview = buildPaymentPreview({
         amount: effectiveAmountToPay,
         paymentPlan,
@@ -1280,6 +1320,22 @@ export default function BookingDashboardPage() {
                             />
                         </div>
 
+                        {activeTab === 'payments' && (
+                            <div className="flex justify-center">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setTutorialIsNewAccount(false);
+                                        setShowOnboarding(true);
+                                    }}
+                                    className="flex min-h-11 items-center justify-center gap-2 rounded-full border border-white/10 bg-white/[0.05] px-4 text-sm font-bold text-white/65 transition-colors hover:border-amber-400/30 hover:bg-amber-400/10 hover:text-amber-200"
+                                >
+                                    <CircleHelp className="h-4 w-4" aria-hidden="true" />
+                                    {isEn ? 'How do payments work?' : 'Como funcionam os pagamentos?'}
+                                </button>
+                            </div>
+                        )}
+
                         {/* --- 3. MAIN GRID: Payment panel + Schedule --- */}
                         {activeTab === 'payments' && (
                         <div
@@ -1385,7 +1441,7 @@ export default function BookingDashboardPage() {
                                             <li className="flex items-center gap-3.5 py-4">
                                                 <ScheduleMarker state={isDepositPaid ? 'paid' : (isVerifying ? 'verifying' : 'pending')} />
                                                 <div className="min-w-0 flex-1">
-                                                    <p className="text-base font-semibold text-white">{isEn ? 'Registration Deposit' : 'Sinal de Inscrição'}</p>
+                                                    <p className="text-base font-semibold text-white">{isEn ? 'Registration Fee' : 'Taxa de Inscrição'}</p>
                                                     <p className="mt-0.5 text-sm text-white/40">
                                                         {isDepositPaid
                                                             ? (isEn ? 'Paid' : 'Pago')
@@ -1531,7 +1587,15 @@ export default function BookingDashboardPage() {
 
             </div>
             {/* Onboarding Modal */}
-            <BookingOnboardingModal isOpen={showOnboarding} onClose={() => setShowOnboarding(false)} />
+            <BookingOnboardingModal
+                isOpen={showOnboarding}
+                onClose={closePaymentTutorial}
+                onShowPayment={showPaymentFromTutorial}
+                bookingCreatedAt={booking?.created_at}
+                isRegistrationFeePaid={isDepositPaid}
+                isReceiptUnderReview={isRegistrationFeeReceiptUnderReview}
+                isNewAccount={tutorialIsNewAccount}
+            />
 
             {/* Bank Transfer Modal */}
             <BankTransferModal

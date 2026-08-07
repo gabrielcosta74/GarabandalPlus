@@ -1,7 +1,11 @@
 import { calculateInstallmentStatus, type Payment } from './utils';
 import { isPaymentAwaitingReceiptValidation } from './pilgrimage-payments';
+import {
+  daysBetweenUtc,
+  getRegistrationFeeDueDate,
+} from './pilgrimage-payment-deadlines';
+import { buildBookingAccessUrl as buildLocalizedBookingAccessUrl } from './booking-email-access';
 
-const DAY_MS = 24 * 60 * 60 * 1000;
 const MONEY_TOLERANCE = 0.01;
 
 export type ReminderStageKind =
@@ -80,6 +84,8 @@ export type ReminderBooking = {
   pilgrimage?: {
     title?: string | null;
     deposit_value?: number | string | null;
+    start_date?: string | null;
+    end_date?: string | null;
   } | null;
   pilgrims?: Array<{
     birth_date?: string | null;
@@ -87,6 +93,20 @@ export type ReminderBooking = {
     email?: string | null;
   }> | null;
   payments?: Payment[] | null;
+};
+
+export type OutstandingPaymentObligation = {
+  bookingId: string;
+  userId?: string | null;
+  pilgrimageName: string;
+  obligationKey: string;
+  obligationLabel: string;
+  dueDate: string;
+  expectedAmount: number;
+  remainingAmount: number;
+  totalAmount: number;
+  paidAmount: number;
+  totalRemaining: number;
 };
 
 const DEPOSIT_REMINDER_STAGES: ReminderStage[] = [
@@ -108,14 +128,6 @@ const INSTALLMENT_REMINDER_STAGES: ReminderStage[] = [
 const normalizeNumber = (value: unknown) => Number(value || 0);
 
 const normalizeString = (value: unknown) => String(value || '').trim();
-
-const toUtcDay = (value: Date) =>
-  new Date(Date.UTC(value.getFullYear(), value.getMonth(), value.getDate()));
-
-export const daysBetweenUtc = (from: Date, to: Date) => {
-  const diff = toUtcDay(to).getTime() - toUtcDay(from).getTime();
-  return Math.round(diff / DAY_MS);
-};
 
 const addDays = (value: string, days: number) => {
   const date = new Date(value);
@@ -185,13 +197,7 @@ export const countDepositEligiblePilgrims = (
 };
 
 export const buildBookingAccessUrl = (appUrl: string, bookingId: string, viewToken?: string | null) => {
-  const baseUrl = `${appUrl.replace(/\/$/, '')}/peregrinacoes/inscricao/${bookingId}`;
-  const token = normalizeString(viewToken);
-
-  if (!token) return baseUrl;
-
-  const encoded = encodeURIComponent(token);
-  return `${baseUrl}?viewToken=${encoded}&token=${encoded}`;
+  return buildLocalizedBookingAccessUrl(appUrl, bookingId, viewToken, 'pt');
 };
 
 const getReminderStage = (diffDays: number, stages: ReminderStage[]) =>
@@ -208,15 +214,10 @@ const sumPendingReceiptValidationAmount = (payments: Payment[] = []) =>
     .filter((payment) => isPaymentAwaitingReceiptValidation(payment))
     .reduce((sum, payment) => sum + normalizeNumber(payment.amount), 0);
 
-const resolveReminderBase = (
+export const resolveOutstandingPaymentObligation = (
   booking: ReminderBooking,
-  options: {
-    email?: string | null;
-    recipientName?: string | null;
-    appUrl: string;
-    now?: Date;
-  },
-) => {
+  options: { now?: Date } = {},
+): OutstandingPaymentObligation | null => {
   const now = options.now || new Date();
   const totalAmount = normalizeNumber(booking.total_amount);
   const paidAmount = normalizeNumber(booking.paid_amount);
@@ -242,7 +243,7 @@ const resolveReminderBase = (
       obligationLabel: installment.label,
       dueDate:
         index === 0
-          ? addDays(normalizeString(booking.created_at), 5) || ''
+          ? getRegistrationFeeDueDate(booking.created_at) || ''
           : normalizeString(installment.dueDate),
       expectedAmount: normalizeNumber(installment.expectedAmount),
       remainingAmount: Math.max(0, normalizeNumber(installment.remainingAmount)),
@@ -265,6 +266,33 @@ const resolveReminderBase = (
   const dueDate = new Date(activeObligation.dueDate);
   if (Number.isNaN(dueDate.getTime())) return null;
 
+  return {
+    bookingId: booking.id,
+    userId: booking.user_id || null,
+    pilgrimageName: normalizeString(booking.pilgrimage?.title) || 'Peregrinação',
+    obligationKey: activeObligation.obligationKey,
+    obligationLabel: activeObligation.obligationLabel,
+    dueDate: dueDate.toISOString(),
+    expectedAmount: activeObligation.expectedAmount,
+    remainingAmount: activeObligation.remainingAmount,
+    totalAmount,
+    paidAmount,
+    totalRemaining,
+  };
+};
+
+const resolveReminderBase = (
+  booking: ReminderBooking,
+  options: {
+    email?: string | null;
+    recipientName?: string | null;
+    appUrl: string;
+    now?: Date;
+  },
+) => {
+  const obligation = resolveOutstandingPaymentObligation(booking, { now: options.now });
+  if (!obligation) return null;
+
   const email = normalizeString(options.email);
   if (!email) return null;
 
@@ -274,20 +302,15 @@ const resolveReminderBase = (
     'Peregrino';
 
   return {
-    bookingId: booking.id,
-    userId: booking.user_id || null,
+    ...obligation,
     email,
     recipientName,
-    pilgrimageName: normalizeString(booking.pilgrimage?.title) || 'Peregrinação',
-    bookingUrl: buildBookingAccessUrl(options.appUrl, booking.id, booking.view_token),
-    obligationKey: activeObligation.obligationKey,
-    obligationLabel: activeObligation.obligationLabel,
-    dueDate: dueDate.toISOString(),
-    expectedAmount: activeObligation.expectedAmount,
-    remainingAmount: activeObligation.remainingAmount,
-    totalAmount,
-    paidAmount,
-    totalRemaining,
+    bookingUrl: buildLocalizedBookingAccessUrl(
+      options.appUrl,
+      booking.id,
+      booking.view_token,
+      /\[locale:en\]/i.test(normalizeString(booking.notes)) ? 'en' : 'pt',
+    ),
   };
 };
 

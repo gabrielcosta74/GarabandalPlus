@@ -319,7 +319,8 @@ function StepIdentification({
             const payload = duplicateFound?.exists && pilgrimageId
                 ? {
                     email: duplicateEmail,
-                    pilgrimageId
+                    pilgrimageId,
+                    locale,
                 }
                 : {
                     email: duplicateEmail,
@@ -1216,51 +1217,17 @@ export default function PilgrimageBookingPage() {
             }, setSession);
 
             console.log("✅ [Frontend] handleBookingWithAutoLogin completed");
-            console.log("📦 [Frontend] Result:", result);
-            console.log("🔑 [Frontend] View token:", result.view_token);
 
-            // [UX IMPROVEMENT] Show Success Modal before redirecting
-            // This prevents "disappearing" feeling
-            await Swal.fire({
-                title: isEn ? 'Registration Confirmed! 🎉' : 'Inscrição Confirmada! 🎉',
-                html: isEn ? `
-                    <div class="space-y-4 text-left">
-                        <p>Your booking was successfully registered.</p>
-                        <div class="bg-yellow-500/10 p-4 rounded-xl border border-yellow-500/20">
-                            <p class="font-bold text-yellow-600 mb-1">What happens next?</p>
-                            <ul class="list-disc list-inside text-sm text-slate-600 space-y-1">
-                                <li>You will choose the payment method on the next page.</li>
-                                <li>If you choose bank transfer, the proof of payment is mandatory to enter validation.</li>
-                                <li>You will be redirected to the payments page.</li>
-                            </ul>
-                        </div>
-                    </div>
-                ` : `
-                    <div class="space-y-4 text-left">
-                        <p>A sua reserva foi registada com sucesso.</p>
-                        <div class="bg-yellow-500/10 p-4 rounded-xl border border-yellow-500/20">
-                            <p class="font-bold text-yellow-600 mb-1">O que acontece agora?</p>
-                            <ul class="list-disc list-inside text-sm text-slate-600 space-y-1">
-                                <li>Vai poder escolher o meio de pagamento na página seguinte.</li>
-                                <li>Se optar por transferência bancária, o comprovativo é obrigatório para entrar em validação.</li>
-                                <li>Vai ser redirecionado para a página de pagamentos.</li>
-                            </ul>
-                        </div>
-                    </div>
-                `,
-                icon: 'success',
-                confirmButtonText: isEn ? 'Go to Payments' : 'Ir para Pagamentos',
-                confirmButtonColor: '#eab308',
-                timer: 5000,
-                timerProgressBar: true,
-                allowOutsideClick: false
-            });
-
-            // Always go directly to the booking payment page.
-            // Keep viewToken to guarantee immediate access even without active session.
-            const encodedViewToken = encodeURIComponent(result.view_token || '');
+            // Go directly to the booking page, where the short payment tutorial
+            // explains the 5-day registration-fee deadline and shows where to pay.
             const inscricaoBase = isEn ? '/en/pilgrimages/registration' : '/peregrinacoes/inscricao';
-            const redirectUrl = `${inscricaoBase}/${result.booking_id}?viewToken=${encodedViewToken}&token=${encodedViewToken}${result.new_account ? '&first_time=true' : ''}`;
+            const tutorialParams = new URLSearchParams({
+                viewToken: result.view_token || '',
+                token: result.view_token || '',
+                payment_tutorial: 'true',
+            });
+            if (result.new_account) tutorialParams.set('first_time', 'true');
+            const redirectUrl = `${inscricaoBase}/${result.booking_id}?${tutorialParams.toString()}`;
             console.log("🔄 [Frontend] Redirecting to:", redirectUrl);
             window.location.href = redirectUrl;
 

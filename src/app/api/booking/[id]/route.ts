@@ -181,7 +181,6 @@ export async function GET(
         if (token) {
             console.log("🔑 [API] Token-based access attempt");
             console.log("🆔 [API] Booking ID:", id);
-            console.log("🎫 [API] Token:", token.substring(0, 20) + "...");
             console.log("🔧 [API] supabaseServer exists?", !!supabaseServer);
 
             const { data: booking, error } = await supabaseServer

@@ -11,6 +11,31 @@ export type UpdatePasswordAuthPayload =
   | { kind: 'session'; accessToken: string; refreshToken: string }
   | { kind: 'none' };
 
+export function normalizeAuthNextPath(value: string | null | undefined) {
+  if (
+    !value ||
+    !value.startsWith('/') ||
+    value.startsWith('//') ||
+    value.includes('\\')
+  ) {
+    return null;
+  }
+
+  return value;
+}
+
+export function buildAuthCallbackLoginUrl(
+  next: string | null | undefined,
+  locale: string | null | undefined,
+) {
+  const loginPath = locale === 'en' ? '/en/login' : '/login';
+  const safeNext = normalizeAuthNextPath(next);
+
+  if (!safeNext) return loginPath;
+
+  return `${loginPath}?next=${encodeURIComponent(safeNext)}`;
+}
+
 const SUPABASE_OTP_TYPES = new Set([
   'signup',
   'invite',
@@ -59,13 +84,14 @@ export function hasAuthCallbackPayload(currentUrl: string) {
 
 export function resolveAuthCallbackRedirect({ type, next, refCode, locale }: AuthCallbackRedirectInput) {
   const isEn = locale === 'en';
+  const safeNext = normalizeAuthNextPath(next);
 
   if (type === 'recovery') {
     return isEn ? '/en/auth/update-password' : '/auth/update-password';
   }
 
-  if (next && next.startsWith('/')) {
-    return next;
+  if (safeNext) {
+    return safeNext;
   }
 
   if (refCode) {

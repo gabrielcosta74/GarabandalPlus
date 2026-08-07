@@ -18,6 +18,10 @@ import {
     isPaymentPlanWithinDeadline,
 } from '../../../../lib/pilgrimage-installments';
 import { getPrivatePilgrimageTestUserId } from '../../../../lib/pilgrimage-private-test';
+import {
+    buildBookingAccessUrl,
+    generateBookingAutoLoginLink,
+} from '../../../../lib/booking-email-access';
 
 async function findAuthUserByEmail(
     adminAuth: NonNullable<typeof supabaseServer>['auth']['admin'],
@@ -447,9 +451,11 @@ export async function POST(req: Request) {
             console.warn('⚠️ [API] Vacancy sync after booking creation failed:', syncErr);
         }
 
-        // 7. Generate Magic Link & Send Email
+        // 7. Send a direct, secure booking link by email.
+        // The view token opens this specific booking without forcing the pilgrim
+        // through an additional login step, matching the payment-reminder flow.
         try {
-            // Robust Origin Detection for Magic Link
+            // Robust Origin Detection for the booking access link
             // FORCE localhost in development mode to avoid any confusion or Vercel fallbacks
             let origin;
             const host = req.headers.get('host');
@@ -464,24 +470,21 @@ export async function POST(req: Request) {
             }
 
             console.log(`📧 [API] Environment: ${process.env.NODE_ENV}`);
-            console.log(`📧 [API] Using origin for magic link: ${origin}`);
+            console.log(`📧 [API] Using origin for booking access link: ${origin}`);
 
-            const bookingPath = bookingLocale === 'en'
-                ? `/en/pilgrimages/registration/${booking.id}`
-                : `/peregrinacoes/inscricao/${booking.id}`;
-            const { data: linkData, error: linkError } = await adminAuth.generateLink({
-                type: 'magiclink',
+            const bookingAccessLink = buildBookingAccessUrl(
+                origin,
+                booking.id,
+                booking.view_token,
+                bookingLocale,
+            );
+            const autoLoginLink = await generateBookingAutoLoginLink({
+                supabase: supabaseServer,
                 email: bookingEmail,
-                options: {
-                    redirectTo: `${origin}${bookingPath}`
-                }
+                bookingUrl: bookingAccessLink,
+                appUrl: origin,
+                locale: bookingLocale,
             });
-
-            if (linkError) {
-                console.error("⚠️ [API] Failed to generate magic link:", linkError);
-            }
-
-            const magicLink = linkData?.properties?.action_link || `${origin}${bookingPath}`;
 
             await sendBookingConfirmationEmail({
                 bookingId: booking.id,
@@ -490,7 +493,8 @@ export async function POST(req: Request) {
                 amount: totalDepositAmount,
                 totalAmount: totalAmount,
                 paymentMethod: payment_method,
-                magicLink: magicLink,
+                magicLink: autoLoginLink || bookingAccessLink,
+                directBookingUrl: bookingAccessLink,
                 locale: bookingLocale
             });
 

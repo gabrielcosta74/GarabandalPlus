@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  buildAuthCallbackLoginUrl,
   buildRecoveryRedirectUrl,
   detectUpdatePasswordAuthPayload,
   hasAuthCallbackPayload,
@@ -21,6 +22,26 @@ describe('auth redirects', () => {
     expect(buildRecoveryRedirectUrl('https://app.apostoladodegarabandal.com')).toBe(
       'https://app.apostoladodegarabandal.com/auth-callback?next=%2Fauth%2Fupdate-password&type=recovery'
     );
+  });
+
+  it('preserves a private booking target when callback validation fails', () => {
+    expect(
+      buildAuthCallbackLoginUrl(
+        '/peregrinacoes/inscricao/booking-id',
+        'pt',
+      ),
+    ).toBe(
+      '/login?next=%2Fperegrinacoes%2Finscricao%2Fbooking-id',
+    );
+  });
+
+  it('rejects external and protocol-relative next redirects', () => {
+    expect(
+      resolveAuthCallbackRedirect({ next: '//evil.example/path' }),
+    ).toBe('/member');
+    expect(
+      buildAuthCallbackLoginUrl('https://evil.example/path', 'pt'),
+    ).toBe('/login');
   });
 
   it('detects PKCE recovery codes on the update-password page', () => {

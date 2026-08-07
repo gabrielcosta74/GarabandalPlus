@@ -4,6 +4,10 @@ import { normalizeEmail } from '../../../../lib/normalize';
 import { checkRateLimit } from '../../../../lib/rate-limit';
 import { sendBookingAccessLinkEmail } from '../../../../lib/email';
 import { getAppUrl } from '../../../../lib/config';
+import {
+  buildBookingAccessUrl,
+  generateBookingAutoLoginLink,
+} from '../../../../lib/booking-email-access';
 
 export const dynamic = 'force-dynamic';
 
@@ -41,6 +45,7 @@ export async function POST(req: Request) {
     const body = await req.json().catch(() => ({}));
     const email = normalizeEmail(body?.email);
     const pilgrimageId = typeof body?.pilgrimageId === 'string' ? body.pilgrimageId : '';
+    const requestedLocale: 'pt' | 'en' = body?.locale === 'en' ? 'en' : 'pt';
 
     if (!email || !pilgrimageId || !UUID_REGEX.test(pilgrimageId)) {
       return NextResponse.json({ success: false, message: 'Dados inválidos.' }, { status: 400 });
@@ -69,7 +74,7 @@ export async function POST(req: Request) {
 
     const { data: bookings, error: bookingsError } = await supabaseServer
       .from('bookings')
-      .select('id, view_token, pilgrimage_id, status, created_at, pilgrimage:pilgrimages(title)')
+      .select('id, user_id, view_token, pilgrimage_id, status, notes, created_at, pilgrimage:pilgrimages(title, title_en)')
       .in('id', bookingIds)
       .eq('pilgrimage_id', pilgrimageId)
       .neq('status', 'cancelled')
@@ -82,20 +87,71 @@ export async function POST(req: Request) {
     }
 
     const booking = bookings?.[0];
-    if (!booking?.id || !booking?.view_token) {
+    if (!booking?.id) {
       return NextResponse.json({ success: false, message: 'Reserva não encontrada.' }, { status: 404 });
     }
 
-    const encoded = encodeURIComponent(booking.view_token);
     const appUrl = getAppUrl();
-    const accessLink = `${appUrl}/peregrinacoes/inscricao/${booking.id}?viewToken=${encoded}&token=${encoded}`;
+    const locale: 'pt' | 'en' = /\[locale:en\]/i.test(String(booking.notes || ''))
+      ? 'en'
+      : requestedLocale;
+    const directAccessLink = buildBookingAccessUrl(
+      appUrl,
+      booking.id,
+      booking.view_token,
+      locale,
+    );
 
-    const pilgrimageName =
-      typeof (booking as any)?.pilgrimage?.title === 'string'
-        ? (booking as any).pilgrimage.title
+    // Only authenticate the account when this email is the actual Auth owner.
+    // A secondary pilgrim can still receive the booking-scoped fallback link,
+    // but must never be logged in as the booking owner.
+    const { data: authUserData } = booking.user_id
+      ? await supabaseServer.auth.admin.getUserById(booking.user_id)
+      : { data: { user: null } };
+    const authEmail = normalizeEmail(authUserData?.user?.email);
+    const isAuthOwner = authEmail === email;
+
+    // Legacy bookings may not have a view token. They can only be opened via a
+    // real Auth session belonging to the account owner; never broaden access to
+    // a secondary pilgrim in that case.
+    if (!booking.view_token && !isAuthOwner) {
+      return NextResponse.json({ success: false, message: 'Reserva não encontrada.' }, { status: 404 });
+    }
+
+    const autoLoginLink = isAuthOwner
+      ? await generateBookingAutoLoginLink({
+          supabase: supabaseServer,
+          email,
+          bookingUrl: directAccessLink,
+          appUrl,
+          locale,
+        })
+      : null;
+
+    if (!autoLoginLink && !booking.view_token) {
+      return NextResponse.json({
+        success: false,
+        message: 'Não foi possível gerar um acesso seguro. Tente novamente.',
+      }, { status: 503 });
+    }
+
+    const pilgrimage = booking.pilgrimage as unknown as {
+      title?: unknown;
+      title_en?: unknown;
+    } | null;
+    const pilgrimageName = locale === 'en' && typeof pilgrimage?.title_en === 'string'
+      ? pilgrimage.title_en
+      : typeof pilgrimage?.title === 'string'
+        ? pilgrimage.title
         : null;
 
-    const sent = await sendBookingAccessLinkEmail({ email, accessLink, pilgrimageName });
+    const sent = await sendBookingAccessLinkEmail({
+      email,
+      accessLink: autoLoginLink || directAccessLink,
+      directAccessLink: booking.view_token ? directAccessLink : null,
+      pilgrimageName,
+      locale,
+    });
     if (!sent) {
       return NextResponse.json({ success: false, message: 'Serviço de email indisponível.' }, { status: 503 });
     }

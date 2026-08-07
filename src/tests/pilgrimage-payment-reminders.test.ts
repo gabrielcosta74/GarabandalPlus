@@ -159,6 +159,7 @@ describe('pilgrimage payment reminders', () => {
   it('renders the reminder email with a direct booking CTA link', () => {
     const bookingUrl =
       'https://apostoladodegarabandal.com/peregrinacoes/inscricao/booking-cta?viewToken=secure123&token=secure123';
+    const autoLoginUrl = 'https://apostoladodegarabandal.com/auth/confirm?token_hash=reminder-login&type=magiclink';
 
     const email = renderPilgrimagePaymentReminderEmail({
       toEmail: 'maria@example.com',
@@ -169,13 +170,41 @@ describe('pilgrimage payment reminders', () => {
       amountDue: 625,
       totalRemaining: 1250,
       bookingUrl,
+      autoLoginUrl,
       stage: 'upcoming_7d',
     });
 
     expect(email.subject).toContain('Garabandal Outubro');
-    expect(email.html).toContain('Gerir Inscrição');
-    expect(email.html).toContain(`href="${bookingUrl}"`);
+    expect(email.html).toContain('Pagar Agora');
+    expect(email.html).toContain(`href="${autoLoginUrl}"`);
+    expect(email.html).toContain(`href="${bookingUrl.replace(/&/g, '&amp;')}"`);
     expect(email.html).toContain('Prestação 1');
+  });
+
+  it('uses the English booking route for English registrations', () => {
+    const candidate = resolveReminderCandidate(
+      {
+        id: 'booking-en',
+        user_id: 'user-en',
+        created_at: '2026-03-01T10:00:00.000Z',
+        total_amount: 1200,
+        paid_amount: 0,
+        status: 'pending',
+        view_token: 'token-en',
+        notes: 'Created via API | [locale:en]',
+        pilgrimage: { title: 'Garabandal May', deposit_value: 500 },
+        pilgrims: [{ full_name: 'Mary', email: 'mary@example.com', birth_date: '1990-01-01' }],
+        payments: [],
+      },
+      {
+        email: 'mary@example.com',
+        recipientName: 'Mary',
+        appUrl: 'https://apostoladodegarabandal.com',
+        now: new Date('2026-03-03T12:00:00.000Z'),
+      },
+    );
+
+    expect(candidate?.bookingUrl).toContain('/en/pilgrimages/registration/booking-en?');
   });
 
   it('projects the full timeline for an unpaid deposit', () => {

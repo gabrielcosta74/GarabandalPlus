@@ -81,13 +81,13 @@ export default function PilgrimagePaymentWarningModal({
                         <div className="rounded-3xl border border-yellow-200 bg-yellow-50 p-5">
                             <p className="text-base font-semibold leading-relaxed text-yellow-950">
                                 {isEn
-                                    ? 'After submitting your registration, you must complete the registration payment/donation within 5 business days to confirm and secure your place.'
-                                    : 'Após realizar a sua inscrição terá que realizar num prazo máximo de 5 dias úteis, o pagamento/doação do valor da inscrição para confirmar e garantir a sua inscrição.'}
+                                    ? 'After submitting your registration, you must pay the registration fee within 5 days to confirm and secure your place.'
+                                    : 'Depois de fazer sua inscrição, você deve pagar a taxa de inscrição em até 5 dias para confirmar e garantir sua vaga.'}
                             </p>
                         </div>
 
                         <p className="text-sm leading-relaxed text-slate-600">
-                            {isEn ? 'If you do not complete that payment within the deadline, your registration may not be confirmed.' : 'Se não fizer esse pagamento dentro do prazo, a sua inscrição poderá não ficar confirmada.'}
+                            {isEn ? 'If you do not pay within the deadline, your registration may be cancelled and the place released.' : 'Se você não pagar dentro do prazo, sua inscrição poderá ser cancelada e a vaga liberada para outra pessoa.'}
                         </p>
                     </div>
 

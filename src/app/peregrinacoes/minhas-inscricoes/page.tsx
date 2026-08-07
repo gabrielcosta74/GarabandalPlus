@@ -9,7 +9,8 @@ import {
     Ticket,
     Clock,
     CheckCircle2,
-    ArrowRight
+    ArrowRight,
+    CreditCard
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { enUS, pt } from 'date-fns/locale';
@@ -59,6 +60,27 @@ const fetchBookings = async () => {
     );
 };
 
+const paymentProgress = (booking: Booking) => {
+    const total = Math.max(0, Number(booking.total_amount) || 0);
+    const paid = Math.max(0, Number(booking.paid_amount) || 0);
+    const remaining = Math.max(0, total - paid);
+    const percentPaid = total > 0 ? Math.min(100, Math.round((paid / total) * 100)) : 0;
+
+    return {
+        remaining,
+        percentPaid,
+        isPaid: total <= 0.01 || remaining <= 0.01,
+    };
+};
+
+const MONEY_FORMATTERS = {
+    en: new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'EUR' }),
+    pt: new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR' }),
+};
+
+const formatMoney = (amount: number, isEn: boolean) =>
+    MONEY_FORMATTERS[isEn ? 'en' : 'pt'].format(amount);
+
 export default function MyBookingsPage() {
     const { user, loading: authLoading } = useAuth();
     const { locale } = useLocale();
@@ -82,11 +104,12 @@ export default function MyBookingsPage() {
     // The "Hero" is the most relevant upcoming trip
     const nextTrip = upcomingBookings[0];
     const otherUpcoming = upcomingBookings.slice(1);
+    const nextTripPayment = nextTrip ? paymentProgress(nextTrip) : null;
 
     return (
         <DashboardShell
-            title={isEn ? 'My Pilgrimages' : 'Minhas Peregrinações'}
-            subtitle={isEn ? 'Manage your registrations and get ready for the next journey.' : 'Gere as tuas inscrições e prepara-te para a próxima jornada.'}
+            title={isEn ? 'My Registrations' : 'Minhas Inscrições'}
+            subtitle={isEn ? 'View your registrations, payments and what is still outstanding.' : 'Veja as suas inscrições, os pagamentos e o que ainda falta pagar.'}
         >
             {loading ? (
                 // Loading State
@@ -147,13 +170,42 @@ export default function MyBookingsPage() {
                                         <span className="opacity-50">•</span>
                                         {format(parseCivilDate(nextTrip.pilgrimage.end_date), 'yyyy', { locale: dateLocale })}
                                     </p>
+                                    {nextTripPayment && (
+                                        <div className={`max-w-lg rounded-2xl border p-4 backdrop-blur-sm ${nextTripPayment.isPaid ? 'border-emerald-300/30 bg-emerald-400/15' : 'border-amber-300/40 bg-amber-300/15'}`}>
+                                            <div className="flex items-center gap-3">
+                                                {nextTripPayment.isPaid ? (
+                                                    <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-300" aria-hidden="true" />
+                                                ) : (
+                                                    <CreditCard className="h-5 w-5 shrink-0 text-amber-300" aria-hidden="true" />
+                                                )}
+                                                <div>
+                                                    <p className="font-bold">
+                                                        {nextTripPayment.isPaid
+                                                            ? (isEn ? 'Payment complete' : 'Pagamento concluído')
+                                                            : (isEn ? 'Payment pending' : 'Pagamento pendente')}
+                                                    </p>
+                                                    {!nextTripPayment.isPaid && (
+                                                        <p className="mt-0.5 text-sm text-white/80">
+                                                            {isEn ? 'Still to pay: ' : 'Falta pagar: '}
+                                                            <strong className="text-white">{formatMoney(nextTripPayment.remaining, isEn)}</strong>
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
 
                                 <Link
                                     href={registrationPath(nextTrip.id)}
                                     className="w-full md:w-auto px-8 py-4 bg-white text-garabandal-dark font-bold rounded-xl hover:bg-garabandal-gold transition-colors flex items-center justify-center gap-2 shadow-lg"
                                 >
-                                    {isEn ? 'Manage Registration' : 'Gerir Inscrição'} <ChevronRight className="w-5 h-5" />
+                                    {nextTripPayment?.isPaid
+                                        ? (isEn ? 'View Registration' : 'Ver Inscrição')
+                                        : (isEn ? 'Pay Now' : 'Pagar Agora')}
+                                    {nextTripPayment?.isPaid
+                                        ? <ChevronRight className="w-5 h-5" aria-hidden="true" />
+                                        : <CreditCard className="w-5 h-5" aria-hidden="true" />}
                                 </Link>
                             </div>
                         </motion.section>
@@ -182,8 +234,7 @@ export default function MyBookingsPage() {
 // --- Sub-Component for Clean Cards ---
 function BookingCard({ booking, isEn }: { booking: Booking; isEn: boolean }) {
     const isPast = getCivilDateTimestamp(booking.pilgrimage.start_date) < todayCivilTimestamp();
-    const percentPaid = Math.min(100, Math.round((booking.paid_amount / booking.total_amount) * 100));
-    const isPaid = percentPaid >= 99;
+    const { percentPaid, isPaid, remaining } = paymentProgress(booking);
     const dateLocale = isEn ? enUS : pt;
     const registrationHref = isEn ? `/en/pilgrimages/registration/${booking.id}` : `/peregrinacoes/inscricao/${booking.id}`;
 
@@ -239,9 +290,20 @@ function BookingCard({ booking, isEn }: { booking: Booking; isEn: boolean }) {
                     </div>
                 </div>
 
-                <div className="mt-auto pt-4 border-t border-gray-50 flex items-center justify-between text-garabandal-dark font-bold text-sm group-hover:text-garabandal-gold transition-colors">
-                    {isEn ? 'View Details' : 'Ver Detalhes'}
-                    <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                <div className="mt-auto border-t border-gray-100 pt-4">
+                    {!isPaid && (
+                        <p className="mb-3 text-sm font-semibold text-amber-800">
+                            {isEn ? 'Still to pay: ' : 'Falta pagar: '}{formatMoney(remaining, isEn)}
+                        </p>
+                    )}
+                    <div className="flex items-center justify-between text-sm font-bold text-garabandal-dark transition-colors group-hover:text-garabandal-gold">
+                        {isPaid
+                            ? (isEn ? 'View Registration' : 'Ver Inscrição')
+                            : (isEn ? 'Pay Now' : 'Pagar Agora')}
+                        {isPaid
+                            ? <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" aria-hidden="true" />
+                            : <CreditCard className="h-4 w-4" aria-hidden="true" />}
+                    </div>
                 </div>
             </div>
         </Link>

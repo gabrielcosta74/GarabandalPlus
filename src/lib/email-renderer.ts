@@ -101,6 +101,7 @@ export type PilgrimagePaymentReminderInput = {
   amountDue: number;
   totalRemaining: number;
   bookingUrl: string;
+  autoLoginUrl?: string | null;
   stage:
     | 'upcoming_3d'
     | 'upcoming_1d'
@@ -446,6 +447,26 @@ const Button = ({
       </tr>
     </table>
     `;
+};
+
+const DirectBookingFallback = ({
+  primaryUrl,
+  directUrl,
+  locale,
+}: {
+  primaryUrl: string;
+  directUrl?: string | null;
+  locale: EmailLocale;
+}) => {
+  if (!directUrl || directUrl === primaryUrl) return '';
+
+  const safeUrl = escapeHtml(directUrl);
+  return Text(
+    locale === 'en'
+      ? `If the button has expired or does not work, <a href="${safeUrl}" style="color:${COLORS.heading};font-weight:700;text-decoration:underline;">open your registration directly here</a>. This alternative still lets you pay without signing in.`
+      : `Se o botão tiver expirado ou não funcionar, <a href="${safeUrl}" style="color:${COLORS.heading};font-weight:700;text-decoration:underline;">abra diretamente a sua inscrição aqui</a>. Esta alternativa continua permitindo pagar sem iniciar sessão.`,
+    `font-size:13px;color:${COLORS.textLight};text-align:center;`,
+  );
 };
 
 const HeadingSmall = (text: string) => `
@@ -1780,12 +1801,16 @@ export const renderBookingConfirmationEmail = (payload: {
   totalAmount: number;
   paymentMethod: string;
   magicLink: string;
+  directBookingUrl?: string | null;
   locale?: 'pt' | 'en';
 }) => {
   const registrationFee = Number(payload.amount) || 0;
   const totalAmount = Number(payload.totalAmount) || 0;
   const remainingAmount = Math.max(0, totalAmount - registrationFee);
   const isEn = payload.locale === 'en';
+  const hasAutoLogin = Boolean(
+    payload.directBookingUrl && payload.directBookingUrl !== payload.magicLink,
+  );
 
   const t = {
     subject: isEn ? `Registration received: ${payload.pilgrimageName}` : `Inscrição recebida: ${payload.pilgrimageName}`,
@@ -1796,15 +1821,24 @@ export const renderBookingConfirmationEmail = (payload: {
     regFee: isEn ? 'Registration Fee' : 'Taxa de Inscrição',
     remaining: isEn ? 'Remaining Amount' : 'Valor Restante',
     total: isEn ? 'Total (Registration Fee + Remaining Amount)' : 'Total (Taxa de Inscrição + Valor Restante)',
-    warning: isEn ? 'Attention: if the Registration Fee is not paid, the place is not confirmed and you may lose the spot.' : 'Atenção: se a Taxa de Inscrição não for paga, o lugar não fica confirmado e pode perder a vaga.',
-    cta: isEn ? 'To follow your registration and complete the next payment steps, use the button below:' : 'Para acompanhar a sua inscrição e concluir os próximos passos de pagamento, use o botão abaixo:',
-    ctaButton: isEn ? 'Manage Registration' : 'Gerir Inscrição',
+    warning: isEn ? 'Attention: if the Registration Fee is not paid, the place is not confirmed and you may lose the spot.' : 'Atenção: se o sinal de inscrição não for pago, o lugar não fica confirmado e pode perder a vaga.',
+    cta: hasAutoLogin
+      ? isEn
+        ? 'Use the secure button below. It signs you in automatically and opens the payment area:'
+        : 'Use o botão seguro abaixo. Ele inicia a sessão automaticamente e abre a área de pagamentos:'
+      : isEn
+        ? 'Use the secure button below to open your registration and complete the payment:'
+        : 'Use o botão seguro abaixo para abrir a sua inscrição e concluir o pagamento:',
+    ctaButton: registrationFee > 0
+      ? (isEn ? 'Pay Registration Fee Now' : 'Pagar Sinal Agora')
+      : (isEn ? 'Open My Registration' : 'Abrir a Minha Inscrição'),
   };
 
   return {
     subject: t.subject,
     html: Layout({
       title: t.title,
+      locale: isEn ? 'en' : 'pt',
       children: `
                 ${Header({
         title: t.title,
@@ -1831,6 +1865,11 @@ export const renderBookingConfirmationEmail = (payload: {
         })}
                         ${Text(t.cta)}
                         ${Button({ label: t.ctaButton, url: payload.magicLink })}
+                        ${DirectBookingFallback({
+                          primaryUrl: payload.magicLink,
+                          directUrl: payload.directBookingUrl,
+                          locale: isEn ? 'en' : 'pt',
+                        })}
                     `,
       })}
             `,
@@ -2036,7 +2075,15 @@ export const renderPilgrimagePaymentReminderEmail = (
                                 </p>
                             `,
         })}
-                        ${Button({ label: isEn ? 'Manage Booking' : 'Gerir Inscrição', url: payload.bookingUrl })}
+                        ${Button({
+                          label: isEn ? 'Pay Now' : 'Pagar Agora',
+                          url: payload.autoLoginUrl || payload.bookingUrl,
+                        })}
+                        ${DirectBookingFallback({
+                          primaryUrl: payload.autoLoginUrl || payload.bookingUrl,
+                          directUrl: payload.bookingUrl,
+                          locale,
+                        })}
                         ${Text(
                           isShortDeadline
                             ? isEn
@@ -2057,6 +2104,7 @@ export type BookingPaymentPlanUpdatedInput = {
   recipientName?: string | null;
   pilgrimageName: string;
   bookingUrl: string;
+  autoLoginUrl?: string | null;
   totalAmount: number;
   depositAmount: number;
   depositPending?: boolean;
@@ -2148,7 +2196,15 @@ export const renderBookingPaymentPlanUpdatedEmail = (
                 ? 'Use the button below to open your registration, pay and upload receipts.'
                 : 'Use o botão abaixo para abrir sua inscrição, pagar e enviar comprovantes.',
             )}
-            ${Button({ label: isEn ? 'Pay My Registration' : 'Pagar a Minha Inscrição', url: payload.bookingUrl })}
+            ${Button({
+              label: isEn ? 'Pay My Registration' : 'Pagar a Minha Inscrição',
+              url: payload.autoLoginUrl || payload.bookingUrl,
+            })}
+            ${DirectBookingFallback({
+              primaryUrl: payload.autoLoginUrl || payload.bookingUrl,
+              directUrl: payload.bookingUrl,
+              locale,
+            })}
             ${Text(
               isEn
                 ? `We will send a reminder before each due date${firstDueDate ? `, starting on ${formatDate(firstDueDate, locale)}` : ''}. If anything looks wrong, just reply to this email.`
@@ -4718,11 +4774,15 @@ export const renderAuthRecoveryEmail = (payload: {
 
 export const renderBookingAccessLinkEmail = (payload: {
   accessLink: string;
+  directAccessLink?: string | null;
   pilgrimageName?: string | null;
   locale?: EmailLocale;
 }) => {
   const locale: EmailLocale = payload.locale === 'en' ? 'en' : 'pt';
   const isEn = locale === 'en';
+  const hasAutoLogin = Boolean(
+    payload.directAccessLink && payload.directAccessLink !== payload.accessLink,
+  );
   const title = payload.pilgrimageName
     ? isEn
       ? `Access your registration - ${payload.pilgrimageName}`
@@ -4744,8 +4804,21 @@ export const renderBookingAccessLinkEmail = (payload: {
         })}
         ${Section({
           children: `
-            ${Text(isEn ? 'Use the button below to open your registration with secure access.' : 'Use o botão abaixo para abrir a sua inscrição com acesso seguro.')}
+            ${Text(
+              hasAutoLogin
+                ? isEn
+                  ? 'Use the button below to sign in automatically and open your registration.'
+                  : 'Use o botão abaixo para iniciar sessão automaticamente e abrir a sua inscrição.'
+                : isEn
+                  ? 'Use the secure button below to open your registration.'
+                  : 'Use o botão seguro abaixo para abrir a sua inscrição.',
+            )}
             ${Button({ label: isEn ? 'View My Registration' : 'Ver a minha inscrição', url: payload.accessLink })}
+            ${DirectBookingFallback({
+              primaryUrl: payload.accessLink,
+              directUrl: payload.directAccessLink,
+              locale,
+            })}
             ${Text(isEn ? 'If you did not request this access, you can ignore this email.' : 'Se não solicitou este acesso, pode ignorar este email.', `font-size:13px;color:${COLORS.textLight};`)}
           `,
         })}

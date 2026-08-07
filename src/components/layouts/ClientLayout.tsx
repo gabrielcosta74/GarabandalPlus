@@ -14,6 +14,8 @@ import AuthLandingGuard from '../auth/AuthLandingGuard';
 import PublicAnalytics from '../analytics/PublicAnalytics';
 import CookieConsentBanner from '../privacy/CookieConsentBanner';
 import WhatsAppFloatingButton from '../site/WhatsAppFloatingButton';
+import { PilgrimagePaymentAlertsProvider } from '../../contexts/PilgrimagePaymentAlertsContext';
+import PilgrimagePaymentAlerts from '../pilgrimage/PilgrimagePaymentAlerts';
 
 export default function ClientLayout({
     children,
@@ -34,16 +36,19 @@ export default function ClientLayout({
     return (
         <LocaleProvider locale={resolvedLocale}>
             <AuthProvider>
-                <AuthLandingGuard />
-                <PublicAnalytics />
-                <CurrencyProvider>
-                    {!hideHeader && <SiteHeaderSwitch navV2Enabled={navV2Enabled} />}
-                    {!hideHeader && <AuctionWinnerBanner />}
-                    {children}
-                    {!hideFooter && <SiteFooter />}
-                    {!isAdmin && !isEmbed && <CookieConsentBanner />}
-                    {!isAdmin && !isEmbed && <WhatsAppFloatingButton />}
-                </CurrencyProvider>
+                <PilgrimagePaymentAlertsProvider>
+                    <AuthLandingGuard />
+                    <PublicAnalytics />
+                    <CurrencyProvider>
+                        {!hideHeader && <SiteHeaderSwitch navV2Enabled={navV2Enabled} />}
+                        {!hideHeader && <PilgrimagePaymentAlerts />}
+                        {!hideHeader && <AuctionWinnerBanner />}
+                        {children}
+                        {!hideFooter && <SiteFooter />}
+                        {!isAdmin && !isEmbed && <CookieConsentBanner />}
+                        {!isAdmin && !isEmbed && <WhatsAppFloatingButton />}
+                    </CurrencyProvider>
+                </PilgrimagePaymentAlertsProvider>
             </AuthProvider>
         </LocaleProvider>
     );
