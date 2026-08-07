@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, MapPin, Store, User, Menu } from 'lucide-react';
+import { Heart, Home, MapPin, User, Menu } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
@@ -68,15 +68,13 @@ export default function MobileBottomNav({
            pathname?.startsWith('/en/account') ||
            pathname?.startsWith('/en/login') ||
            pathname?.startsWith('/en/register') ||
-           pathname?.startsWith('/en/orders') ||
-           pathname?.startsWith('/en/my-registrations'))
+           pathname?.startsWith('/en/orders'))
         : (pathname?.startsWith('/member') ||
            pathname?.startsWith('/account') ||
            pathname?.startsWith('/login') ||
            pathname?.startsWith('/register') ||
            pathname?.startsWith('/encomendas') ||
-           pathname?.startsWith('/biblioteca') ||
-           pathname?.startsWith('/peregrinacoes/minhas-inscricoes'));
+           pathname?.startsWith('/biblioteca'));
 
     const NavItem = ({ href, icon: Icon, label, onClick, isActiveOverride }: { href?: string; icon: any; label: string; onClick?: () => void; isActiveOverride?: boolean }) => {
         const isActive = isActiveOverride ?? (href ? (pathname === href || (href !== '/' && href !== '/en' && pathname?.startsWith(href))) : false);
@@ -126,7 +124,7 @@ export default function MobileBottomNav({
             <div className="flex h-16 items-center justify-between px-2 pt-1">
                 <NavItem href={t.urls.home} icon={Home} label={t.mobileNav.home} />
                 <NavItem href={t.urls.pilgrimages} icon={MapPin} label={t.mobileNav.pilgrimages} />
-                <NavItem href={t.urls.store} icon={Store} label={t.mobileNav.store} />
+                <NavItem href={t.urls.donations} icon={Heart} label={t.nav.donations} />
                 <NavItem
                     href={profileHref}
                     icon={User}

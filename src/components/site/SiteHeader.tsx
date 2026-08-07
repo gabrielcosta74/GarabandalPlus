@@ -32,6 +32,7 @@ import {
   Gavel,
 } from 'lucide-react';
 import MobileBottomNav from './MobileBottomNav';
+import MobilePilgrimagePaymentCard from './MobilePilgrimagePaymentCard';
 
 type CartPreviewItem = {
   id: string;
@@ -595,6 +596,15 @@ export default function SiteHeader() {
 
               {/* Drawer Content */}
               <div className="flex-1 overflow-y-auto px-6 py-6 scrollbar-hide">
+                <MobilePilgrimagePaymentCard
+                  href={user
+                    ? t.urls.myRegistrations
+                    : `${t.urls.login}?next=${encodeURIComponent(t.urls.myRegistrations)}`}
+                  isAuthenticated={!!user}
+                  isEnglish={locale === 'en'}
+                  isActive={pathname === t.urls.myRegistrations}
+                  onClick={() => setIsMobileOpen(false)}
+                />
 
                 {/* 1. User Context Section (Top Importance) */}
                 {!loading && user && (
@@ -618,7 +628,6 @@ export default function SiteHeader() {
                         <User className="w-3 h-3" /> {t.mobileNav.myAccount}
                       </p>
                       <NavLink href={t.urls.profile} icon={User} label={t.nav.userMenu.myProfile} onClick={() => setIsMobileOpen(false)} />
-                      <NavLink href={t.urls.myRegistrations} icon={Ticket} label={t.nav.userMenu.myRegistrations} onClick={() => setIsMobileOpen(false)} />
                       <NavLink href={t.urls.orders} icon={ShoppingBag} label={t.nav.userMenu.myPurchases} onClick={() => setIsMobileOpen(false)} />
                       {(hasMembership || !!memberData?.numero_socio) && (
                         <NavLink href={t.urls.memberQuota} icon={ShieldCheck} label={t.nav.userMenu.manageQuota} onClick={() => setIsMobileOpen(false)} />

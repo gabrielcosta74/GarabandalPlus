@@ -15,6 +15,7 @@ import {
   Scroll, MessageCircleHeart, Users, Sparkles, Info, Gavel,
 } from 'lucide-react';
 import MobileBottomNav from './MobileBottomNav';
+import MobilePilgrimagePaymentCard from './MobilePilgrimagePaymentCard';
 import { CATEGORIES, PUBLIC_NAV_ORDER, type CategoryKey } from '../../lib/cms/categories';
 import { isAdminEmail } from '../../lib/admin-emails';
 import { localeSwitchHref } from '../../lib/i18n/locale-switch';
@@ -301,8 +302,39 @@ export default function SiteHeaderV2() {
               </div>
 
               <div className="flex-1 overflow-y-auto px-6 py-8">
+                <MobilePilgrimagePaymentCard
+                  href={user
+                    ? t.urls.myRegistrations
+                    : `${t.urls.login}?next=${encodeURIComponent(t.urls.myRegistrations)}`}
+                  isAuthenticated={!!user}
+                  isEnglish={locale === 'en'}
+                  isActive={pathname === t.urls.myRegistrations}
+                  onClick={() => setIsMobileOpen(false)}
+                />
+
+                {/* Account / auth — kept near the highlighted registrations shortcut */}
+                <SectionLabel>{t.mobileNav.myAccount}</SectionLabel>
+                {user ? (
+                  <>
+                    <Drawer href={t.urls.profile} icon={User} onClick={() => setIsMobileOpen(false)}>{t.nav.userMenu.myProfile}</Drawer>
+                    <Drawer href={t.urls.orders} icon={ShoppingBag} onClick={() => setIsMobileOpen(false)}>{t.nav.userMenu.myPurchases}</Drawer>
+                    <Drawer href={membershipHref} icon={CreditCard} onClick={() => setIsMobileOpen(false)} active={pathname === membershipHref}>
+                      {hasMembership ? t.nav.memberArea : t.nav.becomeMember}
+                    </Drawer>
+                  </>
+                ) : (
+                  <div className="grid grid-cols-2 gap-3 mb-8">
+                    <Link href={t.urls.login} onClick={() => setIsMobileOpen(false)} className="h-12 flex items-center justify-center rounded-xl bg-slate-100 text-slate-700 font-bold text-sm hover:bg-slate-200 transition-colors">
+                      {t.nav.signIn}
+                    </Link>
+                    <Link href={t.urls.register} onClick={() => setIsMobileOpen(false)} className="h-12 flex items-center justify-center rounded-xl bg-garabandal-gold text-garabandal-dark font-bold text-sm shadow-md hover:shadow-lg transition-all">
+                      {t.nav.createAccount}
+                    </Link>
+                  </div>
+                )}
+
                 {/* Content categories */}
-                <SectionLabel>{locale === 'pt' ? 'História' : 'The Message'}</SectionLabel>
+                <SectionLabel className="mt-8">{locale === 'pt' ? 'História' : 'The Message'}</SectionLabel>
                 <Drawer href={aboutHref} icon={Compass} onClick={() => setIsMobileOpen(false)} active={pathname === aboutHref}>
                   {locale === 'pt' ? 'Sobre o Apostolado' : 'About the Apostolate'}
                 </Drawer>
@@ -355,29 +387,10 @@ export default function SiteHeaderV2() {
                 <Drawer href={t.urls.donations} icon={Heart} onClick={() => setIsMobileOpen(false)} active={pathname === t.urls.donations}>{t.nav.donations}</Drawer>
                 <Drawer href={t.urls.store} icon={Store} onClick={() => setIsMobileOpen(false)} active={pathname === t.urls.store}>{t.nav.store}</Drawer>
 
-                {/* Account / auth */}
-                <SectionLabel className="mt-8">{t.mobileNav.myAccount}</SectionLabel>
-                {user ? (
-                  <>
-                    <Drawer href={t.urls.profile} icon={User} onClick={() => setIsMobileOpen(false)}>{t.nav.userMenu.myProfile}</Drawer>
-                    <Drawer href={t.urls.myRegistrations} icon={Ticket} onClick={() => setIsMobileOpen(false)}>{t.nav.userMenu.myRegistrations}</Drawer>
-                    <Drawer href={t.urls.orders} icon={ShoppingBag} onClick={() => setIsMobileOpen(false)}>{t.nav.userMenu.myPurchases}</Drawer>
-                    <Drawer href={membershipHref} icon={CreditCard} onClick={() => setIsMobileOpen(false)} active={pathname === membershipHref}>
-                      {hasMembership ? t.nav.memberArea : t.nav.becomeMember}
-                    </Drawer>
-                    <button onClick={handleLogout} className="w-full mt-4 h-14 rounded-2xl bg-red-50 text-red-600 font-bold text-sm flex items-center justify-center gap-2 hover:bg-red-100 transition-colors">
-                      <LogOut size={18} /> {t.nav.userMenu.signOut}
-                    </button>
-                  </>
-                ) : (
-                  <div className="grid grid-cols-2 gap-3">
-                    <Link href={t.urls.login} onClick={() => setIsMobileOpen(false)} className="h-12 flex items-center justify-center rounded-xl bg-slate-100 text-slate-700 font-bold text-sm hover:bg-slate-200 transition-colors">
-                      {t.nav.signIn}
-                    </Link>
-                    <Link href={t.urls.register} onClick={() => setIsMobileOpen(false)} className="h-12 flex items-center justify-center rounded-xl bg-garabandal-gold text-garabandal-dark font-bold text-sm shadow-md hover:shadow-lg transition-all">
-                      {t.nav.createAccount}
-                    </Link>
-                  </div>
+                {user && (
+                  <button onClick={handleLogout} className="w-full mt-8 h-14 rounded-2xl bg-red-50 text-red-600 font-bold text-sm flex items-center justify-center gap-2 hover:bg-red-100 transition-colors">
+                    <LogOut size={18} /> {t.nav.userMenu.signOut}
+                  </button>
                 )}
 
                 {/* Language */}
