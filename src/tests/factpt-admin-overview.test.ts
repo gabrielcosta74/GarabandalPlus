@@ -204,6 +204,53 @@ describe('FACT.pt admin overview', () => {
     ]);
   });
 
+  it('keeps manually issued payments and failed jobs out of attention', () => {
+    const payments = normalizeFactPtAdminPayments({
+      donations: [{
+        id: 'manual-donation',
+        amount_cents: 5500,
+        currency: 'EUR',
+        method: 'pix',
+        status: 'succeeded',
+        metadata: { provider: 'reduniq' },
+        updated_at: '2026-07-30T08:00:00.000Z',
+        invoice_sent_at: '2026-07-30T09:00:00.000Z',
+      }],
+      pilgrimagePayments: [],
+      storeOrders: [],
+      quotaPayments: [],
+    });
+    const result = buildFactPtAdminOverview({
+      environment: 'production',
+      period,
+      settings: {
+        environment: 'production',
+        auto_enabled: true,
+        production_donations_enabled: true,
+        donations_go_live_at: '2026-07-29T00:00:00.000Z',
+      },
+      documents: [document({
+        id: 'failed-manual-job',
+        source_type: 'donation',
+        source_table: 'donations',
+        source_id: 'manual-donation',
+        status: 'failed',
+        factpt_document_id: null,
+        factpt_number: null,
+        issued_at: null,
+        email_sent_at: null,
+        last_error: 'Cliente final já existente.',
+      })],
+      payments,
+    });
+
+    expect(result.attention).toEqual([]);
+    expect(result.documents).toEqual([]);
+    expect(result.kpis.totalDocuments).toBe(0);
+    expect(result.reconciliation.confirmedPayments).toBe(0);
+    expect(result.reconciliation.status).toBe('empty');
+  });
+
   it('reports cent-level mismatches without treating remote number gaps as work', () => {
     const payments = normalizeFactPtAdminPayments({
       donations: [],

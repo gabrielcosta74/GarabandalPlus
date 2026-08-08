@@ -58,6 +58,7 @@ export type FactPtAdminPayment = {
   customerName: string | null;
   customerEmail: string | null;
   occurredAt: string;
+  manualFiscalAt: string | null;
 };
 
 export type FactPtAdminSettings = {
@@ -301,6 +302,7 @@ export function normalizeFactPtAdminPayments(
       customerName: clean(row.donor_name),
       customerEmail: clean(row.donor_email),
       occurredAt,
+      manualFiscalAt: clean(row.invoice_sent_at),
     });
   }
 
@@ -334,6 +336,7 @@ export function normalizeFactPtAdminPayments(
       customerName: clean(member?.nome),
       customerEmail: clean(member?.email),
       occurredAt,
+      manualFiscalAt: clean(row.invoice_sent_at),
     });
   }
 
@@ -359,6 +362,7 @@ export function normalizeFactPtAdminPayments(
       customerName: clean(row.buyer_name),
       customerEmail: clean(row.buyer_email),
       occurredAt,
+      manualFiscalAt: clean(row.invoice_sent_at),
     });
   }
 
@@ -385,6 +389,7 @@ export function normalizeFactPtAdminPayments(
       customerName: clean(member?.nome),
       customerEmail: clean(member?.email),
       occurredAt: `${date.slice(0, 10)}T12:00:00.000Z`,
+      manualFiscalAt: clean(row.invoice_sent_at),
     });
   }
 
@@ -491,13 +496,22 @@ export function buildFactPtAdminOverview(input: {
   documents: FactPtAdminDocumentRow[];
   payments: FactPtAdminPayment[];
 }) {
+  const manuallyHandledPaymentKeys = new Set(
+    input.payments
+      .filter((payment) => Boolean(payment.manualFiscalAt))
+      .map(paymentKey),
+  );
+  const activePayments = input.payments.filter(
+    (payment) => !manuallyHandledPaymentKeys.has(paymentKey(payment)),
+  );
   const documents = input.documents.filter(
     (document) =>
       document.environment === input.environment
-      && isInsidePeriod(document.payment_confirmed_at, input.period),
+      && isInsidePeriod(document.payment_confirmed_at, input.period)
+      && !manuallyHandledPaymentKeys.has(documentKey(document)),
   );
   const allPaymentsByKey = new Map(
-    input.payments.map((payment) => [paymentKey(payment), payment]),
+    activePayments.map((payment) => [paymentKey(payment), payment]),
   );
   const documentsByPayment = new Map(
     documents.map((document) => [documentKey(document), document]),
@@ -506,7 +520,7 @@ export function buildFactPtAdminOverview(input: {
   // A payment is part of the Phase 1 financial coverage when the production
   // trigger is explicitly enabled for that source/cutoff, or when a local job
   // already proves that it entered the FACT.pt workflow.
-  const coveredPayments = input.payments.filter(
+  const coveredPayments = activePayments.filter(
     (payment) =>
       isInsidePeriod(payment.occurredAt, input.period)
       && (

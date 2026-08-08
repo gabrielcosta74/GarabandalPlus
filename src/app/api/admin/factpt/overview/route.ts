@@ -155,7 +155,8 @@ export async function GET(request: Request) {
         .from('donations')
         .select(
           'id, amount_cents, currency, method, status, payment_intent_id, '
-          + 'external_reference, metadata, created_at, updated_at, donor_name, donor_email',
+          + 'external_reference, metadata, created_at, updated_at, donor_name, donor_email, '
+          + 'invoice_sent_at',
         )
         .eq('status', 'succeeded'),
       supabaseServer
@@ -163,7 +164,7 @@ export async function GET(request: Request) {
         .select(
           'id, user_id, amount, charged_amount, method, status, transaction_id, '
           + 'external_reference, payment_intent_id, verified_at, created_at, '
-          + 'deleted, notes',
+          + 'deleted, notes, invoice_sent_at',
         )
         .in('status', ['verified', 'succeeded', 'paid', 'manual'])
         .not('deleted', 'is', true),
@@ -171,14 +172,15 @@ export async function GET(request: Request) {
         .from('store_orders')
         .select(
           'id, order_ref, buyer_name, buyer_email, total_amount, currency, '
-          + 'status, payment_provider, payment_method, payment_reference, created_at',
+          + 'status, payment_provider, payment_method, payment_reference, created_at, '
+          + 'invoice_sent_at',
         )
         .eq('status', 'paid'),
       supabaseServer
         .from('pagamentos_quotas')
         .select(
           'id, user_id, data_pagamento, valor, metodo_pagamento, estado, '
-          + 'payment_intent_id, external_reference, notes',
+          + 'payment_intent_id, external_reference, notes, invoice_sent_at',
         )
         .in('estado', ['pago', 'paid']),
     ]);
