@@ -1,10 +1,8 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+import { createBookingAutoLoginToken } from './booking-auto-login-token';
 
 export type BookingEmailLocale = 'pt' | 'en';
 
 type GenerateBookingAutoLoginLinkInput = {
-  supabase: SupabaseClient;
-  email: string;
   bookingUrl: string;
   appUrl: string;
   locale?: BookingEmailLocale;
@@ -34,22 +32,18 @@ export const buildBookingAccessUrl = (
 };
 
 /**
- * Generates a short-lived, one-time Supabase magic link that authenticates the
- * recipient and then returns them to the authenticated booking page.
+ * Generates a reusable, signed first-party link. Each visit creates a fresh
+ * one-time Supabase token, so email security scanners cannot consume the
+ * recipient's login before they open the message.
  *
  * The permanent booking URL remains separate and must always be included in the
  * email as a fallback. A failure here must never prevent a payment email.
  */
 export const generateBookingAutoLoginLink = async ({
-  supabase,
-  email,
   bookingUrl,
   appUrl,
   locale = 'pt',
 }: GenerateBookingAutoLoginLinkInput): Promise<string | null> => {
-  const normalizedEmail = String(email || '').trim().toLowerCase();
-  if (!normalizedEmail) return null;
-
   try {
     const normalizedAppUrl = normalizeBaseUrl(appUrl);
     const appOrigin = new URL(`${normalizedAppUrl}/`).origin;
@@ -58,35 +52,18 @@ export const generateBookingAutoLoginLink = async ({
     // Never let an email-controlled or external URL become an auth redirect.
     if (parsedBookingUrl.origin !== appOrigin) return null;
 
-    // The authenticated destination does not need the permanent booking token.
-    // Keep that secret only in the explicit fallback link, out of Auth URLs and
-    // the post-login browser history.
-    parsedBookingUrl.searchParams.delete('viewToken');
-    parsedBookingUrl.searchParams.delete('token');
-    const nextPath = `${parsedBookingUrl.pathname}${parsedBookingUrl.search}`;
-    const { data, error } = await supabase.auth.admin.generateLink({
-      type: 'magiclink',
-      email: normalizedEmail,
-    });
+    const bookingId = parsedBookingUrl.pathname.split('/').filter(Boolean).at(-1);
+    if (!bookingId) return null;
 
-    if (error) {
-      console.warn('[Booking Email Access] Auto-login link unavailable:', error.code || error.message);
-      return null;
-    }
+    const token = createBookingAutoLoginToken({ bookingId, locale });
+    if (!token) return null;
 
-    const tokenHash = data?.properties?.hashed_token;
-    if (!tokenHash) return null;
-
-    // Use the first-party server verifier instead of the generated action_link.
-    // This avoids implicit-flow URL fragments and guarantees that Auth cookies
-    // are established before redirecting to the payment page.
-    const confirmationUrl = new URL('/auth/confirm', `${normalizedAppUrl}/`);
-    confirmationUrl.searchParams.set('token_hash', tokenHash);
-    confirmationUrl.searchParams.set('type', 'magiclink');
-    confirmationUrl.searchParams.set('next', nextPath);
-    if (locale === 'en') confirmationUrl.searchParams.set('locale', 'en');
-
-    return confirmationUrl.toString();
+    const accessUrl = new URL('/api/booking/auto-login', `${normalizedAppUrl}/`);
+    accessUrl.searchParams.set('booking', token.bookingId);
+    accessUrl.searchParams.set('expires', String(token.expiresAt));
+    accessUrl.searchParams.set('locale', token.locale);
+    accessUrl.searchParams.set('signature', token.signature);
+    return accessUrl.toString();
   } catch (error) {
     console.warn(
       '[Booking Email Access] Failed to prepare auto-login link:',

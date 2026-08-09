@@ -479,8 +479,6 @@ export async function POST(req: Request) {
                 bookingLocale,
             );
             const autoLoginLink = await generateBookingAutoLoginLink({
-                supabase: supabaseServer,
-                email: bookingEmail,
                 bookingUrl: bookingAccessLink,
                 appUrl: origin,
                 locale: bookingLocale,

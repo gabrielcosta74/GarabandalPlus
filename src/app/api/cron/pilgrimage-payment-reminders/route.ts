@@ -181,8 +181,6 @@ export async function GET(request: Request) {
 
       const locale = resolveBookingLocale(booking);
       const autoLoginUrl = await generateBookingAutoLoginLink({
-        supabase: supabaseServer,
-        email: candidate.email,
         bookingUrl: candidate.bookingUrl,
         appUrl,
         locale,

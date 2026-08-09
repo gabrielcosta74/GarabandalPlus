@@ -120,8 +120,6 @@ export async function POST(req: Request) {
 
     const autoLoginLink = isAuthOwner
       ? await generateBookingAutoLoginLink({
-          supabase: supabaseServer,
-          email,
           bookingUrl: directAccessLink,
           appUrl,
           locale,
