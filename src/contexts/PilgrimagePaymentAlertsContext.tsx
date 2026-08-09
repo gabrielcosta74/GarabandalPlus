@@ -11,6 +11,7 @@ type PaymentAlertsContextValue = {
   alerts: PaymentAlert[];
   primaryAlert: PaymentAlert | null;
   isLoading: boolean;
+  hasError: boolean;
   userId: string | null;
   refresh: () => Promise<PaymentAlertsResponse | undefined>;
 };
@@ -48,7 +49,7 @@ export function PilgrimagePaymentAlertsProvider({ children }: { children: ReactN
   const key = user && !authLoading
     ? `/api/booking/payment-alerts?locale=${locale}`
     : null;
-  const { data, isLoading, mutate } = useSWR<PaymentAlertsResponse>(
+  const { data, error, isLoading, mutate } = useSWR<PaymentAlertsResponse>(
     key,
     fetchPaymentAlerts,
     {
@@ -73,9 +74,10 @@ export function PilgrimagePaymentAlertsProvider({ children }: { children: ReactN
     alerts,
     primaryAlert: alerts[0] || null,
     isLoading: authLoading || Boolean(user && isLoading),
+    hasError: Boolean(user && error),
     userId: user?.id || null,
     refresh: async () => mutate(),
-  }), [alerts, authLoading, isLoading, mutate, user]);
+  }), [alerts, authLoading, error, isLoading, mutate, user]);
 
   return (
     <PaymentAlertsContext.Provider value={value}>

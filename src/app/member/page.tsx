@@ -1,14 +1,13 @@
 "use client";
 
 import Link from 'next/link';
-import { useMemo, useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import VIPLayout from '../../components/member/VIPLayout';
 import { supabaseBrowser } from '../../lib/supabase-browser';
 import { isActiveMember } from '../../lib/store-discounts';
 import {
   CreditCard,
   ShieldCheck,
-  Gift,
   Clock,
   ChevronRight,
   BookOpen,
@@ -27,7 +26,9 @@ import EventCard from '../../components/member/EventCard';
 import MemberTutorial from '../../components/onboarding/MemberTutorial';
 import ReferralWidget from '../../components/member/ReferralWidget';
 import ContributionsCard from '../../components/member/ContributionsCard';
+import MemberPaymentsOverview from '../../components/member/MemberPaymentsOverview';
 import { useLocale } from '../../contexts/LocaleContext';
+import { useAuth } from '../../contexts/AuthContext';
 
 type MemberSummary = {
   nome?: string | null;
@@ -56,6 +57,7 @@ type Event = {
 
 export default function MemberDashboardPage() {
   const { locale } = useLocale();
+  const { memberData: authMemberData } = useAuth();
   const isEn = locale === 'en';
   const [member, setMember] = useState<MemberSummary | null>(null);
   const [nextEvent, setNextEvent] = useState<Event | null>(null);
@@ -102,10 +104,13 @@ export default function MemberDashboardPage() {
     loadData();
   }, []);
 
-  /* REMOVED LOCAL LOGIC - Using shared lib/store-discounts.ts */
-  const isValidMember = useMemo(() => isActiveMember(member), [member]);
+  // The authenticated profile is the fallback source of truth if this page's
+  // richer profile request fails or is delayed.
+  const displayedMember = member ?? authMemberData;
+  const isValidMember = isActiveMember(displayedMember);
+  const statusLoading = loading && !displayedMember;
 
-  const firstName = member?.nome?.split(' ')[0] || (isEn ? 'Member' : 'Membro');
+  const firstName = displayedMember?.nome?.split(' ')[0] || (isEn ? 'Member' : 'Membro');
   const memberRoot = isEn ? '/en/member' : '/member';
   const calendarPath = `${memberRoot}/calendar`;
   const spiritualityPath = isEn ? '/en/member/spirituality' : `${memberRoot}/espiritualidade`;
@@ -131,8 +136,8 @@ export default function MemberDashboardPage() {
             {/* Avatar & Info */}
             <div className="flex flex-col md:flex-row items-center gap-4 md:gap-6 text-center md:text-left">
               <div className="w-24 h-24 md:w-28 md:h-28 rounded-full bg-slate-800 border-4 border-slate-700/50 overflow-hidden shadow-2xl shrink-0 flex items-center justify-center">
-                {member?.avatar_url ? (
-                  <img src={member.avatar_url} alt={firstName} className="w-full h-full object-cover" />
+                {displayedMember?.avatar_url ? (
+                  <img src={displayedMember.avatar_url} alt={firstName} className="w-full h-full object-cover" />
                 ) : (
                   <span className="text-4xl md:text-5xl font-serif text-yellow-500 font-bold">{firstName.charAt(0)}</span>
                 )}
@@ -144,8 +149,8 @@ export default function MemberDashboardPage() {
                 </div>
                 <h1 className="font-serif text-3xl md:text-5xl font-bold text-white mb-2 flex flex-col md:flex-row items-center md:items-baseline gap-1 md:gap-3">
                   <span>{isEn ? 'Hello' : 'Olá'}, {firstName}</span>
-                  {member?.numero_socio && (
-                    <span className="text-xl md:text-4xl text-slate-400 font-light tracking-wide mt-1 md:mt-0">#{member.numero_socio}</span>
+                  {displayedMember?.numero_socio && (
+                    <span className="text-xl md:text-4xl text-slate-400 font-light tracking-wide mt-1 md:mt-0">#{displayedMember.numero_socio}</span>
                   )}
                 </h1>
                 <p className="text-slate-400 text-sm md:text-base max-w-xl">
@@ -155,28 +160,42 @@ export default function MemberDashboardPage() {
             </div>
 
             {/* Status Card */}
-            <div className="w-full md:w-auto bg-slate-900/50 backdrop-blur-sm p-4 rounded-2xl border border-white/10 flex items-center justify-between md:justify-start gap-4 min-w-[280px]">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-gradient-to-br from-yellow-600 to-yellow-800 rounded-full flex items-center justify-center text-white shadow-lg shrink-0">
-                  <ShieldCheck className="w-6 h-6" />
-                </div>
-                <div>
-                  <p className="text-xs text-slate-400 uppercase tracking-wider font-medium">{isEn ? 'Current Status' : 'Estado Atual'}</p>
-                  <p className={`text-lg font-bold ${loading ? 'text-slate-500 animate-pulse' : isValidMember ? 'text-white' : 'text-red-400'}`}>
-                    {loading ? (isEn ? 'Loading...' : 'A carregar...') : (isValidMember ? (isEn ? 'Fee Up to Date' : 'Quota em Dia') : (isEn ? 'Payment Pending' : 'Pagamento Pendente'))}
-                  </p>
-                  <Link href={quotaPath} className="inline-block mt-1 text-xs font-bold text-yellow-400 hover:text-yellow-300 hover:underline transition-colors">
-                    {isEn ? 'Manage fee' : 'Gerir quota'} &rarr;
-                  </Link>
-                </div>
-              </div>
-            </div>
+            <Link
+              href={quotaPath}
+              aria-label={isEn ? 'Manage annual membership fee' : 'Gerir quota anual de membro'}
+              className="group flex w-full min-w-0 items-center gap-3 rounded-2xl border border-white/[0.08] bg-white/[0.035] p-4 transition-colors hover:border-yellow-500/25 hover:bg-white/[0.055] md:w-auto md:min-w-[300px]"
+            >
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-yellow-500/20 bg-yellow-500/10 text-yellow-400">
+                <ShieldCheck className="h-5 w-5" aria-hidden="true" />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-[11px] font-bold uppercase tracking-[0.13em] text-slate-400">
+                  {isEn ? 'Annual membership fee' : 'Quota anual de membro'}
+                </span>
+                <span className={`mt-1 block text-base font-bold ${
+                  statusLoading
+                    ? 'animate-pulse text-slate-500'
+                    : isValidMember
+                      ? '!text-white'
+                      : 'text-rose-300'
+                }`}>
+                  {statusLoading
+                    ? (isEn ? 'Loading...' : 'A carregar...')
+                    : isValidMember
+                      ? (isEn ? 'Membership fee up to date' : 'Quota de membro em dia')
+                      : (isEn ? 'Membership fee to regularise' : 'Quota por regularizar')}
+                </span>
+              </span>
+              <ArrowRight className="h-5 w-5 shrink-0 text-slate-500 transition group-hover:translate-x-0.5 group-hover:text-yellow-400" aria-hidden="true" />
+            </Link>
           </div>
         </section>
 
+        <MemberPaymentsOverview member={displayedMember} quotaPath={quotaPath} />
+
         {/* Contributions / Gratitude */}
         <section id="tut-contributions">
-          <ContributionsCard firstName={member?.nome?.split(' ')[0]} />
+          <ContributionsCard firstName={displayedMember?.nome?.split(' ')[0]} />
         </section>
 
         {/* Gamification / Referral Widget */}

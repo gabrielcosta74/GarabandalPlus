@@ -18,6 +18,11 @@ export type PaymentAlertsResponse = {
   generatedAt: string;
 };
 
+const PRIVATE_TEST_PILGRIMAGE_PREFIX = /^\[TESTE PRIVADO FACT\.pt\]\s*/i;
+
+export const getPilgrimageDisplayName = (name: string) =>
+  name.replace(PRIVATE_TEST_PILGRIMAGE_PREFIX, '');
+
 export const getPaymentAlertSeverity = (daysUntilDue: number): PaymentAlertSeverity => {
   if (daysUntilDue < 0) return 'overdue';
   if (daysUntilDue <= 2) return 'urgent';

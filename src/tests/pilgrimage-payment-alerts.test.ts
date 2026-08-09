@@ -4,6 +4,7 @@ import {
   buildPaymentBannerDismissKey,
   buildPaymentPopupDismissKey,
   comparePaymentAlerts,
+  getPilgrimageDisplayName,
   getPaymentAlertSeverity,
   isPaymentAlertSurfaceExcluded,
   shouldShowPaymentAlertBanner,
@@ -25,6 +26,15 @@ const alert = (overrides: Partial<PaymentAlert> = {}): PaymentAlert => ({
   severity: 'warning',
   paymentUrl: '/peregrinacoes/inscricao/booking-1',
   ...overrides,
+});
+
+describe('pilgrimage display names', () => {
+  it('hides the private FactPT test prefix from member-facing payment surfaces', () => {
+    expect(getPilgrimageDisplayName('[TESTE PRIVADO FACT.pt] Peregrinação 2026D'))
+      .toBe('Peregrinação 2026D');
+    expect(getPilgrimageDisplayName('Peregrinação a Garabandal'))
+      .toBe('Peregrinação a Garabandal');
+  });
 });
 
 describe('pilgrimage website payment obligations', () => {

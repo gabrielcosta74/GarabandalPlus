@@ -10,6 +10,7 @@ import { useLocale } from '../../contexts/LocaleContext';
 import {
   buildPaymentBannerDismissKey,
   buildPaymentPopupDismissKey,
+  getPilgrimageDisplayName,
   isPaymentAlertSurfaceExcluded,
   shouldShowPaymentAlertBanner,
   shouldShowPaymentAlertPopup,
@@ -103,6 +104,12 @@ export default function PilgrimagePaymentAlerts() {
 
   const bannerIsOverdue = bannerAlert?.severity === 'overdue';
   const popupIsOverdue = urgentAlert?.severity === 'overdue';
+  const bannerPilgrimageName = bannerAlert
+    ? getPilgrimageDisplayName(bannerAlert.pilgrimageName)
+    : null;
+  const popupPilgrimageName = urgentAlert
+    ? getPilgrimageDisplayName(urgentAlert.pilgrimageName)
+    : null;
 
   return (
     <>
@@ -124,12 +131,12 @@ export default function PilgrimagePaymentAlerts() {
                   : (isEn ? 'Upcoming pilgrimage payment' : 'Pagamento da peregrinação')}
               </p>
               <p className="truncate text-xs font-semibold opacity-75">
-                {bannerAlert.pilgrimageName} · {deadlineText(bannerAlert, isEn)} · {formatAmount(bannerAlert.amountDue, locale)}
+                {bannerPilgrimageName} · {deadlineText(bannerAlert, isEn)} · {formatAmount(bannerAlert.amountDue, locale)}
               </p>
             </div>
             <Link
               href={bannerAlert.paymentUrl}
-              className={`inline-flex min-h-11 shrink-0 items-center justify-center rounded-xl px-3 text-xs font-extrabold text-white shadow-sm transition-colors sm:px-4 sm:text-sm ${
+              className={`inline-flex min-h-11 shrink-0 items-center justify-center rounded-xl px-3 text-xs font-extrabold !text-white shadow-sm transition-colors sm:px-4 sm:text-sm ${
                 bannerIsOverdue ? 'bg-red-700 hover:bg-red-800' : 'bg-amber-700 hover:bg-amber-800'
               }`}
             >
@@ -166,7 +173,7 @@ export default function PilgrimagePaymentAlerts() {
                         ? (isEn ? 'Complete your registration payment' : 'Conclua o pagamento da inscrição')
                         : (isEn ? 'Your next payment is close' : 'A próxima prestação está próxima')}
                   </Dialog.Title>
-                  <p className="mt-1 text-sm font-semibold text-slate-500">{urgentAlert.pilgrimageName}</p>
+                  <p className="mt-1 text-sm font-semibold text-slate-500">{popupPilgrimageName}</p>
                 </div>
                 <button
                   type="button"
@@ -205,7 +212,7 @@ export default function PilgrimagePaymentAlerts() {
                 <Link
                   href={urgentAlert.paymentUrl}
                   onClick={dismissPopup}
-                  className={`inline-flex min-h-12 items-center justify-center gap-2 rounded-xl px-4 text-sm font-extrabold text-white shadow-md ${
+                  className={`inline-flex min-h-12 items-center justify-center gap-2 rounded-xl px-4 text-sm font-extrabold !text-white shadow-md ${
                     popupIsOverdue ? 'bg-red-700 hover:bg-red-800' : 'bg-amber-700 hover:bg-amber-800'
                   }`}
                 >
