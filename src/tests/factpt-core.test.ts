@@ -910,7 +910,7 @@ describe('FACT.pt HTTP client', () => {
     expect(attemptedBody.client).not.toHaveProperty('forceTin');
   });
 
-  it('creates and updates named final consumers without tin, ric, retention or forceTin', async () => {
+  it('creates named final consumers and reuses existing profiles without updating them', async () => {
     const input = {
       name: 'Titular sem NIF',
       address: 'Rua Nova, 2',
@@ -950,19 +950,14 @@ describe('FACT.pt HTTP client', () => {
               data: [{
                 id: 'final-1',
                 name: 'Titular sem NIF',
+                address: 'Rua Antiga, 1',
+                zip: '1000-001',
+                city: 'Lisboa',
                 country: 'PT',
+                email: 'titular@example.test',
                 isFinalConsumer: true,
               }],
             },
-          }),
-          { status: 200 },
-        ),
-      )
-      .mockResolvedValueOnce(
-        new Response(
-          JSON.stringify({
-            AppStatusMsg: 'OK',
-            AppResponse: { data: { id: 'final-1' } },
           }),
           { status: 200 },
         ),
@@ -973,22 +968,14 @@ describe('FACT.pt HTTP client', () => {
     });
 
     await expect(client.findOrCreateClient(input)).resolves.toMatchObject({
-      client: { id: 'final-1', address: 'Rua Nova, 2' },
+      client: { id: 'final-1', address: 'Rua Antiga, 1' },
       created: false,
-      updated: true,
+      updated: false,
     });
     expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
       'http://api.sandbox.fact.pt/clients?search=titular%40example.test',
       'http://api.sandbox.fact.pt/clients?search=Titular%20sem%20NIF',
-      'http://api.sandbox.fact.pt/clients/final-1',
     ]);
-    const updateBody = JSON.parse(
-      String((fetchMock.mock.calls[2][1] as RequestInit).body),
-    );
-    expect(updateBody.client).not.toHaveProperty('tin');
-    expect(updateBody.client).not.toHaveProperty('ric');
-    expect(updateBody.client).not.toHaveProperty('retention');
-    expect(updateBody.client).not.toHaveProperty('forceTin');
 
     const createFetch = vi.fn<typeof fetch>().mockResolvedValue(
       new Response(

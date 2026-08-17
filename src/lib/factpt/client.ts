@@ -319,21 +319,6 @@ export function selectExistingFactPtBillingClient(
     )[0] || null;
 }
 
-function isSameFinalConsumerClient(
-  client: FactPtRemoteClient,
-  input: FactPtClientCreateInput,
-): boolean {
-  return Boolean(
-    client.isFinalConsumer
-      && normalizedClientText(client.email) === normalizedClientText(input.email)
-      && normalizedClientText(client.name) === normalizedClientText(input.name)
-      && normalizedClientText(client.address) === normalizedClientText(input.address)
-      && normalizedClientText(client.zip) === normalizedClientText(input.zip)
-      && normalizedClientText(client.city) === normalizedClientText(input.city)
-      && normalizedClientText(client.country) === normalizedClientText(input.country),
-  );
-}
-
 function isSameFinalConsumerIdentity(
   client: FactPtRemoteClient,
   input: FactPtClientCreateInput,
@@ -344,13 +329,6 @@ function isSameFinalConsumerIdentity(
       && clientNamesAreCompatible(input.name, client.name || '')
       && normalizedClientText(client.country) === normalizedClientText(input.country),
   );
-}
-
-function finalConsumerNeedsUpdate(
-  client: FactPtRemoteClient,
-  input: FactPtClientCreateInput,
-): boolean {
-  return !isSameFinalConsumerClient(client, input);
 }
 
 async function readJsonEnvelope<T>(
@@ -549,6 +527,11 @@ export class FactPtClient {
     input: FactPtClientCreateInput,
   ): Promise<FactPtCreatedResource> {
     if (clientId === '') throw new Error('O ID do cliente FACT.pt é obrigatório.');
+    if (input.finalConsumer) {
+      throw new Error(
+        'Perfis Consumidor Final existentes não são atualizados automaticamente.',
+      );
+    }
     return this.request<FactPtCreatedResource>(
       `/clients/${encodeURIComponent(String(clientId))}`,
       {
@@ -596,22 +579,6 @@ export class FactPtClient {
       }
       const existingClient = compatibleClients[0];
       if (existingClient) {
-        if (finalConsumerNeedsUpdate(existingClient, input)) {
-          await this.updateClient(existingClient.id, input);
-          return {
-            client: {
-              ...existingClient,
-              name: input.name,
-              email: input.email,
-              address: input.address,
-              zip: input.zip,
-              city: input.city,
-              country: input.country,
-            },
-            created: false,
-            updated: true,
-          };
-        }
         return { client: existingClient, created: false, updated: false };
       }
 
