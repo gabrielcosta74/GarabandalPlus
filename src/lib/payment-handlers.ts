@@ -161,7 +161,6 @@ export type PaymentHandlerContext = {
 export function resolvePilgrimageConfirmationTimestamp(input: {
     existingStatus?: string | null;
     existingVerifiedAt?: string | null;
-    paymentDate?: Date;
     now?: () => Date;
 }): string {
     const paidStatuses = new Set(['verified', 'succeeded', 'paid', 'manual']);
@@ -170,8 +169,7 @@ export function resolvePilgrimageConfirmationTimestamp(input: {
     if (paidStatuses.has(existingStatus) && existingVerifiedAt) {
         return existingVerifiedAt;
     }
-    return input.paymentDate?.toISOString()
-        || (input.now || (() => new Date()))().toISOString();
+    return (input.now || (() => new Date()))().toISOString();
 }
 
 /* -------------------------------------------------------------------------- */
@@ -600,7 +598,6 @@ export async function handlePilgrimageSuccess(ctx: PaymentHandlerContext) {
     const verifiedAt = resolvePilgrimageConfirmationTimestamp({
         existingStatus: existingPayment?.status,
         existingVerifiedAt: existingPayment?.verified_at,
-        paymentDate: ctx.paymentDate,
     });
     const persistedPaymentMethod =
         method === 'reduniq' && String(existingPayment?.method || '').startsWith('reduniq_')
