@@ -116,6 +116,16 @@ function currentLisbonDate(now: Date = new Date()): string {
   return `${parts.year}-${parts.month}-${parts.day}`;
 }
 
+export function refreshAutomaticFactPtDocumentDate(
+  snapshot: FactPtFiscalSnapshot,
+  now: Date = new Date(),
+): FactPtFiscalSnapshot {
+  const documentDate = currentLisbonDate(now);
+  return snapshot.documentDate === documentDate
+    ? snapshot
+    : { ...snapshot, documentDate };
+}
+
 function fiscalReference(value: string, index: number) {
   const normalized = value
     .trim()
@@ -360,6 +370,21 @@ async function resolveFiscalSnapshot(
       ),
       getFactPtUnitId(job.environment),
     );
+
+  // Automatic retries can happen after newer documents were issued in the
+  // same series. Keep the original payment date for audit, but issue with the
+  // current fiscal date so FACT.pt chronological numbering remains valid.
+  if (storedSnapshot && !job.approved_at) {
+    const refreshedFiscal = refreshAutomaticFactPtDocumentDate(fiscal);
+    if (refreshedFiscal !== fiscal) {
+      fiscal = refreshedFiscal;
+      const { error } = await db
+        .from('factpt_documents')
+        .update({ fiscal_snapshot: fiscal })
+        .eq('id', job.id);
+      if (error) throw error;
+    }
+  }
 
   if (!storedSnapshot) {
     const { error } = await db
