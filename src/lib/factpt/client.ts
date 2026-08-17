@@ -213,6 +213,19 @@ function isDuplicateTinError(error: unknown): boolean {
   );
 }
 
+function isDuplicateFinalConsumerNameError(error: unknown): boolean {
+  if (!(error instanceof FactPtError)) {
+    return false;
+  }
+  const details = JSON.stringify(error.details || {}).toLowerCase();
+  const message = error.message.toLowerCase();
+  return (
+    details.includes('final consumer name already exists')
+    || message.includes('final consumer name already exists')
+    || /nome.*consumidor final.*(?:j[aá] )?existe/i.test(message)
+  );
+}
+
 function normalizedClientText(value: unknown): string {
   return String(value || '').trim().toLowerCase();
 }
@@ -233,6 +246,21 @@ function normalizedClientTin(value: unknown): string {
 function normalizedClientEmail(value: unknown): string {
   const email = normalizedClientText(value);
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? email : '';
+}
+
+function normalizedClientPostalCode(value: unknown): string {
+  return String(value || '').replace(/[^a-z0-9]/gi, '').toLowerCase();
+}
+
+function normalizedClientAddress(value: unknown): string {
+  return normalizedClientName(value);
+}
+
+function clientAddressesAreCompatible(localAddress: string, remoteAddress: string): boolean {
+  const local = normalizedClientAddress(localAddress);
+  const remote = normalizedClientAddress(remoteAddress);
+  if (!local || !remote) return false;
+  return local === remote || local.startsWith(remote) || remote.startsWith(local);
 }
 
 function clientNamesAreCompatible(localName: string, remoteName: string): boolean {
@@ -323,12 +351,63 @@ function isSameFinalConsumerIdentity(
   client: FactPtRemoteClient,
   input: FactPtClientCreateInput,
 ): boolean {
+  if (!client.isFinalConsumer) return false;
+
+  const sameCountry =
+    normalizedClientText(client.country) === normalizedClientText(input.country);
+  const remoteEmail = normalizedClientEmail(client.email);
+  const localEmail = normalizedClientEmail(input.email);
+
+  if (remoteEmail) {
+    return Boolean(
+      localEmail
+        && remoteEmail === localEmail
+        && clientNamesAreCompatible(input.name, client.name || '')
+        && sameCountry,
+    );
+  }
+
+  // Some legacy FACT.pt final-consumer profiles have no email. Reuse one only
+  // when the remaining identity is exact and strong enough to exclude a
+  // namesake; the remote profile itself is deliberately left unchanged.
   return Boolean(
-    client.isFinalConsumer
-      && normalizedClientEmail(client.email) === normalizedClientEmail(input.email)
-      && clientNamesAreCompatible(input.name, client.name || '')
-      && normalizedClientText(client.country) === normalizedClientText(input.country),
+    normalizedClientName(client.name) === normalizedClientName(input.name)
+      && sameCountry
+      && normalizedClientPostalCode(client.zip)
+      && normalizedClientPostalCode(client.zip)
+        === normalizedClientPostalCode(input.zip)
+      && clientAddressesAreCompatible(input.address, client.address || ''),
   );
+}
+
+function matchingFinalConsumerClients(
+  clients: FactPtRemoteClient[],
+  input: FactPtClientCreateInput,
+): FactPtRemoteClient[] {
+  const compatibleById = new Map<string, FactPtRemoteClient>();
+  clients.forEach((candidate) => {
+    if (
+      candidate?.id !== undefined
+      && candidate?.id !== null
+      && isSameFinalConsumerIdentity(candidate, input)
+    ) {
+      compatibleById.set(String(candidate.id), candidate);
+    }
+  });
+  return [...compatibleById.values()];
+}
+
+function uniqueFinalConsumerClient(
+  clients: FactPtRemoteClient[],
+  input: FactPtClientCreateInput,
+): FactPtRemoteClient | null {
+  const compatible = matchingFinalConsumerClients(clients, input);
+  if (compatible.length > 1) {
+    throw new Error(
+      'Existem vários clientes Consumidor Final compatíveis; é necessária revisão administrativa.',
+    );
+  }
+  return compatible[0] || null;
 }
 
 async function readJsonEnvelope<T>(
@@ -471,23 +550,15 @@ export class FactPtClient {
     input: FactPtClientCreateInput,
   ): Promise<FactPtRemoteClient | null> {
     if (!input.finalConsumer) return null;
-    const uniqueById = new Map<string, FactPtRemoteClient>();
-    (await this.findClients(input.email)).forEach((candidate) => {
-      if (
-        candidate?.id !== undefined
-        && candidate?.id !== null
-        && isSameFinalConsumerIdentity(candidate, input)
-      ) {
-        uniqueById.set(String(candidate.id), candidate);
-      }
-    });
-    const compatible = [...uniqueById.values()];
-    if (compatible.length > 1) {
-      throw new Error(
-        'Existem vários clientes Consumidor Final com o mesmo email; é necessária revisão administrativa.',
-      );
-    }
-    return compatible[0] || null;
+    const byEmail = uniqueFinalConsumerClient(
+      await this.findClients(input.email),
+      input,
+    );
+    if (byEmail) return byEmail;
+    return uniqueFinalConsumerClient(
+      await this.findClients(input.name),
+      input,
+    );
   }
 
   async createClient(input: FactPtClientCreateInput): Promise<FactPtCreatedResource> {
@@ -561,42 +632,39 @@ export class FactPtClient {
     if (input.finalConsumer) {
       const byEmail = await this.findClients(input.email);
       const byName = await this.findClients(input.name);
-      const compatibleById = new Map<string, FactPtRemoteClient>();
-      [...byEmail, ...byName].forEach((candidate) => {
-        if (
-          candidate?.id !== undefined
-          && candidate?.id !== null
-          && isSameFinalConsumerIdentity(candidate, input)
-        ) {
-          compatibleById.set(String(candidate.id), candidate);
-        }
-      });
-      const compatibleClients = [...compatibleById.values()];
-      if (compatibleClients.length > 1) {
-        throw new Error(
-          'Existem vários clientes Consumidor Final com o mesmo email; é necessária revisão administrativa.',
-        );
-      }
-      const existingClient = compatibleClients[0];
+      const existingClient = uniqueFinalConsumerClient(
+        [...byEmail, ...byName],
+        input,
+      );
       if (existingClient) {
         return { client: existingClient, created: false, updated: false };
       }
 
-      const created = await this.createClient(input);
-      return {
-        client: {
-          id: String(created.data.id),
-          name: input.name,
-          email: input.email,
-          address: input.address,
-          zip: input.zip,
-          city: input.city,
-          country: input.country,
-          isFinalConsumer: true,
-        },
-        created: true,
-        updated: false,
-      };
+      try {
+        const created = await this.createClient(input);
+        return {
+          client: {
+            id: String(created.data.id),
+            name: input.name,
+            email: input.email,
+            address: input.address,
+            zip: input.zip,
+            city: input.city,
+            country: input.country,
+            isFinalConsumer: true,
+          },
+          created: true,
+          updated: false,
+        };
+      } catch (error) {
+        if (!isDuplicateFinalConsumerNameError(error)) throw error;
+        const reconciled = uniqueFinalConsumerClient(
+          await this.findClients(input.name),
+          input,
+        );
+        if (!reconciled) throw error;
+        return { client: reconciled, created: false, updated: false };
+      }
     }
 
     const tin = input.tin || '';

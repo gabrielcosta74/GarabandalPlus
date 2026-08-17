@@ -158,6 +158,22 @@ export type PaymentHandlerContext = {
     paymentDate?: Date;
 };
 
+export function resolvePilgrimageConfirmationTimestamp(input: {
+    existingStatus?: string | null;
+    existingVerifiedAt?: string | null;
+    paymentDate?: Date;
+    now?: () => Date;
+}): string {
+    const paidStatuses = new Set(['verified', 'succeeded', 'paid', 'manual']);
+    const existingStatus = String(input.existingStatus || '').toLowerCase();
+    const existingVerifiedAt = String(input.existingVerifiedAt || '').trim();
+    if (paidStatuses.has(existingStatus) && existingVerifiedAt) {
+        return existingVerifiedAt;
+    }
+    return input.paymentDate?.toISOString()
+        || (input.now || (() => new Date()))().toISOString();
+}
+
 /* -------------------------------------------------------------------------- */
 /*                                  DONATIONS                                 */
 /* -------------------------------------------------------------------------- */
@@ -550,12 +566,11 @@ export async function handlePilgrimageSuccess(ctx: PaymentHandlerContext) {
 
     if (!bookingId) return;
 
-    const verifiedAt = new Date().toISOString();
     const paidStatuses = ['verified', 'succeeded', 'paid', 'manual'];
 
     const { data: booking, error: bookingError } = await supabaseServer
         .from('bookings')
-        .select('id, user_id, paid_amount, total_amount, pilgrimage_id, pilgrimage:pilgrimages(deposit_value)')
+        .select('id, user_id, paid_amount, total_amount, pilgrimage_id, deposit_confirmed_at, pilgrimage:pilgrimages(deposit_value)')
         .eq('id', bookingId)
         .single();
     if (bookingError || !booking) {
@@ -578,10 +593,15 @@ export async function handlePilgrimageSuccess(ctx: PaymentHandlerContext) {
     const { data: existingPayment } = externalReference
         ? await supabaseServer
             .from('pilgrimage_payments')
-            .select('method, processing_fee_amount')
+            .select('method, processing_fee_amount, status, verified_at')
             .eq('external_reference', externalReference)
             .maybeSingle()
         : { data: null };
+    const verifiedAt = resolvePilgrimageConfirmationTimestamp({
+        existingStatus: existingPayment?.status,
+        existingVerifiedAt: existingPayment?.verified_at,
+        paymentDate: ctx.paymentDate,
+    });
     const persistedPaymentMethod =
         method === 'reduniq' && String(existingPayment?.method || '').startsWith('reduniq_')
             ? String(existingPayment?.method)
@@ -626,7 +646,8 @@ export async function handlePilgrimageSuccess(ctx: PaymentHandlerContext) {
     };
     if (isDepositPaid || isFullyPaid) {
         bookingUpdates.status = 'confirmed';
-        bookingUpdates.deposit_confirmed_at = verifiedAt;
+        bookingUpdates.deposit_confirmed_at =
+            (booking as any)?.deposit_confirmed_at || verifiedAt;
     }
 
     const { error: bookingUpdateError } = await supabaseServer
