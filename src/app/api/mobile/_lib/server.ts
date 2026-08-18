@@ -14,9 +14,12 @@ export const privateCacheHeaders = {
 };
 
 type MobileErrorCode =
+  | 'conflict'
+  | 'forbidden'
   | 'invalid_request'
   | 'not_found'
   | 'not_configured'
+  | 'rate_limited'
   | 'unauthorized'
   | 'upstream_error';
 
@@ -50,21 +53,21 @@ export function mobileSuccess<T>(
   );
 }
 
-function getBearerToken(request: Request) {
+export function getBearerToken(request: Request) {
   const authorization = request.headers.get('authorization')?.trim() ?? '';
   if (!authorization.toLowerCase().startsWith('bearer ')) return null;
   return authorization.slice(7).trim() || null;
 }
 
-export type MobileMemberIdentity = {
+export type MobileIdentity = {
   user: User;
   userId: string;
   email: string | null;
 };
 
-export async function authenticateMobileMember(
+export async function authenticateMobileUser(
   request: Request,
-): Promise<{ identity: MobileMemberIdentity; error?: never } | { identity?: never; error: NextResponse }> {
+): Promise<{ identity: MobileIdentity; error?: never } | { identity?: never; error: NextResponse }> {
   if (!supabaseServer) {
     return {
       error: mobileError(503, 'not_configured', 'Serviço temporariamente indisponível.'),
@@ -94,6 +97,20 @@ export async function authenticateMobileMember(
   };
 }
 
+// Backwards-compatible name for the first mobile endpoints. Authentication here
+// identifies a Supabase account; membership is enforced by each feature.
+export const authenticateMobileMember = authenticateMobileUser;
+
+export async function authenticateOptionalMobileUser(
+  request: Request,
+): Promise<
+  | { identity: MobileIdentity | null; error?: never }
+  | { identity?: never; error: NextResponse }
+> {
+  if (!getBearerToken(request)) return { identity: null };
+  return authenticateMobileUser(request);
+}
+
 export function getMobileLocale(request: Request): 'pt' | 'en' {
   const locale = new URL(request.url).searchParams.get('locale')?.toLowerCase();
   return locale === 'en' ? 'en' : 'pt';
@@ -111,4 +128,9 @@ export function getPublicSiteUrl() {
 
 export function isSafeSlug(slug: string) {
   return slug.length > 0 && slug.length <= 160 && /^[a-z0-9]+(?:-[a-z0-9]+)*$/i.test(slug);
+}
+
+export function isSafeUuid(value: unknown): value is string {
+  return typeof value === 'string'
+    && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }

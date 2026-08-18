@@ -1,4 +1,8 @@
 import { getCivilDateTimestamp, isPubliclyListedPilgrimage, todayCivilTimestamp } from '../../../../lib/utils';
+import {
+  getCountryBasedFlightPolicy,
+  getFlightRegistrationOptions,
+} from '../../../../lib/pilgrimage-flight-policy';
 
 type Locale = 'pt' | 'en';
 type PilgrimageRow = Record<string, unknown>;
@@ -52,7 +56,7 @@ export function isMobilePublicPilgrimage(row: PilgrimageRow) {
     title: textOrNull(row.title),
     slug: textOrNull(row.slug),
     status: textOrNull(row.status),
-    pricing_config: (row as any).pricing_config ?? null,
+    pricing_config: row.pricing_config ?? null,
   });
 }
 
@@ -60,6 +64,50 @@ export function serializePilgrimage(row: PilgrimageRow, locale: Locale) {
   const remaining = remainingSpots(row);
   const startDate = textOrNull(row.start_date);
   const startTimestamp = getCivilDateTimestamp(startDate);
+
+  const rawPricing = row.pricing_config && typeof row.pricing_config === 'object'
+    ? row.pricing_config as Record<string, unknown>
+    : {};
+  const rawSupplements = rawPricing.room_supplements && typeof rawPricing.room_supplements === 'object'
+    ? rawPricing.room_supplements as Record<string, unknown>
+    : {};
+  const roomSupplements = Object.fromEntries(
+    Object.entries(rawSupplements).flatMap(([type, value]) => {
+      const mobileType = type === 'quadruple' ? 'family' : type;
+      if (!['single', 'double', 'triple', 'family'].includes(mobileType)) return [];
+      const amount = numberOrNull(value);
+      return amount === null ? [] : [[mobileType, amount]];
+    }),
+  );
+  const countryPolicy = getCountryBasedFlightPolicy({ pricing_config: rawPricing });
+  const flightOptions = getFlightRegistrationOptions({ pricing_config: rawPricing });
+  const effectiveFlightOptions = countryPolicy ? ['agency', 'own'] : flightOptions;
+  const optionCopy = (option: string) => {
+    if (option === 'agency') return {
+      id: option,
+      label: locale === 'en' ? 'Agency flights' : 'Voos pela agência',
+      description: localizedText(row, 'group_flight_details', locale),
+      priceFrom: numberOrNull(row.flight_price_from),
+    };
+    if (option === 'own') return {
+      id: option,
+      label: locale === 'en' ? 'Own travel arrangements' : 'Viagem organizada por mim',
+      description: localizedText(row, 'flight_info_text', locale),
+      priceFrom: null,
+    };
+    return {
+      id: option,
+      label: locale === 'en' ? 'No group flight' : 'Sem voo de grupo',
+      description: null,
+      priceFrom: null,
+    };
+  };
+  const siteUrl = (
+    process.env.NEXT_PUBLIC_SITE_URL
+    || process.env.NEXT_PUBLIC_APP_URL
+    || process.env.APP_URL
+    || 'https://apostoladodegarabandal.com'
+  ).replace(/\/$/, '');
 
   return {
     id: textOrNull(row.id),
@@ -100,6 +148,23 @@ export function serializePilgrimage(row: PilgrimageRow, locale: Locale) {
       included: localizedList(row, 'included_items', locale),
       notIncluded: localizedList(row, 'not_included_items', locale),
     },
+    pricingConfig: {
+      roomSupplements,
+      installmentDeadline: textOrNull(rawPricing.installment_deadline),
+      maximumInstallments: numberOrNull(rawPricing.maximum_installments),
+      roomAvailability: Object.fromEntries(
+        ['single', 'double', 'triple', 'family'].map((type) => [
+          type,
+          type === 'double' || Object.prototype.hasOwnProperty.call(roomSupplements, type),
+        ]),
+      ),
+    },
+    flightPolicy: {
+      required: Boolean(countryPolicy) || !flightOptions.includes('none'),
+      countryBased: Boolean(countryPolicy),
+      options: effectiveFlightOptions.map(optionCopy),
+    },
+    termsUrl: locale === 'en' ? `${siteUrl}/en/terms` : `${siteUrl}/termos`,
   };
 }
 
