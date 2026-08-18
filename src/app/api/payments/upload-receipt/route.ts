@@ -8,6 +8,7 @@ import {
     normalizeFiscalBilling,
 } from '../../../../lib/fiscal-billing';
 import {
+    loadPilgrimageBillingProfile,
     pilgrimageBillingSnapshot,
     savePilgrimageBillingProfile,
 } from '../../../../lib/pilgrimage-billing';
@@ -36,9 +37,7 @@ export async function POST(req: Request) {
     try {
         const body = await req.json();
         const { bookingId, fileData, fileName, fileType, installmentLabel, installmentAmount, token } = body;
-        const billingInput = body?.billing && typeof body.billing === 'object'
-            ? body.billing
-            : body;
+        const hasBillingOverride = Boolean(body?.billing && typeof body.billing === 'object');
         const parsedAmount = typeof installmentAmount === 'number' ? installmentAmount : Number(installmentAmount);
         const hasAmount = Number.isFinite(parsedAmount) && parsedAmount > 0;
 
@@ -88,7 +87,9 @@ export async function POST(req: Request) {
             userId = user.id;
         }
 
-        const billing = normalizeFiscalBilling(billingInput);
+        const billing = hasBillingOverride
+            ? normalizeFiscalBilling(body.billing)
+            : await loadPilgrimageBillingProfile(supabaseServer, booking);
         const missingBillingFields = fiscalBillingMissingFields(billing);
         if (missingBillingFields.length > 0) {
             return NextResponse.json(
@@ -100,7 +101,9 @@ export async function POST(req: Request) {
             );
         }
 
-        await savePilgrimageBillingProfile(supabaseServer, booking, billing);
+        if (hasBillingOverride) {
+            await savePilgrimageBillingProfile(supabaseServer, booking, billing);
+        }
         const billingSnapshot = pilgrimageBillingSnapshot(billing);
 
         // 1. Convert base64 to Buffer

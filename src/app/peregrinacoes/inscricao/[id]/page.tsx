@@ -30,7 +30,6 @@ import { format } from 'date-fns';
 import { enUS, pt } from 'date-fns/locale';
 import BookingOnboardingModal from '../../../../components/booking/BookingOnboardingModal';
 import BankTransferModal from '../../../../components/booking/BankTransferModal'; // Imported BankTransferModal
-import BillingDetailsModal from '../../../../components/booking/BillingDetailsModal';
 import PaymentConfirmationModal, {
     type PaymentConfirmationFiscalDocument,
 } from '../../../../components/booking/PaymentConfirmationModal';
@@ -52,7 +51,6 @@ import { useCurrency } from '../../../../components/providers/CurrencyProvider';
 import PaymentCurrencyDisplay, {
     LocalizedPilgrimageAmount,
 } from '../../../../components/pilgrimage/PaymentCurrencyDisplay';
-import type { FiscalBillingDetails } from '../../../../lib/fiscal-billing';
 import {
     getInstallmentPaymentState,
     resolveOutstandingInstallment,
@@ -81,7 +79,6 @@ type Booking = {
     } & TripPilgrimage;
     payments: BookingPayment[];
     payment_plan?: { date: string; amount: number }[];
-    billing_profile?: FiscalBillingDetails | null;
     itinerary?: TripItineraryItem[];
 };
 
@@ -380,11 +377,6 @@ export default function BookingDashboardPage() {
     const [tutorialRequested, setTutorialRequested] = useState(false);
     const [tutorialIsNewAccount, setTutorialIsNewAccount] = useState(false);
     const [showBankModal, setShowBankModal] = useState(false); // New State for Bank Modal
-    const [showBillingModal, setShowBillingModal] = useState(false);
-    const [pendingBillingAction, setPendingBillingAction] = useState<
-        { type: 'reduniq'; paymentId: string } | { type: 'bank_transfer' } | null
-    >(null);
-    const [confirmedBilling, setConfirmedBilling] = useState<FiscalBillingDetails | null>(null);
     const [bankTransferDetails, setBankTransferDetails] = useState(DEFAULT_BANK_TRANSFER_DETAILS);
     const [customAmount, setCustomAmount] = useState<number | null>(null);
     const [showMobilePaySheet, setShowMobilePaySheet] = useState(false);
@@ -789,18 +781,7 @@ export default function BookingDashboardPage() {
         </VIPLayout>
     );
 
-    const requestBillingConfirmation = (
-        action: { type: 'reduniq'; paymentId: string } | { type: 'bank_transfer' },
-    ) => {
-        setPendingBillingAction(action);
-        setShowMobilePaySheet(false);
-        setShowBillingModal(true);
-    };
-
-    const handleOnlinePayment = async (
-        paymentOverrideId: string,
-        billing: FiscalBillingDetails,
-    ) => {
+    const handleOnlinePayment = async (paymentOverrideId?: string) => {
         const paymentIdToUse = paymentOverrideId || selectedPaymentId;
         const selectedOption = paymentOptions.find((opt) => opt.id === paymentIdToUse);
         if (!selectedOption) return;
@@ -821,7 +802,6 @@ export default function BookingDashboardPage() {
                     paymentOptionId: selectedOption.id,
                     amountToPay: effectiveAmountToPay,
                     viewToken: getBookingViewToken(),
-                    billing,
                 }),
             });
             const data = await res.json();
@@ -872,13 +852,6 @@ export default function BookingDashboardPage() {
         const file = e.target.files?.[0];
         if (!file) return;
 
-        if (!confirmedBilling) {
-            e.target.value = '';
-            setPendingBillingAction({ type: 'bank_transfer' });
-            setShowBillingModal(true);
-            return;
-        }
-
         const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/heic', 'image/heif', 'application/pdf'];
         if (!allowedTypes.includes(file.type)) {
             alert(isEn ? 'Invalid file type. Use JPG, PNG, WEBP, HEIC or PDF.' : 'Tipo de ficheiro inválido. Use JPG, PNG, WEBP, HEIC ou PDF.');
@@ -917,7 +890,6 @@ export default function BookingDashboardPage() {
                         installmentLabel: effectiveLabel,
                         installmentAmount: effectiveAmountToPay,
                         token: viewToken, // Send token for authentication if present
-                        billing: confirmedBilling,
                     })
                 });
 
@@ -1185,10 +1157,7 @@ export default function BookingDashboardPage() {
                     </div>
                 ) : payMethod === 'card' ? (
                     <button
-                        onClick={() => requestBillingConfirmation({
-                            type: 'reduniq',
-                            paymentId: paymentOptions[0].id,
-                        })}
+                        onClick={() => handleOnlinePayment(paymentOptions[0].id)}
                         disabled={processing}
                         className="flex min-h-[58px] w-full items-center justify-center gap-2.5 rounded-2xl bg-amber-400 text-lg font-bold text-slate-950 transition-all hover:bg-amber-300 active:scale-[0.99] disabled:opacity-50"
                     >
@@ -1205,7 +1174,7 @@ export default function BookingDashboardPage() {
                     </button>
                 ) : (
                     <button
-                        onClick={() => requestBillingConfirmation({ type: 'bank_transfer' })}
+                        onClick={() => { setShowMobilePaySheet(false); setShowBankModal(true); }}
                         className="flex min-h-[58px] w-full items-center justify-center gap-2.5 rounded-2xl bg-white text-lg font-bold text-slate-950 transition-all hover:bg-white/90 active:scale-[0.99]"
                     >
                         <span>{isEn ? 'View IBAN details' : 'Ver dados do IBAN'}</span>
@@ -1616,28 +1585,6 @@ export default function BookingDashboardPage() {
                 onUploadClick={handleManualUpload}
             />
 
-            <BillingDetailsModal
-                isOpen={showBillingModal}
-                isEnglish={isEn}
-                initialValue={confirmedBilling || booking.billing_profile || null}
-                submitting={processing}
-                onClose={() => {
-                    if (processing) return;
-                    setShowBillingModal(false);
-                    setPendingBillingAction(null);
-                }}
-                onConfirm={(billing) => {
-                    const action = pendingBillingAction;
-                    setConfirmedBilling(billing);
-                    setShowBillingModal(false);
-                    setPendingBillingAction(null);
-                    if (action?.type === 'reduniq') {
-                        void handleOnlinePayment(action.paymentId, billing);
-                    } else if (action?.type === 'bank_transfer') {
-                        setShowBankModal(true);
-                    }
-                }}
-            />
         </VIPLayout>
     );
 }

@@ -5,6 +5,8 @@ import {
   canAutoIssueReconciledFactPt,
   classifyRow,
   loadPendingRows,
+  reconciledGatewayAmountCents,
+  reconciledPrincipalAmountCents,
   requireManualFactPtApproval,
   type ReconcileRow,
 } from '../lib/reduniq-reconcile';
@@ -56,6 +58,7 @@ describe('Reduniq pending reconciliation', () => {
         booking_id: 'booking-1',
         user_id: 'user-1',
         amount: 0.5,
+        charged_amount: 0.51,
         status: 'pending',
         method,
         payment_intent_id: 'token-1',
@@ -76,6 +79,7 @@ describe('Reduniq pending reconciliation', () => {
       kind: 'pilgrimage',
       order_ref: 'pil-test-1',
       amount: 0.5,
+      gatewayAmount: 0.51,
     });
     expect(fake.calls).toContainEqual(['like', 'method', 'reduniq%']);
     expect(fake.calls.some(([methodName]) => methodName === 'gte')).toBe(false);

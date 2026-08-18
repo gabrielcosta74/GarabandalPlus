@@ -17,6 +17,7 @@ import {
     normalizeFiscalBilling,
 } from '../../../../lib/fiscal-billing';
 import {
+    loadPilgrimageBillingProfile,
     pilgrimageBillingSnapshot,
     savePilgrimageBillingProfile,
 } from '../../../../lib/pilgrimage-billing';
@@ -101,9 +102,7 @@ export async function POST(req: Request) {
         const body = await req.json();
         const bookingId = typeof body?.bookingId === 'string' ? body.bookingId : null;
         const viewToken = typeof body?.viewToken === 'string' ? body.viewToken : null;
-        const billingInput = body?.billing && typeof body.billing === 'object'
-            ? body.billing
-            : body;
+        const hasBillingOverride = Boolean(body?.billing && typeof body.billing === 'object');
         const priceType = body?.priceType === 'deposit' ? 'deposit' : 'full';
         const provider = body?.provider === 'reduniq' ? 'reduniq' : null;
         const paymentOptionId = [
@@ -169,7 +168,9 @@ export async function POST(req: Request) {
             }
         }
 
-        const billing = normalizeFiscalBilling(billingInput);
+        const billing = hasBillingOverride
+            ? normalizeFiscalBilling(body.billing)
+            : await loadPilgrimageBillingProfile(supabaseAdmin, booking);
         const missingBillingFields = fiscalBillingMissingFields(billing);
         if (missingBillingFields.length > 0) {
             return NextResponse.json(

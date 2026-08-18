@@ -65,6 +65,17 @@ const findAccountHolderPilgrim = (
   return pilgrims[0] || null;
 };
 
+const hasCompleteRegistrationBilling = (
+  holder: Record<string, unknown> | null,
+) => Boolean(
+  clean(holder?.full_name)
+  && clean(holder?.email)
+  && clean(holder?.address)
+  && clean(holder?.postal_code)
+  && clean(holder?.city)
+  && clean(holder?.country),
+);
+
 export const loadPilgrimageBillingProfile = async (
   supabase: SupabaseLike,
   booking: BookingBillingSource,
@@ -74,15 +85,18 @@ export const loadPilgrimageBillingProfile = async (
     loadPilgrims(supabase, booking),
   ]);
   const holder = findAccountHolderPilgrim(pilgrims, member);
-  const nif = clean(member?.nif) || clean(holder?.cpf_nif);
+  const registrationBillingIsComplete = hasCompleteRegistrationBilling(holder);
+  const nif = registrationBillingIsComplete
+    ? clean(holder?.cpf_nif)
+    : clean(holder?.cpf_nif) || clean(member?.nif);
 
   return normalizeFiscalBilling({
-    name: clean(member?.nome) || clean(holder?.full_name),
-    email: clean(member?.email) || clean(holder?.email),
-    address: clean(member?.address) || clean(holder?.address),
-    postalCode: clean(member?.postal_code) || clean(holder?.postal_code),
-    city: clean(member?.city) || clean(holder?.city),
-    country: clean(member?.country) || clean(holder?.country),
+    name: clean(holder?.full_name) || clean(member?.nome),
+    email: clean(holder?.email) || clean(member?.email),
+    address: clean(holder?.address) || clean(member?.address),
+    postalCode: clean(holder?.postal_code) || clean(member?.postal_code),
+    city: clean(holder?.city) || clean(member?.city),
+    country: clean(holder?.country) || clean(member?.country),
     taxIdRequested: Boolean(nif),
     nif,
   });
@@ -118,7 +132,7 @@ export const savePilgrimageBillingProfile = async (
     postal_code: billing.postalCode,
     city: billing.city,
     country: billing.country,
-    ...(billing.taxIdRequested ? { nif: billing.nif } : {}),
+    nif: billing.taxIdRequested ? billing.nif : null,
     updated_at: now,
   };
   const pilgrimPayload = {
@@ -128,7 +142,7 @@ export const savePilgrimageBillingProfile = async (
     postal_code: billing.postalCode,
     city: billing.city,
     country: billing.country,
-    ...(billing.taxIdRequested ? { cpf_nif: billing.nif } : {}),
+    cpf_nif: billing.taxIdRequested ? billing.nif : null,
   };
 
   const [{ error: memberError }, { error: pilgrimError }] = await Promise.all([

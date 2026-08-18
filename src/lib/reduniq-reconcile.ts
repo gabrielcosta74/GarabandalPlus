@@ -17,7 +17,10 @@ export type ReconcileRow = {
     user_id?: string | null;
     order_ref: string;
     token: string | null;
+    /** Principal credited to the underlying donation, booking, quota or order. */
     amount: number;
+    /** Gross amount expected at Reduniq, including any processing fee. */
+    gatewayAmount?: number;
     email?: string | null;
     name?: string | null;
     metadata?: any;
@@ -30,6 +33,8 @@ export type ReconcileResult = {
     gatewayStatus: string | null;
     gatewayTxId: string | null;
     gatewayDate: string | null;
+    gatewayAmountCents?: number | null;
+    gatewayOrderRef?: string | null;
     applied: boolean;
     markedFailed?: boolean;
     error?: string;
@@ -105,7 +110,7 @@ export async function loadPendingRows(
     if (kinds.includes('pilgrimage')) {
         let query = supabase
             .from('pilgrimage_payments')
-            .select('id, booking_id, user_id, amount, status, method, payment_intent_id, external_reference, notes, created_at')
+            .select('id, booking_id, user_id, amount, charged_amount, status, method, payment_intent_id, external_reference, notes, created_at')
             .in('status', ['pending', 'pending_payment'])
             .like('method', 'reduniq%')
             .lte('created_at', minAgeIso);
@@ -117,7 +122,16 @@ export async function loadPendingRows(
             throw new Error(`Falha ao carregar pagamentos de peregrinação pendentes: ${error.message}`);
         }
         for (const r of data || []) {
-            rows.push({ kind: 'pilgrimage', id: String(r.id), user_id: r.user_id, order_ref: r.external_reference, token: r.payment_intent_id, amount: Number(r.amount), raw: r });
+            rows.push({
+                kind: 'pilgrimage',
+                id: String(r.id),
+                user_id: r.user_id,
+                order_ref: r.external_reference,
+                token: r.payment_intent_id,
+                amount: Number(r.amount),
+                gatewayAmount: Number(r.charged_amount || r.amount),
+                raw: r,
+            });
         }
     }
 
@@ -151,7 +165,45 @@ function parseGatewayDate(raw: any): Date | undefined {
     return Number.isNaN(d.getTime()) ? undefined : d;
 }
 
-function bestFromSearch(search: any): { status: string; transactionId: string | null; date: string | null } | null {
+function amountCentsFromGateway(value: any): number | null {
+    const candidates = [
+        value?.order?.amount,
+        value?.payment?.amount,
+        value?.transaction?.amount,
+        value?.amount,
+    ];
+    for (const candidate of candidates) {
+        const numeric = Number(candidate);
+        if (Number.isFinite(numeric) && numeric >= 0) return Math.round(numeric);
+    }
+    return null;
+}
+
+function orderRefFromGateway(value: any): string | null {
+    const privateData = Array.isArray(value?.privateData) ? value.privateData : [];
+    return String(
+        value?.order?.ref
+        || value?.orderRef
+        || privateData.find((item: any) => item?.name === 'orderRef')?.value
+        || '',
+    ).trim() || null;
+}
+
+export function reconciledPrincipalAmountCents(row: ReconcileRow): number {
+    return Math.round(row.amount * 100);
+}
+
+export function reconciledGatewayAmountCents(row: ReconcileRow): number {
+    return Math.round((row.gatewayAmount ?? row.amount) * 100);
+}
+
+function bestFromSearch(search: any): {
+    status: string;
+    transactionId: string | null;
+    date: string | null;
+    amountCents: number | null;
+    orderRef: string | null;
+} | null {
     if (!search) return null;
     const list: any[] = [];
     const push = (n: any) => {
@@ -165,6 +217,8 @@ function bestFromSearch(search: any): { status: string; transactionId: string | 
         status: String(n?.transaction?.status ?? n?.status ?? ''),
         transactionId: n?.transaction?.id || n?.transactionId || n?.id || null,
         date: n?.transaction?.date || n?.date || null,
+        amountCents: amountCentsFromGateway(n),
+        orderRef: orderRefFromGateway(n),
     })).filter((n) => n.status);
     if (!normalized.length) return null;
     const score = (s: string) => (s === '4' ? 4 : s === '3' ? 3 : s === '2' ? 2 : s === '1' ? 1 : 0);
@@ -177,6 +231,8 @@ export async function classifyRow(row: ReconcileRow): Promise<ReconcileResult> {
         let gatewayStatus: string | null = null;
         let gatewayTxId: string | null = null;
         let gatewayDate: string | null = null;
+        let gatewayAmountCents: number | null = null;
+        let gatewayOrderRef: string | null = null;
         let reduniqError: string | null = null;
         let errorDisposition: 'retry' | 'review' | undefined;
 
@@ -186,6 +242,8 @@ export async function classifyRow(row: ReconcileRow): Promise<ReconcileResult> {
                 gatewayStatus = gs.status === 'success' ? '4' : gs.status === 'failed' ? '3' : gs.status === 'pending' ? '2' : null;
                 gatewayTxId = gs.transactionId || null;
                 gatewayDate = (gs.raw as any)?.transaction?.date || null;
+                gatewayAmountCents = amountCentsFromGateway(gs.raw);
+                gatewayOrderRef = gs.orderRef || orderRefFromGateway(gs.raw);
             } else {
                 reduniqError = gs.error || 'getOrderStatus failed';
                 errorDisposition = gs.resultCode === '00100007'
@@ -207,6 +265,8 @@ export async function classifyRow(row: ReconcileRow): Promise<ReconcileResult> {
                         gatewayStatus = best.status;
                         gatewayTxId = best.transactionId;
                         gatewayDate = best.date;
+                        gatewayAmountCents = best.amountCents;
+                        gatewayOrderRef = best.orderRef || row.order_ref;
                     }
                 }
             } else {
@@ -223,12 +283,36 @@ export async function classifyRow(row: ReconcileRow): Promise<ReconcileResult> {
         else if (['0', '1', '2'].includes(gatewayStatus || '')) classification = 'PENDING_AT_GATEWAY';
         else if (reduniqError) classification = 'REDUNIQ_ERROR';
 
+        if (
+            classification === 'CONFIRMED_PAID'
+            && gatewayOrderRef
+            && gatewayOrderRef !== row.order_ref
+        ) {
+            classification = 'REDUNIQ_ERROR';
+            reduniqError = `Referência Reduniq divergente: ${gatewayOrderRef}.`;
+            errorDisposition = 'review';
+        }
+        const expectedAmountCents = reconciledGatewayAmountCents(row);
+        if (
+            classification === 'CONFIRMED_PAID'
+            && gatewayAmountCents !== null
+            && gatewayAmountCents !== expectedAmountCents
+        ) {
+            classification = 'REDUNIQ_ERROR';
+            reduniqError =
+                `Montante Reduniq divergente: ${gatewayAmountCents} cêntimos; `
+                + `esperado ${expectedAmountCents}.`;
+            errorDisposition = 'review';
+        }
+
         return {
             row,
             classification,
             gatewayStatus,
             gatewayTxId,
             gatewayDate,
+            gatewayAmountCents,
+            gatewayOrderRef,
             applied: false,
             error: classification === 'REDUNIQ_ERROR'
                 ? reduniqError || 'Falha desconhecida ao consultar a Reduniq.'
@@ -309,7 +393,7 @@ export async function applyConfirmed(supabase: SupabaseClient, res: ReconcileRes
     if (!await canAutoIssueReconciledFactPt(supabase, row)) {
         await requireManualFactPtApproval(supabase, row);
     }
-    const amountCents = Math.round(row.amount * 100);
+    const amountCents = reconciledPrincipalAmountCents(row);
     const base: PaymentHandlerContext = {
         supabaseServer: supabase,
         amountCents,
