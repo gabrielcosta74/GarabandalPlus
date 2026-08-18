@@ -1,6 +1,10 @@
 {
   "name": "Apostolado de Garabandal",
   "short_name": "Garabandal",
+  "description": "Aceda às suas inscrições e pagamentos de peregrinações.",
+  "id": "/",
+  "start_url": "/peregrinacoes/minhas-inscricoes?source=pwa",
+  "scope": "/",
   "icons": [
     {
       "src": "/icon-192.png",

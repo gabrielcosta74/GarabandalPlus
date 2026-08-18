@@ -1,15 +1,19 @@
 "use client";
 
 import { Dialog } from '@headlessui/react';
+import Image from 'next/image';
 import {
     AlertTriangle,
     CalendarClock,
     CheckCircle2,
     CreditCard,
+    Download,
     Landmark,
     Mail,
     Menu,
     PlayCircle,
+    Share2,
+    Smartphone,
     X,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -28,6 +32,18 @@ interface BookingOnboardingModalProps {
     isReceiptUnderReview?: boolean;
     isNewAccount?: boolean;
 }
+
+interface BeforeInstallPromptEvent extends Event {
+    prompt: () => Promise<void>;
+    userChoice: Promise<{
+        outcome: 'accepted' | 'dismissed';
+        platform: string;
+    }>;
+}
+
+type NavigatorWithStandalone = Navigator & { standalone?: boolean };
+
+const INSTALL_STEP_SKIPPED_KEY = 'garabandal-payment-install-step-skipped';
 
 const DATE_FORMATTERS = {
     pt: new Intl.DateTimeFormat('pt-BR', {
@@ -71,8 +87,70 @@ export default function BookingOnboardingModal({
     const { locale } = useLocale();
     const isEn = locale === 'en';
     const [mounted, setMounted] = useState(false);
+    const [showInstallStep, setShowInstallStep] = useState(false);
+    const [showManualInstallSteps, setShowManualInstallSteps] = useState(false);
+    const [isIOS, setIsIOS] = useState(false);
+    const [isIOSSafari, setIsIOSSafari] = useState(false);
+    const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
 
-    useEffect(() => setMounted(true), []);
+    useEffect(() => {
+        const navigatorWithStandalone = navigator as NavigatorWithStandalone;
+        const userAgent = navigator.userAgent;
+        const iPadDesktopMode = navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1;
+        const ios = /iPad|iPhone|iPod/.test(userAgent) || iPadDesktopMode;
+        const android = /Android/i.test(userAgent);
+        const standalone = window.matchMedia('(display-mode: standalone)').matches
+            || navigatorWithStandalone.standalone === true;
+        const iosSafari = ios
+            && /Safari/i.test(userAgent)
+            && !/CriOS|FxiOS|EdgiOS|OPiOS|Instagram|FBAN|FBAV/i.test(userAgent);
+        const skippedThisSession = sessionStorage.getItem(INSTALL_STEP_SKIPPED_KEY) === 'true';
+
+        setIsIOS(ios);
+        setIsIOSSafari(iosSafari);
+        setShowInstallStep((ios || android) && !standalone && !skippedThisSession);
+        setMounted(true);
+
+        const handleBeforeInstallPrompt = (event: Event) => {
+            event.preventDefault();
+            setInstallPrompt(event as BeforeInstallPromptEvent);
+        };
+        const handleInstalled = () => {
+            setInstallPrompt(null);
+            setShowInstallStep(false);
+        };
+
+        window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+        window.addEventListener('appinstalled', handleInstalled);
+
+        return () => {
+            window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+            window.removeEventListener('appinstalled', handleInstalled);
+        };
+    }, []);
+
+    const continueToPaymentTutorial = () => {
+        sessionStorage.setItem(INSTALL_STEP_SKIPPED_KEY, 'true');
+        setShowInstallStep(false);
+        setShowManualInstallSteps(false);
+    };
+
+    const handleInstallClick = async () => {
+        if (installPrompt) {
+            try {
+                await installPrompt.prompt();
+                await installPrompt.userChoice;
+                setInstallPrompt(null);
+                continueToPaymentTutorial();
+            } catch {
+                setInstallPrompt(null);
+                setShowManualInstallSteps(true);
+            }
+            return;
+        }
+
+        setShowManualInstallSteps(true);
+    };
 
     if (!mounted) return null;
 
@@ -111,30 +189,115 @@ export default function BookingOnboardingModal({
                 <Dialog.Panel className="flex max-h-[94dvh] w-full max-w-4xl flex-col overflow-hidden rounded-t-[28px] bg-white shadow-2xl md:rounded-[30px]">
                     <header className="flex items-start gap-3 border-b border-slate-100 px-5 py-4 md:px-7 md:py-5">
                         <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-amber-100 text-amber-700">
-                            <CreditCard className="h-5 w-5" aria-hidden="true" />
+                            {showInstallStep
+                                ? <Smartphone className="h-5 w-5" aria-hidden="true" />
+                                : <CreditCard className="h-5 w-5" aria-hidden="true" />}
                         </span>
                         <div className="min-w-0 flex-1">
+                            {showInstallStep && (
+                                <p className="mb-1 text-[11px] font-black uppercase tracking-[0.16em] text-amber-700">
+                                    {isEn ? 'Step 1 of 2' : 'Passo 1 de 2'}
+                                </p>
+                            )}
                             <Dialog.Title className="text-xl font-black leading-tight text-slate-950 md:text-2xl">
-                                {isRegistrationFeePaid
-                                    ? (isEn ? 'How to manage your payments' : 'Como gerenciar seus pagamentos')
-                                    : (isEn ? 'Your registration was received' : 'Sua inscrição foi recebida')}
+                                {showInstallStep
+                                    ? (isEn ? 'Payments in one tap' : 'Pagamentos com 1 toque')
+                                    : isRegistrationFeePaid
+                                        ? (isEn ? 'How to manage your payments' : 'Como gerenciar seus pagamentos')
+                                        : (isEn ? 'Your registration was received' : 'Sua inscrição foi recebida')}
                             </Dialog.Title>
                             <p className="mt-1 text-sm leading-relaxed text-slate-500">
-                                {isRegistrationFeePaid
-                                    ? (isEn ? 'See how to return here and pay future installments.' : 'Veja como voltar aqui e pagar as próximas parcelas.')
-                                    : (isEn ? 'Pay the registration fee to secure your place.' : 'Pague a taxa de inscrição para garantir sua vaga.')}
+                                {showInstallStep
+                                    ? (isEn ? 'Keep Garabandal on your Home Screen.' : 'Guarde Garabandal na tela inicial.')
+                                    : isRegistrationFeePaid
+                                        ? (isEn ? 'See how to return here and pay future installments.' : 'Veja como voltar aqui e pagar as próximas parcelas.')
+                                        : (isEn ? 'Pay the registration fee to secure your place.' : 'Pague a taxa de inscrição para garantir sua vaga.')}
                             </p>
                         </div>
                         <button
                             type="button"
                             onClick={onClose}
-                            aria-label={isEn ? 'Close payment tutorial' : 'Fechar tutorial de pagamentos'}
+                            aria-label={showInstallStep
+                                ? (isEn ? 'Close setup' : 'Fechar configuração')
+                                : (isEn ? 'Close payment tutorial' : 'Fechar tutorial de pagamentos')}
                             className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500 transition-colors hover:bg-slate-200 hover:text-slate-900"
                         >
                             <X className="h-5 w-5" aria-hidden="true" />
                         </button>
                     </header>
 
+                    {showInstallStep ? (
+                        <div className="overflow-y-auto overscroll-contain px-5 py-5 md:px-7 md:py-9">
+                            <div className="mx-auto flex max-w-md flex-col items-center text-center">
+                                <div className="relative mb-4">
+                                    <div className="absolute inset-0 scale-125 rounded-[28px] bg-amber-200/50 blur-xl" aria-hidden="true" />
+                                    <Image
+                                        src="/icon-192.png"
+                                        alt="Garabandal"
+                                        width={72}
+                                        height={72}
+                                        className="relative rounded-[22px] shadow-lg ring-1 ring-slate-900/10"
+                                    />
+                                </div>
+
+                                {!showManualInstallSteps ? (
+                                    <>
+                                        <p className="max-w-sm text-base font-semibold leading-relaxed text-slate-700">
+                                            {isEn
+                                                ? 'No need to search for the email when it is time to pay the next installment.'
+                                                : 'Assim você não precisa procurar o e-mail para pagar as próximas parcelas.'}
+                                        </p>
+                                        <p className="mt-3 flex items-center gap-1.5 text-xs font-bold text-emerald-700">
+                                            <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
+                                            {isEn ? 'Free and does not make any payment' : 'É gratuito e não realiza nenhum pagamento'}
+                                        </p>
+                                    </>
+                                ) : (
+                                    <div className="w-full rounded-2xl border border-slate-200 bg-slate-50 p-4 text-left">
+                                        {isIOS && !isIOSSafari ? (
+                                            <>
+                                                <p className="font-black text-slate-950">
+                                                    {isEn ? 'Open this page in Safari' : 'Abra esta página no Safari'}
+                                                </p>
+                                                <p className="mt-1.5 text-sm font-semibold leading-relaxed text-slate-600">
+                                                    {isEn
+                                                        ? 'Copy this page link, open it in Safari, then use Share → Add to Home Screen.'
+                                                        : 'Copie o link desta página, abra no Safari e use Partilhar → Adicionar ao ecrã principal.'}
+                                                </p>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <p className="mb-2.5 font-black text-slate-950">
+                                                    {isIOS
+                                                        ? (isEn ? 'Follow these 4 steps' : 'Siga estes 4 passos')
+                                                        : (isEn ? 'Follow these 3 steps' : 'Siga estes 3 passos')}
+                                                </p>
+                                                <ol className="space-y-2.5">
+                                                    {[
+                                                        isIOS
+                                                            ? (isEn ? 'Tap Share in Safari.' : 'Toque em Partilhar no Safari.')
+                                                            : (isEn ? 'Open the browser menu (⋮).' : 'Abra o menu do navegador (⋮).'),
+                                                        isEn ? 'Choose “Add to Home Screen”.' : 'Escolha “Adicionar ao ecrã principal”.',
+                                                        ...(isIOS
+                                                            ? [isEn ? 'Turn on “Open as Web App”.' : 'Ative “Abrir como app web”.']
+                                                            : []),
+                                                        isEn ? 'Tap “Add”.' : 'Toque em “Adicionar”.',
+                                                    ].map((instruction, index) => (
+                                                        <li key={instruction} className="flex items-center gap-3 text-sm font-semibold text-slate-700">
+                                                            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-amber-400 text-xs font-black text-slate-950">
+                                                                {index + 1}
+                                                            </span>
+                                                            <span>{instruction}</span>
+                                                        </li>
+                                                    ))}
+                                                </ol>
+                                            </>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    ) : (
                     <div className="overflow-y-auto overscroll-contain px-5 py-5 md:px-7 md:py-6">
                         {isNewAccount && (
                             <div className="mb-5 flex items-start gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-950">
@@ -321,7 +484,44 @@ export default function BookingOnboardingModal({
                             </div>
                         </div>
                     </div>
+                    )}
 
+                    {showInstallStep ? (
+                        <footer className="flex shrink-0 flex-col gap-2 border-t border-slate-100 bg-white px-5 py-4 md:px-7">
+                            {!showManualInstallSteps ? (
+                                <button
+                                    type="button"
+                                    onClick={handleInstallClick}
+                                    className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-amber-400 px-4 text-sm font-black text-slate-950 shadow-md transition-colors hover:bg-amber-300"
+                                >
+                                    {isIOS
+                                        ? <Share2 className="h-5 w-5" aria-hidden="true" />
+                                        : <Download className="h-5 w-5" aria-hidden="true" />}
+                                    {isIOS
+                                        ? (isEn ? 'Show me how' : 'Mostrar como adicionar')
+                                        : (isEn ? 'Add to Home Screen' : 'Adicionar à tela inicial')}
+                                </button>
+                            ) : (
+                                <button
+                                    type="button"
+                                    onClick={continueToPaymentTutorial}
+                                    className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-amber-400 px-4 text-sm font-black text-slate-950 shadow-md transition-colors hover:bg-amber-300"
+                                >
+                                    <CreditCard className="h-5 w-5" aria-hidden="true" />
+                                    {isEn ? 'Continue to payment' : 'Continuar para o pagamento'}
+                                </button>
+                            )}
+                            {!showManualInstallSteps && (
+                                <button
+                                    type="button"
+                                    onClick={continueToPaymentTutorial}
+                                    className="min-h-10 px-4 text-sm font-bold text-slate-500 transition-colors hover:text-slate-950"
+                                >
+                                    {isEn ? 'Continue without adding' : 'Continuar sem adicionar'}
+                                </button>
+                            )}
+                        </footer>
+                    ) : (
                     <footer className="grid shrink-0 gap-2 border-t border-slate-100 bg-white px-5 py-4 sm:grid-cols-2 md:px-7">
                         <button
                             type="button"
@@ -345,6 +545,7 @@ export default function BookingOnboardingModal({
                                     : (isEn ? 'Pay the registration fee now' : 'Pagar a taxa agora')}
                         </button>
                     </footer>
+                    )}
                 </Dialog.Panel>
             </div>
         </Dialog>
