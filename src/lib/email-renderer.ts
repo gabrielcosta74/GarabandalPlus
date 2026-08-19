@@ -4734,6 +4734,7 @@ export const renderMemberAreaMagicLinkEmail = (payload: {
 
 export const renderAuthRecoveryEmail = (payload: {
   recoveryLink: string;
+  codeEntryLink?: string | null;
   otpCode?: string | null;
   locale?: EmailLocale;
 }) => {
@@ -4742,14 +4743,15 @@ export const renderAuthRecoveryEmail = (payload: {
   const codeBlock = payload.otpCode
     ? Card({
         children: `
-          ${Text(isEn ? 'If the button does not work, use this code on the recovery page:' : 'Se o botão não funcionar, introduza este código na página de recuperação:', `font-size:13px;color:${COLORS.textLight};margin-bottom:8px;`)}
+          ${Text(isEn ? 'Or use this 6-digit code:' : 'Ou use este código de 6 dígitos:', `font-size:13px;color:${COLORS.textLight};margin-bottom:8px;`)}
           <p style="margin:0;font-size:30px;font-weight:800;letter-spacing:8px;color:${COLORS.text};font-family:'Courier New',monospace;text-align:center;">${payload.otpCode}</p>
+          ${payload.codeEntryLink ? `<p style="margin:14px 0 0;text-align:center;font-size:13px;"><a href="${escapeHtml(payload.codeEntryLink)}" style="color:${COLORS.primary};font-weight:700;text-decoration:underline;">${isEn ? 'Enter code instead' : 'Introduzir o código'}</a></p>` : ''}
         `,
       })
     : '';
 
   return {
-    subject: isEn ? 'Recover your account password' : 'Recuperação de password da sua conta',
+    subject: isEn ? 'Reset your password' : 'Defina uma nova password',
     html: Layout({
       title: isEn ? 'Password Recovery' : 'Recuperar password',
       preview: isEn ? 'Set a new password securely.' : 'Defina uma nova password em segurança.',
@@ -4761,14 +4763,25 @@ export const renderAuthRecoveryEmail = (payload: {
         })}
         ${Section({
           children: `
-            ${Text(isEn ? 'Click the button below to set a new password securely.' : 'Clique no botão abaixo para definir uma nova password em segurança.')}
+            ${Text(isEn ? 'Use the secure button below. It will take you directly to the last step.' : 'Use o botão seguro abaixo. Irá diretamente para o último passo.')}
             ${Button({ label: isEn ? 'Set New Password' : 'Definir nova password', url: payload.recoveryLink })}
             ${codeBlock}
-            ${Text(isEn ? 'If you did not request this recovery, you can ignore this email.' : 'Se não solicitou esta recuperação, pode ignorar este email.', `font-size:13px;color:${COLORS.textLight};`)}
+            ${Text(isEn ? 'For your security, this link and code expire. If you did not request this, ignore this email.' : 'Para sua segurança, o link e o código expiram. Se não fez este pedido, ignore este email.', `font-size:13px;color:${COLORS.textLight};`)}
           `,
         })}
       `,
     }),
+    text: [
+      isEn ? 'Reset your password' : 'Defina uma nova password',
+      '',
+      isEn ? 'Open this secure link:' : 'Abra este link seguro:',
+      payload.recoveryLink,
+      payload.otpCode ? '' : null,
+      payload.otpCode ? (isEn ? `Alternative code: ${payload.otpCode}` : `Código alternativo: ${payload.otpCode}`) : null,
+      payload.otpCode && payload.codeEntryLink ? payload.codeEntryLink : null,
+      '',
+      isEn ? 'If you did not request this, ignore this email.' : 'Se não fez este pedido, ignore este email.',
+    ].filter((line): line is string => line !== null).join('\n'),
   };
 };
 

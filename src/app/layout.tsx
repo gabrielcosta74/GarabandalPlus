@@ -6,6 +6,7 @@ import ClientLayout from '../components/layouts/ClientLayout';
 import AbortErrorSilencer from '../components/system/AbortErrorSilencer';
 import './globals.css';
 import { APP_URL } from '../lib/config';
+import { isFocusedRecoveryPath } from '../lib/recovery-flow';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 const playfair = Playfair_Display({ subsets: ['latin'], variable: '--font-playfair' });
@@ -116,6 +117,7 @@ export default async function RootLayout({
   const localeSeg = pathname.split('/')[1];
   const htmlLang = localeSeg === 'en' ? 'en' : localeSeg === 'es' ? 'es' : localeSeg === 'fr' ? 'fr' : localeSeg === 'it' ? 'it' : 'pt-BR';
   const navV2Enabled = process.env.NEXT_PUBLIC_NAV_V2 === '1';
+  const isFocusedRecovery = isFocusedRecoveryPath(pathname);
   return (
     <html lang={htmlLang} suppressHydrationWarning>
       <head>
@@ -130,8 +132,8 @@ export default async function RootLayout({
             __html: `try{var c=JSON.parse(localStorage.getItem('garabandal_cookie_consent_v1'));if(c&&c.version===1&&c.necessary===true)document.documentElement.classList.add('cc-done')}catch(e){}`,
           }}
         />
-        {/* Sender.net — universal tracking/forms snippet (loaded once for the whole site) */}
-        <Script id="sender-universal" strategy="afterInteractive">
+        {/* Sender.net — omitted from the focused password recovery flow. */}
+        {!isFocusedRecovery && <Script id="sender-universal" strategy="afterInteractive">
           {`(function (s, e, n, d, er) {
             s['Sender'] = er;
             s[er] = s[er] || function () {
@@ -148,7 +150,7 @@ export default async function RootLayout({
             m.parentNode.insertBefore(a, m)
           })(window, document, 'script', 'https://cdn.sender.net/accounts_resources/universal.js', 'sender');
           sender('0c380a08998972')`}
-        </Script>
+        </Script>}
       </head>
       <body className={`${inter.variable} ${playfair.variable} ${adminSans.variable} ${geistMono.variable} ${inter.className}`}>
         <AbortErrorSilencer />

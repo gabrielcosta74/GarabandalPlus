@@ -566,7 +566,13 @@ export const sendAuthMagicLinkEmail = async (payload: { email: string; magicLink
   return true;
 };
 
-export const sendAuthRecoveryEmail = async (payload: { email: string; recoveryLink: string; otpCode?: string | null }) => {
+export const sendAuthRecoveryEmail = async (payload: {
+  email: string;
+  recoveryLink: string;
+  codeEntryLink: string;
+  otpCode?: string | null;
+  locale?: 'pt' | 'en';
+}) => {
   if (!resendClient) {
     console.warn('Resend nao configurado. Ignorar envio de email.');
     return false;
@@ -574,14 +580,22 @@ export const sendAuthRecoveryEmail = async (payload: { email: string; recoveryLi
 
   const content = renderAuthRecoveryEmail({
     recoveryLink: payload.recoveryLink,
+    codeEntryLink: payload.codeEntryLink,
     otpCode: payload.otpCode,
+    locale: payload.locale,
   });
-  await resendClient.emails.send({
+  const { data, error } = await resendClient.emails.send({
     from: notifyFrom,
     to: [payload.email],
     subject: content.subject,
     html: content.html,
+    text: content.text,
   });
+
+  if (error || !data?.id) {
+    console.error('[Email] Password recovery email failed:', error?.message || 'missing provider id');
+    return false;
+  }
 
   return true;
 };

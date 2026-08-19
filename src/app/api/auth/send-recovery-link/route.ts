@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { NextResponse } from 'next/server';
 import { supabaseServer } from '../../../../lib/supabase';
 import { normalizeEmail } from '../../../../lib/normalize';
@@ -8,26 +9,29 @@ import { buildRecoveryRedirectUrl } from '../../../../lib/auth-redirects';
 
 export const dynamic = 'force-dynamic';
 
-async function authUserExists(email: string) {
-  if (!supabaseServer) return false;
+const MIN_RESPONSE_TIME_MS = 450;
 
-  const perPage = 200;
-  let page = 1;
+function requestSourceMatchesHost(value: string, host: string) {
+  if (!value || !host) return false;
+  try {
+    return new URL(value).host === host;
+  } catch {
+    return false;
+  }
+}
 
-  while (true) {
-    const { data, error } = await supabaseServer.auth.admin.listUsers({ page, perPage });
-    if (error) throw error;
-
-    const users = data?.users || [];
-    if (users.some((u) => (u.email || '').toLowerCase() === email)) return true;
-    if (users.length < perPage) break;
-    page += 1;
+async function genericSuccess(startedAt: number) {
+  const remaining = MIN_RESPONSE_TIME_MS - (Date.now() - startedAt);
+  if (remaining > 0) {
+    await new Promise((resolve) => setTimeout(resolve, remaining));
   }
 
-  return false;
+  return NextResponse.json({ success: true });
 }
 
 export async function POST(req: Request) {
+  const startedAt = Date.now();
+
   try {
     const rateLimit = checkRateLimit(req, {
       keyPrefix: 'auth-send-recovery-link',
@@ -46,7 +50,8 @@ export async function POST(req: Request) {
     const origin = req.headers.get('origin') || '';
     const referer = req.headers.get('referer') || '';
     const isDev = process.env.NODE_ENV === 'development';
-    const isInternalRequest = !!host && (origin.includes(host) || referer.includes(host));
+    const isInternalRequest = requestSourceMatchesHost(origin, host)
+      || requestSourceMatchesHost(referer, host);
 
     if (!isDev && !isInternalRequest) {
       return NextResponse.json({ success: false, message: 'Pedido inválido.' }, { status: 400 });
@@ -58,48 +63,60 @@ export async function POST(req: Request) {
 
     const body = await req.json().catch(() => ({}));
     const email = normalizeEmail(body?.email);
+    const locale: 'pt' | 'en' = body?.locale === 'en' ? 'en' : 'pt';
 
-    if (!email) {
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       return NextResponse.json({ success: false, message: 'Email inválido.' }, { status: 400 });
     }
 
-    const exists = await authUserExists(email);
-    if (!exists) {
-      // Avoid account enumeration in recovery flow.
-      return NextResponse.json({ success: true });
+    const emailHash = createHash('sha256').update(email).digest('hex').slice(0, 24);
+    const emailRateLimit = checkRateLimit(req, {
+      keyPrefix: `auth-send-recovery-link-email-${emailHash}`,
+      windowMs: 60_000,
+      max: 1,
+    });
+
+    if (!emailRateLimit.allowed) {
+      return genericSuccess(startedAt);
     }
 
     const appUrl = getAppUrl();
-    const redirectTo = buildRecoveryRedirectUrl(appUrl);
-
+    const redirectTo = buildRecoveryRedirectUrl(appUrl, locale);
     const { data, error } = await supabaseServer.auth.admin.generateLink({
       type: 'recovery',
       email,
       options: { redirectTo },
     });
 
-    if (error) {
-      console.error('[API] send-recovery-link generateLink error:', error);
-      return NextResponse.json({ success: false, message: 'Falha ao gerar link de recuperação.' }, { status: 500 });
-    }
-
     const recoveryLink = data?.properties?.action_link;
-    if (!recoveryLink) {
-      return NextResponse.json({ success: false, message: 'Link não disponível.' }, { status: 500 });
+    if (error || !recoveryLink) {
+      console.error('[API] send-recovery-link generateLink error:', {
+        message: error?.message,
+        hasRecoveryLink: Boolean(recoveryLink),
+      });
+      return genericSuccess(startedAt);
     }
 
-    // The 6-digit code is link-free and immune to email-client link scanners
-    // (e.g. Hotmail/Outlook SafeLinks). Sent alongside the link as a fallback.
-    const otpCode = data?.properties?.email_otp ?? null;
+    const codeEntryPath = locale === 'en'
+      ? '/en/auth/update-password?mode=code'
+      : '/auth/update-password?mode=code';
+    const codeEntryLink = new URL(codeEntryPath, `${appUrl.replace(/\/$/, '')}/`).toString();
+    const otpCode = data.properties?.email_otp ?? null;
+    const sent = await sendAuthRecoveryEmail({
+      email,
+      recoveryLink,
+      codeEntryLink,
+      otpCode,
+      locale,
+    });
 
-    const sent = await sendAuthRecoveryEmail({ email, recoveryLink, otpCode });
     if (!sent) {
-      return NextResponse.json({ success: false, message: 'Serviço de email indisponível.' }, { status: 503 });
+      console.error('[API] send-recovery-link email provider unavailable');
     }
 
-    return NextResponse.json({ success: true });
+    return genericSuccess(startedAt);
   } catch (error) {
     console.error('[API] send-recovery-link error:', error);
-    return NextResponse.json({ success: false, message: 'Erro ao enviar link de recuperação.' }, { status: 500 });
+    return genericSuccess(startedAt);
   }
 }

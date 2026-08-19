@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildAuthCallbackLoginUrl,
+  buildRecoveryFailurePath,
   buildRecoveryRedirectUrl,
   detectUpdatePasswordAuthPayload,
   hasAuthCallbackPayload,
@@ -20,8 +21,16 @@ describe('auth redirects', () => {
 
   it('builds a recovery redirect through auth-callback', () => {
     expect(buildRecoveryRedirectUrl('https://app.apostoladodegarabandal.com')).toBe(
-      'https://app.apostoladodegarabandal.com/auth-callback?next=%2Fauth%2Fupdate-password&type=recovery'
+      'https://app.apostoladodegarabandal.com/auth-callback?next=%2Fauth%2Fupdate-password&type=recovery&locale=pt'
     );
+    expect(buildRecoveryRedirectUrl('https://app.apostoladodegarabandal.com/', 'en')).toBe(
+      'https://app.apostoladodegarabandal.com/auth-callback?next=%2Fen%2Fauth%2Fupdate-password&type=recovery&locale=en'
+    );
+  });
+
+  it('returns expired recovery links to a helpful localized screen', () => {
+    expect(buildRecoveryFailurePath('pt')).toBe('/auth/update-password?status=invalid-link');
+    expect(buildRecoveryFailurePath('en')).toBe('/en/auth/update-password?status=invalid-link');
   });
 
   it('preserves a private booking target when callback validation fails', () => {

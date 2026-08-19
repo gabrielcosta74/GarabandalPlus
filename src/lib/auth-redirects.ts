@@ -48,12 +48,18 @@ const SUPABASE_OTP_TYPES = new Set([
   'reauthentication',
 ]);
 
-export function buildRecoveryRedirectUrl(appUrl: string) {
+export function buildRecoveryRedirectUrl(appUrl: string, locale: 'pt' | 'en' = 'pt') {
   const baseUrl = appUrl.replace(/\/$/, '');
   const url = new URL('/auth-callback', `${baseUrl}/`);
-  url.searchParams.set('next', '/auth/update-password');
+  url.searchParams.set('next', locale === 'en' ? '/en/auth/update-password' : '/auth/update-password');
   url.searchParams.set('type', 'recovery');
+  url.searchParams.set('locale', locale);
   return url.toString();
+}
+
+export function buildRecoveryFailurePath(locale: string | null | undefined) {
+  const path = locale === 'en' ? '/en/auth/update-password' : '/auth/update-password';
+  return `${path}?status=invalid-link`;
 }
 
 export function hasAuthCallbackPayload(currentUrl: string) {

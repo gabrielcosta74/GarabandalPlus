@@ -41,6 +41,10 @@ const SENSITIVE_INTERACTION_PREFIXES = [
   '/en/thank-you',
   '/loja-online/checkout',
   '/en/store/checkout',
+  '/auth/forgot-password',
+  '/auth/update-password',
+  '/en/auth/forgot-password',
+  '/en/auth/update-password',
 ];
 
 const SAFE_QUERY_PARAMETERS = new Set([

@@ -4,7 +4,14 @@ import { useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import { hasAuthCallbackPayload } from '../../lib/auth-redirects';
 
-const AUTH_HANDLER_PREFIXES = ['/auth-callback', '/auth/confirm', '/auth/update-password'];
+const AUTH_HANDLER_PREFIXES = [
+  '/auth-callback',
+  '/auth/confirm',
+  '/auth/update-password',
+  '/en/auth-callback',
+  '/en/auth/confirm',
+  '/en/auth/update-password',
+];
 
 export default function AuthLandingGuard() {
   const pathname = usePathname();

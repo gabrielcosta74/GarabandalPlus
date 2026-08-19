@@ -2,7 +2,10 @@ import { cookies } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { type EmailOtpType } from '@supabase/supabase-js';
-import { resolveAuthCallbackRedirect } from '../../../lib/auth-redirects';
+import {
+  buildRecoveryFailurePath,
+  resolveAuthCallbackRedirect,
+} from '../../../lib/auth-redirects';
 import { getAppUrl } from '../../../lib/config';
 
 function normalizeNextPath(rawNext: string | null, origin: string) {
@@ -69,6 +72,12 @@ export async function GET(request: NextRequest) {
     }
 
     console.error('[AuthConfirm] verifyOtp error:', error);
+  }
+
+  if (type === 'recovery') {
+    return NextResponse.redirect(
+      new URL(buildRecoveryFailurePath(requestLocale), `${appUrl}/`),
+    );
   }
 
   return NextResponse.redirect(new URL(`${loginPath}?error=invalid-link`, `${appUrl}/`));
