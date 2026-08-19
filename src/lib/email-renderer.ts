@@ -4741,13 +4741,18 @@ export const renderAuthRecoveryEmail = (payload: {
   const locale: EmailLocale = payload.locale === 'en' ? 'en' : 'pt';
   const isEn = locale === 'en';
   const codeBlock = payload.otpCode
-    ? Card({
-        children: `
-          ${Text(isEn ? 'Or use this 6-digit code:' : 'Ou use este código de 6 dígitos:', `font-size:13px;color:${COLORS.textLight};margin-bottom:8px;`)}
-          <p style="margin:0;font-size:30px;font-weight:800;letter-spacing:8px;color:${COLORS.text};font-family:'Courier New',monospace;text-align:center;">${payload.otpCode}</p>
-          ${payload.codeEntryLink ? `<p style="margin:14px 0 0;text-align:center;font-size:13px;"><a href="${escapeHtml(payload.codeEntryLink)}" style="color:${COLORS.primary};font-weight:700;text-decoration:underline;">${isEn ? 'Enter code instead' : 'Introduzir o código'}</a></p>` : ''}
-        `,
-      })
+    ? `
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:28px 0 0;">
+          <tr><td style="padding:0 0 14px;text-align:center;color:${COLORS.textLight};font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">${isEn ? 'Or use the code' : 'Ou use o código'}</td></tr>
+          <tr>
+            <td style="padding:22px 16px;background:#FFF8E7;border:2px solid ${COLORS.primary};border-radius:14px;text-align:center;">
+              <p style="margin:0 0 8px;font-size:13px;color:${COLORS.textLight};">${isEn ? 'Enter these 6 digits on the recovery screen' : 'Introduza estes 6 dígitos no ecrã de recuperação'}</p>
+              <p style="margin:0;font-size:34px;line-height:1.2;font-weight:900;letter-spacing:10px;color:${COLORS.text};font-family:'Courier New',monospace;">${escapeHtml(payload.otpCode)}</p>
+              ${payload.codeEntryLink ? `<p style="margin:16px 0 0;font-size:14px;"><a href="${escapeHtml(payload.codeEntryLink)}" style="color:${COLORS.primary};font-weight:800;text-decoration:underline;">${isEn ? 'Open the code screen' : 'Abrir o ecrã do código'}</a></p>` : ''}
+            </td>
+          </tr>
+        </table>
+      `
     : '';
 
   return {
@@ -4763,10 +4768,10 @@ export const renderAuthRecoveryEmail = (payload: {
         })}
         ${Section({
           children: `
-            ${Text(isEn ? 'Use the secure button below. It will take you directly to the last step.' : 'Use o botão seguro abaixo. Irá diretamente para o último passo.')}
+            ${Text(isEn ? 'The simplest option is the secure button below. It opens the screen where you create your new password.' : 'A opção mais simples é o botão seguro abaixo. Abre o ecrã onde cria a nova password.')}
             ${Button({ label: isEn ? 'Set New Password' : 'Definir nova password', url: payload.recoveryLink })}
             ${codeBlock}
-            ${Text(isEn ? 'For your security, this link and code expire. If you did not request this, ignore this email.' : 'Para sua segurança, o link e o código expiram. Se não fez este pedido, ignore este email.', `font-size:13px;color:${COLORS.textLight};`)}
+            ${Text(isEn ? 'The button and code are personal, work only once, and expire for your security. If you did not request this, ignore this email.' : 'O botão e o código são pessoais, funcionam apenas uma vez e expiram por segurança. Se não fez este pedido, ignore este email.', `font-size:13px;color:${COLORS.textLight};margin-top:24px;`)}
           `,
         })}
       `,

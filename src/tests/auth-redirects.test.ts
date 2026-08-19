@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildAuthCallbackLoginUrl,
+  buildDirectRecoveryUrl,
+  buildRecoveryCodeEntryUrl,
   buildRecoveryFailurePath,
   buildRecoveryRedirectUrl,
   detectUpdatePasswordAuthPayload,
@@ -25,6 +27,28 @@ describe('auth redirects', () => {
     );
     expect(buildRecoveryRedirectUrl('https://app.apostoladodegarabandal.com/', 'en')).toBe(
       'https://app.apostoladodegarabandal.com/auth-callback?next=%2Fen%2Fauth%2Fupdate-password&type=recovery&locale=en'
+    );
+  });
+
+  it('builds first-party recovery links for both direct and code flows', () => {
+    expect(buildDirectRecoveryUrl(
+      'https://apostoladodegarabandal.com/',
+      'hashed-token',
+    )).toBe(
+      'https://apostoladodegarabandal.com/auth/update-password?token_hash=hashed-token&type=recovery'
+    );
+    expect(buildDirectRecoveryUrl(
+      'https://apostoladodegarabandal.com',
+      'hashed-token',
+      'en',
+    )).toBe(
+      'https://apostoladodegarabandal.com/en/auth/update-password?token_hash=hashed-token&type=recovery'
+    );
+    expect(buildRecoveryCodeEntryUrl(
+      'https://apostoladodegarabandal.com',
+      'en',
+    )).toBe(
+      'https://apostoladodegarabandal.com/en/auth/update-password?mode=code'
     );
   });
 

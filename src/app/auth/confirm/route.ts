@@ -6,7 +6,6 @@ import {
   buildRecoveryFailurePath,
   resolveAuthCallbackRedirect,
 } from '../../../lib/auth-redirects';
-import { getAppUrl } from '../../../lib/config';
 
 function normalizeNextPath(rawNext: string | null, origin: string) {
   if (!rawNext) return null;
@@ -27,7 +26,7 @@ function normalizeNextPath(rawNext: string | null, origin: string) {
 export async function GET(request: NextRequest) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  const appUrl = getAppUrl();
+  const appUrl = request.nextUrl.origin;
   const requestLocale = request.nextUrl.searchParams.get('locale') === 'en' ? 'en' : null;
   const loginPath = requestLocale === 'en' ? '/en/login' : '/login';
 

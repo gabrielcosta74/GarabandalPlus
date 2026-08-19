@@ -14,7 +14,8 @@ describe('password recovery email', () => {
     expect(email.html).toContain('Definir nova password');
     expect(email.html).toContain('https://example.com/secure-recovery');
     expect(email.html).toContain('123456');
-    expect(email.html).toContain('Introduzir o código');
+    expect(email.html).toContain('Abrir o ecrã do código');
+    expect(email.html).toContain('funcionam apenas uma vez');
     expect(email.text).toContain('Código alternativo: 123456');
   });
 
@@ -28,7 +29,7 @@ describe('password recovery email', () => {
 
     expect(email.subject).toBe('Reset your password');
     expect(email.html).toContain('Set New Password');
-    expect(email.html).toContain('Enter code instead');
+    expect(email.html).toContain('Open the code screen');
     expect(email.text).toContain('Alternative code: 654321');
   });
 });

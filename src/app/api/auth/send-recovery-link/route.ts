@@ -4,8 +4,11 @@ import { supabaseServer } from '../../../../lib/supabase';
 import { normalizeEmail } from '../../../../lib/normalize';
 import { checkRateLimit } from '../../../../lib/rate-limit';
 import { sendAuthRecoveryEmail } from '../../../../lib/email';
-import { getAppUrl } from '../../../../lib/config';
-import { buildRecoveryRedirectUrl } from '../../../../lib/auth-redirects';
+import { getAuthPublicUrl } from '../../../../lib/config';
+import {
+  buildDirectRecoveryUrl,
+  buildRecoveryCodeEntryUrl,
+} from '../../../../lib/auth-redirects';
 
 export const dynamic = 'force-dynamic';
 
@@ -80,28 +83,26 @@ export async function POST(req: Request) {
       return genericSuccess(startedAt);
     }
 
-    const appUrl = getAppUrl();
-    const redirectTo = buildRecoveryRedirectUrl(appUrl, locale);
+    const appUrl = getAuthPublicUrl();
     const { data, error } = await supabaseServer.auth.admin.generateLink({
       type: 'recovery',
       email,
-      options: { redirectTo },
     });
 
-    const recoveryLink = data?.properties?.action_link;
-    if (error || !recoveryLink) {
+    const tokenHash = data?.properties?.hashed_token;
+    const rawOtpCode = data?.properties?.email_otp ?? '';
+    const otpCode = /^\d{6}$/.test(rawOtpCode) ? rawOtpCode : null;
+    if (error || !tokenHash || !otpCode) {
       console.error('[API] send-recovery-link generateLink error:', {
         message: error?.message,
-        hasRecoveryLink: Boolean(recoveryLink),
+        hasTokenHash: Boolean(tokenHash),
+        hasValidOtpCode: Boolean(otpCode),
       });
       return genericSuccess(startedAt);
     }
 
-    const codeEntryPath = locale === 'en'
-      ? '/en/auth/update-password?mode=code'
-      : '/auth/update-password?mode=code';
-    const codeEntryLink = new URL(codeEntryPath, `${appUrl.replace(/\/$/, '')}/`).toString();
-    const otpCode = data.properties?.email_otp ?? null;
+    const recoveryLink = buildDirectRecoveryUrl(appUrl, tokenHash, locale);
+    const codeEntryLink = buildRecoveryCodeEntryUrl(appUrl, locale);
     const sent = await sendAuthRecoveryEmail({
       email,
       recoveryLink,

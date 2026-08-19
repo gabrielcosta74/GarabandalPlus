@@ -57,6 +57,27 @@ export function buildRecoveryRedirectUrl(appUrl: string, locale: 'pt' | 'en' = '
   return url.toString();
 }
 
+export function buildDirectRecoveryUrl(
+  appUrl: string,
+  tokenHash: string,
+  locale: 'pt' | 'en' = 'pt',
+) {
+  const baseUrl = appUrl.replace(/\/$/, '');
+  const path = locale === 'en' ? '/en/auth/update-password' : '/auth/update-password';
+  const url = new URL(path, `${baseUrl}/`);
+  url.searchParams.set('token_hash', tokenHash);
+  url.searchParams.set('type', 'recovery');
+  return url.toString();
+}
+
+export function buildRecoveryCodeEntryUrl(appUrl: string, locale: 'pt' | 'en' = 'pt') {
+  const baseUrl = appUrl.replace(/\/$/, '');
+  const path = locale === 'en' ? '/en/auth/update-password' : '/auth/update-password';
+  const url = new URL(path, `${baseUrl}/`);
+  url.searchParams.set('mode', 'code');
+  return url.toString();
+}
+
 export function buildRecoveryFailurePath(locale: string | null | undefined) {
   const path = locale === 'en' ? '/en/auth/update-password' : '/auth/update-password';
   return `${path}?status=invalid-link`;

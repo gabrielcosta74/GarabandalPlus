@@ -72,7 +72,7 @@
           <table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center" style="margin:0 auto 40px;">
             <tr>
               <td style="border-radius:50px;background-color:#CA8A04;box-shadow:0 4px 16px rgba(202,138,4,0.35);">
-                <a href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=recovery&next={{ if eq .Data.locale "en" }}/en{{ end }}/auth/update-password"
+                <a href="https://apostoladodegarabandal.com{{ if eq .Data.locale "en" }}/en{{ end }}/auth/update-password?token_hash={{ .TokenHash }}&type=recovery"
                    target="_blank"
                    style="display:inline-block;padding:16px 48px;background-color:#CA8A04;color:#000000;text-decoration:none;font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:2px;border-radius:50px;white-space:nowrap;">
                   {{ if eq .Data.locale "en" }}Set New Password{{ else }}Definir Nova Password{{ end }}
@@ -89,9 +89,9 @@
                   {{ if eq .Data.locale "en" }}Alternative link{{ else }}Link alternativo{{ end }}
                 </p>
                 <p style="margin:0;font-size:12px;line-height:1.6;word-break:break-all;">
-                  <a href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=recovery&next={{ if eq .Data.locale "en" }}/en{{ end }}/auth/update-password"
+                  <a href="https://apostoladodegarabandal.com{{ if eq .Data.locale "en" }}/en{{ end }}/auth/update-password?token_hash={{ .TokenHash }}&type=recovery"
                      style="color:#CA8A04;text-decoration:underline;">
-                    {{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=recovery
+                    https://apostoladodegarabandal.com{{ if eq .Data.locale "en" }}/en{{ end }}/auth/update-password?token_hash={{ .TokenHash }}&type=recovery
                   </a>
                 </p>
               </td>

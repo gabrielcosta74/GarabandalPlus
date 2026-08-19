@@ -55,6 +55,7 @@ export default function UpdatePasswordFlow({
   const [editingEmail, setEditingEmail] = useState(!initialEmail);
   const [code, setCode] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -64,7 +65,8 @@ export default function UpdatePasswordFlow({
   const normalizedEmail = recoveryEmail.trim().toLowerCase();
   const emailIsValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail);
   const codeIsValid = /^\d{6}$/.test(code);
-  const passwordIsValid = password.length >= 6;
+  const passwordIsValid = password.length >= 8;
+  const passwordsMatch = Boolean(confirmPassword) && password === confirmPassword;
 
   useEffect(() => {
     if (initialEmail) {
@@ -156,12 +158,14 @@ export default function UpdatePasswordFlow({
     setError(null);
     setLoading(true);
     try {
-      const { error: verifyError } = await supabaseBrowser.auth.verifyOtp({
+      const { data: verifyData, error: verifyError } = await supabaseBrowser.auth.verifyOtp({
         email: normalizedEmail,
         token: code,
         type: 'recovery',
       });
-      if (verifyError) throw verifyError;
+      if (verifyError || !verifyData.session) {
+        throw verifyError || new Error('missing_recovery_session');
+      }
 
       window.sessionStorage.setItem(RECOVERY_EMAIL_KEY, normalizedEmail);
       window.history.replaceState({}, '', updatePath);
@@ -182,7 +186,7 @@ export default function UpdatePasswordFlow({
 
   const updatePassword = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!passwordIsValid || loading) return;
+    if (!passwordIsValid || !passwordsMatch || loading) return;
 
     setError(null);
     setLoading(true);
@@ -217,7 +221,7 @@ export default function UpdatePasswordFlow({
         ? String(caught.code)
         : '';
       setError(errorCode === 'weak_password'
-        ? (isEn ? 'Choose a password with at least 6 characters.' : 'Escolha uma password com pelo menos 6 caracteres.')
+        ? (isEn ? 'Choose a password with at least 8 characters.' : 'Escolha uma password com pelo menos 8 caracteres.')
         : (isEn
           ? 'We could not save the new password. Please try again.'
           : 'Não foi possível guardar a nova password. Tente novamente.'));
@@ -332,8 +336,13 @@ export default function UpdatePasswordFlow({
             pattern="[0-9]*"
             maxLength={6}
             value={code}
-            onChange={(event) => setCode(event.target.value.replace(/\D/g, '').slice(0, 6))}
+            onChange={(event) => {
+              setCode(event.target.value.replace(/\D/g, '').slice(0, 6));
+              setError(null);
+            }}
             placeholder="000000"
+            autoFocus
+            enterKeyHint="done"
             aria-invalid={Boolean(error)}
             className={`${recoveryInputClassName} text-center font-mono text-[28px] font-black tracking-[0.28em]`}
           />
@@ -385,7 +394,7 @@ export default function UpdatePasswordFlow({
       locale={locale}
       step={3}
       title={isEn ? 'Create a new password' : 'Crie uma nova password'}
-      subtitle={isEn ? 'Use at least 6 characters.' : 'Use pelo menos 6 caracteres.'}
+      subtitle={isEn ? 'Use at least 8 characters.' : 'Use pelo menos 8 caracteres.'}
     >
       <form onSubmit={updatePassword} noValidate>
         {error && (
@@ -423,10 +432,34 @@ export default function UpdatePasswordFlow({
         </div>
         <p id="password-requirement" className={`mt-2 flex items-center gap-2 text-sm font-semibold ${passwordIsValid ? 'text-emerald-700' : 'text-slate-500'}`}>
           <LockKeyhole className="h-4 w-4" aria-hidden="true" />
-          {isEn ? 'At least 6 characters' : 'Pelo menos 6 caracteres'}
+          {isEn ? 'At least 8 characters' : 'Pelo menos 8 caracteres'}
         </p>
 
-        <button type="submit" disabled={!passwordIsValid || loading} className={`${recoveryPrimaryButtonClassName} mt-6`}>
+        <label htmlFor="confirm-password" className="mb-2 mt-5 block text-sm font-extrabold text-slate-800">
+          {isEn ? 'Confirm new password' : 'Confirmar nova password'}
+        </label>
+        <input
+          id="confirm-password"
+          type={showPassword ? 'text' : 'password'}
+          autoComplete="new-password"
+          value={confirmPassword}
+          onChange={(event) => {
+            setConfirmPassword(event.target.value);
+            setError(null);
+          }}
+          disabled={loading}
+          aria-invalid={Boolean(confirmPassword && !passwordsMatch)}
+          aria-describedby="password-match-requirement"
+          className={recoveryInputClassName}
+        />
+        <p id="password-match-requirement" className={`mt-2 flex items-center gap-2 text-sm font-semibold ${passwordsMatch ? 'text-emerald-700' : 'text-slate-500'}`}>
+          <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
+          {passwordsMatch
+            ? (isEn ? 'Passwords match' : 'As passwords coincidem')
+            : (isEn ? 'Enter the same password again' : 'Repita a mesma password')}
+        </p>
+
+        <button type="submit" disabled={!passwordIsValid || !passwordsMatch || loading} className={`${recoveryPrimaryButtonClassName} mt-6`}>
           {loading ? (
             <><Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" />{isEn ? 'Saving…' : 'A guardar…'}</>
           ) : (
