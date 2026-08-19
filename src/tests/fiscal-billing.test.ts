@@ -46,6 +46,19 @@ describe('fiscal billing validation', () => {
     })).toEqual([]);
   });
 
+  it('normalizes an unformatted Brazilian postal code before validation', () => {
+    const billing = normalizeFiscalBilling({
+      ...complete,
+      postalCode: '35590050',
+      city: 'Lagoa da Prata',
+      country: 'BR',
+      taxIdRequested: false,
+    });
+
+    expect(billing.postalCode).toBe('35590-050');
+    expect(fiscalBillingMissingFields(billing)).toEqual([]);
+  });
+
   it('rejects missing or invalid address fields', () => {
     expect(fiscalBillingMissingFields({
       ...complete,

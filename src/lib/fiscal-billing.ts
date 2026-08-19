@@ -1,4 +1,5 @@
 import {
+  formatPostalCode,
   resolveCountryMeta,
   validatePostalCode,
 } from './country-utils';
@@ -47,6 +48,20 @@ export const normalizeFiscalCountry = (value: unknown): string => {
   return resolveCountryMeta(raw)?.code || '';
 };
 
+const normalizeFiscalPostalCode = (
+  value: unknown,
+  country: string,
+): string => {
+  const raw = clean(value, 40);
+  const compact = raw.replace(/[\s-]/g, '');
+  const isCompactPortugueseCode = country === 'PT' && /^\d{7}$/.test(compact);
+  const isCompactBrazilianCode = country === 'BR' && /^\d{8}$/.test(compact);
+
+  return isCompactPortugueseCode || isCompactBrazilianCode
+    ? formatPostalCode(compact, country)
+    : raw;
+};
+
 export const isValidFiscalEmail = (value: unknown) =>
   /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clean(value, 200).toLowerCase());
 
@@ -65,13 +80,14 @@ export const normalizeFiscalBilling = (
   input: FiscalBillingInput,
 ): FiscalBillingDetails => {
   const taxIdRequested = input.taxIdRequested === true;
+  const country = normalizeFiscalCountry(input.country);
   return {
     name: clean(input.name, 100),
     email: clean(input.email, 200).toLowerCase(),
     address: clean(input.address, 200),
-    postalCode: clean(input.postalCode, 40),
+    postalCode: normalizeFiscalPostalCode(input.postalCode, country),
     city: clean(input.city, 100),
-    country: normalizeFiscalCountry(input.country),
+    country,
     taxIdRequested,
     nif: taxIdRequested ? normalizeFiscalTaxId(input.nif) : null,
   };
