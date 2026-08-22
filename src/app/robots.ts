@@ -62,6 +62,30 @@ export default function robots(): MetadataRoute.Robots {
           '/en/pilgrimages/registration',
         ],
       },
+      // ── AI crawlers ────────────────────────────────────────────────
+      // Cloudflare's "Managed robots.txt" (AI Crawl Control) used to inject
+      // these directives and blocked everything, Google-Extended included,
+      // which kept the site out of AI Overviews. It was turned off on
+      // 2026-08-22 so the policy lives here, in version control, instead.
+      //
+      // Allowed: crawlers that feed AI *search* surfaces, where being cited
+      // sends real readers back. Google-Extended is the one that gates
+      // AI Overviews and Gemini grounding.
+      //
+      // Note these are advisory. User-triggered fetchers (ChatGPT-User,
+      // Google-Agent, Google-NotebookLM) ignore robots.txt by design.
+      ...['GPTBot', 'OAI-SearchBot', 'ChatGPT-User', 'ClaudeBot', 'PerplexityBot',
+        'Google-Extended', 'Applebot-Extended', 'meta-externalagent'].map((userAgent) => ({
+        userAgent,
+        allow: ['/'],
+      })),
+      // Blocked: bulk scrapers that only harvest training data and never
+      // send a reader back.
+      ...['CCBot', 'Bytespider', 'cohere-ai', 'Diffbot', 'Omgilibot',
+        'ImagesiftBot', 'Timpibot'].map((userAgent) => ({
+        userAgent,
+        disallow: ['/'],
+      })),
     ],
     sitemap: `${APP_URL}/sitemap.xml`,
   };

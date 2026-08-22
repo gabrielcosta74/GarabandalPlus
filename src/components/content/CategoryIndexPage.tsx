@@ -10,12 +10,12 @@ import {
   Home,
   Compass,
 } from 'lucide-react';
-import { CATEGORIES, PUBLIC_NAV_ORDER, type CategoryKey } from '../../lib/cms/categories';
+import { CATEGORIES, PUBLIC_NAV_ORDER, localePrefix, type CategoryKey, type PublicLocale } from '../../lib/cms/categories';
 import {
   cmsListPublishedByCategory,
   type NavItem,
 } from '../../lib/cms/queries';
-import { getPublicStatuses } from '../../lib/content/preview';
+import { PUBLISHED_ONLY } from '../../lib/content/preview';
 import { CategoryBrowser, ContentCard, type BrowseItem } from './CategoryBrowser';
 
 /**
@@ -31,7 +31,7 @@ import { CategoryBrowser, ContentCard, type BrowseItem } from './CategoryBrowser
  */
 type Props = {
   category: CategoryKey;
-  locale: 'pt' | 'en';
+  locale: PublicLocale;
 };
 
 const ICONS: Record<CategoryKey, typeof Scroll> = {
@@ -47,7 +47,10 @@ const ICONS: Record<CategoryKey, typeof Scroll> = {
 // editorial depth (vs. a thin list of links) and topical relevance for queries
 // like "história de garabandal" / "mensagens de garabandal". Kept conservative
 // and consistent with the category intros above.
-const OVERVIEW: Record<CategoryKey, { pt: string[]; en: string[] }> = {
+// PT and EN carry hand-written editorial prose. The other locales fall back to
+// the category `intro` from categories.ts rather than shipping a machine
+// translation of these paragraphs — see `overviewFor` below.
+const OVERVIEW: Record<CategoryKey, Partial<Record<PublicLocale, string[]>>> = {
   historia: {
     pt: [
       'As aparições de Garabandal decorreram entre 1961 e 1965, na pequena aldeia de San Sebastián de Garabandal, no norte de Espanha. Quatro meninas — Conchita González, Jacinta González, Mari Loli Mazón e Mari Cruz González — afirmaram ver primeiro o Arcanjo São Miguel e, depois, Nossa Senhora do Carmo, em mais de duas mil aparições.',
@@ -123,6 +126,8 @@ const T = {
     home: 'Início',
     exploreHeading: 'Explorar a Mensagem',
     exploreSub: 'Continue a sua leitura por outras áreas de Garabandal.',
+    section: 'A Mensagem',
+    heading: (l: string) => `${l} de Garabandal`,
   },
   en: {
     featured: 'Recommended reads',
@@ -134,20 +139,66 @@ const T = {
     home: 'Home',
     exploreHeading: 'Explore the Message',
     exploreSub: 'Continue your reading through other areas of Garabandal.',
+    section: 'The Message',
+    heading: (l: string) => `Garabandal ${l}`,
+  },
+  es: {
+    featured: 'Lecturas recomendadas',
+    featuredSub: 'El contenido esencial para empezar.',
+    all: 'Todos los contenidos',
+    emptyTitle: 'Contenido próximamente',
+    emptyDesc: 'Estamos preparando los artículos de esta sección. Mientras tanto, explore las demás áreas del Mensaje.',
+    readMore: 'Leer',
+    home: 'Inicio',
+    exploreHeading: 'Explorar el Mensaje',
+    exploreSub: 'Continúe su lectura por otras áreas de Garabandal.',
+    section: 'El Mensaje',
+    heading: (l: string) => `${l} de Garabandal`,
+  },
+  fr: {
+    featured: 'Lectures recommandées',
+    featuredSub: 'L\'essentiel pour commencer.',
+    all: 'Tous les contenus',
+    emptyTitle: 'Contenu à venir',
+    emptyDesc: 'Nous préparons les articles de cette section. En attendant, explorez les autres domaines du Message.',
+    readMore: 'Lire',
+    home: 'Accueil',
+    exploreHeading: 'Explorer le Message',
+    exploreSub: 'Poursuivez votre lecture dans les autres domaines de Garabandal.',
+    section: 'Le Message',
+    heading: (l: string) => `${l} de Garabandal`,
+  },
+  it: {
+    featured: 'Letture consigliate',
+    featuredSub: 'I contenuti essenziali per iniziare.',
+    all: 'Tutti i contenuti',
+    emptyTitle: 'Contenuti in arrivo',
+    emptyDesc: 'Stiamo preparando gli articoli di questa sezione. Nel frattempo, esplori le altre aree del Messaggio.',
+    readMore: 'Leggi',
+    home: 'Home',
+    exploreHeading: 'Esplorare il Messaggio',
+    exploreSub: 'Prosegua la lettura nelle altre aree di Garabandal.',
+    section: 'Il Messaggio',
+    heading: (l: string) => `${l} di Garabandal`,
   },
 };
 
-function categoryLandingHref(key: CategoryKey, locale: 'pt' | 'en') {
-  const prefix = locale === 'pt' ? '' : '/en';
-  return `${prefix}/${CATEGORIES[key][locale].slug}`;
+function categoryLandingHref(key: CategoryKey, locale: PublicLocale) {
+  return `${localePrefix(locale)}/${CATEGORIES[key][locale].slug}`;
 }
 
-function articleHref(item: NavItem, locale: 'pt' | 'en') {
-  const prefix = locale === 'pt' ? '' : '/en';
+/** Editorial prose for the category, or the shorter category intro when this
+ *  locale has no hand-written paragraphs yet. */
+function overviewFor(category: CategoryKey, locale: PublicLocale): string[] {
+  return OVERVIEW[category][locale] ?? [CATEGORIES[category][locale].intro];
+}
+
+function articleHref(item: NavItem, locale: PublicLocale) {
+  const prefix = localePrefix(locale);
   return item.type === 'page' ? `${prefix}/${item.slug}` : `${prefix}/l/${item.slug}`;
 }
 
-function toBrowseItem(item: NavItem, locale: 'pt' | 'en'): BrowseItem {
+function toBrowseItem(item: NavItem, locale: PublicLocale): BrowseItem {
   const withTags = item as NavItem & { tags?: string[] };
   return {
     id: item.id,
@@ -165,9 +216,8 @@ export async function CategoryIndexPage({ category, locale }: Props) {
   const meta = cfg[locale];
   const t = T[locale];
   const Icon = ICONS[category];
-  const statuses = await getPublicStatuses();
 
-  const all = await cmsListPublishedByCategory(category, locale, 1, 200, statuses);
+  const all = await cmsListPublishedByCategory(category, locale, 1, 200, PUBLISHED_ONLY);
   const allItems = all.items;
 
   // "Recomendados para ler" = the essential, cornerstone content of the category.
@@ -207,7 +257,7 @@ export async function CategoryIndexPage({ category, locale }: Props) {
         <div className="pointer-events-none absolute -top-24 right-0 h-72 w-72 rounded-full bg-garabandal-gold/10 blur-3xl" />
         <div className="relative mx-auto w-full max-w-5xl px-4 pb-12 pt-28 sm:px-6 sm:pb-16 sm:pt-32">
           <nav aria-label="Breadcrumb" className="mb-6 flex items-center gap-2 text-sm text-slate-500">
-            <Link href={locale === 'pt' ? '/' : '/en'} className="inline-flex items-center gap-1.5 transition-colors hover:text-garabandal-dark">
+            <Link href={localePrefix(locale) || '/'} className="inline-flex items-center gap-1.5 transition-colors hover:text-garabandal-dark">
               <Home size={14} />
               {t.home}
             </Link>
@@ -217,11 +267,11 @@ export async function CategoryIndexPage({ category, locale }: Props) {
 
           <span className="inline-flex items-center gap-2 rounded-full border border-garabandal-gold/30 bg-garabandal-gold/10 px-4 py-1.5 text-[11px] font-bold uppercase tracking-[0.2em] text-garabandal-dark/70">
             <Icon size={14} className="text-garabandal-gold" />
-            {locale === 'pt' ? 'A Mensagem' : 'The Message'}
+            {t.section}
           </span>
 
           <h1 className="mt-5 font-serif text-4xl font-bold leading-[1.1] tracking-tight sm:text-5xl lg:text-6xl">
-            {locale === 'pt' ? `${meta.label} de Garabandal` : `Garabandal ${meta.label}`}
+            {t.heading(meta.label)}
           </h1>
           <p className="mt-5 max-w-2xl text-lg font-light leading-relaxed text-slate-600">
             {meta.intro}
@@ -232,7 +282,7 @@ export async function CategoryIndexPage({ category, locale }: Props) {
       {/* OVERVIEW — unique descriptive prose for topical depth */}
       <section className="mx-auto w-full max-w-3xl px-4 pt-12 sm:px-6 sm:pt-14">
         <div className="space-y-4 text-base leading-relaxed text-slate-600">
-          {OVERVIEW[category][locale].map((para, i) => (
+          {overviewFor(category, locale).map((para, i) => (
             <p key={i}>{para}</p>
           ))}
         </div>

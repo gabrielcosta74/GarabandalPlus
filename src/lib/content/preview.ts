@@ -6,6 +6,24 @@ import type { ContentStatus } from './queries';
 const PREVIEW_COOKIE = 'cms-preview';
 
 /**
+ * What the PUBLIC routes are allowed to render. A plain constant, deliberately
+ * not a function.
+ *
+ * `getPublicStatuses()` reads `cookies()`, which is a dynamic API: any route
+ * that calls it is rendered per request. Because every content page called it,
+ * all ~1500 public URLs were served `cache-control: no-store`, their
+ * `export const revalidate` never applied, and Googlebot paid a full server
+ * render on every crawl (field TTFB 1.2s).
+ *
+ * Public routes therefore use this constant and stay static/ISR. Drafts are
+ * viewed through /preview/... instead — see src/app/preview/[[...path]]/page.tsx.
+ */
+export const PUBLISHED_ONLY: ContentStatus[] = ['published'];
+
+/** Statuses an authenticated admin may see in the preview route. */
+export const PREVIEW_STATUSES: ContentStatus[] = ['published', 'draft', 'scheduled'];
+
+/**
  * Determine whether the current request should see drafts.
  *
  * A request is in preview mode when BOTH:

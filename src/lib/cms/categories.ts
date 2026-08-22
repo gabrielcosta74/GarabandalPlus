@@ -20,8 +20,17 @@ export type CategoryKey =
   | 'profecias'
   | 'noticias';
 
+/** Locales that get a public, navigable site section. PT is the unprefixed
+ *  root; every other locale lives under /<locale>/. */
+export type PublicLocale = 'pt' | 'en' | 'es' | 'fr' | 'it';
+
+/** URL prefix for a locale. PT is served from the root, so it has none. */
+export function localePrefix(locale: PublicLocale): string {
+  return locale === 'pt' ? '' : `/${locale}`;
+}
+
 export type CategoryLocaleConfig = {
-  /** URL slug used in /<slug> (PT) and /en/<slug> (EN). */
+  /** URL slug used in /<slug> (PT) and /<locale>/<slug> everywhere else. */
   slug: string;
   /** Human label shown in nav + breadcrumb. */
   label: string;
@@ -40,6 +49,9 @@ export type CategoryConfig = {
   headerStyle: 'dark-hero' | 'light';
   pt: CategoryLocaleConfig;
   en: CategoryLocaleConfig;
+  es: CategoryLocaleConfig;
+  fr: CategoryLocaleConfig;
+  it: CategoryLocaleConfig;
 };
 
 export const CATEGORIES: Record<CategoryKey, CategoryConfig> = {
@@ -59,6 +71,24 @@ export const CATEGORIES: Record<CategoryKey, CategoryConfig> = {
       tagline: 'The apparitions of Our Lady in Garabandal — seers, ecstasies, chronology, and the Church\'s position.',
       intro: 'The history of the apparitions of Our Lady of Mount Carmel in San Sebastián de Garabandal — from the first apparition of Saint Michael the Archangel in 1961 to today.',
     },
+    es: {
+      slug: 'historia',
+      label: 'Historia',
+      tagline: 'Las apariciones de Nuestra Señora en Garabandal — videntes, éxtasis, cronología y la posición de la Iglesia.',
+      intro: 'La historia de las apariciones de Nuestra Señora del Carmen en San Sebastián de Garabandal — desde la primera aparición del Arcángel San Miguel en 1961 hasta hoy.',
+    },
+    fr: {
+      slug: 'histoire',
+      label: 'Histoire',
+      tagline: 'Les apparitions de Notre-Dame à Garabandal — voyantes, extases, chronologie et la position de l\'Église.',
+      intro: 'L\'histoire des apparitions de Notre-Dame du Mont-Carmel à San Sebastián de Garabandal — de la première apparition de l\'Archange saint Michel en 1961 à aujourd\'hui.',
+    },
+    it: {
+      slug: 'storia',
+      label: 'Storia',
+      tagline: 'Le apparizioni della Madonna a Garabandal — veggenti, estasi, cronologia e la posizione della Chiesa.',
+      intro: 'La storia delle apparizioni della Madonna del Carmine a San Sebastián de Garabandal — dalla prima apparizione dell\'Arcangelo San Michele nel 1961 a oggi.',
+    },
   },
   ensinamentos: {
     key: 'ensinamentos',
@@ -75,6 +105,24 @@ export const CATEGORIES: Record<CategoryKey, CategoryConfig> = {
       label: 'Teachings',
       tagline: 'Doctrinal reflections in the light of Garabandal — sacraments, prayer, Christian life, themes Our Lady spoke of.',
       intro: 'The spiritual teachings that flow from the Garabandal experience — meditations on faith, the sacraments, and Christian life in light of Our Lady\'s messages.',
+    },
+    es: {
+      slug: 'ensenanzas',
+      label: 'Enseñanzas',
+      tagline: 'Reflexiones doctrinales a la luz de Garabandal — sacramentos, oración, vida cristiana, temas de los que habló Nuestra Señora.',
+      intro: 'Las enseñanzas espirituales que brotan de la experiencia de Garabandal — meditaciones sobre la fe, los sacramentos y la vida cristiana a la luz de los mensajes de Nuestra Señora.',
+    },
+    fr: {
+      slug: 'enseignements',
+      label: 'Enseignements',
+      tagline: 'Réflexions doctrinales à la lumière de Garabandal — sacrements, prière, vie chrétienne, thèmes évoqués par Notre-Dame.',
+      intro: 'Les enseignements spirituels qui découlent de l\'expérience de Garabandal — méditations sur la foi, les sacrements et la vie chrétienne à la lumière des messages de Notre-Dame.',
+    },
+    it: {
+      slug: 'insegnamenti',
+      label: 'Insegnamenti',
+      tagline: 'Riflessioni dottrinali alla luce di Garabandal — sacramenti, preghiera, vita cristiana, temi toccati dalla Madonna.',
+      intro: 'Gli insegnamenti spirituali che nascono dall\'esperienza di Garabandal — meditazioni sulla fede, i sacramenti e la vita cristiana alla luce dei messaggi della Madonna.',
     },
   },
   mensagens: {
@@ -93,6 +141,24 @@ export const CATEGORIES: Record<CategoryKey, CategoryConfig> = {
       tagline: 'The two messages of Our Lady at Garabandal — October 18, 1961 and June 18, 1965.',
       intro: 'The two messages given by Our Lady at Garabandal: the first on October 18, 1961 and the second on June 18, 1965 — urgent appeals to conversion, prayer, and reparation.',
     },
+    es: {
+      slug: 'mensajes',
+      label: 'Mensajes',
+      tagline: 'Los dos mensajes de Nuestra Señora en Garabandal — 18 de octubre de 1961 y 18 de junio de 1965.',
+      intro: 'Los dos mensajes dados por Nuestra Señora en Garabandal: el primero el 18 de octubre de 1961 y el segundo el 18 de junio de 1965 — llamadas urgentes a la conversión, la oración y la reparación.',
+    },
+    fr: {
+      slug: 'messages',
+      label: 'Messages',
+      tagline: 'Les deux messages de Notre-Dame à Garabandal — 18 octobre 1961 et 18 juin 1965.',
+      intro: 'Les deux messages donnés par Notre-Dame à Garabandal : le premier le 18 octobre 1961 et le second le 18 juin 1965 — appels urgents à la conversion, à la prière et à la réparation.',
+    },
+    it: {
+      slug: 'messaggi',
+      label: 'Messaggi',
+      tagline: 'I due messaggi della Madonna a Garabandal — 18 ottobre 1961 e 18 giugno 1965.',
+      intro: 'I due messaggi dati dalla Madonna a Garabandal: il primo il 18 ottobre 1961 e il secondo il 18 giugno 1965 — appelli urgenti alla conversione, alla preghiera e alla riparazione.',
+    },
   },
   testemunhos: {
     key: 'testemunhos',
@@ -109,6 +175,24 @@ export const CATEGORIES: Record<CategoryKey, CategoryConfig> = {
       label: 'Testimonies',
       tagline: 'Interviews, memoirs, and lived experiences from those who knew, met, or were transformed by Garabandal.',
       intro: 'Interviews with the seers, memoirs from eyewitnesses, and the impact of Garabandal on priests, religious, and pilgrims across six decades.',
+    },
+    es: {
+      slug: 'testimonios',
+      label: 'Testimonios',
+      tagline: 'Entrevistas, memorias y vivencias de quienes conocieron, vivieron o fueron transformados por Garabandal.',
+      intro: 'Entrevistas con las videntes, memorias de testigos oculares y el impacto de Garabandal en sacerdotes, religiosos y peregrinos a lo largo de seis décadas.',
+    },
+    fr: {
+      slug: 'temoignages',
+      label: 'Témoignages',
+      tagline: 'Entretiens, mémoires et expériences vécues de ceux qui ont connu Garabandal ou en ont été transformés.',
+      intro: 'Entretiens avec les voyantes, mémoires de témoins oculaires et l\'impact de Garabandal sur les prêtres, les religieux et les pèlerins au fil de six décennies.',
+    },
+    it: {
+      slug: 'testimonianze',
+      label: 'Testimonianze',
+      tagline: 'Interviste, memorie ed esperienze vissute da chi ha conosciuto Garabandal o ne è stato trasformato.',
+      intro: 'Interviste con le veggenti, memorie di testimoni oculari e l\'impatto di Garabandal su sacerdoti, religiosi e pellegrini nell\'arco di sei decenni.',
     },
   },
   profecias: {
@@ -127,6 +211,24 @@ export const CATEGORIES: Record<CategoryKey, CategoryConfig> = {
       tagline: 'The Warning, the Miracle, the Chastisement, and the permanent sign — the prophecies announced at Garabandal.',
       intro: 'The universal Warning, the Great Miracle, the conditional Chastisement, and the permanent sign — the prophecies given at Garabandal about our time and what is to come.',
     },
+    es: {
+      slug: 'profecias',
+      label: 'Profecías',
+      tagline: 'El Aviso, el Milagro, el Castigo y la señal permanente — las profecías anunciadas en Garabandal.',
+      intro: 'El Aviso universal, el Gran Milagro, el Castigo condicional y la señal permanente — las profecías dadas en Garabandal sobre nuestro tiempo y lo que está por venir.',
+    },
+    fr: {
+      slug: 'propheties',
+      label: 'Prophéties',
+      tagline: 'L\'Avertissement, le Miracle, le Châtiment et le signe permanent — les prophéties annoncées à Garabandal.',
+      intro: 'L\'Avertissement universel, le Grand Miracle, le Châtiment conditionnel et le signe permanent — les prophéties données à Garabandal sur notre temps et sur ce qui doit venir.',
+    },
+    it: {
+      slug: 'profezie',
+      label: 'Profezie',
+      tagline: 'L\'Avviso, il Miracolo, il Castigo e il segno permanente — le profezie annunciate a Garabandal.',
+      intro: 'L\'Avviso universale, il Grande Miracolo, il Castigo condizionale e il segno permanente — le profezie date a Garabandal sul nostro tempo e su ciò che deve venire.',
+    },
   },
   noticias: {
     key: 'noticias',
@@ -143,6 +245,24 @@ export const CATEGORIES: Record<CategoryKey, CategoryConfig> = {
       label: 'News',
       tagline: 'Apostolate updates, events, announcements, and news archive.',
       intro: 'News and updates from the Apostolate of Garabandal — events, pilgrimages, announcements, and the archive of past stories.',
+    },
+    es: {
+      slug: 'noticias',
+      label: 'Noticias',
+      tagline: 'Actualidad del Apostolado, eventos, comunicados y archivo de noticias.',
+      intro: 'Actualidad del Apostolado de Garabandal — eventos, peregrinaciones, comunicados y el archivo de noticias publicadas a lo largo de los años.',
+    },
+    fr: {
+      slug: 'actualites',
+      label: 'Actualités',
+      tagline: 'Actualité de l\'Apostolat, événements, communiqués et archives.',
+      intro: 'L\'actualité de l\'Apostolat de Garabandal — événements, pèlerinages, communiqués et les archives des nouvelles publiées au fil des ans.',
+    },
+    it: {
+      slug: 'notizie',
+      label: 'Notizie',
+      tagline: 'Attualità dell\'Apostolato, eventi, comunicati e archivio delle notizie.',
+      intro: 'L\'attualità dell\'Apostolato di Garabandal — eventi, pellegrinaggi, comunicati e l\'archivio delle notizie pubblicate negli anni.',
     },
   },
 };
@@ -161,22 +281,30 @@ export function getCategory(key: CategoryKey): CategoryConfig {
   return CATEGORIES[key];
 }
 
-/** Resolve PT-or-EN slug → category key. Used by the [category] dynamic route
- *  to look up which bucket the URL is asking for. */
-export function categoryFromSlug(slug: string, locale: 'pt' | 'en'): CategoryKey | null {
+export const PUBLIC_LOCALES: PublicLocale[] = ['pt', 'en', 'es', 'fr', 'it'];
+
+/** Resolve a localised slug → category key. Used by the [category] dynamic
+ *  route to look up which bucket the URL is asking for. */
+export function categoryFromSlug(slug: string, locale: PublicLocale): CategoryKey | null {
   for (const cat of Object.values(CATEGORIES)) {
     if (cat[locale].slug === slug) return cat.key;
   }
   return null;
 }
 
-/** All public-facing slugs across PT + EN. Used for sitemap + middleware
+/** All public-facing slugs across every locale. Used for sitemap + middleware
  *  short-circuits. */
-export function allCategorySlugs(): Array<{ locale: 'pt' | 'en'; slug: string; key: CategoryKey }> {
-  const out: Array<{ locale: 'pt' | 'en'; slug: string; key: CategoryKey }> = [];
+export function allCategorySlugs(): Array<{ locale: PublicLocale; slug: string; key: CategoryKey }> {
+  const out: Array<{ locale: PublicLocale; slug: string; key: CategoryKey }> = [];
   for (const cat of Object.values(CATEGORIES)) {
-    out.push({ locale: 'pt', slug: cat.pt.slug, key: cat.key });
-    out.push({ locale: 'en', slug: cat.en.slug, key: cat.key });
+    for (const locale of PUBLIC_LOCALES) {
+      out.push({ locale, slug: cat[locale].slug, key: cat.key });
+    }
   }
   return out;
+}
+
+/** Absolute path to a category landing page in a given locale. */
+export function categoryHref(key: CategoryKey, locale: PublicLocale): string {
+  return `${localePrefix(locale)}/${CATEGORIES[key][locale].slug}`;
 }

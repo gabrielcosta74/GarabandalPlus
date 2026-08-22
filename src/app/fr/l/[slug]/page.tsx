@@ -9,7 +9,7 @@ import { ShareCTA } from '../../../../components/content/ShareCTA';
 import { LocaleSwitcher } from '../../../../components/content/LocaleSwitcher';
 import { BlogCard } from '../../../../components/content/BlogCard';
 import { getPostBySlug, getTranslationPeers, listAllSlugs, listPosts } from '../../../../lib/content/queries';
-import { getPublicStatuses } from '../../../../lib/content/preview';
+import { PUBLISHED_ONLY } from '../../../../lib/content/preview';
 import { breadcrumbJsonLd, buildHreflang, jsonLdScript } from '../../../../lib/content/content-seo';
 import { APP_URL } from '../../../../lib/config';
 
@@ -24,8 +24,7 @@ export async function generateStaticParams(): Promise<Params[]> {
 
 export async function generateMetadata({ params }: { params: Promise<Params> }): Promise<Metadata> {
   const { slug } = await params;
-  const statuses = await getPublicStatuses();
-  const post = await getPostBySlug(slug, 'fr', statuses);
+  const post = await getPostBySlug(slug, 'fr', PUBLISHED_ONLY);
   if (!post) return { title: 'Article introuvable' };
   const isPreview = post.status !== 'published';
 
@@ -68,8 +67,7 @@ function readingMinutes(html: string | null): number {
 
 export default async function FrPostPage({ params }: { params: Promise<Params> }) {
   const { slug } = await params;
-  const statuses = await getPublicStatuses();
-  const post = await getPostBySlug(slug, 'fr', statuses);
+  const post = await getPostBySlug(slug, 'fr', PUBLISHED_ONLY);
   if (!post) notFound();
 
   const peers = await getTranslationPeers('post', post.id);

@@ -22,6 +22,12 @@ const Hero: React.FC = () => {
 
     return (
         <section ref={ref} className="relative min-h-screen w-full overflow-hidden flex bg-slate-950">
+            {/* The hero background is a CSS `background-image`, so the browser only
+                discovers it after the stylesheet parses. Preloading it puts the
+                request on the critical path immediately. React hoists this into
+                <head>. */}
+            {/* eslint-disable-next-line @next/next/no-head-element */}
+            <link rel="preload" as="image" href={HERO_IMAGE_URL} fetchPriority="high" />
             {/* Full-bleed Background Image */}
             <motion.div
                 style={{ opacity }}
@@ -46,15 +52,15 @@ const Hero: React.FC = () => {
                     style={{ y: textY }}
                     className="max-w-2xl"
                 >
-                    {/* Main Title */}
-                    <motion.h1
-                        initial={{ opacity: 0, x: -30 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ duration: 1.2, ease: "easeOut", delay: 0.2 }}
-                        className="font-serif text-[2.75rem] sm:text-6xl md:text-7xl lg:text-[5.5rem] text-white font-bold mb-6 leading-[1.05] tracking-tight"
-                    >
+                    {/* Main Title — this is the LCP element, so it must NOT be
+                        animated in. A `motion.h1` with `initial={{ opacity: 0 }}`
+                        ships `style="opacity:0"` in the SSR HTML, so the browser
+                        cannot paint it until the JS bundle downloads, React
+                        hydrates and framer-motion runs. That was costing ~2.5s of
+                        "element render delay" on mobile (LCP 3.5s). Keep it static. */}
+                    <h1 className="font-serif text-[2.75rem] sm:text-6xl md:text-7xl lg:text-[5.5rem] text-white font-bold mb-6 leading-[1.05] tracking-tight">
                         {locale === 'en' ? 'Garabandal Apostolate' : HERO_CONTENT.title}
-                    </motion.h1>
+                    </h1>
 
                     <motion.div
                         initial={{ opacity: 0, x: -30 }}

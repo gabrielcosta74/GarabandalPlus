@@ -18,6 +18,20 @@ export async function proxy(request: NextRequest) {
     //    and polluting the sitelinks. Permanently redirect every non-canonical
     //    host to the apex domain, preserving the full path + query.
     const host = (request.headers.get('host') || '').toLowerCase();
+
+    // Supabase PKCE stores its verifier in an origin-scoped cookie. During
+    // local development, starting OAuth on 127.0.0.1 and returning to the
+    // configured localhost redirect loses that cookie. Keep one canonical
+    // local origin before any authentication flow begins.
+    const localUrl = new URL(request.url);
+    if (
+      process.env.NODE_ENV !== 'production' &&
+      (localUrl.hostname === '127.0.0.1' || localUrl.hostname === '[::1]')
+    ) {
+      localUrl.hostname = 'localhost';
+      return NextResponse.redirect(localUrl, 307);
+    }
+
     if (host && host !== CANONICAL_HOST && host.endsWith('apostoladodegarabandal.com')) {
       const url = new URL(request.url);
       url.host = CANONICAL_HOST;
@@ -69,13 +83,12 @@ export async function proxy(request: NextRequest) {
       }
     }
 
-    const requestHeaders = new Headers(request.headers);
-    requestHeaders.set('x-pathname', pathname);
-    let response = NextResponse.next({
-        request: {
-            headers: requestHeaders,
-        },
-    })
+    // NOTE: do not mutate request headers here. Rewriting them (we used to set
+    // `x-pathname` for the root layout) makes Next treat every matched route as
+    // request-dependent, which knocks ISR pages out of the static cache and
+    // serves them `no-store`. Nothing reads `x-pathname` any more — the root
+    // layout no longer calls `headers()`.
+    let response = NextResponse.next()
 
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -99,11 +112,7 @@ export async function proxy(request: NextRequest) {
                         value,
                         ...persistentOptions,
                     })
-                    response = NextResponse.next({
-                        request: {
-                            headers: requestHeaders,
-                        },
-                    })
+                    response = NextResponse.next()
                     response.cookies.set({
                         name,
                         value,
@@ -116,11 +125,7 @@ export async function proxy(request: NextRequest) {
                         value: "",
                         ...options,
                     })
-                    response = NextResponse.next({
-                        request: {
-                            headers: requestHeaders,
-                        },
-                    })
+                    response = NextResponse.next()
                     response.cookies.set({
                         name,
                         value: "",

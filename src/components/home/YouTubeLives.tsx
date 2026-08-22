@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import { useState } from 'react';
 import { Play, Youtube, Bell } from 'lucide-react';
 import type { YouTubeVideo } from '../../lib/youtube';
@@ -65,13 +66,19 @@ export default function YouTubeLives({
           {locale === 'pt' ? 'Próxima live · 27/06 · 14h' : 'Next live · 27/06 · 2pm'}
         </span>
         <div className="overflow-hidden rounded-3xl shadow-2xl ring-1 ring-black/5">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
+          {/* next/image, not a raw <img>: the source is 900x1600 but it renders
+              at most 400px wide, so Lighthouse measured ~78 KiB of wasted
+              transfer. Explicit dimensions also reserve the space and keep this
+              out of the CLS budget. */}
+          <Image
             src="https://pntzzuxzjnzksubbjfvj.supabase.co/storage/v1/object/public/site-content/lives/livegarabandal27.jpeg"
             alt={locale === 'pt'
               ? 'São Padre Pio e as aparições de Garabandal — live dia 27 de junho às 14h'
               : 'Saint Padre Pio and the Garabandal apparitions — live on June 27 at 2pm'}
-            className="block w-full max-w-[400px]"
+            width={900}
+            height={1600}
+            sizes="(max-width: 640px) 100vw, 400px"
+            className="block h-auto w-full max-w-[400px]"
           />
         </div>
       </div>

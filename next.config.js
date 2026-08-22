@@ -45,22 +45,11 @@ const nextConfig = {
       },
     ];
   },
-  async rewrites() {
-    return [
-      {
-        source: '/maria-sinais/static/:path*',
-        destination: 'https://us-assets.i.posthog.com/static/:path*',
-      },
-      {
-        source: '/maria-sinais/array/:path*',
-        destination: 'https://us-assets.i.posthog.com/array/:path*',
-      },
-      {
-        source: '/maria-sinais/:path*',
-        destination: 'https://us.i.posthog.com/:path*',
-      },
-    ];
-  },
+  // The PostHog reverse proxy used to live here as rewrites. It moved to
+  // src/app/maria-sinais/[...path]/route.ts: a rewrite to an external host does
+  // not replace the `Host` header, so PostHog's Cloudflare received
+  // `Host: apostoladodegarabandal.com`, resolved it to a Cloudflare IP and
+  // returned error 1000 (403) for every asset request.
   images: {
     // Next 16 requires every `quality` used by <Image> to be declared here.
     qualities: [75, 85],

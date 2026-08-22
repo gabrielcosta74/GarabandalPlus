@@ -44,5 +44,9 @@ export const metadata: Metadata = {
 };
 
 export default function SpanishLayout({ children }: { children: React.ReactNode }) {
-  return <>{children}</>;
+  // The root layout declares lang="pt-BR" and stays static (reading the
+  // pathname there would make every route on the site dynamic). Re-declare
+  // the language for this subtree instead — the HTML spec resolves `lang`
+  // against the nearest ancestor that sets it.
+  return <div lang="es">{children}</div>;
 }

@@ -1,12 +1,10 @@
 import type { Metadata, Viewport } from 'next';
-import { headers } from 'next/headers';
 import { Inter, Playfair_Display, Plus_Jakarta_Sans, Geist_Mono } from 'next/font/google';
-import Script from 'next/script';
 import ClientLayout from '../components/layouts/ClientLayout';
 import AbortErrorSilencer from '../components/system/AbortErrorSilencer';
+import SenderScript from '../components/system/SenderScript';
 import './globals.css';
 import { APP_URL } from '../lib/config';
-import { isFocusedRecoveryPath } from '../lib/recovery-flow';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 const playfair = Playfair_Display({ subsets: ['latin'], variable: '--font-playfair' });
@@ -104,24 +102,28 @@ export const metadata: Metadata = {
   },
 };
 
-export default async function RootLayout({
+export default function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const hdrs = await headers();
-  const pathname = hdrs.get('x-pathname') || '';
-  // The <html lang> reflects the MAIN CONTENT language (for SEO/accessibility),
-  // even though the site chrome stays Portuguese on /es and /fr. Match the first
-  // path segment exactly so PT slugs like /encontro or /frutos aren't misread.
-  const localeSeg = pathname.split('/')[1];
-  const htmlLang = localeSeg === 'en' ? 'en' : localeSeg === 'es' ? 'es' : localeSeg === 'fr' ? 'fr' : localeSeg === 'it' ? 'it' : 'pt-BR';
+  // NOTE: do not read `headers()` (or cookies) here. This layout wraps every
+  // route, so a single dynamic API call opts the whole site into per-request
+  // rendering — production was serving `cache-control: no-store` on all 1482
+  // URLs and the `export const revalidate` in the page segments never applied.
+  //
+  // `lang` therefore defaults to Portuguese here; each locale segment
+  // (src/app/{en,es,fr,it}/layout.tsx) re-declares the language on its own
+  // wrapper, which is what the HTML spec resolves against for that subtree.
   const navV2Enabled = process.env.NEXT_PUBLIC_NAV_V2 === '1';
-  const isFocusedRecovery = isFocusedRecoveryPath(pathname);
   return (
-    <html lang={htmlLang} suppressHydrationWarning>
+    <html lang="pt-BR" suppressHydrationWarning>
       <head>
         <meta name="supported-color-schemes" content="light dark" />
+        {/* Third-party origins used below the fold. Connecting early saves the
+            DNS + TLS round trip when the request is finally made. */}
+        <link rel="preconnect" href="https://cdn.sender.net" crossOrigin="" />
+        <link rel="preconnect" href="https://pntzzuxzjnzksubbjfvj.supabase.co" />
         {/* Hide the SSR'd cookie banner before first paint for visitors who already
             consented (consent lives in localStorage, unreadable on the server).
             Keeping the banner in the SSR HTML lets it paint at FCP instead of after
@@ -132,28 +134,10 @@ export default async function RootLayout({
             __html: `try{var c=JSON.parse(localStorage.getItem('garabandal_cookie_consent_v1'));if(c&&c.version===1&&c.necessary===true)document.documentElement.classList.add('cc-done')}catch(e){}`,
           }}
         />
-        {/* Sender.net — omitted from the focused password recovery flow. */}
-        {!isFocusedRecovery && <Script id="sender-universal" strategy="afterInteractive">
-          {`(function (s, e, n, d, er) {
-            s['Sender'] = er;
-            s[er] = s[er] || function () {
-              (s[er].q = s[er].q || []).push(arguments)
-            }, s[er].l = 1 * new Date();
-            s[er].on = function(event, callback) {
-              s[er].listeners = s[er].listeners || {};
-              (s[er].listeners[event] = s[er].listeners[event] || []).push(callback);
-            };
-            var a = e.createElement(n),
-                m = e.getElementsByTagName(n)[0];
-            a.async = 1;
-            a.src = d;
-            m.parentNode.insertBefore(a, m)
-          })(window, document, 'script', 'https://cdn.sender.net/accounts_resources/universal.js', 'sender');
-          sender('0c380a08998972')`}
-        </Script>}
       </head>
       <body className={`${inter.variable} ${playfair.variable} ${adminSans.variable} ${geistMono.variable} ${inter.className}`}>
         <AbortErrorSilencer />
+        <SenderScript />
         <script
           type="application/ld+json"
           // eslint-disable-next-line react/no-danger
@@ -187,9 +171,17 @@ export default async function RootLayout({
                     { '@type': 'Country', name: 'Brasil' },
                     { '@type': 'Country', name: 'Portugal' },
                   ],
+                  // Entity links. These are how a search engine — and the AI
+                  // answer engines that read the same graph — tie the site to a
+                  // recognised entity rather than an anonymous domain. YouTube
+                  // matters most here: mentions there correlate more strongly
+                  // with AI citations than any other public signal, and the
+                  // channel was missing from this list entirely.
+                  // Listing the site's own URL adds nothing — `url` already
+                  // states it — so it is dropped.
                   sameAs: [
+                    'https://www.youtube.com/@apostoladodegarabandal',
                     'https://www.instagram.com/apostoladodegarabandaloficial/',
-                    'https://apostoladodegarabandal.com',
                   ],
                   nonprofitStatus: 'ReligiousNonprofit',
                 },

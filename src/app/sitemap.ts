@@ -5,7 +5,7 @@ import { buildProductPath } from '../lib/slug';
 import { getPilgrimageSeoImages } from '../lib/seo';
 import { localizeStoreProductText } from '../lib/store-i18n';
 import { type StoreProductSitemapRecord } from '../lib/store-products';
-import { CATEGORIES, PUBLIC_NAV_ORDER, type CategoryKey } from '../lib/cms/categories';
+import { CATEGORIES, PUBLIC_NAV_ORDER, PUBLIC_LOCALES, localePrefix, type CategoryKey, type PublicLocale } from '../lib/cms/categories';
 import { hreflangKey } from '../lib/content/locale-paths';
 import { isPreLaunch } from '../lib/pilgrimage-early-access';
 
@@ -257,23 +257,24 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...(process.env.NEXT_PUBLIC_NAV_V2 === '1'
       ? [...PUBLIC_NAV_ORDER, 'noticias' as const].flatMap((key: CategoryKey) => {
           const cfg = CATEGORIES[key];
-          const ptUrl = `${APP_URL}/${cfg.pt.slug}`;
-          const enUrl = `${APP_URL}/en/${cfg.en.slug}`;
-          const langs = { 'pt-BR': ptUrl, en: enUrl };
-          return [
-            {
-              url: ptUrl,
-              changeFrequency: 'weekly' as const,
-              priority: 0.85,
-              alternates: { languages: langs },
-            },
-            {
-              url: enUrl,
-              changeFrequency: 'weekly' as const,
-              priority: 0.75,
-              alternates: { languages: langs },
-            },
-          ];
+          const urlFor = (locale: PublicLocale) =>
+            `${APP_URL}${localePrefix(locale)}/${cfg[locale].slug}`;
+          // Full hreflang mesh across every locale that has a landing page.
+          const langs = {
+            'pt-BR': urlFor('pt'),
+            'pt-PT': urlFor('pt'),
+            en: urlFor('en'),
+            es: urlFor('es'),
+            fr: urlFor('fr'),
+            it: urlFor('it'),
+            'x-default': urlFor('pt'),
+          };
+          return PUBLIC_LOCALES.map((locale) => ({
+            url: urlFor(locale),
+            changeFrequency: 'weekly' as const,
+            priority: locale === 'pt' ? 0.85 : 0.75,
+            alternates: { languages: langs },
+          }));
         })
       : []),
     // ── Legal ────────────────────────────────────────────────────────

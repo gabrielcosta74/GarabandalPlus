@@ -1,5 +1,6 @@
 'use client';
 
+import type { PublicLocale } from '../../lib/cms/categories';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -53,6 +54,57 @@ const STR = {
     page: 'Page',
     of: 'of',
   },
+  es: {
+    search: 'Buscar en esta sección…',
+    all: 'Todos',
+    sortRecent: 'Más recientes',
+    sortOld: 'Más antiguos',
+    sortAz: 'A–Z',
+    none: 'No se han encontrado resultados.',
+    noneHint: 'Pruebe otra búsqueda o borre los filtros.',
+    clear: 'Borrar filtros',
+    read: 'Leer',
+    result: 'resultado',
+    results: 'resultados',
+    prev: 'Página anterior',
+    next: 'Página siguiente',
+    page: 'Página',
+    of: 'de',
+  },
+  fr: {
+    search: 'Rechercher dans cette section…',
+    all: 'Tous',
+    sortRecent: 'Plus récents',
+    sortOld: 'Plus anciens',
+    sortAz: 'A–Z',
+    none: 'Aucun résultat trouvé.',
+    noneHint: 'Essayez une autre recherche ou effacez les filtres.',
+    clear: 'Effacer les filtres',
+    read: 'Lire',
+    result: 'résultat',
+    results: 'résultats',
+    prev: 'Page précédente',
+    next: 'Page suivante',
+    page: 'Page',
+    of: 'sur',
+  },
+  it: {
+    search: 'Cerca in questa sezione…',
+    all: 'Tutti',
+    sortRecent: 'Più recenti',
+    sortOld: 'Meno recenti',
+    sortAz: 'A–Z',
+    none: 'Nessun risultato trovato.',
+    noneHint: 'Provi un\'altra ricerca o cancelli i filtri.',
+    clear: 'Cancella filtri',
+    read: 'Leggi',
+    result: 'risultato',
+    results: 'risultati',
+    prev: 'Pagina precedente',
+    next: 'Pagina successiva',
+    page: 'Pagina',
+    of: 'di',
+  },
 };
 
 /** Build a compact page list with ellipses, e.g. [1, '…', 4, 5, 6, '…', 20]. */
@@ -76,7 +128,7 @@ export function CategoryBrowser({
 }: {
   items: BrowseItem[];
   tags: string[];
-  locale: 'pt' | 'en';
+  locale: PublicLocale;
   pageSize?: number;
 }) {
   const s = STR[locale];

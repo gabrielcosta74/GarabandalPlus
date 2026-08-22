@@ -6,7 +6,7 @@ import { ShareBar } from '../../components/content/ShareBar';
 import { ShareCTA } from '../../components/content/ShareCTA';
 import { LocaleSwitcher } from '../../components/content/LocaleSwitcher';
 import { getPageBySlug, getTranslationPeers, listAllSlugs } from '../../lib/content/queries';
-import { getPublicStatuses } from '../../lib/content/preview';
+import { PUBLISHED_ONLY } from '../../lib/content/preview';
 import { articleJsonLd, breadcrumbJsonLd, buildHreflang, jsonLdScript } from '../../lib/content/content-seo';
 import { APP_URL } from '../../lib/config';
 
@@ -21,8 +21,7 @@ export async function generateStaticParams(): Promise<Params[]> {
 
 export async function generateMetadata({ params }: { params: Promise<Params> }): Promise<Metadata> {
   const { slug } = await params;
-  const statuses = await getPublicStatuses();
-  const page = await getPageBySlug(slug, 'pt', statuses);
+  const page = await getPageBySlug(slug, 'pt', PUBLISHED_ONLY);
   if (!page) return { title: 'Página não encontrada' };
   const isPreview = page.status !== 'published';
 
@@ -51,8 +50,7 @@ export async function generateMetadata({ params }: { params: Promise<Params> }):
 
 export default async function MigratedPage({ params }: { params: Promise<Params> }) {
   const { slug } = await params;
-  const statuses = await getPublicStatuses();
-  const page = await getPageBySlug(slug, 'pt', statuses);
+  const page = await getPageBySlug(slug, 'pt', PUBLISHED_ONLY);
   if (!page) notFound();
 
   const peers = await getTranslationPeers('page', page.id);

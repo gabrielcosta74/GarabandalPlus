@@ -16,7 +16,8 @@ import {
 } from 'lucide-react';
 import MobileBottomNav from './MobileBottomNav';
 import MobilePilgrimagePaymentCard from './MobilePilgrimagePaymentCard';
-import { CATEGORIES, PUBLIC_NAV_ORDER, type CategoryKey } from '../../lib/cms/categories';
+import { CATEGORIES, PUBLIC_NAV_ORDER, localePrefix as prefixFor, type CategoryKey } from '../../lib/cms/categories';
+import { getPublicLocaleFromPathname } from '../../lib/locale-routing';
 import { isAdminEmail } from '../../lib/admin-emails';
 import { localeSwitchHref } from '../../lib/i18n/locale-switch';
 
@@ -108,10 +109,14 @@ export default function SiteHeaderV2() {
 
   const hasMembership = !!memberData?.is_membro;
   const membershipHref = hasMembership ? t.urls.member : t.urls.becomeMember;
-  const localePrefix = locale === 'pt' ? '' : '/en';
+  // Resolve the section from the URL, not from `locale` (which the i18n layer
+  // only ever reports as 'pt' | 'en'). On /es, /fr and /it this used to fall
+  // through to '/en', pointing the category menu at the wrong language.
+  const navLocale = getPublicLocaleFromPathname(pathname);
+  const localePrefix = prefixFor(navLocale);
   // "Sobre o Apostolado" points to the migrated Webnode about page at its
   // original (SEO-preserved) URL, rather than a new /sobre-o-apostolado slug.
-  const aboutHref = locale === 'pt' ? '/apostolado-garabandal' : '/en/our-apostolate';
+  const aboutHref = navLocale === 'en' ? '/en/our-apostolate' : '/apostolado-garabandal';
 
   const handleLogout = async () => {
     await signOut();
@@ -189,7 +194,7 @@ export default function SiteHeaderV2() {
                         <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-white border-t border-l border-slate-100 rotate-45" />
 
                         {PUBLIC_NAV_ORDER.map(key => {
-                          const meta = CATEGORIES[key][locale];
+                          const meta = CATEGORIES[key][navLocale];
                           const href = `${localePrefix}/${meta.slug}`;
                           const Icon = ICONS[key];
                           return (
@@ -339,7 +344,7 @@ export default function SiteHeaderV2() {
                   {locale === 'pt' ? 'Sobre o Apostolado' : 'About the Apostolate'}
                 </Drawer>
                 {PUBLIC_NAV_ORDER.map((key) => {
-                  const meta = CATEGORIES[key][locale];
+                  const meta = CATEGORIES[key][navLocale];
                   const href = `${localePrefix}/${meta.slug}`;
                   const Icon = ICONS[key];
                   const expanded = openMobileCat === key;

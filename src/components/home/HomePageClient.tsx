@@ -2,22 +2,28 @@
 
 import React, { useCallback, useState } from 'react';
 import Image from 'next/image';
+import dynamic from 'next/dynamic';
+
+// Below-the-fold sections are code-split so they stay out of the initial
+// JavaScript bundle (PageSpeed flagged ~123 KiB of unused JS on first paint).
+// `ssr` stays on by default: their internal links must remain in the served
+// HTML for Googlebot.
+const Endorsements = dynamic(() => import('./Endorsements'));
+const SpiritualPillars = dynamic(() => import('./SpiritualPillars'));
+const CampaignShowcase = dynamic(() => import('./CampaignShowcase'));
+const SupportArea = dynamic(() => import('./SupportArea'));
+const PilgrimageShowcase = dynamic(() => import('./PilgrimageShowcase'));
+const FeaturedStore = dynamic(() => import('./FeaturedStore'));
+const DevotionalGrid = dynamic(() => import('./DevotionalGrid'));
+const FeaturedArticles = dynamic(() => import('./FeaturedArticles'));
+const LatestArticles = dynamic(() => import('./LatestArticles'));
+const LatestNews = dynamic(() => import('./LatestNews'));
+const YouTubeLives = dynamic(() => import('./YouTubeLives'));
+const InstagramFollow = dynamic(() => import('./InstagramFollow'));
 import Preloader from './Preloader';
 import Hero from './Hero';
 import WhatIsGarabandal from './WhatIsGarabandal';
-import Endorsements from './Endorsements';
 import ContactBar from './ContactBar';
-import SpiritualPillars from './SpiritualPillars';
-import CampaignShowcase from './CampaignShowcase';
-import SupportArea from './SupportArea';
-import PilgrimageShowcase from './PilgrimageShowcase';
-import FeaturedStore from './FeaturedStore';
-import DevotionalGrid from './DevotionalGrid';
-import FeaturedArticles from './FeaturedArticles';
-import LatestArticles from './LatestArticles';
-import LatestNews from './LatestNews';
-import YouTubeLives from './YouTubeLives';
-import InstagramFollow from './InstagramFollow';
 import { DonationMeta } from '../../lib/donations';
 import type { HomeContent } from '../../lib/cms/home';
 import type { YouTubeVideo } from '../../lib/youtube';

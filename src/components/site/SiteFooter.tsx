@@ -1,27 +1,63 @@
 'use client';
 
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { Youtube, Instagram, Mail } from 'lucide-react';
 import { useLocale } from '../../contexts/LocaleContext';
-import { CATEGORIES, PUBLIC_NAV_ORDER, type CategoryKey } from '../../lib/cms/categories';
+import { CATEGORIES, PUBLIC_NAV_ORDER, localePrefix as prefixFor, type CategoryKey } from '../../lib/cms/categories';
+import { getPublicLocaleFromPathname } from '../../lib/locale-routing';
+
+// `null` where that locale has no "about" page yet — FR and IT currently 404
+// on /fr/apostolado-garabandal and /it/apostolado-garabandal, and a nav link to
+// a 404 on every page is worse than no link at all. Add the slug here once the
+// page exists.
+const ABOUT_SLUG: Record<string, string | null> = {
+  pt: 'apostolado-garabandal',
+  en: 'our-apostolate',
+  es: 'apostolado-garabandal',
+  fr: null,
+  it: null,
+};
+
+const ARTICLES_LABEL: Record<string, string> = {
+  pt: 'Artigos', en: 'Articles', es: 'Artículos', fr: 'Articles', it: 'Articoli',
+};
+
+const ABOUT_LABEL: Record<string, string> = {
+  pt: 'Sobre o Apostolado',
+  en: 'About the Apostolate',
+  es: 'Sobre el Apostolado',
+  fr: 'À propos de l\'Apostolat',
+  it: 'Sull\'Apostolato',
+};
+
+const CONTENT_HEADING: Record<string, string> = {
+  pt: 'Conteúdo', en: 'Content', es: 'Contenido', fr: 'Contenu', it: 'Contenuto',
+};
 
 export default function SiteFooter() {
   const { t, locale } = useLocale();
+  const pathname = usePathname();
 
   // Server-rendered internal links to the content hubs. The primary nav builds
   // these client-side (via /api/nav/highlights), so they were absent from the
   // SSR HTML and Googlebot could not discover the category/article tree. These
   // crawlable <Link>s give every page a path into the whole content IA.
-  const localePrefix = locale === 'en' ? '/en' : '';
-  const aboutHref = locale === 'en' ? '/en/our-apostolate' : '/apostolado-garabandal';
-  const aboutLabel = locale === 'en' ? 'About the Apostolate' : 'Sobre o Apostolado';
+  //
+  // `locale` from the context is only ever 'pt' | 'en' (that is all the UI
+  // translation bundles cover), so it used to send /es, /fr and /it visitors —
+  // and Googlebot — into the Portuguese tree. Resolve the section from the URL
+  // instead so each locale links within itself.
+  const navLocale = getPublicLocaleFromPathname(pathname);
+  const prefix = prefixFor(navLocale);
+  const aboutSlug = ABOUT_SLUG[navLocale];
   const contentLinks = [
-    { href: aboutHref, label: aboutLabel },
+    ...(aboutSlug ? [{ href: `${prefix}/${aboutSlug}`, label: ABOUT_LABEL[navLocale] }] : []),
     ...[...PUBLIC_NAV_ORDER, 'noticias' as CategoryKey].map((key) => {
-      const cat = CATEGORIES[key][locale === 'en' ? 'en' : 'pt'];
-      return { href: `${localePrefix}/${cat.slug}`, label: cat.label };
+      const cat = CATEGORIES[key][navLocale];
+      return { href: `${prefix}/${cat.slug}`, label: cat.label };
     }),
-    { href: `${localePrefix}/l`, label: locale === 'en' ? 'Articles' : 'Artigos' },
+    { href: `${prefix}/l`, label: ARTICLES_LABEL[navLocale] },
   ];
 
   return (
@@ -29,14 +65,17 @@ export default function SiteFooter() {
       <div className="container mx-auto px-6">
         <div className="grid grid-cols-1 md:grid-cols-5 gap-12 mb-16">
           <div className="col-span-1 md:col-span-2">
-            <h4 className="font-serif text-2xl text-white mb-6">Apostolado de Garabandal</h4>
+            {/* h2, not h4: Lighthouse flagged the footer for skipping heading
+                levels, and the heading order is how assistive tech (and Google)
+                read the document outline. The visual size is unchanged. */}
+            <h2 className="font-serif text-2xl text-white mb-6">Apostolado de Garabandal</h2>
             <p className="text-white/50 font-light max-w-sm">
               {t.footer.description}
             </p>
           </div>
 
           <div>
-            <h5 className="text-white font-medium uppercase tracking-widest text-sm mb-6">{locale === 'en' ? 'Content' : 'Conteúdo'}</h5>
+            <h5 className="text-white font-medium uppercase tracking-widest text-sm mb-6">{CONTENT_HEADING[navLocale]}</h5>
             <div className="flex flex-col space-y-4 text-white/50 text-sm font-light">
               {contentLinks.map((link) => (
                 <Link key={link.href} href={link.href} className="hover:text-garabandal-gold transition-colors">{link.label}</Link>
