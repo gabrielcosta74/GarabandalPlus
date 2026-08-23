@@ -8,6 +8,7 @@ import { LocaleSwitcher } from '../../../components/content/LocaleSwitcher';
 import { getPageBySlug, getTranslationPeers, listAllSlugs } from '../../../lib/content/queries';
 import { PUBLISHED_ONLY } from '../../../lib/content/preview';
 import { articleJsonLd, breadcrumbJsonLd, buildHreflang, jsonLdScript } from '../../../lib/content/content-seo';
+import { entityJsonLd } from '../../../lib/content/entity-schema';
 import { APP_URL } from '../../../lib/config';
 
 export const revalidate = 600;
@@ -70,6 +71,9 @@ export default async function FrMigratedPage({ params }: { params: Promise<Param
       { name: 'Accueil', path: '/fr' },
       { name: page.title },
     ]),
+    // Person + FAQPage for the handful of pages that are entity hubs;
+    // an empty array for every other slug.
+    ...entityJsonLd('page', 'fr', slug),
   ];
 
   return (
