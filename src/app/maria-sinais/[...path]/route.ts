@@ -38,6 +38,27 @@ const STRIP_REQUEST = new Set([
   'accept-encoding', 'content-length',
 ]);
 
+/**
+ * Header *prefixes* to drop as well.
+ *
+ * Stripping `host` alone was not enough. Cloudflare sits in front of this app
+ * and stamps every request with `cf-*` and `x-forwarded-*`. Forwarding those on
+ * kept the 403 alive in production even after the Host was fixed.
+ *
+ * `cf-connecting-ip` is the specific trigger — verified against the upstream
+ * directly:
+ *
+ *   curl -o /dev/null -w '%{http_code}' https://us-assets.i.posthog.com/static/array.js
+ *     -> 200
+ *   curl ... -H 'cf-connecting-ip: 1.2.3.4' https://us-assets.i.posthog.com/static/array.js
+ *     -> 403  "DNS points to prohibited IP"
+ *
+ * PostHog is behind Cloudflare too, and that header makes their edge treat the
+ * request as coming from another Cloudflare zone. It never reproduced locally,
+ * where no `cf-*` headers exist.
+ */
+const STRIP_PREFIXES = ['cf-', 'x-forwarded-', 'x-real-ip', 'x-vercel-', 'forwarded'];
+
 /** `fetch` already decoded the body, so passing these through would make the
  *  browser try to decode it a second time. */
 const STRIP_RESPONSE = new Set([
@@ -53,7 +74,10 @@ async function proxy(request: NextRequest, path: string[]) {
 
   const headers = new Headers();
   request.headers.forEach((value, key) => {
-    if (!STRIP_REQUEST.has(key.toLowerCase())) headers.set(key, value);
+    const k = key.toLowerCase();
+    if (STRIP_REQUEST.has(k)) return;
+    if (STRIP_PREFIXES.some((p) => k.startsWith(p))) return;
+    headers.set(key, value);
   });
 
   const hasBody = request.method !== 'GET' && request.method !== 'HEAD';
