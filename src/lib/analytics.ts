@@ -72,6 +72,20 @@ const SENSITIVE_PROPERTY_KEYS = new Set([
   'token',
 ]);
 
+/**
+ * Properties PostHog owns and we must never strip.
+ *
+ * `token` is PostHog's own ingestion credential, not one of ours. Deleting it
+ * in `before_send` made PostHog drop *every* event — $pageview, $web_vitals,
+ * $snapshot — before it reached the network, silently, with nothing but a
+ * debug-mode log to show for it. That is why analytics recorded zero visits
+ * even once the proxy stopped 403ing.
+ *
+ * Our own sensitive `token` values never reach `before_send`: every event we
+ * capture goes through sanitizeProperties() first, which strips them there.
+ */
+const POSTHOG_RESERVED_PROPERTY_KEYS = new Set(['token']);
+
 let initialized = false;
 let lastPageview: { key: string; capturedAt: number } | null = null;
 
@@ -170,7 +184,10 @@ const sanitizeBeforeSend = (event: CaptureResult | null): CaptureResult | null =
     properties.$referrer = sanitizeAnalyticsUrl(properties.$referrer);
   }
   delete properties.search;
-  for (const key of SENSITIVE_PROPERTY_KEYS) delete properties[key];
+  for (const key of SENSITIVE_PROPERTY_KEYS) {
+    if (POSTHOG_RESERVED_PROPERTY_KEYS.has(key)) continue;
+    delete properties[key];
+  }
 
   event.properties = properties;
   return event;
