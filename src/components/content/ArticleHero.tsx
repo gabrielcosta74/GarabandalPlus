@@ -44,7 +44,10 @@ export function ArticleHero({
         <>
           <Image
             src={coverImage}
-            alt={`Imagem de capa: ${title}`}
+            // Just the title. The old "Imagem de capa:" prefix was hardcoded
+            // Portuguese and shipped on the EN/ES/FR/IT articles too, and a
+            // screen reader already announces this as an image.
+            alt={title}
             fill
             priority
             sizes="100vw"
