@@ -307,15 +307,18 @@ export default function SiteHeaderV2() {
               </div>
 
               <div className="flex-1 overflow-y-auto px-6 py-8">
-                <MobilePilgrimagePaymentCard
-                  href={user
-                    ? t.urls.myRegistrations
-                    : `${t.urls.login}?next=${encodeURIComponent(t.urls.myRegistrations)}`}
-                  isAuthenticated={!!user}
-                  isEnglish={locale === 'en'}
-                  isActive={pathname === t.urls.myRegistrations}
-                  onClick={() => setIsMobileOpen(false)}
-                />
+                {/* Atalho para as inscrições: só para quem tem sessão iniciada.
+                    Sem sessão não há inscrições para mostrar, e o cartão só
+                    levava ao login. */}
+                {user && (
+                  <MobilePilgrimagePaymentCard
+                    href={t.urls.myRegistrations}
+                    isAuthenticated
+                    isEnglish={locale === 'en'}
+                    isActive={pathname === t.urls.myRegistrations}
+                    onClick={() => setIsMobileOpen(false)}
+                  />
+                )}
 
                 {/* Account / auth — kept near the highlighted registrations shortcut */}
                 <SectionLabel>{t.mobileNav.myAccount}</SectionLabel>

@@ -70,7 +70,7 @@ const Hero: React.FC = () => {
                     >
                         <p className="text-lg sm:text-xl md:text-2xl text-slate-300 font-light leading-relaxed max-w-xl">
                             {locale === 'en'
-                                ? 'The official space of the Garabandal Apostolate Association. A place of faith, prayer and sharing the Message.'
+                                ? 'The official space of the Garabandal Apostolate — a non-profit association. A place of faith, prayer and sharing the Message.'
                                 : HERO_CONTENT.subtitle}
                         </p>
                     </motion.div>

@@ -47,9 +47,15 @@ body {
   color-scheme: light;
 }
 
-a {
-  color: inherit;
-  text-decoration: none;
+/* Em Tailwind v4 as utilities vivem em @layer utilities e qualquer regra
+   FORA de layers ganha-lhes, seja qual for a especificidade. Sem este
+   @layer base, este `a { color: inherit }` anulava text-white/text-[#...]
+   em todos os links (ícones do footer, botões do hero, etc.). */
+@layer base {
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
 }
 
 button,
