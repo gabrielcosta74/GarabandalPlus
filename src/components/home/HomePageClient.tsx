@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useState } from 'react';
+import React from 'react';
 import Image from 'next/image';
 import dynamic from 'next/dynamic';
 
@@ -20,7 +20,6 @@ const LatestArticles = dynamic(() => import('./LatestArticles'));
 const LatestNews = dynamic(() => import('./LatestNews'));
 const YouTubeLives = dynamic(() => import('./YouTubeLives'));
 const InstagramFollow = dynamic(() => import('./InstagramFollow'));
-import Preloader from './Preloader';
 import Hero from './Hero';
 import WhatIsGarabandal from './WhatIsGarabandal';
 import ContactBar from './ContactBar';
@@ -41,19 +40,12 @@ interface HomePageClientProps {
 }
 
 const HomePageClient: React.FC<HomePageClientProps> = ({ meta, pilgrimages = [], featuredProducts = [], homeContent, lives = [], locale = 'pt' }) => {
-    const [loading, setLoading] = useState(true);
     const { memberData } = useAuth();
-    const handlePreloaderComplete = useCallback(() => setLoading(false), []);
 
 
     return (
         <main className="min-h-screen bg-garabandal-mist text-slate-900 selection:bg-garabandal-gold selection:text-white">
-            {/* Intro Sequence */}
-            <Preloader onComplete={handlePreloaderComplete} />
-
-            {/* Keep the complete homepage in the initial HTML. The preloader is
-                a temporary visual overlay, never a gate for primary content. */}
-            <div className="relative isolate" aria-busy={loading}>
+            <div className="relative isolate">
                     {/* Background Overlay Removed for a cleaner readable look */}
                     <div className="fixed inset-0 z-0 pointer-events-none bg-garabandal-mist" />
 
