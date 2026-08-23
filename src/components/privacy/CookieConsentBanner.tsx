@@ -131,7 +131,11 @@ export default function CookieConsentBanner() {
                 <Cookie className="h-4 w-4" aria-hidden="true" />
               </div>
               <div className="min-w-0">
-                <h2 className="font-serif text-lg font-bold leading-6 text-white max-sm:text-base">{copy.title}</h2>
+                {/* Not a heading: this banner renders on every page, so an <h2>
+                    put "Cookies" into the heading outline of the whole site.
+                    The wrapper already carries role="region" + aria-label with the
+                    same text, so nothing is lost for assistive technology. */}
+                <p className="font-serif text-lg font-bold leading-6 text-white max-sm:text-base">{copy.title}</p>
                 <p className={`mt-1 text-sm leading-5 text-white/65 ${showSettings ? '' : 'max-sm:line-clamp-2'}`}>{copy.intro}</p>
               </div>
             </div>
