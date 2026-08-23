@@ -1,0 +1,4 @@
+[
+  {"id": 5,  "source_path": "/es", "destination_path": "/",     "status_code": 301, "reason": "app-keeps · no /es root — point to PT"},
+  {"id": 85, "source_path": "/fr", "destination_path": "/fr/l", "status_code": 301, "reason": null}
+]
