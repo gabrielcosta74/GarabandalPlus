@@ -25,6 +25,9 @@ export const metadata: Metadata = {
       en: `${APP_URL}/en`,
       'pt-BR': APP_URL,
       'pt-PT': APP_URL,
+      es: `${APP_URL}/es`,
+      fr: `${APP_URL}/fr`,
+      it: `${APP_URL}/it`,
     },
   },
   openGraph: {

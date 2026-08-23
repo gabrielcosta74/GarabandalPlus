@@ -75,6 +75,9 @@ export const metadata: Metadata = {
       'pt-BR': APP_URL,
       'pt-PT': APP_URL,
       en: `${APP_URL}/en`,
+      es: `${APP_URL}/es`,
+      fr: `${APP_URL}/fr`,
+      it: `${APP_URL}/it`,
     },
   },
   verification: {
@@ -190,7 +193,7 @@ export default function RootLayout({
                   '@id': `${APP_URL}/#website`,
                   name: 'Apostolado de Garabandal',
                   url: APP_URL,
-                  inLanguage: ['pt-BR', 'pt-PT', 'en'],
+                  inLanguage: ['pt-BR', 'pt-PT', 'en', 'es', 'fr', 'it'],
                   publisher: { '@id': `${APP_URL}/#organization` },
                   potentialAction: {
                     '@type': 'SearchAction',

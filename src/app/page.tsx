@@ -5,12 +5,15 @@ import { getPilgrimagesAction } from './peregrinacoes/actions';
 import { getFeaturedProducts } from './loja-online/actions';
 import { getHomeContent } from '../lib/cms/home';
 import { getLatestVideos } from '../lib/youtube';
-import { getPublicStatuses } from '../lib/content/preview';
+import { PUBLISHED_ONLY } from '../lib/content/preview';
 import { APP_URL } from '../lib/config';
 
-// Dynamic so the homepage is preview-aware (admins see draft devotional
-// content pre-cutover). Revisit caching strategy at cutover if needed.
-export const dynamic = 'force-dynamic';
+// The homepage is the page that has to rank, so it must be cacheable. This was
+// dynamic purely so admins could preview drafts here; that now lives at
+// /preview, which is session-gated and rendered per request. Leaving the
+// homepage dynamic served it with `cache-control: no-store` and roughly
+// tripled its TTFB against the ISR routes.
+export const revalidate = 600;
 
 export const metadata: Metadata = {
   title: {
@@ -24,6 +27,9 @@ export const metadata: Metadata = {
       'pt-BR': `${APP_URL}/`,
       'pt-PT': `${APP_URL}/`,
       en: `${APP_URL}/en`,
+      es: `${APP_URL}/es`,
+      fr: `${APP_URL}/fr`,
+      it: `${APP_URL}/it`,
     },
   },
 };
@@ -32,7 +38,7 @@ export default async function Page() {
   const meta = await loadMeta();
   const { data: pilgrimages } = await getPilgrimagesAction();
   const featuredProducts = await getFeaturedProducts();
-  const homeContent = await getHomeContent('pt', await getPublicStatuses());
+  const homeContent = await getHomeContent('pt', PUBLISHED_ONLY);
   const lives = await getLatestVideos(9);
 
   // Pass all upcoming pilgrimages to display different statuses (open, full, waitlist)

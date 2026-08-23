@@ -119,12 +119,26 @@ async function fetchSitemapProducts(): Promise<StoreProductSitemapRecord[]> {
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const now = new Date();
 
+  // Every locale root points at every other one. A mesh whose entries
+  // disagree — or point at a URL that 404s, which /es, /fr and /it did until
+  // they got a page — is discarded wholesale, so it is declared once here.
+  const homeLanguages = {
+    'pt-BR': `${APP_URL}/`,
+    'pt-PT': `${APP_URL}/`,
+    en: `${APP_URL}/en`,
+    es: `${APP_URL}/es`,
+    fr: `${APP_URL}/fr`,
+    it: `${APP_URL}/it`,
+    'x-default': `${APP_URL}/`,
+  };
+
   const baseRoutes: MetadataRoute.Sitemap = [
     // ── Core pages ──────────────────────────────────────────────────
     {
       url: `${APP_URL}/`,
       changeFrequency: 'weekly',
       priority: 1,
+      alternates: { languages: homeLanguages },
     },
     {
       url: `${APP_URL}/peregrinacoes`,
@@ -185,7 +199,15 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       url: `${APP_URL}/en`,
       changeFrequency: 'weekly',
       priority: 0.7,
+      alternates: { languages: homeLanguages },
     },
+    // ── Other locale roots ───────────────────────────────────────────
+    ...(['es', 'fr', 'it'] as const).map((locale) => ({
+      url: `${APP_URL}/${locale}`,
+      changeFrequency: 'weekly' as const,
+      priority: 0.7,
+      alternates: { languages: homeLanguages },
+    })),
     {
       url: `${APP_URL}/en/pilgrimages`,
       changeFrequency: 'weekly',
