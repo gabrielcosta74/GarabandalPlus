@@ -29,12 +29,42 @@ const LINK_BLOCK_TAGS = new Set(['p', 'h3', 'h4']);
 // migrated copy, so a single collapse is enough.
 const norm = (s: string) => s.replace(/\s+/g, ' ').trim();
 
-export function enhanceArticleHtml(html?: string | null): string {
+export function enhanceArticleHtml(
+  html?: string | null,
+  options?: { curateFeatureImages?: boolean },
+): string {
   if (!html) return html ?? '';
 
   try {
     const $ = cheerio.load(`<div id="__cms_root">${html}</div>`, null, false);
     const $root = $('#__cms_root');
+
+    if (options?.curateFeatureImages) {
+      // The legacy page starts with six consecutive portraits. Preserve two
+      // relevant images, placed as visual pauses in the sections they support,
+      // and remove the rest from this rendered view only.
+      const $images = $root.children('img');
+      const $bishopsImage = $images.eq(0);
+      const $paulImage = $images.eq($images.length - 1);
+      $images.remove();
+
+      const $bishopsHeading = $root.children().filter((_, el) =>
+        norm($(el).text()).includes('PRONUNCIAMENTOS DO BISPO DE SANTANDER'),
+      ).first();
+      if ($bishopsImage.length && $bishopsHeading.length) {
+        $bishopsImage.addClass('cms-feature-image');
+        $bishopsImage.insertAfter($bishopsHeading);
+      }
+
+      const $paulHeading = $root.children('h1').filter((_, el) =>
+        norm($(el).text()).includes('Papa Paulo VI'),
+      ).first();
+      if ($paulImage.length && $paulHeading.length) {
+        $paulImage.addClass('cms-feature-image');
+        $paulImage.insertAfter($paulHeading);
+      }
+    }
+
     const children = $root.children().toArray();
 
     let linkItems = 0;
@@ -60,7 +90,11 @@ export function enhanceArticleHtml(html?: string | null): string {
 
     const total = children.length || 1;
     const isIndexPage = linkItems >= 6 && linkItems / total >= 0.3;
-    if (!isIndexPage) return html;
+    if (!isIndexPage) {
+      // Feature-page curation changes the placement of legacy media even when
+      // the article is not an index, so return that rendered arrangement.
+      return options?.curateFeatureImages ? ($root.html() ?? html) : html;
+    }
 
     return `<div class="cms-index">${$root.html() ?? ''}</div>`;
   } catch {

@@ -447,6 +447,79 @@
   color: var(--prose-heading);
 }
 
+/* Feature treatment for long-form cornerstone pages. The CMS content stays
+   unchanged; this only provides an editorial reading surface and hierarchy. */
+.article-body--feature {
+  padding: clamp(1.5rem, 4vw, 4rem) 1.25rem clamp(4rem, 8vw, 7rem);
+}
+
+.article-body--feature::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 22rem;
+  background:
+    radial-gradient(circle at 50% 0%, rgba(212, 175, 55, 0.14), transparent 58%),
+    linear-gradient(180deg, #eef2f8 0%, rgba(247, 248, 251, 0) 100%);
+}
+
+.article-prose--feature {
+  background: #fff;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 24px;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.08);
+}
+
+/* The CMS page begins with the same line used as the page's subtitle. The
+   hero already presents it, so removing this duplicate creates a clean start. */
+.article-prose--feature > h2:first-child {
+  display: none;
+}
+
+.article-prose--feature > p:first-of-type {
+  margin: 0 0 2.75rem;
+  padding: 0 0 2.5rem;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.1);
+  font-family: var(--font-serif), 'Playfair Display', Georgia, serif;
+  font-size: clamp(1.25rem, 2vw, 1.5rem);
+  line-height: 1.6;
+}
+
+.article-prose--feature > p:first-of-type::first-letter {
+  font-size: 4.9rem;
+}
+
+.article-prose--feature h2 {
+  margin-top: 4.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid rgba(15, 23, 42, 0.1);
+  font-size: clamp(1.8rem, 3.2vw, 2.45rem);
+}
+
+.article-prose--feature h2::before {
+  content: "";
+  display: block;
+  width: 2.75rem;
+  height: 3px;
+  margin-bottom: 1.1rem;
+  background: var(--color-garabandal-gold, #d4af37);
+}
+
+.article-prose--feature h3 {
+  margin-top: 2.5rem;
+  font-size: clamp(1.3rem, 2.2vw, 1.6rem);
+}
+
+/* Two legacy images are retained as visual pauses in the relevant sections;
+   the remaining consecutive portraits are omitted at render time. */
+.article-prose--feature .cms-feature-image {
+  width: min(100%, 760px);
+  max-height: 460px;
+  margin: clamp(2.5rem, 6vw, 4.5rem) auto;
+  object-fit: cover;
+  border-radius: 18px;
+}
+
 /* ──────────────────────────────────────────────────────────────────────────
    Index / hub pages (auto-detected in enhance-html.ts)
 

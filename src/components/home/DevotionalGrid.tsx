@@ -23,6 +23,22 @@ export default function DevotionalGrid({
   const sub = locale === 'pt'
     ? 'A história, as mensagens e as profecias de Nossa Senhora do Carmo em Garabandal.'
     : 'The history, messages and prophecies of Our Lady of Mount Carmel at Garabandal.';
+  const churchPositionCard = locale === 'pt'
+    ? {
+        key: 'church-position',
+        label: 'A posição da Igreja',
+        intro: 'Garabandal nunca foi condenado pela Igreja. Conheça a situação do processo e a documentação disponível.',
+        href: '/a-posicao-da-igreja',
+        cover: '/images/igrejagarabandal.webp',
+      }
+    : {
+        key: 'church-position',
+        label: "The Church's position",
+        intro: 'Garabandal has never been condemned by the Church. Learn about the status of the process and the available documentation.',
+        href: '/en/a-posicao-da-igreja',
+        cover: '/images/igrejagarabandal.webp',
+      };
+  const cards = [...categories, churchPositionCard];
 
   const containerVariants = {
     hidden: {},
@@ -56,8 +72,8 @@ export default function DevotionalGrid({
         viewport={{ once: true, margin: "-100px" }}
         className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4 sm:gap-6"
       >
-        {categories.map((cat, index) => {
-          // Bento layout logic for exactly 5 items
+        {cards.map((cat, index) => {
+          // Bento layout logic: the Church position card sits below Prophecies.
           let spanClasses = "";
           let heightClasses = "";
 
@@ -69,6 +85,9 @@ export default function DevotionalGrid({
             heightClasses = "min-h-[300px] sm:min-h-[320px] lg:min-h-[280px]";
           } else if (index === 3 || index === 4) {
             spanClasses = "md:col-span-1 lg:col-span-3 lg:row-span-1";
+            heightClasses = "min-h-[300px] sm:min-h-[320px] lg:min-h-[280px]";
+          } else if (index === 5) {
+            spanClasses = "md:col-span-1 lg:col-span-3 lg:col-start-4 lg:row-span-1";
             heightClasses = "min-h-[300px] sm:min-h-[320px] lg:min-h-[280px]";
           }
 

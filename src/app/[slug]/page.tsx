@@ -53,6 +53,7 @@ export default async function MigratedPage({ params }: { params: Promise<Params>
   const { slug } = await params;
   const page = await getPageBySlug(slug, 'pt', PUBLISHED_ONLY);
   if (!page) notFound();
+  const isChurchPositionPage = slug === 'a-posicao-da-igreja';
 
   const peers = await getTranslationPeers('page', page.id);
 
@@ -83,7 +84,7 @@ export default async function MigratedPage({ params }: { params: Promise<Params>
         variant="page"
         title={page.title}
         subtitle={page.meta_description}
-        coverImage={page.og_image_url}
+        coverImage={isChurchPositionPage ? '/images/padrerezar.webp' : page.og_image_url}
         breadcrumbs={[
           { href: '/', label: 'Início' },
           { label: page.title },
@@ -92,7 +93,7 @@ export default async function MigratedPage({ params }: { params: Promise<Params>
           peers.length > 1 ? <LocaleSwitcher current="pt" peers={peers} basePath="page" /> : null
         }
       />
-      <ArticleBody html={page.content_html} />
+      <ArticleBody html={page.content_html} variant={isChurchPositionPage ? 'feature' : 'standard'} />
       <ShareBar url={`${APP_URL}/${slug}`} title={page.title} locale="pt" />
       <ShareCTA url={`${APP_URL}/${slug}`} title={page.title} locale="pt" />
     </main>

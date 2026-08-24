@@ -11,11 +11,21 @@ import { enhanceArticleHtml } from '../../lib/content/enhance-html';
  * pages (long lists of links) into a tidy directory layout. It is a no-op on
  * regular articles.
  */
-export function ArticleBody({ html }: { html: string | null | undefined }) {
+export function ArticleBody({
+  html,
+  variant = 'standard',
+}: {
+  html: string | null | undefined;
+  variant?: 'standard' | 'feature';
+}) {
   if (!html) return null;
-  const enhanced = enhanceArticleHtml(html);
+  const isFeature = variant === 'feature';
+  const enhanced = enhanceArticleHtml(html, { curateFeatureImages: isFeature });
   return (
-    <div style={{ background: '#fff', position: 'relative' }}>
+    <div
+      className={isFeature ? 'article-body article-body--feature' : undefined}
+      style={{ background: isFeature ? '#f7f8fb' : '#fff', position: 'relative' }}
+    >
       <div 
         style={{ 
           position: 'absolute', 
@@ -28,11 +38,11 @@ export function ArticleBody({ html }: { html: string | null | undefined }) {
         }} 
       />
       <article
-        className="article-prose"
+        className={`article-prose${isFeature ? ' article-prose--feature' : ''}`}
         style={{ 
-          maxWidth: 820, 
+          maxWidth: isFeature ? 940 : 820,
           margin: '0 auto', 
-          padding: '4rem 1.5rem 8rem',
+          padding: isFeature ? 'clamp(2rem, 5vw, 4.5rem)' : '4rem 1.5rem 8rem',
           position: 'relative',
           zIndex: 1
         }}
