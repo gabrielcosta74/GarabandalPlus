@@ -1,12 +1,9 @@
-'use client';
-
-import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { ArrowRight, Flame, MessageCircle, Sparkles, Users } from 'lucide-react';
-import { useLocale } from '../../contexts/LocaleContext';
+import { getTranslations } from '../../i18n';
 
-const SpiritualPillars = () => {
-  const { t, locale } = useLocale();
+const SpiritualPillars = ({ locale }: { locale: 'pt' | 'en' }) => {
+  const t = getTranslations(locale);
   const isEn = locale === 'en';
 
   return (
@@ -23,13 +20,7 @@ const SpiritualPillars = () => {
           </div>
 
           <div className="grid gap-5 md:grid-cols-2 md:gap-6">
-            <motion.div
-              initial={{ opacity: 0, y: 24 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.6 }}
-              className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-slate-900 p-8 md:p-10"
-            >
+            <div className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-slate-900 p-8 md:p-10">
               <div className="absolute inset-0 bg-[url('/images/padrerezar.webp')] bg-cover bg-center opacity-70 transition-transform duration-700 group-hover:scale-105" />
               <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/75 to-slate-950/20" />
               <div className="relative z-10 flex h-full flex-col items-start">
@@ -54,15 +45,9 @@ const SpiritualPillars = () => {
                   <ArrowRight className="h-4 w-4 transition-transform group-hover/button:translate-x-1" aria-hidden />
                 </Link>
               </div>
-            </motion.div>
+            </div>
 
-            <motion.div
-              initial={{ opacity: 0, y: 24 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.6, delay: 0.1 }}
-              className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-slate-900 p-8 md:p-10"
-            >
+            <div className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-slate-900 p-8 md:p-10">
               <div className="absolute inset-0 bg-[url('/images/associacao.webp')] bg-cover bg-center opacity-65 transition-transform duration-700 group-hover:scale-105" />
               <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/80 to-slate-950/25" />
               <div className="relative z-10 flex h-full flex-col items-start">
@@ -87,7 +72,7 @@ const SpiritualPillars = () => {
                   <ArrowRight className="h-4 w-4 transition-transform group-hover/button:translate-x-1" aria-hidden />
                 </Link>
               </div>
-            </motion.div>
+            </div>
           </div>
         </div>
       </div>

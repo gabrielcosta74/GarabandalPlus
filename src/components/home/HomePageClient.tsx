@@ -1,96 +1,80 @@
-'use client';
-
-import React from 'react';
-import Image from 'next/image';
-import dynamic from 'next/dynamic';
-
-// Below-the-fold sections are code-split so they stay out of the initial
-// JavaScript bundle (PageSpeed flagged ~123 KiB of unused JS on first paint).
-// `ssr` stays on by default: their internal links must remain in the served
-// HTML for Googlebot.
-const Endorsements = dynamic(() => import('./Endorsements'));
-const SpiritualPillars = dynamic(() => import('./SpiritualPillars'));
-const CampaignShowcase = dynamic(() => import('./CampaignShowcase'));
-const SupportArea = dynamic(() => import('./SupportArea'));
-const PilgrimageShowcase = dynamic(() => import('./PilgrimageShowcase'));
-const FeaturedStore = dynamic(() => import('./FeaturedStore'));
-const DevotionalGrid = dynamic(() => import('./DevotionalGrid'));
-const FeaturedArticles = dynamic(() => import('./FeaturedArticles'));
-const LatestArticles = dynamic(() => import('./LatestArticles'));
-const LatestNews = dynamic(() => import('./LatestNews'));
-const YouTubeLives = dynamic(() => import('./YouTubeLives'));
-const InstagramFollow = dynamic(() => import('./InstagramFollow'));
-import Hero from './Hero';
-import WhatIsGarabandal from './WhatIsGarabandal';
+import CampaignShowcase from './CampaignShowcase';
 import ContactBar from './ContactBar';
-import { DonationMeta } from '../../lib/donations';
+import DevotionalGrid from './DevotionalGrid';
+import Endorsements from './Endorsements';
+import FeaturedArticles from './FeaturedArticles';
+import FeaturedStore from './FeaturedStore';
+import Hero from './Hero';
+import HomePilgrimagePreview from './HomePilgrimagePreview';
+import HomeQuotaWarning from './HomeQuotaWarning';
+import InstagramFollow from './InstagramFollow';
+import LatestArticles from './LatestArticles';
+import LatestNews from './LatestNews';
+import SpiritualPillars from './SpiritualPillars';
+import WhatIsGarabandal from './WhatIsGarabandal';
+import YouTubeLives from './YouTubeLives';
+import type { DonationMeta } from '../../lib/donations';
 import type { HomeContent } from '../../lib/cms/home';
 import type { YouTubeVideo } from '../../lib/youtube';
-import { useAuth } from '../../contexts/AuthContext';
-import { QuotaWarning } from '../membership/QuotaWarning';
+import type { ComponentProps } from 'react';
 
-
-interface HomePageClientProps {
-    meta: DonationMeta;
-    pilgrimages?: any[];
-    featuredProducts?: any[];
-    homeContent?: HomeContent;
-    lives?: YouTubeVideo[];
-    locale?: 'pt' | 'en';
+interface HomePageProps {
+  meta: DonationMeta;
+  pilgrimages?: ComponentProps<typeof HomePilgrimagePreview>['pilgrimages'];
+  featuredProducts?: ComponentProps<typeof FeaturedStore>['products'];
+  homeContent?: HomeContent;
+  lives?: YouTubeVideo[];
+  locale?: 'pt' | 'en';
 }
 
-const HomePageClient: React.FC<HomePageClientProps> = ({ meta, pilgrimages = [], featuredProducts = [], homeContent, lives = [], locale = 'pt' }) => {
-    const { memberData } = useAuth();
+/**
+ * Server composition for the homepage. Interactive areas keep their own small
+ * client boundaries; the full document no longer hydrates as one component.
+ */
+export default function HomePageClient({
+  meta,
+  pilgrimages = [],
+  featuredProducts = [],
+  homeContent,
+  lives = [],
+  locale = 'pt',
+}: HomePageProps) {
+  return (
+    <main className="min-h-screen bg-garabandal-mist text-slate-900 selection:bg-garabandal-gold selection:text-white">
+      <div className="relative isolate">
+        <div className="pointer-events-none fixed inset-0 z-0 bg-garabandal-mist" />
 
+        <div className="relative z-10">
+          <HomeQuotaWarning />
+          <Hero locale={locale} />
 
-    return (
-        <main className="min-h-screen bg-garabandal-mist text-slate-900 selection:bg-garabandal-gold selection:text-white">
-            <div className="relative isolate">
-                    {/* Background Overlay Removed for a cleaner readable look */}
-                    <div className="fixed inset-0 z-0 pointer-events-none bg-garabandal-mist" />
-
-                    {/* Content */}
-                    <div className="relative z-10">
-                        {/* Member Warning Injection */}
-                        <QuotaWarning
-                            memberData={memberData}
-                            className="container mx-auto mt-24 lg:mt-28 mb-4"
-                        />
-
-                        <Hero />
-                        {/* Newcomer intro: orients first-time visitors right after the Hero */}
-                        <WhatIsGarabandal />
-                        {/* Devotional content first (self-hides until content is published) */}
-                        {homeContent && <DevotionalGrid categories={homeContent.categories} locale={locale} />}
-                        {/* Latest YouTube lives, right after "Conhecer Garabandal" */}
-                        <YouTubeLives videos={lives} locale={locale} />
-                        {/* Follow on Instagram — right after the lives */}
-                        <InstagramFollow locale={locale} />
-                        {homeContent && <FeaturedArticles articles={homeContent.featured} locale={locale} />}
-                        {/* "Artigos" — the CMS posts content type (/l/<slug>), latest first */}
-                        {homeContent && homeContent.articles.length > 0 && (
-                            <LatestArticles articles={homeContent.articles} locale={locale} />
-                        )}
-                        {/* Renowned endorsements (social proof) */}
-                        <Endorsements />
-                        <SpiritualPillars />
-                        <CampaignShowcase meta={meta} />
-                        {pilgrimages && pilgrimages.length > 0 && <PilgrimageShowcase pilgrimages={pilgrimages} />}
-                        {homeContent && (
-                            <LatestNews
-                                items={homeContent.latestNews}
-                                locale={locale}
-                                allHref={locale === 'pt' ? '/noticias' : '/en/news'}
-                            />
-                        )}
-                        <FeaturedStore products={featuredProducts || []} />
-                        <SupportArea />
-                        {/* Contact band just above the footer */}
-                        <ContactBar />
-                    </div>
-            </div>
-        </main>
-    );
-};
-
-export default HomePageClient;
+          {/* Keep the complete crawlable HTML, while allowing the browser to
+              skip layout and paint work for distant sections on first load. */}
+          <div className="home-below-fold">
+            <WhatIsGarabandal locale={locale} />
+            {homeContent && <DevotionalGrid categories={homeContent.categories} locale={locale} />}
+            <YouTubeLives videos={lives} locale={locale} />
+            <InstagramFollow locale={locale} />
+            {homeContent && <FeaturedArticles articles={homeContent.featured} locale={locale} />}
+            {homeContent && homeContent.articles.length > 0 && (
+              <LatestArticles articles={homeContent.articles} locale={locale} />
+            )}
+            <Endorsements locale={locale} />
+            <SpiritualPillars locale={locale} />
+            <CampaignShowcase meta={meta} locale={locale} />
+            {pilgrimages.length > 0 && <HomePilgrimagePreview pilgrimages={pilgrimages} locale={locale} />}
+            {homeContent && (
+              <LatestNews
+                items={homeContent.latestNews}
+                locale={locale}
+                allHref={locale === 'pt' ? '/noticias' : '/en/news'}
+              />
+            )}
+            <FeaturedStore products={featuredProducts} locale={locale} />
+            <ContactBar locale={locale} />
+          </div>
+        </div>
+      </div>
+    </main>
+  );
+}

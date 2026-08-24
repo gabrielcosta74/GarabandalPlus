@@ -1,9 +1,6 @@
-'use client';
-
 import Link from 'next/link';
 import Image from 'next/image';
 import { ArrowRight } from 'lucide-react';
-import { motion } from 'framer-motion';
 import type { HomeCategory } from '../../lib/cms/home';
 
 /**
@@ -40,38 +37,14 @@ export default function DevotionalGrid({
       };
   const cards = [...categories, churchPositionCard];
 
-  const containerVariants = {
-    hidden: {},
-    show: {
-      transition: { staggerChildren: 0.1 }
-    }
-  };
-
-  const itemVariants = {
-    hidden: { opacity: 0, y: 30 },
-    show: { opacity: 1, y: 0, transition: { duration: 0.7, ease: [0.21, 0.47, 0.32, 0.98] } }
-  };
-
   return (
     <section className="relative mx-auto w-full max-w-7xl px-4 py-20 sm:px-6 lg:px-8">
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true, margin: "-100px" }}
-        transition={{ duration: 0.8, ease: "easeOut" }}
-        className="mb-12 sm:mb-16 max-w-2xl"
-      >
+      <div className="mb-12 max-w-2xl sm:mb-16">
         <h2 className="font-serif text-4xl font-bold text-slate-900 sm:text-5xl tracking-tight mb-4">{heading}</h2>
         <p className="text-base text-slate-500 sm:text-lg leading-relaxed">{sub}</p>
-      </motion.div>
+      </div>
 
-      <motion.div
-        variants={containerVariants}
-        initial="hidden"
-        whileInView="show"
-        viewport={{ once: true, margin: "-100px" }}
-        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4 sm:gap-6"
-      >
+      <div className="grid grid-cols-1 gap-4 sm:gap-6 md:grid-cols-2 lg:grid-cols-6">
         {cards.map((cat, index) => {
           // Bento layout logic: the Church position card sits below Prophecies.
           let spanClasses = "";
@@ -92,7 +65,7 @@ export default function DevotionalGrid({
           }
 
           return (
-            <motion.div key={cat.key} variants={itemVariants} className={`${spanClasses} h-full`}>
+            <div key={cat.key} className={`${spanClasses} h-full`}>
               <Link
                 href={cat.href}
                 className={`group relative flex overflow-hidden rounded-[2rem] bg-slate-900 w-full h-full ${heightClasses} shadow-sm hover:shadow-2xl transition-shadow duration-500`}
@@ -126,10 +99,10 @@ export default function DevotionalGrid({
                   </div>
                 </div>
               </Link>
-            </motion.div>
+            </div>
           );
         })}
-      </motion.div>
+      </div>
     </section>
   );
 }

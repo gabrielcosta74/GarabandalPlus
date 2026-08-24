@@ -66,8 +66,8 @@ export default async function EnHomePage() {
   const { data: pilgrimages } = await getPilgrimagesAction();
   const featuredProducts = await getFeaturedProducts();
   const homeContent = await getHomeContent('en', PUBLISHED_ONLY);
-  const lives = await getLatestVideos(9);
-  const upcomingPilgrimages = pilgrimages || [];
+  const lives = await getLatestVideos(4);
+  const upcomingPilgrimages = (pilgrimages || []).slice(0, 4);
 
   return <HomePageClient meta={meta} pilgrimages={upcomingPilgrimages} featuredProducts={featuredProducts} homeContent={homeContent} lives={lives} locale="en" />;
 }

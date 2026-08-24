@@ -51,7 +51,7 @@ export async function getHomeContent(
   const prefix = locale === 'pt' ? '' : '/en';
 
   const perCat = await Promise.all(
-    PUBLIC_NAV_ORDER.map((k) => cmsListCategoryHighlights(k, locale, { limit: 4, statuses })),
+    PUBLIC_NAV_ORDER.map((k) => cmsListCategoryHighlights(k, locale, { limit: 1, statuses })),
   );
 
   const categories: HomeCategory[] = PUBLIC_NAV_ORDER.map((k, i) => {
@@ -66,24 +66,25 @@ export async function getHomeContent(
     };
   });
 
-  // Featured: round-robin across categories for variety, capped at 6.
+  // Keep the homepage concise on mobile. The category hubs retain the complete
+  // catalogue; this band only needs three representative entry points.
   const featured: HomeArticle[] = [];
   const seen = new Set<string>();
-  for (let round = 0; round < 4 && featured.length < 6; round++) {
+  for (let round = 0; round < 1 && featured.length < 3; round++) {
     for (const items of perCat) {
       const it = items[round];
       if (it && !seen.has(it.id)) {
         seen.add(it.id);
         featured.push(toArticle(locale, it));
-        if (featured.length >= 6) break;
+        if (featured.length >= 3) break;
       }
     }
   }
 
-  const news = await cmsListCategoryHighlights('noticias', locale, { limit: 4, statuses });
+  const news = await cmsListCategoryHighlights('noticias', locale, { limit: 3, statuses });
   const latestNews = news.map((it) => toArticle(locale, it));
 
-  const latestPosts = await cmsListLatestPosts(locale, { limit: 6, statuses });
+  const latestPosts = await cmsListLatestPosts(locale, { limit: 3, statuses });
   const articles = latestPosts.map((it) => toArticle(locale, it));
 
   return { categories, featured, latestNews, articles };

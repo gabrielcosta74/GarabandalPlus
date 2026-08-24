@@ -1,54 +1,35 @@
-'use client';
-
-import React, { useRef } from 'react';
-import { motion, useScroll, useTransform, useInView } from 'framer-motion';
 import { CAMPAIGN_CONTENT, CASA_IMAGE_URL } from './constants';
 import { ArrowUpRight, Home, Heart } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { DonationMeta, formatCurrency } from '../../lib/donations';
-import { useLocale } from '../../contexts/LocaleContext';
+import { getTranslations } from '../../i18n';
 
 interface CampaignShowcaseProps {
     meta: DonationMeta;
+    locale: 'pt' | 'en';
 }
 
-const CampaignShowcase: React.FC<CampaignShowcaseProps> = ({ meta }) => {
-    const { t, locale } = useLocale();
+const CampaignShowcase = ({ meta, locale }: CampaignShowcaseProps) => {
+    const t = getTranslations(locale);
     const isEn = locale === 'en';
-    const ref = useRef<HTMLDivElement>(null);
-    const { scrollYProgress } = useScroll({
-        target: ref,
-        offset: ["start end", "end start"]
-    });
-
-    // Optimized Parallax: reduce range and use 3D transform for GPU acceleration
-    const yBg = useTransform(scrollYProgress, [0, 1], ["-10%", "10%"]);
-    const yContent = useTransform(scrollYProgress, [0, 1], ["0%", "-5%"]);
-
-    // Removed expensive opacity interpolation for overlay
-    // const opacityOverlay = useTransform(scrollYProgress, [0, 0.5, 1], [0.3, 0.6, 0.8]);
 
     const progress = meta.goal <= 0 ? 0 : Math.min(100, Math.round((meta.raised / meta.goal) * 100));
 
     return (
-        <section ref={ref} className="relative min-h-screen flex items-center justify-center overflow-hidden py-24 bg-slate-950">
+        <section className="relative min-h-screen flex items-center justify-center overflow-hidden py-24 bg-slate-950">
 
             {/* Parallax Background - Optimized with will-change and Next/Image */}
             <div className="absolute inset-0 z-0">
-                <motion.div
-                    style={{ y: yBg }}
-                    className="absolute inset-0 w-full h-[120%] -top-[10%] will-change-transform"
-                >
+                <div className="absolute inset-0 h-full w-full">
                     <Image
                         src={CASA_IMAGE_URL}
                         alt="Casa de Acolhimento"
                         fill
                         className="object-cover"
-                        priority
                         sizes="100vw"
                     />
-                </motion.div>
+                </div>
 
                 {/* Simplified Overlay - Removed mix-blend-multiply for performance */}
                 <div className="absolute inset-0 bg-slate-950/60" />
@@ -56,20 +37,11 @@ const CampaignShowcase: React.FC<CampaignShowcaseProps> = ({ meta }) => {
             </div>
 
             <div className="container mx-auto px-6 relative z-10 w-full">
-                <motion.div
-                    style={{ y: yContent }}
-                    className="grid lg:grid-cols-2 gap-12 lg:gap-20 items-end will-change-transform"
-                >
+                <div className="grid items-end gap-12 lg:grid-cols-2 lg:gap-20">
 
                     {/* Left: Content Card */}
                     <div className="lg:mb-12">
-                        <motion.div
-                            initial={{ opacity: 0, y: 30 }}
-                            whileInView={{ opacity: 1, y: 0 }}
-                            viewport={{ once: true, margin: "-10%" }}
-                            transition={{ duration: 0.6, ease: "easeOut" }}
-                            className="bg-slate-900/80 backdrop-blur-md border border-white/10 p-8 md:p-12 rounded-[2.5rem] shadow-2xl relative overflow-hidden group"
-                        >
+                        <div className="bg-slate-900/80 backdrop-blur-md border border-white/10 p-8 md:p-12 rounded-[2.5rem] shadow-2xl relative overflow-hidden group">
                             {/* Simplified Glow Effect */}
                             <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/5 rounded-full blur-[60px] pointer-events-none" />
 
@@ -97,15 +69,12 @@ const CampaignShowcase: React.FC<CampaignShowcaseProps> = ({ meta }) => {
                                             <span className="text-white">{progress}%</span>
                                         </div>
                                         <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden">
-                                            <motion.div
-                                                initial={{ width: 0 }}
-                                                whileInView={{ width: `${progress}%` }}
-                                                viewport={{ once: true }}
-                                                transition={{ duration: 1.2, ease: "circOut" }}
+                                            <div
+                                                style={{ width: `${progress}%` }}
                                                 className="h-full bg-gradient-to-r from-amber-600 via-amber-400 to-amber-200 shadow-[0_0_10px_rgba(251,191,36,0.4)] relative"
                                             >
                                                 <div className="absolute right-0 top-1/2 -translate-y-1/2 w-1 h-4 bg-white blur-[1px]" />
-                                            </motion.div>
+                                            </div>
                                         </div>
                                     </div>
 
@@ -121,38 +90,30 @@ const CampaignShowcase: React.FC<CampaignShowcaseProps> = ({ meta }) => {
                                         </div>
                                     </div>
 
-                                    <Link href={t.urls.donations} className="mt-4">
-                                        <button className="cursor-pointer w-full group relative bg-amber-500 hover:bg-amber-400 text-slate-900 px-8 py-5 rounded-xl font-bold uppercase tracking-widest text-xs transition-all duration-300 shadow-xl shadow-amber-900/20 flex items-center justify-center gap-3">
-                                            <span>{isEn ? 'Donate to the Project' : CAMPAIGN_CONTENT.cta}</span>
-                                            <ArrowUpRight className="w-4 h-4 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform duration-300" />
-                                        </button>
+                                    <Link href={t.urls.donations} className="group relative mt-4 flex w-full items-center justify-center gap-3 rounded-xl bg-amber-500 px-8 py-5 text-xs font-bold uppercase tracking-widest text-slate-900 shadow-xl shadow-amber-900/20 transition-all duration-300 hover:bg-amber-400">
+                                        <span>{isEn ? 'Donate to the Project' : CAMPAIGN_CONTENT.cta}</span>
+                                        <ArrowUpRight className="w-4 h-4 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform duration-300" />
                                     </Link>
                                 </div>
                             </div>
-                        </motion.div>
+                        </div>
                     </div>
 
                     {/* Right: Floating Quote/Highlight - Simplified animation */}
                     <div className="lg:h-full flex items-center justify-center lg:justify-end pb-12 lg:pb-32">
-                        <motion.div
-                            initial={{ opacity: 0, scale: 0.95 }}
-                            whileInView={{ opacity: 1, scale: 1 }}
-                            viewport={{ once: true }}
-                            transition={{ duration: 0.6, delay: 0.2 }}
-                            className="relative max-w-sm"
-                        >
+                        <div className="relative max-w-sm">
                             <div className="absolute -inset-4 bg-gradient-to-r from-amber-500/10 to-blue-500/10 rounded-[2rem] blur-xl opacity-50" />
                             <div className="relative bg-slate-900/90 backdrop-blur-sm border border-white/10 p-8 rounded-[2rem] text-center">
                                 <Heart className="w-8 h-8 text-amber-500 mx-auto mb-4 fill-amber-500/20" />
                                 <p className="font-serif text-2xl text-white italic mb-4">
-                                    "{isEn ? 'Your support builds this refuge.' : CAMPAIGN_CONTENT.subtitle}"
+                                    &ldquo;{isEn ? 'Your support builds this refuge.' : CAMPAIGN_CONTENT.subtitle}&rdquo;
                                 </p>
                                 <div className="w-12 h-1 bg-gradient-to-r from-amber-500 to-transparent mx-auto rounded-full" />
                             </div>
-                        </motion.div>
+                        </div>
                     </div>
 
-                </motion.div>
+                </div>
             </div>
         </section>
     );

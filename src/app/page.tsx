@@ -39,11 +39,11 @@ export default async function Page() {
   const { data: pilgrimages } = await getPilgrimagesAction();
   const featuredProducts = await getFeaturedProducts();
   const homeContent = await getHomeContent('pt', PUBLISHED_ONLY);
-  const lives = await getLatestVideos(9);
+  const lives = await getLatestVideos(4);
 
-  // Pass all upcoming pilgrimages to display different statuses (open, full, waitlist)
-  // getPilgrimagesAction already returns them sorted by start_date ascending
-  const upcomingPilgrimages = pilgrimages || [];
+  // The complete list remains on /peregrinacoes; the homepage only needs the
+  // first four, already sorted by start_date ascending.
+  const upcomingPilgrimages = (pilgrimages || []).slice(0, 4);
 
   return <HomePageClient meta={meta} pilgrimages={upcomingPilgrimages} featuredProducts={featuredProducts} homeContent={homeContent} lives={lives} locale="pt" />;
 }

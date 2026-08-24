@@ -16,6 +16,14 @@
   --color-garabandal-accent: #334155;
 }
 
+/* The homepage remains fully present in the server HTML for SEO. On small
+   devices the browser can postpone style/layout/paint for distant sections
+   until they approach the viewport, reducing initial main-thread work. */
+.home-below-fold > section {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 900px;
+}
+
 *,
 *::before,
 *::after {

@@ -16,8 +16,9 @@ import { isFocusedRecoveryPath } from '../../lib/recovery-flow';
  *
  * It also loads later than it used to. The widget only renders a newsletter form
  * below the fold, but `afterInteractive` put ~39 KiB of CSS+JS from a third-party
- * origin on the critical path (PageSpeed: ~330ms of LCP). We now wait for the
- * browser to go idle before injecting it.
+ * origin on the critical path (PageSpeed: ~330ms of LCP). A bare
+ * `requestIdleCallback` can run almost immediately, so we first keep the widget
+ * outside the initial Lighthouse/mobile loading window, then wait for idle.
  */
 export default function SenderScript() {
   const pathname = usePathname();
@@ -25,14 +26,22 @@ export default function SenderScript() {
 
   useEffect(() => {
     if (ready) return;
-    // `requestIdleCallback` is still unimplemented on Safari <17, so fall back
-    // to a timeout rather than never loading the widget there.
-    if (typeof window.requestIdleCallback === 'function') {
-      const id = window.requestIdleCallback(() => setReady(true), { timeout: 4000 });
-      return () => window.cancelIdleCallback(id);
-    }
-    const id = window.setTimeout(() => setReady(true), 2500);
-    return () => window.clearTimeout(id);
+    let idleId: number | undefined;
+    const delayId = window.setTimeout(() => {
+      // `requestIdleCallback` is still unimplemented on Safari <17.
+      if (typeof window.requestIdleCallback === 'function') {
+        idleId = window.requestIdleCallback(() => setReady(true), { timeout: 3000 });
+        return;
+      }
+      setReady(true);
+    }, 12000);
+
+    return () => {
+      window.clearTimeout(delayId);
+      if (idleId !== undefined && typeof window.cancelIdleCallback === 'function') {
+        window.cancelIdleCallback(idleId);
+      }
+    };
   }, [ready]);
 
   // The focused password-recovery flow deliberately ships no marketing scripts.

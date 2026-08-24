@@ -1,9 +1,4 @@
-'use client';
-
-import React from 'react';
-import { motion } from 'framer-motion';
 import { Clock, Mail, MessageCircle, Instagram, Youtube } from 'lucide-react';
-import { useLocale } from '../../contexts/LocaleContext';
 import { CONTACT_EMAIL, buildWhatsAppLink } from '../../lib/chat-config';
 
 // Social profiles. Instagram is confirmed; ⚠️ confirmar o canal do YouTube.
@@ -15,8 +10,7 @@ const YOUTUBE_URL = 'https://www.youtube.com/@apostoladodegarabandal';
  * phone/WhatsApp, email and social channels — info the reference site shows
  * prominently but our homepage lacked.
  */
-const ContactBar: React.FC = () => {
-    const { locale } = useLocale();
+const ContactBar = ({ locale }: { locale: 'pt' | 'en' }) => {
     const isEn = locale === 'en';
 
     const channels = [
@@ -40,27 +34,16 @@ const ContactBar: React.FC = () => {
 
             <div className="container mx-auto px-6 relative z-10">
                 <div className="text-center max-w-2xl mx-auto mb-14">
-                    <motion.span
-                        initial={{ opacity: 0, y: 16 }}
-                        whileInView={{ opacity: 1, y: 0 }}
-                        viewport={{ once: true }}
-                        className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-xs font-bold uppercase tracking-widest text-amber-300/80 mb-6"
-                    >
+                    <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-xs font-bold uppercase tracking-widest text-amber-300/80 mb-6">
                         {isEn ? 'Contact' : 'Contacto'}
-                    </motion.span>
-                    <motion.h2
-                        initial={{ opacity: 0, y: 20 }}
-                        whileInView={{ opacity: 1, y: 0 }}
-                        viewport={{ once: true }}
-                        transition={{ delay: 0.05 }}
-                        className="font-serif text-3xl md:text-4xl lg:text-5xl text-white leading-tight"
-                    >
+                    </span>
+                    <h2 className="font-serif text-3xl md:text-4xl lg:text-5xl text-white leading-tight">
                         {isEn ? 'Talk to us' : 'Fale connosco'}
-                    </motion.h2>
+                    </h2>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-2xl mx-auto">
-                    {channels.map((c, i) => {
+                    {channels.map((c) => {
                         const Inner = (
                             <>
                                 <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 mb-4 shrink-0">
@@ -75,12 +58,8 @@ const ContactBar: React.FC = () => {
                             'flex flex-col rounded-[1.75rem] border border-white/10 bg-white/[0.03] p-7 transition-colors duration-300';
 
                         return (
-                            <motion.div
+                            <div
                                 key={c.label}
-                                initial={{ opacity: 0, y: 20 }}
-                                whileInView={{ opacity: 1, y: 0 }}
-                                viewport={{ once: true }}
-                                transition={{ duration: 0.5, delay: i * 0.08 }}
                             >
                                 {c.href ? (
                                     <a
@@ -94,19 +73,13 @@ const ContactBar: React.FC = () => {
                                 ) : (
                                     <div className={base}>{Inner}</div>
                                 )}
-                            </motion.div>
+                            </div>
                         );
                     })}
                 </div>
 
                 {/* Social */}
-                <motion.div
-                    initial={{ opacity: 0, y: 16 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    viewport={{ once: true }}
-                    transition={{ delay: 0.2 }}
-                    className="flex flex-wrap items-center justify-center gap-5 mt-12"
-                >
+                <div className="flex flex-wrap items-center justify-center gap-5 mt-12">
                     <span className="w-full text-center text-sm uppercase tracking-widest text-slate-400 font-medium sm:w-auto sm:mr-1">{isEn ? 'Follow us' : 'Siga-nos'}</span>
                     <a
                         href={INSTAGRAM_URL}
@@ -135,7 +108,7 @@ const ContactBar: React.FC = () => {
                     >
                         <MessageCircle size={28} strokeWidth={2.25} />
                     </a>
-                </motion.div>
+                </div>
             </div>
         </section>
     );

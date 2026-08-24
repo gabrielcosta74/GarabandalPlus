@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next';
-import { Inter, Playfair_Display, Plus_Jakarta_Sans, Geist_Mono } from 'next/font/google';
+import { Inter, Playfair_Display } from 'next/font/google';
 import ClientLayout from '../components/layouts/ClientLayout';
 import AbortErrorSilencer from '../components/system/AbortErrorSilencer';
 import SenderScript from '../components/system/SenderScript';
@@ -8,11 +8,6 @@ import { APP_URL } from '../lib/config';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 const playfair = Playfair_Display({ subsets: ['latin'], variable: '--font-playfair' });
-
-// Usadas apenas no painel de administração (ver AdminLayout). O site público
-// mantém a Inter, por isso só expomos as variáveis — nada muda por omissão.
-const adminSans = Plus_Jakarta_Sans({ subsets: ['latin'], variable: '--font-admin-sans', display: 'swap' });
-const geistMono = Geist_Mono({ subsets: ['latin'], variable: '--font-geist-mono' });
 
 // Advertise both schemes so Samsung Internet can prefer our media-query styles
 // instead of auto-transforming colors, while globals.css keeps both schemes light.
@@ -123,10 +118,6 @@ export default function RootLayout({
     <html lang="pt-BR" suppressHydrationWarning>
       <head>
         <meta name="supported-color-schemes" content="light dark" />
-        {/* Third-party origins used below the fold. Connecting early saves the
-            DNS + TLS round trip when the request is finally made. */}
-        <link rel="preconnect" href="https://cdn.sender.net" crossOrigin="" />
-        <link rel="preconnect" href="https://pntzzuxzjnzksubbjfvj.supabase.co" />
         {/* Hide the SSR'd cookie banner before first paint for visitors who already
             consented (consent lives in localStorage, unreadable on the server).
             Keeping the banner in the SSR HTML lets it paint at FCP instead of after
@@ -138,7 +129,7 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className={`${inter.variable} ${playfair.variable} ${adminSans.variable} ${geistMono.variable} ${inter.className}`}>
+      <body className={`${inter.variable} ${playfair.variable} ${inter.className}`}>
         <AbortErrorSilencer />
         <SenderScript />
         <script

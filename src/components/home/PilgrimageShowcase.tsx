@@ -4,7 +4,7 @@ import React, { useRef } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { motion, useScroll, useTransform } from 'framer-motion';
-import { ArrowRight, MapPin, ChevronRight, Lock, Clock } from 'lucide-react';
+import { ArrowRight, MapPin, ChevronRight } from 'lucide-react';
 import { format } from 'date-fns';
 import { enUS, pt } from 'date-fns/locale';
 import { parseCivilDate } from '../../lib/utils';

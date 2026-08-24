@@ -36,7 +36,7 @@ const CONTENT_HEADING: Record<string, string> = {
 };
 
 export default function SiteFooter() {
-  const { t, locale } = useLocale();
+  const { t } = useLocale();
   const pathname = usePathname();
 
   // Server-rendered internal links to the content hubs. The primary nav builds
@@ -98,7 +98,7 @@ export default function SiteFooter() {
             <ul className="space-y-4 text-white/50 text-sm font-light">
               <li className="flex items-center">
                 <Mail size={16} className="mr-3 text-garabandal-gold" />
-                <span>geral@apostoladodegarabandal.com</span>
+                <span className="min-w-0 break-all">geral@apostoladodegarabandal.com</span>
               </li>
             </ul>
             <div className="flex gap-4 mt-6">

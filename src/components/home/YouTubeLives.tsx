@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 import { Play, Youtube, Bell } from 'lucide-react';
 import type { YouTubeVideo } from '../../lib/youtube';
 import { YOUTUBE_CHANNEL_URL } from '../../lib/youtube';
@@ -74,11 +75,12 @@ export default function YouTubeLives({
               className="group absolute inset-0 h-full w-full"
               aria-label={locale === 'pt' ? 'Reproduzir vídeo' : 'Play video'}
             >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
+              <Image
                 src={active.thumbnail}
                 alt=""
-                className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
+                fill
+                sizes="(max-width: 1024px) 100vw, 1024px"
+                className="object-cover transition-transform duration-700 group-hover:scale-105"
               />
               <span className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-black/10" />
               {/* Big play button */}
@@ -112,12 +114,12 @@ export default function YouTubeLives({
               className="group w-[80vw] max-w-[360px] shrink-0 snap-start overflow-hidden rounded-2xl border border-slate-200 bg-white text-left shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg sm:w-[340px]"
             >
               <div className="relative aspect-video w-full overflow-hidden bg-garabandal-dark">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
+                <Image
                   src={v.thumbnail}
                   alt=""
-                  loading="lazy"
-                  className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                  fill
+                  sizes="(max-width: 640px) 80vw, 340px"
+                  className="object-cover transition-transform duration-500 group-hover:scale-105"
                 />
                 <span className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 transition-opacity group-hover:opacity-100">
                   <span className="flex h-14 w-14 items-center justify-center rounded-full bg-garabandal-gold text-garabandal-dark shadow-lg">
