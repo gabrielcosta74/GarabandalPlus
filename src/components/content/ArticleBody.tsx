@@ -40,9 +40,9 @@ export function ArticleBody({
       <article
         className={`article-prose${isFeature ? ' article-prose--feature' : ''}`}
         style={{ 
-          maxWidth: isFeature ? 940 : 820,
+          maxWidth: isFeature ? 940 : 760,
           margin: '0 auto', 
-          padding: isFeature ? 'clamp(2rem, 5vw, 4.5rem)' : '4rem 1.5rem 8rem',
+          padding: isFeature ? 'clamp(2rem, 5vw, 4.5rem)' : 'clamp(3rem, 7vw, 5rem) 1.5rem 5rem',
           position: 'relative',
           zIndex: 1
         }}

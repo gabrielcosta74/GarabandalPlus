@@ -1,12 +1,11 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Heart, Link2, Check, Sparkles } from 'lucide-react';
+import { Link2, Check } from 'lucide-react';
 import type { ContentLocale } from '../../lib/content/queries';
 import { WhatsAppIcon, FacebookIcon, TelegramIcon, XIcon, InstagramIcon } from './ShareBar';
 
 type Copy = {
-  eyebrow: string;
   heading: string;
   sub: string;
   whatsapp: string;
@@ -21,9 +20,8 @@ type Copy = {
 
 const COPY: Record<ContentLocale, Copy> = {
   pt: {
-    eyebrow: 'Ajude a espalhar a mensagem',
-    heading: 'Uma partilha pode tocar um coração',
-    sub: 'Se este conteúdo o inspirou, partilhe-o com alguém. É assim que a mensagem de Garabandal continua a chegar a novos corações.',
+    heading: 'Partilhe este artigo',
+    sub: 'Se este conteúdo lhe foi útil, envie-o a alguém que também possa gostar de o ler.',
     whatsapp: 'WhatsApp',
     instagram: 'Instagram',
     facebook: 'Facebook',
@@ -34,9 +32,8 @@ const COPY: Record<ContentLocale, Copy> = {
     igHint: 'Ligação copiada — cole no seu story ou bio do Instagram',
   },
   en: {
-    eyebrow: 'Help spread the message',
-    heading: 'One share can touch a heart',
-    sub: 'If this content inspired you, share it with someone. This is how the message of Garabandal keeps reaching new hearts.',
+    heading: 'Share this article',
+    sub: 'If this article was helpful, send it to someone who may also appreciate reading it.',
     whatsapp: 'WhatsApp',
     instagram: 'Instagram',
     facebook: 'Facebook',
@@ -47,9 +44,8 @@ const COPY: Record<ContentLocale, Copy> = {
     igHint: 'Link copied — paste it in your Instagram story or bio',
   },
   es: {
-    eyebrow: 'Ayuda a difundir el mensaje',
-    heading: 'Compartir puede tocar un corazón',
-    sub: 'Si este contenido te inspiró, compártelo con alguien. Así el mensaje de Garabandal sigue llegando a nuevos corazones.',
+    heading: 'Comparte este artículo',
+    sub: 'Si este artículo te ha resultado útil, envíalo a alguien a quien también le pueda interesar.',
     whatsapp: 'WhatsApp',
     instagram: 'Instagram',
     facebook: 'Facebook',
@@ -60,9 +56,8 @@ const COPY: Record<ContentLocale, Copy> = {
     igHint: 'Enlace copiado — pégalo en tu historia o bio de Instagram',
   },
   fr: {
-    eyebrow: 'Aidez à diffuser le message',
-    heading: 'Un partage peut toucher un cœur',
-    sub: "Si ce contenu vous a inspiré, partagez-le avec quelqu'un. C'est ainsi que le message de Garabandal continue d'atteindre de nouveaux cœurs.",
+    heading: 'Partagez cet article',
+    sub: "Si cet article vous a été utile, envoyez-le à une personne qui pourrait aussi souhaiter le lire.",
     whatsapp: 'WhatsApp',
     instagram: 'Instagram',
     facebook: 'Facebook',
@@ -73,9 +68,8 @@ const COPY: Record<ContentLocale, Copy> = {
     igHint: 'Lien copié — collez-le dans votre story ou bio Instagram',
   },
   it: {
-    eyebrow: 'Aiuta a diffondere il messaggio',
-    heading: 'Una condivisione può toccare un cuore',
-    sub: 'Se questo contenuto ti ha ispirato, condividilo con qualcuno. È così che il messaggio di Garabandal continua a raggiungere nuovi cuori.',
+    heading: 'Condividi questo articolo',
+    sub: 'Se questo articolo ti è stato utile, invialo a qualcuno che potrebbe apprezzarne la lettura.',
     whatsapp: 'WhatsApp',
     instagram: 'Instagram',
     facebook: 'Facebook',
@@ -125,12 +119,7 @@ export function ShareCTA({ url, title, locale = 'pt' }: { url: string; title: st
   return (
     <section className="sharecta" aria-label={c.heading}>
       <div className="sharecta__inner">
-        <span className="sharecta__eyebrow">
-          <Sparkles size={15} aria-hidden /> {c.eyebrow}
-        </span>
-        <h2 className="sharecta__heading">
-          <Heart size={22} aria-hidden className="sharecta__heart" /> {c.heading}
-        </h2>
+        <h2 className="sharecta__heading">{c.heading}</h2>
         <p className="sharecta__sub">{c.sub}</p>
 
         <div className="sharecta__grid">
@@ -153,6 +142,7 @@ export function ShareCTA({ url, title, locale = 'pt' }: { url: string; title: st
             type="button"
             className={`sharecta__btn sharecta__btn--ig${igCopied ? ' is-done' : ''}`}
             onClick={() => copyLink('ig')}
+            style={{ ['--brand' as string]: '#e1306c' }}
           >
             {igCopied ? <Check size={22} /> : <InstagramIcon size={22} />}
             <span>{igCopied ? c.copied : c.instagram}</span>
@@ -175,42 +165,23 @@ export function ShareCTA({ url, title, locale = 'pt' }: { url: string; title: st
 
       <style>{`
         .sharecta {
-          background: linear-gradient(160deg, #fffaf0 0%, #fdf6e3 45%, #f7f3ff 100%);
-          border-top: 1px solid rgba(212,175,55,0.25);
-          padding: 3rem 1.25rem 3.5rem;
+          background: #fff;
+          border-top: 1px solid rgba(15,23,42,0.1);
+          padding: 3.5rem 1.25rem 4rem;
         }
         .sharecta__inner {
           max-width: 680px;
           margin: 0 auto;
           text-align: center;
         }
-        .sharecta__eyebrow {
-          display: inline-flex;
-          align-items: center;
-          gap: 0.4rem;
-          font-size: 0.78rem;
-          font-weight: 700;
-          letter-spacing: 0.08em;
-          text-transform: uppercase;
-          color: #b8860b;
-          background: rgba(212,175,55,0.14);
-          padding: 0.4rem 0.85rem;
-          border-radius: 999px;
-          margin-bottom: 1rem;
-        }
         .sharecta__heading {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 0.55rem;
           font-family: var(--font-serif), Georgia, serif;
-          font-size: clamp(1.4rem, 5vw, 1.85rem);
+          font-size: clamp(1.5rem, 5vw, 1.9rem);
           font-weight: 700;
           line-height: 1.2;
           margin: 0 0 0.75rem;
           color: var(--color-garabandal-dark, #0f172a);
         }
-        .sharecta__heart { color: #e11d48; flex: 0 0 auto; }
         .sharecta__sub {
           font-size: 1rem;
           line-height: 1.6;
@@ -233,29 +204,28 @@ export function ShareCTA({ url, title, locale = 'pt' }: { url: string; title: st
           gap: 0.6rem;
           padding: 0.95rem 1rem;
           min-height: 54px;
-          border-radius: 16px;
-          border: none;
-          background: var(--brand, #475569);
-          color: #fff;
+          border-radius: 12px;
+          border: 1px solid rgba(15,23,42,0.12);
+          background: #fff;
+          color: #1e293b;
           font-size: 0.95rem;
           font-weight: 700;
           text-decoration: none;
           cursor: pointer;
-          box-shadow: 0 6px 16px rgba(15,23,42,0.12);
-          transition: transform 0.18s ease, box-shadow 0.18s ease, filter 0.18s ease;
+          box-shadow: 0 2px 8px rgba(15,23,42,0.05);
+          transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
           -webkit-tap-highlight-color: transparent;
         }
-        .sharecta__btn:hover { transform: translateY(-2px); filter: brightness(1.05); box-shadow: 0 10px 24px rgba(15,23,42,0.18); }
+        .sharecta__btn svg { color: var(--brand, #475569); }
+        .sharecta__btn:hover { transform: translateY(-2px); background: #f8fafc; box-shadow: 0 8px 18px rgba(15,23,42,0.1); }
         .sharecta__btn:active { transform: translateY(0); }
         .sharecta__btn:focus-visible { outline: 3px solid rgba(212,175,55,0.5); outline-offset: 2px; }
         .sharecta__btn--ig {
-          background: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%);
+          background: #fff;
         }
         .sharecta__btn--copy {
-          background: #fff;
           color: var(--color-garabandal-dark, #0f172a);
-          border: 1px solid rgba(15,23,42,0.12);
-          box-shadow: none;
+          --brand: #334155;
         }
         .sharecta__btn--copy:hover { background: #f8fafc; }
         .sharecta__btn.is-done {
@@ -263,6 +233,7 @@ export function ShareCTA({ url, title, locale = 'pt' }: { url: string; title: st
           color: #fff !important;
           border-color: #16a34a;
         }
+        .sharecta__btn.is-done svg { color: #fff; }
         .sharecta__toast {
           margin: 1rem 0 0;
           font-size: 0.85rem;

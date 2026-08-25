@@ -12,8 +12,8 @@
   --prose-mark: rgba(212, 175, 55, 0.2);
 
   color: var(--prose-text);
-  font-size: 1.125rem;
-  line-height: 1.8;
+  font-size: 1.1rem;
+  line-height: 1.85;
   font-family: var(--font-sans), 'Manrope', system-ui, sans-serif;
   word-break: break-word;
   font-weight: 400;
@@ -45,16 +45,16 @@
   margin: 0 0 1.5rem;
 }
 
-/* Drop cap for the very first paragraph of the article */
-.article-prose > p:first-of-type::first-letter {
-  font-family: var(--font-serif), 'Playfair Display', Georgia, serif;
-  font-size: 4.5rem;
-  line-height: 0.8;
-  float: left;
-  padding-right: 0.75rem;
-  padding-top: 0.5rem;
-  color: var(--color-garabandal-gold, #d4af37);
-  font-weight: 700;
+/* A calm editorial lead replaces the decorative drop cap. */
+.article-prose > p:first-of-type {
+  margin-bottom: 2.5rem;
+  padding-left: 1.25rem;
+  border-left: 3px solid var(--color-garabandal-gold, #d4af37);
+  color: #24324a;
+  font-size: clamp(1.18rem, 2vw, 1.32rem);
+  font-weight: 500;
+  line-height: 1.7;
+  letter-spacing: -0.012em;
 }
 
 .article-prose a {
@@ -485,10 +485,6 @@
   line-height: 1.6;
 }
 
-.article-prose--feature > p:first-of-type::first-letter {
-  font-size: 4.9rem;
-}
-
 .article-prose--feature h2 {
   margin-top: 4.5rem;
   padding-top: 1.25rem;
@@ -644,11 +640,6 @@
     margin: 3rem auto;
   }
   
-  .article-prose > p:first-of-type::first-letter {
-    font-size: 3.5rem;
-    padding-top: 0.2rem;
-  }
-
   .article-prose .cms-columns,
   .article-prose .cms-gallery {
     grid-template-columns: 1fr;
