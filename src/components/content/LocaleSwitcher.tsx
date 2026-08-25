@@ -105,15 +105,15 @@ export function LocaleSwitcher({
 
         /* Dark hero (photo / navy background) */
         .locsw--dark {
-          background: rgba(255, 255, 255, 0.12);
-          border: 1px solid rgba(255, 255, 255, 0.18);
+          background: rgba(15, 23, 42, 0.72);
+          border: 1px solid rgba(255, 255, 255, 0.3);
           color: #fff;
           backdrop-filter: blur(12px);
-          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+          box-shadow: 0 6px 16px rgba(0, 0, 0, 0.18);
         }
-        .locsw--dark .locsw__item { color: rgba(255, 255, 255, 0.85); }
-        .locsw--dark .locsw__item:hover { background: rgba(255, 255, 255, 0.2); color: #fff; }
-        .locsw--dark .locsw__item--current { color: #fff; }
+        .locsw--dark .locsw__item { color: rgba(255, 255, 255, 0.96); }
+        .locsw--dark .locsw__item:hover { background: rgba(255, 255, 255, 0.18); color: #fff; }
+        .locsw--dark .locsw__item--current { color: #172033; }
 
         /* Light hero (pale gradient background) */
         .locsw--light {
@@ -124,6 +124,29 @@ export function LocaleSwitcher({
         .locsw--light .locsw__item { color: #475569; }
         .locsw--light .locsw__item:hover { background: rgba(15, 23, 42, 0.08); color: #0f172a; }
         .locsw--light .locsw__item--current { color: #fff; }
+
+        /* ArticleHero owns the actual background. The switcher can be nested
+           inside a meta wrapper, so this selector keeps its contrast correct
+           even when the tone prop cannot be passed directly to the child. */
+        [data-article-hero-tone="dark"] .locsw {
+          background: rgba(15, 23, 42, 0.72);
+          border-color: rgba(255, 255, 255, 0.3);
+          color: #fff;
+          box-shadow: 0 6px 16px rgba(0, 0, 0, 0.18);
+        }
+        [data-article-hero-tone="dark"] .locsw .locsw__item { color: rgba(255, 255, 255, 0.96); }
+        [data-article-hero-tone="dark"] .locsw .locsw__item:hover { background: rgba(255, 255, 255, 0.18); color: #fff; }
+        [data-article-hero-tone="dark"] .locsw .locsw__item--current { color: #172033; }
+
+        [data-article-hero-tone="light"] .locsw {
+          background: rgba(255, 255, 255, 0.92);
+          border-color: rgba(15, 23, 42, 0.16);
+          color: #172033;
+          box-shadow: 0 6px 16px rgba(15, 23, 42, 0.1);
+        }
+        [data-article-hero-tone="light"] .locsw .locsw__item { color: #334155; }
+        [data-article-hero-tone="light"] .locsw .locsw__item:hover { background: rgba(15, 23, 42, 0.08); color: #0f172a; }
+        [data-article-hero-tone="light"] .locsw .locsw__item--current { color: #172033; }
 
         /* Phones: switch to two-letter codes and tighten spacing. */
         @media (max-width: 520px) {

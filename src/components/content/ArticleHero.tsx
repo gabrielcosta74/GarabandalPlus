@@ -29,6 +29,7 @@ export function ArticleHero({
 
   return (
     <header
+      data-article-hero-tone={tone}
       style={{
         position: 'relative',
         width: '100%',
