@@ -11,7 +11,7 @@ import { PilgrimageCard } from '../../components/pilgrimage/PilgrimageCard';
 import { PastPilgrimagesGallery } from '../../components/pilgrimage/PastPilgrimagesGallery';
 import { PilgrimageTestimonials } from '../../components/pilgrimage/PilgrimageTestimonials';
 import { getPilgrimagesAction } from './actions';
-import { getCivilDateTimestamp, getScarcitySoldLabel, getScarcitySoldPercent, isNovemberCampaignPilgrimage, isPubliclyListedPilgrimage, todayCivilTimestamp } from '../../lib/utils';
+import { getCivilDateTimestamp, isNovemberCampaignPilgrimage, isPubliclyListedPilgrimage, todayCivilTimestamp } from '../../lib/utils';
 
 type Pilgrimage = {
     id: string;
@@ -133,7 +133,6 @@ export default function PilgrimagesPage() {
     const basePilgrimagePath = locale === 'en' ? '/en/pilgrimages' : '/peregrinacoes';
     const donationsPath = locale === 'en' ? '/en/donations' : '/donations';
     const italyHref = italyPilgrimage ? `${basePilgrimagePath}/${italyPilgrimage.slug}` : basePilgrimagePath;
-    const italyScarcityPct = getScarcitySoldPercent(italyPilgrimage);
 
     return (
         <VIPLayout allowPublic={true}>
@@ -158,17 +157,17 @@ export default function PilgrimagesPage() {
                                 <div className="p-6 md:p-10">
                                     <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-red-600 px-4 py-2 text-xs font-black uppercase tracking-widest text-white shadow-lg shadow-red-900/20 ring-2 ring-red-100">
                                         <Flame className="h-4 w-4" strokeWidth={2.5} />
-                                        {getScarcitySoldLabel(italyScarcityPct, locale === 'en' ? 'en' : 'pt')}
+                                        {locale === 'en' ? 'Pilgrimage sold out' : 'Peregrinação esgotada'}
                                     </div>
                                     <h2 className="font-serif text-3xl font-bold leading-tight text-slate-950 md:text-4xl">
                                         {locale === 'en'
-                                            ? `Italy & Medjugorje — ${italyScarcityPct}% of the spots are already filled.`
-                                            : `Itália e Medjugorje — ${italyScarcityPct}% das vagas já estão preenchidas.`}
+                                            ? 'Italy & Medjugorje — this pilgrimage is sold out.'
+                                            : 'Itália e Medjugorje — esta peregrinação está esgotada.'}
                                     </h2>
                                     <p className="mt-4 max-w-2xl text-base leading-relaxed text-slate-600 md:text-lg">
                                         {locale === 'en'
-                                            ? 'See the full programme, flights, price and spiritual rhythm first. Each pilgrimage also supports the House of the Apostolate and the mission of spreading Garabandal.'
-                                            : 'Veja primeiro o programa completo, voos, preço e ritmo espiritual. Cada peregrinação ajuda também a erguer a Casa do Apostolado e a missão de dar a conhecer Garabandal.'}
+                                            ? 'This group is now complete. View the full programme, flights, price and spiritual rhythm; information about a new pilgrimage will be shared soon.'
+                                            : 'Este grupo está completo. Veja o programa completo, voos, preço e ritmo espiritual; em breve partilharemos informações sobre uma nova peregrinação.'}
                                     </p>
                                     <div className="mt-6 flex flex-col gap-3 sm:flex-row">
                                         <Link
@@ -190,17 +189,17 @@ export default function PilgrimagesPage() {
                                 <div className="border-t border-red-100 bg-red-50/70 p-6 md:border-l md:border-t-0 md:p-8">
                                     <div className="space-y-5">
                                         <div>
-                                            <p className="text-xs font-black uppercase tracking-widest text-red-700">{locale === 'en' ? 'Why now' : 'Porque agora'}</p>
+                                            <p className="text-xs font-black uppercase tracking-widest text-red-700">{locale === 'en' ? 'This departure' : 'Esta partida'}</p>
                                             <p className="mt-2 text-sm leading-relaxed text-slate-700 md:text-base">
                                                 {locale === 'en'
-                                                    ? `${italyScarcityPct}% of the spots for this departure are already filled. Only a few remain, so this is the moment to discern calmly and secure your place.`
-                                                    : `${italyScarcityPct}% das vagas desta partida já estão preenchidas. Restam poucas, por isso este é o momento para discernir com calma e garantir o seu lugar.`}
+                                                    ? 'All places in this group have been filled. No additional places are confirmed at this time.'
+                                                    : 'Todas as vagas deste grupo foram preenchidas. Neste momento não estão confirmadas vagas adicionais.'}
                                             </p>
                                         </div>
                                         <div>
                                             <p className="text-xs font-black uppercase tracking-widest text-red-700">{locale === 'en' ? 'Availability' : 'Disponibilidade'}</p>
-                                            <p className="mt-2 text-lg font-black text-slate-950">{locale === 'en' ? 'Limited spots' : 'Vagas limitadas'}</p>
-                                            <p className="mt-1 text-sm font-bold text-red-600">{getScarcitySoldLabel(italyScarcityPct, locale === 'en' ? 'en' : 'pt')}</p>
+                                            <p className="mt-2 text-lg font-black text-slate-950">{locale === 'en' ? 'Sold out' : 'Esgotada'}</p>
+                                            <p className="mt-1 text-sm font-bold text-red-600">{locale === 'en' ? 'New pilgrimage information coming soon' : 'Informações sobre nova peregrinação em breve'}</p>
                                         </div>
                                     </div>
                                 </div>

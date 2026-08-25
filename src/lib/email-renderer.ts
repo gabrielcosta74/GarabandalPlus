@@ -1249,6 +1249,35 @@ const italyMoreSpotsContent = (locale: EmailLocale, payload: MarketingTemplatePa
     ${italyExtraSpotsBar(locale, payload)}`;
 };
 
+// Aviso factual de encerramento. Não reutiliza a barra de escassez nem qualquer
+// percentagem manual: esta comunicação só afirma que o grupo está completo e
+// não promete vagas adicionais.
+const italySoldOutContent = (locale: EmailLocale) => {
+  const isEn = locale === 'en';
+  const paragraphs = isEn
+    ? [
+        '<strong>{{greeting}}</strong>,',
+        'We are writing with an important update: <strong>Italy and Medjugorje 2027 are now fully booked.</strong>',
+        'We are grateful for the trust of everyone who hoped to make this pilgrimage. At this time, there are no additional confirmed places for this group.',
+        'The Apostolate will share information about another pilgrimage soon. Keep an eye on our website and communications so you can be among the first to know.',
+      ]
+    : [
+        '<strong>{{greeting}}</strong>,',
+        'Escrevemos-lhe com uma informação importante: a peregrinação a <strong>Itália e Medjugorje 2027 está esgotada.</strong>',
+        'Agradecemos a confiança de todos os que desejaram fazer esta peregrinação. Neste momento, não existem vagas adicionais confirmadas para este grupo.',
+        'O Apostolado partilhará em breve informação sobre uma nova peregrinação. Acompanhe o nosso site e as nossas comunicações para ser dos primeiros a saber.',
+      ];
+
+  return `${paragraphs.map((paragraph) => Text(paragraph)).join('')}
+    ${emailNotePanel(
+      isEn ? 'What happens next' : 'O que acontece agora',
+      isEn
+        ? 'We will announce the next pilgrimage as soon as its programme and registration details are ready.'
+        : 'Anunciaremos a próxima peregrinação assim que o programa e as condições de inscrição estiverem prontos.',
+    )}
+    ${Text(isEn ? 'Thank you for walking with the Apostolate. You remain in our prayers.' : 'Obrigado por caminhar com o Apostolado. Continua nas nossas orações.')}`;
+};
+
 const italyLaunchContent = (locale: EmailLocale) => {
   const isEn = locale === 'en';
   const intro = isEn
@@ -2642,6 +2671,7 @@ export type MarketingTemplateKey =
   | 'italy_medjugorje_value'
   | 'italy_medjugorje_last_call'
   | 'italy_medjugorje_more_spots'
+  | 'italy_medjugorje_sold_out'
   | 'abandoned_registration_1'
   | 'abandoned_registration_faq'
   | 'abandoned_registration_final'
@@ -3018,6 +3048,25 @@ export const MARKETING_EMAIL_TEMPLATES: Record<MarketingTemplateKey, MarketingTe
       '<strong>{{greeting}}</strong>,',
       'Você entrou na lista de espera da <strong>Itália e Medjugorje, abril de 2027</strong> porque o grupo já estava lotado.',
       'Conseguimos garantir mais alguns quartos. As vagas ainda não foram anunciadas publicamente — a lista de espera vem primeiro.',
+    ],
+  },
+  italy_medjugorje_sold_out: {
+    key: 'italy_medjugorje_sold_out',
+    name: 'Itália + Medjugorje · Esgotada',
+    category: 'Peregrinações',
+    goal: 'Comunicar de forma transparente que a peregrinação esgotou e preparar interesse pela próxima saída.',
+    defaultSubject: 'Informação importante: Itália e Medjugorje 2027 estão esgotadas',
+    previewText: 'O grupo está completo. Em breve partilharemos informação sobre uma nova peregrinação.',
+    ctaLabel: 'Ver peregrinações e novidades',
+    ctaUrl: (payload) => marketingUrl('/peregrinacoes', payload),
+    title: 'Itália e Medjugorje estão esgotadas',
+    subtitle: 'Abril de 2027 · grupo completo',
+    requiredVariables: ['name'],
+    useHeroImage: true,
+    contentHtml: (locale) => italySoldOutContent(locale),
+    paragraphs: [
+      '<strong>{{greeting}}</strong>,',
+      'A peregrinação a <strong>Itália e Medjugorje 2027 está esgotada.</strong> Em breve partilharemos informação sobre uma nova peregrinação.',
     ],
   },
   italy_medjugorje_last_call: {
@@ -3725,6 +3774,18 @@ const MARKETING_EMAIL_TEMPLATE_EN: Record<MarketingTemplateKey, MarketingTemplat
       '<strong>{{greeting}}</strong>,',
       'You joined the waiting list for <strong>Italy and Medjugorje, April 2027</strong> because the group was already full.',
       'We managed to secure a few more rooms. These places have not been announced publicly yet — the waiting list comes first.',
+    ],
+  },
+  italy_medjugorje_sold_out: {
+    goal: 'Clearly communicate that the pilgrimage is fully booked and prepare interest for the next departure.',
+    defaultSubject: 'Important update: Italy and Medjugorje 2027 are fully booked',
+    previewText: 'The group is complete. We will share information about another pilgrimage soon.',
+    ctaLabel: 'View pilgrimages and news',
+    title: 'Italy and Medjugorje are fully booked',
+    subtitle: 'April 2027 · group complete',
+    paragraphs: [
+      '<strong>{{greeting}}</strong>,',
+      '<strong>Italy and Medjugorje 2027 are fully booked.</strong> We will share information about another pilgrimage soon.',
     ],
   },
   italy_medjugorje_last_call: {
