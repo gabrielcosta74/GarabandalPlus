@@ -103,6 +103,20 @@ export default function DevotionalGrid({
           );
         })}
       </div>
+
+      <section
+        className="mt-6 overflow-hidden rounded-[2rem] border border-amber-200/70 bg-gradient-to-br from-amber-50 via-white to-slate-50 px-6 py-12 sm:mt-8 sm:px-10 sm:py-16 lg:px-16"
+        aria-labelledby="walk-with-us-heading"
+      >
+        <div className="max-w-3xl">
+          <p className="mb-4 text-xs font-black uppercase tracking-[0.2em] text-amber-700">
+            {locale === 'pt' ? 'Caminhe connosco' : 'Walk with us'}
+          </p>
+          <h2 id="walk-with-us-heading" className="font-serif text-4xl font-bold leading-tight tracking-tight text-slate-950 sm:text-5xl">
+            {locale === 'pt' ? 'Um lugar para a oração e para pertencer.' : 'A place for prayer and belonging.'}
+          </h2>
+        </div>
+      </section>
     </section>
   );
 }
