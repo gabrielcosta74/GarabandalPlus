@@ -32,11 +32,13 @@ export default function ClientLayout({
     const isAdmin = pathname?.startsWith('/admin');
     const isEmbed = pathname?.startsWith('/embed');
     const isFocusedRecovery = isFocusedRecoveryPath(pathname);
-    const hideHeader = isAdmin || isEmbed || isFocusedRecovery;
-    const hideFooter = isAdmin || isEmbed || isFocusedRecovery;
+    const isEarlyAccessLanding = pathname === '/acesso-antecipado' || pathname?.startsWith('/acesso-antecipado/');
+    const suppressSenderPopup = isFocusedRecovery || isEarlyAccessLanding;
+    const hideHeader = isAdmin || isEmbed || isFocusedRecovery || isEarlyAccessLanding;
+    const hideFooter = isAdmin || isEmbed || isFocusedRecovery || isEarlyAccessLanding;
 
     useEffect(() => {
-        if (!isFocusedRecovery) return;
+        if (!suppressSenderPopup) return;
 
         const hiddenElements = new Set<HTMLElement>();
         const hideSenderPopup = () => {
@@ -59,7 +61,7 @@ export default function ClientLayout({
                 element.removeAttribute('aria-hidden');
             });
         };
-    }, [isFocusedRecovery]);
+    }, [suppressSenderPopup]);
 
     if (isFocusedRecovery) {
         return (
@@ -84,7 +86,7 @@ export default function ClientLayout({
                         {children}
                         {!hideFooter && <SiteFooter />}
                         {!isAdmin && !isEmbed && !isFocusedRecovery && <CookieConsentBanner />}
-                        {!isAdmin && !isEmbed && !isFocusedRecovery && <WhatsAppFloatingButton />}
+                        {!isAdmin && !isEmbed && !isFocusedRecovery && !isEarlyAccessLanding && <WhatsAppFloatingButton />}
                     </CurrencyProvider>
                 </PilgrimagePaymentAlertsProvider>
             </AuthProvider>
