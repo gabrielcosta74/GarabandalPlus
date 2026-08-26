@@ -81,7 +81,39 @@ const nextConfig = {
       {
         protocol: 'https',
         hostname: '**.clvaw-cdnwnd.com',
-      }
+      },
+      {
+        protocol: 'https',
+        hostname: 'portugaltravelguide.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'www.royalcaribbean.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'www.franceguide.info',
+      },
+      {
+        protocol: 'https',
+        hostname: 'cdnarautos.s3.amazonaws.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'burgundy-tours.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'upload.wikimedia.org',
+      },
+      {
+        protocol: 'https',
+        hostname: 'www.civitatis.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'www.impulsiveaddiction.com',
+      },
     ],
   },
 };
