@@ -72,8 +72,8 @@ export async function POST(request: Request) {
       locale: body?.locale === 'en' ? 'en' : 'pt',
       consent_state: 'explicit',
       consented_at: now,
-      early_access_opens_on: '2026-09-13',
-      public_registration_opens_on: '2026-09-15',
+      early_access_opens_on: '2026-10-13',
+      public_registration_opens_on: '2026-10-15',
       whatsapp_group_offered: true,
     };
 

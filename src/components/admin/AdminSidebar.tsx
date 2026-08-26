@@ -122,6 +122,7 @@ export default function AdminSidebar({ onLogout, className, collapsed = false }:
             items: [
                 { label: 'Leads & Inscrições', icon: Target, href: '/admin/leads' },
                 { label: 'Interessados (Novembro)', icon: Star, href: '/admin/leads/interessados' },
+                { label: 'Acesso Antecipado (Out 2027)', icon: Sparkles, href: '/admin/leads/acesso-antecipado' },
                 { label: 'Doações', icon: Heart, href: '/admin/doacoes' },
                 { label: 'Convites de Membros', icon: UserPlus, href: '/admin/convites' },
                 { label: 'Leilão', icon: Gavel, href: '/admin/leilao' },

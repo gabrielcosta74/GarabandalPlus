@@ -2,6 +2,7 @@
 
 import { motion } from 'framer-motion';
 import DestinationCard from './DestinationCard';
+import { getEarlyAccessCopy, type EarlyAccessLocale } from './early-access-copy';
 
 const DESTINATIONS = [
   {
@@ -64,7 +65,13 @@ const DESTINATIONS = [
   },
 ] as const;
 
-export default function EarlyAccessDestinations() {
+export default function EarlyAccessDestinations({
+  locale = 'pt',
+}: {
+  locale?: EarlyAccessLocale;
+}) {
+  const copy = getEarlyAccessCopy(locale);
+  const d = copy.destinations;
   return (
     <section className="relative">
       {/* ── Cinematic journey intro ── */}
@@ -98,9 +105,9 @@ export default function EarlyAccessDestinations() {
           {/* Big stats — each appears with stagger */}
           <div className="mt-10 flex flex-col items-center gap-8 sm:flex-row sm:justify-center sm:gap-12">
             {[
-              { value: '14', label: 'dias' },
-              { value: '3', label: 'países' },
-              { value: '13', label: 'santuários' },
+              { value: '14', label: d.statDays },
+              { value: '3', label: d.statCountries },
+              { value: '13', label: d.statShrines },
             ].map((stat, i) => (
               <motion.div
                 key={stat.label}
@@ -141,7 +148,7 @@ export default function EarlyAccessDestinations() {
           <DestinationCard
             key={dest.name}
             name={dest.name}
-            country={dest.country}
+            country={d.countries[dest.country] ?? dest.country}
             imageUrl={dest.imageUrl}
             highlight={'highlight' in dest && dest.highlight}
             priority={i < 2}

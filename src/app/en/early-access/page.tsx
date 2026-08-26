@@ -1,14 +1,14 @@
 import type { Metadata } from 'next';
-import EarlyAccessLanding from '../../components/pilgrimage/EarlyAccessLanding';
-import { getEarlyAccessCopy } from '../../components/pilgrimage/early-access-copy';
+import EarlyAccessLanding from '../../../components/pilgrimage/EarlyAccessLanding';
+import { getEarlyAccessCopy } from '../../../components/pilgrimage/early-access-copy';
 
-const copy = getEarlyAccessCopy('pt');
+const copy = getEarlyAccessCopy('en');
 
 export const metadata: Metadata = {
   title: copy.meta.title,
   description: copy.meta.description,
   alternates: {
-    canonical: '/acesso-antecipado',
+    canonical: '/en/early-access',
     languages: {
       'pt-PT': '/acesso-antecipado',
       'pt-BR': '/acesso-antecipado',
@@ -18,5 +18,5 @@ export const metadata: Metadata = {
 };
 
 export default function EarlyAccessPage() {
-  return <EarlyAccessLanding locale="pt" />;
+  return <EarlyAccessLanding locale="en" />;
 }

@@ -15,7 +15,8 @@ import {
     Users,
     Inbox,
     Copy,
-    Check
+    Check,
+    Star
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { pt } from 'date-fns/locale';
@@ -30,10 +31,50 @@ type Lead = {
     name?: string;
     status: string;
     last_notified_at?: string;
+    data?: {
+        source?: string;
+        campaign_slug?: string;
+        campaign_title?: string;
+        locale?: string;
+    } | null;
     pilgrimages?: {
         title: string;
         deposit_value: number;
     } | null;
+}
+
+/**
+ * Nem todos os leads sem `pilgrimage_id` são lista de espera genérica: os do
+ * acesso antecipado ainda não têm peregrinação criada na base, mas trazem a
+ * campanha no `data`. Sem isto apareciam todos como "Lista de Espera Geral".
+ */
+const EARLY_ACCESS_SOURCE = 'early_access_page';
+
+function LeadInterestBadge({ lead }: { lead: Lead }) {
+    if (lead.data?.source === EARLY_ACCESS_SOURCE) {
+        return (
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                <Star className="w-3 h-3" />
+                {lead.data.campaign_title || 'Acesso antecipado'}
+            </span>
+        );
+    }
+
+    if (lead.pilgrimages) {
+        return (
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-100 text-slate-600 border border-slate-200">
+                <div className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+                {lead.pilgrimages.title}
+            </span>
+        );
+    }
+
+    return (
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-purple-50 text-purple-700 border border-purple-100">
+            <Users className="w-3 h-3" />
+            Lista de Espera Geral
+        </span>
+    );
 }
 
 function CopyButton({ text }: { text: string }) {
@@ -274,17 +315,7 @@ export default function AdminLeadsPage() {
                                         )}
                                     </td>
                                     <td className="px-6 py-4">
-                                        {lead.pilgrimages ? (
-                                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-100 text-slate-600 border border-slate-200">
-                                                <div className="w-1.5 h-1.5 rounded-full bg-slate-400" />
-                                                {lead.pilgrimages.title}
-                                            </span>
-                                        ) : (
-                                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-purple-50 text-purple-700 border border-purple-100">
-                                                <Users className="w-3 h-3" />
-                                                Lista de Espera Geral
-                                            </span>
-                                        )}
+                                        <LeadInterestBadge lead={lead} />
                                     </td>
                                     <td className="px-6 py-4">
                                         <StatusBadge status={lead.status} notifiedAt={lead.last_notified_at} />

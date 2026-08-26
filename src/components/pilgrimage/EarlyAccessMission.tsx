@@ -3,6 +3,7 @@
 import { motion } from 'framer-motion';
 import { HeartHandshake } from 'lucide-react';
 import ScrollRevealText from './ScrollRevealText';
+import { getEarlyAccessCopy, type EarlyAccessLocale } from './early-access-copy';
 
 const FADE_UP = {
   hidden: { opacity: 0, y: 28 },
@@ -13,7 +14,12 @@ const FADE_UP = {
   }),
 };
 
-export default function EarlyAccessMission() {
+export default function EarlyAccessMission({
+  locale = 'pt',
+}: {
+  locale?: EarlyAccessLocale;
+}) {
+  const m = getEarlyAccessCopy(locale).mission;
   return (
     <section className="relative overflow-hidden px-5 py-28 text-center sm:py-40">
       {/* Warm glow */}
@@ -37,12 +43,12 @@ export default function EarlyAccessMission() {
           viewport={{ once: true, margin: '-60px' }}
         >
           <HeartHandshake className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-          A nossa missão
+          {m.eyebrow}
         </motion.p>
 
         {/* Handwritten headline, revealed on scroll */}
         <ScrollRevealText
-          text="Ajude a obra da Casa do Apostolado"
+          text={m.headline}
           className="mx-auto mt-8 max-w-[22rem] [font-family:var(--font-early-script)] text-[clamp(2.6rem,11vw,4.6rem)] font-normal leading-[1.08] text-[#f4f1e9] sm:max-w-none"
         />
 
@@ -64,13 +70,15 @@ export default function EarlyAccessMission() {
           whileInView="visible"
           viewport={{ once: true, margin: '-40px' }}
         >
-          Somos uma{' '}
-          <span className="font-medium text-white/75">
-            Associação sem fins lucrativos
-          </span>
-          . As doações feitas nesta peregrinação revertem para as obras da{' '}
-          <span className="font-medium text-white/75">Casa do Apostolado</span> —
-          um lar de oração e acolhimento ao serviço de Nossa Senhora.
+          {m.body.map((seg, i) =>
+            seg.strong ? (
+              <span key={i} className="font-medium text-white/75">
+                {seg.text}
+              </span>
+            ) : (
+              <span key={i}>{seg.text}</span>
+            ),
+          )}
         </motion.p>
       </div>
     </section>

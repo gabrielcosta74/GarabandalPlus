@@ -3,6 +3,7 @@
 import { motion } from 'framer-motion';
 import { BadgePercent, Flame } from 'lucide-react';
 import ScrollRevealText from './ScrollRevealText';
+import { getEarlyAccessCopy, type EarlyAccessLocale } from './early-access-copy';
 
 const FADE_UP = {
   hidden: { opacity: 0, y: 28 },
@@ -13,7 +14,12 @@ const FADE_UP = {
   }),
 };
 
-export default function EarlyAccessPricing() {
+export default function EarlyAccessPricing({
+  locale = 'pt',
+}: {
+  locale?: EarlyAccessLocale;
+}) {
+  const p = getEarlyAccessCopy(locale).pricing;
   return (
     <section className="relative overflow-hidden px-5 py-28 text-center sm:py-40">
       {/* Subtle gold glow behind pricing */}
@@ -36,12 +42,12 @@ export default function EarlyAccessPricing() {
           whileInView="visible"
           viewport={{ once: true, margin: '-60px' }}
         >
-          Oportunidade única
+          {p.opportunity}
         </motion.p>
 
         {/* Imposing handwritten phrase — revealed word by word on scroll */}
         <ScrollRevealText
-          text="Um valor abaixo do mercado"
+          text={p.belowMarket}
           className="mx-auto mt-8 max-w-[20rem] [font-family:var(--font-early-script)] text-[clamp(3rem,13vw,5.5rem)] font-normal leading-[1.05] text-[#f4f1e9] sm:max-w-none"
         />
 
@@ -56,11 +62,11 @@ export default function EarlyAccessPricing() {
         >
           <span className="inline-flex items-center gap-2 rounded-full border border-[#d4bc7d]/25 bg-[#d4bc7d]/[0.07] px-4 py-2 text-[12px] font-medium tracking-wide text-[#e8cf8a]">
             <BadgePercent className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-            Preço exclusivo
+            {p.badgeExclusive}
           </span>
           <span className="inline-flex items-center gap-2 rounded-full border border-[#d4bc7d]/25 bg-[#d4bc7d]/[0.07] px-4 py-2 text-[12px] font-medium tracking-wide text-[#e8cf8a]">
             <BadgePercent className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-            Abaixo do mercado
+            {p.badgeBelow}
           </span>
         </motion.div>
 
@@ -85,13 +91,13 @@ export default function EarlyAccessPricing() {
             viewport={{ once: true, margin: '-40px' }}
           >
             <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-white/35">
-              Peregrinação terrestre
+              {p.terrestreLabel}
             </p>
             <p className="mt-4 [font-family:var(--font-early-serif)] text-[3.4rem] font-medium leading-none text-[#f4f1e9] sm:text-[3.8rem]">
-              1.850<span className="text-[1.6rem] text-white/40">€</span>
+              {p.terrestreValue}<span className="text-[1.6rem] text-white/40">€</span>
             </p>
             <p className="mt-3 text-[13px] leading-5 text-white/40">
-              Quarto duplo · por pessoa
+              {p.terrestreSub}
             </p>
           </motion.div>
 
@@ -105,13 +111,13 @@ export default function EarlyAccessPricing() {
             viewport={{ once: true, margin: '-40px' }}
           >
             <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-[#d4bc7d]/60">
-              Taxa de inscrição
+              {p.taxaLabel}
             </p>
             <p className="mt-4 [font-family:var(--font-early-serif)] text-[3.4rem] font-medium leading-none text-[#f0cc70] sm:text-[3.8rem]">
-              500<span className="text-[1.6rem] text-[#d4bc7d]/50">€</span>
+              {p.taxaValue}<span className="text-[1.6rem] text-[#d4bc7d]/50">€</span>
             </p>
             <p className="mt-3 text-[13px] leading-5 text-[#d4bc7d]/50">
-              Garante a sua vaga
+              {p.taxaSub}
             </p>
           </motion.div>
         </div>
@@ -128,12 +134,12 @@ export default function EarlyAccessPricing() {
           {/* Big scarcity banner */}
           <span className="inline-flex items-center gap-3 rounded-full border border-[#e0864a]/40 bg-[#e0864a]/[0.1] px-7 py-4 text-[clamp(1rem,4.5vw,1.35rem)] font-semibold uppercase tracking-[0.14em] text-[#f4a361] shadow-[0_0_40px_-8px_rgba(224,134,74,0.4)]">
             <Flame className="h-6 w-6 shrink-0" strokeWidth={2} aria-hidden="true" />
-            Vagas limitadas
+            {p.scarcityMain}
           </span>
 
           {/* Highly sought after */}
           <span className="inline-flex items-center gap-2 text-[13px] font-medium uppercase tracking-[0.24em] text-white/45">
-            Altamente procurado
+            {p.scarcitySought}
           </span>
         </motion.div>
 
@@ -146,12 +152,15 @@ export default function EarlyAccessPricing() {
           whileInView="visible"
           viewport={{ once: true, margin: '-40px' }}
         >
-          14 dias pelos maiores santuários da Europa a um valor abaixo do
-          mercado — possível por sermos uma{' '}
-          <span className="font-medium text-white/70">
-            Associação sem fins lucrativos
-          </span>
-          .
+          {p.bottomNote.map((seg, i) =>
+            seg.strong ? (
+              <span key={i} className="font-medium text-white/70">
+                {seg.text}
+              </span>
+            ) : (
+              <span key={i}>{seg.text}</span>
+            ),
+          )}
         </motion.p>
 
         {/* Gold line */}
