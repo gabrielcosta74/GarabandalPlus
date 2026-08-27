@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getPostalInvalidMessage, listCountryOptions } from '../lib/country-utils';
+import { getPostalInvalidMessage, listCountryOptions, resolveCountryCode } from '../lib/country-utils';
 import { buildProductPath } from '../lib/slug';
 import { localizeStoreProductText, translateStoreCategory } from '../lib/store-i18n';
 
@@ -16,6 +16,19 @@ describe('country utilities', () => {
 
   it('returns validation messages in English when requested', () => {
     expect(getPostalInvalidMessage('GB', 'en')).toContain('Invalid postal code');
+  });
+
+  it('resolves codes and localized names across the whole country list', () => {
+    for (const { code } of listCountryOptions('en')) {
+      expect(resolveCountryCode(code)).toBe(code);
+    }
+    expect(resolveCountryCode('United States')).toBe('US');
+    expect(resolveCountryCode('Estados Unidos')).toBe('US');
+    expect(resolveCountryCode('Brasil')).toBe('BR');
+    expect(resolveCountryCode('Angola')).toBe('AO');
+    expect(resolveCountryCode('Outro')).toBeNull();
+    expect(resolveCountryCode('')).toBeNull();
+    expect(resolveCountryCode(null)).toBeNull();
   });
 });
 

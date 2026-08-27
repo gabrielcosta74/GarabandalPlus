@@ -1,6 +1,6 @@
 import {
   formatPostalCode,
-  resolveCountryMeta,
+  resolveCountryCode,
   validatePostalCode,
 } from './country-utils';
 
@@ -43,10 +43,8 @@ export const normalizeFiscalTaxId = (value: unknown): string | null => {
   return normalized || null;
 };
 
-export const normalizeFiscalCountry = (value: unknown): string => {
-  const raw = clean(value, 100);
-  return resolveCountryMeta(raw)?.code || '';
-};
+export const normalizeFiscalCountry = (value: unknown): string =>
+  resolveCountryCode(clean(value, 100)) || '';
 
 const normalizeFiscalPostalCode = (
   value: unknown,
@@ -65,14 +63,29 @@ const normalizeFiscalPostalCode = (
 export const isValidFiscalEmail = (value: unknown) =>
   /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clean(value, 200).toLowerCase());
 
+const isPortugueseNif = (digits: string): boolean => {
+  if (!/^\d{9}$/.test(digits)) return false;
+  let sum = 0;
+  for (let index = 0; index < 8; index += 1) {
+    sum += Number(digits[index]) * (9 - index);
+  }
+  const remainder = 11 - (sum % 11);
+  return (remainder >= 10 ? 0 : remainder) === Number(digits[8]);
+};
+
 export const isValidFiscalTaxId = (
   value: unknown,
   country: unknown,
 ): boolean => {
   const digits = normalizeFiscalTaxId(value) || '';
   const countryCode = normalizeFiscalCountry(country);
-  if (countryCode === 'PT') return digits.length === 9;
-  if (countryCode === 'BR') return digits.length === 11;
+  // A Portuguese invoice can only carry a real NIF, so that one stays strict.
+  if (countryCode === 'PT') return isPortugueseNif(digits);
+  // Everywhere else the tax number belongs to the person, not to where they
+  // live: Portuguese members resident in Brazil pay with their PT NIF, and
+  // Brazilians living in Europe pay with their CPF.
+  if (isPortugueseNif(digits)) return true;
+  if (countryCode === 'BR') return digits.length === 11 || digits.length === 14;
   return digits.length >= 5 && digits.length <= 15;
 };
 
@@ -127,6 +140,7 @@ export const hasCompleteFiscalBilling = (input: FiscalBillingInput) =>
 export const fiscalBillingErrorMessage = (
   fields: FiscalBillingField[],
   isEnglish = false,
+  country?: unknown,
 ) => {
   if (fields.includes('email')) {
     return isEnglish ? 'Invalid billing email.' : 'Email de faturação inválido.';
@@ -142,6 +156,17 @@ export const fiscalBillingErrorMessage = (
       : 'Código postal de faturação inválido.';
   }
   if (fields.includes('nif')) {
+    const code = normalizeFiscalCountry(country);
+    if (code === 'PT') {
+      return isEnglish
+        ? 'Invalid tax number. Check the 9 digits of your NIF.'
+        : 'NIF inválido. Confirma os 9 dígitos do teu NIF.';
+    }
+    if (code === 'BR') {
+      return isEnglish
+        ? 'Invalid tax number. The CPF has 11 digits (or use your 9-digit Portuguese NIF).'
+        : 'CPF inválido. O CPF tem 11 dígitos (ou usa o NIF português de 9 dígitos).';
+    }
     return isEnglish ? 'Invalid tax number.' : 'NIF/CPF inválido.';
   }
   return isEnglish

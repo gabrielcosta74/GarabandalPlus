@@ -27,6 +27,81 @@ export const resolveCountryMeta = (country: string | null | undefined): CountryM
   return COUNTRY_META_BY_NAME[normalized];
 };
 
+const COUNTRY_CODE_SET = new Set(ALL_COUNTRY_CODES);
+
+const foldCountryName = (value: string) => value
+  .normalize('NFD')
+  .replace(/[\u0300-\u036f]/g, '')
+  .toLowerCase()
+  .replace(/[^a-z]/g, '');
+
+/**
+ * Free-text spellings that `Intl.DisplayNames` never produces but that real
+ * users type into address forms.
+ */
+const COUNTRY_NAME_ALIASES: Record<string, string> = {
+  usa: 'US',
+  eua: 'US',
+  america: 'US',
+  uk: 'GB',
+  england: 'GB',
+  inglaterra: 'GB',
+  greatbritain: 'GB',
+  gracbretanha: 'GB',
+  holanda: 'NL',
+  brazil: 'BR',
+};
+
+let countryCodeByName: Map<string, string> | null = null;
+
+const getCountryCodeByName = () => {
+  if (countryCodeByName) return countryCodeByName;
+
+  const map = new Map<string, string>();
+  // Later locales must not clobber earlier ones: a name shared by two locales
+  // should keep the first mapping rather than flip-flop by iteration order.
+  for (const locale of ['pt-PT', 'en', 'es', 'fr', 'it']) {
+    const displayNames = getDisplayNames(locale);
+    if (!displayNames) continue;
+    for (const code of ALL_COUNTRY_CODES) {
+      let label: string | undefined;
+      try {
+        label = displayNames.of(code);
+      } catch {
+        label = undefined;
+      }
+      if (!label || label === code) continue;
+      const key = foldCountryName(label);
+      if (key && !map.has(key)) map.set(key, code);
+    }
+  }
+  for (const meta of Object.values(COUNTRY_META_BY_CODE)) {
+    map.set(foldCountryName(meta.name), meta.code);
+  }
+  for (const [alias, code] of Object.entries(COUNTRY_NAME_ALIASES)) {
+    map.set(alias, code);
+  }
+
+  countryCodeByName = map;
+  return map;
+};
+
+/**
+ * Resolves any ISO code or localized/free-text country name to an ISO code.
+ * Unlike `resolveCountryMeta` this covers every country in `ALL_COUNTRY_CODES`,
+ * not just the handful with curated postal/phone metadata — public forms offer
+ * the full list, so billing must accept the full list too.
+ */
+export const resolveCountryCode = (country: string | null | undefined): string | null => {
+  const raw = String(country ?? '').trim();
+  if (!raw) return null;
+
+  const upper = raw.toUpperCase();
+  if (upper.length === 2 && COUNTRY_CODE_SET.has(upper)) return upper;
+
+  return getCountryCodeByName().get(foldCountryName(raw)) || null;
+};
+
 export const normalizePhone = (value: string) => {
   const trimmed = value.trim();
   if (!trimmed) return '';

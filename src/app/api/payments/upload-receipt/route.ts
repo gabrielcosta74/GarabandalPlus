@@ -94,7 +94,11 @@ export async function POST(req: Request) {
         if (missingBillingFields.length > 0) {
             return NextResponse.json(
                 {
-                    error: fiscalBillingErrorMessage(missingBillingFields),
+                    error: fiscalBillingErrorMessage(
+                        missingBillingFields,
+                        false,
+                        billing.country,
+                    ),
                     fields: missingBillingFields,
                 },
                 { status: 400 },

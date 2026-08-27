@@ -39,18 +39,14 @@ import PilgrimageFlightStep from '../../../../components/booking/PilgrimageFligh
 /* -------------------------------------------------------------------------- */
 /*                                CONSTANTS                                   */
 /* -------------------------------------------------------------------------- */
-const getCountries = (isEn: boolean) => [
-    { code: 'PT', name: 'Portugal', postalMask: '0000-000', postalPlaceholder: '1000-001' },
-    { code: 'BR', name: isEn ? 'Brazil' : 'Brasil', postalMask: '00000-000', postalPlaceholder: '12345-678' },
-    { code: 'ES', name: isEn ? 'Spain' : 'Espanha', postalMask: '00000', postalPlaceholder: '28001' },
-    { code: 'FR', name: isEn ? 'France' : 'França', postalMask: '00000', postalPlaceholder: '75001' },
-    { code: 'CH', name: isEn ? 'Switzerland' : 'Suíça', postalMask: '0000', postalPlaceholder: '8001' },
-    { code: 'GB', name: isEn ? 'United Kingdom' : 'Reino Unido', postalMask: '', postalPlaceholder: 'SW1A 1AA' },
-    { code: 'US', name: isEn ? 'United States' : 'Estados Unidos', postalMask: '00000', postalPlaceholder: '90210' },
-    { code: 'AO', name: 'Angola', postalMask: '', postalPlaceholder: '' },
-    { code: 'MZ', name: isEn ? 'Mozambique' : 'Moçambique', postalMask: '', postalPlaceholder: '' },
-    { code: 'OTHER', name: isEn ? 'Other' : 'Outro', postalMask: '', postalPlaceholder: '' },
-];
+// The old short list ended in an "Outro"/"Other" escape hatch that got stored
+// verbatim as the country and later blocked checkout, since it maps to no ISO
+// code. Offer every country instead, and store the code rather than the label.
+const getCountries = (isEn: boolean) => listCountryOptions(isEn ? 'en' : 'pt-PT').map(option => ({
+    code: option.code,
+    name: option.label,
+    postalPlaceholder: resolveCountryMeta(option.code)?.postalPlaceholder || '',
+}));
 const COUNTRIES = getCountries(false);
 const LOCAL_DRAFT_INSTALLMENT_DEADLINES: Record<string, string> = {
     'a7e2616e-fe39-48dc-968e-b14153c25325': '2027-04-01',
@@ -595,14 +591,13 @@ const PilgrimCard = ({
     isEn,
     countries,
     hideFlightOption = false,
-    countryValueMode = 'name',
     flightRegistrationOptions = ['none', 'own', 'agency'],
 }: any) => {
     // Watch Country for Postal Code Helper
     const country = useWatch({
         control,
         name: `pilgrims.${index}.country`,
-        defaultValue: hideFlightOption ? '' : 'Portugal'
+        defaultValue: hideFlightOption ? '' : 'PT'
     });
     const emailValue = useWatch({
         control,
@@ -611,9 +606,9 @@ const PilgrimCard = ({
     });
 
     const countryList = countries || COUNTRIES;
-    const selectedCountry = countryList.find((c: any) =>
-        countryValueMode === 'code' ? c.code === country : c.name === country
-    ) || countryList.find((c: any) => c.code === 'PT') || countryList[0];
+    const selectedCountry = countryList.find((c: any) => c.code === country)
+        || countryList.find((c: any) => c.code === 'PT')
+        || countryList[0];
     const postalPlaceholder = selectedCountry.postalPlaceholder || '0000-000';
 
     return (
@@ -753,7 +748,7 @@ const PilgrimCard = ({
                         >
                             {hideFlightOption && <option value="">{isEn ? 'Select your country...' : 'Escolha o seu país...'}</option>}
                             {countryList.map((c: any) => (
-                                <option key={c.code} value={countryValueMode === 'code' ? c.code : c.name}>{c.name}</option>
+                                <option key={c.code} value={c.code}>{c.name}</option>
                             ))}
                         </select>
                         {errors.pilgrims?.[index]?.country && <span className="text-red-500 text-base font-bold mt-2 block flex items-center gap-2 animate-pulse"><AlertCircle className="w-5 h-5" /> {errors.pilgrims[index]?.country?.message}</span>}
@@ -865,14 +860,7 @@ export default function PilgrimageBookingPage() {
     const hasCountryBasedFlightStep = Boolean(countryBasedFlightPolicy);
     const requiresExplicitFlightChoice = !flightRegistrationOptions.includes('none');
     const finalStep = hasCountryBasedFlightStep ? 5 : 4;
-    const countriesList = useMemo(() => {
-        if (!hasCountryBasedFlightStep) return getCountries(isEn);
-        return listCountryOptions(isEn ? 'en' : 'pt-PT').map(option => ({
-            code: option.code,
-            name: option.label,
-            postalPlaceholder: resolveCountryMeta(option.code)?.postalPlaceholder || '',
-        }));
-    }, [hasCountryBasedFlightStep, isEn]);
+    const countriesList = useMemo(() => getCountries(isEn), [isEn]);
 
     // User State
     const [userEmail, setUserEmail] = useState('');
@@ -1030,7 +1018,7 @@ export default function PilgrimageBookingPage() {
         if (fields.length === 0) {
             append({
                 full_name: '', email: email, phone: '', birth_date: '', sex: 'M', // Phone will be overwritten on Submit for leader
-                address: '', postal_code: '', city: '', country: hasCountryBasedFlightStep ? '' : 'Portugal',
+                address: '', postal_code: '', city: '', country: hasCountryBasedFlightStep ? '' : 'PT',
                 flight_option: (hasCountryBasedFlightStep || requiresExplicitFlightChoice ? '' : 'none') as any,
                 allergies: '', notes: '', cpf_nif: ''
             });
@@ -1382,7 +1370,6 @@ export default function PilgrimageBookingPage() {
                                                     isEn={isEn}
                                                     countries={countriesList}
                                                     hideFlightOption={hasCountryBasedFlightStep}
-                                                    countryValueMode={hasCountryBasedFlightStep ? 'code' : 'name'}
                                                     flightRegistrationOptions={flightRegistrationOptions}
                                                 />
                                             ))}
@@ -1394,7 +1381,7 @@ export default function PilgrimageBookingPage() {
                                                         {isEn ? <>ATTENTION: You should only add members of your <span className="font-bold text-yellow-500 uppercase">Household</span> (Father, Mother, Children) who live with you.<br />For friends or acquaintances, each one must make their own separate registration.</> : <>ATENÇÃO: Só deves adicionar pessoas do teu <span className="font-bold text-yellow-500 uppercase">Agregado Familiar</span> (Pai, Mãe, Filhos) que vivam contigo.<br />Para amigos ou conhecidos, cada uno deve fazer a sua própria inscrição separadamente.</>}
                                                     </p>
                                                 </div>
-                                                <button type="button" onClick={() => append({ full_name: '', email: '', phone: '', birth_date: '', sex: 'M', address: '', postal_code: '', city: '', country: hasCountryBasedFlightStep ? '' : 'Portugal', flight_option: (hasCountryBasedFlightStep || requiresExplicitFlightChoice ? '' : 'none') as any, allergies: isEn ? 'No' : 'Não', notes: '', cpf_nif: '' })} className="bg-yellow-500 hover:bg-yellow-400 text-black px-8 py-3 rounded-xl font-bold transition-all shadow-lg shadow-yellow-500/20 active:scale-95">
+                                                <button type="button" onClick={() => append({ full_name: '', email: '', phone: '', birth_date: '', sex: 'M', address: '', postal_code: '', city: '', country: hasCountryBasedFlightStep ? '' : 'PT', flight_option: (hasCountryBasedFlightStep || requiresExplicitFlightChoice ? '' : 'none') as any, allergies: isEn ? 'No' : 'Não', notes: '', cpf_nif: '' })} className="bg-yellow-500 hover:bg-yellow-400 text-black px-8 py-3 rounded-xl font-bold transition-all shadow-lg shadow-yellow-500/20 active:scale-95">
                                                     {isEn ? 'Understood, add family member' : 'Entendido, adicionar familiar'}
                                                 </button>
                                             </div>

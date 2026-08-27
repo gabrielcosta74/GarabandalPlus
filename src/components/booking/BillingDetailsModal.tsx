@@ -22,6 +22,9 @@ type BillingDetailsModalProps = {
   isEnglish: boolean;
   initialValue: FiscalBillingDetails | null;
   submitting?: boolean;
+  description?: string;
+  /** Defaults to "Confirm and continue", which only fits the pay/upload flows. */
+  confirmLabel?: string;
   onClose: () => void;
   onConfirm: (billing: FiscalBillingDetails) => void;
 };
@@ -42,6 +45,8 @@ export default function BillingDetailsModal({
   isEnglish,
   initialValue,
   submitting = false,
+  description,
+  confirmLabel,
   onClose,
   onConfirm,
 }: BillingDetailsModalProps) {
@@ -79,7 +84,7 @@ export default function BillingDetailsModal({
     const normalized = normalizeFiscalBilling(form);
     const missing = fiscalBillingMissingFields(normalized);
     if (missing.length > 0) {
-      setError(fiscalBillingErrorMessage(missing, isEnglish));
+      setError(fiscalBillingErrorMessage(missing, isEnglish, normalized.country));
       return;
     }
     onConfirm(normalized);
@@ -117,9 +122,9 @@ export default function BillingDetailsModal({
                     {isEnglish ? 'Invoice details' : 'Dados da fatura'}
                   </h2>
                   <p className="mt-1 text-sm leading-relaxed text-slate-500">
-                    {isEnglish
+                    {description || (isEnglish
                       ? 'The invoice-receipt is always issued to the booking holder.'
-                      : 'A Fatura‑Recibo é sempre emitida ao titular da reserva.'}
+                      : 'A Fatura‑Recibo é sempre emitida ao titular da reserva.')}
                   </p>
                 </div>
               </div>
@@ -277,7 +282,7 @@ export default function BillingDetailsModal({
                 ) : (
                   <Check className="h-5 w-5" />
                 )}
-                {isEnglish ? 'Confirm and continue' : 'Confirmar e continuar'}
+                {confirmLabel || (isEnglish ? 'Confirm and continue' : 'Confirmar e continuar')}
               </button>
             </footer>
           </motion.section>

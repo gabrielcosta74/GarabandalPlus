@@ -59,6 +59,77 @@ describe('fiscal billing validation', () => {
     expect(fiscalBillingMissingFields(billing)).toEqual([]);
   });
 
+  it('accepts every country the public forms offer, not only the curated ones', () => {
+    // Registration stores whatever `listCountryOptions` offers (~250 ISO codes)
+    // and older rows hold localized names. Anything that fails to resolve here
+    // blocks checkout on "select the billing country" with no way to recover.
+    const billing = normalizeFiscalBilling({
+      ...complete,
+      postalCode: '80904',
+      city: 'Colorado Springs',
+      country: 'United States',
+      taxIdRequested: false,
+    });
+
+    expect(billing.country).toBe('US');
+    expect(fiscalBillingMissingFields(billing)).toEqual([]);
+    expect(normalizeFiscalBilling({ ...complete, country: 'AO' }).country).toBe('AO');
+    expect(normalizeFiscalBilling({ ...complete, country: 'Angola' }).country).toBe('AO');
+    expect(normalizeFiscalBilling({ ...complete, country: 'México' }).country).toBe('MX');
+    expect(normalizeFiscalBilling({ ...complete, country: 'USA' }).country).toBe('US');
+  });
+
+  it('validates the taxpayer number against the resolved country', () => {
+    const brazilian = {
+      ...complete,
+      postalCode: '58401-135',
+      city: 'Campina Grande',
+      country: 'Brasil',
+      taxIdRequested: true,
+    };
+
+    expect(fiscalBillingMissingFields({ ...brazilian, nif: '6457348645' })).toContain('nif');
+    expect(fiscalBillingMissingFields({ ...brazilian, nif: '064.573.486-45' })).toEqual([]);
+  });
+
+  it('accepts a taxpayer number issued by a country other than the billing one', () => {
+    // A Portuguese member living in Belém pays with her PT NIF. Pinning the
+    // format to the residence country locked her out of checkout entirely.
+    expect(fiscalBillingMissingFields({
+      ...complete,
+      postalCode: '66093-671',
+      city: 'Belém',
+      country: 'BR',
+      taxIdRequested: true,
+      nif: '207067708',
+    })).toEqual([]);
+    // Brazilian CPF held by a member living in Germany.
+    expect(fiscalBillingMissingFields({
+      ...complete,
+      postalCode: '67297',
+      city: 'Marnheim',
+      country: 'DE',
+      taxIdRequested: true,
+      nif: '46702149300',
+    })).toEqual([]);
+  });
+
+  it('still rejects a truncated CPF and a NIF that fails its checksum', () => {
+    expect(fiscalBillingMissingFields({
+      ...complete,
+      country: 'BR',
+      postalCode: '58401-135',
+      city: 'Campina Grande',
+      taxIdRequested: true,
+      nif: '6457348645',
+    })).toContain('nif');
+    expect(fiscalBillingMissingFields({
+      ...complete,
+      taxIdRequested: true,
+      nif: '256396071',
+    })).toContain('nif');
+  });
+
   it('rejects missing or invalid address fields', () => {
     expect(fiscalBillingMissingFields({
       ...complete,

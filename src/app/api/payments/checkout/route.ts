@@ -175,7 +175,11 @@ export async function POST(req: Request) {
         if (missingBillingFields.length > 0) {
             return NextResponse.json(
                 {
-                    error: fiscalBillingErrorMessage(missingBillingFields, locale === 'en'),
+                    error: fiscalBillingErrorMessage(
+                        missingBillingFields,
+                        locale === 'en',
+                        billing.country,
+                    ),
                     fields: missingBillingFields,
                 },
                 { status: 400 },

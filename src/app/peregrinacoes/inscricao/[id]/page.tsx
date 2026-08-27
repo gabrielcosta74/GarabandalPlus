@@ -30,6 +30,11 @@ import { format } from 'date-fns';
 import { enUS, pt } from 'date-fns/locale';
 import BookingOnboardingModal from '../../../../components/booking/BookingOnboardingModal';
 import BankTransferModal from '../../../../components/booking/BankTransferModal'; // Imported BankTransferModal
+import BillingDetailsModal from '../../../../components/booking/BillingDetailsModal';
+import {
+    hasCompleteFiscalBilling,
+    type FiscalBillingDetails,
+} from '../../../../lib/fiscal-billing';
 import PaymentConfirmationModal, {
     type PaymentConfirmationFiscalDocument,
 } from '../../../../components/booking/PaymentConfirmationModal';
@@ -80,6 +85,7 @@ type Booking = {
     payments: BookingPayment[];
     payment_plan?: { date: string; amount: number }[];
     itinerary?: TripItineraryItem[];
+    billing_profile?: FiscalBillingDetails | null;
 };
 
 type BookingPayment = {
@@ -380,6 +386,17 @@ export default function BookingDashboardPage() {
     const [bankTransferDetails, setBankTransferDetails] = useState(DEFAULT_BANK_TRANSFER_DETAILS);
     const [customAmount, setCustomAmount] = useState<number | null>(null);
     const [showMobilePaySheet, setShowMobilePaySheet] = useState(false);
+
+    // Invoice details. The fiscal document requires a complete billing address,
+    // so payment is gated on it. Anything the user fixes here is sent with the
+    // request and persisted server-side, replacing what registration stored.
+    const [billingOverride, setBillingOverride] = useState<FiscalBillingDetails | null>(null);
+    const [billingSavedNotice, setBillingSavedNotice] = useState<string | null>(null);
+    const [showBilling, setShowBilling] = useState(false);
+    const [billingNotice, setBillingNotice] = useState<string | null>(null);
+    const [pendingBillingAction, setPendingBillingAction] = useState<
+        { kind: 'checkout'; paymentId?: string } | { kind: 'upload' } | null
+    >(null);
 
     // --- Tabs: payments (default) | trip logistics ---
     // The tab lives in the URL so a refresh keeps it and the browser back button
@@ -781,11 +798,70 @@ export default function BookingDashboardPage() {
         </VIPLayout>
     );
 
-    const handleOnlinePayment = async (paymentOverrideId?: string) => {
+    const requestBillingDetails = (
+        action: { kind: 'checkout'; paymentId?: string } | { kind: 'upload' },
+        notice?: string,
+    ) => {
+        setPendingBillingAction(action);
+        setBillingNotice(notice || null);
+        setShowMobilePaySheet(false);
+        setShowBilling(true);
+    };
+
+    const persistBillingProfile = async (billing: FiscalBillingDetails) => {
+        const res = await fetch('/api/booking/billing', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                bookingId: id,
+                token: getBookingViewToken(),
+                locale: isEn ? 'en' : 'pt',
+                billing,
+            }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+            throw new Error(data?.error || (isEn
+                ? 'Could not save the billing details.'
+                : 'Não foi possível guardar os dados de faturação.'));
+        }
+    };
+
+    const handleBillingConfirmed = (billing: FiscalBillingDetails) => {
+        setBillingOverride(billing);
+        setShowBilling(false);
+        setBillingNotice(null);
+        const action = pendingBillingAction;
+        setPendingBillingAction(null);
+        if (action?.kind === 'checkout') {
+            void handleOnlinePayment(action.paymentId, billing);
+        } else if (action?.kind === 'upload') {
+            openReceiptFilePicker();
+        } else {
+            // Standalone edit: the payment routes are what normally persist the
+            // profile, so a plain edit has to save on its own.
+            void persistBillingProfile(billing)
+                .then(() => setBillingSavedNotice(isEn
+                    ? 'Billing details saved.'
+                    : 'Dados de faturação guardados.'))
+                .catch((error: Error) => setBillingSavedNotice(error.message));
+        }
+    };
+
+    const handleOnlinePayment = async (
+        paymentOverrideId?: string,
+        billingForRequest?: FiscalBillingDetails,
+    ) => {
         const paymentIdToUse = paymentOverrideId || selectedPaymentId;
         const selectedOption = paymentOptions.find((opt) => opt.id === paymentIdToUse);
         if (!selectedOption) return;
         setSelectedPaymentId(selectedOption.id);
+
+        const billing = billingForRequest ?? billingOverride;
+        if (!hasCompleteFiscalBilling(billing ?? booking.billing_profile ?? {})) {
+            requestBillingDetails({ kind: 'checkout', paymentId: selectedOption.id });
+            return;
+        }
 
         setProcessing(true);
         setReduniqFeedback(null);
@@ -802,11 +878,22 @@ export default function BookingDashboardPage() {
                     paymentOptionId: selectedOption.id,
                     amountToPay: effectiveAmountToPay,
                     viewToken: getBookingViewToken(),
+                    ...(billing ? { billing } : {}),
                 }),
             });
             const data = await res.json();
 
-            if (!res.ok) throw new Error(data.error || (isEn ? 'Error starting payment' : 'Erro ao iniciar pagamento'));
+            if (!res.ok) {
+                if (res.status === 400 && Array.isArray(data.fields) && data.fields.length > 0) {
+                    setProcessing(false);
+                    requestBillingDetails(
+                        { kind: 'checkout', paymentId: selectedOption.id },
+                        data.error,
+                    );
+                    return;
+                }
+                throw new Error(data.error || (isEn ? 'Error starting payment' : 'Erro ao iniciar pagamento'));
+            }
 
             if (data.url) {
                 const paymentUrl = String(data.url || '').trim();
@@ -843,9 +930,17 @@ export default function BookingDashboardPage() {
         }
     };
 
-    const handleManualUpload = () => {
+    const openReceiptFilePicker = () => {
         const input = document.getElementById('receipt-upload') as HTMLInputElement;
         if (input) input.click();
+    };
+
+    const handleManualUpload = () => {
+        if (!hasCompleteFiscalBilling(billingOverride ?? booking.billing_profile ?? {})) {
+            requestBillingDetails({ kind: 'upload' });
+            return;
+        }
+        openReceiptFilePicker();
     };
 
     const handleReceiptUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -890,11 +985,19 @@ export default function BookingDashboardPage() {
                         installmentLabel: effectiveLabel,
                         installmentAmount: effectiveAmountToPay,
                         token: viewToken, // Send token for authentication if present
+                        ...(billingOverride ? { billing: billingOverride } : {}),
                     })
                 });
 
                 const data = await res.json();
-                if (!res.ok) throw new Error(data.error || (isEn ? 'Upload error' : 'Erro no upload'));
+                if (!res.ok) {
+                    if (res.status === 400 && Array.isArray(data.fields) && data.fields.length > 0) {
+                        setUploading(false);
+                        requestBillingDetails({ kind: 'upload' }, data.error);
+                        return;
+                    }
+                    throw new Error(data.error || (isEn ? 'Upload error' : 'Erro no upload'));
+                }
 
                 setUploadSuccess(true);
                 // Clean up success message after 5 seconds or keep it until reload
@@ -1188,6 +1291,25 @@ export default function BookingDashboardPage() {
                             ? (isEn ? 'Secure payment · you pick the method next' : 'Pagamento seguro · escolhes o método a seguir')
                             : (isEn ? 'Reviewed within 1–2 business days' : 'Validamos em 1–2 dias úteis')}
                     </span>
+                </div>
+
+                <div className="mt-3 text-center">
+                    <button
+                        type="button"
+                        onClick={() => {
+                            setBillingSavedNotice(null);
+                            setPendingBillingAction(null);
+                            setBillingNotice(null);
+                            setShowMobilePaySheet(false);
+                            setShowBilling(true);
+                        }}
+                        className="text-sm font-semibold text-white/45 underline underline-offset-4 transition-colors hover:text-white/80"
+                    >
+                        {isEn ? 'Edit invoice details' : 'Editar dados de faturação'}
+                    </button>
+                    {billingSavedNotice && (
+                        <p className="mt-2 text-sm text-white/60">{billingSavedNotice}</p>
+                    )}
                 </div>
 
                 {/* Reduniq feedback */}
@@ -1583,6 +1705,27 @@ export default function BookingDashboardPage() {
                 referenceNote={bankTransferDetails.reference_note}
                 supportEmail={bankTransferDetails.support_email}
                 onUploadClick={handleManualUpload}
+            />
+
+            <BillingDetailsModal
+                isOpen={showBilling}
+                isEnglish={isEn}
+                initialValue={billingOverride ?? booking.billing_profile ?? null}
+                confirmLabel={pendingBillingAction
+                    ? undefined
+                    : (isEn ? 'Save details' : 'Guardar dados')}
+                description={billingNotice
+                    ? `${billingNotice} ${isEn
+                        ? 'Confirm your invoice details to continue.'
+                        : 'Confirma os dados da fatura para continuares.'}`
+                    : undefined}
+                onClose={() => {
+                    setShowBilling(false);
+                    setBillingNotice(null);
+                    setPendingBillingAction(null);
+                    setProcessing(false);
+                }}
+                onConfirm={handleBillingConfirmed}
             />
 
         </VIPLayout>

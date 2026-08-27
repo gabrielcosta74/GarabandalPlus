@@ -1,3 +1,4 @@
+import { resolveCountryCode } from './country-utils';
 import {
   fiscalBillingMissingFields,
   normalizeFiscalBilling,
@@ -73,8 +74,20 @@ const hasCompleteRegistrationBilling = (
   && clean(holder?.address)
   && clean(holder?.postal_code)
   && clean(holder?.city)
-  && clean(holder?.country),
+  && resolveCountryCode(clean(holder?.country)),
 );
+
+/**
+ * Older registrations stored the form's literal "Outro"/"OTHER" escape hatch as
+ * the country, which resolves to nothing and blocks checkout. Prefer the first
+ * value that maps to a real ISO code.
+ */
+const firstResolvableCountry = (...values: unknown[]) => {
+  for (const value of values) {
+    if (resolveCountryCode(clean(value))) return clean(value);
+  }
+  return clean(values[0]);
+};
 
 export const loadPilgrimageBillingProfile = async (
   supabase: SupabaseLike,
@@ -96,7 +109,7 @@ export const loadPilgrimageBillingProfile = async (
     address: clean(holder?.address) || clean(member?.address),
     postalCode: clean(holder?.postal_code) || clean(member?.postal_code),
     city: clean(holder?.city) || clean(member?.city),
-    country: clean(holder?.country) || clean(member?.country),
+    country: firstResolvableCountry(holder?.country, member?.country),
     taxIdRequested: Boolean(nif),
     nif,
   });
