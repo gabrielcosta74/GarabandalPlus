@@ -217,7 +217,20 @@ export function PilgrimageHero({ featuredPilgrimage }: { featuredPilgrimage?: Fe
                             transition={{ delay: 0.3, duration: 0.8, type: "spring" }}
                             className="relative w-full max-w-[420px] rounded-[1.75rem] border border-amber-200/30 bg-white/[0.10] p-2 shadow-2xl backdrop-blur-2xl md:rounded-[2.25rem]"
                         >
-                            <div className="relative flex min-h-[390px] flex-col overflow-hidden rounded-[1.35rem] bg-[#0a0a0c]/92 p-6 sm:p-7 md:rounded-[1.9rem] lg:p-8">
+                            <div className="relative flex min-h-[390px] flex-col overflow-hidden rounded-[1.35rem] bg-[#0a0a0c] p-6 sm:p-7 md:rounded-[1.9rem] lg:p-8">
+                                {/* Mesma imagem da landing de acesso antecipado, com o
+                                    mesmo enquadramento e a mesma queda para preto — o
+                                    card e a página a que leva passam a falar igual. */}
+                                <div className="pointer-events-none absolute inset-0" aria-hidden="true">
+                                    <Image
+                                        src="/images/early-access-nossa-senhora.webp"
+                                        alt=""
+                                        fill
+                                        sizes="(max-width: 1024px) 100vw, 420px"
+                                        className="object-cover object-[center_24%] opacity-90"
+                                    />
+                                    <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(8,8,8,0.30)_0%,rgba(8,8,8,0.62)_38%,rgba(8,8,8,0.88)_68%,rgba(8,8,8,0.96)_100%)]" />
+                                </div>
                                 <div className="pointer-events-none absolute -right-12 -top-12 h-44 w-44 rounded-full bg-amber-300/15 blur-[60px]" />
 
                                 <div className="relative">
