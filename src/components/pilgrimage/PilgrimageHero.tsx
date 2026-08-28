@@ -1,6 +1,6 @@
 "use client";
 
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { ArrowRight, Star, Heart, Calendar, AlertTriangle, User, Flame } from "lucide-react";
 import { useEffect, useState } from "react";
 import Link from 'next/link';
@@ -34,21 +34,48 @@ const HERO_IMAGES = [
     "/images/casaantes1.webp"  // Journey
 ];
 
+// Cada plano fica em cena este tempo. O zoom lento dura mais um pouco para que
+// o movimento nunca pare enquanto o crossfade ainda está a decorrer.
+const SLIDE_MS = 7000;
+const FADE_S = 1.6;
+
+// Grão de filme: ruído gerado em SVG, sem pedido de rede e sem peso de imagem.
+const FILM_GRAIN =
+    "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")";
+
 export function PilgrimageHero({ featuredPilgrimage }: { featuredPilgrimage?: FeaturedPilgrimage }) {
-    const [currentImage, setCurrentImage] = useState(0);
+    // Contador sempre crescente em vez do índice cíclico: as chaves do
+    // AnimatePresence têm de ser únicas, senão o plano que volta ao índice 0
+    // colide com o que ainda está a sair e o fundo fica preso a preto.
+    const [slide, setSlide] = useState(0);
     const [heroImages, setHeroImages] = useState<string[]>(HERO_IMAGES);
+    const currentImage = heroImages.length ? slide % heroImages.length : 0;
+    const reduceMotion = useReducedMotion();
     const { locale } = useLocale();
     const isEn = locale === 'en';
     const dateLocale = isEn ? enUS : pt;
     const listHref = isEn ? '/en/pilgrimages' : '/peregrinacoes';
     const donationsHref = isEn ? '/en/donations' : '/donations';
+    const earlyAccessHref = isEn ? '/en/early-access' : '/acesso-antecipado';
 
     useEffect(() => {
+        // Em separador oculto o rAF pára e as animações congelam, mas o
+        // setInterval continua: sem esta guarda o visitante voltava a um hero
+        // preto, à espera que o fade do plano seguinte arrancasse.
         const timer = setInterval(() => {
-            setCurrentImage((prev) => (prev + 1) % heroImages.length);
-        }, 6000);
+            if (document.hidden) return;
+            setSlide((prev) => prev + 1);
+        }, SLIDE_MS);
         return () => clearInterval(timer);
     }, [heroImages.length]);
+
+    const goToImage = (index: number) => {
+        setSlide((prev) => {
+            const total = heroImages.length || 1;
+            const delta = ((index - (prev % total)) + total) % total;
+            return delta === 0 ? prev : prev + delta;
+        });
+    };
 
     useEffect(() => {
         let mounted = true;
@@ -90,17 +117,27 @@ export function PilgrimageHero({ featuredPilgrimage }: { featuredPilgrimage?: Fe
                 : Math.max(0, Number(featuredPilgrimage.total_vacancies || 0) - Number(featuredPilgrimage.confirmed_pax || 0))
         : 0;
 
+    // Uma peregrinação em lista de espera não vende nada no hero. Quando a que
+    // está em destaque já não tem vagas, o lugar passa para o acesso antecipado
+    // ao Caminho Mariano 2027 — e volta ao normal assim que houver vagas.
+    const showEarlyAccessCard = Boolean(featuredPilgrimage) && remainingSpots <= 0;
+
     return (
-        <div className="relative overflow-hidden rounded-b-3xl md:rounded-none md:rounded-b-[3rem] bg-slate-900 text-white min-h-[720px] sm:min-h-[760px] md:min-h-[650px] flex items-center mb-8 md:mb-14 shadow-2xl group transition-all duration-1000 pt-28 pb-12 md:pt-36 md:pb-16">
-            {/* Dynamic Background */}
-            <AnimatePresence mode='wait'>
+        <div className="relative overflow-hidden rounded-b-3xl md:rounded-none md:rounded-b-[3rem] bg-slate-900 text-white min-h-[720px] sm:min-h-[760px] md:min-h-[650px] flex items-center mb-8 md:mb-14 shadow-2xl group transition-all duration-1000 pt-28 pb-20 md:pt-36 md:pb-16">
+            {/* Dynamic Background — crossfade contínuo (sem `mode="wait"`, que
+                deixava o ecrã a preto entre planos) com deriva Ken Burns. O
+                sentido do zoom alterna para o movimento nunca parecer um loop. */}
+            <AnimatePresence initial={false}>
                 <motion.div
-                    key={currentImage}
-                    initial={{ opacity: 0, scale: 1.15 }}
-                    animate={{ opacity: 0.7, scale: 1 }}
+                    key={slide}
+                    initial={{ opacity: 0, scale: reduceMotion ? 1 : slide % 2 === 0 ? 1.04 : 1.16 }}
+                    animate={{ opacity: 0.7, scale: reduceMotion ? 1 : slide % 2 === 0 ? 1.16 : 1.04 }}
                     exit={{ opacity: 0 }}
-                    transition={{ duration: 2, ease: "easeOut" }}
-                    className="absolute inset-0 z-0"
+                    transition={{
+                        opacity: { duration: FADE_S, ease: 'easeInOut' },
+                        scale: { duration: SLIDE_MS / 1000 + FADE_S, ease: 'linear' },
+                    }}
+                    className="absolute inset-0 z-0 will-change-transform"
                 >
                     <Image
                         src={heroImages[currentImage] || HERO_IMAGES[0]}
@@ -116,6 +153,16 @@ export function PilgrimageHero({ featuredPilgrimage }: { featuredPilgrimage?: Fe
             {/* Gradients */}
             <div className="absolute inset-0 z-0 bg-gradient-to-r from-slate-950/88 via-slate-950/52 to-slate-950/20" />
             <div className="absolute inset-0 z-0 bg-gradient-to-t from-slate-950/86 via-slate-900/10 to-transparent" />
+
+            {/* Vinheta + grão: dão profundidade de película sem escurecer o centro */}
+            <div
+                className="pointer-events-none absolute inset-0 z-0"
+                style={{ background: 'radial-gradient(120% 85% at 50% 45%, transparent 38%, rgba(2,6,23,0.62) 100%)' }}
+            />
+            <div
+                className="pointer-events-none absolute inset-0 z-0 opacity-[0.055] mix-blend-overlay"
+                style={{ backgroundImage: FILM_GRAIN, backgroundSize: '180px 180px' }}
+            />
 
             <div className="relative z-10 w-full max-w-7xl mx-auto px-4 sm:px-6 md:px-12 grid lg:grid-cols-2 gap-8 lg:gap-16 items-center h-full">
 
@@ -163,7 +210,59 @@ export function PilgrimageHero({ featuredPilgrimage }: { featuredPilgrimage?: Fe
 
                 {/* Right: Featured Trip Card - The "Hero" of the Hero */}
                 <div className="relative flex justify-center lg:justify-end">
-                    {featuredPilgrimage ? (
+                    {showEarlyAccessCard ? (
+                        <motion.div
+                            initial={{ opacity: 0, x: 50, rotate: 2 }}
+                            animate={{ opacity: 1, x: 0, rotate: 0 }}
+                            transition={{ delay: 0.3, duration: 0.8, type: "spring" }}
+                            className="relative w-full max-w-[420px] rounded-[1.75rem] border border-amber-200/30 bg-white/[0.10] p-2 shadow-2xl backdrop-blur-2xl md:rounded-[2.25rem]"
+                        >
+                            <div className="relative flex min-h-[390px] flex-col overflow-hidden rounded-[1.35rem] bg-[#0a0a0c]/92 p-6 sm:p-7 md:rounded-[1.9rem] lg:p-8">
+                                <div className="pointer-events-none absolute -right-12 -top-12 h-44 w-44 rounded-full bg-amber-300/15 blur-[60px]" />
+
+                                <div className="relative">
+                                    <span className="inline-flex rounded-full border border-amber-200/30 px-3.5 py-1.5 text-[10px] font-semibold uppercase tracking-[0.26em] text-amber-200">
+                                        {isEn ? 'Early access' : 'Acesso antecipado'}
+                                    </span>
+                                    <h3 className="mt-6 font-serif text-3xl font-semibold leading-[1.08] text-white sm:text-[2.15rem]">
+                                        {isEn ? 'Marian Way 2027' : 'Caminho Mariano 2027'}
+                                    </h3>
+                                    <div className="mt-5 h-px w-14 bg-gradient-to-r from-amber-200/60 to-transparent" />
+                                    <p className="mt-5 text-sm leading-relaxed text-slate-300">
+                                        {isEn
+                                            ? 'Registration opens for the private list 48 hours before everyone else.'
+                                            : 'As inscrições abrem para a lista privada 48 horas antes de todos.'}
+                                    </p>
+                                </div>
+
+                                <div className="relative mt-7 grid grid-cols-3 gap-3 border-y border-white/10 py-5">
+                                    {[
+                                        { value: '14', label: isEn ? 'days' : 'dias' },
+                                        { value: '3', label: isEn ? 'countries' : 'países' },
+                                        { value: '13', label: isEn ? 'sanctuaries' : 'santuários' },
+                                    ].map((stat) => (
+                                        <div key={stat.label}>
+                                            <p className="font-serif text-2xl font-semibold text-white">{stat.value}</p>
+                                            <p className="mt-1 text-[10px] uppercase tracking-[0.16em] text-slate-400">{stat.label}</p>
+                                        </div>
+                                    ))}
+                                </div>
+
+                                <div className="relative mt-auto space-y-4 pt-7">
+                                    <div className="flex items-center justify-between text-[11px] uppercase tracking-[0.14em]">
+                                        <span className="font-semibold text-amber-200">{isEn ? '13 Oct · private' : '13 Out · privado'}</span>
+                                        <span className="text-slate-400">{isEn ? '15 Oct · public' : '15 Out · público'}</span>
+                                    </div>
+                                    <Link href={earlyAccessHref} className="block w-full">
+                                        <span className="flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-[#f4f1e9] text-sm font-semibold tracking-wide text-[#0a0a0c] transition-colors hover:bg-white">
+                                            {isEn ? 'Join the private list' : 'Entrar na lista privada'}
+                                            <ArrowRight className="h-4 w-4" />
+                                        </span>
+                                    </Link>
+                                </div>
+                            </div>
+                        </motion.div>
+                    ) : featuredPilgrimage ? (
                         <motion.div
                             initial={{ opacity: 0, x: 50, rotate: 2 }}
                             animate={{ opacity: 1, x: 0, rotate: 0 }}
@@ -275,6 +374,39 @@ export function PilgrimageHero({ featuredPilgrimage }: { featuredPilgrimage?: Fe
                     )}
                 </div>
             </div>
+
+            {/* Marcadores de plano: barra que enche ao ritmo do slide, para o
+                movimento do fundo se ler como intenção e não como falha. */}
+            {heroImages.length > 1 && (
+                <div className="pointer-events-none absolute inset-x-0 bottom-4 z-20 md:bottom-6">
+                    <div className="mx-auto flex max-w-7xl justify-center px-4 sm:px-6 md:justify-start md:px-12">
+                        <div className="pointer-events-auto flex items-center gap-2">
+                            {heroImages.map((image, index) => (
+                                <button
+                                    key={`${image}-${index}`}
+                                    type="button"
+                                    onClick={() => goToImage(index)}
+                                    aria-label={isEn ? `Show image ${index + 1}` : `Ver imagem ${index + 1}`}
+                                    aria-current={index === currentImage ? 'true' : undefined}
+                                    className="flex h-8 w-9 items-center justify-center md:w-11"
+                                >
+                                    <span className="relative block h-[3px] w-full overflow-hidden rounded-full bg-white/25">
+                                        {index === currentImage && (
+                                            <motion.span
+                                                key={slide}
+                                                className="absolute inset-y-0 left-0 block bg-yellow-300"
+                                                initial={{ width: reduceMotion ? '100%' : 0 }}
+                                                animate={{ width: '100%' }}
+                                                transition={{ duration: reduceMotion ? 0 : SLIDE_MS / 1000, ease: 'linear' }}
+                                            />
+                                        )}
+                                    </span>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            )}
         </div >
     );
 }

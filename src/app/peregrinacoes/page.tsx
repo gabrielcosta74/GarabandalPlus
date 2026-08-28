@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import VIPLayout from '../../components/member/VIPLayout';
 import Link from 'next/link';
 import { supabaseBrowser } from '../../lib/supabase-browser';
-import { MapPin, Calendar, Users, ShieldCheck, Heart, ArrowRight, Flame } from 'lucide-react';
+import { MapPin, Calendar, Users, ShieldCheck, ArrowRight } from 'lucide-react';
 import { PilgrimageHero } from '../../components/pilgrimage/PilgrimageHero';
 import { useLocale } from '../../contexts/LocaleContext';
 import { PilgrimageCard } from '../../components/pilgrimage/PilgrimageCard';
@@ -130,9 +130,7 @@ export default function PilgrimagesPage() {
         || sortedPilgrimages.find(isBookable)
         || visiblePilgrimages.find((pilgrimage) => getRemainingSpots(pilgrimage) > 0)
         || visiblePilgrimages[0];
-    const basePilgrimagePath = locale === 'en' ? '/en/pilgrimages' : '/peregrinacoes';
-    const donationsPath = locale === 'en' ? '/en/donations' : '/donations';
-    const italyHref = italyPilgrimage ? `${basePilgrimagePath}/${italyPilgrimage.slug}` : basePilgrimagePath;
+    const earlyAccessPath = locale === 'en' ? '/en/early-access' : '/acesso-antecipado';
 
     return (
         <VIPLayout allowPublic={true}>
@@ -151,61 +149,67 @@ export default function PilgrimagesPage() {
                         <PastPilgrimagesGallery />
                     </div>
 
-                    {italyPilgrimage && (
-                        <section className="mb-10 md:mb-14 overflow-hidden rounded-3xl border border-red-200/80 bg-white shadow-[0_18px_60px_-32px_rgba(15,23,42,0.35)]">
-                            <div className="grid gap-0 md:grid-cols-[1fr,0.72fr]">
-                                <div className="p-6 md:p-10">
-                                    <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-red-600 px-4 py-2 text-xs font-black uppercase tracking-widest text-white shadow-lg shadow-red-900/20 ring-2 ring-red-100">
-                                        <Flame className="h-4 w-4" strokeWidth={2.5} />
-                                        {locale === 'en' ? 'Pilgrimage sold out' : 'Peregrinação esgotada'}
+                    {/* Acesso antecipado ao Caminho Mariano 2027. Substitui o antigo
+                        aviso de "esgotado" da Itália: em vez de fechar a porta, manda
+                        quem chega agora para a lista prioritária. */}
+                    <section className="relative mb-12 md:mb-16 -mx-4 overflow-hidden bg-[#0a0a0c] text-[#f4f1e9] md:mx-0 md:rounded-[2rem]">
+                        <div className="pointer-events-none absolute left-1/2 top-0 h-[380px] w-[380px] -translate-x-1/2 -translate-y-2/3 rounded-full bg-amber-300/[0.09] blur-[90px]" />
+                        <div className="relative mx-auto max-w-2xl px-6 py-16 text-center sm:px-10 md:py-24">
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.32em] text-amber-200/75">
+                                {locale === 'en' ? 'Early access' : 'Acesso antecipado'}
+                            </p>
+
+                            <h2 className="mt-7 font-serif text-[2rem] font-semibold leading-[1.12] tracking-tight text-white sm:text-4xl md:text-5xl">
+                                {locale === 'en' ? 'Marian Way 2027' : 'Caminho Mariano 2027'}
+                            </h2>
+
+                            <div className="mx-auto mt-8 h-px w-16 bg-gradient-to-r from-transparent via-amber-200/45 to-transparent" />
+
+                            <p className="mx-auto mt-8 max-w-md text-base leading-[1.85] text-[#f4f1e9]/70 sm:text-lg">
+                                {locale === 'en'
+                                    ? 'Registration opens for the private list first. You receive the link 48 hours before everyone else.'
+                                    : 'As inscrições abrem primeiro para a lista privada. Recebe o link 48 horas antes de todos.'}
+                            </p>
+
+                            <div className="mx-auto mt-12 grid max-w-sm grid-cols-2 gap-px overflow-hidden rounded-2xl bg-white/[0.07]">
+                                {[
+                                    {
+                                        value: locale === 'en' ? '13 Oct' : '13 Out',
+                                        label: locale === 'en' ? 'Private access' : 'Acesso privado',
+                                        accent: true,
+                                    },
+                                    {
+                                        value: locale === 'en' ? '15 Oct' : '15 Out',
+                                        label: locale === 'en' ? 'Public opening' : 'Abertura pública',
+                                        accent: false,
+                                    },
+                                ].map((item) => (
+                                    <div key={item.label} className="bg-[#0a0a0c] px-4 py-6">
+                                        <p className={`font-serif text-2xl font-semibold ${item.accent ? 'text-amber-200' : 'text-white/55'}`}>
+                                            {item.value}
+                                        </p>
+                                        <p className="mt-2 text-[11px] uppercase tracking-[0.14em] text-[#f4f1e9]/45">
+                                            {item.label}
+                                        </p>
                                     </div>
-                                    <h2 className="font-serif text-3xl font-bold leading-tight text-slate-950 md:text-4xl">
-                                        {locale === 'en'
-                                            ? 'Italy & Medjugorje — this pilgrimage is sold out.'
-                                            : 'Itália e Medjugorje — esta peregrinação está esgotada.'}
-                                    </h2>
-                                    <p className="mt-4 max-w-2xl text-base leading-relaxed text-slate-600 md:text-lg">
-                                        {locale === 'en'
-                                            ? 'This group is now complete. View the full programme, flights, price and spiritual rhythm; information about a new pilgrimage will be shared soon.'
-                                            : 'Este grupo está completo. Veja o programa completo, voos, preço e ritmo espiritual; em breve partilharemos informações sobre uma nova peregrinação.'}
-                                    </p>
-                                    <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-                                        <Link
-                                            href={italyHref}
-                                            className="inline-flex min-h-14 items-center justify-center gap-2 rounded-2xl bg-yellow-400 px-6 py-4 text-sm font-black uppercase tracking-wide text-slate-950 shadow-lg shadow-yellow-700/20 ring-1 ring-yellow-200 transition-colors hover:bg-yellow-300"
-                                        >
-                                            {locale === 'en' ? 'View Italy & Medjugorje pilgrimage' : 'Ver peregrinação a Itália e Medjugorje'}
-                                            <ArrowRight className="h-4 w-4" />
-                                        </Link>
-                                        <Link
-                                            href={donationsPath}
-                                            className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-6 py-4 text-sm font-bold text-slate-800 transition-colors hover:bg-slate-50"
-                                        >
-                                            <Heart className="h-4 w-4 text-red-500" />
-                                            {locale === 'en' ? 'Know the mission' : 'Conhecer a missão'}
-                                        </Link>
-                                    </div>
-                                </div>
-                                <div className="border-t border-red-100 bg-red-50/70 p-6 md:border-l md:border-t-0 md:p-8">
-                                    <div className="space-y-5">
-                                        <div>
-                                            <p className="text-xs font-black uppercase tracking-widest text-red-700">{locale === 'en' ? 'This departure' : 'Esta partida'}</p>
-                                            <p className="mt-2 text-sm leading-relaxed text-slate-700 md:text-base">
-                                                {locale === 'en'
-                                                    ? 'All places in this group have been filled. No additional places are confirmed at this time.'
-                                                    : 'Todas as vagas deste grupo foram preenchidas. Neste momento não estão confirmadas vagas adicionais.'}
-                                            </p>
-                                        </div>
-                                        <div>
-                                            <p className="text-xs font-black uppercase tracking-widest text-red-700">{locale === 'en' ? 'Availability' : 'Disponibilidade'}</p>
-                                            <p className="mt-2 text-lg font-black text-slate-950">{locale === 'en' ? 'Sold out' : 'Esgotada'}</p>
-                                            <p className="mt-1 text-sm font-bold text-red-600">{locale === 'en' ? 'New pilgrimage information coming soon' : 'Informações sobre nova peregrinação em breve'}</p>
-                                        </div>
-                                    </div>
-                                </div>
+                                ))}
                             </div>
-                        </section>
-                    )}
+
+                            <Link
+                                href={earlyAccessPath}
+                                className="group mt-12 inline-flex min-h-14 items-center justify-center gap-3 rounded-full bg-[#f4f1e9] px-9 text-sm font-semibold tracking-wide text-[#0a0a0c] transition-colors hover:bg-white"
+                            >
+                                {locale === 'en' ? 'Join the private list' : 'Entrar na lista privada'}
+                                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+                            </Link>
+
+                            <p className="mt-6 text-xs leading-relaxed text-[#f4f1e9]/40">
+                                {locale === 'en'
+                                    ? 'Free. Only an email, so we can send the link on the day.'
+                                    : 'Sem custo. Apenas um email, para enviarmos o link no dia.'}
+                            </p>
+                        </div>
+                    </section>
 
                     {/* Trust Indicators / Value Prop */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-16">
