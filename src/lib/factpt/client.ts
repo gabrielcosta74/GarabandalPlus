@@ -402,12 +402,26 @@ function uniqueFinalConsumerClient(
   input: FactPtClientCreateInput,
 ): FactPtRemoteClient | null {
   const compatible = matchingFinalConsumerClients(clients, input);
-  if (compatible.length > 1) {
-    throw new Error(
-      'Existem vários clientes Consumidor Final compatíveis; é necessária revisão administrativa.',
-    );
-  }
-  return compatible[0] || null;
+  if (compatible.length <= 1) return compatible[0] || null;
+
+  // Final-consumer profiles all share the generic TIN, so a person registered
+  // twice under variations of the same name matches more than once. The address
+  // decides, because the PDF prints the profile's address rather than the one
+  // captured on the form. Matching none means the caller creates a fresh
+  // profile instead of stamping a stale address on the document.
+  const byAddress = compatible.filter(
+    (candidate) =>
+      normalizedClientPostalCode(candidate.zip)
+        === normalizedClientPostalCode(input.zip)
+      && clientAddressesAreCompatible(input.address, candidate.address || ''),
+  );
+  if (byAddress.length <= 1) return byAddress[0] || null;
+
+  // Genuine duplicates of the same address. FACT.pt ids are sequential, so the
+  // highest one is the profile the customer was registered at most recently.
+  return byAddress.reduce((latest, candidate) =>
+    (Number(candidate.id) > Number(latest.id) ? candidate : latest),
+  );
 }
 
 async function readJsonEnvelope<T>(

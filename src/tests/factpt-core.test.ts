@@ -95,7 +95,7 @@ describe('FACT.pt sandbox configuration', () => {
     expect(pilgrimage).toMatchObject({ series: '2026D', apiKey: 'donation-key' });
   });
 
-  it('keeps production limited to explicitly enabled 2026D sources', () => {
+  it('requires the dedicated production key for every enabled source', () => {
     expect(() =>
       getFactPtConfig('pilgrimage', 'production', {
         FACTPT_PRODUCTION_KEY_2026D: 'production-donation-key',
@@ -107,7 +107,27 @@ describe('FACT.pt sandbox configuration', () => {
         FACTPT_PRODUCTION_ENABLED: 'true',
         FACTPT_PRODUCTION_KEY_2026D: 'production-donation-key',
       }),
-    ).toThrow(/exclusivamente.*peregrinações.*doações/i);
+    ).toThrow(/FACTPT_PRODUCTION_KEY_2026L/i);
+
+    expect(
+      getFactPtConfig('store', 'production', {
+        FACTPT_PRODUCTION_ENABLED: 'true',
+        FACTPT_PRODUCTION_KEY_2026L: 'production-store-key',
+      }),
+    ).toMatchObject({
+      series: '2026L',
+      apiKey: 'production-store-key',
+    });
+
+    expect(
+      getFactPtConfig('quota', 'production', {
+        FACTPT_PRODUCTION_ENABLED: 'true',
+        FACTPT_PRODUCTION_KEY_2026Q: 'production-quota-key',
+      }),
+    ).toMatchObject({
+      series: '2026Q',
+      apiKey: 'production-quota-key',
+    });
 
     expect(
       getFactPtConfig('pilgrimage', 'production', {
@@ -395,7 +415,7 @@ describe('FACT.pt fiscal rules and builders', () => {
     });
   });
 
-  it('uses Consumidor Final without a client block within FS limits', () => {
+  it('requires a complete named final-consumer identity for store invoices', () => {
     const snapshot = makeSnapshot({
       total: 123,
       customer: {
@@ -416,17 +436,13 @@ describe('FACT.pt fiscal rules and builders', () => {
       ],
     });
 
-    expect(decideFactPtDocument(snapshot).type).toBe('simplified_invoice');
-    const document = buildFactPtDocument(snapshot);
-    expect(document.type).toBe('simplified_invoice');
-    if (document.type === 'simplified_invoice') {
-      expect(document.payload).not.toHaveProperty('client');
-      expect(document.payload.document.paymentTerm).toBe(0);
-      expect(document.payload.document).not.toHaveProperty('dueDate');
-    }
+    expect(decideFactPtDocument(snapshot)).toMatchObject({
+      type: 'needs_data',
+      reason: 'missing_store_billing_data',
+    });
   });
 
-  it('requires a full identity for donations and keeps the store FS limit', () => {
+  it('requires a full identity for donations and store orders', () => {
     const donation = makeSnapshot({
       sourceType: 'donation',
       sourceId: 'donation-1',
@@ -468,11 +484,11 @@ describe('FACT.pt fiscal rules and builders', () => {
     });
     expect(decideFactPtDocument(product)).toMatchObject({
       type: 'needs_data',
-      reason: 'missing_billing_data_above_simplified_limit',
+      reason: 'missing_store_billing_data',
     });
   });
 
-  it('uses the €1,000 store limit when an order also has a shipping line', () => {
+  it('keeps a store order with shipping blocked until billing is complete', () => {
     const storeOrder = makeSnapshot({
       total: 504.99,
       customer: { name: 'Consumidor Final', email: 'buyer@example.test' },
@@ -500,7 +516,10 @@ describe('FACT.pt fiscal rules and builders', () => {
       ],
     });
 
-    expect(decideFactPtDocument(storeOrder).type).toBe('simplified_invoice');
+    expect(decideFactPtDocument(storeOrder)).toMatchObject({
+      type: 'needs_data',
+      reason: 'missing_store_billing_data',
+    });
   });
 
   it('always adds the exact donation observation to donations and pilgrimages', () => {
@@ -668,6 +687,12 @@ describe('FACT.pt HTTP client', () => {
           }),
           { status: 200 },
         ),
+      )
+      .mockResolvedValue(
+        new Response(
+          JSON.stringify({ AppStatusMsg: 'OK', AppResponse: { data: [] } }),
+          { status: 200 },
+        ),
       );
     const client = new FactPtClient(sandboxConfig(), {
       fetch: fetchMock,
@@ -686,9 +711,111 @@ describe('FACT.pt HTTP client', () => {
     await expect(client.findExistingFinalConsumerClient(input)).resolves.toEqual(
       candidate,
     );
-    await expect(client.findExistingFinalConsumerClient(input)).rejects.toThrow(
-      /vários clientes Consumidor Final/i,
+    // Two namesakes whose profiles carry no address at all: reusing either one
+    // would print an identity nobody confirmed, so the caller creates a profile.
+    await expect(
+      client.findExistingFinalConsumerClient(input),
+    ).resolves.toBeNull();
+  });
+
+  it('reuses the duplicate final consumer billed at the document address', async () => {
+    const shared = {
+      email: 'valeria@example.test',
+      country: 'PT',
+      zip: '4350-009',
+      city: 'Porto',
+      isFinalConsumer: true,
+    };
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          AppStatusMsg: 'OK',
+          AppResponse: {
+            data: [
+              {
+                ...shared,
+                id: 'final-old',
+                name: 'Valéria Castro',
+                address: 'Rua Lise Losa 36',
+              },
+              {
+                ...shared,
+                id: 'final-new',
+                name: 'Valéria Cristina de Brito Castro',
+                address: 'Rua Professor Manuel Baganha 237, hab. 2.2',
+              },
+            ],
+          },
+        }),
+        { status: 200 },
+      ),
     );
+    const client = new FactPtClient(sandboxConfig(), {
+      fetch: fetchMock,
+      rateLimiter: immediateRateLimiter(),
+    });
+
+    await expect(
+      client.findExistingFinalConsumerClient({
+        name: 'Valéria Castro',
+        email: 'valeria@example.test',
+        address: 'Rua Professor Manuel Baganha 237 hab 2.2',
+        zip: '4350-009',
+        city: 'Porto',
+        country: 'pt',
+        finalConsumer: true,
+      }),
+    ).resolves.toMatchObject({ id: 'final-new' });
+  });
+
+  it('reuses the most recent profile when duplicates share the address', async () => {
+    const shared = {
+      email: 'john@example.test',
+      country: 'US',
+      zip: '70817',
+      city: 'Baton Rouge',
+      isFinalConsumer: true,
+    };
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          AppStatusMsg: 'OK',
+          AppResponse: {
+            data: [
+              {
+                ...shared,
+                id: '950',
+                name: 'John P. Saints',
+                address: '15024 Garden Park, Baton Rouge, Louisiana 70817',
+              },
+              {
+                ...shared,
+                id: '900',
+                name: 'John Saints',
+                address: '15024 Garden Park',
+              },
+            ],
+          },
+        }),
+        { status: 200 },
+      ),
+    );
+    const client = new FactPtClient(sandboxConfig(), {
+      fetch: fetchMock,
+      rateLimiter: immediateRateLimiter(),
+    });
+
+    await expect(
+      client.findExistingFinalConsumerClient({
+        name: 'John Saints',
+        email: 'john@example.test',
+        address: '15024 Garden Park',
+        zip: '70817',
+        city: 'Baton Rouge',
+        country: 'us',
+        finalConsumer: true,
+      }),
+    ).resolves.toMatchObject({ id: '950' });
   });
 
   it('does not choose between distinct FACT.pt fiscal identities', () => {
@@ -1074,11 +1201,23 @@ describe('FACT.pt HTTP client', () => {
       rateLimiter: immediateRateLimiter(),
     });
     const invoiceReceipt = buildFactPtDocument(makeSnapshot(), 'client-59');
-    const simplified = buildFactPtDocument(
-      makeSnapshot({
-        customer: { name: 'Final', email: 'final@example.test' },
-      }),
-    );
+    const simplifiedPayload = {
+      document: {
+        date: '2026-07-29',
+        paymentTerm: 0 as const,
+        paymentType: 9 as const,
+        download: false as const,
+        allowRound: true as const,
+        identifierId: 'gp:test:simple',
+        language: 'pt',
+      },
+      items: [{
+        description: 'Teste',
+        price: 10,
+        taxId: 'tax-0',
+        quantity: 1,
+      }],
+    };
 
     await client.listTaxes();
     await expect(client.findProductsByReference('TEST-001')).resolves.toEqual([
@@ -1087,9 +1226,7 @@ describe('FACT.pt HTTP client', () => {
     if (invoiceReceipt.type === 'invoice_receipt') {
       await client.createInvoiceReceipt(invoiceReceipt.payload);
     }
-    if (simplified.type === 'simplified_invoice') {
-      await client.createSimplifiedInvoice(simplified.payload);
-    }
+    await client.createSimplifiedInvoice(simplifiedPayload);
     const pdf = await client.downloadDocumentPdf('doc/3');
 
     expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
