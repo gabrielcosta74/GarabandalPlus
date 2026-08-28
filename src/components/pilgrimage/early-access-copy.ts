@@ -66,6 +66,8 @@ export type EarlyAccessCopy = {
     submittingSub: string;
     emailLabel: string;
     emailPlaceholder: string;
+    phoneLabel: string;
+    phonePlaceholder: string;
     consent: string;
     submit: string;
     disclaimer: string;
@@ -166,6 +168,8 @@ const pt: EarlyAccessCopy = {
     submittingSub: 'Só um instante.',
     emailLabel: 'O seu email',
     emailPlaceholder: 'nome@exemplo.com',
+    phoneLabel: 'O seu telefone',
+    phonePlaceholder: '+351 912 345 678',
     consent:
       'Aceito receber informação sobre esta peregrinação e o acesso antecipado.',
     submit: 'Ter acesso antecipado',
@@ -269,6 +273,8 @@ const en: EarlyAccessCopy = {
     submittingSub: 'Just a moment.',
     emailLabel: 'Your email',
     emailPlaceholder: 'name@example.com',
+    phoneLabel: 'Your phone',
+    phonePlaceholder: '+44 7700 900123',
     consent:
       'I agree to receive information about this pilgrimage and early access.',
     submit: 'Get early access',

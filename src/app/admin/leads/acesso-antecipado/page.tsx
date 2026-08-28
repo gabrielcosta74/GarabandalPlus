@@ -7,6 +7,7 @@ import {
     Loader2,
     Star,
     Mail,
+    Phone,
     Copy,
     Check,
     Download,
@@ -31,6 +32,7 @@ type EarlyAccessLead = {
     created_at: string;
     updated_at?: string | null;
     email: string;
+    phone?: string | null;
     name?: string | null;
     status: string;
     data?: {
@@ -74,7 +76,7 @@ export default function AdminEarlyAccessPage() {
             setLoading(true);
             const { data, error } = await supabaseBrowser
                 .from('booking_leads')
-                .select('id,created_at,updated_at,email,name,status,data')
+                .select('id,created_at,updated_at,email,phone,name,status,data')
                 .eq('status', 'interested')
                 .filter('data->>source', 'eq', EARLY_ACCESS_SOURCE)
                 .order('created_at', { ascending: false });
@@ -119,9 +121,10 @@ export default function AdminEarlyAccessPage() {
     }, [leads]);
 
     const exportCsv = () => {
-        const header = ['email', 'nome', 'idioma', 'inscrito_em'];
+        const header = ['email', 'telefone', 'nome', 'idioma', 'inscrito_em'];
         const rows = leads.map((lead) => [
             lead.email,
+            lead.phone || '',
             (lead.name || '').replace(/"/g, '""'),
             lead.data?.locale || 'pt',
             new Date(lead.created_at).toISOString(),
@@ -246,6 +249,13 @@ export default function AdminEarlyAccessPage() {
                                 <span className="truncate">{lead.email}</span>
                                 <CopyButton text={lead.email} />
                             </div>
+                            {lead.phone ? (
+                                <div className="mt-1.5 flex items-center gap-2 text-xs text-slate-500 font-mono">
+                                    <Phone className="w-3 h-3 shrink-0" />
+                                    <a href={`tel:${lead.phone}`} className="truncate hover:text-slate-800">{lead.phone}</a>
+                                    <CopyButton text={lead.phone} />
+                                </div>
+                            ) : null}
                         </div>
                     ))}
                 </div>
@@ -258,14 +268,15 @@ export default function AdminEarlyAccessPage() {
                                 <th className="px-6 py-4 font-bold uppercase text-[10px] tracking-wider">Inscrito em</th>
                                 <th className="px-6 py-4 font-bold uppercase text-[10px] tracking-wider">Pessoa</th>
                                 <th className="px-6 py-4 font-bold uppercase text-[10px] tracking-wider">Email</th>
+                                <th className="px-6 py-4 font-bold uppercase text-[10px] tracking-wider">Telefone</th>
                                 <th className="px-6 py-4 font-bold uppercase text-[10px] tracking-wider">Idioma</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
                             {loading ? (
-                                <tr><td colSpan={4} className="h-40 text-center"><Loader2 className="w-6 h-6 animate-spin mx-auto text-amber-200" /></td></tr>
+                                <tr><td colSpan={5} className="h-40 text-center"><Loader2 className="w-6 h-6 animate-spin mx-auto text-amber-200" /></td></tr>
                             ) : leads.length === 0 ? (
-                                <tr><td colSpan={4} className="h-40 text-center text-slate-400">Ainda ninguém pediu acesso antecipado.</td></tr>
+                                <tr><td colSpan={5} className="h-40 text-center text-slate-400">Ainda ninguém pediu acesso antecipado.</td></tr>
                             ) : leads.map((lead) => (
                                 <tr key={lead.id} className="hover:bg-slate-50/50 transition-colors">
                                     <td className="px-6 py-4">
@@ -282,6 +293,18 @@ export default function AdminEarlyAccessPage() {
                                             </span>
                                             <CopyButton text={lead.email} />
                                         </div>
+                                    </td>
+                                    <td className="px-6 py-4">
+                                        {lead.phone ? (
+                                            <div className="flex items-center gap-2">
+                                                <a href={`tel:${lead.phone}`} className="text-xs text-slate-500 font-mono flex items-center gap-1 hover:text-slate-800">
+                                                    <Phone className="w-3 h-3" />{lead.phone}
+                                                </a>
+                                                <CopyButton text={lead.phone} />
+                                            </div>
+                                        ) : (
+                                            <span className="text-xs text-slate-300">—</span>
+                                        )}
                                     </td>
                                     <td className="px-6 py-4">
                                         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-indigo-50 text-indigo-600 border border-indigo-100">

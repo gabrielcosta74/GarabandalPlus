@@ -21,6 +21,7 @@ export default function EarlyAccessSignupForm({
   const s = copy.signup;
   const router = useRouter();
   const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [consent, setConsent] = useState(false);
   const [website, setWebsite] = useState('');
   const [status, setStatus] = useState<'idle' | 'submitting'>('idle');
@@ -38,7 +39,7 @@ export default function EarlyAccessSignupForm({
       const response = await fetch('/api/early-access-signup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, consent, website, locale }),
+        body: JSON.stringify({ email, phone, consent, website, locale }),
       });
       const data = (await response.json()) as SignupResponse;
 
@@ -97,6 +98,25 @@ export default function EarlyAccessSignupForm({
           onChange={(event) => setEmail(event.target.value)}
           className="min-h-14 w-full rounded-2xl border border-white/20 bg-white/[0.055] px-5 text-center text-base text-white outline-none transition placeholder:text-white/32 hover:border-white/30 focus:border-[#bca56b]/80 focus:bg-white/[0.08] focus:ring-4 focus:ring-[#bca56b]/10"
           placeholder={s.emailPlaceholder}
+        />
+      </div>
+
+      <div>
+        <label htmlFor="early-phone" className="mb-2.5 block text-[10px] font-medium uppercase tracking-[0.18em] text-white/45">
+          {s.phoneLabel}
+        </label>
+        <input
+          id="early-phone"
+          name="phone"
+          type="tel"
+          inputMode="tel"
+          autoComplete="tel"
+          required
+          maxLength={32}
+          value={phone}
+          onChange={(event) => setPhone(event.target.value)}
+          className="min-h-14 w-full rounded-2xl border border-white/20 bg-white/[0.055] px-5 text-center text-base text-white outline-none transition placeholder:text-white/32 hover:border-white/30 focus:border-[#bca56b]/80 focus:bg-white/[0.08] focus:ring-4 focus:ring-[#bca56b]/10"
+          placeholder={s.phonePlaceholder}
         />
       </div>
 

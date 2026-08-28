@@ -5,6 +5,10 @@ import { supabaseServer } from '../../../lib/supabase';
 const CAMPAIGN_SLUG = 'caminho-mariano-2027';
 const CAMPAIGN_TITLE = 'Caminho Mariano 2027 — acesso antecipado';
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+// Aceita formato internacional e os separadores habituais. Só conta os dígitos
+// para o comprimento: um número português escrito "+351 912 345 678" tem 16
+// caracteres mas 12 dígitos.
+const PHONE_ALLOWED = /^\+?[\d\s().-]+$/;
 
 function cleanText(value: unknown, maxLength: number) {
   return typeof value === 'string' ? value.trim().replace(/\s+/g, ' ').slice(0, maxLength) : '';
@@ -48,6 +52,7 @@ export async function POST(request: Request) {
     const body = await request.json();
     const name = cleanText(body?.name, 80);
     const email = cleanText(body?.email, 254).toLowerCase();
+    const phone = cleanText(body?.phone, 32);
     const website = cleanText(body?.website, 200);
     const consent = body?.consent === true;
 
@@ -58,6 +63,10 @@ export async function POST(request: Request) {
 
     if (!EMAIL_PATTERN.test(email)) {
       return NextResponse.json({ error: 'Indique um email válido.' }, { status: 400 });
+    }
+    const phoneDigits = phone.replace(/\D/g, '');
+    if (!PHONE_ALLOWED.test(phone) || phoneDigits.length < 9 || phoneDigits.length > 15) {
+      return NextResponse.json({ error: 'Indique um telefone válido.' }, { status: 400 });
     }
     if (!consent) {
       return NextResponse.json({ error: 'É necessário aceitar a comunicação sobre o acesso antecipado.' }, { status: 400 });
@@ -92,14 +101,14 @@ export async function POST(request: Request) {
     if (existing?.id) {
       const { error: updateError } = await supabaseServer
         .from('booking_leads')
-        .update({ ...(name ? { name } : {}), email, data: leadData, updated_at: now })
+        .update({ ...(name ? { name } : {}), email, phone, data: leadData, updated_at: now })
         .eq('id', existing.id);
       if (updateError) throw updateError;
     } else {
       const { error: insertError } = await supabaseServer.from('booking_leads').insert({
         name: name || null,
         email,
-        phone: null,
+        phone,
         pilgrimage_id: null,
         status: 'interested',
         step_reached: 0,
