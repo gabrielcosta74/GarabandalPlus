@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import VIPLayout from '../../components/member/VIPLayout';
 import Link from 'next/link';
+import Image from 'next/image';
 import { supabaseBrowser } from '../../lib/supabase-browser';
 import { MapPin, Calendar, Users, ShieldCheck, ArrowRight } from 'lucide-react';
 import { PilgrimageHero } from '../../components/pilgrimage/PilgrimageHero';
@@ -153,6 +154,19 @@ export default function PilgrimagesPage() {
                         aviso de "esgotado" da Itália: em vez de fechar a porta, manda
                         quem chega agora para a lista prioritária. */}
                     <section className="relative mb-12 md:mb-16 -mx-4 overflow-hidden bg-[#0a0a0c] text-[#f4f1e9] md:mx-0 md:rounded-[2rem]">
+                        {/* Mesma fotografia da landing de acesso antecipado. Aqui o
+                            recorte é largo e o texto fica centrado por cima do rosto,
+                            por isso o escurecimento é bem mais fundo do que na landing. */}
+                        <div className="pointer-events-none absolute inset-0" aria-hidden="true">
+                            <Image
+                                src="/images/early-access-nossa-senhora.webp"
+                                alt=""
+                                fill
+                                sizes="(max-width: 768px) 100vw, 1152px"
+                                className="object-cover object-[center_30%]"
+                            />
+                            <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(8,8,8,0.86)_0%,rgba(8,8,8,0.74)_45%,rgba(8,8,8,0.9)_100%)]" />
+                        </div>
                         <div className="pointer-events-none absolute left-1/2 top-0 h-[380px] w-[380px] -translate-x-1/2 -translate-y-2/3 rounded-full bg-amber-300/[0.09] blur-[90px]" />
                         <div className="relative mx-auto max-w-2xl px-6 py-16 text-center sm:px-10 md:py-24">
                             <p className="text-[11px] font-semibold uppercase tracking-[0.32em] text-amber-200/75">
@@ -184,7 +198,7 @@ export default function PilgrimagesPage() {
                                         accent: false,
                                     },
                                 ].map((item) => (
-                                    <div key={item.label} className="bg-[#0a0a0c] px-4 py-6">
+                                    <div key={item.label} className="bg-[#0a0a0c]/70 px-4 py-6 backdrop-blur-sm">
                                         <p className={`font-serif text-2xl font-semibold ${item.accent ? 'text-amber-200' : 'text-white/55'}`}>
                                             {item.value}
                                         </p>
