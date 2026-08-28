@@ -18,6 +18,7 @@
     "cron:reduniq-reconcile": "node scripts/railway-cron-reduniq-reconcile.mjs",
     "cron:factpt": "CRON_PATH=/api/cron/factpt CRON_JOB_NAME=factpt node scripts/railway-cron.mjs",
     "cron:auction-close": "CRON_PATH=/api/cron/auction-close CRON_JOB_NAME=auction-close node scripts/railway-cron.mjs",
+    "cron:push-notifications": "CRON_PATH=/api/cron/push-notifications CRON_JOB_NAME=push-notifications node scripts/railway-cron.mjs",
     "lint": "next lint",
     "preprod:check": "bash scripts/preprod-check.sh",
     "preprod:security": "bash scripts/preprod-security.sh",
