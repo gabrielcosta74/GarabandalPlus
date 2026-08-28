@@ -169,7 +169,9 @@ const pt: EarlyAccessCopy = {
     emailLabel: 'O seu email',
     emailPlaceholder: 'nome@exemplo.com',
     phoneLabel: 'O seu telefone',
-    phonePlaceholder: '+351 912 345 678',
+    // A maioria da audiência é brasileira, por isso o exemplo é um número do
+    // Brasil com DDI — o formato português continua a passar na validação.
+    phonePlaceholder: '+55 11 98765-4321',
     consent:
       'Aceito receber informação sobre esta peregrinação e o acesso antecipado.',
     submit: 'Ter acesso antecipado',
