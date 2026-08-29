@@ -7,6 +7,7 @@ import {
     BedDouble,
     Check,
     ChevronRight,
+    Clock3,
     Info,
     Luggage,
     Mail,
@@ -141,6 +142,7 @@ const splitPlaceAndTime = (text: string): { place: string; time: string | null }
 
     const place = text
         .replace(timeExpression, ' ')
+        .replace(/(?:,?\s*(?:dia\s*)?\d{1,2}\s+de\s+[a-záàâãéêíóôõúç]+\s+de\s+\d{4})/iu, ' ')
         .replace(/\s{2,}/g, ' ')
         .replace(/^[\s,–-]+|[\s,–-]+$/g, '')
         .trim();
@@ -252,6 +254,7 @@ export default function TripInfoPanel({
                     flightInfo={flightInfo}
                     priceFrom={pilgrimage.flight_price_from}
                     meetingPoint={meetingPoint}
+                    tripStartDate={startDate}
                 />
             )}
 
@@ -352,6 +355,7 @@ function FlightCard({
     flightInfo,
     priceFrom,
     meetingPoint,
+    tripStartDate,
 }: {
     isEn: boolean;
     dateLocale: Locale;
@@ -362,6 +366,7 @@ function FlightCard({
     flightInfo: string | null;
     priceFrom: number | null | undefined;
     meetingPoint: string | null;
+    tripStartDate: Date | null;
 }) {
     const normalized = String(option || '').toLowerCase();
     const isAgency = normalized === 'agency';
@@ -386,6 +391,11 @@ function FlightCard({
                             ? flightLabel('own', isEn)
                             : flightLabel('none', isEn)}
                 </p>
+                {Boolean(String(option || '').trim()) && (
+                    <p className="mt-1 text-sm font-medium text-white/50">
+                        {isEn ? 'This is the flight option registered for you.' : 'Esta é a opção de voo registada para ti.'}
+                    </p>
+                )}
 
                 {isAgency && (departure || ret) && (
                     <div className="mt-4 space-y-2.5">
@@ -411,7 +421,7 @@ function FlightCard({
                 {isAgency && groupFlight && (
                     <RichText
                         value={groupFlight}
-                        className="mt-4 text-sm leading-relaxed text-white/55"
+                        className="flight-package-rich mt-5 text-base leading-relaxed text-white/75 md:text-lg"
                     />
                 )}
 
@@ -431,22 +441,41 @@ function FlightCard({
                 {!isAgency && flightInfo && (
                     <RichText
                         value={flightInfo}
-                        className="mt-3 text-sm leading-relaxed text-white/55"
+                        className="flight-guidance-rich mt-5 text-base leading-relaxed text-white/75 md:text-lg"
                     />
                 )}
 
                 {!isAgency && meetingPoint && (() => {
                     const { place, time } = splitPlaceAndTime(meetingPoint);
                     return (
-                        <div className="mt-4 rounded-2xl bg-amber-400/[0.09] p-4 ring-1 ring-inset ring-amber-400/25">
-                            <p className="mb-1 text-xs font-bold uppercase tracking-wider text-amber-300">
-                                {isEn ? 'Be here' : 'Tens de estar aqui'}
-                            </p>
-                            <div className="flex items-center gap-3">
-                                <p className="min-w-0 flex-1 text-base font-semibold leading-snug text-white">{place}</p>
+                        <div className="mt-5 overflow-hidden rounded-3xl bg-amber-400/[0.09] ring-1 ring-inset ring-amber-400/30">
+                            <div className="flex items-start gap-3 px-4 pb-4 pt-4 sm:px-5">
+                                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-amber-400 text-slate-950">
+                                    <Clock3 className="h-5 w-5" />
+                                </span>
+                                <div className="min-w-0 flex-1">
+                                    <p className="text-xs font-black uppercase tracking-[0.14em] text-amber-300">
+                                        {isEn ? 'Mandatory arrival' : 'Chegada obrigatória'}
+                                    </p>
+                                    {tripStartDate && (
+                                        <p className="mt-1 text-sm font-semibold text-white/70">
+                                            {format(tripStartDate, 'd MMMM yyyy', { locale: dateLocale })}
+                                        </p>
+                                    )}
+                                </div>
                                 {time && (
-                                    <span className="shrink-0 text-xl font-black tabular-nums text-amber-300">{time}</span>
+                                    <span className="shrink-0 text-3xl font-black tabular-nums tracking-tight text-amber-300 sm:text-4xl">
+                                        {time}
+                                    </span>
                                 )}
+                            </div>
+                            <div className="border-t border-amber-400/20 bg-black/10 px-4 py-3 sm:px-5">
+                                <p className="text-base font-bold leading-snug text-white">{place}</p>
+                                <p className="mt-1 text-sm leading-relaxed text-white/60">
+                                    {isEn
+                                        ? 'Please arrive before this time so you can join the group without delay.'
+                                        : 'Chega antes desta hora para te juntares ao grupo sem atraso.'}
+                                </p>
                             </div>
                         </div>
                     );

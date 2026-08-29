@@ -49,3 +49,52 @@
   font-weight: 600;
 }
 .pilgrimage-rich a:hover { color: #4338ca; }
+
+/* The airline-package information is read inside the dark booking dashboard.
+   Keep its practical sections distinct and comfortably readable. */
+.flight-package-rich > * + *,
+.flight-guidance-rich > * + * { margin-top: 1rem; }
+.flight-package-rich strong,
+.flight-package-rich b,
+.flight-guidance-rich strong,
+.flight-guidance-rich b { color: #fff; }
+.flight-package-rich h3,
+.flight-guidance-rich h3 {
+  color: #fcd34d;
+  font-size: 0.82em;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  line-height: 1.35;
+  margin-top: 1.5em;
+  text-transform: uppercase;
+}
+.flight-package-rich h3:first-child,
+.flight-guidance-rich h3:first-child { margin-top: 0; }
+.flight-package-rich h4,
+.flight-guidance-rich h4 {
+  color: #fff;
+  font-size: 1.08em;
+  font-weight: 800;
+  line-height: 1.35;
+  margin-top: 1.25em;
+}
+.flight-package-rich ul,
+.flight-guidance-rich ul {
+  border-left: 2px solid rgb(251 191 36 / 0.55);
+  display: grid;
+  gap: 0.45em;
+  list-style: none;
+  padding-left: 1em;
+}
+.flight-package-rich li,
+.flight-guidance-rich li {
+  color: rgb(255 255 255 / 0.9);
+  margin: 0;
+}
+.flight-package-rich li::before,
+.flight-guidance-rich li::before {
+  color: #fcd34d;
+  content: "✓";
+  font-weight: 800;
+  margin-right: 0.65em;
+}
