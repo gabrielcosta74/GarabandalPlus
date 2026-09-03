@@ -35,6 +35,7 @@ import {
     Search,
     Star,
     ReceiptText,
+    ShieldAlert,
     X,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -152,6 +153,7 @@ export default function AdminSidebar({ onLogout, className, collapsed = false }:
                 { label: 'Doc. Privada', icon: FolderLock, href: '/admin/membros/documentacao' },
                 { label: 'Novenas', icon: Sparkles, href: '/admin/novenas' },
                 { label: 'Intenções', icon: Flame, href: '/admin/intentions' },
+                { label: 'Moderação', icon: ShieldAlert, href: '/admin/moderacao' },
                 { label: 'Orações', icon: BookOpen, href: '/admin/prayers' },
                 { label: 'Cursos & Vídeos', icon: GraduationCap, href: '/admin/academy' },
                 { label: 'Eventos Online', icon: Video, href: '/admin/events' },
