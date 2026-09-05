@@ -48,6 +48,7 @@ export async function POST(request: Request) {
         nif: null,
         address: null,
         postal_code: null,
+        city: null,
         country: null,
         avatar_url: null,
         is_membro: false,
@@ -60,15 +61,17 @@ export async function POST(request: Request) {
 
     if (profileError) throw profileError;
 
-    // Soft deletion revokes account access while preserving referential integrity for
-    // accounting, tax, fraud-prevention and dispute records subject to legal retention.
-    const { error: deleteErr } = await supabaseServer.auth.admin.deleteUser(userId, true);
+    // Eliminacao definitiva da conta de autenticacao, exigida pela App Store
+    // (guideline 5.1.1(v)): desativar nao basta. As chaves estrangeiras dos
+    // registos contabilisticos, fiscais e de auditoria estao em ON DELETE SET
+    // NULL, por isso esses documentos sobrevivem sem ficarem ligados a pessoa.
+    const { error: deleteErr } = await supabaseServer.auth.admin.deleteUser(userId);
     if (deleteErr) throw deleteErr;
 
     return NextResponse.json({
       success: true,
       message:
-        'Conta eliminada. Registos transacionais sujeitos a conservação legal foram preservados.',
+        'Conta eliminada. Registos transacionais sujeitos a conservação legal foram preservados sem ligação à sua identidade.',
     });
   } catch (err: any) {
     console.error('Erro ao eliminar conta:', err);
