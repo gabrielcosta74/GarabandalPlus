@@ -34,7 +34,7 @@ const copyByLocale: Record<'pt' | 'en', Copy> = {
   pt: {
     title: 'Cookies',
     intro:
-      'Usamos cookies necessários para segurança e pagamentos. Analíticos e marketing só com o seu consentimento.',
+      'Usamos cookies necessários para segurança e pagamentos. Não usamos cookies de rastreio nem de publicidade. Os analíticos só com o seu consentimento.',
     necessary: 'Necessários',
     analytics: 'Analíticos',
     marketing: 'Marketing',
@@ -52,7 +52,7 @@ const copyByLocale: Record<'pt' | 'en', Copy> = {
   en: {
     title: 'Cookies',
     intro:
-      'We use necessary cookies for security and payments. Analytics and marketing only run with your consent.',
+      'We use necessary cookies for security and payments. We do not use tracking or advertising cookies. Analytics only run with your consent.',
     necessary: 'Necessary',
     analytics: 'Analytics',
     marketing: 'Marketing',
@@ -78,14 +78,15 @@ export default function CookieConsentBanner() {
   const [isVisible, setIsVisible] = useState(true);
   const [showSettings, setShowSettings] = useState(false);
   const [analytics, setAnalytics] = useState(false);
-  const [marketing, setMarketing] = useState(false);
+  // Nao ha cookies de marketing ou rastreio no site, por isso nao ha nada a consentir.
+  // O campo continua a ser guardado como false para compatibilidade com consentimentos antigos.
+  const marketing = false;
 
   useEffect(() => {
     const existing = readCookieConsent();
     if (existing) {
       syncAnalyticsConsentCookie(existing);
       setAnalytics(existing.analytics);
-      setMarketing(existing.marketing);
       setIsVisible(false);
     }
   }, []);
@@ -94,7 +95,6 @@ export default function CookieConsentBanner() {
     const openPreferences = () => {
       const existing = readCookieConsent();
       setAnalytics(existing?.analytics === true);
-      setMarketing(existing?.marketing === true);
       // Undo the pre-paint hide from the inline <head> script, otherwise the
       // reopened banner would stay display:none for consented visitors.
       document.documentElement.classList.remove('cc-done');
@@ -114,7 +114,6 @@ export default function CookieConsentBanner() {
   const commit = (nextAnalytics: boolean, nextMarketing: boolean) => {
     saveCookieConsent(createCookieConsentPreferences({ analytics: nextAnalytics, marketing: nextMarketing }));
     setAnalytics(nextAnalytics);
-    setMarketing(nextMarketing);
     setShowSettings(false);
     setIsVisible(false);
   };
@@ -164,21 +163,6 @@ export default function CookieConsentBanner() {
                       type="checkbox"
                       checked={analytics}
                       onChange={(event) => setAnalytics(event.target.checked)}
-                      className="mt-1 h-5 w-5 cursor-pointer rounded border-white/30 bg-white/10 text-garabandal-gold focus:ring-garabandal-gold"
-                    />
-                  </span>
-                </label>
-
-                <label className="cursor-pointer rounded-md border border-white/10 bg-white/[0.04] p-3 transition-all duration-200 hover:border-garabandal-gold/45 hover:bg-white/[0.07]">
-                  <span className="flex items-start justify-between gap-4">
-                    <span>
-                      <span className="block text-sm font-semibold text-white">{copy.marketing}</span>
-                      <span className="mt-1 block text-xs leading-5 text-white/55">{copy.marketingDescription}</span>
-                    </span>
-                    <input
-                      type="checkbox"
-                      checked={marketing}
-                      onChange={(event) => setMarketing(event.target.checked)}
                       className="mt-1 h-5 w-5 cursor-pointer rounded border-white/30 bg-white/10 text-garabandal-gold focus:ring-garabandal-gold"
                     />
                   </span>

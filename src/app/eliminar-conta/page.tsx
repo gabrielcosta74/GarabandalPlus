@@ -11,9 +11,6 @@ export const metadata: Metadata = {
   },
 };
 
-const deletionMail =
-  'mailto:geral@apostoladodegarabandal.com?subject=Pedido%20de%20elimina%C3%A7%C3%A3o%20de%20conta%20e%20dados&body=Solicito%20a%20elimina%C3%A7%C3%A3o%20da%20minha%20conta%20Garabandal%20%2B.%0A%0AEmail%20da%20conta%3A%20';
-
 export default function DeleteAccountPage() {
   return (
     <main className="min-h-screen bg-white">
@@ -51,15 +48,10 @@ export default function DeleteAccountPage() {
         <section className="space-y-3">
           <h2 className="text-xl font-semibold text-slate-900">Sem acesso à aplicação</h2>
           <p className="text-slate-600 leading-relaxed">
-            Envie o pedido a partir do email associado à conta. Poderemos pedir uma confirmação
-            limitada de identidade para impedir eliminações indevidas.
+            Se perdeu o acesso, recupere a palavra-passe no ecrã de entrada da aplicação e conclua
+            a eliminação em <strong>Perfil</strong> &rarr; <strong>Eliminar conta</strong>. Não é
+            necessário contactar-nos nem criar qualquer registo adicional para eliminar a conta.
           </p>
-          <a
-            className="inline-flex rounded-lg bg-slate-900 px-5 py-3 font-semibold text-white hover:bg-slate-800"
-            href={deletionMail}
-          >
-            Pedir eliminação por email
-          </a>
         </section>
 
         <section className="space-y-3">
