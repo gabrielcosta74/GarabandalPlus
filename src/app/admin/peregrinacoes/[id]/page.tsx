@@ -157,6 +157,11 @@ export default function PilgrimageEditorPage() {
     const [saving, setSaving] = useState(false);
     const [activeTab, setActiveTab] = useState('general');
 
+    useEffect(() => {
+        const tab = new URLSearchParams(window.location.search).get('tab');
+        if (tab === 'bookings') setActiveTab('bookings');
+    }, []);
+
     // State
     const [form, setForm] = useState<Partial<Pilgrimage>>({
         title: '',

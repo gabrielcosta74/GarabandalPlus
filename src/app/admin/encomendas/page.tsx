@@ -121,6 +121,16 @@ export default function AdminEncomendasPage() {
       if (!res.ok) throw new Error('Erro ao carregar encomendas.');
       const payload = await res.json();
       setOrders(payload.orders || []);
+      const orderRef = new URLSearchParams(window.location.search).get('order');
+      if (orderRef) {
+        const target = (payload.orders || []).find((order: OrderRow) => order.order_ref === orderRef);
+        if (target) {
+          setSelectedOrder(target);
+          const url = new URL(window.location.href);
+          url.searchParams.delete('order');
+          window.history.replaceState(null, '', url.toString());
+        }
+      }
     } catch (err: unknown) {
       showToast(getErrorMessage(err, 'Erro ao carregar encomendas.'));
     } finally {

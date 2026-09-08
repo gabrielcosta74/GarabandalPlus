@@ -112,6 +112,16 @@ export default function BookingsManager({ pilgrimageId }: { pilgrimageId: string
             }));
 
             setBookings(processedBookings);
+            const requestedBooking = new URLSearchParams(window.location.search).get('booking');
+            if (requestedBooking) {
+                const target = processedBookings.find((booking: Booking) => booking.id === requestedBooking);
+                if (target) {
+                    setPaymentModalBooking(target);
+                    const url = new URL(window.location.href);
+                    url.searchParams.delete('booking');
+                    window.history.replaceState(null, '', url.toString());
+                }
+            }
             return processedBookings;
 
         } catch (err) {
