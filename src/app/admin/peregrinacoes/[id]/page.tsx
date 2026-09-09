@@ -19,7 +19,8 @@ import {
     QrCode,
     Eye,
     Rocket,
-    ClipboardList
+    ClipboardList,
+    FileSpreadsheet
 } from 'lucide-react';
 import Link from 'next/link';
 import BookingsManager from '../../../../components/admin/BookingsManager';
@@ -34,6 +35,7 @@ import DetailedItineraryTab from './components/DetailedItineraryTab';
 import TeamTab from './components/TeamTab';
 import PreviewTab from './components/PreviewTab';
 import EarlyAccessTab from './components/EarlyAccessTab';
+import PilgrimageCheckinData from '../../../../components/admin/PilgrimageCheckinData';
 import { Toaster, toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
 import { serializeCivilDateForStorage } from '../../../../lib/utils';
@@ -54,6 +56,7 @@ type Pilgrimage = {
     manual_occupied_pax?: number;
     base_price: number;
     status: string;
+    checkin_form_enabled?: boolean;
     deposit_value: number;
     // Logistics
     flight_departure_time: string | null;
@@ -143,6 +146,7 @@ const TABS = [
     { id: 'team', label: 'Equipa', icon: Users, description: 'Guias e convidados' },
     { id: 'early_access', label: 'Lançamento', icon: Rocket, show: (isNew: boolean) => !isNew, description: 'Acesso antecipado com código privado' },
     { id: 'bookings', label: 'Inscrições', icon: Ticket, show: (isNew: boolean) => !isNew, description: 'Gestão de passageiros' },
+    { id: 'checkin_data', label: 'Dados Check-in', icon: FileSpreadsheet, show: (isNew: boolean) => !isNew, description: 'Formulário para hotéis e exportação Excel' },
     { id: 'scanner', label: 'Autocarro', icon: QrCode, show: (isNew: boolean) => !isNew, description: 'Scanner mobile para entrada no autocarro' },
     { id: 'waitlist', label: 'Lista de Espera', icon: Clock, show: (isNew: boolean) => !isNew, description: 'Gestão de interessados' }
 ];
@@ -159,7 +163,7 @@ export default function PilgrimageEditorPage() {
 
     useEffect(() => {
         const tab = new URLSearchParams(window.location.search).get('tab');
-        if (tab === 'bookings') setActiveTab('bookings');
+        if (tab === 'bookings' || tab === 'checkin_data') setActiveTab(tab);
     }, []);
 
     // State
@@ -760,6 +764,7 @@ export default function PilgrimageEditorPage() {
                                     />
                                 )}
                                 {activeTab === 'bookings' && <BookingsManager pilgrimageId={id} />}
+                                {activeTab === 'checkin_data' && <PilgrimageCheckinData pilgrimageId={id} slug={form.slug || ''} />}
                                 {activeTab === 'scanner' && <PilgrimageScanner pilgrimageId={id} />}
                                 {activeTab === 'waitlist' && <WaitlistManager pilgrimageId={id} />}
                             </div>

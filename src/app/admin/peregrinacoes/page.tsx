@@ -13,7 +13,8 @@ import {
     CheckCircle2,
     Trash2,
     Copy,
-    ClipboardList
+    ClipboardList,
+    FileSpreadsheet
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { pt } from 'date-fns/locale';
@@ -331,6 +332,14 @@ export default function AdminPilgrimagesPage() {
                                             >
                                                 <ClipboardList className="w-4 h-4" />
                                                 Logística
+                                            </Link>
+                                            <Link
+                                                href={`/admin/peregrinacoes/${item.id}?tab=checkin_data`}
+                                                className="h-8 px-3 rounded-full bg-emerald-50 text-emerald-700 flex items-center justify-center gap-1.5 hover:bg-emerald-600 hover:text-white transition-colors text-xs font-semibold"
+                                                title="Dados para check-in e exportação Excel"
+                                            >
+                                                <FileSpreadsheet className="w-4 h-4" />
+                                                Dados check-in
                                             </Link>
                                             <button
                                                 type="button"

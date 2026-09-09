@@ -33,9 +33,10 @@ export default function ClientLayout({
     const isEmbed = pathname?.startsWith('/embed');
     const isFocusedRecovery = isFocusedRecoveryPath(pathname);
     const isEarlyAccessLanding = pathname === '/acesso-antecipado' || pathname?.startsWith('/acesso-antecipado/');
-    const suppressSenderPopup = isFocusedRecovery || isEarlyAccessLanding;
-    const hideHeader = isAdmin || isEmbed || isFocusedRecovery || isEarlyAccessLanding;
-    const hideFooter = isAdmin || isEmbed || isFocusedRecovery || isEarlyAccessLanding;
+    const isCheckinForm = pathname?.startsWith('/dados-check-in/');
+    const suppressSenderPopup = isFocusedRecovery || isEarlyAccessLanding || isCheckinForm;
+    const hideHeader = isAdmin || isEmbed || isFocusedRecovery || isEarlyAccessLanding || isCheckinForm;
+    const hideFooter = isAdmin || isEmbed || isFocusedRecovery || isEarlyAccessLanding || isCheckinForm;
 
     useEffect(() => {
         if (!suppressSenderPopup) return;
@@ -85,8 +86,8 @@ export default function ClientLayout({
                         {!hideHeader && <AuctionWinnerBanner />}
                         {children}
                         {!hideFooter && <SiteFooter />}
-                        {!isAdmin && !isEmbed && !isFocusedRecovery && <CookieConsentBanner />}
-                        {!isAdmin && !isEmbed && !isFocusedRecovery && !isEarlyAccessLanding && <WhatsAppFloatingButton />}
+                        {!isAdmin && !isEmbed && !isFocusedRecovery && !isCheckinForm && <CookieConsentBanner />}
+                        {!isAdmin && !isEmbed && !isFocusedRecovery && !isEarlyAccessLanding && !isCheckinForm && <WhatsAppFloatingButton />}
                     </CurrencyProvider>
                 </PilgrimagePaymentAlertsProvider>
             </AuthProvider>
