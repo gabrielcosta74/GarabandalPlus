@@ -10,7 +10,7 @@ export async function POST(
   { params }: { params: Promise<{ slug: string }> },
 ) {
   if (!supabaseServer) {
-    return NextResponse.json({ error: 'Serviço indisponível.' }, { status: 503 });
+    return NextResponse.json({ error: 'Serviço indisponível. / Service unavailable.' }, { status: 503 });
   }
 
   const rateLimit = checkRateLimit(request, {
@@ -20,7 +20,7 @@ export async function POST(
   });
   if (!rateLimit.allowed) {
     return NextResponse.json(
-      { error: 'Foram enviados demasiados formulários. Tente novamente mais tarde.' },
+      { error: 'Foram enviados demasiados formulários. Tente novamente mais tarde. / Too many forms have been submitted. Please try again later.' },
       { status: 429, headers: { 'Retry-After': String(rateLimit.retryAfterSeconds) } },
     );
   }
@@ -31,7 +31,7 @@ export async function POST(
 
   if (!parsed.success) {
     return NextResponse.json(
-      { error: 'Confirme os campos assinalados.', fields: parsed.error.flatten().fieldErrors },
+      { error: 'Confirme os campos assinalados. / Please check the highlighted fields.', fields: parsed.error.flatten().fieldErrors },
       { status: 400 },
     );
   }
@@ -45,11 +45,11 @@ export async function POST(
 
   if (pilgrimageError) {
     console.error('Erro ao validar formulário de check-in:', pilgrimageError.message);
-    return NextResponse.json({ error: 'Não foi possível validar este formulário.' }, { status: 500 });
+    return NextResponse.json({ error: 'Não foi possível validar este formulário. / We could not validate this form.' }, { status: 500 });
   }
 
   if (!pilgrimage) {
-    return NextResponse.json({ error: 'Este formulário não está disponível.' }, { status: 404 });
+    return NextResponse.json({ error: 'Este formulário não está disponível. / This form is not available.' }, { status: 404 });
   }
 
   const { privacy_consent: _consent, website: _website, ...submission } = parsed.data;
@@ -63,7 +63,7 @@ export async function POST(
 
   if (error) {
     console.error('Erro ao guardar dados de check-in:', error.message);
-    return NextResponse.json({ error: 'Não foi possível guardar os dados. Tente novamente.' }, { status: 500 });
+    return NextResponse.json({ error: 'Não foi possível guardar os dados. Tente novamente. / We could not save your details. Please try again.' }, { status: 500 });
   }
 
   return NextResponse.json({ ok: true }, { status: 201 });

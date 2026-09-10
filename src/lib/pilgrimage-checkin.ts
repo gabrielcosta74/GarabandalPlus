@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-const civilDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Data inválida');
+const civilDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Data inválida / Invalid date');
 
 export const checkinSubmissionSchema = z.object({
   full_name: z.string().trim().min(2).max(160),
@@ -22,7 +22,7 @@ export const checkinSubmissionSchema = z.object({
     context.addIssue({
       code: z.ZodIssueCode.custom,
       path: ['document_expires_on'],
-      message: 'A validade deve ser posterior à emissão.',
+      message: 'A validade deve ser posterior à emissão. / The expiry date must be after the issue date.',
     });
   }
 
@@ -31,7 +31,7 @@ export const checkinSubmissionSchema = z.object({
     context.addIssue({
       code: z.ZodIssueCode.custom,
       path: ['birth_date'],
-      message: 'A data de nascimento deve ser anterior a hoje.',
+      message: 'A data de nascimento deve ser anterior a hoje. / The date of birth must be before today.',
     });
   }
 });
