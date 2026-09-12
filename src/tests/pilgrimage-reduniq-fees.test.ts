@@ -7,13 +7,13 @@ import {
 } from '../lib/pilgrimage-reduniq-fees';
 
 describe('pilgrimage reduniq fee calculation', () => {
-  it('applies the 1.9% fee and rounds correctly', () => {
+  it('applies the 2.4% fee and rounds correctly', () => {
     const result = calculatePilgrimageReduniqCharge(625);
 
     expect(result.feeRate).toBe(REDUNIQ_PILGRIMAGE_FEE_RATE);
     expect(result.baseAmount).toBe(625);
-    expect(result.feeAmount).toBe(11.88);
-    expect(result.chargedAmount).toBe(636.88);
+    expect(result.feeAmount).toBe(15);
+    expect(result.chargedAmount).toBe(640);
   });
 
   it('builds a readable note for the pending payment record', () => {
@@ -21,8 +21,8 @@ describe('pilgrimage reduniq fee calculation', () => {
 
     expect(note).toContain('Pagamento via Reduniq');
     expect(note).toContain('Valor base: 100.00€');
-    expect(note).toContain('Taxa Reduniq: 1.90€');
-    expect(note).toContain('Total cobrado: 101.90€');
+    expect(note).toContain('Taxa Reduniq: 2.40€');
+    expect(note).toContain('Total cobrado: 102.40€');
   });
 
   it('charges exactly ten cents when the rounded fee is zero', () => {

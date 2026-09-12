@@ -1,4 +1,4 @@
-export const REDUNIQ_PILGRIMAGE_FEE_RATE = 0.019;
+export const REDUNIQ_PILGRIMAGE_FEE_RATE = 0.024;
 
 const roundCurrency = (value: number) => Math.round((Number(value) || 0) * 100) / 100;
 
