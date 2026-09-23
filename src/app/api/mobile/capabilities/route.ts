@@ -18,6 +18,7 @@ export async function GET() {
   );
   const mobileCheckoutEnabled = process.env.MOBILE_PILGRIMAGE_CHECKOUT_ENABLED === 'true';
   const pilgrimageCheckoutAvailable = dataAvailable && reduniqAvailable && mobileCheckoutEnabled;
+  const webHandoffAvailable = dataAvailable && process.env.MOBILE_PILGRIMAGE_WEB_HANDOFF_ENABLED === 'true';
 
   return mobileSuccess(
     {
@@ -47,12 +48,16 @@ export async function GET() {
           authentication: 'required',
           mode: 'external',
         },
+        pilgrimageWebHandoff: { available: webHandoffAvailable, authentication: 'required', mode: 'external' },
+        pilgrimageRegistrationWebHandoff: { available: webHandoffAvailable, authentication: 'required', mode: 'external' },
         donationHistory: { available: dataAvailable, authentication: 'required' },
       },
       payments: {
         mode: 'external',
         inAppCheckoutAvailable: false,
         externalPilgrimageCheckoutAvailable: pilgrimageCheckoutAvailable,
+        externalBookingHandoffAvailable: webHandoffAvailable,
+        externalRegistrationHandoffAvailable: webHandoffAvailable,
         donationsUrl: `${siteUrl}/donations`,
         pilgrimageUrlTemplate: `${siteUrl}/peregrinacoes/{slug}`,
       },
