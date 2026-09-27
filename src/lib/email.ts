@@ -31,6 +31,7 @@ import {
   renderBookingAccessLinkEmail,
   renderAdminBankTransferAlertEmail,
   renderVolunteerApplicationEmail,
+  renderIntentionReportsAlertEmail,
   // Types
   MembershipNotificationInput,
   MemberReceiptInput,
@@ -808,6 +809,28 @@ export const sendVolunteerApplicationEmail = async (payload: VolunteerApplicatio
   }
 
   const content = renderVolunteerApplicationEmail(payload);
+
+  await resendClient.emails.send({
+    from: notifyFrom,
+    to: [notifyTo],
+    subject: content.subject,
+    html: content.html,
+  });
+  return true;
+};
+
+// Alerta a equipa de denuncias novas no mural de intencoes da app.
+export const sendIntentionReportsAlert = async (payload: {
+  reportCount: number;
+  items: { intention: string; hidden: boolean; reasons: string[] }[];
+}) => {
+  if (!resendClient) {
+    console.warn('Resend nao configurado. Ignorar envio de email.');
+    return false;
+  }
+
+  const adminUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://apostoladodegarabandal.com'}/admin/moderacao`;
+  const content = renderIntentionReportsAlertEmail({ ...payload, adminUrl });
 
   await resendClient.emails.send({
     from: notifyFrom,

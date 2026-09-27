@@ -30,6 +30,7 @@
 import { NextResponse } from 'next/server';
 import { supabaseServer } from '../../../../lib/supabase';
 import { localHourFor, sendExpoPush, type ExpoPushMessage } from '../../../../lib/expo-push';
+import { processIntentionNotifications } from '../../../../lib/intention-notifications';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -105,6 +106,10 @@ export async function GET(request: Request) {
     const url = new URL(request.url);
     const dryRun = url.searchParams.get('dryRun') === '1';
 
+    // Avisos do mural de intencoes da app (primeira oracao, resumo diario,
+    // denuncias). Correm antes da reactivacao e independentemente dela.
+    const intentions = dryRun ? null : await processIntentionNotifications(supabaseServer);
+
     const now = new Date();
     const dormantBefore = daysAgo(DORMANT_DAYS);
 
@@ -128,7 +133,7 @@ export async function GET(request: Request) {
     const results: Array<{ userId: string; action: string; success: boolean }> = [];
 
     if (rows.length === 0) {
-        return NextResponse.json({ ok: true, processed: 0, sent: 0, details: [], dryRun });
+        return NextResponse.json({ ok: true, processed: 0, sent: 0, details: [], intentions, dryRun });
     }
 
     // Um membro pode ter mais do que um telefone. A decisao e por PESSOA — o
@@ -279,6 +284,7 @@ export async function GET(request: Request) {
         ok: true,
         processed: results.length,
         sent: results.filter((item) => item.success).length,
+        intentions,
         dryRun,
         details: results,
     });

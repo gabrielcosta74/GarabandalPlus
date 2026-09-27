@@ -4988,3 +4988,58 @@ export const renderVolunteerApplicationEmail = (payload: {
     `,
   }),
 });
+
+/**
+ * Alerta à equipa: denúncias novas no mural de intenções da app. O texto da
+ * intenção é conteúdo de um membro, por isso passa sempre por `escapeHtml`.
+ */
+export const renderIntentionReportsAlertEmail = (payload: {
+  reportCount: number;
+  items: { intention: string; hidden: boolean; reasons: string[] }[];
+  adminUrl: string;
+}) => {
+  const reasonLabels: Record<string, string> = {
+    offensive: "Conteúdo ofensivo",
+    harassment: "Assédio ou discurso de ódio",
+    inappropriate: "Conteúdo impróprio",
+    spam: "Spam ou publicidade",
+    other: "Outro motivo",
+  };
+  const plural = payload.reportCount === 1 ? "1 denúncia nova" : `${payload.reportCount} denúncias novas`;
+  const cards = payload.items
+    .map((item) =>
+      Card({
+        children: `
+          ${Text(`<em>“${escapeHtml(item.intention)}”</em>`)}
+          ${InfoRow({
+            label: "Motivo",
+            value: escapeHtml([...new Set(item.reasons)].map((reason) => reasonLabels[reason] ?? reason).join(", ")),
+          })}
+          ${InfoRow({
+            label: "Estado",
+            value: item.hidden ? "Escondida automaticamente (3+ denúncias)" : "Visível no mural",
+            isLast: true,
+          })}
+        `,
+      }),
+    )
+    .join("");
+
+  return {
+    subject: `Mural de intenções — ${plural}`,
+    html: Layout({
+      title: "Denúncias no mural de intenções",
+      preview: `${plural} para rever no painel de moderação.`,
+      children: `
+        ${Header({ title: "Denúncias para rever", subtitle: plural, category: "Moderação" })}
+        ${Section({
+          children: `
+            ${Text("Membros da app denunciaram intenções do mural. A App Store pede que as denúncias sejam revistas em 24 horas: confirme se a intenção viola as regras e decida no painel.")}
+            ${cards}
+            ${Button({ label: "Abrir a moderação", url: payload.adminUrl })}
+          `,
+        })}
+      `,
+    }),
+  };
+};
