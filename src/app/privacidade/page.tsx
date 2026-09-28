@@ -31,11 +31,11 @@ export default function PrivacidadePage() {
             Política de Privacidade
           </h1>
           <p className="text-sm text-slate-500">
-            Última atualização: 23 de julho de 2026
+            Última atualização: 28 de setembro de 2026
           </p>
           <p className="text-slate-600 leading-relaxed">
             Esta Política descreve como o Apostolado de Garabandal trata dados pessoais no âmbito
-            do website, web app e aplicação móvel para membros (incluindo áreas de membro,
+            do website, web app e aplicação móvel Garabandal (incluindo áreas de membro,
             peregrinações, doações, inscrições, loja online e comunicações operacionais).
           </p>
         </header>
@@ -57,10 +57,13 @@ export default function PrivacidadePage() {
         <section className="space-y-3">
           <h2 className="text-xl font-semibold text-slate-900">2. Dados que tratamos</h2>
           <ul className="list-disc pl-6 text-slate-600 leading-relaxed space-y-2">
-            <li>Identificação e contacto: nome, email, telefone, país, morada e dados fiscais quando aplicável.</li>
+            <li>Identificação e contacto: nome, email, telefone, data de nascimento, sexo, país, morada e dados fiscais (incluindo NIF/CPF) quando aplicável.</li>
             <li>Conta e autenticação: credenciais, identificadores técnicos de sessão e estado de autenticação.</li>
             <li>Utilização da área de membro: progresso de novenas, orações concluídas, favoritos e atividade necessária ao funcionamento da aplicação.</li>
-            <li>Dados de inscrição e peregrinação: dados dos peregrinos, preferências logísticas, comprovativos e histórico.</li>
+            <li>Funcionalidades espirituais: intenções de oração privadas ou publicadas na comunidade, denúncias de conteúdo, progresso de oração e respostas do assistente de IA que o utilizador decida reportar. Alguns destes dados podem revelar convicções religiosas.</li>
+            <li>Assistente do Catecismo: registo da autorização para usar fornecedores de IA, incluindo a versão e a data; as perguntas não são guardadas como histórico normal do assistente, mas a pergunta e a resposta reportadas pelo utilizador ficam disponíveis para revisão.</li>
+            <li>Dados de inscrição e peregrinação: dados do titular e acompanhantes, alojamento, quarto, voos, pontos de encontro, preferências logísticas, comprovativos e histórico.</li>
+            <li>Dados de saúde fornecidos para a segurança da viagem: alergias, restrições alimentares, notas de saúde e necessidades de assistência. Estes dados são tratados apenas para organizar e acompanhar a peregrinação.</li>
             <li>Dados de transação: montantes, método de pagamento, referências e estado de pagamento.</li>
             <li>Dados de loja online: encomendas, envio, faturação e histórico comercial.</li>
             <li>Comunicações e suporte: mensagens enviadas por formulários, email e canais de apoio.</li>
@@ -74,6 +77,7 @@ export default function PrivacidadePage() {
             <li>Obrigações legais: faturação, arquivo contabilístico/fiscal, prevenção de fraude e cooperação com autoridades.</li>
             <li>Interesse legítimo: segurança da plataforma, auditoria, prevenção de abuso e melhoria operacional.</li>
             <li>Consentimento: comunicações promocionais não estritamente necessárias, quando aplicável.</li>
+            <li>Autorização expressa para o assistente de IA: antes de enviar perguntas a fornecedores externos, explicamos o envio e pedimos permissão. É possível retirá-la no próprio assistente; a pesquisa local continua disponível.</li>
           </ul>
         </section>
 
@@ -82,13 +86,15 @@ export default function PrivacidadePage() {
           <p className="text-slate-600 leading-relaxed">
             Os dados podem ser partilhados com subcontratantes estritamente necessários à operação da
             plataforma (ex.: autenticação, alojamento, processamento de pagamentos, envio de email e
-            notificações), sempre ao abrigo de contratos com cláusulas de proteção de dados.
+            notificações e organização operacional da viagem), sempre ao abrigo de contratos com cláusulas de proteção de dados e segundo o princípio da minimização.
           </p>
           <p className="text-slate-600 leading-relaxed">
             Os principais prestadores incluem Supabase (autenticação e base de dados), Railway
-            (alojamento e API), Resend (email transacional) e, apenas no website quando há uma
-            transação, os operadores de pagamento apresentados no respetivo checkout. A aplicação
-            móvel não integra publicidade, não vende dados e não recolhe dados de cartão.
+            (alojamento e API), Resend (email transacional) e Reduniq (checkout externo de pagamentos).
+            Para o assistente opcional do Catecismo, a Google recebe a pergunta e mensagens recentes para pesquisar passagens relevantes. A Google ou a OpenAI recebe a pergunta, essas mensagens e excertos selecionados para gerar a resposta. A aplicação não envia o exame de consciência nem a preparação para confissão a esses fornecedores.
+            Quando necessário à execução da peregrinação, os dados estritamente necessários podem ser
+            partilhados com operadores de transporte, alojamento, seguros ou acompanhamento local.
+            A aplicação móvel não integra publicidade, não vende dados e não recolhe dados de cartão.
           </p>
           <p className="text-slate-600 leading-relaxed">
             Não vendemos dados pessoais.
@@ -110,6 +116,7 @@ export default function PrivacidadePage() {
             <li>Atividade e progresso de oração no servidor: eliminados com a conta, salvo cópias de segurança sujeitas ao seu ciclo técnico de rotação.</li>
             <li>Dados transacionais, contabilísticos e fiscais: durante 10 anos, ou prazo superior quando uma obrigação legal ou litígio aplicável o imponha.</li>
             <li>Dados baseados em consentimento: até retirada do consentimento ou termo da finalidade.</li>
+            <li>Autorização de IA: o registo ativo é apagado quando a autorização é retirada ou a conta é eliminada. As respostas que o utilizador reportou podem permanecer para análise da denúncia durante o período necessário a essa finalidade.</li>
             <li>Preferências e progresso guardados apenas no dispositivo: até serem removidos pelo utilizador, pela aplicação ou pela desinstalação, conforme o mecanismo utilizado.</li>
           </ul>
         </section>
@@ -138,7 +145,7 @@ export default function PrivacidadePage() {
           <h2 className="text-xl font-semibold text-slate-900">8. Aplicação móvel e rastreamento</h2>
           <p className="text-slate-600 leading-relaxed">
             A aplicação usa armazenamento seguro para manter a sessão e armazenamento local para
-            preferências, favoritos e progresso temporário de oração. Não utiliza identificadores
+            preferências, favoritos, rascunhos de inscrição e progresso temporário de oração. O exame de consciência, a data da última confissão e a penitência pendente ficam apenas no armazenamento seguro do dispositivo; são apagados ao sair da conta ou eliminá-la. A desinstalação no iOS pode não apagar automaticamente os dados do Keychain. Não utiliza identificadores
             publicitários, não acompanha o utilizador entre apps ou websites e não solicita acesso a
             contactos, localização, fotografias, microfone ou câmara.
           </p>
