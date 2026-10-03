@@ -6,6 +6,7 @@ const userId = '123e4567-e89b-42d3-a456-426614174001';
 const state = vi.hoisted(() => ({
   bookingOwner: '123e4567-e89b-42d3-a456-426614174001',
   bookingStatus: 'pending',
+  generatedLinkUserId: '123e4567-e89b-42d3-a456-426614174001',
   handoff: null as null | Record<string, string | null>,
 }));
 
@@ -15,7 +16,7 @@ vi.mock('../lib/supabase', () => ({
       getUser: async () => ({ data: { user: { id: userId, email: 'test@example.com' } }, error: null }),
       admin: {
         getUserById: async () => ({ data: { user: { email: 'test@example.com' } }, error: null }),
-        generateLink: async () => ({ data: { properties: { hashed_token: 'one-time-auth-hash' } }, error: null }),
+        generateLink: async () => ({ data: { user: { id: state.generatedLinkUserId }, properties: { hashed_token: 'one-time-auth-hash' } }, error: null }),
       },
     },
     from: (table: string) => {
@@ -71,6 +72,7 @@ describe('single-use mobile booking handoff', () => {
     vi.stubEnv('MOBILE_PILGRIMAGE_WEB_HANDOFF_ENABLED', 'true');
     state.bookingOwner = userId;
     state.bookingStatus = 'pending';
+    state.generatedLinkUserId = userId;
     state.handoff = null;
   });
   afterEach(() => vi.unstubAllEnvs());
@@ -124,6 +126,38 @@ describe('single-use mobile booking handoff', () => {
     const confirmation = new URL(entered.headers.get('location')!);
     expect(confirmation.pathname).toBe('/auth/confirm');
     expect(confirmation.searchParams.get('next')).toBe('/en/pilgrimages/garabandal-2027/register');
+  });
+
+  it('returns only official-domain links when the request arrives through localhost', async () => {
+    const created = await POST(new Request('http://localhost:3000/api/mobile/pilgrimage-bookings/x/web-access', {
+      method: 'POST', headers: { authorization: 'Bearer member-access-token' },
+    }), { params: Promise.resolve({ id: bookingId }) });
+    const { data } = await created.json();
+    expect(new URL(data.url).origin).toBe('https://apostoladodegarabandal.com');
+
+    const entered = await GET(new Request(data.url));
+    expect(new URL(entered.headers.get('location')!).origin).toBe('https://apostoladodegarabandal.com');
+
+    const registration = await createRegistrationHandoff(
+      new Request('http://localhost:3000/api/mobile/pilgrimages/garabandal-2027/web-access', {
+        method: 'POST', headers: { authorization: 'Bearer member-access-token' },
+      }),
+      { params: Promise.resolve({ slug: 'garabandal-2027' }) },
+    );
+    const registrationBody = await registration.json();
+    expect(new URL(registrationBody.data.url).origin).toBe('https://apostoladodegarabandal.com');
+  });
+
+  it('does not authenticate another user if the generated link resolves to a different account', async () => {
+    const created = await POST(new Request('https://apostoladodegarabandal.com/api/mobile/pilgrimage-bookings/x/web-access', {
+      method: 'POST', headers: { authorization: 'Bearer member-access-token' },
+    }), { params: Promise.resolve({ id: bookingId }) });
+    const { data } = await created.json();
+    state.generatedLinkUserId = '123e4567-e89b-42d3-a456-426614174099';
+
+    const entered = await GET(new Request(data.url));
+    expect(entered.headers.get('location')).toContain('/login?error=auth-config');
+    expect(entered.headers.get('location')).not.toContain('/auth/confirm');
   });
 
   it('does not issue an automatic login link without the app session or rollout flag', async () => {

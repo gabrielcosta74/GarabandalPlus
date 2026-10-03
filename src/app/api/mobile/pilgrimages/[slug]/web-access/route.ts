@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from 'node:crypto';
-import { getAppUrl } from '../../../../../../lib/config';
+import { CANONICAL_APP_URL } from '../../../../../../lib/config';
 import { checkRateLimit } from '../../../../../../lib/rate-limit';
 import { supabaseServer } from '../../../../../../lib/supabase';
 import {
@@ -49,7 +49,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ slu
     return mobileError(502, 'upstream_error', 'Não foi possível abrir a inscrição no site.');
   }
 
-  const url = new URL('/api/booking/mobile-handoff', `${getAppUrl()}/`);
+  const url = new URL('/api/booking/mobile-handoff', `${CANONICAL_APP_URL}/`);
   url.searchParams.set('token', token);
   return mobileSuccess({ url: url.toString(), expiresAt }, { headers: privateCacheHeaders });
 }

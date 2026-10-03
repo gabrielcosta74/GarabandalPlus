@@ -5,6 +5,7 @@ import {
   buildRecoveryFailurePath,
   resolveAuthCallbackRedirect,
 } from '../../lib/auth-redirects';
+import { getPublicRequestOrigin } from '../../lib/config';
 
 type CookieToSet = {
   name: string;
@@ -35,13 +36,14 @@ export async function GET(request: NextRequest) {
   const refCode = searchParams.get('ref');
   const locale = searchParams.get('locale');
   const next = searchParams.get('next');
+  const origin = getPublicRequestOrigin(request.nextUrl);
   const loginUrl = new URL(
     buildAuthCallbackLoginUrl(next, locale),
-    request.nextUrl.origin,
+    origin,
   );
   const recoveryFailureUrl = new URL(
     buildRecoveryFailurePath(locale),
-    request.nextUrl.origin,
+    origin,
   );
 
   if (!supabaseUrl || !supabaseAnonKey) {
@@ -93,7 +95,7 @@ export async function GET(request: NextRequest) {
   });
 
   return redirectWithCookies(
-    new URL(destination, request.nextUrl.origin),
+    new URL(destination, origin),
     cookiesToSet,
   );
 }

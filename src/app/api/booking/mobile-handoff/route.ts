@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { NextResponse } from 'next/server';
 import { buildBookingAccessUrl } from '../../../../lib/booking-email-access';
-import { getAppUrl } from '../../../../lib/config';
+import { CANONICAL_APP_URL } from '../../../../lib/config';
 import { normalizeEmail } from '../../../../lib/normalize';
 import { checkRateLimit } from '../../../../lib/rate-limit';
 import { supabaseServer } from '../../../../lib/supabase';
@@ -19,7 +19,7 @@ function redirect(url: string) {
 }
 
 export async function GET(request: Request) {
-  const appUrl = getAppUrl();
+  const appUrl = CANONICAL_APP_URL;
   const recovery = () => redirect(new URL('/login?error=invalid-link', `${appUrl}/`).toString());
   if (process.env.MOBILE_PILGRIMAGE_WEB_HANDOFF_ENABLED !== 'true' || !supabaseServer) return recovery();
   const rateLimit = checkRateLimit(request, { keyPrefix: 'mobile-booking-handoff', windowMs: 60_000, max: 30 });
@@ -72,11 +72,14 @@ export async function GET(request: Request) {
   if (userError || !email) return loginRecovery();
   const { data: linkData, error: linkError } = await supabaseServer.auth.admin.generateLink({ type: 'magiclink', email });
   const tokenHashForAuth = linkData?.properties?.hashed_token;
-  if (linkError || !tokenHashForAuth) return loginRecovery();
+  // A handoff must never authenticate a different user than the booking owner,
+  // even if an email/account mapping changes between the two lookups.
+  if (linkError || linkData?.user?.id !== handoff.user_id || !tokenHashForAuth) return loginRecovery();
 
   const confirmationUrl = new URL('/auth/confirm', `${appUrl}/`);
   confirmationUrl.searchParams.set('token_hash', tokenHashForAuth);
   confirmationUrl.searchParams.set('type', 'magiclink');
+  confirmationUrl.searchParams.set('handoff', 'pilgrimage');
   confirmationUrl.searchParams.set('next', destinationPath);
   if (locale === 'en') confirmationUrl.searchParams.set('locale', 'en');
   return redirect(confirmationUrl.toString());

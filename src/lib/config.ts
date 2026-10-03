@@ -14,6 +14,7 @@ function isLocalUrl(value: string) {
         return hostname === 'localhost'
             || hostname === '127.0.0.1'
             || hostname === '::1'
+            || hostname === '[::1]'
             || hostname.endsWith('.localhost');
     } catch {
         return true;
@@ -31,6 +32,18 @@ export function resolveAuthPublicUrl(authPublicUrl?: string | null, appUrl?: str
         if (normalized && !isLocalUrl(normalized)) return normalized;
     }
     return CANONICAL_APP_URL;
+}
+
+/**
+ * Production runs behind a reverse proxy, so Next sees the request as
+ * localhost:8080. Redirects built from that origin send people to their own
+ * device. In production, a loopback request origin always means the public site.
+ */
+export function getPublicRequestOrigin(requestUrl: URL) {
+    if (process.env.NODE_ENV === 'production' && isLocalUrl(requestUrl.origin)) {
+        return CANONICAL_APP_URL;
+    }
+    return requestUrl.origin;
 }
 
 export const APP_URL =
