@@ -74,7 +74,13 @@ const buildAvailableDates = (
 
     if (resolved.isExplicit && resolved.deadline > now) {
         const lastDate = dates.at(-1);
-        if (!lastDate || lastDate.getTime() !== resolved.deadline.getTime()) {
+        if (
+            lastDate
+            && lastDate.getFullYear() === resolved.deadline.getFullYear()
+            && lastDate.getMonth() === resolved.deadline.getMonth()
+        ) {
+            dates[dates.length - 1] = new Date(resolved.deadline);
+        } else {
             dates.push(new Date(resolved.deadline));
         }
     }

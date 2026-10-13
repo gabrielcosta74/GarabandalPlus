@@ -39,6 +39,17 @@ describe('pilgrimage installment deadlines', () => {
         expect(plan.reduce((total, installment) => total + installment.amount, 0)).toBe(900);
     });
 
+    it('moves the August installment to the 15th without adding an eleventh payment', () => {
+        const registrationDate = new Date(2026, 9, 13, 12);
+        const maximum = getMaxInstallments('2027-10-11', '2027-08-15', registrationDate);
+        const plan = calculateInstallments(1350, '2027-10-11', maximum, '2027-08-15', registrationDate);
+
+        expect(maximum).toBe(10);
+        expect(plan).toHaveLength(10);
+        expect(plan.at(-1)?.date).toEqual(new Date(2027, 7, 15, 12));
+        expect(plan.filter(payment => payment.date.getMonth() === 7)).toHaveLength(1);
+    });
+
     it('rejects a stored plan with a payment after the configured deadline', () => {
         expect(isPaymentPlanWithinDeadline(
             JSON.stringify([{ date: '2027-04-01T12:00:00.000Z', amount: 100 }]),
