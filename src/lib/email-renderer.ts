@@ -2346,6 +2346,82 @@ export const renderGeneralLeadEmail = (payload: GeneralLeadInput) => {
   };
 };
 
+export type EarlyAccessCodeEmailInput = {
+  name?: string | null;
+  locale?: EmailLocale;
+  pilgrimageUrl: string;
+  accessCode: string;
+  unsubscribeUrl?: string | null;
+};
+
+// Early-access invitation (Caminho Mariano 2027): link + shared access code.
+// Qualitative urgency only — never exact vacancy numbers.
+export const renderEarlyAccessCodeEmail = (payload: EarlyAccessCodeEmailInput) => {
+  const locale = payload.locale === 'en' ? 'en' : 'pt';
+  const isEn = locale === 'en';
+  const firstName = (payload.name || '').trim().split(' ')[0] || '';
+  const greeting = isEn
+    ? `Hello${firstName ? ` <strong>${escapeHtml(firstName)}</strong>` : ''},`
+    : `Olá${firstName ? ` <strong>${escapeHtml(firstName)}</strong>` : ''}!`;
+  const code = escapeHtml(payload.accessCode);
+  const step = (n: string, label: string) =>
+    `<tr><td valign="top" style="padding:4px 12px 4px 0;font-weight:900;color:${COLORS.primary};">${n}</td><td style="padding:4px 0;">${label}</td></tr>`;
+
+  return {
+    subject: isEn
+      ? 'You’re in: Marian Way 2027 early access'
+      : 'Já pode se inscrever: Caminho Mariano 2027 (acesso antecipado)',
+    html: Layout({
+      title: isEn ? 'Early access' : 'Acesso antecipado',
+      preview: isEn
+        ? 'Your access code is inside. Demand is high.'
+        : 'Seu código de acesso está aqui dentro. A procura está alta.',
+      locale,
+      unsubscribeUrl: payload.unsubscribeUrl,
+      children: `
+        ${Header({
+          title: isEn ? 'Your early access is open' : 'Seu acesso antecipado está aberto',
+          subtitle: isEn ? 'Marian Way · October 2027' : 'Caminho Mariano · Outubro 2027',
+          category: isEn ? 'Early access' : 'Acesso antecipado',
+        })}
+        ${Section({
+          children: `
+            ${Text(greeting)}
+            ${Text(isEn
+              ? 'You asked for early access to the <strong>Marian Way 2027</strong> pilgrimage, and it is now open to you. Before it opens to the public, you can see the pilgrimage and register.'
+              : 'Você pediu acesso antecipado ao <strong>Caminho Mariano 2027</strong>, e ele já está liberado para você. Antes de abrir ao público, você pode ver a peregrinação e fazer a sua inscrição.')}
+            ${Text(isEn
+              ? '<strong>Pilgrimage to Garabandal – Marian Way</strong><br>October 11–24, 2027'
+              : '<strong>Peregrinação a Garabandal – Caminho Mariano</strong><br>11 a 24 de outubro de 2027')}
+            <div style="margin:22px 0;padding:18px 20px;background:${COLORS.primaryLight};border:1px solid ${COLORS.primary};border-radius:12px;text-align:center;">
+              <div style="font-size:12px;line-height:18px;font-weight:800;letter-spacing:0.12em;text-transform:uppercase;color:${COLORS.textLight};">${isEn ? 'Your access code' : 'Seu código de acesso'}</div>
+              <div style="margin-top:6px;font-size:30px;line-height:36px;font-weight:900;letter-spacing:0.18em;color:${COLORS.heading};font-family:'Courier New',Courier,monospace;">${code}</div>
+            </div>
+            ${Button({ label: isEn ? 'Access and register' : 'Acessar e me inscrever', url: payload.pilgrimageUrl, size: 'lg' })}
+            <p class="email-text" style="margin:22px 0 8px;font-weight:800;color:${COLORS.heading};">${isEn ? 'How to get in' : 'Como entrar'}</p>
+            <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 18px;">
+              ${step('1', isEn ? 'Open the link above' : 'Abra o link acima')}
+              ${step('2', isEn ? 'Enter the code' : 'Digite o código')}
+              ${step('3', isEn ? 'Choose your place and start your registration' : 'Escolha o seu lugar e comece a inscrição')}
+            </table>
+            <p class="email-text" style="margin:0 0 8px;font-weight:800;color:${COLORS.heading};">${isEn ? 'Why register now' : 'Por que se inscrever agora'}</p>
+            ${Text(isEn
+              ? '&bull; Demand is high and spots can fill up quickly.<br>&bull; Those who register first are the ones who secure their place.<br>&bull; You can pay in instalments, up to August 15, 2027.'
+              : '&bull; A procura está alta e as vagas podem esgotar rápido.<br>&bull; Quem se inscreve primeiro é quem garante o seu lugar.<br>&bull; Dá para parcelar: o plano de prestações vai até 15 de agosto de 2027.')}
+            ${Text(isEn
+              ? 'Public opening is on <strong>October 16 at 11:00 UTC</strong>. You get in ahead of everyone else.'
+              : 'A abertura ao público é no dia <strong>16 de outubro, às 12h (Portugal) / 8h (Brasília)</strong>. Você entra antes de todo mundo.')}
+            ${Text(isEn
+              ? `Questions? Message us on ${contactWa} or email ${contactMail}.`
+              : `Alguma dúvida? Fale com a gente pelo ${contactWa} ou por ${contactMail}.`)}
+            ${Text(isEn ? 'May Our Lady be with you,<br><strong>Garabandal Apostolate</strong>' : 'Que Nossa Senhora o(a) acompanhe,<br><strong>Apostolado de Garabandal</strong>')}
+          `,
+        })}
+      `,
+    }),
+  };
+};
+
 // Default exports for backward compatibility or less critical emails
 // Using a generic wrapper for the existing logic if needed, or simple implementation
 export const renderStoreOwnerEmail = (payload: any) => ({
