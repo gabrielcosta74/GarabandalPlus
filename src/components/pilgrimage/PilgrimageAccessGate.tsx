@@ -123,7 +123,9 @@ export default function PilgrimageAccessGate({ slug, gateInfo, isEn = false, onU
     };
 
     return (
-        <div className="fixed inset-0 z-[9999] overflow-y-auto bg-black" style={{ colorScheme: 'dark' }}>
+        // Above the cookie banner (z 100000000): on phones the banner otherwise
+        // covers the code field and the scroll-locked gate cannot be used.
+        <div className="fixed inset-0 z-[100000001] overflow-y-auto bg-black" style={{ colorScheme: 'dark' }}>
             {/* Cover in the background — darkened, cinematic */}
             {cover && (
                 <Image src={cover} alt="" fill priority className="object-cover opacity-40 blur-[3px]" sizes="100vw" />
