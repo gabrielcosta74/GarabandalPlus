@@ -53,6 +53,7 @@ import PilgrimageItineraryDays from '../../../components/pilgrimage/PilgrimageIt
 import PilgrimageScarcityNote from '../../../components/pilgrimage/PilgrimageScarcityNote';
 import PilgrimageAccessGate, { type GateInfo } from '../../../components/pilgrimage/PilgrimageAccessGate';
 import EarlyAccessBanner from '../../../components/pilgrimage/EarlyAccessBanner';
+import EarlyAccessUrgencyModal from '../../../components/pilgrimage/EarlyAccessUrgencyModal';
 import { getPublicLaunchTimestamp } from '../../../lib/pilgrimage-early-access';
 import {
     CountryBasedFlightPolicy,
@@ -486,6 +487,9 @@ export default function PilgrimageDetailPage() {
                         isEn={isEn}
                         onExpire={() => setReloadKey((k) => k + 1)}
                     />
+                )}
+                {inEarlyAccess && !isAdminPreview && (
+                    <EarlyAccessUrgencyModal slug={pilgrimage.slug} isEn={isEn} />
                 )}
                 {isAdminPreview && (
                     <div className="sticky top-0 z-[100] flex items-center justify-center gap-2 border-b border-amber-300 bg-amber-100 px-4 py-2.5 text-center text-xs font-black uppercase tracking-wider text-amber-950 shadow-sm">

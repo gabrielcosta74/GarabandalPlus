@@ -121,7 +121,7 @@ export default function CookieConsentBanner() {
   if (!isVisible) return null;
 
   return (
-    <div id="cookie-consent" className="fixed inset-x-0 bottom-0 z-[200] px-3 pb-3 sm:left-auto sm:right-6 sm:max-w-[520px] sm:px-0 sm:pb-6" role="region" aria-label={copy.title}>
+    <div id="cookie-consent" className="fixed inset-x-0 bottom-0 z-[100000000] px-3 pb-3 sm:left-auto sm:right-6 sm:max-w-[520px] sm:px-0 sm:pb-6" role="region" aria-label={copy.title}>
       <div className="rounded-lg border border-white/10 bg-[#050911]/95 text-white shadow-2xl shadow-slate-950/40 backdrop-blur-xl">
         <div className={`grid gap-4 p-4 sm:p-5 ${showSettings ? 'max-h-[70svh] overflow-y-auto' : 'max-sm:gap-3 max-sm:p-3'}`}>
           <div className="space-y-2.5">
