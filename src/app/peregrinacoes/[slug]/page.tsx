@@ -517,7 +517,7 @@ export default function PilgrimageDetailPage() {
                             <Star className="w-3.5 h-3.5 fill-slate-950" />
                             {isEn ? 'Official Pilgrimage' : 'Peregrinação Oficial'}
                         </div>
-                        {!isClosed && !isWaitlist && remainingSpots > 6 && (
+                        {scarcityPct > 0 && !isClosed && !isWaitlist && remainingSpots > 6 && (
                             <div className="mb-4 flex w-fit items-center gap-2 rounded-full border border-red-400/40 bg-red-600/95 px-3 py-1.5 text-xs font-black uppercase tracking-wide text-white shadow-lg shadow-red-950/30 backdrop-blur-sm">
                                 <span className="relative flex h-2 w-2" aria-hidden>
                                     <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-300 opacity-75" />

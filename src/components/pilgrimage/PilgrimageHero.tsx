@@ -335,10 +335,12 @@ export function PilgrimageHero({ featuredPilgrimage }: { featuredPilgrimage?: Fe
                                                     <span className="inline-flex items-center gap-1.5 rounded-full bg-yellow-300 px-3 py-1.5 text-[11px] font-black uppercase tracking-widest text-slate-950 shadow-sm">
                                                         {isEn ? 'Limited spots' : 'Vagas limitadas'}
                                                     </span>
-                                                    <span className="inline-flex items-center gap-1.5 rounded-full bg-red-600 px-3 py-1.5 text-[11px] font-black uppercase tracking-widest text-white shadow-lg shadow-red-950/30 ring-2 ring-white/80">
-                                                        <Flame className="h-3.5 w-3.5" strokeWidth={2.5} />
-                                                        {getScarcitySoldLabel(getScarcitySoldPercent(featuredPilgrimage), locale)}
-                                                    </span>
+                                                    {getScarcitySoldPercent(featuredPilgrimage) > 0 && (
+                                                        <span className="inline-flex items-center gap-1.5 rounded-full bg-red-600 px-3 py-1.5 text-[11px] font-black uppercase tracking-widest text-white shadow-lg shadow-red-950/30 ring-2 ring-white/80">
+                                                            <Flame className="h-3.5 w-3.5" strokeWidth={2.5} />
+                                                            {getScarcitySoldLabel(getScarcitySoldPercent(featuredPilgrimage), locale)}
+                                                        </span>
+                                                    )}
                                                 </div>
                                             )
                                         ) : (

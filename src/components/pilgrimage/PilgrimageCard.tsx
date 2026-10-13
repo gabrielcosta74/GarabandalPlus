@@ -183,7 +183,7 @@ export function PilgrimageCard({ pilgrimage, index }: PilgrimageCardProps) {
                                     <Users className="w-4 h-4" />
                                     {isClosed ? p.card.soldOut : isWaitlist ? p.card.waitlist : getAvailabilityHighlightLabel(remainingSpots, locale, pilgrimage)}
                                 </div>
-                                {!isClosed && !isWaitlist && (
+                                {!isClosed && !isWaitlist && getScarcitySoldPercent(pilgrimage) > 0 && (
                                     <span className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-red-200 bg-red-50 px-2.5 py-1 text-[11px] font-black uppercase tracking-wide text-red-600">
                                         <Flame className="h-3 w-3" strokeWidth={2.5} />
                                         {getScarcitySoldLabel(getScarcitySoldPercent(pilgrimage), locale)}

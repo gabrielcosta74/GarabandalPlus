@@ -62,7 +62,8 @@ export const getPublicAvailabilityLabel = (_remainingSpots: number, locale: 'pt'
 
 // Percentagem fixa de escassez de marketing, afinável por peregrinação via
 // pricing_config.scarcity_fill_pct. Itália–Medjugorje mantém 75% mesmo quando
-// a listagem vem do RPC resumido sem pricing_config.
+// a listagem vem do RPC resumido sem pricing_config. 0 = sem pílula (a
+// Peregrinação Mariana de outubro 2027 não mostra escassez, pedido do operador).
 export const getScarcitySoldPercent = (
     pilgrimage?: {
         slug?: string | null;
@@ -74,7 +75,8 @@ export const getScarcitySoldPercent = (
     const isItalyMedjugorje = /it[áa]lia|medjugorje/i.test(
         `${pilgrimage?.slug || ''} ${pilgrimage?.title || ''}`,
     );
-    const fallbackPct = isItalyMedjugorje ? 75 : 50;
+    const isMariana2027 = /peregrinacao-mariana-2027/i.test(pilgrimage?.slug || '');
+    const fallbackPct = isMariana2027 ? 0 : isItalyMedjugorje ? 75 : 50;
     const pct = typeof raw === 'number' && Number.isFinite(raw) ? raw : fallbackPct;
     return Math.min(100, Math.max(0, Math.round(pct)));
 };
