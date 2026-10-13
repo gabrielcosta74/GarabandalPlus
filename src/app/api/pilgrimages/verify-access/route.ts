@@ -7,7 +7,9 @@ export const dynamic = 'force-dynamic';
 
 const noStore = { 'Cache-Control': 'no-store' };
 
-const normalize = (value: string) => value.trim().toUpperCase().replace(/\s+/g, '');
+// Case, spaces and hyphens (incl. en/em dashes that phones auto-insert) are
+// ignored, so "TYG5-XNJZ" and "tyg5xnjz" both unlock.
+const normalize = (value: string) => value.trim().toUpperCase().replace(/[\s\-\u2010-\u2015\u2212]+/g, '');
 
 // Verify a shared early-access code and, on success, grant a signed cookie that
 // unlocks the pilgrimage until its public launch.
