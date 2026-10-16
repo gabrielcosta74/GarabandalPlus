@@ -118,7 +118,7 @@ export const en = {
       trustSmallGroups: 'Small Groups',
       trustSmallGroupsDesc: 'Intimate experience with personalised support.',
       trustOrganized: '100% Organised',
-      trustOrganizedDesc: 'Flights, hotels and meals included. Worry-free.',
+      trustOrganizedDesc: 'Hotels, meals and ground transport arranged for a smoother journey.',
       trustSpiritual: 'Spiritual Itinerary',
       trustSpiritualDesc: 'Daily programme with Mass, Rosary and conferences.',
     },

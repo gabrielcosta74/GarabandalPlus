@@ -118,7 +118,7 @@ export const pt = {
       trustSmallGroups: 'Pequenos Grupos',
       trustSmallGroupsDesc: 'Experiência intimista e acompanhamento personalizado.',
       trustOrganized: '100% Organizado',
-      trustOrganizedDesc: 'Voos, hotéis e refeições incluídos. Sem preocupações.',
+      trustOrganizedDesc: 'Hotéis, refeições e transporte terrestre organizados. Viaje com tranquilidade.',
       trustSpiritual: 'Roteiro Espiritual',
       trustSpiritualDesc: 'Programa diário com missa, terço e conferências.',
     },

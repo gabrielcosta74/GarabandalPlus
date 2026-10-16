@@ -20,6 +20,7 @@ type Pilgrimage = {
     slug: string;
     description: string;
     cover_image: string;
+    cover_image_en?: string | null;
     start_date: string;
     end_date: string;
     base_price: number;
@@ -36,6 +37,9 @@ type Pilgrimage = {
     not_included_items?: string[];
     pricing_config?: { scarcity_fill_pct?: number; early_access?: unknown } | null;
 };
+
+const CAMINHO_MARIANO_2027_POSTER = 'https://pntzzuxzjnzksubbjfvj.supabase.co/storage/v1/object/public/site-content/pilgrimages/covers/1791477898377_p1a9xb.png';
+const CAMINHO_MARIANO_2027_POSTER_EN = 'https://pntzzuxzjnzksubbjfvj.supabase.co/storage/v1/object/public/site-content/pilgrimages/covers/1791477958157_w68bsd.png';
 
 export default function PilgrimagesPage() {
     const { locale, t } = useLocale();
@@ -127,17 +131,23 @@ export default function PilgrimagesPage() {
         /it[áa]lia|medjugorje/i.test(`${pilgrimage.slug || ''} ${pilgrimage.title || ''}`);
     const italyPilgrimage = sortedPilgrimages.find((pilgrimage) => isItalyPilgrimage(pilgrimage) && isBookable(pilgrimage))
         || sortedPilgrimages.find(isItalyPilgrimage);
+    const marianPilgrimage = sortedPilgrimages.find((pilgrimage) => pilgrimage.slug === 'peregrinacao-mariana-2027');
     const nextPilgrimageWithVacancies = italyPilgrimage
         || sortedPilgrimages.find(isBookable)
         || visiblePilgrimages.find((pilgrimage) => getRemainingSpots(pilgrimage) > 0)
         || visiblePilgrimages[0];
-    const earlyAccessPath = locale === 'en' ? '/en/early-access' : '/acesso-antecipado';
+    const marianPath = locale === 'en'
+        ? '/en/pilgrimages/peregrinacao-mariana-2027'
+        : '/peregrinacoes/peregrinacao-mariana-2027';
+    const marianPoster = locale === 'en'
+        ? marianPilgrimage?.cover_image_en || marianPilgrimage?.cover_image || CAMINHO_MARIANO_2027_POSTER_EN
+        : marianPilgrimage?.cover_image || CAMINHO_MARIANO_2027_POSTER;
 
     return (
         <VIPLayout allowPublic={true}>
             <div className="bg-[#f8fafc] min-h-screen pb-12 shadow-sm overflow-hidden relative -mx-4 -mt-24 md:-mx-8 -mb-12">
 
-                <PilgrimageHero featuredPilgrimage={italyPilgrimage || nextPilgrimageWithVacancies} />
+                <PilgrimageHero featuredPilgrimage={marianPilgrimage || nextPilgrimageWithVacancies} />
 
                 <div className="relative z-10 max-w-6xl mx-auto px-4 md:px-8 lg:px-12">
                     {/* Testimonials Section - Strategic Position: Social Proof before Product */}
@@ -150,78 +160,38 @@ export default function PilgrimagesPage() {
                         <PastPilgrimagesGallery />
                     </div>
 
-                    {/* Acesso antecipado ao Caminho Mariano 2027. Substitui o antigo
-                        aviso de "esgotado" da Itália: em vez de fechar a porta, manda
-                        quem chega agora para a lista prioritária. */}
-                    <section className="relative mb-12 md:mb-16 -mx-4 overflow-hidden bg-[#0a0a0c] text-[#f4f1e9] md:mx-0 md:rounded-[2rem]">
-                        {/* Mesma fotografia da landing de acesso antecipado. Aqui o
-                            recorte é largo e o texto fica centrado por cima do rosto,
-                            por isso o escurecimento é bem mais fundo do que na landing. */}
-                        <div className="pointer-events-none absolute inset-0" aria-hidden="true">
-                            <Image
-                                src="/images/early-access-nossa-senhora.webp"
-                                alt=""
-                                fill
-                                sizes="(max-width: 768px) 100vw, 1152px"
-                                className="object-cover object-[center_30%]"
-                            />
-                            <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(8,8,8,0.86)_0%,rgba(8,8,8,0.74)_45%,rgba(8,8,8,0.9)_100%)]" />
-                        </div>
-                        <div className="pointer-events-none absolute left-1/2 top-0 h-[380px] w-[380px] -translate-x-1/2 -translate-y-2/3 rounded-full bg-amber-300/[0.09] blur-[90px]" />
-                        <div className="relative mx-auto max-w-2xl px-6 py-16 text-center sm:px-10 md:py-24">
-                            <p className="text-[11px] font-semibold uppercase tracking-[0.32em] text-amber-200/75">
-                                {locale === 'en' ? 'Early access' : 'Acesso antecipado'}
-                            </p>
-
-                            <h2 className="mt-7 font-serif text-[2rem] font-semibold leading-[1.12] tracking-tight text-white sm:text-4xl md:text-5xl">
-                                {locale === 'en' ? 'Marian Way 2027' : 'Caminho Mariano 2027'}
-                            </h2>
-
-                            <div className="mx-auto mt-8 h-px w-16 bg-gradient-to-r from-transparent via-amber-200/45 to-transparent" />
-
-                            <p className="mx-auto mt-8 max-w-md text-base leading-[1.85] text-[#f4f1e9]/70 sm:text-lg">
-                                {locale === 'en'
-                                    ? 'Registration opens for the private list first. You receive the link 48 hours before everyone else.'
-                                    : 'As inscrições abrem primeiro para a lista privada. Recebe o link 48 horas antes de todos.'}
-                            </p>
-
-                            <div className="mx-auto mt-12 grid max-w-sm grid-cols-2 gap-px overflow-hidden rounded-2xl bg-white/[0.07]">
-                                {[
-                                    {
-                                        value: locale === 'en' ? '13 Oct' : '13 Out',
-                                        label: locale === 'en' ? 'Private access' : 'Acesso privado',
-                                        accent: true,
-                                    },
-                                    {
-                                        value: locale === 'en' ? '15 Oct' : '15 Out',
-                                        label: locale === 'en' ? 'Public opening' : 'Abertura pública',
-                                        accent: false,
-                                    },
-                                ].map((item) => (
-                                    <div key={item.label} className="bg-[#0a0a0c]/70 px-4 py-6 backdrop-blur-sm">
-                                        <p className={`font-serif text-2xl font-semibold ${item.accent ? 'text-amber-200' : 'text-white/55'}`}>
-                                            {item.value}
-                                        </p>
-                                        <p className="mt-2 text-[11px] uppercase tracking-[0.14em] text-[#f4f1e9]/45">
-                                            {item.label}
-                                        </p>
-                                    </div>
-                                ))}
-                            </div>
-
-                            <Link
-                                href={earlyAccessPath}
-                                className="group mt-12 inline-flex min-h-14 items-center justify-center gap-3 rounded-full bg-[#f4f1e9] px-9 text-sm font-semibold tracking-wide text-[#0a0a0c] transition-colors hover:bg-white"
-                            >
-                                {locale === 'en' ? 'Join the private list' : 'Entrar na lista privada'}
-                                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+                    <section className="relative mb-12 overflow-hidden bg-[#071936] text-white md:mb-16 md:rounded-[2rem]">
+                        <div className="grid items-center gap-8 p-5 sm:p-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)] lg:gap-12 lg:p-12">
+                            <Link href={marianPath} className="block overflow-hidden rounded-2xl border border-amber-200/25 shadow-2xl" aria-label={locale === 'en' ? 'See the Marian Way 2027 pilgrimage poster and details' : 'Ver o cartaz e os detalhes do Caminho Mariano 2027'}>
+                                <Image
+                                    src={marianPoster}
+                                    alt={locale === 'en' ? 'Marian Way 2027 pilgrimage poster, 11–24 October' : 'Cartaz da peregrinação Caminho Mariano 2027, de 11 a 24 de outubro'}
+                                    width={1198}
+                                    height={1313}
+                                    sizes="(max-width: 1024px) 100vw, 500px"
+                                    className="h-auto w-full"
+                                />
                             </Link>
-
-                            <p className="mt-6 text-xs leading-relaxed text-[#f4f1e9]/40">
-                                {locale === 'en'
-                                    ? 'Free. Only an email, so we can send the link on the day.'
-                                    : 'Sem custo. Apenas um email, para enviarmos o link no dia.'}
-                            </p>
+                            <div className="px-1 pb-5 text-center lg:pb-0 lg:text-left">
+                                <p className="text-xs font-bold uppercase tracking-[0.28em] text-amber-300">
+                                    {locale === 'en' ? 'Registration open' : 'Inscrições abertas'}
+                                </p>
+                                <h2 className="mt-5 font-serif text-3xl font-semibold leading-tight sm:text-4xl lg:text-5xl">
+                                    {locale === 'en' ? 'Marian Way 2027' : 'Caminho Mariano 2027'}
+                                </h2>
+                                <p className="mt-5 text-lg font-semibold text-amber-100">
+                                    {locale === 'en' ? '11–24 October 2027' : '11 a 24 de outubro de 2027'}
+                                </p>
+                                <p className="mx-auto mt-6 max-w-md text-base leading-7 text-white/75 lg:mx-0">
+                                    {locale === 'en'
+                                        ? 'Explore the itinerary, flight options and pilgrimage details, then register directly on the trip page.'
+                                        : 'Conheça o itinerário, as opções de voo e todos os detalhes da peregrinação. Pode inscrever-se diretamente na página da viagem.'}
+                                </p>
+                                <Link href={marianPath} className="group mt-8 inline-flex min-h-14 items-center justify-center gap-3 rounded-full bg-amber-300 px-8 text-sm font-bold text-[#071936] transition-colors hover:bg-amber-200">
+                                    {locale === 'en' ? 'See the pilgrimage and register' : 'Ver peregrinação e inscrever-me'}
+                                    <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+                                </Link>
+                            </div>
                         </div>
                     </section>
 

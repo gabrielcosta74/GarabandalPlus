@@ -56,7 +56,9 @@ export function PilgrimageHero({ featuredPilgrimage }: { featuredPilgrimage?: Fe
     const dateLocale = isEn ? enUS : pt;
     const listHref = isEn ? '/en/pilgrimages' : '/peregrinacoes';
     const donationsHref = isEn ? '/en/donations' : '/donations';
-    const earlyAccessHref = isEn ? '/en/early-access' : '/acesso-antecipado';
+    const featuredCardImage = featuredPilgrimage?.slug === 'peregrinacao-mariana-2027'
+        ? '/images/early-access-nossa-senhora.webp'
+        : (isEn && featuredPilgrimage?.cover_image_en) || featuredPilgrimage?.cover_image || heroImages[currentImage];
 
     useEffect(() => {
         // Em separador oculto o rAF pára e as animações congelam, mas o
@@ -116,11 +118,6 @@ export function PilgrimageHero({ featuredPilgrimage }: { featuredPilgrimage?: Fe
                 ? Math.max(0, Number(featuredPilgrimage.current_vacancies))
                 : Math.max(0, Number(featuredPilgrimage.total_vacancies || 0) - Number(featuredPilgrimage.confirmed_pax || 0))
         : 0;
-
-    // Uma peregrinação em lista de espera não vende nada no hero. Quando a que
-    // está em destaque já não tem vagas, o lugar passa para o acesso antecipado
-    // ao Caminho Mariano 2027 — e volta ao normal assim que houver vagas.
-    const showEarlyAccessCard = Boolean(featuredPilgrimage) && remainingSpots <= 0;
 
     return (
         <div className="relative overflow-hidden rounded-b-3xl md:rounded-none md:rounded-b-[3rem] bg-slate-900 text-white min-h-[720px] sm:min-h-[760px] md:min-h-[650px] flex items-center mb-8 md:mb-14 shadow-2xl group transition-all duration-1000 pt-28 pb-20 md:pt-36 md:pb-16">
@@ -210,72 +207,7 @@ export function PilgrimageHero({ featuredPilgrimage }: { featuredPilgrimage?: Fe
 
                 {/* Right: Featured Trip Card - The "Hero" of the Hero */}
                 <div className="relative flex justify-center lg:justify-end">
-                    {showEarlyAccessCard ? (
-                        <motion.div
-                            initial={{ opacity: 0, x: 50, rotate: 2 }}
-                            animate={{ opacity: 1, x: 0, rotate: 0 }}
-                            transition={{ delay: 0.3, duration: 0.8, type: "spring" }}
-                            className="relative w-full max-w-[420px] rounded-[1.75rem] border border-amber-200/30 bg-white/[0.10] p-2 shadow-2xl backdrop-blur-2xl md:rounded-[2.25rem]"
-                        >
-                            <div className="relative flex min-h-[390px] flex-col overflow-hidden rounded-[1.35rem] bg-[#0a0a0c] p-6 sm:p-7 md:rounded-[1.9rem] lg:p-8">
-                                {/* Mesma imagem da landing de acesso antecipado, com o
-                                    mesmo enquadramento e a mesma queda para preto — o
-                                    card e a página a que leva passam a falar igual. */}
-                                <div className="pointer-events-none absolute inset-0" aria-hidden="true">
-                                    <Image
-                                        src="/images/early-access-nossa-senhora.webp"
-                                        alt=""
-                                        fill
-                                        sizes="(max-width: 1024px) 100vw, 420px"
-                                        className="object-cover object-[center_24%] opacity-90"
-                                    />
-                                    <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(8,8,8,0.30)_0%,rgba(8,8,8,0.62)_38%,rgba(8,8,8,0.88)_68%,rgba(8,8,8,0.96)_100%)]" />
-                                </div>
-                                <div className="pointer-events-none absolute -right-12 -top-12 h-44 w-44 rounded-full bg-amber-300/15 blur-[60px]" />
-
-                                <div className="relative">
-                                    <span className="inline-flex rounded-full border border-amber-200/30 px-3.5 py-1.5 text-[10px] font-semibold uppercase tracking-[0.26em] text-amber-200">
-                                        {isEn ? 'Early access' : 'Acesso antecipado'}
-                                    </span>
-                                    <h3 className="mt-6 font-serif text-3xl font-semibold leading-[1.08] text-white sm:text-[2.15rem]">
-                                        {isEn ? 'Marian Way 2027' : 'Caminho Mariano 2027'}
-                                    </h3>
-                                    <div className="mt-5 h-px w-14 bg-gradient-to-r from-amber-200/60 to-transparent" />
-                                    <p className="mt-5 text-sm leading-relaxed text-slate-300">
-                                        {isEn
-                                            ? 'Registration opens for the private list 48 hours before everyone else.'
-                                            : 'As inscrições abrem para a lista privada 48 horas antes de todos.'}
-                                    </p>
-                                </div>
-
-                                <div className="relative mt-7 grid grid-cols-3 gap-3 border-y border-white/10 py-5">
-                                    {[
-                                        { value: '14', label: isEn ? 'days' : 'dias' },
-                                        { value: '3', label: isEn ? 'countries' : 'países' },
-                                        { value: '13', label: isEn ? 'sanctuaries' : 'santuários' },
-                                    ].map((stat) => (
-                                        <div key={stat.label}>
-                                            <p className="font-serif text-2xl font-semibold text-white">{stat.value}</p>
-                                            <p className="mt-1 text-[10px] uppercase tracking-[0.16em] text-slate-400">{stat.label}</p>
-                                        </div>
-                                    ))}
-                                </div>
-
-                                <div className="relative mt-auto space-y-4 pt-7">
-                                    <div className="flex items-center justify-between text-[11px] uppercase tracking-[0.14em]">
-                                        <span className="font-semibold text-amber-200">{isEn ? '13 Oct · private' : '13 Out · privado'}</span>
-                                        <span className="text-slate-400">{isEn ? '15 Oct · public' : '15 Out · público'}</span>
-                                    </div>
-                                    <Link href={earlyAccessHref} className="block w-full">
-                                        <span className="flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-[#f4f1e9] text-sm font-semibold tracking-wide text-[#0a0a0c] transition-colors hover:bg-white">
-                                            {isEn ? 'Join the private list' : 'Entrar na lista privada'}
-                                            <ArrowRight className="h-4 w-4" />
-                                        </span>
-                                    </Link>
-                                </div>
-                            </div>
-                        </motion.div>
-                    ) : featuredPilgrimage ? (
+                    {featuredPilgrimage ? (
                         <motion.div
                             initial={{ opacity: 0, x: 50, rotate: 2 }}
                             animate={{ opacity: 1, x: 0, rotate: 0 }}
@@ -284,10 +216,10 @@ export function PilgrimageHero({ featuredPilgrimage }: { featuredPilgrimage?: Fe
                         >
                             {/* Card Inner */}
                             <div className="min-h-[390px] bg-slate-900/88 rounded-[1.35rem] md:rounded-[1.9rem] p-5 sm:p-6 lg:p-7 flex flex-col justify-between relative overflow-hidden group">
-                                {(featuredPilgrimage.cover_image || heroImages[currentImage]) && (
+                                {featuredCardImage && (
                                     <>
                                         <Image
-                                            src={(isEn && featuredPilgrimage.cover_image_en) || featuredPilgrimage.cover_image || heroImages[currentImage]}
+                                            src={featuredCardImage}
                                             alt={isEn ? featuredPilgrimage.title_en || featuredPilgrimage.title : featuredPilgrimage.title}
                                             fill
                                             className="object-cover opacity-55"
