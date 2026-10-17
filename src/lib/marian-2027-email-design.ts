@@ -182,7 +182,7 @@ export function renderMarian2027EditorialEmail(input: EditorialEmailInput): stri
       <tr><td class="edge" style="padding:31px 45px 5px;">${edition.body(greeting)}</td></tr>
       <tr><td class="edge" style="padding:0 45px 44px;">
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" bgcolor="${ink}" style="background:${ink};">
-          <a href="${url}" style="display:block;padding:18px 20px;color:#ffffff;font-size:13px;font-weight:700;letter-spacing:.3px;line-height:20px;text-align:center;text-decoration:none;">${edition.cta} &nbsp;→</a>
+          <a href="${url}" target="_blank" rel="noopener noreferrer" style="display:block;padding:18px 20px;color:#ffffff;font-size:13px;font-weight:700;letter-spacing:.3px;line-height:20px;text-align:center;text-decoration:none;">${edition.cta} &nbsp;→</a>
         </td></tr></table>
       </td></tr>
       <tr><td class="edge" style="padding:25px 45px 29px;background:#f7f3f1;border-top:1px solid #e9e1dd;">

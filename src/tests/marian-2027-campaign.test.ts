@@ -30,6 +30,7 @@ describe('Caminho Mariano 2027 campaign', () => {
       expect(rendered.html).toContain(language === 'en' ? '/en/pilgrimages/peregrinacao-mariana-2027' : '/peregrinacoes/peregrinacao-mariana-2027');
       expect(rendered.html).toContain(language === 'en' ? '11–24 October 2027' : '11 a 24 de outubro de 2027');
       expect(rendered.html).toContain(step.image);
+      expect(rendered.html).toMatch(/href="https?:\/\/[^\"]+\/(?:en\/pilgrimages|peregrinacoes)\/peregrinacao-mariana-2027[^\"]*" target="_blank" rel="noopener noreferrer"/);
       expect(rendered.html).toContain(language === 'en' ? 'unsubscribe' : 'cancelar a subscrição');
       expect(rendered.html).not.toMatch(/restam apenas \d+ vagas/i);
       expect(rendered.html).not.toContain('#d4af37');
