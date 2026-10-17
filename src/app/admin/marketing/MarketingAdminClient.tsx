@@ -511,6 +511,10 @@ export default function MarketingAdminClient({ view: initialView }: MarketingAdm
             </div>
 
             <div className="flex items-center gap-2">
+              <Link href="/admin/marketing/caminho-mariano-2027" className="inline-flex items-center gap-2 rounded-lg bg-[#0e2748] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#1b426d]">
+                <Plane className="h-4 w-4" />
+                Caminho Mariano 2027
+              </Link>
               {(view === 'funnels' || view === 'scheduled') && (
                 <button
                   onClick={() => prepareAutomations()}

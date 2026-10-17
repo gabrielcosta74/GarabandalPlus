@@ -49,6 +49,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       .eq('id', id)
       .single();
     if (error) throw error;
+    if (campaign.metrics?.family === 'marian-2027') {
+      return NextResponse.json({ error: 'Esta campanha é enviada pelo calendário do Caminho Mariano 2027.' }, { status: 409 });
+    }
     if (!campaign.subject) return NextResponse.json({ error: 'Campanha sem assunto.' }, { status: 400 });
     if (!campaign.segment_slug) return NextResponse.json({ error: 'Campanha sem segmento.' }, { status: 400 });
 

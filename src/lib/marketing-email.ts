@@ -37,6 +37,7 @@ export type MarketingEmailInput = {
   body?: string | null;
   templateKey?: string | null;
   context?: Partial<MarketingTemplatePayload>;
+  idempotencyKey?: string;
 };
 
 export const listMarketingEmailTemplates = () =>
@@ -94,7 +95,7 @@ export const sendMarketingEmail = async (input: MarketingEmailInput) => {
       'List-Unsubscribe': `<${oneClickUrl}>`,
       'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
     },
-  });
+  }, input.idempotencyKey ? { idempotencyKey: input.idempotencyKey } : undefined);
 
   const providerError =
     typeof result === 'object' && result && 'error' in result && result.error

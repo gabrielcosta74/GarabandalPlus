@@ -13,10 +13,12 @@ import {
   getMarketingWindowStarts,
   isWithinMarketingSendWindow,
 } from '../../../../lib/marketing-limits';
+import { processMarian2027ScheduledCampaigns } from '../../../../lib/marian-2027-scheduler';
 import { supabaseServer } from '../../../../lib/supabase';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+export const maxDuration = 300;
 
 const getContactValue = (contact: any) => {
   const summary = contact?.source_summary || {};
@@ -79,6 +81,10 @@ export async function GET(req: Request) {
     if (funnelsError) throw funnelsError;
 
     if (dryRun) {
+      const marian2027 = await processMarian2027ScheduledCampaigns(supabaseServer, {
+        limit: Math.min(10, limits.cronBatchLimit),
+        dryRun: true,
+      });
       const waitlistOpenSpot = await processWaitlistOpenSpotNotifications(supabaseServer, {
         limit: Math.max(1, Math.min(limits.cronBatchLimit, remainingDailyCapacity || limits.cronBatchLimit)),
         dryRun: true,
@@ -102,6 +108,7 @@ export async function GET(req: Request) {
         remainingDailyCapacity,
         activeFunnels: (funnels || []).length,
         dueEnrollments: count || 0,
+        marian2027,
         waitlistOpenSpot,
         wouldProcess: Math.min(sortedDueEnrollments.length, batchLimit),
         processed: [],
@@ -145,7 +152,10 @@ export async function GET(req: Request) {
     const waitlistOpenSpot = await processWaitlistOpenSpotNotifications(supabaseServer, {
       limit: batchLimit,
     });
-    const enrollmentBatchLimit = Math.max(0, batchLimit - waitlistOpenSpot.sent);
+    const marian2027 = await processMarian2027ScheduledCampaigns(supabaseServer, {
+      limit: Math.min(10, Math.max(0, batchLimit - waitlistOpenSpot.sent)),
+    });
+    const enrollmentBatchLimit = Math.max(0, batchLimit - waitlistOpenSpot.sent - marian2027.sent);
 
     const { data: dueEnrollments, error: enrollmentError } = enrollmentBatchLimit > 0
       ? await supabaseServer
@@ -171,6 +181,7 @@ export async function GET(req: Request) {
       activeFunnels: (funnels || []).length,
       enrolled,
       waitlistOpenSpot,
+      marian2027,
       processed,
     });
   } catch (error: any) {

@@ -1,6 +1,8 @@
 import { Resend } from "resend";
 import { APP_URL, ASSETS_URL } from "./config";
 import { applyStoreBookPromo, getStoreBookPromoRemainingMs, STORE_BOOK_PROMO } from "./store-promo";
+import { renderMarian2027EditorialEmail } from "./marian-2027-email-design";
+import { MARIAN_2027_STEPS } from "./marian-2027-campaign";
 
 /* -------------------------------------------------------------------------- */
 /*                                    TYPES                                   */
@@ -203,7 +205,7 @@ const WhatsAppButton = (locale: EmailLocale = "pt") => `
     <tr>
       <td align="center" bgcolor="#25D366" style="border-radius:999px;background:#25D366;">
         <a href="${WHATSAPP_CONTACT_URL}" style="display:inline-block;color:#FFFFFF;font-weight:800;font-size:14px;line-height:1;text-decoration:none;padding:13px 24px;border-radius:999px;">
-          ${locale === "en" ? "Chat with us on WhatsApp" : "Falar com a gente no WhatsApp"}
+          ${locale === "en" ? "Chat with us on WhatsApp" : "Falar pelo WhatsApp"}
         </a>
       </td>
     </tr>
@@ -316,7 +318,7 @@ const Layout = ({
                 <tr>
                   <td align="center" class="px" style="padding:26px 40px 34px;text-align:center;">
                     <p class="email-heading" style="margin:0 0 8px;font-size:15px;line-height:22px;font-weight:800;color:${COLORS.heading};">${locale === "en" ? "Need help?" : "Precisa de ajuda?"}</p>
-                    <p class="email-text" style="margin:0;font-size:13px;line-height:21px;color:${COLORS.textLight};">${locale === "en" ? `Message us on ${contactWa} or email ${contactMail}.` : `Fale com a gente pelo ${contactWa} ou por ${contactMail}.`}</p>
+                    <p class="email-text" style="margin:0;font-size:13px;line-height:21px;color:${COLORS.textLight};">${locale === "en" ? `Message us on ${contactWa} or email ${contactMail}.` : `Entre em contacto pelo ${contactWa} ou por ${contactMail}.`}</p>
                     ${WhatsAppButton(locale)}
                     ${unsubscribeUrl ? `<p class="muted-text" style="margin:18px 0 0;font-size:11px;line-height:18px;color:${COLORS.textLight};">${locale === "en" ? `If you no longer wish to receive these emails, you can <a href="${unsubscribeUrl}" style="color:${COLORS.textLight};text-decoration:underline;">unsubscribe here</a>.` : `Se já não deseja receber estes emails, pode <a href="${unsubscribeUrl}" style="color:${COLORS.textLight};text-decoration:underline;">cancelar a subscrição aqui</a>.`}</p>` : ""}
                   </td>
@@ -326,7 +328,7 @@ const Layout = ({
           </tr>
           <tr>
             <td align="center" style="padding:22px 24px 0;">
-              <p class="muted-text" style="margin:0;font-size:12px;line-height:18px;color:#94a3b8;">${title} &middot; Apostolado de Garabandal<br>${locale === "en" ? "Uniting FAITH and HOPE." : "Unindo FE e ESPERANCA."}</p>
+              <p class="muted-text" style="margin:0;font-size:12px;line-height:18px;color:#94a3b8;">${title} &middot; Apostolado de Garabandal<br>${locale === "en" ? "Uniting faith and hope." : "Unindo fé e esperança."}</p>
             </td>
           </tr>
         </table>
@@ -2739,6 +2741,9 @@ export const renderBrochureEmail = (payload: BrochureEmailInput) => {
 };
 
 export type MarketingTemplateKey =
+  | 'marian_2027_invitation'
+  | 'marian_2027_journey'
+  | 'marian_2027_practical'
   | 'brochure_followup_1'
   | 'pilgrimage_testimony'
   | 'pilgrimage_faq_objections'
@@ -2987,6 +2992,84 @@ const fillMarketingVariables = (value: string, payload: MarketingTemplatePayload
 };
 
 export const MARKETING_EMAIL_TEMPLATES: Record<MarketingTemplateKey, MarketingTemplateDefinition> = {
+  marian_2027_invitation: {
+    key: 'marian_2027_invitation',
+    name: 'Caminho Mariano 2027 — convite',
+    category: 'Peregrinações',
+    goal: 'Apresentar a peregrinação e levar ao programa oficial.',
+    defaultSubject: 'Um caminho de fé pela Europa — Caminho Mariano 2027',
+    previewText: 'De 11 a 24 de outubro de 2027, de Fátima a Garabandal, Lourdes e Paris.',
+    ctaLabel: 'Conhecer a peregrinação',
+    ctaUrl: (payload) => payload.pilgrimageUrl || marketingUrl('/peregrinacoes/peregrinacao-mariana-2027', payload),
+    title: 'Há viagens que se tornam caminho',
+    subtitle: 'Caminho Mariano · 11 a 24 de outubro de 2027',
+    requiredVariables: ['pilgrimage_url'],
+    useHeroImage: true,
+    ctaSize: 'lg',
+    contentHtml: () => `
+      ${Text('<strong>{{greeting}}</strong>,')}
+      ${Text('Em outubro de 2027, convidamos a percorrer connosco o <strong>Caminho Mariano</strong>: uma peregrinação por lugares de oração e de encontro, com partida de Lisboa e passagem por Fátima, Garabandal, Lourdes e outros santuários europeus.')}
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:26px 0;border:1px solid #e8dfc7;background:#fbf8ef;border-radius:14px;"><tr><td style="padding:20px 22px;">
+        <div style="font-size:11px;line-height:17px;font-weight:900;letter-spacing:2px;text-transform:uppercase;color:#9a711f;">A PEREGRINAÇÃO</div>
+        <div style="font-size:22px;line-height:30px;font-weight:800;color:#0f2445;margin-top:7px;">14 dias para caminhar com Maria</div>
+        <div style="font-size:14px;line-height:23px;color:#48566a;margin-top:8px;">Acompanhamento espiritual, momentos de oração e um itinerário que atravessa Portugal, Espanha e França.</div>
+      </td></tr></table>
+      ${Text('Na página oficial encontra o programa, as condições e todos os passos para a inscrição. Veja com calma se este é o momento certo para si.')}
+    `,
+    paragraphs: [],
+  },
+  marian_2027_journey: {
+    key: 'marian_2027_journey',
+    name: 'Caminho Mariano 2027 — itinerário',
+    category: 'Peregrinações',
+    goal: 'Mostrar o valor do percurso sem criar testemunhos ou urgência artificiais.',
+    defaultSubject: 'De Garabandal a Lourdes: conheça o Caminho Mariano 2027',
+    previewText: 'Um percurso de oração por Fátima, Garabandal, Lourdes, La Salette e mais.',
+    ctaLabel: 'Explorar o itinerário completo',
+    ctaUrl: (payload) => payload.pilgrimageUrl || marketingUrl('/peregrinacoes/peregrinacao-mariana-2027', payload),
+    title: 'Cada lugar tem uma história',
+    subtitle: '11 a 24 de outubro de 2027 · Um percurso para viver com sentido',
+    requiredVariables: ['pilgrimage_url'],
+    useHeroImage: true,
+    ctaSize: 'lg',
+    contentHtml: () => `
+      ${Text('<strong>{{greeting}}</strong>,')}
+      ${Text('O Caminho Mariano 2027 reúne lugares que tantos peregrinos desejam conhecer e rezar. O percurso começa em Portugal e segue por Espanha e França, sempre com o acompanhamento espiritual previsto no programa.')}
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:24px 0;border-top:1px solid #e5e9ef;border-bottom:1px solid #e5e9ef;">
+        <tr><td style="padding:16px 0;border-bottom:1px solid #e5e9ef;"><span style="color:#a87b28;font-size:12px;font-weight:900;letter-spacing:1px;">01</span><strong style="display:block;color:#102a4d;font-size:18px;line-height:25px;margin:3px 0;">Fátima e Garabandal</strong><span style="font-size:14px;line-height:22px;color:#526174;">Do acolhimento em Fátima ao silêncio da aldeia de Garabandal.</span></td></tr>
+        <tr><td style="padding:16px 0;border-bottom:1px solid #e5e9ef;"><span style="color:#a87b28;font-size:12px;font-weight:900;letter-spacing:1px;">02</span><strong style="display:block;color:#102a4d;font-size:18px;line-height:25px;margin:3px 0;">Lourdes e La Salette</strong><span style="font-size:14px;line-height:22px;color:#526174;">Duas etapas centrais do itinerário mariano em França.</span></td></tr>
+        <tr><td style="padding:16px 0;"><span style="color:#a87b28;font-size:12px;font-weight:900;letter-spacing:1px;">03</span><strong style="display:block;color:#102a4d;font-size:18px;line-height:25px;margin:3px 0;">Até Lisieux e Paris</strong><span style="font-size:14px;line-height:22px;color:#526174;">O caminho prossegue por outros lugares de fé antes do regresso.</span></td></tr>
+      </table>
+      ${Text('Descubra as datas de cada etapa, o que está incluído e as informações práticas no programa oficial.')}
+    `,
+    paragraphs: [],
+  },
+  marian_2027_practical: {
+    key: 'marian_2027_practical',
+    name: 'Caminho Mariano 2027 — preparar a inscrição',
+    category: 'Peregrinações',
+    goal: 'Ajudar o contacto a consultar condições e decidir sobre a inscrição.',
+    defaultSubject: 'Caminho Mariano 2027: o que saber antes de se inscrever',
+    previewText: 'Datas, programa e condições da peregrinação reunidos numa só página.',
+    ctaLabel: 'Ver programa e condições',
+    ctaUrl: (payload) => payload.pilgrimageUrl || marketingUrl('/peregrinacoes/peregrinacao-mariana-2027', payload),
+    title: 'Prepare o seu caminho',
+    subtitle: 'Os detalhes para decidir com tranquilidade',
+    requiredVariables: ['pilgrimage_url'],
+    useHeroImage: true,
+    ctaSize: 'lg',
+    contentHtml: () => `
+      ${Text('<strong>{{greeting}}</strong>,')}
+      ${Text('Se está a considerar o Caminho Mariano 2027, este é um bom momento para consultar o programa completo e esclarecer as questões práticas antes de se inscrever.')}
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:24px 0;background:#f4f7fb;border:1px solid #e1e8f0;border-radius:14px;"><tr><td style="padding:22px 24px;">
+        <div style="font-size:11px;line-height:17px;font-weight:900;letter-spacing:2px;text-transform:uppercase;color:#9a711f;">À SUA DISPOSIÇÃO</div>
+        <div style="font-size:15px;line-height:27px;color:#26384f;margin-top:10px;">✓ Datas: <strong>11 a 24 de outubro de 2027</strong><br>✓ Percurso e acompanhamento espiritual<br>✓ Condições, preços e inscrição na página oficial</div>
+      </td></tr></table>
+      ${Text('Se houver alguma dúvida que a página não esclareça, escreva-nos para <a href="mailto:geral@apostoladodegarabandal.com" style="color:#9a711f;font-weight:700;">geral@apostoladodegarabandal.com</a>. Teremos todo o gosto em ajudar a perceber se esta peregrinação corresponde ao que procura.')}
+      ${Text('Quando decidir, pode seguir os passos de inscrição diretamente na página.')}
+    `,
+    paragraphs: [],
+  },
   brochure_followup_1: {
     key: 'brochure_followup_1',
     name: 'Brochure follow-up',
@@ -3757,7 +3840,34 @@ export const MARKETING_EMAIL_TEMPLATES: Record<MarketingTemplateKey, MarketingTe
   },
 };
 
-const MARKETING_EMAIL_TEMPLATE_EN: Record<MarketingTemplateKey, MarketingTemplateLocalizedContent> = {
+const MARKETING_EMAIL_TEMPLATE_EN: Partial<Record<MarketingTemplateKey, MarketingTemplateLocalizedContent>> = {
+  marian_2027_invitation: {
+    goal: 'Introduce the pilgrimage and invite readers to view the official programme.',
+    defaultSubject: 'A journey of faith across Europe — Marian Way 2027',
+    previewText: '11–24 October 2027: Fátima, Garabandal, Lourdes and more.',
+    ctaLabel: 'Discover the pilgrimage',
+    title: 'Where the journey becomes prayer.',
+    subtitle: 'Marian Way · 11–24 October 2027',
+    paragraphs: [],
+  },
+  marian_2027_journey: {
+    goal: 'Show the places and meaning of the journey.',
+    defaultSubject: 'From Garabandal to Lourdes: discover Marian Way 2027',
+    previewText: 'Explore the route through Fátima, Garabandal, Lourdes, La Salette and beyond.',
+    ctaLabel: 'Explore the itinerary',
+    title: 'Every place has a story.',
+    subtitle: '11–24 October 2027 · A journey with purpose',
+    paragraphs: [],
+  },
+  marian_2027_practical: {
+    goal: 'Help readers review the details and decide whether to register.',
+    defaultSubject: 'Marian Way 2027: what to know before you register',
+    previewText: 'Dates, programme and registration details in one place.',
+    ctaLabel: 'View programme and details',
+    title: 'Prepare for the journey.',
+    subtitle: '11–24 October 2027 · Decide with confidence',
+    paragraphs: [],
+  },
   brochure_followup_1: {
     goal: 'Convert brochure request into a pilgrimage registration.',
     defaultSubject: '{{first_name}}, you have the brochure — one step left',
@@ -4326,6 +4436,22 @@ export const renderMarketingTemplateEmail = (payload: MarketingTemplatePayload) 
     ? payload.bodyOverride.split('\n').filter(Boolean)
     : template.paragraphs;
   const ctaUrl = localizeMarketingUrl(fillMarketingVariables(baseTemplate.ctaUrl(payload), payload), locale);
+  if (baseTemplate.key === 'marian_2027_invitation' || baseTemplate.key === 'marian_2027_journey' || baseTemplate.key === 'marian_2027_practical') {
+    return {
+      subject,
+      html: addMarketingUtm(renderMarian2027EditorialEmail({
+        step: baseTemplate.key,
+        locale,
+        subject,
+        preview: template.previewText,
+        name: payload.name,
+        image: payload.pilgrimageImageUrl || MARIAN_2027_STEPS.find((step) => step.key === baseTemplate.key)!.image,
+        pilgrimageUrl: ctaUrl,
+        unsubscribeUrl: payload.unsubscribeUrl,
+      }), template.key),
+      templateKey: template.key,
+    };
+  }
   // For pilgrimage-recommendation emails, adapt the main CTA to the pilgrimage state:
   // when the pilgrimage is on a waiting list, invite the reader to join the list.
   const RECOMMENDATION_KEYS = new Set(['brochure_followup_1', 'pilgrimage_testimony', 'pilgrimage_faq_objections']);
