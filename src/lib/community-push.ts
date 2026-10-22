@@ -100,7 +100,11 @@ export function chooseCommunityPush(
     for (const kind of PRIORITY) {
         const reference = `${userId}:${kind}:${day}`;
         if (sent.some((item) => item.user_id === userId && item.reference === reference)) continue;
+        const lastKindPush = sent
+            .filter((item) => item.user_id === userId && item.reference?.startsWith(`${userId}:${kind}:`))
+            .reduce((latest, item) => Math.max(latest, new Date(item.sent_at).getTime()), 0);
         const activity = activities.find((item) => item.kind === kind &&
+            new Date(item.created_at).getTime() > lastKindPush &&
             now.getTime() - new Date(item.created_at).getTime() >= DELAY_MS[kind]);
         if (activity) return { kind, activity, reference };
     }

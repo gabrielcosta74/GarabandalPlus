@@ -39,4 +39,11 @@ describe('community push selection', () => {
     expect(chooseCommunityPush(rows, [{ user_id: userId, reference: 'other', sent_at: '2026-10-22T11:00:00Z' }], userId, 'Europe/Lisbon', time, 3)).toBeNull();
     expect(chooseCommunityPush(rows, Array.from({ length: 3 }, (_, i) => ({ user_id: userId, reference: `other:${i}`, sent_at: sentAt })), userId, 'Europe/Lisbon', time, 3)).toBeNull();
   });
+
+  it('does not remind about the same unread interaction on the next day', () => {
+    const nextDay = new Date('2026-10-23T12:00:00Z');
+    const previous = { user_id: userId, reference: `${userId}:comment:2026-10-22`, sent_at: '2026-10-22T09:00:00Z' };
+    expect(chooseCommunityPush([activity('comment', '2026-10-22T08:00:00Z')], [previous], userId, 'Europe/Lisbon', nextDay, 3)).toBeNull();
+    expect(chooseCommunityPush([activity('comment', '2026-10-22T10:00:00Z')], [previous], userId, 'Europe/Lisbon', nextDay, 3)?.kind).toBe('comment');
+  });
 });
