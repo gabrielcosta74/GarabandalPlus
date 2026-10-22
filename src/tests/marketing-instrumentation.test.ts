@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createHmac } from 'node:crypto';
 import { renderMarketingTemplateEmail } from '../lib/email-renderer';
-import { verifySvixSignature } from '../app/api/webhooks/resend/route';
+import { verifySvixSignature } from '../lib/svix-signature';
 import { getMarketingSendWindow, isWithinMarketingSendWindow } from '../lib/marketing-limits';
 
 describe('marketing UTM attribution', () => {

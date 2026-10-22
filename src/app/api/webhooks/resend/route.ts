@@ -1,26 +1,10 @@
 import { NextResponse } from 'next/server';
-import { createHmac, timingSafeEqual } from 'node:crypto';
 import { supabaseServer } from '../../../../lib/supabase';
 import { normalizeEmail } from '../../../../lib/marketing-core';
+import { verifySvixSignature } from '../../../../lib/svix-signature';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-
-// Resend entrega webhooks no formato Svix: a assinatura cobre "{id}.{timestamp}.{payload}"
-// com HMAC-SHA256 e o segredo base64 (depois do prefixo whsec_).
-export const verifySvixSignature = (secret: string, id: string, timestamp: string, payload: string, signatureHeader: string) => {
-  const secretBytes = Buffer.from(secret.replace(/^whsec_/, ''), 'base64');
-  const expected = createHmac('sha256', secretBytes).update(`${id}.${timestamp}.${payload}`).digest('base64');
-  return signatureHeader.split(' ').some((part) => {
-    const candidate = part.includes(',') ? part.split(',')[1] : part;
-    if (!candidate || candidate.length !== expected.length) return false;
-    try {
-      return timingSafeEqual(Buffer.from(candidate), Buffer.from(expected));
-    } catch {
-      return false;
-    }
-  });
-};
 
 // Tolerância anti-replay (Svix recomenda 5 minutos).
 const isFreshTimestamp = (timestamp: string, toleranceSeconds = 300) => {
