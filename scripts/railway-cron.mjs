@@ -36,6 +36,18 @@ function sanitizeBody(body) {
     dueEnrollments: body.dueEnrollments,
     wouldProcess: body.wouldProcess,
     summary: body.summary,
+    community: body.community && typeof body.community === 'object' && !Array.isArray(body.community)
+      ? {
+          enabled: body.community.enabled,
+          candidates: body.community.candidates,
+          eligible: body.community.eligible,
+          sent: body.community.sent,
+          acceptedDevices: body.community.acceptedDevices,
+          failed: body.community.failed,
+          dryRun: body.community.dryRun,
+          testTicketIds: body.community.testTicketIds,
+        }
+      : undefined,
     detailsCount: details?.length,
     failedDetails: details
       ?.filter((entry) => entry && entry.success === false)

@@ -33,14 +33,16 @@ export type CommunityPushResult = {
     acceptedDevices: number;
     failed: number;
     dryRun: boolean;
+    testTicketIds: string[];
 };
 
 const TYPE = 'community_social';
 const CHANNEL = 'avisos';
 const LOOKBACK_MS = 36 * 60 * 60 * 1000;
 const MIN_GAP_MS = 2 * 60 * 60 * 1000;
+// Invitations are chosen separately (see chooseInvite).
 const PRIORITY: CommunityKind[] = [
-    'comment', 'friend_request', 'gathering_invite', 'friend_accept', 'like',
+    'comment', 'friend_request', 'friend_accept', 'like',
 ];
 const DELAY_MS: Record<CommunityKind, number> = {
     comment: 5 * 60 * 1000, // Leave time for moderation or deletion.
@@ -65,25 +67,61 @@ function localDay(timezone: string, now: Date): string | null {
     }
 }
 
-function copy(kind: CommunityKind, english: boolean) {
+function shortActorName(value: string | null, english: boolean): string {
+    const cleaned = (value || '')
+        .replace(/[\u0000-\u001f\u007f-\u009f\u202a-\u202e\u2066-\u2069]/g, ' ')
+        .replace(/\s+/g, ' ').trim();
+    if (!cleaned) return english ? 'Someone' : 'Alguém';
+    const points = Array.from(cleaned);
+    if (points.length <= 24) return cleaned;
+    const first = cleaned.split(' ')[0];
+    return Array.from(first).length <= 24 ? first : (english ? 'Someone' : 'Alguém');
+}
+
+export function communityPushCopy(kind: CommunityKind, english: boolean, actorName: string | null, grouped: boolean) {
+    const name = shortActorName(actorName, english);
     const pt = {
-        comment: { title: 'Nova conversa na Comunidade', body: 'Há um comentário novo numa partilha tua.' },
-        friend_request: { title: 'Novo pedido de amizade', body: 'Alguém quer ligar-se a ti na Comunidade.' },
-        gathering_invite: { title: 'Convite para rezar juntos', body: 'Tens um convite novo na Comunidade.' },
-        friend_accept: { title: 'Novo amigo na Comunidade', body: 'O teu pedido de amizade foi aceite.' },
-        like: { title: 'A tua partilha recebeu gostos', body: 'Há novas interações na Comunidade.' },
+        comment: { title: grouped ? 'Novos comentários' : 'Novo comentário',
+            body: grouped ? `${name} e mais pessoas comentaram.` : `${name} comentou a tua partilha.` },
+        friend_request: { title: 'Pedido de amizade', body: `${name} enviou-te um pedido.` },
+        gathering_invite: { title: 'Convite para rezar', body: `${name} convidou-te para rezar.` },
+        friend_accept: { title: 'Amizade aceite', body: `${name} aceitou o teu pedido.` },
+        like: { title: grouped ? 'Novos gostos' : 'Novo gosto',
+            body: grouped ? `${name} e mais pessoas gostaram.` : `${name} gostou da tua partilha.` },
     };
     const en = {
-        comment: { title: 'A new community conversation', body: 'There is a new comment on something you shared.' },
-        friend_request: { title: 'New friend request', body: 'Someone wants to connect with you in the community.' },
-        gathering_invite: { title: 'Invitation to pray together', body: 'You have a new community invitation.' },
-        friend_accept: { title: 'A new community friend', body: 'Your friend request was accepted.' },
-        like: { title: 'Your post received likes', body: 'There is new activity in the community.' },
+        comment: { title: grouped ? 'New comments' : 'New comment',
+            body: grouped ? `${name} and others commented.` : `${name} commented on your post.` },
+        friend_request: { title: 'Friend request', body: `${name} wants to be friends.` },
+        gathering_invite: { title: 'Prayer invitation', body: `${name} invited you to pray.` },
+        friend_accept: { title: 'Request accepted', body: `${name} accepted your request.` },
+        like: { title: grouped ? 'New likes' : 'New like',
+            body: grouped ? `${name} and others liked your posts.` : `${name} liked your post.` },
     };
     return (english ? en : pt)[kind];
 }
 
-/** One push per kind and local day, with a global two-hour gap and daily cap. */
+const inviteReference = (userId: string, gatheringId: string) => `${userId}:gathering_invite:${gatheringId}`;
+
+/**
+ * A prayer invitation is addressed to one person and has a time attached, so
+ * each one gets its own push (once per gathering). The daily cap, two-hour gap,
+ * and quiet hours still apply.
+ */
+function chooseInvite(activities: Activity[], sent: SentPush[], userId: string): PushChoice | null {
+    for (const activity of activities) {
+        if (activity.kind !== 'gathering_invite' || !activity.gathering_id) continue;
+        const reference = inviteReference(userId, activity.gathering_id);
+        if (sent.some((item) => item.user_id === userId && item.reference === reference)) continue;
+        return { kind: 'gathering_invite', activity, reference };
+    }
+    return null;
+}
+
+/**
+ * Invitations first (one push each). Everything else: one push per kind and
+ * local day. All pushes share the two-hour gap and daily cap.
+ */
 export function chooseCommunityPush(
     activities: Activity[], sent: SentPush[], userId: string, timezone: string,
     now: Date, dailyCap: number,
@@ -96,6 +134,9 @@ export function chooseCommunityPush(
         now.getTime() - new Date(item.sent_at).getTime() < 24 * 60 * 60 * 1000);
     if (recent.length >= dailyCap) return null;
     if (recent.some((item) => now.getTime() - new Date(item.sent_at).getTime() < MIN_GAP_MS)) return null;
+
+    const invite = chooseInvite(activities, sent, userId);
+    if (invite) return invite;
 
     for (const kind of PRIORITY) {
         const reference = `${userId}:${kind}:${day}`;
@@ -118,11 +159,12 @@ export async function processCommunityPush(
     const result: CommunityPushResult = {
         enabled: false, candidates: 0, eligible: 0, sent: 0,
         acceptedDevices: 0, failed: 0, dryRun,
+        testTicketIds: [],
     };
 
     const { data: config, error: configError } = await supabase
         .from('community_push_config')
-        .select('enabled, daily_cap')
+        .select('enabled, daily_cap, test_user_id')
         .eq('id', true)
         .single();
     if (configError) throw new Error(`Community push config: ${configError.message}`);
@@ -186,14 +228,38 @@ export async function processCommunityPush(
         if (visibleError) throw new Error(`Community push visibility: ${visibleError.message}`);
         if (!stillVisible) continue;
 
+        const { data: actor, error: actorError } = await supabase
+            .from('community_activity')
+            .select('actor_id')
+            .eq('id', choice.activity.id)
+            .eq('recipient_id', userId)
+            .maybeSingle();
+        if (actorError) throw new Error(`Community push actor: ${actorError.message}`);
+        if (!actor) continue;
+        const { data: actorName, error: nameError } = await supabase
+            .rpc('person_short_name', { p_user: actor.actor_id });
+        if (nameError) throw new Error(`Community push actor name: ${nameError.message}`);
+
+        const grouped = (choice.kind === 'like' || choice.kind === 'comment') && activities.some((item) =>
+            item.recipient_id === userId && item.kind === choice.kind && item.id !== choice.activity.id &&
+            new Date(item.created_at).getTime() >= new Date(choice.activity.created_at).getTime() &&
+            now.getTime() - new Date(item.created_at).getTime() >= DELAY_MS[choice.kind]);
         const english = (userDevices[0].locale || '').toLowerCase().startsWith('en');
-        const message = copy(choice.kind, english);
+        const message = communityPushCopy(choice.kind, english, actorName, grouped);
         const messages: ExpoPushMessage[] = tokens.map((token) => ({
             to: token, title: message.title, body: message.body,
             channelId: CHANNEL, sound: 'default',
-            data: { kind: 'community-activity', url: '/community' },
+            // Older app versions only read `url`; newer ones open the gathering itself.
+            data: {
+                kind: 'community-activity', url: '/community',
+                ...(choice.kind === 'gathering_invite' && choice.activity.gathering_id
+                    ? { gatheringId: choice.activity.gathering_id } : {}),
+            },
         }));
         const outcome = await sendExpoPush(messages);
+        if (config.test_user_id === userId) {
+            result.testTicketIds.push(...outcome.ticketIds);
+        }
         if (outcome.invalidTokens.length > 0) {
             await supabase.from('member_devices').delete()
                 .in('expo_push_token', outcome.invalidTokens);

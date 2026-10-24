@@ -44,6 +44,8 @@ export type ExpoPushResult = {
     failed: number;
     /** Tokens a apagar: a app foi desinstalada ou o token rodou. */
     invalidTokens: string[];
+    /** IDs dos tickets aceites, para consultar os receipts mais tarde. */
+    ticketIds: string[];
 };
 
 /**
@@ -75,6 +77,7 @@ export async function sendExpoPush(messages: ExpoPushMessage[]): Promise<ExpoPus
         delivered: 0,
         failed: messages.length - valid.length,
         invalidTokens: [],
+        ticketIds: [],
     };
 
     if (valid.length === 0) return result;
@@ -100,6 +103,7 @@ export async function sendExpoPush(messages: ExpoPushMessage[]): Promise<ExpoPus
             const payload = (await response.json()) as {
                 data?: Array<{
                     status?: string;
+                    id?: string;
                     message?: string;
                     details?: { error?: string };
                 }>;
@@ -110,6 +114,7 @@ export async function sendExpoPush(messages: ExpoPushMessage[]): Promise<ExpoPus
             tickets.forEach((ticket, index) => {
                 if (ticket?.status === 'ok') {
                     result.delivered += 1;
+                    if (ticket.id) result.ticketIds.push(ticket.id);
                     return;
                 }
 
