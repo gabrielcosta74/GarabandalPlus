@@ -25,6 +25,20 @@ type SentPush = { user_id: string; reference: string | null; sent_at: string };
 
 type PushChoice = { kind: CommunityKind; activity: Activity; reference: string };
 
+export function communityPushData(choice: PushChoice, actorId: string) {
+    return {
+        kind: 'community-activity',
+        // Older app releases understand this safe fallback; newer ones use the IDs below.
+        url: '/community',
+        activityType: choice.kind,
+        activityId: choice.activity.id,
+        actorId,
+        ...(choice.activity.post_id ? { postId: choice.activity.post_id } : {}),
+        ...(choice.activity.intention_id ? { intentionId: choice.activity.intention_id } : {}),
+        ...(choice.activity.gathering_id ? { gatheringId: choice.activity.gathering_id } : {}),
+    };
+}
+
 export type CommunityPushResult = {
     enabled: boolean;
     candidates: number;
@@ -249,12 +263,7 @@ export async function processCommunityPush(
         const messages: ExpoPushMessage[] = tokens.map((token) => ({
             to: token, title: message.title, body: message.body,
             channelId: CHANNEL, sound: 'default',
-            // Older app versions only read `url`; newer ones open the gathering itself.
-            data: {
-                kind: 'community-activity', url: '/community',
-                ...(choice.kind === 'gathering_invite' && choice.activity.gathering_id
-                    ? { gatheringId: choice.activity.gathering_id } : {}),
-            },
+            data: communityPushData(choice, actor.actor_id),
         }));
         const outcome = await sendExpoPush(messages);
         if (config.test_user_id === userId) {

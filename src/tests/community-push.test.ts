@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { chooseCommunityPush, communityPushCopy } from '../lib/community-push';
+import { chooseCommunityPush, communityPushCopy, communityPushData } from '../lib/community-push';
 
 const userId = '11111111-1111-4111-8111-111111111111';
 const time = new Date('2026-10-22T12:00:00Z');
@@ -98,6 +98,21 @@ describe('community push copy', () => {
   it('falls back when no safe short name is available', () => {
     expect(communityPushCopy('friend_request', false, '\n', false)).toEqual({
       title: 'Pedido de amizade', body: 'Alguém enviou-te um pedido.',
+    });
+  });
+});
+
+describe('community push destination data', () => {
+  it('includes the target and activity for a comment, with a fallback for older apps', () => {
+    const choice = {
+      kind: 'comment' as const,
+      activity: { ...activity('comment', '2026-10-22T11:00:00Z'), intention_id: '33333333-3333-4333-8333-333333333333' },
+      reference: 'comment',
+    };
+    expect(communityPushData(choice, '44444444-4444-4444-8444-444444444444')).toEqual({
+      kind: 'community-activity', url: '/community', activityType: 'comment',
+      activityId: choice.activity.id, actorId: '44444444-4444-4444-8444-444444444444',
+      intentionId: choice.activity.intention_id,
     });
   });
 });
