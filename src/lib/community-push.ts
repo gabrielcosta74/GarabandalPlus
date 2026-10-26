@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { isExpoPushToken, localHourFor, sendExpoPush, type ExpoPushMessage } from './expo-push';
 
-type CommunityKind = 'comment' | 'friend_request' | 'gathering_invite' | 'friend_accept' | 'like';
+type CommunityKind = 'comment' | 'friend_request' | 'gathering_invite' | 'gathering_join' | 'friend_accept' | 'like';
 
 type Activity = {
     id: string;
@@ -56,12 +56,13 @@ const LOOKBACK_MS = 36 * 60 * 60 * 1000;
 const MIN_GAP_MS = 2 * 60 * 60 * 1000;
 // Invitations are chosen separately (see chooseInvite).
 const PRIORITY: CommunityKind[] = [
-    'comment', 'friend_request', 'friend_accept', 'like',
+    'comment', 'friend_request', 'friend_accept', 'gathering_join', 'like',
 ];
 const DELAY_MS: Record<CommunityKind, number> = {
     comment: 5 * 60 * 1000, // Leave time for moderation or deletion.
     friend_request: 0,
     gathering_invite: 0,
+    gathering_join: 10 * 60 * 1000, // Several people often join together after an invite.
     friend_accept: 0,
     like: 20 * 60 * 1000, // Collect likes rather than interrupting on each one.
 };
@@ -94,20 +95,25 @@ function shortActorName(value: string | null, english: boolean): string {
 
 export function communityPushCopy(kind: CommunityKind, english: boolean, actorName: string | null, grouped: boolean) {
     const name = shortActorName(actorName, english);
+    // The members app speaks Brazilian Portuguese ("você").
     const pt = {
         comment: { title: grouped ? 'Novos comentários' : 'Novo comentário',
-            body: grouped ? `${name} e mais pessoas comentaram.` : `${name} comentou a tua partilha.` },
-        friend_request: { title: 'Pedido de amizade', body: `${name} enviou-te um pedido.` },
-        gathering_invite: { title: 'Convite para rezar', body: `${name} convidou-te para rezar.` },
-        friend_accept: { title: 'Amizade aceite', body: `${name} aceitou o teu pedido.` },
-        like: { title: grouped ? 'Novos gostos' : 'Novo gosto',
-            body: grouped ? `${name} e mais pessoas gostaram.` : `${name} gostou da tua partilha.` },
+            body: grouped ? `${name} e mais pessoas comentaram.` : `${name} comentou sua publicação.` },
+        friend_request: { title: 'Pedido de amizade', body: `${name} enviou um pedido de amizade para você.` },
+        gathering_invite: { title: 'Convite para rezar', body: `${name} convidou você para rezar.` },
+        gathering_join: { title: 'Vão rezar com você',
+            body: grouped ? `${name} e mais pessoas entraram no seu grupo de oração.` : `${name} entrou no seu grupo de oração.` },
+        friend_accept: { title: 'Pedido aceito', body: `${name} aceitou seu pedido de amizade.` },
+        like: { title: grouped ? 'Novas curtidas' : 'Nova curtida',
+            body: grouped ? `${name} e mais pessoas curtiram.` : `${name} curtiu sua publicação.` },
     };
     const en = {
         comment: { title: grouped ? 'New comments' : 'New comment',
             body: grouped ? `${name} and others commented.` : `${name} commented on your post.` },
         friend_request: { title: 'Friend request', body: `${name} wants to be friends.` },
         gathering_invite: { title: 'Prayer invitation', body: `${name} invited you to pray.` },
+        gathering_join: { title: 'Praying with you',
+            body: grouped ? `${name} and others joined your prayer group.` : `${name} joined your prayer group.` },
         friend_accept: { title: 'Request accepted', body: `${name} accepted your request.` },
         like: { title: grouped ? 'New likes' : 'New like',
             body: grouped ? `${name} and others liked your posts.` : `${name} liked your post.` },
@@ -133,8 +139,9 @@ function chooseInvite(activities: Activity[], sent: SentPush[], userId: string):
 }
 
 /**
- * Invitations first (one push each). Everything else: one push per kind and
- * local day. All pushes share the two-hour gap and daily cap.
+ * Invitations first (one push each), without the two-hour gap: an invitation
+ * often points to a session later the same day. Everything else: one push per
+ * kind and local day, with the gap. All pushes share the daily cap.
  */
 export function chooseCommunityPush(
     activities: Activity[], sent: SentPush[], userId: string, timezone: string,
@@ -147,10 +154,10 @@ export function chooseCommunityPush(
     const recent = sent.filter((item) => item.user_id === userId &&
         now.getTime() - new Date(item.sent_at).getTime() < 24 * 60 * 60 * 1000);
     if (recent.length >= dailyCap) return null;
-    if (recent.some((item) => now.getTime() - new Date(item.sent_at).getTime() < MIN_GAP_MS)) return null;
 
     const invite = chooseInvite(activities, sent, userId);
     if (invite) return invite;
+    if (recent.some((item) => now.getTime() - new Date(item.sent_at).getTime() < MIN_GAP_MS)) return null;
 
     for (const kind of PRIORITY) {
         const reference = `${userId}:${kind}:${day}`;
@@ -254,7 +261,7 @@ export async function processCommunityPush(
             .rpc('person_short_name', { p_user: actor.actor_id });
         if (nameError) throw new Error(`Community push actor name: ${nameError.message}`);
 
-        const grouped = (choice.kind === 'like' || choice.kind === 'comment') && activities.some((item) =>
+        const grouped = (choice.kind === 'like' || choice.kind === 'comment' || choice.kind === 'gathering_join') && activities.some((item) =>
             item.recipient_id === userId && item.kind === choice.kind && item.id !== choice.activity.id &&
             new Date(item.created_at).getTime() >= new Date(choice.activity.created_at).getTime() &&
             now.getTime() - new Date(item.created_at).getTime() >= DELAY_MS[choice.kind]);

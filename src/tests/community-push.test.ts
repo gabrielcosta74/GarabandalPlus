@@ -63,10 +63,11 @@ describe('prayer invitation push', () => {
       .toBe(`${userId}:gathering_invite:${g2}`);
   });
 
-  it('respects the daily cap, the two-hour gap and quiet hours', () => {
+  it('respects the daily cap and quiet hours, but not the two-hour gap', () => {
     const busy = Array.from({ length: 3 }, (_, i) => ({ user_id: userId, reference: `other:${i}`, sent_at: '2026-10-22T11:50:00Z' }));
     expect(chooseCommunityPush([invite(g1)], busy, userId, 'Europe/Lisbon', time, 3)).toBeNull();
-    expect(chooseCommunityPush([invite(g1)], busy.slice(0, 1), userId, 'Europe/Lisbon', time, 3)).toBeNull();
+    expect(chooseCommunityPush([invite(g1)], busy.slice(0, 1), userId, 'Europe/Lisbon', time, 3)?.kind).toBe('gathering_invite');
+    expect(chooseCommunityPush([activity('comment', '2026-10-22T11:00:00Z')], busy.slice(0, 1), userId, 'Europe/Lisbon', time, 3)).toBeNull();
     expect(chooseCommunityPush([invite(g1)], [], userId, 'America/Sao_Paulo', new Date('2026-10-22T09:00:00Z'), 3)).toBeNull();
   });
 
@@ -76,10 +77,31 @@ describe('prayer invitation push', () => {
   });
 });
 
+describe('prayer group join push', () => {
+  const join = (createdAt: string) => ({
+    ...activity('friend_request', createdAt), kind: 'gathering_join' as const, gathering_id: '33333333-3333-4333-8333-333333333333',
+  });
+
+  it('waits ten minutes to group joins, then sends once a day', () => {
+    expect(chooseCommunityPush([join('2026-10-22T11:55:00Z')], [], userId, 'Europe/Lisbon', time, 3)).toBeNull();
+    const choice = chooseCommunityPush([join('2026-10-22T11:45:00Z')], [], userId, 'Europe/Lisbon', time, 3);
+    expect(choice?.reference).toBe(`${userId}:gathering_join:2026-10-22`);
+    const sent = [{ user_id: userId, reference: choice!.reference, sent_at: '2026-10-22T08:00:00Z' }];
+    expect(chooseCommunityPush([join('2026-10-22T11:30:00Z')], sent, userId, 'Europe/Lisbon', time, 3)).toBeNull();
+  });
+
+  it('tells the creator who joined', () => {
+    expect(communityPushCopy('gathering_join', false, 'Ana G.', false)).toEqual({
+      title: 'Vão rezar com você', body: 'Ana G. entrou no seu grupo de oração.',
+    });
+    expect(communityPushCopy('gathering_join', false, 'Ana G.', true).body).toBe('Ana G. e mais pessoas entraram no seu grupo de oração.');
+  });
+});
+
 describe('community push copy', () => {
   it('uses a short title and identifies the commenter without quoting the comment', () => {
     expect(communityPushCopy('comment', false, 'Maria S.', false)).toEqual({
-      title: 'Novo comentário', body: 'Maria S. comentou a tua partilha.',
+      title: 'Novo comentário', body: 'Maria S. comentou sua publicação.',
     });
     expect(communityPushCopy('comment', false, 'Maria S.', true)).toEqual({
       title: 'Novos comentários', body: 'Maria S. e mais pessoas comentaram.',
@@ -88,16 +110,16 @@ describe('community push copy', () => {
 
   it('names one person and groups several likes in one notification', () => {
     expect(communityPushCopy('like', false, 'João P.', false)).toEqual({
-      title: 'Novo gosto', body: 'João P. gostou da tua partilha.',
+      title: 'Nova curtida', body: 'João P. curtiu sua publicação.',
     });
     expect(communityPushCopy('like', false, 'João P.', true)).toEqual({
-      title: 'Novos gostos', body: 'João P. e mais pessoas gostaram.',
+      title: 'Novas curtidas', body: 'João P. e mais pessoas curtiram.',
     });
   });
 
   it('falls back when no safe short name is available', () => {
     expect(communityPushCopy('friend_request', false, '\n', false)).toEqual({
-      title: 'Pedido de amizade', body: 'Alguém enviou-te um pedido.',
+      title: 'Pedido de amizade', body: 'Alguém enviou um pedido de amizade para você.',
     });
   });
 });
