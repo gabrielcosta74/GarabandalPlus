@@ -25,6 +25,8 @@ import {
     getMaxInstallments,
 } from '../../../../lib/pilgrimage-installments';
 
+import { DIETARY_MAX_LENGTH, dietaryAnswerSchema } from '../../../../lib/pilgrimage-dietary';
+
 // Phone Input
 import PhoneInput from 'react-phone-number-input';
 import 'react-phone-number-input/style.css';
@@ -85,7 +87,7 @@ const createBookingSchema = (isEn: boolean) => {
         country: z.string({ required_error: t.countryReq }).min(2, t.countryReq),
         cpf_nif: z.string().optional(),
         flight_option: z.enum(["agency", "own", "none"], { errorMap: () => ({ message: t.flightReq }) }),
-        allergies: z.string().optional(),
+        allergies: dietaryAnswerSchema(isEn),
         notes: z.string().optional()
     });
     return z.object({
@@ -583,6 +585,7 @@ const PilgrimCard = ({
     remove,
     control,
     register,
+    trigger,
     errors,
     memberStatus,
     isLeader,
@@ -810,9 +813,11 @@ const PilgrimCard = ({
                         {errors.pilgrims?.[index]?.flight_option && <span className="text-red-500 text-base font-bold mt-2 block flex items-center gap-2 animate-pulse"><AlertCircle className="w-5 h-5" /> {errors.pilgrims[index]?.flight_option?.message}</span>}
                     </div>
                 )}
-                <div>
-                    <label className="text-base uppercase font-bold text-yellow-500 mb-2 block tracking-wide">{isEn ? 'Food Allergies?' : 'Alergias Alimentares?'}</label>
-                    <input {...register(`pilgrims.${index}.allergies`)} className="w-full bg-slate-800 border-2 border-slate-700 rounded-xl px-6 py-5 text-white text-xl focus:border-yellow-500 focus:outline-none shadow-inner" placeholder={isEn ? "Write 'No' or describe the allergy..." : "Escreve 'Não' ou descreve a alergia..."} />
+                <div className="rounded-2xl border border-amber-400/30 bg-amber-400/5 p-5">
+                    <label htmlFor={`registration-dietary-${index}`} className="text-base uppercase font-bold text-yellow-500 mb-2 block tracking-wide">{isEn ? 'Food allergies / dietary requirements (required)' : 'Alergias / restrições alimentares (obrigatório)'}</label>
+                    <p id={`registration-dietary-help-${index}`} className="mb-3 text-sm leading-relaxed text-slate-300">{isEn ? 'Please answer for this participant so we can notify hotels and meal providers. Describe the foods to avoid and any precautions, or write “No” if none. You can update this later in your registration, under “Food allergies”.' : 'Responde para este participante, para podermos avisar hotéis e responsáveis pelas refeições. Indica os alimentos a evitar e os cuidados necessários, ou escreve “Não” se não tens alergias ou restrições. Podes atualizar depois na tua inscrição, em “Alergias”.'}</p>
+                    <textarea id={`registration-dietary-${index}`} {...register(`pilgrims.${index}.allergies`, { onChange: () => { if (errors.pilgrims?.[index]?.allergies) void trigger(`pilgrims.${index}.allergies`); } })} rows={3} maxLength={DIETARY_MAX_LENGTH} aria-required="true" aria-invalid={!!errors.pilgrims?.[index]?.allergies} aria-describedby={`registration-dietary-help-${index} registration-dietary-error-${index}`} className="w-full bg-slate-800 border-2 border-slate-700 rounded-xl px-4 py-4 text-white text-lg focus:border-yellow-500 focus:outline-none shadow-inner" placeholder={isEn ? 'E.g. nut allergy, lactose intolerance, or “No”' : 'Ex.: alergia a frutos secos, intolerância à lactose, ou “Não”'} />
+                    <p id={`registration-dietary-error-${index}`} role="alert" className="mt-2 text-sm font-bold text-red-400">{errors.pilgrims?.[index]?.allergies?.message}</p>
                 </div>
                 <div>
                     <label className="text-base uppercase font-bold text-yellow-500 mb-2 block tracking-wide">{isEn ? 'Notes / Observations' : 'Notas / Observações'}</label>
@@ -1362,6 +1367,7 @@ export default function PilgrimageBookingPage() {
                                                     remove={remove}
                                                     control={methods.control}
                                                     register={methods.register}
+                                                    trigger={methods.trigger}
                                                     errors={errors}
                                                     memberStatus={memberStatus} // Pass verification map
                                                     isLeader={idx === 0}
@@ -1381,7 +1387,7 @@ export default function PilgrimageBookingPage() {
                                                         {isEn ? <>ATTENTION: You should only add members of your <span className="font-bold text-yellow-500 uppercase">Household</span> (Father, Mother, Children) who live with you.<br />For friends or acquaintances, each one must make their own separate registration.</> : <>ATENÇÃO: Só deves adicionar pessoas do teu <span className="font-bold text-yellow-500 uppercase">Agregado Familiar</span> (Pai, Mãe, Filhos) que vivam contigo.<br />Para amigos ou conhecidos, cada uno deve fazer a sua própria inscrição separadamente.</>}
                                                     </p>
                                                 </div>
-                                                <button type="button" onClick={() => append({ full_name: '', email: '', phone: '', birth_date: '', sex: 'M', address: '', postal_code: '', city: '', country: hasCountryBasedFlightStep ? '' : 'PT', flight_option: (hasCountryBasedFlightStep || requiresExplicitFlightChoice ? '' : 'none') as any, allergies: isEn ? 'No' : 'Não', notes: '', cpf_nif: '' })} className="bg-yellow-500 hover:bg-yellow-400 text-black px-8 py-3 rounded-xl font-bold transition-all shadow-lg shadow-yellow-500/20 active:scale-95">
+                                                <button type="button" onClick={() => append({ full_name: '', email: '', phone: '', birth_date: '', sex: 'M', address: '', postal_code: '', city: '', country: hasCountryBasedFlightStep ? '' : 'PT', flight_option: (hasCountryBasedFlightStep || requiresExplicitFlightChoice ? '' : 'none') as any, allergies: '', notes: '', cpf_nif: '' })} className="bg-yellow-500 hover:bg-yellow-400 text-black px-8 py-3 rounded-xl font-bold transition-all shadow-lg shadow-yellow-500/20 active:scale-95">
                                                     {isEn ? 'Understood, add family member' : 'Entendido, adicionar familiar'}
                                                 </button>
                                             </div>
@@ -1436,13 +1442,14 @@ export default function PilgrimageBookingPage() {
                                             <div className="bg-slate-950 p-6 rounded-3xl space-y-4 border border-white/5">
                                                 {pricedPilgrims.map(({ pilgrim: f, index: i, price: pPrice }) => {
                                                     return (
-                                                        <div key={i} className="flex justify-between items-center text-sm border-b border-white/5 pb-3 last:border-0 last:pb-0">
-                                                            <div>
+                                                        <div key={i} className="flex justify-between items-start gap-4 text-sm border-b border-white/5 pb-3 last:border-0 last:pb-0">
+                                                            <div className="min-w-0 flex-1">
                                                                 <p className="font-bold text-white">{f.full_name || (isEn ? 'Person ' : 'Pessoa ') + (i + 1)}</p>
                                                                 <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">
                                                                     {isEn ? (pPrice.roomType === 'single' ? 'Single Room' : pPrice.roomType === 'double' ? 'Double Room (Shared)' : pPrice.roomType === 'triple' ? 'Triple Room' : 'Family Room') : (pPrice.roomType === 'single' ? 'Quarto Individual' : pPrice.roomType === 'double' ? 'Quarto Duplo (Partilhado)' : pPrice.roomType === 'triple' ? 'Quarto Triplo' : 'Quarto Familiar')}
                                                                 </p>
                                                                 {pPrice.isMember && <p className="text-xs text-emerald-400 font-bold uppercase tracking-wider mt-1 flex items-center gap-1"><Check className="w-3 h-3" /> {isEn ? 'Member (-€50.00)' : 'Membro (-50,00€)'}</p>}
+                                                                <p className="mt-2 whitespace-pre-wrap break-words text-sm text-amber-200">{isEn ? 'Food allergies / dietary requirements: ' : 'Alergias / restrições alimentares: '}{f.allergies}</p>
                                                             </div>
                                                             <div className="text-right">
                                                                 <p className="text-white font-mono font-bold">{formatMoney(pPrice.finalPrice)}</p>

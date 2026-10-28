@@ -2,10 +2,12 @@ import ExcelJS from 'exceljs';
 import { NextResponse } from 'next/server';
 import { verifyAdmin } from '../../../../../../lib/admin-auth';
 import { supabaseServer } from '../../../../../../lib/supabase';
-import { CHECKIN_EXPORT_HEADERS, documentTypeLabel } from '../../../../../../lib/pilgrimage-checkin';
+import { CHECKIN_EXPORT_HEADERS, checkinLookupColumn, documentTypeLabel } from '../../../../../../lib/pilgrimage-checkin';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
+
+const PRIVATE_HEADERS = { 'Cache-Control': 'private, no-store, max-age=0' };
 
 type Submission = {
   id: number;
@@ -24,28 +26,45 @@ type Submission = {
   submitted_at: string;
 };
 
-async function loadCheckinData(pilgrimageId: string) {
+async function loadCheckinData(pilgrimageId: string, archiveId: string | null) {
   if (!supabaseServer) return { error: 'Server not configured' } as const;
 
-  const [pilgrimageResult, submissionsResult] = await Promise.all([
+  const submissionsQuery = supabaseServer.from('pilgrimage_checkin_submissions')
+    .select('id, full_name, nationality, document_type, document_number, document_issued_on, document_expires_on, birth_date, full_address, postal_code, city, phone, email, submitted_at')
+    .eq('pilgrimage_id', pilgrimageId);
+  if (archiveId) submissionsQuery.eq('archive_id', archiveId);
+  else submissionsQuery.is('archive_id', null);
+
+  const [pilgrimageResult, submissionsResult, archivesResult] = await Promise.all([
     supabaseServer
       .from('pilgrimages')
       .select('id, title, slug, start_date, end_date, checkin_form_enabled')
       .eq('id', pilgrimageId)
       .maybeSingle(),
-    supabaseServer
-      .from('pilgrimage_checkin_submissions')
-      .select('id, full_name, nationality, document_type, document_number, document_issued_on, document_expires_on, birth_date, full_address, postal_code, city, phone, email, submitted_at')
-      .eq('pilgrimage_id', pilgrimageId)
-      .order('submitted_at', { ascending: true }),
+    submissionsQuery.order('submitted_at', { ascending: true }),
+    supabaseServer.from('pilgrimage_checkin_archives')
+      .select('id, title, notes, submissions:pilgrimage_checkin_submissions(count)')
+      .eq('source_pilgrimage_id', pilgrimageId).order('created_at', { ascending: false }),
   ]);
 
   if (pilgrimageResult.error) return { error: pilgrimageResult.error.message } as const;
   if (!pilgrimageResult.data) return { notFound: true } as const;
   if (submissionsResult.error) return { error: submissionsResult.error.message } as const;
+  if (archivesResult.error) return { error: archivesResult.error.message } as const;
+  const archives = (archivesResult.data || []).map(archive => ({
+    id: archive.id,
+    title: archive.title,
+    notes: archive.notes,
+    count: archive.submissions?.[0]?.count || 0,
+  }));
+  const archive = archiveId ? archives.find(item => item.id === archiveId) : null;
+  if (archiveId && !archive) return { notFound: true } as const;
 
   return {
     pilgrimage: pilgrimageResult.data,
+    dataset: archive ? { title: archive.title, notes: archive.notes, archived: true }
+      : { title: pilgrimageResult.data.title, notes: '', archived: false },
+    archives,
     submissions: (submissionsResult.data || []) as Submission[],
   };
 }
@@ -56,18 +75,22 @@ export async function GET(
 ) {
   const { authorized, error: authError } = await verifyAdmin(request);
   if (!authorized) {
-    return NextResponse.json({ error: authError || 'Unauthorized' }, { status: 401 });
+    return NextResponse.json({ error: authError || 'Unauthorized' }, { status: 401, headers: PRIVATE_HEADERS });
   }
 
   const { pilgrimageId } = await params;
-  const result = await loadCheckinData(pilgrimageId);
-  if ('notFound' in result) return NextResponse.json({ error: 'Peregrinação não encontrada.' }, { status: 404 });
-  if ('error' in result) return NextResponse.json({ error: result.error }, { status: 500 });
-
   const url = new URL(request.url);
+  const archiveId = url.searchParams.get('archive');
+  if (archiveId && checkinLookupColumn(archiveId) !== 'id') return NextResponse.json({ error: 'Arquivo não encontrado.' }, { status: 404, headers: PRIVATE_HEADERS });
+  const result = await loadCheckinData(pilgrimageId, archiveId);
+  if ('notFound' in result) return NextResponse.json({ error: 'Peregrinação não encontrada.' }, { status: 404, headers: PRIVATE_HEADERS });
+  if ('error' in result) return NextResponse.json({ error: result.error }, { status: 500, headers: PRIVATE_HEADERS });
+
   if (url.searchParams.get('format') !== 'xlsx') {
-    return NextResponse.json(result);
+    return NextResponse.json(result, { headers: PRIVATE_HEADERS });
   }
+
+  const exportSubmissions = result.submissions;
 
   const workbook = new ExcelJS.Workbook();
   workbook.creator = 'Apostolado de Garabandal';
@@ -84,7 +107,7 @@ export async function GET(
 
   sheet.mergeCells('C2:H2');
   const titleCell = sheet.getCell('C2');
-  titleCell.value = result.pilgrimage.title;
+  titleCell.value = result.dataset.title;
   titleCell.font = { bold: true, size: 14, color: { argb: 'FF1F2937' } };
   titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
 
@@ -109,7 +132,7 @@ export async function GET(
     };
   });
 
-  result.submissions.forEach((submission, index) => {
+  exportSubmissions.forEach((submission, index) => {
     const row = sheet.addRow([
       index + 1,
       submission.full_name,
@@ -138,17 +161,17 @@ export async function GET(
     });
   });
 
-  const lastRow = Math.max(5, 5 + result.submissions.length);
+  const lastRow = Math.max(5, 5 + exportSubmissions.length);
   sheet.autoFilter = { from: 'A5', to: `M${lastRow}` };
   sheet.pageSetup = { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0 };
 
   const file = await workbook.xlsx.writeBuffer();
-  const safeSlug = result.pilgrimage.slug.replace(/[^a-z0-9-]+/gi, '-');
+  const safeSlug = (archiveId || result.pilgrimage.slug).replace(/[^a-z0-9-]+/gi, '-');
   return new NextResponse(file as BodyInit, {
     headers: {
       'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       'Content-Disposition': `attachment; filename="dados-check-in-${safeSlug}.xlsx"`,
-      'Cache-Control': 'no-store',
+      ...PRIVATE_HEADERS,
     },
   });
 }

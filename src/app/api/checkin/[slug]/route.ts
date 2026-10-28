@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabaseServer } from '../../../../lib/supabase';
-import { checkinSubmissionSchema } from '../../../../lib/pilgrimage-checkin';
+import { checkinLookupColumn, checkinSubmissionSchema } from '../../../../lib/pilgrimage-checkin';
 import { checkRateLimit } from '../../../../lib/rate-limit';
 
 export const dynamic = 'force-dynamic';
@@ -39,7 +39,7 @@ export async function POST(
   const { data: pilgrimage, error: pilgrimageError } = await supabaseServer
     .from('pilgrimages')
     .select('id, checkin_form_enabled')
-    .eq('slug', slug)
+    .eq(checkinLookupColumn(slug), slug)
     .eq('checkin_form_enabled', true)
     .maybeSingle();
 

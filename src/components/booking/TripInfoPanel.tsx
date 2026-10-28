@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import RichText from '../pilgrimage/RichText';
 import { buildWhatsAppLink } from '../../lib/chat-config';
+import { getDietaryInfo } from '../../lib/pilgrimage-dietary';
 
 export type TripPilgrim = {
     id?: string;
@@ -709,9 +710,10 @@ function IncludedCard({
 
 function PilgrimDetailsCard({ pilgrim, isEn }: { pilgrim: TripPilgrim; isEn: boolean }) {
     const room = roomLabel(pilgrim.room_type, isEn);
-    const notes = [pilgrim.allergies, pilgrim.dietary_restrictions]
-        .map((value) => (typeof value === 'string' ? value.trim() : ''))
-        .filter(Boolean);
+    const dietary = getDietaryInfo(pilgrim);
+    const notes = [dietary.details || (dietary.status === 'none'
+        ? (isEn ? 'No food allergies or dietary requirements declared.' : 'Sem alergias ou restrições alimentares declaradas.')
+        : (isEn ? 'Not yet provided. Complete the Food allergies tab.' : 'Por preencher. Completa o separador Alergias.'))];
 
     return (
         <div className={CARD}>

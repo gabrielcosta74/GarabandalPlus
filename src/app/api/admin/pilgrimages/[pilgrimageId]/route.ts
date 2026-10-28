@@ -19,6 +19,17 @@ export async function DELETE(
       return NextResponse.json({ error: authError || 'Unauthorized' }, { status: 401 });
     }
 
+    // The archive deliberately preserves data from an earlier edition. Check
+    // before deleting any children so its FK cannot leave a partial deletion.
+    const { count: archiveCount, error: archiveError } = await supabaseServer
+      .from('pilgrimage_checkin_archives')
+      .select('id', { count: 'exact', head: true })
+      .eq('source_pilgrimage_id', pilgrimageId);
+    if (archiveError) return NextResponse.json({ error: archiveError.message }, { status: 500 });
+    if (archiveCount) {
+      return NextResponse.json({ error: 'Esta peregrinação tem um histórico de check-in preservado e não pode ser eliminada.' }, { status: 409 });
+    }
+
     // Delete dependencies first to avoid FK violations.
     const tablesToClean = [
       { table: 'pilgrimage_itinerary_items', column: 'pilgrimage_id' },

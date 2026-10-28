@@ -134,6 +134,14 @@ export default function GeneralInfoTab({ form, setForm }: GeneralInfoTabProps) {
                             </div>
                         </div>
 
+                        <div className="rounded-xl border border-indigo-100 bg-indigo-50 p-4">
+                            <label className="flex items-start gap-3 text-sm font-bold text-indigo-950">
+                                <input type="checkbox" checked={form.checkin_form_enabled === true} onChange={event => setForm({ ...form, checkin_form_enabled: event.target.checked })} className="mt-0.5 h-4 w-4 accent-indigo-600" />
+                                Ativar formulário de dados para check-in dos hotéis
+                            </label>
+                            <p className="mt-2 text-xs leading-relaxed text-indigo-800">Ativa apenas nas peregrinações que precisam de recolher documentos para os hotéis. Guarda a peregrinação para aplicar. O formulário e o separador “Dados Check-in” só ficam disponíveis quando ativados. O scanner do autocarro é independente.</p>
+                        </div>
+
                         <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 space-y-4">
                             <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
                                 <Calendar className="w-3 h-3" /> Datas

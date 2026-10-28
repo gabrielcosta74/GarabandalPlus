@@ -2,17 +2,13 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { supabaseServer } from '../../../lib/supabase';
 import CheckinForm from './CheckinForm';
+import { checkinLookupColumn } from '../../../lib/pilgrimage-checkin';
 
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
   title: 'Dados para check-in / Hotel check-in details',
   robots: { index: false, follow: false },
-};
-
-const englishTitles: Record<string, string> = {
-  'peregrinacao-iberica-2026': 'Pilgrimage to Garabandal - Marian Route - October 2026',
-  'peregrinacao-iberico-novembro-2026': 'Pilgrimage to Garabandal - Iberian Route - November 2026',
 };
 
 function formatDateRange(start: string, end: string) {
@@ -35,8 +31,8 @@ export default async function CheckinPage({ params }: { params: Promise<{ slug: 
   const { slug } = await params;
   const { data } = await supabaseServer
     .from('pilgrimages')
-    .select('title, start_date, end_date, slug, checkin_form_enabled')
-    .eq('slug', slug)
+    .select('id, title, title_en, start_date, end_date, checkin_form_enabled')
+    .eq(checkinLookupColumn(slug), slug)
     .eq('checkin_form_enabled', true)
     .maybeSingle();
 
@@ -44,9 +40,10 @@ export default async function CheckinPage({ params }: { params: Promise<{ slug: 
 
   return (
     <CheckinForm
-      slug={data.slug}
+      key={data.id}
+      pilgrimageId={data.id}
       title={data.title}
-      englishTitle={englishTitles[data.slug] ?? 'Pilgrimage to Garabandal'}
+      englishTitle={data.title_en?.trim() || data.title}
       dateLabel={formatDateRange(data.start_date, data.end_date)}
     />
   );

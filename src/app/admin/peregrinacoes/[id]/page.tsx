@@ -35,9 +35,10 @@ import DetailedItineraryTab from './components/DetailedItineraryTab';
 import TeamTab from './components/TeamTab';
 import PreviewTab from './components/PreviewTab';
 import EarlyAccessTab from './components/EarlyAccessTab';
+import PilgrimageDietaryData from '../../../../components/admin/PilgrimageDietaryData';
 import PilgrimageCheckinData from '../../../../components/admin/PilgrimageCheckinData';
 import { Toaster, toast } from 'sonner';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { serializeCivilDateForStorage } from '../../../../lib/utils';
 import type { CountryBasedFlightPolicy } from '../../../../lib/pilgrimage-flight-policy';
 
@@ -146,12 +147,18 @@ const TABS = [
     { id: 'team', label: 'Equipa', icon: Users, description: 'Guias e convidados' },
     { id: 'early_access', label: 'Lançamento', icon: Rocket, show: (isNew: boolean) => !isNew, description: 'Acesso antecipado com código privado' },
     { id: 'bookings', label: 'Inscrições', icon: Ticket, show: (isNew: boolean) => !isNew, description: 'Gestão de passageiros' },
+    { id: 'dietary', label: 'Alergias alimentares', icon: ClipboardList, show: (isNew: boolean) => !isNew, description: 'Lista de alergias e restrições, com exportação CSV para hotéis' },
     { id: 'checkin_data', label: 'Dados Check-in', icon: FileSpreadsheet, show: (isNew: boolean) => !isNew, description: 'Formulário para hotéis e exportação Excel' },
     { id: 'scanner', label: 'Autocarro', icon: QrCode, show: (isNew: boolean) => !isNew, description: 'Scanner mobile para entrada no autocarro' },
     { id: 'waitlist', label: 'Lista de Espera', icon: Clock, show: (isNew: boolean) => !isNew, description: 'Gestão de interessados' }
 ];
 
 export default function PilgrimageEditorPage() {
+    const params = useParams();
+    return <PilgrimageEditor key={String(params.id)} />;
+}
+
+function PilgrimageEditor() {
     const params = useParams();
     const router = useRouter();
     const id = params.id as string;
@@ -160,10 +167,11 @@ export default function PilgrimageEditorPage() {
     const [loading, setLoading] = useState(!isNew);
     const [saving, setSaving] = useState(false);
     const [activeTab, setActiveTab] = useState('general');
+    const [checkinEnabled, setCheckinEnabled] = useState(false);
 
     useEffect(() => {
         const tab = new URLSearchParams(window.location.search).get('tab');
-        if (tab === 'bookings' || tab === 'checkin_data') setActiveTab(tab);
+        if (tab === 'bookings' || tab === 'checkin_data' || tab === 'dietary') setActiveTab(tab);
     }, []);
 
     // State
@@ -177,6 +185,7 @@ export default function PilgrimageEditorPage() {
         manual_occupied_pax: 0,
         deposit_value: 0,
         status: 'open',
+        checkin_form_enabled: false,
         included_items: [],
         pricing_config: {
             room_supplements: {
@@ -233,6 +242,8 @@ export default function PilgrimageEditorPage() {
                 return; // Will exit, but finally block will run
             }
             setForm(data);
+            setCheckinEnabled(data.checkin_form_enabled === true);
+            if (data.checkin_form_enabled !== true) setActiveTab(tab => tab === 'checkin_data' ? 'general' : tab);
 
             // 2. Fetch Stages
             const { data: sData } = await supabaseBrowser
@@ -307,6 +318,8 @@ export default function PilgrimageEditorPage() {
 
             if (error) throw error;
             pid = data.id;
+            setCheckinEnabled(data.checkin_form_enabled === true);
+            if (data.checkin_form_enabled !== true) setActiveTab(tab => tab === 'checkin_data' ? 'general' : tab);
 
             const syncedVacancies = await syncVacanciesFromServer(pid);
             if (syncedVacancies) {
@@ -568,7 +581,7 @@ export default function PilgrimageEditorPage() {
     };
 
     const handleNextTab = () => {
-        const availableTabs = TABS.filter(t => !t.show || t.show(isNew));
+        const availableTabs = TABS.filter(t => (!t.show || t.show(isNew)) && (t.id !== 'checkin_data' || checkinEnabled));
         const currentIndex = availableTabs.findIndex(t => t.id === activeTab);
         if (currentIndex < availableTabs.length - 1) {
             setActiveTab(availableTabs[currentIndex + 1].id);
@@ -577,7 +590,7 @@ export default function PilgrimageEditorPage() {
     };
 
     const handlePrevTab = () => {
-        const availableTabs = TABS.filter(t => !t.show || t.show(isNew));
+        const availableTabs = TABS.filter(t => (!t.show || t.show(isNew)) && (t.id !== 'checkin_data' || checkinEnabled));
         const currentIndex = availableTabs.findIndex(t => t.id === activeTab);
         if (currentIndex > 0) {
             setActiveTab(availableTabs[currentIndex - 1].id);
@@ -594,8 +607,8 @@ export default function PilgrimageEditorPage() {
         </div>
     );
 
-    const activeTabIndex = TABS.filter(t => !t.show || t.show(isNew)).findIndex(t => t.id === activeTab);
-    const isLastTab = activeTabIndex === TABS.filter(t => !t.show || t.show(isNew)).length - 1;
+    const activeTabIndex = TABS.filter(t => (!t.show || t.show(isNew)) && (t.id !== 'checkin_data' || checkinEnabled)).findIndex(t => t.id === activeTab);
+    const isLastTab = activeTabIndex === TABS.filter(t => (!t.show || t.show(isNew)) && (t.id !== 'checkin_data' || checkinEnabled)).length - 1;
     const isFirstTab = activeTabIndex === 0;
 
     const toolbarActions = (
@@ -655,7 +668,7 @@ export default function PilgrimageEditorPage() {
                 <div className="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
                     <div className="w-full max-w-[1600px] mx-auto px-2 sm:px-4 md:px-6 overflow-x-auto no-scrollbar">
                         <div className="flex gap-1.5 md:gap-2 min-w-max py-3 md:py-4">
-                            {TABS.filter(tab => !tab.show || tab.show(isNew)).map((tab) => {
+                            {TABS.filter(tab => (!tab.show || tab.show(isNew)) && (tab.id !== 'checkin_data' || checkinEnabled)).map((tab) => {
                                 const isActive = activeTab === tab.id;
                                 return (
                                     <button
@@ -687,13 +700,8 @@ export default function PilgrimageEditorPage() {
 
                 {/* 2. Content Area with Transitions */}
                 <main className="px-0 sm:px-2 md:px-6 py-4 md:py-8 w-full max-w-[1600px] mx-auto">
-                    <AnimatePresence mode="wait">
-                        <motion.div
+                        <div
                             key={activeTab}
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: -10 }}
-                            transition={{ duration: 0.2 }}
                             className={activeTab === 'scanner' || activeTab === 'preview'
                                 ? 'min-h-[400px]'
                                 : 'bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden min-h-[400px]'
@@ -764,7 +772,8 @@ export default function PilgrimageEditorPage() {
                                     />
                                 )}
                                 {activeTab === 'bookings' && <BookingsManager pilgrimageId={id} />}
-                                {activeTab === 'checkin_data' && <PilgrimageCheckinData pilgrimageId={id} slug={form.slug || ''} />}
+                                {activeTab === 'dietary' && <PilgrimageDietaryData pilgrimageId={id} />}
+                                {activeTab === 'checkin_data' && checkinEnabled && <PilgrimageCheckinData key={id} pilgrimageId={id} />}
                                 {activeTab === 'scanner' && <PilgrimageScanner pilgrimageId={id} />}
                                 {activeTab === 'waitlist' && <WaitlistManager pilgrimageId={id} />}
                             </div>
@@ -813,8 +822,7 @@ export default function PilgrimageEditorPage() {
                                     )}
                                 </div>
                             </div>}
-                        </motion.div>
-                    </AnimatePresence>
+                        </div>
                 </main>
             </div>
         </AdminShell>

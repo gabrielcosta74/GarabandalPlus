@@ -3,7 +3,7 @@
 import type { LucideIcon } from 'lucide-react';
 import { useRef } from 'react';
 
-export type BookingTabId = 'payments' | 'trip';
+export type BookingTabId = 'payments' | 'trip' | 'dietary';
 
 type BookingTab = {
     id: BookingTabId;
@@ -12,7 +12,7 @@ type BookingTab = {
 };
 
 /**
- * Segmented control for the private booking page. Full-width on mobile so both
+ * Segmented control for the private booking page. Full-width on mobile so all
  * targets stay thumb-sized, centred and narrow on desktop.
  */
 export default function BookingTabs({
@@ -41,7 +41,7 @@ export default function BookingTabs({
             role="tablist"
             aria-label="Secções da inscrição"
             onKeyDown={handleKeyDown}
-            className="mx-auto grid w-full max-w-md grid-cols-2 gap-1 rounded-full bg-slate-900/90 p-1 shadow-lg shadow-black/50 ring-1 ring-white/10 backdrop-blur-xl"
+            className="mx-auto grid w-full max-w-md grid-cols-3 gap-1 rounded-full bg-slate-900/90 p-1 shadow-lg shadow-black/50 ring-1 ring-white/10 backdrop-blur-xl"
         >
             {tabs.map((tab) => {
                 const Icon = tab.icon;
@@ -57,7 +57,7 @@ export default function BookingTabs({
                         aria-controls={`booking-panel-${tab.id}`}
                         tabIndex={isActive ? 0 : -1}
                         onClick={() => onChange(tab.id)}
-                        className={`flex min-h-11 items-center justify-center gap-2 rounded-full px-4 text-sm font-semibold transition-colors ${isActive
+                        className={`flex min-h-11 items-center justify-center gap-2 rounded-full px-2 sm:px-4 text-xs sm:text-sm font-semibold transition-colors ${isActive
                             ? 'bg-amber-400 text-slate-950'
                             : 'text-white/55 hover:bg-white/[0.06] hover:text-white'
                             }`}

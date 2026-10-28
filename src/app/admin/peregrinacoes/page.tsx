@@ -31,6 +31,7 @@ type Pilgrimage = {
     current_vacancies: number;
     base_price: number;
     cover_image: string | null;
+    checkin_form_enabled?: boolean;
     confirmed_pax?: number;
     pending_pax?: number;
     effective_vacancies?: number;
@@ -202,6 +203,8 @@ export default function AdminPilgrimagesPage() {
                         <p className="text-slate-500 mt-1">Gira as viagens, itinerários e inscrições.</p>
                     </div>
 
+                    <div className="flex flex-wrap items-center gap-3">
+                    <Link href="/admin/peregrinacoes/checkin-arquivo" className="flex min-h-12 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-700 hover:bg-slate-50"><FileSpreadsheet className="h-4 w-4" />Arquivo de check-in</Link>
                     <Link
                         href="/admin/peregrinacoes/nova"
                         className="bg-slate-900 hover:bg-slate-800 !text-white font-bold px-5 py-3 rounded-xl flex items-center gap-2 shadow-lg hover:shadow-xl transition-all"
@@ -210,6 +213,7 @@ export default function AdminPilgrimagesPage() {
                         <Plus className="w-5 h-5" />
                         Criar Nova Viagem
                     </Link>
+                    </div>
                 </div>
 
                 {/* Filters */}
@@ -333,14 +337,14 @@ export default function AdminPilgrimagesPage() {
                                                 <ClipboardList className="w-4 h-4" />
                                                 Logística
                                             </Link>
-                                            <Link
+                                            {item.checkin_form_enabled === true && <Link
                                                 href={`/admin/peregrinacoes/${item.id}?tab=checkin_data`}
                                                 className="h-8 px-3 rounded-full bg-emerald-50 text-emerald-700 flex items-center justify-center gap-1.5 hover:bg-emerald-600 hover:text-white transition-colors text-xs font-semibold"
                                                 title="Dados para check-in e exportação Excel"
                                             >
                                                 <FileSpreadsheet className="w-4 h-4" />
                                                 Dados check-in
-                                            </Link>
+                                            </Link>}
                                             <button
                                                 type="button"
                                                 onClick={() => handleDuplicate(item.id, item.title)}

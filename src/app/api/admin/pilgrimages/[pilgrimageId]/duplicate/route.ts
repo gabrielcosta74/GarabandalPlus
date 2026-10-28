@@ -198,6 +198,7 @@ export async function POST(
       title: newTitle,
       slug: newSlug,
       status: 'closed',
+      checkin_form_enabled: false,
     };
 
     const { data: created, error: createError } = await supabaseServer

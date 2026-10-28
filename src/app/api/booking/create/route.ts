@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { DIETARY_MAX_LENGTH } from '../../../../lib/pilgrimage-dietary';
 import { supabaseServer } from '../../../../lib/supabase';
 import { sendBookingConfirmationEmail, sendBookingAdminNotification } from '../../../../lib/email';
 import { getAppUrl } from '../../../../lib/config';
@@ -67,6 +68,15 @@ export async function POST(req: Request) {
 
         if (!Array.isArray(pilgrim_data) || pilgrim_data.length === 0 || !pilgrimage_id || !bookingEmail) {
             return NextResponse.json({ error: "Missing required data" }, { status: 400 });
+        }
+
+        // Older clients may omit this field. Keep those records pending rather than
+        // silently asserting they have no allergies; reject invalid supplied values.
+        if (pilgrim_data.some(person => person.allergies != null &&
+            (typeof person.allergies !== 'string' || person.allergies.trim().length > DIETARY_MAX_LENGTH))) {
+            return NextResponse.json({ error: bookingLocale === 'en'
+                ? 'Food allergy details must be text with up to 2000 characters.'
+                : 'As alergias alimentares devem ser texto com até 2000 caracteres.' }, { status: 400 });
         }
 
         // Load the pilgrimage and enforce any country-based flight policy before
@@ -363,10 +373,10 @@ export async function POST(req: Request) {
                 country: p.country,
                 room_type: roomType,
                 flight_option: p.flight_option,
-                allergies: p.allergies,
+                allergies: typeof p.allergies === 'string' ? p.allergies.trim() : null,
                 notes: p.notes, // Keep original notes for safety
                 cpf_nif: p.cpf_nif,
-                dietary_restrictions: p.allergies,
+                dietary_restrictions: typeof p.allergies === 'string' ? p.allergies.trim() : null,
                 health_notes: p.health_notes || `Cidadania: ${p.country || 'N/A'}`,
                 // New Columns
                 bed_preference: bedPreference,

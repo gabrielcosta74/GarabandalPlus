@@ -41,7 +41,7 @@ const initialFields: FormFields = {
 const inputClass = 'mt-2 min-h-12 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-base text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-amber-500 focus:ring-4 focus:ring-amber-500/10';
 const labelClass = 'block text-sm font-semibold text-slate-800';
 
-export default function CheckinForm({ slug, title, englishTitle, dateLabel }: { slug: string; title: string; englishTitle: string; dateLabel: string }) {
+export default function CheckinForm({ pilgrimageId, title, englishTitle, dateLabel }: { pilgrimageId: string; title: string; englishTitle: string; dateLabel: string }) {
   const [fields, setFields] = useState<FormFields>(initialFields);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -57,7 +57,7 @@ export default function CheckinForm({ slug, title, englishTitle, dateLabel }: { 
     setSubmitting(true);
 
     try {
-      const response = await fetch(`/api/checkin/${encodeURIComponent(slug)}`, {
+      const response = await fetch(`/api/checkin/${encodeURIComponent(pilgrimageId)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(fields),
@@ -96,7 +96,7 @@ export default function CheckinForm({ slug, title, englishTitle, dateLabel }: { 
             <FileText className="h-4 w-4" aria-hidden="true" />
             Dados para check-in nos hotéis / Hotel check-in details
           </div>
-          <h1 className="mt-3 font-serif text-2xl font-bold leading-tight sm:text-4xl">{title} / {englishTitle}</h1>
+          <h1 className="mt-3 font-serif text-2xl font-bold leading-tight sm:text-4xl">{title}{englishTitle !== title && <> / {englishTitle}</>}</h1>
           <p className="mt-3 flex items-center gap-2 text-sm text-slate-300 sm:text-base">
             <CalendarDays className="h-4 w-4 shrink-0" aria-hidden="true" />
             {dateLabel}

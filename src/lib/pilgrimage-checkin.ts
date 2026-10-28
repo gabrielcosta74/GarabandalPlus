@@ -1,5 +1,14 @@
 import { z } from 'zod';
 
+/** New links use the immutable pilgrimage ID; previously shared slugs still resolve. */
+export function checkinLookupColumn(reference: string): 'id' | 'slug' {
+  return z.string().uuid().safeParse(reference).success ? 'id' : 'slug';
+}
+
+export function checkinFormPath(pilgrimageId: string) {
+  return `/dados-check-in/${encodeURIComponent(pilgrimageId)}`;
+}
+
 const civilDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Data inválida / Invalid date');
 
 export const checkinSubmissionSchema = z.object({

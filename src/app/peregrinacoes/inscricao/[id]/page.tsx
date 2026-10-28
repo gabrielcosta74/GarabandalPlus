@@ -39,6 +39,8 @@ import PaymentConfirmationModal, {
     type PaymentConfirmationFiscalDocument,
 } from '../../../../components/booking/PaymentConfirmationModal';
 import CustomPaymentAmount, { buildPaymentPreview } from '../../../../components/booking/CustomPaymentAmount';
+import DietaryPanel from '../../../../components/booking/DietaryPanel';
+import { getDietaryInfo } from '../../../../lib/pilgrimage-dietary';
 import BookingTabs, { type BookingTabId } from '../../../../components/booking/BookingTabs';
 import TripInfoPanel, {
     type TripItineraryItem,
@@ -407,7 +409,7 @@ export default function BookingDashboardPage() {
     useEffect(() => {
         const syncTabFromUrl = () => {
             const tab = new URLSearchParams(window.location.search).get('tab');
-            setActiveTab(tab === 'viagem' ? 'trip' : 'payments');
+            setActiveTab(tab === 'alergias' ? 'dietary' : tab === 'viagem' ? 'trip' : 'payments');
         };
 
         syncTabFromUrl();
@@ -421,7 +423,9 @@ export default function BookingDashboardPage() {
 
         // Rewrite only the `tab` param — viewToken/token/provider must survive.
         const params = new URLSearchParams(window.location.search);
-        if (tab === 'trip') {
+        if (tab === 'dietary') {
+            params.set('tab', 'alergias');
+        } else if (tab === 'trip') {
             params.set('tab', 'viagem');
         } else {
             params.delete('tab');
@@ -1407,9 +1411,26 @@ export default function BookingDashboardPage() {
                                 tabs={[
                                     { id: 'payments', label: isEn ? 'Payment' : 'Pagamento', icon: Wallet },
                                     { id: 'trip', label: isEn ? 'The trip' : 'A viagem', icon: Plane },
+                                    { id: 'dietary', label: isEn ? 'Food allergies' : 'Alergias', icon: AlertCircle },
                                 ]}
                             />
                         </div>
+
+                        {activeTab !== 'dietary' && (
+                            <button type="button" onClick={() => handleTabChange('dietary')} className="mx-auto flex w-full max-w-2xl items-center gap-3 rounded-2xl border border-amber-400/25 bg-amber-400/10 p-4 text-left text-sm text-amber-100">
+                                <AlertCircle className="h-5 w-5 shrink-0" />
+                                <span>{(booking.pilgrims || []).some(person => getDietaryInfo(person).status === 'pending')
+                                    ? (isEn ? 'Food allergies: details are still missing for one or more participants. Complete them here.' : 'Alergias alimentares: faltam os dados de um ou mais participantes. Preenche aqui.')
+                                    : (isEn ? 'Forgot a food allergy or need to update it? Check the details for every participant here.' : 'Esqueceste-te de indicar uma alergia ou precisas de alterar? Confirma aqui os dados de cada participante.')}</span>
+                            </button>
+                        )}
+                        {activeTab === 'dietary' && (
+                            <div id="booking-panel-dietary" role="tabpanel" aria-labelledby="booking-tab-dietary" className="mx-auto w-full max-w-2xl">
+                                <DietaryPanel bookingId={booking.id} pilgrims={booking.pilgrims || []} token={getBookingViewToken()} isEn={isEn}
+                                    disabled={['cancelled', 'canceled', 'expired'].includes(booking.status)}
+                                    onSaved={person => setBooking(current => current ? { ...current, pilgrims: current.pilgrims.map(pilgrim => pilgrim.id === person.id ? { ...pilgrim, ...person } : pilgrim) } : current)} />
+                            </div>
+                        )}
 
                         {activeTab === 'payments' && (
                             <div className="flex justify-center">
