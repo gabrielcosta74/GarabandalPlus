@@ -25,7 +25,16 @@ type SentPush = { user_id: string; reference: string | null; sent_at: string };
 
 type PushChoice = { kind: CommunityKind; activity: Activity; reference: string };
 
-export function communityPushData(choice: PushChoice, actorId: string) {
+type Sender = { name: string; avatar: string | null };
+
+/** Only public https photos; the iOS extension downloads them before showing the push. */
+function safeAvatar(value: string | null | undefined): string | null {
+    const url = (value || '').trim();
+    return url.startsWith('https://') && url.length <= 1000 ? url : null;
+}
+
+export function communityPushData(choice: PushChoice, actorId: string, sender?: Sender) {
+    const avatar = safeAvatar(sender?.avatar);
     return {
         kind: 'community-activity',
         // Older app releases understand this safe fallback; newer ones use the IDs below.
@@ -33,6 +42,8 @@ export function communityPushData(choice: PushChoice, actorId: string) {
         activityType: choice.kind,
         activityId: choice.activity.id,
         actorId,
+        // The app's iOS notification extension shows this photo in a circle, like Instagram.
+        ...(sender && avatar ? { senderName: sender.name, senderAvatar: avatar } : {}),
         ...(choice.activity.post_id ? { postId: choice.activity.post_id } : {}),
         ...(choice.activity.intention_id ? { intentionId: choice.activity.intention_id } : {}),
         ...(choice.activity.gathering_id ? { gatheringId: choice.activity.gathering_id } : {}),
@@ -257,9 +268,13 @@ export async function processCommunityPush(
             .maybeSingle();
         if (actorError) throw new Error(`Community push actor: ${actorError.message}`);
         if (!actor) continue;
-        const { data: actorName, error: nameError } = await supabase
-            .rpc('person_short_name', { p_user: actor.actor_id });
+        const [{ data: actorName, error: nameError }, { data: actorAvatar, error: avatarError }] = await Promise.all([
+            supabase.rpc('person_short_name', { p_user: actor.actor_id }),
+            supabase.rpc('person_avatar', { p_user: actor.actor_id }),
+        ]);
         if (nameError) throw new Error(`Community push actor name: ${nameError.message}`);
+        // A missing photo only costs the circle, never the push.
+        const avatar = avatarError ? null : safeAvatar(actorAvatar as string | null);
 
         const grouped = (choice.kind === 'like' || choice.kind === 'comment' || choice.kind === 'gathering_join') && activities.some((item) =>
             item.recipient_id === userId && item.kind === choice.kind && item.id !== choice.activity.id &&
@@ -267,10 +282,12 @@ export async function processCommunityPush(
             now.getTime() - new Date(item.created_at).getTime() >= DELAY_MS[choice.kind]);
         const english = (userDevices[0].locale || '').toLowerCase().startsWith('en');
         const message = communityPushCopy(choice.kind, english, actorName, grouped);
+        const sender = { name: shortActorName(actorName, english), avatar };
         const messages: ExpoPushMessage[] = tokens.map((token) => ({
             to: token, title: message.title, body: message.body,
             channelId: CHANNEL, sound: 'default',
-            data: communityPushData(choice, actor.actor_id),
+            ...(avatar ? { mutableContent: true } : {}),
+            data: communityPushData(choice, actor.actor_id, sender),
         }));
         const outcome = await sendExpoPush(messages);
         if (config.test_user_id === userId) {

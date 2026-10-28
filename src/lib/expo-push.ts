@@ -37,6 +37,8 @@ export type ExpoPushMessage = {
     channelId?: string;
     sound?: 'default' | null;
     badge?: number;
+    /** iOS: deixa a extensão de notificações da app mexer no aviso antes de aparecer. */
+    mutableContent?: boolean;
 };
 
 export type ExpoPushResult = {

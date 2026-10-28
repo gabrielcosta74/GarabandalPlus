@@ -137,4 +137,14 @@ describe('community push destination data', () => {
       intentionId: choice.activity.intention_id,
     });
   });
+
+  it('adds the sender photo for the iOS circle only when it is a public https link', () => {
+    const choice = { kind: 'comment' as const, activity: activity('comment', '2026-10-22T11:00:00Z'), reference: 'comment' };
+    const actor = '44444444-4444-4444-8444-444444444444';
+    expect(communityPushData(choice, actor, { name: 'Rui', avatar: 'https://example.com/a.jpg' }))
+      .toMatchObject({ senderName: 'Rui', senderAvatar: 'https://example.com/a.jpg' });
+    expect(communityPushData(choice, actor, { name: 'Rui', avatar: 'http://example.com/a.jpg' }))
+      .not.toHaveProperty('senderAvatar');
+    expect(communityPushData(choice, actor, { name: 'Rui', avatar: null })).not.toHaveProperty('senderName');
+  });
 });
