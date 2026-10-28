@@ -32,24 +32,13 @@ import { supabaseServer } from '../../../../lib/supabase';
 import { localHourFor, sendExpoPush, type ExpoPushMessage } from '../../../../lib/expo-push';
 import { processIntentionNotifications } from '../../../../lib/intention-notifications';
 import { processCommunityPush } from '../../../../lib/community-push';
+import {
+    getReactivationAutomation,
+    processScheduledPushCampaigns,
+} from '../../../../lib/push-campaigns';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-
-/** Manha, no fuso de quem recebe. */
-const SEND_HOUR_LOCAL = 10;
-
-/** Sem sinal de vida ha mais de isto, e alguem que se afastou. */
-const DORMANT_DAYS = 30;
-
-/**
- * E ha quanto tempo tem de ter sido o ultimo destes.
- *
- * Deliberadamente o dobro do limiar de ausencia. Quem recebe isto e nao volta
- * esta a dizer alguma coisa, e a resposta certa a esse silencio nao e insistir
- * todos os meses. Duas vezes por ano, no maximo.
- */
-const MIN_GAP_DAYS = 60;
 
 /** O canal `avisos` da app. Tem de existir la antes de ser usado aqui. */
 const CHANNEL = 'avisos';
@@ -63,17 +52,6 @@ const NOTIFICATION_TYPE = 'reactivation_30d';
  * um motivo para voltar. Por isso o texto nao conta dias de ausencia nem diz
  * "sentimos a sua falta": abre uma porta e cala-se.
  */
-const COPY = {
-    pt: {
-        title: 'Um momento de oração hoje 🕊️',
-        body: 'A novena e as orações continuam aqui, sempre que quiser voltar.',
-    },
-    en: {
-        title: 'A moment of prayer today 🕊️',
-        body: 'The novena and the prayers are here whenever you want to return.',
-    },
-} as const;
-
 type DeviceRow = {
     id: string;
     user_id: string;
@@ -107,13 +85,27 @@ export async function GET(request: Request) {
     const url = new URL(request.url);
     const dryRun = url.searchParams.get('dryRun') === '1';
 
-    // Avisos do mural de intencoes da app (primeira oracao, resumo diario,
-    // denuncias). Correm antes da reactivacao e independentemente dela.
+    // O mesmo ciclo horário trata primeiro os broadcasts que o admin deixou
+    // agendados. Em dry-run não se reclama nem altera nenhuma campanha.
+    const scheduled = dryRun
+        ? { processed: 0, delivered: 0 }
+        : await processScheduledPushCampaigns(supabaseServer);
+
+    // Avisos do mural de intencoes (primeira oracao, resumo diario, denuncias).
+    // Correm sempre, mesmo com a reactivacao em pausa: sao outra conversa.
     const intentions = dryRun ? null : await processIntentionNotifications(supabaseServer);
 
+    // Social activity is a separate, privacy-checked stream. A paused
+    // reactivation campaign must not silence comments or invitations.
     const now = new Date();
     const community = await processCommunityPush(supabaseServer, now, dryRun);
-    const dormantBefore = daysAgo(DORMANT_DAYS);
+
+    const automation = await getReactivationAutomation(supabaseServer);
+    if (!automation.enabled) {
+        return NextResponse.json({ ok: true, automation: 'paused', scheduled, intentions, community, dryRun });
+    }
+
+    const dormantBefore = daysAgo(automation.inactivity_days);
 
     // Candidatos: quem pode mesmo receber. O filtro de ausencia por
     // `last_seen_at` ja corta aqui a maioria; a actividade confirma-se a seguir.
@@ -135,7 +127,7 @@ export async function GET(request: Request) {
     const results: Array<{ userId: string; action: string; success: boolean }> = [];
 
     if (rows.length === 0) {
-        return NextResponse.json({ ok: true, processed: 0, sent: 0, details: [], intentions, community, dryRun });
+        return NextResponse.json({ ok: true, processed: 0, sent: 0, details: [], scheduled, intentions, community, dryRun });
     }
 
     // Um membro pode ter mais do que um telefone. A decisao e por PESSOA — o
@@ -167,7 +159,7 @@ export async function GET(request: Request) {
         .eq('type', NOTIFICATION_TYPE)
         .in('user_id', userIds)
         .not('sent_at', 'is', null)
-        .gte('sent_at', daysAgo(MIN_GAP_DAYS).toISOString());
+        .gte('sent_at', daysAgo(automation.cooldown_days).toISOString());
 
     const recentlyNudged = new Set(
         (recentPushes || []).map((row: { user_id: string }) => row.user_id),
@@ -191,9 +183,12 @@ export async function GET(request: Request) {
             results.push({ userId, action: 'skipped_unknown_timezone', success: false });
             continue;
         }
-        if (hour !== SEND_HOUR_LOCAL) continue;
+        if (hour !== automation.send_hour_local) continue;
 
-        const copy = COPY[localeOf(newest.locale)];
+        const english = localeOf(newest.locale) === 'en';
+        const copy = english
+            ? { title: automation.title_en, body: automation.body_en }
+            : { title: automation.title_pt, body: automation.body_pt };
         const tokens = [
             ...new Set(
                 userDevices
@@ -253,7 +248,7 @@ export async function GET(request: Request) {
             body: copy.body,
             channelId: CHANNEL,
             sound: 'default',
-            data: { kind: 'reactivation', url: '/(tabs)' },
+            data: { kind: 'reactivation', url: automation.destination_url },
         }));
 
         const outcome = await sendExpoPush(messages);
@@ -286,6 +281,7 @@ export async function GET(request: Request) {
         ok: true,
         processed: results.length,
         sent: results.filter((item) => item.success).length,
+        scheduled,
         intentions,
         community,
         dryRun,
