@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import AdminLayout from '../../../components/admin/AdminLayout';
+import CommunityModerationQueue from '../../../components/admin/CommunityModerationQueue';
 import { supabaseBrowser } from '../../../lib/supabase-browser';
 import {
     AlertTriangle,
@@ -329,6 +330,7 @@ export default function AdminModeracaoPage() {
                         })
                     )}
                 </div>
+                <CommunityModerationQueue />
             </div>
         </AdminLayout>
     );
