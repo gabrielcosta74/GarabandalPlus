@@ -54,10 +54,10 @@ export default function RoomOrganizer({ pilgrims, onUpdate, pricing }: RoomOrgan
 
     const getRoomIcon = (type: RoomType) => {
         switch (type) {
-            case 'single': return <User className="w-5 h-5 text-indigo-400" />;
-            case 'double': return <Users className="w-5 h-5 text-emerald-400" />;
-            case 'triple': return <Users className="w-5 h-5 text-blue-400" />;
-            case 'quadruple': return <Users className="w-5 h-5 text-purple-400" />;
+            case 'single': return <User className="w-5 h-5" />;
+            case 'double': return <Users className="w-5 h-5" />;
+            case 'triple': return <Users className="w-5 h-5" />;
+            case 'quadruple': return <Users className="w-5 h-5" />;
         }
     };
 
@@ -149,121 +149,135 @@ export default function RoomOrganizer({ pilgrims, onUpdate, pricing }: RoomOrgan
     // --- RENDER FOR 1 PERSON (WIZARD) ---
     if (pilgrims.length === 1) {
         const current = rooms[0];
+        const priceTag = (price?: number, fallback = 'Sem custo extra') => (
+            <span className={`reg-badge ${price && price > 0 ? 'is-gold' : 'is-ok'}`}>{price && price > 0 ? `+${price}€` : fallback}</span>
+        );
 
         return (
-            <div className="space-y-6 animate-in fade-in zoom-in duration-300">
-                <h3 className="text-xl font-bold text-white text-center">Como preferes ficar instalado?</h3>
+            <div className="reg-stack" style={{ gap: 12 }} role="radiogroup" aria-label="Tipo de quarto">
 
-                <div className="grid grid-cols-1 gap-4 max-w-2xl mx-auto">
+                {/* OPTION 1: SINGLE */}
+                <button
+                    type="button"
+                    role="radio"
+                    aria-checked={current?.type === 'single'}
+                    onClick={() => handleSingleChoice('single')}
+                    className={`reg-choice ${current?.type === 'single' ? 'is-selected' : ''}`}
+                    style={{ width: '100%', textAlign: 'left', padding: 20, font: 'inherit' }}
+                >
+                    <span className="reg-choice-mark" aria-hidden="true" />
+                    <span className="reg-choice-body">
+                        <span className="reg-choice-title" style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                            <BedSingle className="w-5 h-5" style={{ color: 'var(--reg-gold)' }} aria-hidden="true" /> Quarto individual {priceTag(pricing?.single, 'S/ suplemento')}
+                        </span>
+                        <span className="reg-choice-desc" style={{ display: 'block' }}>Privacidade total, só para si.</span>
+                    </span>
+                </button>
 
-                    {/* OPTION 1: SINGLE */}
+                {/* OPTION 2: DOUBLE (SHARED) */}
+                <div className={`reg-choice ${current?.type === 'double' ? 'is-selected' : ''}`} style={{ display: 'block', padding: 0, cursor: 'default' }}>
                     <button
                         type="button"
-                        onClick={() => handleSingleChoice('single')}
-                        className={`group p-6 rounded-2xl border transition-all text-left relative overflow-hidden ${current?.type === 'single' ? 'bg-indigo-500/20 border-indigo-500 ring-1 ring-indigo-500' : 'bg-slate-800 border-slate-700 hover:border-indigo-500 hover:bg-indigo-500/10'}`}
+                        role="radio"
+                        aria-checked={current?.type === 'double'}
+                        onClick={() => handleSingleChoice('double', 'random')}
+                        style={{ display: 'flex', alignItems: 'center', gap: 14, width: '100%', padding: 20, border: 0, background: 'none', textAlign: 'left', font: 'inherit', cursor: 'pointer' }}
                     >
-                        {current?.type === 'single' && <div className="absolute top-4 right-4 bg-indigo-500 text-white p-1 rounded-full"><CheckCircle2 className="w-5 h-5" /></div>}
-                        <div className="flex items-center gap-4">
-                            <BedSingle className={`w-8 h-8 ${current?.type === 'single' ? 'text-indigo-400' : 'text-slate-500'}`} />
-                            <div>
-                                <h4 className="font-bold text-white text-lg">Quarto Individual</h4>
-                                <p className="text-slate-400 text-sm">Privacidade total. {pricing?.single && pricing.single > 0 ? `Suplemento de +${pricing.single}€` : 'S/ suplemento extra'}.</p>
-                            </div>
-                        </div>
+                        <span className="reg-choice-mark" aria-hidden="true" />
+                        <span className="reg-choice-body">
+                            <span className="reg-choice-title" style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                                <BedDouble className="w-5 h-5" style={{ color: 'var(--reg-gold)' }} aria-hidden="true" /> Partilhar quarto duplo {priceTag(pricing?.double)}
+                            </span>
+                            <span className="reg-choice-desc" style={{ display: 'block' }}>Fica num quarto com outro peregrino.</span>
+                        </span>
                     </button>
 
-                    {/* OPTION 2: DOUBLE (SHARED) */}
-                    <div className={`rounded-2xl border transition-all overflow-hidden ${current?.type === 'double' ? 'bg-emerald-500/10 border-emerald-500 ring-1 ring-emerald-500' : 'bg-slate-800 border-slate-700'}`}>
-                        <button
-                            type="button"
-                            onClick={() => handleSingleChoice('double', 'random')}
-                            className="w-full text-left p-6 flex items-center gap-4 hover:bg-emerald-500/5 transition-colors"
-                        >
-                            <BedDouble className={`w-8 h-8 ${current?.type === 'double' ? 'text-emerald-400' : 'text-slate-500'}`} />
-                            <div className="flex-1">
-                                <h4 className="font-bold text-white text-lg flex items-center gap-2">Partilhar Quarto Duplo <span className={`text-xs px-2 py-0.5 rounded-full ${pricing?.double && pricing.double > 0 ? 'bg-yellow-500/20 text-yellow-500' : 'bg-emerald-500/20 text-emerald-400'}`}>{pricing?.double && pricing.double > 0 ? `+${pricing.double}€` : 'Sem Custo Extra'}</span></h4>
-                                <p className="text-slate-400 text-sm">Ficarás num quarto com outro peregrino.</p>
-                            </div>
-                            {current?.type === 'double' && <div className="bg-emerald-500 text-black p-1 rounded-full"><CheckCircle2 className="w-5 h-5" /></div>}
-                        </button>
+                    {/* Sub Options for Double */}
+                    {current?.type === 'double' && (
+                        <div className="reg-stack reg-step" style={{ gap: 10, padding: '0 20px 20px 56px' }}>
+                            <label className="reg-choice" style={{ padding: '12px 14px', background: '#fff' }}>
+                                <input
+                                    type="radio"
+                                    checked={current.sharing_mode === 'random'}
+                                    onChange={() => handleSingleChoice('double', 'random')}
+                                />
+                                <span className="reg-choice-mark" aria-hidden="true" />
+                                <span className="reg-choice-desc" style={{ marginTop: 0, color: 'var(--reg-ink)' }}>O Apostolado escolhe o meu companheiro(a)</span>
+                            </label>
+                            <label className="reg-choice" style={{ padding: '12px 14px', background: '#fff' }}>
+                                <input
+                                    type="radio"
+                                    checked={current.sharing_mode === 'specific_friend'}
+                                    onChange={() => handleSingleChoice('double', 'specific_friend')}
+                                />
+                                <span className="reg-choice-mark" aria-hidden="true" />
+                                <span className="reg-choice-desc" style={{ marginTop: 0, color: 'var(--reg-ink)' }}>Já tenho alguém com quem ficar</span>
+                            </label>
 
-                        {/* Sub Options for Double */}
-                        {current?.type === 'double' && (
-                            <div className="px-6 pb-6 pt-0 space-y-3 animate-in fade-in slide-in-from-top-2">
-                                <hr className="border-white/5 mb-4" />
-                                <label className="flex items-center gap-3 cursor-pointer">
+                            {current.sharing_mode === 'specific_friend' && (
+                                <label className="reg-field">
+                                    <span className="reg-field-label">Nome da pessoa</span>
                                     <input
-                                        type="radio"
-                                        checked={current.sharing_mode === 'random'}
-                                        onChange={() => handleSingleChoice('double', 'random')}
-                                        className="w-4 h-4 text-emerald-500 accent-emerald-500"
+                                        type="text"
+                                        autoFocus
+                                        autoCapitalize="words"
+                                        value={current.sharing_with_names?.[0] || ''}
+                                        onChange={(e) => updateFriendName(0, e.target.value)}
+                                        placeholder="Ex.: Ana Costa"
                                     />
-                                    <span className="text-sm text-slate-300">O Apostolado escolhe o meu companheiro(a)</span>
                                 </label>
-                                <label className="flex items-center gap-3 cursor-pointer">
-                                    <input
-                                        type="radio"
-                                        checked={current.sharing_mode === 'specific_friend'}
-                                        onChange={() => handleSingleChoice('double', 'specific_friend')}
-                                        className="w-4 h-4 text-emerald-500 accent-emerald-500"
-                                    />
-                                    <span className="text-sm text-slate-300">Já tenho alguém com quem ficar</span>
-                                </label>
+                            )}
+                        </div>
+                    )}
+                </div>
 
-                                {current.sharing_mode === 'specific_friend' && (
-                                    <div className="pl-7">
-                                        <input
-                                            type="text"
-                                            value={current.sharing_with_names?.[0] || ''}
-                                            onChange={(e) => updateFriendName(0, e.target.value)}
-                                            placeholder="Nome da pessoa..."
-                                            className="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-2 text-sm text-white focus:border-emerald-500 outline-none"
-                                        />
-                                    </div>
-                                )}
-                            </div>
-                        )}
-                    </div>
+                {/* OPTION 3: TRIPLE (FRIENDS) */}
+                <div className={`reg-choice ${current?.type === 'triple' ? 'is-selected' : ''}`} style={{ display: 'block', padding: 0, cursor: 'default' }}>
+                    <button
+                        type="button"
+                        role="radio"
+                        aria-checked={current?.type === 'triple'}
+                        onClick={() => handleSingleChoice('triple', 'specific_friends_triple')}
+                        style={{ display: 'flex', alignItems: 'center', gap: 14, width: '100%', padding: 20, border: 0, background: 'none', textAlign: 'left', font: 'inherit', cursor: 'pointer' }}
+                    >
+                        <span className="reg-choice-mark" aria-hidden="true" />
+                        <span className="reg-choice-body">
+                            <span className="reg-choice-title" style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                                <Users className="w-5 h-5" style={{ color: 'var(--reg-gold)' }} aria-hidden="true" /> Partilhar quarto triplo <span className="reg-badge is-gold">Amigos</span>
+                            </span>
+                            <span className="reg-choice-desc" style={{ display: 'block' }}>Só se já tiver 2 conhecidos para ficar consigo.</span>
+                        </span>
+                    </button>
 
-                    {/* OPTION 3: TRIPLE (FRIENDS) */}
-                    <div className={`rounded-2xl border transition-all overflow-hidden ${current?.type === 'triple' ? 'bg-blue-500/10 border-blue-500 ring-1 ring-blue-500' : 'bg-slate-800 border-slate-700'}`}>
-                        <button
-                            type="button"
-                            onClick={() => handleSingleChoice('triple', 'specific_friends_triple')}
-                            className="w-full text-left p-6 flex items-center gap-4 hover:bg-blue-500/5 transition-colors"
-                        >
-                            <Users className={`w-8 h-8 ${current?.type === 'triple' ? 'text-blue-400' : 'text-slate-500'}`} />
-                            <div className="flex-1">
-                                <h4 className="font-bold text-white text-lg flex items-center gap-2">Partilhar Quarto Triplo <span className="text-xs bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded-full">Amigos</span></h4>
-                                <p className="text-slate-400 text-sm">Opção apenas se já tiveres 2 conhecidos para ficar contigo.</p>
-                            </div>
-                            {current?.type === 'triple' && <div className="bg-blue-500 text-black p-1 rounded-full"><CheckCircle2 className="w-5 h-5" /></div>}
-                        </button>
-
-                        {/* Inputs for Triple */}
-                        {current?.type === 'triple' && (
-                            <div className="px-6 pb-6 pt-0 space-y-3 animate-in fade-in slide-in-from-top-2">
-                                <hr className="border-white/5 mb-4" />
-                                <p className="text-xs text-slate-400 mb-2">Indica o nome das 2 pessoas que vão ficar contigo:</p>
+                    {/* Inputs for Triple */}
+                    {current?.type === 'triple' && (
+                        <div className="reg-stack reg-step" style={{ gap: 10, padding: '0 20px 20px 56px' }}>
+                            <p className="reg-choice-desc" style={{ marginTop: 0 }}>Indique o nome das 2 pessoas que vão ficar consigo:</p>
+                            <label className="reg-field">
+                                <span className="reg-field-label">Pessoa 1</span>
                                 <input
                                     type="text"
+                                    autoFocus
+                                    autoCapitalize="words"
                                     value={current.sharing_with_names?.[0] || ''}
                                     onChange={(e) => updateFriendName(0, e.target.value)}
-                                    placeholder="Nome Amigo 1..."
-                                    className="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-2 text-sm text-white focus:border-blue-500 outline-none"
+                                    placeholder="Nome completo"
                                 />
+                            </label>
+                            <label className="reg-field">
+                                <span className="reg-field-label">Pessoa 2</span>
                                 <input
                                     type="text"
+                                    autoCapitalize="words"
                                     value={current.sharing_with_names?.[1] || ''}
                                     onChange={(e) => updateFriendName(1, e.target.value)}
-                                    placeholder="Nome Amigo 2..."
-                                    className="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-2 text-sm text-white focus:border-blue-500 outline-none"
+                                    placeholder="Nome completo"
                                 />
-                            </div>
-                        )}
-                    </div>
-
+                            </label>
+                        </div>
+                    )}
                 </div>
+
             </div>
         );
     }
@@ -301,78 +315,65 @@ export default function RoomOrganizer({ pilgrims, onUpdate, pricing }: RoomOrgan
 
     // RENDER FOR GROUPS (2, 3, 4+)
     return (
-        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="bg-slate-800/50 border border-slate-700 rounded-2xl p-6">
-                <div className="flex items-center gap-4 mb-6">
-                    <div className="p-3 bg-yellow-500/10 rounded-full text-yellow-500"><CheckCircle2 className="w-6 h-6" /></div>
-                    <div>
-                        <h3 className="text-lg font-bold text-white">Distribuição dos Quartos</h3>
-                        <p className="text-slate-400 text-sm">Organiza quem fica em cada quarto se necessário.</p>
+        <div className="reg-stack" style={{ gap: 14 }}>
+            <p className="reg-help" style={{ margin: 0 }}>Organizámos os quartos automaticamente. Pode trocar quem fica em cada um, se precisar.</p>
+
+            {rooms.map((room, roomIndex) => (
+                <div key={room.id || roomIndex} className="reg-plan" style={{ marginTop: 0, background: '#fff' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 14 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                            <span className="reg-family-icon" style={{ width: 38, height: 38 }} aria-hidden="true">{getRoomIcon(room.type)}</span>
+                            <p className="reg-choice-title">{getRoomLabel(room.type)}</p>
+                        </div>
+
+                        {/* Bed Preference (Only for Double) */}
+                        {room.type === 'double' && (
+                            <div className="reg-segment" style={{ gap: 6 }} role="radiogroup" aria-label="Tipo de cama">
+                                <button
+                                    type="button"
+                                    role="radio"
+                                    aria-checked={room.bed_type === 'big_bed'}
+                                    onClick={() => updateBedType(room.id, 'big_bed')}
+                                    className={`reg-choice ${room.bed_type === 'big_bed' ? 'is-selected' : ''}`}
+                                    style={{ padding: '8px 14px', fontSize: 14, borderRadius: 12, font: 'inherit' }}
+                                >
+                                    Cama de casal
+                                </button>
+                                <button
+                                    type="button"
+                                    role="radio"
+                                    aria-checked={room.bed_type === 'twin_beds'}
+                                    onClick={() => updateBedType(room.id, 'twin_beds')}
+                                    className={`reg-choice ${room.bed_type === 'twin_beds' ? 'is-selected' : ''}`}
+                                    style={{ padding: '8px 14px', fontSize: 14, borderRadius: 12, font: 'inherit' }}
+                                >
+                                    Camas separadas
+                                </button>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Occupant Slots */}
+                    <div className="reg-row" style={{ gap: 10 }}>
+                        {room.occupantIndexes.map((occupantIdx, slotIndex) => (
+                            <label key={slotIndex} className="reg-field reg-field-select">
+                                <span className="reg-field-label">Pessoa {slotIndex + 1}</span>
+                                <select
+                                    value={occupantIdx}
+                                    onChange={(e) => updateOccupant(roomIndex, slotIndex, parseInt(e.target.value))}
+                                    style={{ fontSize: 17 }}
+                                >
+                                    {pilgrims.map((p, pIdx) => (
+                                        <option key={pIdx} value={pIdx}>
+                                            {p.full_name || `Viajante ${pIdx + 1}`}
+                                        </option>
+                                    ))}
+                                </select>
+                            </label>
+                        ))}
                     </div>
                 </div>
-
-                <div className="grid gap-4">
-                    {rooms.map((room, roomIndex) => (
-                        <div key={room.id || roomIndex} className="bg-slate-900 border border-slate-700 p-5 rounded-xl flex flex-col gap-4">
-                            <div className="flex items-center justify-between border-b border-slate-800 pb-3 mb-1">
-                                <div className="flex items-center gap-3">
-                                    <div className="bg-slate-800 p-2 rounded-lg">
-                                        {getRoomIcon(room.type)}
-                                    </div>
-                                    <p className="font-bold text-white capitalize text-lg">{getRoomLabel(room.type)}</p>
-                                </div>
-
-                                {/* Bed Preference (Only for Double) */}
-                                {room.type === 'double' && (
-                                    <div className="flex items-center bg-slate-950 rounded-lg p-1 border border-slate-800 scale-90 origin-right">
-                                        <button
-                                            type="button"
-                                            onClick={() => updateBedType(room.id, 'big_bed')}
-                                            className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${room.bed_type === 'big_bed' ? 'bg-emerald-600 text-white shadow-lg' : 'text-slate-500 hover:text-white'}`}
-                                        >
-                                            Cama Casal
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => updateBedType(room.id, 'twin_beds')}
-                                            className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${room.bed_type === 'twin_beds' ? 'bg-emerald-600 text-white shadow-lg' : 'text-slate-500 hover:text-white'}`}
-                                        >
-                                            Twin
-                                        </button>
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* Occupant Slots */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                                {room.occupantIndexes.map((occupantIdx, slotIndex) => (
-                                    <div key={slotIndex} className="relative">
-                                        <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none">
-                                            <User className="w-4 h-4" />
-                                        </div>
-                                        <select
-                                            value={occupantIdx}
-                                            onChange={(e) => updateOccupant(roomIndex, slotIndex, parseInt(e.target.value))}
-                                            className="w-full bg-slate-950 border border-slate-700 rounded-lg py-3 pl-10 pr-4 text-white text-sm appearance-none focus:ring-1 focus:ring-yellow-500 max-w-full truncate cursor-pointer hover:border-slate-500 transition-colors"
-                                        >
-                                            {pilgrims.map((p, pIdx) => (
-                                                <option key={pIdx} value={pIdx}>
-                                                    {p.full_name || `Viajante ${pIdx + 1}`}
-                                                </option>
-                                            ))}
-                                        </select>
-                                        <div className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-600 pointer-events-none">
-                                            <svg className="w-4 h-4 fill-current" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" /></svg>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            </div>
+            ))}
         </div>
     );
 }
-
-

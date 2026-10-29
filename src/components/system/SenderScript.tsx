@@ -5,6 +5,9 @@ import { usePathname } from 'next/navigation';
 import Script from 'next/script';
 import { isFocusedRecoveryPath } from '../../lib/recovery-flow';
 
+const isFocusedFormPath = (pathname: string | null) =>
+  /^\/(?:peregrinacoes\/[^/]+\/inscrever|en\/pilgrimages\/[^/]+\/register|dados-check-in\/[^/]+|acesso-antecipado)(?:\/|$)/.test(pathname || '');
+
 /**
  * Sender.net newsletter widget.
  *
@@ -45,7 +48,10 @@ export default function SenderScript() {
   }, [ready]);
 
   // The focused password-recovery flow deliberately ships no marketing scripts.
-  if (isFocusedRecoveryPath(pathname)) return null;
+  if (isFocusedRecoveryPath(pathname) || pathname?.startsWith('/admin')) return null;
+  // Forms people are filling in: the newsletter popup would land on top of them.
+  // (ClientLayout also tries to hide it, but Sender's popup markup changes.)
+  if (isFocusedFormPath(pathname)) return null;
   if (!ready) return null;
 
   return (

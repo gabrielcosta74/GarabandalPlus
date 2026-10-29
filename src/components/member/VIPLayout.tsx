@@ -11,9 +11,11 @@ type VIPLayoutProps = {
     children: React.ReactNode;
     allowPublic?: boolean;
     requireMember?: boolean;
+    className?: string;
+    showQuotaWarning?: boolean;
 };
 
-export default function VIPLayout({ children, allowPublic, requireMember = true }: VIPLayoutProps) {
+export default function VIPLayout({ children, allowPublic, requireMember = true, className, showQuotaWarning = true }: VIPLayoutProps) {
     const router = useRouter();
     const pathname = usePathname();
     const { locale } = useLocale();
@@ -77,8 +79,8 @@ export default function VIPLayout({ children, allowPublic, requireMember = true 
     const isQuotaPage = pathname === '/member/quota';
 
     return (
-        <div className="min-h-screen bg-slate-950 pt-24 pb-12 px-4 md:px-8">
-            <QuotaWarning memberData={memberData} className="mb-6" />
+        <div className={className ?? "min-h-screen bg-slate-950 pt-24 pb-12 px-4 md:px-8"}>
+            {showQuotaWarning && <QuotaWarning memberData={memberData} className="mb-6" />}
             {children}
         </div>
     );
