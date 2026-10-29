@@ -112,6 +112,7 @@ export default function AdminSidebar({ onLogout, className, collapsed = false }:
                         { label: 'Lista de membros', icon: Users, href: '/admin/membros', badge: counts.members },
                         { label: 'Atividade', icon: Activity, href: '/admin/membros/atividade' },
                         { label: 'Voluntariado', icon: HeartHandshake, href: '/admin/membros/voluntariado' },
+                        { label: 'Casa do Apostolado', icon: Home, href: '/admin/casa' },
                     ],
                 },
                 { label: 'Loja & Stock', icon: ShoppingBag, href: '/admin/loja' },
