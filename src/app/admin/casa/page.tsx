@@ -6,7 +6,7 @@ import { getBrowserAccessToken } from '../../../lib/supabase-browser';
 import { Toaster, toast } from 'sonner';
 import {
     CalendarRange, Check, Copy, HandCoins, Hash, House, KeyRound, Loader2, Lock, Mail, MessageSquare,
-    Phone, Settings, Users, X, type LucideIcon,
+    Phone, ScrollText, Settings, Users, X, type LucideIcon,
 } from 'lucide-react';
 
 type Status = 'pending' | 'confirmed' | 'declined' | 'cancelled';
@@ -34,6 +34,8 @@ type Booking = {
 
 type Code = {
     id: string;
+    /** Por extenso; os primeiros códigos só guardaram o hash. */
+    code: string | null;
     code_hint: string;
     membro_id: string;
     valid_until: string | null;
@@ -55,6 +57,8 @@ type HouseSettings = {
     booking_horizon_days: number;
     rules_content_id: string | null;
     rules_version: number;
+    rules_pt: string;
+    rules_en: string;
 };
 
 type Member = { id: string; nome: string | null; email: string | null; numero_socio: number | string | null };
@@ -80,6 +84,7 @@ const TABS = [
     { key: 'pedidos', label: 'Pedidos', icon: CalendarRange },
     { key: 'codigos', label: 'Códigos de formação', icon: KeyRound },
     { key: 'datas', label: 'Datas fechadas', icon: Lock },
+    { key: 'regras', label: 'Regras da casa', icon: ScrollText },
     { key: 'definicoes', label: 'Definições', icon: Settings },
 ] as const;
 type Tab = (typeof TABS)[number]['key'];
@@ -161,7 +166,8 @@ export default function AdminCasaPage() {
             {data && tab === 'pedidos' && <BookingsTab bookings={data.bookings} reload={load} />}
             {data && tab === 'codigos' && <CodesTab codes={data.codes} members={data.members} reload={load} />}
             {data && tab === 'datas' && <BlockedTab blocked={data.blocked} reload={load} />}
-            {data && tab === 'definicoes' && data.settings && <SettingsTab documents={data.documents} reload={load} settings={data.settings} />}
+            {data && tab === 'regras' && data.settings && <RulesTab documents={data.documents} reload={load} settings={data.settings} />}
+            {data && tab === 'definicoes' && data.settings && <SettingsTab reload={load} settings={data.settings} />}
 
             <style>{`.hs-spin{animation:hs-spin .8s linear infinite}@keyframes hs-spin{to{transform:rotate(360deg)}}`}</style>
         </AdminLayout>
@@ -347,7 +353,7 @@ function CodesTab({ codes, members, reload }: { codes: Code[]; members: Member[]
                         </button>
                     </div>
                     <div style={{ fontSize: 13, color: '#475569' }}>
-                        Envie-o ao membro agora: por segurança, o código não volta a ser mostrado. Se se perder, emita outro e anule este.
+                        Envie-o ao membro. Fica também na lista de códigos emitidos, para o poder reenviar.
                     </div>
                     <div><button type="button" onClick={() => setIssued(null)} style={outline('#64748b')}>Fechar</button></div>
                 </div>
@@ -417,12 +423,20 @@ function CodesTab({ codes, members, reload }: { codes: Code[]; members: Member[]
                                     <div style={{ flex: 1, minWidth: 220 }}>
                                         <div style={{ fontWeight: 700, color: '#0f172a' }}>{memberLabel(code.membros)}</div>
                                         <div style={{ fontSize: 12.5, color: '#64748b', marginTop: 3 }}>
-                                            ••••-{code.code_hint} · emitido a {formatDate(code.created_at)}
+                                            emitido a {formatDate(code.created_at)}
                                             {code.valid_until ? ` · válido até ${formatDay(code.valid_until)}` : ''}
                                             {code.waive_seniority ? ' · antiguidade dispensada' : ''}
                                             {code.note ? ` · ${code.note}` : ''}
                                         </div>
                                     </div>
+                                    <span style={{ fontFamily: 'var(--font-geist-mono), monospace', fontSize: 17, fontWeight: 800, letterSpacing: 2, color: active ? '#0f172a' : '#94a3b8' }}>
+                                        {code.code || `••••-${code.code_hint}`}
+                                    </span>
+                                    {active && code.code && (
+                                        <button type="button" onClick={() => { void navigator.clipboard.writeText(code.code as string); toast.success('Copiado.'); }} style={outline('#0f4c81')}>
+                                            <Copy size={14} /> Copiar
+                                        </button>
+                                    )}
                                     <span style={{ fontSize: 12, fontWeight: 700, padding: '5px 10px', borderRadius: 999, color: active ? '#15803d' : '#64748b', background: active ? '#dcfce7' : '#f1f5f9' }}>{state}</span>
                                     {active && <button type="button" onClick={() => revoke(code)} style={outline('#b91c1c')}>Anular</button>}
                                 </div>
@@ -517,17 +531,86 @@ function BlockedTab({ blocked, reload }: { blocked: Blocked[]; reload: () => Pro
     );
 }
 
+/* ------------------------------ Regras da casa ------------------------------ */
+
+const splitRules = (text: string) => text.split('\n').map((line) => line.trim()).filter(Boolean);
+
+function RulesTab({ documents, reload, settings }: { documents: Doc[]; reload: () => Promise<void>; settings: HouseSettings }) {
+    const [rulesPt, setRulesPt] = useState(settings.rules_pt);
+    const [rulesEn, setRulesEn] = useState(settings.rules_en);
+    const [rulesContentId, setRulesContentId] = useState(settings.rules_content_id || '');
+    const [busy, setBusy] = useState(false);
+    const preview = splitRules(rulesPt);
+
+    const save = async () => {
+        setBusy(true);
+        try {
+            const result = await call('PATCH', { action: 'rules', rulesPt, rulesEn, rulesContentId });
+            toast.success(result?.changed ? 'Regras guardadas. Os pedidos novos pedem nova aceitação.' : 'Sem alterações.');
+            await reload();
+        } catch (e) {
+            toast.error(errorMessage(e));
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    return (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 20, alignItems: 'start' }}>
+            <div style={{ ...card, padding: 20, display: 'grid', gap: 16 }}>
+                <div>
+                    <h2 style={sectionTitle}>Regras que o membro lê e aceita</h2>
+                    <div style={{ fontSize: 13.5, color: '#64748b', marginTop: 4 }}>Uma regra por linha. Versão atual: {settings.rules_version}.</div>
+                </div>
+                <div style={{ display: 'grid', gap: 6 }}>
+                    <label style={label}>Português</label>
+                    <textarea value={rulesPt} onChange={(e) => setRulesPt(e.target.value)} rows={10} style={{ ...input, resize: 'vertical', lineHeight: 1.6 }} />
+                </div>
+                <div style={{ display: 'grid', gap: 6 }}>
+                    <label style={label}>English</label>
+                    <textarea value={rulesEn} onChange={(e) => setRulesEn(e.target.value)} rows={8} style={{ ...input, resize: 'vertical', lineHeight: 1.6 }} />
+                </div>
+                <div style={{ display: 'grid', gap: 6 }}>
+                    <label style={label}>Documento completo (opcional)</label>
+                    <select value={rulesContentId} onChange={(e) => setRulesContentId(e.target.value)} style={input}>
+                        <option value="">Sem documento</option>
+                        {documents.map((doc) => <option key={doc.id} value={doc.id}>{doc.title}</option>)}
+                    </select>
+                    <span style={{ fontSize: 12.5, color: '#64748b' }}>Carregue o PDF em Doc. Privada. Aparece por baixo das regras na app.</span>
+                </div>
+                <div>
+                    <button type="button" disabled={busy} onClick={save} style={button('#0f4c81')}>
+                        {busy ? <Loader2 size={15} className="hs-spin" /> : <Check size={15} />} Guardar regras
+                    </button>
+                </div>
+            </div>
+
+            <div style={{ display: 'grid', gap: 10 }}>
+                <div style={label}>Como aparece na app</div>
+                <div style={{ background: '#0C0D10', borderRadius: 24, padding: 20, display: 'grid', gap: 2 }}>
+                    {preview.length === 0 ? (
+                        <div style={{ color: 'rgba(235,235,245,0.46)', fontSize: 15 }}>Sem regras.</div>
+                    ) : preview.map((rule, index) => (
+                        <div key={index} style={{ display: 'flex', gap: 14, padding: '12px 0', borderTop: index ? '1px solid rgba(255,255,255,0.08)' : 'none' }}>
+                            <span style={{ width: 28, height: 28, flexShrink: 0, borderRadius: 14, background: 'rgba(78,164,246,0.16)', color: '#4EA4F6', fontWeight: 800, fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{index + 1}</span>
+                            <span style={{ color: '#F3F3F5', fontSize: 15.5, lineHeight: 1.45 }}>{rule}</span>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </div>
+    );
+}
+
 /* -------------------------------- Definições -------------------------------- */
 
-function SettingsTab({ documents, reload, settings }: { documents: Doc[]; reload: () => Promise<void>; settings: HouseSettings }) {
+function SettingsTab({ reload, settings }: { reload: () => Promise<void>; settings: HouseSettings }) {
     const [form, setForm] = useState({
         enabled: settings.enabled,
         maxGuests: String(settings.max_guests),
         maxNights: String(settings.max_nights),
         minMemberYears: String(settings.min_member_years),
         horizonDays: String(settings.booking_horizon_days),
-        rulesContentId: settings.rules_content_id || '',
-        bumpRulesVersion: false,
     });
     const [busy, setBusy] = useState(false);
     const set = (patch: Partial<typeof form>) => setForm((current) => ({ ...current, ...patch }));
@@ -537,7 +620,6 @@ function SettingsTab({ documents, reload, settings }: { documents: Doc[]; reload
         try {
             await call('PATCH', { action: 'settings', ...form });
             toast.success('Definições guardadas.');
-            set({ bumpRulesVersion: false });
             await reload();
         } catch (e) {
             toast.error(errorMessage(e));
@@ -559,25 +641,6 @@ function SettingsTab({ documents, reload, settings }: { documents: Doc[]; reload
                 <NumberField label="Anos de quota necessários" value={form.minMemberYears} onChange={(v) => set({ minMemberYears: v })} />
                 <NumberField label="Pode reservar até (dias)" value={form.horizonDays} onChange={(v) => set({ horizonDays: v })} />
             </div>
-
-            <div style={{ display: 'grid', gap: 6 }}>
-                <label style={label}>Documento das regras da casa</label>
-                <select value={form.rulesContentId} onChange={(e) => set({ rulesContentId: e.target.value })} style={input}>
-                    <option value="">Sem documento (a equipa envia as regras com a confirmação)</option>
-                    {documents.map((doc) => <option key={doc.id} value={doc.id}>{doc.title}</option>)}
-                </select>
-                <span style={{ fontSize: 12.5, color: '#64748b' }}>
-                    Carregue primeiro o PDF em Doc. Privada. Os membros abrem-no no passo das regras.
-                </span>
-            </div>
-
-            <label style={{ display: 'flex', gap: 10, alignItems: 'flex-start', fontSize: 14, color: '#334155', cursor: 'pointer' }}>
-                <input type="checkbox" checked={form.bumpRulesVersion} onChange={(e) => set({ bumpRulesVersion: e.target.checked })} style={{ marginTop: 3 }} />
-                <span>
-                    <strong>As regras mudaram</strong><br />
-                    <span style={{ color: '#64748b' }}>Quem estiver a meio de um pedido tem de as aceitar de novo. Versão atual: {settings.rules_version}.</span>
-                </span>
-            </label>
 
             <div>
                 <button type="button" disabled={busy} onClick={save} style={button('#0f4c81')}>

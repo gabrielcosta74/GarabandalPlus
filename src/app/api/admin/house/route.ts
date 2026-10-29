@@ -26,7 +26,8 @@ type PatchBody = {
     minMemberYears?: unknown;
     horizonDays?: unknown;
     rulesContentId?: string | null;
-    bumpRulesVersion?: boolean;
+    rulesPt?: unknown;
+    rulesEn?: unknown;
 };
 
 // GET — tudo o que a página da casa mostra: pedidos, códigos, datas fechadas,
@@ -49,7 +50,7 @@ export async function GET(req: Request) {
             .order('check_in', { ascending: true }),
         supabaseServer
             .from('house_training_codes')
-            .select('id, code_hint, membro_id, valid_until, waive_seniority, note, issued_by, revoked_at, created_at, membros:membro_id ( nome, numero_socio )')
+            .select('id, code, code_hint, membro_id, valid_until, waive_seniority, note, issued_by, revoked_at, created_at, membros:membro_id ( nome, numero_socio )')
             .order('created_at', { ascending: false }),
         supabaseServer.from('house_blocked_dates').select('*').order('starts_on', { ascending: true }),
         supabaseServer.from('member_contents').select('id, title').eq('is_published', true).order('title'),
@@ -127,7 +128,7 @@ export async function PATCH(req: Request) {
         return NextResponse.json({ ok: true });
     }
 
-    // Emite um código de formação para um membro. O código só é devolvido agora.
+    // Emite um código de formação para um membro. Fica guardado por extenso para se poder reenviar.
     if (action === 'issue_code') {
         if (!body.membroId) return NextResponse.json({ error: 'Escolha o membro.' }, { status: 400 });
         if (body.validUntil && !datePattern.test(body.validUntil)) {
@@ -136,6 +137,7 @@ export async function PATCH(req: Request) {
         for (let attempt = 0; attempt < 5; attempt += 1) {
             const code = newHouseCode();
             const { error } = await db.from('house_training_codes').insert({
+                code: code.display,
                 code_hash: code.hash,
                 code_hint: code.hint,
                 membro_id: body.membroId,
@@ -195,7 +197,6 @@ export async function PATCH(req: Request) {
     }
 
     if (action === 'settings') {
-        const { data: current } = await db.from('house_settings').select('rules_version, rules_content_id').limit(1).maybeSingle();
         const int = (value: unknown, min: number, max: number) => {
             const parsed = Math.round(Number(value));
             return Number.isFinite(parsed) && parsed >= min && parsed <= max ? parsed : null;
@@ -210,11 +211,6 @@ export async function PATCH(req: Request) {
         if (maxNights !== null) update.max_nights = maxNights;
         if (minYears !== null) update.min_member_years = minYears;
         if (horizon !== null) update.booking_horizon_days = horizon;
-        if (body.rulesContentId !== undefined) update.rules_content_id = body.rulesContentId || null;
-        // Regras novas pedem nova aceitação: quem estiver a meio do pedido tem de as ler outra vez.
-        const rulesChanged = body.bumpRulesVersion === true
-            || (body.rulesContentId !== undefined && (body.rulesContentId || null) !== (current?.rules_content_id ?? null));
-        if (rulesChanged) update.rules_version = (current?.rules_version ?? 1) + 1;
 
         const { error } = await db.from('house_settings').update(update).eq('id', true);
         if (error) {
@@ -223,6 +219,46 @@ export async function PATCH(req: Request) {
         }
         await logAdminAudit({ adminEmail, action: 'house_settings_updated', details: update });
         return NextResponse.json({ ok: true });
+    }
+
+    // Regras da casa: o texto que a app mostra (uma regra por linha) e um documento opcional.
+    // Se mudarem, sobe a versão e quem estiver a meio de um pedido tem de as aceitar de novo.
+    if (action === 'rules') {
+        const { data: current } = await db
+            .from('house_settings')
+            .select('rules_version, rules_pt, rules_en, rules_content_id')
+            .limit(1)
+            .maybeSingle();
+        const clean = (value: unknown) => (typeof value === 'string' ? value : '')
+            .split('\n')
+            .map((line) => line.replace(/^\s*(?:[-•*]|\d+[.)])\s*/, '').trim())
+            .filter(Boolean)
+            .slice(0, 40)
+            .map((line) => line.slice(0, 400))
+            .join('\n');
+        const rulesPt = clean(body.rulesPt);
+        const rulesEn = clean(body.rulesEn);
+        if (!rulesPt) return NextResponse.json({ error: 'Escreva pelo menos uma regra em português.' }, { status: 400 });
+        const rulesContentId = body.rulesContentId || null;
+        const changed = rulesPt !== (current?.rules_pt ?? '')
+            || rulesEn !== (current?.rules_en ?? '')
+            || rulesContentId !== (current?.rules_content_id ?? null);
+        if (!changed) return NextResponse.json({ ok: true, changed: false });
+
+        const update = {
+            rules_pt: rulesPt,
+            rules_en: rulesEn,
+            rules_content_id: rulesContentId,
+            rules_version: (current?.rules_version ?? 1) + 1,
+            updated_at: new Date().toISOString(),
+        };
+        const { error } = await db.from('house_settings').update(update).eq('id', true);
+        if (error) {
+            console.error('[admin/house] rules error', error);
+            return NextResponse.json({ error: 'Falha ao guardar as regras.' }, { status: 500 });
+        }
+        await logAdminAudit({ adminEmail, action: 'house_rules_updated', details: { rulesVersion: update.rules_version } });
+        return NextResponse.json({ ok: true, changed: true });
     }
 
     return NextResponse.json({ error: 'Ação desconhecida.' }, { status: 400 });

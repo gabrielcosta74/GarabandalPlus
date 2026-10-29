@@ -18,7 +18,7 @@ export function houseCodeHash(code: string) {
     return createHash('sha256').update(normalized, 'utf8').digest('hex');
 }
 
-/** Um código novo, mostrado uma única vez à equipa: XXXX-XXXX. */
+/** Um código novo, XXXX-XXXX. A app verifica-o pelo hash; a equipa vê-o por extenso. */
 export function newHouseCode() {
     const raw = Array.from({ length: 8 }, () => CODE_ALPHABET[randomInt(CODE_ALPHABET.length)]).join('');
     return { display: `${raw.slice(0, 4)}-${raw.slice(4)}`, hash: houseCodeHash(raw), hint: raw.slice(4) };
