@@ -664,6 +664,24 @@ function PilgrimageEditor() {
             toolbar={toolbarActions}
         >
             <div className="bg-slate-50 min-h-screen pb-24 md:pb-32">
+                {!isNew && (
+                    <nav aria-label="Gestão de participantes" className="flex flex-wrap gap-2 border-b border-slate-200 bg-white px-4 py-3 md:px-6">
+                        {TABS.filter(tab => ['bookings', 'dietary', 'checkin_data'].includes(tab.id) && (tab.id !== 'checkin_data' || checkinEnabled)).map(tab => {
+                            const Icon = tab.icon;
+                            return (
+                                <button
+                                    key={tab.id}
+                                    type="button"
+                                    aria-pressed={activeTab === tab.id}
+                                    onClick={() => setActiveTab(tab.id)}
+                                    className={`flex min-h-11 items-center gap-2 rounded-xl border px-4 py-2 text-sm font-bold ${activeTab === tab.id ? 'border-indigo-600 bg-indigo-600 text-white' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'}`}
+                                >
+                                    <Icon className="h-4 w-4" />{tab.label}
+                                </button>
+                            );
+                        })}
+                    </nav>
+                )}
                 {/* 1. Styled Tab Navigation */}
                 <div className="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
                     <div className="w-full max-w-[1600px] mx-auto px-2 sm:px-4 md:px-6 overflow-x-auto no-scrollbar">

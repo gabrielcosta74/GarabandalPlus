@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { supabaseBrowser } from '../../../lib/supabase-browser';
+import { loadAdminPilgrimages, type AdminPilgrimage } from '../../../lib/admin-pilgrimages';
 import {
     Plus,
     Search,
@@ -14,34 +15,21 @@ import {
     Trash2,
     Copy,
     ClipboardList,
-    FileSpreadsheet
+    FileSpreadsheet,
+    Utensils
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { pt } from 'date-fns/locale';
 import { parseCivilDate } from '../../../lib/utils';
 
-type Pilgrimage = {
-    id: string;
-    title: string;
-    slug: string;
-    start_date: string;
-    end_date: string;
-    status: string;
-    total_vacancies: number;
-    current_vacancies: number;
-    base_price: number;
-    cover_image: string | null;
-    checkin_form_enabled?: boolean;
-    confirmed_pax?: number;
-    pending_pax?: number;
-    effective_vacancies?: number;
-};
+type Pilgrimage = AdminPilgrimage;
 
 import AdminLayout from '../../../components/admin/AdminLayout';
 
 export default function AdminPilgrimagesPage() {
     const [pilgrimages, setPilgrimages] = useState<Pilgrimage[]>([]);
     const [loading, setLoading] = useState(true);
+    const [loadError, setLoadError] = useState('');
     const [searchTerm, setSearchTerm] = useState('');
     const [deletingId, setDeletingId] = useState<string | null>(null);
     const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
@@ -72,17 +60,15 @@ export default function AdminPilgrimagesPage() {
     const fetchPilgrimages = async () => {
         if (!supabaseBrowser) return;
         setLoading(true);
-        const { data, error } = await supabaseBrowser
-            .from('v_pilgrimages_with_occupancy')
-            .select('*')
-            .order('start_date', { ascending: true });
-
-        if (error) {
+        setLoadError('');
+        try {
+            setPilgrimages(await loadAdminPilgrimages(supabaseBrowser));
+        } catch (error) {
             console.error('Error fetching pilgrimages:', error);
-        } else {
-            setPilgrimages(data || []);
+            setLoadError('Não foi possível carregar as peregrinações e as definições de check-in. Tenta novamente.');
+        } finally {
+            setLoading(false);
         }
-        setLoading(false);
     };
 
     const getStatusColor = (status: string) => {
@@ -192,6 +178,7 @@ export default function AdminPilgrimagesPage() {
     return (
         <AdminLayout title="Peregrinações" isLoading={loading}>
             <div className="space-y-8">
+                {loadError && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">{loadError} <button type="button" onClick={fetchPilgrimages} className="ml-2 font-bold underline">Tentar novamente</button></div>}
 
                 {/* Header */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -336,6 +323,14 @@ export default function AdminPilgrimagesPage() {
                                             >
                                                 <ClipboardList className="w-4 h-4" />
                                                 Logística
+                                            </Link>
+                                            <Link
+                                                href={`/admin/peregrinacoes/${item.id}?tab=dietary`}
+                                                className="h-8 px-3 rounded-full bg-amber-50 text-amber-800 flex items-center justify-center gap-1.5 hover:bg-amber-100 transition-colors text-xs font-semibold"
+                                                title="Lista de alergias alimentares e exportação CSV"
+                                            >
+                                                <Utensils className="w-4 h-4" />
+                                                Alergias alimentares
                                             </Link>
                                             {item.checkin_form_enabled === true && <Link
                                                 href={`/admin/peregrinacoes/${item.id}?tab=checkin_data`}
