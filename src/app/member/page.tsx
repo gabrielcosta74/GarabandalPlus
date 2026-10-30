@@ -20,7 +20,8 @@ import {
   Sparkles,
   Video,
   ScrollText,
-  FolderLock
+  FolderLock,
+  Home
 } from 'lucide-react';
 import EventCard from '../../components/member/EventCard';
 import MemberTutorial from '../../components/onboarding/MemberTutorial';
@@ -123,6 +124,7 @@ export default function MemberDashboardPage() {
   const quotaPath = `${memberRoot}/quota`;
   const historyPath = `${memberRoot}/history`;
   const rightsPath = isEn ? '/en/member/rights-duties' : `${memberRoot}/direitos-deveres`;
+  const housePath = isEn ? '/en/member/house' : `${memberRoot}/casa`;
 
   return (
     <VIPLayout>
@@ -395,6 +397,17 @@ export default function MemberDashboardPage() {
                 <span className="text-sm font-bold text-white group-hover:text-emerald-500 flex items-center gap-2 transition-colors">
                   {isEn ? 'Access Files' : 'Aceder a Ficheiros'} <ChevronRight className="w-4 h-4" />
                 </span>
+              </div>
+            </Link>
+
+            <Link href={housePath} className="group relative bg-slate-900 rounded-2xl border border-white/5 hover:border-blue-500/30 overflow-hidden transition-all hover:shadow-2xl hover:shadow-blue-900/20">
+              <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent opacity-80" />
+              <div className="h-64 bg-[url('/images/aldeiadacasa.webp')] bg-cover bg-center opacity-40 group-hover:opacity-60 transition-opacity duration-500" />
+              <div className="absolute bottom-0 left-0 right-0 p-8">
+                <div className="w-12 h-12 bg-blue-600/20 rounded-xl flex items-center justify-center backdrop-blur-sm mb-4 text-blue-400"><Home className="w-6 h-6" /></div>
+                <h3 className="text-2xl font-serif font-bold text-white mb-2">{isEn ? 'Apostolate House' : 'Casa do Apostolado'}</h3>
+                <p className="text-base text-slate-400 mb-6 max-w-lg">{isEn ? 'Request a stay in Garabandal and track your house bookings.' : 'Pede uma estadia em Garabandal e acompanha os teus pedidos de reserva.'}</p>
+                <span className="text-sm font-bold text-white group-hover:text-blue-400 flex items-center gap-2 transition-colors">{isEn ? 'Request a stay' : 'Pedir reserva'} <ChevronRight className="w-4 h-4" /></span>
               </div>
             </Link>
 
