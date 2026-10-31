@@ -14,7 +14,7 @@ const nextConfig = {
       bodySizeLimit: '2mb',
     },
   },
-  serverExternalPackages: ['@supabase/supabase-js', '@supabase/realtime-js', 'ws'],
+  serverExternalPackages: ['@supabase/supabase-js', '@supabase/realtime-js', 'ws', 'imapflow', 'mailparser'],
   turbopack: {},
   webpack: (config, { isServer }) => {
     if (isServer) {

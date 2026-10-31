@@ -129,6 +129,7 @@ export default function AdminSidebar({ onLogout, className, collapsed = false }:
                 { label: 'Doações', icon: Heart, href: '/admin/doacoes' },
                 { label: 'Convites de Membros', icon: UserPlus, href: '/admin/convites' },
                 { label: 'Leilão', icon: Gavel, href: '/admin/leilao' },
+                { label: 'Email geral', icon: Mail, href: '/admin/email' },
                 { label: 'Emails do Sistema', icon: Mail, href: '/admin/emails' },
                 { label: 'Atividade Email', icon: Mail, href: '/admin/notificacoes-email' },
                 { label: 'Métricas da app', icon: Activity, href: '/admin/app-metrics' },

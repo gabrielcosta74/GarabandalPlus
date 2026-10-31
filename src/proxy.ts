@@ -83,6 +83,13 @@ export async function proxy(request: NextRequest) {
       }
     }
 
+    // The admin mailbox authenticates with a Bearer token in the route itself
+    // and fires many small requests (list, open, mark…). Refreshing the cookie
+    // session here only added a Supabase round-trip (100–600 ms) to each one.
+    if (pathname.startsWith('/api/admin/mailbox')) {
+        return NextResponse.next();
+    }
+
     // NOTE: do not mutate request headers here. Rewriting them (we used to set
     // `x-pathname` for the root layout) makes Next treat every matched route as
     // request-dependent, which knocks ISR pages out of the static cache and
