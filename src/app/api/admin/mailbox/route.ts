@@ -15,7 +15,7 @@ import {
     type OutgoingAttachment,
 } from '../../../../lib/mailbox';
 import addressparser from 'nodemailer/lib/addressparser';
-import { listGroups, resolveGroup, searchContacts, sendToGroup } from '../../../../lib/mailbox-groups';
+import { BACKGROUND_GROUP_THRESHOLD, listGroups, resolveGroup, searchContacts, sendToGroup } from '../../../../lib/mailbox-groups';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
@@ -178,7 +178,23 @@ export async function POST(req: Request) {
 
         if (body.action === 'group') {
             const groupId = String(body.groupId || '');
-            const result = await sendToGroup({ groupId, subject, html, text, attachments });
+            const input = { groupId, subject, html, text, attachments };
+
+            // Com anexos e muita gente o envio passa dos 100 s em que o Cloudflare
+            // corta o pedido: segue em segundo plano (o Railway é um processo
+            // contínuo) e o resultado fica no Audit Log.
+            const count = attachments.length ? (await resolveGroup(groupId)).length : 0;
+            if (count > BACKGROUND_GROUP_THRESHOLD) {
+                void sendToGroup(input)
+                    .then((result) => logAdminAudit({ adminEmail: user?.email, action: 'mailbox_group_send', details: { groupId, subject, background: true, ...result } }))
+                    .catch((error) => {
+                        console.error('[admin/mailbox] envio a grupo em segundo plano falhou', error);
+                        return logAdminAudit({ adminEmail: user?.email, action: 'mailbox_group_send_failed', details: { groupId, subject, error: String(error?.message || error) } });
+                    });
+                return NextResponse.json({ ok: true, queued: true, count });
+            }
+
+            const result = await sendToGroup(input);
             await logAdminAudit({ adminEmail: user?.email, action: 'mailbox_group_send', details: { groupId, subject, ...result } });
             return NextResponse.json({ ok: true, ...result });
         }

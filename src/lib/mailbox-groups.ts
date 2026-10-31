@@ -129,6 +129,9 @@ export async function listGroups(): Promise<MailGroup[]> {
     return groups;
 }
 
+/** Com anexos o envio é um a um (~0,55 s por pessoa): acima disto vai para segundo plano. */
+export const BACKGROUND_GROUP_THRESHOLD = 60;
+
 export async function sendToGroup(input: {
     groupId: string;
     subject: string;

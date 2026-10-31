@@ -363,7 +363,8 @@ export default function AdminEmailPage() {
             try {
                 if (sending.mode === 'group') {
                     const result = await post({ action: 'group', groupId: sending.groupId, ...common });
-                    if (result.failed?.length) toast.warning(`Enviado a ${result.sent}; falhou para ${result.failed.length}.`, { id, duration: 8000 });
+                    if (result.queued) toast.success(`A enviar a ${result.count} pessoas em segundo plano. Leva uns minutos; a cópia aparece nos Enviados no fim.`, { id, duration: 8000 });
+                    else if (result.failed?.length) toast.warning(`Enviado a ${result.sent}; falhou para ${result.failed.length}.`, { id, duration: 8000 });
                     else toast.success(`Enviado a ${result.sent} pessoas.`, { id, duration: 4000 });
                 } else {
                     await post({

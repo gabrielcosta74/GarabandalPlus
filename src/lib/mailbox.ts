@@ -1,6 +1,7 @@
 import { ImapFlow, type ListResponse, type MessageAddressObject } from 'imapflow';
 import { simpleParser, type AddressObject } from 'mailparser';
 import nodemailer from 'nodemailer';
+import { Resend } from 'resend';
 import MailComposer from 'nodemailer/lib/mail-composer';
 import DOMPurify from 'isomorphic-dompurify';
 
@@ -84,6 +85,8 @@ async function getClient(): Promise<ImapFlow> {
                 secure: cfg.imapPort === 993,
                 auth: { user: cfg.user, pass: cfg.password },
                 logger: false,
+                connectionTimeout: 15_000,
+                greetingTimeout: 15_000,
             });
             client.on('error', (error) => console.warn('[mailbox] ligação IMAP', error?.message));
             client.on('close', () => { if (pool.client === client) pool.client = null; });
@@ -101,19 +104,35 @@ const scheduleIdleClose = () => {
     pool.idleTimer.unref?.();
 };
 
+const OPERATION_TIMEOUT_MS = 45_000;
+
+class ImapTimeoutError extends Error {
+    constructor() {
+        super('A caixa de email não respondeu a tempo. Tente de novo.');
+    }
+}
+
 async function withImap<T>(fn: (client: ImapFlow) => Promise<T>): Promise<T> {
     for (let attempt = 0; ; attempt += 1) {
         const client = await getClient();
+        let timer: ReturnType<typeof setTimeout> | undefined;
         try {
-            return await fn(client);
+            // Uma ligação que morreu em silêncio (rede, NAT) não dá erro, fica
+            // à espera para sempre: ao fim do limite deita-se fora e volta-se a ligar.
+            return await Promise.race([
+                fn(client),
+                new Promise<never>((_, reject) => {
+                    timer = setTimeout(() => reject(new ImapTimeoutError()), OPERATION_TIMEOUT_MS);
+                }),
+            ]);
         } catch (error) {
+            const timedOut = error instanceof ImapTimeoutError;
+            if (timedOut || !client.usable) dropClient(client);
             // Ligação caiu a meio (timeout do servidor, rede): tentar uma vez de novo.
-            if (attempt === 0 && !client.usable) {
-                dropClient(client);
-                continue;
-            }
+            if (attempt === 0 && !timedOut && !client.usable) continue;
             throw error;
         } finally {
+            clearTimeout(timer);
             scheduleIdleClose();
         }
     }
@@ -456,30 +475,68 @@ const newMessageId = () => {
     return `<${Date.now().toString(36)}.${Math.random().toString(36).slice(2, 12)}@${domain}>`;
 };
 
-/**
- * Envia pelo SMTP da própria caixa e guarda uma cópia em Enviados — o SMTP
- * da Webnode não o faz sozinho, e sem isto as respostas não apareciam lá.
- */
-export async function sendMail(mail: OutgoingMail) {
-    const cfg = requireConfig();
-    const messageId = newMessageId();
-    const raw = await buildRaw(mail, { keepBcc: false, messageId });
+const asHeader = (r: Recipient) =>
+    (typeof r === 'string' ? r : r.name ? `"${r.name.replace(/["\\]/g, '')}" <${r.address}>` : r.address);
 
+/**
+ * Envia pelo Resend (HTTPS) por omissão: o Railway bloqueia as portas SMTP de
+ * saída (25/465/587) fora do plano Pro, e o SMTP da Webnode ficava em timeout
+ * em produção. MAILBOX_SEND_VIA=smtp volta ao SMTP da caixa.
+ */
+async function deliver(mail: OutgoingMail, messageId: string) {
+    const cfg = requireConfig();
+    const resendKey = process.env.RESEND_API_KEY;
+
+    if (process.env.MAILBOX_SEND_VIA !== 'smtp' && resendKey) {
+        const references = mail.references?.length ? mail.references.join(' ') : undefined;
+        const { data, error } = await new Resend(resendKey).emails.send({
+            from: `${cfg.fromName} <${cfg.user}>`,
+            to: mail.to.map(asHeader),
+            cc: mail.cc?.length ? mail.cc.map(asHeader) : undefined,
+            bcc: mail.bcc?.length ? mail.bcc.map(asHeader) : undefined,
+            subject: mail.subject,
+            html: mail.html,
+            text: mail.text,
+            headers: {
+                ...(mail.inReplyTo ? { 'In-Reply-To': mail.inReplyTo } : {}),
+                ...(references ? { References: references } : {}),
+            },
+            attachments: mail.attachments?.map((att) => ({ filename: att.filename, content: att.content, contentType: att.contentType })),
+        });
+        if (error) throw new Error(`O envio falhou: ${error.message}`);
+        return data?.id || messageId;
+    }
+
+    const raw = await buildRaw(mail, { keepBcc: false, messageId });
     const transport = nodemailer.createTransport({
         host: cfg.smtpHost,
         port: cfg.smtpPort,
         secure: cfg.smtpPort === 465,
         auth: { user: cfg.user, pass: cfg.password },
+        // Sem isto um bloqueio de rede deixava o pedido pendurado minutos.
+        connectionTimeout: 10_000,
+        greetingTimeout: 10_000,
+        socketTimeout: 30_000,
     });
     const recipients = [...mail.to, ...(mail.cc || []), ...(mail.bcc || [])]
         .map((r) => (typeof r === 'string' ? r : r.address));
     const info = await transport.sendMail({ envelope: { from: cfg.user, to: recipients }, raw });
+    return info.messageId;
+}
+
+/**
+ * Envia e guarda uma cópia em Enviados — nem o Resend nem o SMTP da Webnode o
+ * fazem sozinhos, e sem isto as respostas não apareciam lá.
+ */
+export async function sendMail(mail: OutgoingMail) {
+    const messageId = newMessageId();
+    const sentId = await deliver(mail, messageId);
 
     const copy = await buildRaw(mail, { keepBcc: true, messageId });
     await saveCopy(copy, mail.answered).catch((error) => {
         console.warn('[mailbox] enviado, mas não foi possível guardar em Enviados', error);
     });
-    return { messageId: info.messageId };
+    return { messageId: sentId };
 }
 
 /** Guarda uma mensagem já enviada (por SMTP ou pelo Resend) em Enviados. */

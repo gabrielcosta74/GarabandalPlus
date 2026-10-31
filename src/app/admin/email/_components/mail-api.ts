@@ -31,16 +31,26 @@ export const accessToken = () => getBrowserAccessToken().catch(() => { throw new
 export async function api(params: Record<string, string | number>, init?: { body: unknown }) {
     const token = await accessToken();
     const query = new URLSearchParams(Object.entries(params).map(([k, v]) => [k, String(v)])).toString();
-    const res = await fetch(`/api/admin/mailbox${init ? '' : `?${query}`}`, {
-        method: init ? 'POST' : 'GET',
-        headers: { Authorization: `Bearer ${token}`, ...(init ? { 'Content-Type': 'application/json' } : {}) },
-        body: init ? JSON.stringify(init.body) : undefined,
-        cache: 'no-store',
-    });
+    let res: Response;
+    try {
+        res = await fetch(`/api/admin/mailbox${init ? '' : `?${query}`}`, {
+            method: init ? 'POST' : 'GET',
+            headers: { Authorization: `Bearer ${token}`, ...(init ? { 'Content-Type': 'application/json' } : {}) },
+            body: init ? JSON.stringify(init.body) : undefined,
+            cache: 'no-store',
+            // Nunca deixar o ecrã à espera para sempre ("A enviar…" pendurado).
+            signal: AbortSignal.timeout(init ? 95_000 : 60_000),
+        });
+    } catch (error) {
+        if (error instanceof DOMException && (error.name === 'TimeoutError' || error.name === 'AbortError')) {
+            throw new Error('O servidor demorou demasiado a responder. Verifique os Enviados antes de tentar de novo.');
+        }
+        throw new Error('Sem ligação ao servidor. Verifique a internet e tente de novo.');
+    }
     const data = await res.json().catch(() => null);
     if (data?.notConfigured) throw new NotConfigured(data.error);
     if (res.status === 401) throw new SessionExpired();
-    if (!res.ok) throw new Error(data?.error || 'Falha no pedido.');
+    if (!res.ok) throw new Error(data?.error || `Falha no pedido (${res.status}).`);
     return data;
 }
 
