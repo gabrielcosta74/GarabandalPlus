@@ -53,17 +53,27 @@ export function buildAppLinks({
   country,
   locale,
   source,
+  providerToken = process.env.APP_STORE_PROVIDER_TOKEN,
 }: {
   /** ISO 3166-1 alpha-2, any case; `null` when unknown. */
   country?: string | null;
   locale: 'pt' | 'en';
-  /** Goes into the Play install referrer as utm_medium. */
+  /** Goes into the Play install referrer as utm_medium, and into the App Store campaign. */
   source: string;
+  /**
+   * App Store Connect provider id (App Analytics → Campaigns). Without it Apple
+   * ignores `ct`, so the link stays plain until APP_STORE_PROVIDER_TOKEN is set.
+   */
+  providerToken?: string | null;
 }): AppLinks {
   const cc = country?.toUpperCase() ?? null;
 
   const storefront = cc && APP_STORE_COUNTRIES.has(cc) ? `${cc.toLowerCase()}/` : '';
-  const appStore = `https://apps.apple.com/${storefront}app/garabandal/id${APP_STORE_ID}`;
+  const token = providerToken?.trim();
+  const campaign = token && /^\d+$/.test(token)
+    ? `?pt=${token}&ct=${encodeURIComponent(source.slice(0, 40))}&mt=8`
+    : '';
+  const appStore = `https://apps.apple.com/${storefront}app/garabandal/id${APP_STORE_ID}${campaign}`;
 
   const hl = (cc && PLAY_LANGUAGE_BY_COUNTRY[cc]) || (locale === 'pt' ? 'pt_PT' : 'en');
   const referrer = encodeURIComponent(`utm_source=site&utm_medium=${source}&utm_campaign=app`);

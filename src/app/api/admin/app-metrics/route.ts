@@ -93,6 +93,10 @@ export async function GET(request: Request) {
     }
   }
 
+  // Métricas de uso enviadas pela própria app (app_events). Se falharem, o resto da página continua.
+  const { data: usage, error: usageError } = await supabaseServer.rpc('app_usage_report', { p_days: days });
+  if (usageError) console.error('[app-metrics] app_usage_report failed', usageError.message);
+
   const daysList = Array.from({ length: days }, (_, index) => {
     const day = new Date(trendCutoff + index * DAY_MS).toISOString().slice(0, 10);
     return { day, installs: dailyInstalls.get(day) || 0 };
@@ -119,5 +123,6 @@ export async function GET(request: Request) {
       .sort((a, b) => b.count - a.count || a.version.localeCompare(b.version))
       .slice(0, 8),
     dailyInstalls: daysList,
+    usage: usageError ? null : usage,
   });
 }
