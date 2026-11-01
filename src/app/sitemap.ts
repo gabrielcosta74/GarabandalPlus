@@ -7,6 +7,7 @@ import { localizeStoreProductText } from '../lib/store-i18n';
 import { type StoreProductSitemapRecord } from '../lib/store-products';
 import { CATEGORIES, PUBLIC_NAV_ORDER, PUBLIC_LOCALES, localePrefix, type CategoryKey, type PublicLocale } from '../lib/cms/categories';
 import { hreflangKey } from '../lib/content/locale-paths';
+import { fetchSitemapTranslationLinks, type SitemapTranslationLink } from '../lib/content/sitemap-translations';
 import { isPreLaunch } from '../lib/pilgrimage-early-access';
 
 export const revalidate = 3600;
@@ -33,12 +34,6 @@ type SitemapContentRow = {
   og_image_url: string | null;
 };
 
-type TranslationLink = {
-  group_id: string;
-  content_type: 'page' | 'post';
-  content_id: string;
-};
-
 const contentUrl = (kind: 'page' | 'post', row: SitemapContentRow) => {
   const localePrefix = row.locale === 'pt' ? '' : `/${row.locale}`;
   const typePrefix = kind === 'post' ? '/l' : '';
@@ -50,7 +45,7 @@ function appendTranslatedContentRoutes(
   target: MetadataRoute.Sitemap,
   kind: 'page' | 'post',
   rows: SitemapContentRow[],
-  links: TranslationLink[],
+  links: SitemapTranslationLink[],
   fallbackDate: Date,
 ) {
   const rowsById = new Map(rows.map((row) => [row.id, row]));
@@ -101,19 +96,13 @@ function appendTranslatedContentRoutes(
 async function fetchSitemapProducts(): Promise<StoreProductSitemapRecord[]> {
   if (!supabaseServer) return [];
 
-  const withDates = await supabaseServer
-    .from('store_products')
-    .select('product_id, name, name_en, image_url, updated_at, created_at')
-    .eq('is_active', true);
-
-  if (!withDates.error) return (withDates.data || []) as StoreProductSitemapRecord[];
-
-  const fallback = await supabaseServer
+  // store_products não tem updated_at: pedi-lo dava um 400 em cada geração do sitemap.
+  const { data } = await supabaseServer
     .from('store_products')
     .select('product_id, name, name_en, image_url, created_at')
     .eq('is_active', true);
 
-  return (fallback.data || []) as StoreProductSitemapRecord[];
+  return (data || []) as StoreProductSitemapRecord[];
 }
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
@@ -406,7 +395,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
     const { data: pilgrimages } = await pilgrimagesQuery;
 
-    (pilgrimages || []).forEach((pilgrimage: any) => {
+    (pilgrimages || []).forEach((pilgrimage) => {
       // Never expose a private early-access pilgrimage to crawlers before launch.
       if (pilgrimage?.slug && !isPreLaunch(pilgrimage)) {
         const ptUrl = `${APP_URL}/peregrinacoes/${pilgrimage.slug}`;
@@ -435,7 +424,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       .in('status', ['active', 'awaiting_payment'])
       .order('ends_at', { ascending: true });
 
-    (auctionItems || []).forEach((it: any) => {
+    (auctionItems || []).forEach((it) => {
       if (!it?.id) return;
       const url = `${APP_URL}/leilao/${it.id}`;
       const cover = Array.isArray(it.images) && it.images[0] ? getAbsoluteImageUrl(it.images[0]) : undefined;
@@ -450,7 +439,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
     // ── Migrated devotional content (wp_pages + posts) ──────────────────
     // Only emit when status='published'. Drafts stay invisible to crawlers.
-    const [{ data: pubPages }, { data: pubPosts }, { data: translationLinks }] = await Promise.all([
+    const [{ data: pubPages }, { data: pubPosts }, translationLinks] = await Promise.all([
       supabaseServer
         .from('wp_pages')
         .select('id, slug, locale, updated_at, og_image_url')
@@ -459,10 +448,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         .from('posts')
         .select('id, slug, locale, updated_at, published_at, cover_image_url, og_image_url')
         .eq('status', 'published'),
-      supabaseServer
-        .from('content_translations')
-        .select('group_id, content_type, content_id')
-        .in('content_type', ['page', 'post']),
+      fetchSitemapTranslationLinks(supabaseServer),
     ]);
 
     // Blog index pages — only emit when there are actually posts to list.
@@ -535,14 +521,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       dynamicRoutes,
       'page',
       (pubPages ?? []) as SitemapContentRow[],
-      (translationLinks ?? []) as TranslationLink[],
+      translationLinks,
       now,
     );
     appendTranslatedContentRoutes(
       dynamicRoutes,
       'post',
       (pubPosts ?? []) as SitemapContentRow[],
-      (translationLinks ?? []) as TranslationLink[],
+      translationLinks,
       now,
     );
   } catch {
