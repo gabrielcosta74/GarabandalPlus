@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Check, Lock, ChevronLeft, CreditCard, Eye, EyeOff, QrCode, Gift } from "lucide-react";
+import { X, Check, Lock, ChevronLeft, ChevronDown, CreditCard, Eye, EyeOff, QrCode } from "lucide-react";
 import { supabaseBrowser } from "../../lib/supabase-browser";
 import { captureAnalyticsEvent } from "../../lib/analytics";
 import { useAuth } from "../../contexts/AuthContext";
@@ -33,75 +33,131 @@ interface MembershipModalProps {
     referralCode?: string;
 }
 
-const slideImages = [
-    "/images/espalharpalavra.webp",
-    "/images/descontoslivros.webp",
-    "/images/associacao.webp",
-];
-
 const countryOptions = listCountryLabels();
 
+// Shared form styling (homepage tokens: ink text, line borders, brand focus).
+const FIELD_LABEL = "mb-1.5 block text-sm font-medium text-ink";
+const FIELD_CONTROL =
+    "h-12 w-full rounded-xl border border-line bg-white px-4 text-[16px] text-ink outline-none transition-[border-color,box-shadow] duration-200 placeholder:text-muted/70 focus:border-brand focus:ring-4 focus:ring-brand/10 read-only:bg-paper read-only:text-muted";
+const PRIMARY_BUTTON =
+    "inline-flex h-13 w-full items-center justify-center gap-2 rounded-full bg-brand px-6 text-base font-semibold text-white transition-[background-color,transform] duration-200 hover:bg-brand-700 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60";
+const EASE = [0.22, 1, 0.36, 1] as const;
+
 // Helper Components (Defined outside to prevent re-renders)
-const InputField = ({ label, ...props }: React.InputHTMLAttributes<HTMLInputElement> & { label: string }) => (
-    <div className="group">
-        <label className="block text-xs font-bold uppercase tracking-widest text-gray-400 mb-1.5 ml-1 group-focus-within:text-garabandal-gold transition-colors">
-            {label}
-        </label>
+type FieldExtras = { label: string; hint?: string; error?: string | null };
+
+const FieldMessage = ({ hint, error }: { hint?: string; error?: string | null }) =>
+    error ? (
+        <span role="alert" className="mt-1.5 block text-xs font-medium text-red-600">{error}</span>
+    ) : hint ? (
+        <span className="mt-1.5 block text-xs text-muted">{hint}</span>
+    ) : null;
+
+const InputField = ({ label, hint, error, ...props }: React.InputHTMLAttributes<HTMLInputElement> & FieldExtras) => (
+    <label className="block">
+        <span className={FIELD_LABEL}>{label}</span>
         <input
             {...props}
-            className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3.5 outline-none transition-all duration-300
-            text-gray-900 placeholder:text-gray-400
-            focus:bg-white focus:border-garabandal-gold focus:ring-4 focus:ring-garabandal-gold/10"
+            aria-invalid={error ? true : undefined}
+            className={`${FIELD_CONTROL} ${error ? "border-red-400 focus:border-red-500 focus:ring-red-500/10" : ""}`}
         />
-    </div>
+        <FieldMessage hint={hint} error={error} />
+    </label>
 );
+
+/**
+ * Phone input with the country dialling code shown as a fixed prefix, so people
+ * only type their national number. The stored value keeps the same shape as
+ * before ("+351 912345678"); countries without metadata fall back to a free
+ * input where the user types the full international number.
+ */
+const PhoneField = ({
+    label, hint, error, country, value, onValueChange, onBlur,
+}: FieldExtras & { country: string; value: string; onValueChange: (next: string) => void; onBlur?: () => void }) => {
+    const meta = resolveCountryMeta(country);
+    const prefix = meta?.phonePrefix;
+    const usePrefix = Boolean(prefix) && (!value || value.startsWith(prefix as string));
+    const national = usePrefix && prefix ? value.slice(prefix.length).replace(/^ /, "") : value;
+    const nationalExample = meta?.phoneExample && prefix ? meta.phoneExample.slice(prefix.length).trim() : undefined;
+
+    return (
+        <label className="block">
+            <span className={FIELD_LABEL}>{label}</span>
+            <span
+                className={`flex h-12 w-full items-stretch overflow-hidden rounded-xl border bg-white transition-[border-color,box-shadow] duration-200 focus-within:ring-4 ${error ? "border-red-400 focus-within:border-red-500 focus-within:ring-red-500/10" : "border-line focus-within:border-brand focus-within:ring-brand/10"}`}
+            >
+                {usePrefix && (
+                    <span className="flex shrink-0 items-center border-r border-line bg-paper px-3.5 text-[16px] font-medium tabular-nums text-ink">
+                        {prefix}
+                    </span>
+                )}
+                <input
+                    type="tel"
+                    inputMode="tel"
+                    autoComplete={usePrefix ? "tel-national" : "tel"}
+                    aria-invalid={error ? true : undefined}
+                    value={national}
+                    placeholder={usePrefix ? nationalExample : "+55 11 91234 5678"}
+                    onChange={(e) => {
+                        const raw = e.target.value;
+                        if (!usePrefix || raw.trim().startsWith("+")) {
+                            onValueChange(raw);
+                            return;
+                        }
+                        const digits = raw.replace(/[^\d ]/g, "").replace(/^ +/, "");
+                        onValueChange(digits ? `${prefix} ${digits}` : "");
+                    }}
+                    onBlur={onBlur}
+                    className="min-w-0 flex-1 bg-transparent px-4 text-[16px] tabular-nums text-ink outline-none placeholder:text-muted/70"
+                />
+            </span>
+            <FieldMessage hint={hint} error={error} />
+        </label>
+    );
+};
 
 const PasswordInput = ({ label, ...props }: React.InputHTMLAttributes<HTMLInputElement> & { label: string }) => {
     const [show, setShow] = useState(false);
     return (
-        <div className="group">
-            <label className="block text-xs font-bold uppercase tracking-widest text-gray-400 mb-1.5 ml-1 group-focus-within:text-garabandal-gold transition-colors">
-                {label}
-            </label>
-            <div className="relative">
-                <input
-                    {...props}
-                    type={show ? "text" : "password"}
-                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3.5 outline-none transition-all duration-300
-                    text-gray-900 placeholder:text-gray-400 pr-12
-                    focus:bg-white focus:border-garabandal-gold focus:ring-4 focus:ring-garabandal-gold/10"
-                />
+        <label className="block">
+            <span className={FIELD_LABEL}>{label}</span>
+            <span className="relative block">
+                <input {...props} type={show ? "text" : "password"} className={`${FIELD_CONTROL} pr-12`} />
                 <button
                     type="button"
                     onClick={() => setShow(!show)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-2"
+                    aria-label={show ? "Hide password" : "Show password"}
+                    className="absolute right-1.5 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-lg text-muted transition-colors hover:text-ink"
                 >
                     {show ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
-            </div>
-        </div>
+            </span>
+        </label>
     );
 };
 
 const SelectField = ({ label, children, ...props }: React.SelectHTMLAttributes<HTMLSelectElement> & { label: string }) => (
-    <div className="group relative">
-        <label className="block text-xs font-bold uppercase tracking-widest text-gray-400 mb-1.5 ml-1 group-focus-within:text-garabandal-gold transition-colors">
-            {label}
-        </label>
-        <div className="relative">
-            <select
-                {...props}
-                className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3.5 outline-none transition-all duration-300 appearance-none
-                text-gray-900 cursor-pointer
-                focus:bg-white focus:border-garabandal-gold focus:ring-4 focus:ring-garabandal-gold/10"
-            >
+    <label className="block">
+        <span className={FIELD_LABEL}>{label}</span>
+        <span className="relative block">
+            <select {...props} className={`${FIELD_CONTROL} cursor-pointer appearance-none pr-10`}>
                 {children}
             </select>
-            <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
-                <ChevronLeft className="rotate-[-90deg] w-4 h-4" />
-            </div>
-        </div>
-    </div>
+            <ChevronDown size={16} className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-muted" />
+        </span>
+    </label>
+);
+
+const Notice = ({ tone, children }: { tone: "error" | "success"; children: React.ReactNode }) => (
+    <motion.div
+        initial={{ opacity: 0, y: -6 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.25, ease: EASE }}
+        role={tone === "error" ? "alert" : "status"}
+        className={`mt-5 rounded-xl px-4 py-3 text-sm leading-relaxed ${tone === "error" ? "bg-red-50 text-red-700" : "bg-emerald-50 text-emerald-800"}`}
+    >
+        {children}
+    </motion.div>
 );
 
 export default function MembershipModal({ isOpen, onClose, impact, referralCode }: MembershipModalProps) {
@@ -396,7 +452,9 @@ export default function MembershipModal({ isOpen, onClose, impact, referralCode 
                 if (upErr) throw upErr;
                 if (!data.user?.id) throw new Error(m.step1.errorCreateAccount);
                 if (data.user?.identities?.length === 0) {
-                    setPendingConfirmationEmail(email);
+                    // Supabase obscures whether an existing account is confirmed.
+                    // A duplicate signup is not evidence that a new email was sent.
+                    setPendingConfirmationEmail(null);
                     setAuthMode('login');
                     throw new Error(m.step1.emailAlreadyRegistered);
                 }
@@ -441,6 +499,13 @@ export default function MembershipModal({ isOpen, onClose, impact, referralCode 
             }
         } catch (err) {
             trackMembershipEvent('membership_auth_failed', { selected_auth_mode: authMode });
+            if (authMode === 'login') {
+                const code = err instanceof Error ? String((err as { code?: string }).code || '') : '';
+                if (code === 'invalid_credentials') {
+                    setPendingConfirmationEmail(null);
+                    setResendMessage(null);
+                }
+            }
             setError(friendlyAuthError(err));
         } finally {
             setAuthLoading(false);
@@ -594,404 +659,444 @@ export default function MembershipModal({ isOpen, onClose, impact, referralCode 
         (renewalStatus && renewalStatus !== 'pendente')
     );
 
+    // While open: lock page scroll, close on Escape, and flag <body> so the
+    // site header can fade out behind the blurred backdrop.
+    useEffect(() => {
+        if (!isOpen) return;
+        const { body } = document;
+        const prevOverflow = body.style.overflow;
+        body.style.overflow = 'hidden';
+        body.dataset.modalOpen = '1';
+        const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+        window.addEventListener('keydown', onKey);
+        return () => {
+            body.style.overflow = prevOverflow;
+            delete body.dataset.modalOpen;
+            window.removeEventListener('keydown', onKey);
+        };
+    }, [isOpen, onClose]);
+
+    // Inline (on blur) validation for the fields people get wrong most often.
+    // Uses the same validators as validateStepTwo, so it only surfaces earlier.
+    const [fieldErrors, setFieldErrors] = useState<{ telefone?: string | null; codigoPostal?: string | null }>({});
+    const messageLocale = locale === 'en' ? 'en' : 'pt-PT';
+    const checkPhone = () => {
+        if (!formData.telefone.trim()) return;
+        setFieldErrors((f) => ({ ...f, telefone: validatePhone(formData.telefone, formData.pais) ? null : getPhoneInvalidMessage(formData.pais, messageLocale) }));
+    };
+    const checkPostal = () => {
+        if (!formData.codigoPostal.trim()) return;
+        setFieldErrors((f) => ({ ...f, codigoPostal: validatePostalCode(formData.pais, formData.codigoPostal) ? null : getPostalInvalidMessage(formData.pais, messageLocale) }));
+    };
+    const changeCountry = (nextCountry: string) => {
+        setFormData((p) => {
+            // Move an already-typed national number onto the new dialling code.
+            const oldPrefix = resolveCountryMeta(p.pais)?.phonePrefix;
+            const newPrefix = resolveCountryMeta(nextCountry)?.phonePrefix;
+            let telefone = p.telefone;
+            if (oldPrefix && telefone.startsWith(oldPrefix)) {
+                const national = telefone.slice(oldPrefix.length).trim();
+                telefone = newPrefix ? (national ? `${newPrefix} ${national}` : "") : national;
+            }
+            return { ...p, pais: nextCountry, telefone, codigoPostal: formatPostalCode(p.codigoPostal, nextCountry) };
+        });
+        setFieldErrors({});
+    };
+    const phoneHint = !formData.pais
+        ? (locale === 'en' ? 'Choose your country first to fill in the dialling code.' : 'Escolha primeiro o país para preencher o indicativo.')
+        : !resolveCountryMeta(formData.pais)
+            ? (locale === 'en' ? 'Include the country code, e.g. +39.' : 'Inclua o indicativo do país, ex.: +39.')
+            : undefined;
+
+    const stepTitle =
+        step === 1 ? m.titles.account
+        : step === 2 ? m.titles.personal
+        : step === 3 ? (isRenewal ? m.titles.renew : m.titles.payment)
+        : m.titles.confirm;
+
+    // Primary action per step, rendered in the sticky footer (same handlers as before).
+    const footerAction =
+        step === 1 ? { onClick: handleAuth, disabled: authLoading, label: authLoading ? m.step1.processing : m.step1.continue }
+        : step === 2 ? {
+            onClick: () => {
+                const err = validateStepTwo();
+                if (err) setError(err);
+                else { setError(null); setStep(3); }
+            },
+            disabled: false,
+            label: m.step2.confirm,
+        }
+        : step === 3 ? { onClick: handlePayment, disabled: authLoading, label: authLoading ? m.step3.processing : m.step3.payButton.replace('{amount}', formatPrice(membershipAmount)) }
+        : null;
+
+    const stepMotion = {
+        initial: { opacity: 0, x: 16 },
+        animate: { opacity: 1, x: 0 },
+        exit: { opacity: 0, x: -16 },
+        transition: { duration: 0.28, ease: EASE },
+    };
+
     return (
         <AnimatePresence>
             {isOpen && (
-                <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+                <div className="fixed inset-0 z-[200] flex items-end justify-center md:items-center md:p-6" role="dialog" aria-modal="true" aria-label={stepTitle}>
                     <motion.div
                         initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+                        transition={{ duration: 0.3, ease: EASE }}
+                        className="absolute inset-0 bg-ink/40 backdrop-blur-md"
                         onClick={onClose}
                     />
 
                     <motion.div
-                        initial={{ opacity: 0, scale: 0.95, y: 20 }}
-                        animate={{ opacity: 1, scale: 1, y: 0 }}
-                        exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                        className="bg-white rounded-3xl w-full max-w-6xl h-[85vh] shadow-2xl relative z-10 overflow-hidden flex flex-col md:flex-row"
+                        initial={{ opacity: 0, y: 40 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: 40 }}
+                        transition={{ type: "spring", stiffness: 320, damping: 34, mass: 0.9 }}
+                        className="relative z-10 flex h-[94dvh] w-full flex-col overflow-hidden rounded-t-[1.75rem] bg-white shadow-[0_40px_120px_-30px_rgba(15,27,51,0.5)] md:h-[min(760px,90dvh)] md:max-w-[980px] md:flex-row md:rounded-[1.75rem]"
                     >
-
-                        {/* LEFT SIDEBAR (Visual) */}
-                        <div className="hidden md:flex w-1/3 bg-garabandal-mist relative flex-col justify-between p-8 border-r border-gray-100">
+                        {/* SUMMARY (desktop) */}
+                        <aside className="hidden w-[340px] shrink-0 flex-col justify-between bg-paper p-8 md:flex">
                             <div>
-                                <div className="text-3xl font-serif text-garabandal-dark mb-1">{m.sidebarTitle}</div>
-                                <div className="text-xs uppercase tracking-widest text-garabandal-gold font-bold mb-8">{m.sidebarSubtitle}</div>
-
-                                <div className="bg-white/80 backdrop-blur-sm p-6 rounded-2xl border border-white/50 shadow-sm mb-6">
-                                    <div className="text-4xl font-serif text-garabandal-dark mb-1">{formatPrice(membershipAmount)}</div>
-                                    <div className="text-xs text-gray-500 uppercase tracking-wider mb-4">{isRenewal ? m.annualRenewal : m.annualFee}</div>
-                                    <div className="space-y-3">
-                                        {[m.benefitVideos, m.benefitAltar, m.benefitVoucher, m.benefitMasses].map((item, i) => (
-                                            <div key={i} className="flex items-center gap-2 text-sm text-gray-600">
-                                                <div className="w-5 h-5 rounded-full bg-green-100 text-green-600 flex items-center justify-center">
-                                                    <Check size={12} strokeWidth={3} />
-                                                </div>
-                                                {item}
-                                            </div>
-                                        ))}
+                                <div
+                                    className="relative aspect-[1.586] overflow-hidden rounded-2xl p-5 text-white shadow-[0_20px_40px_-20px_rgba(31,85,214,0.6)]"
+                                    style={{ background: "linear-gradient(140deg, #4a84f6 0%, #2259db 48%, #10307f 100%)" }}
+                                >
+                                    <img
+                                        src="/images/app-icon-512.png"
+                                        alt=""
+                                        aria-hidden
+                                        className="pointer-events-none absolute -right-[14%] top-1/2 h-[125%] w-auto -translate-y-1/2 opacity-90 mix-blend-screen"
+                                        style={{ maskImage: "radial-gradient(closest-side, black 62%, transparent 100%)", WebkitMaskImage: "radial-gradient(closest-side, black 62%, transparent 100%)" }}
+                                    />
+                                    <div className="relative flex h-full flex-col justify-between">
+                                        <p className="text-sm font-semibold">Apostolado de Garabandal</p>
+                                        <div>
+                                            <p className="text-3xl font-semibold tracking-[-0.03em]">{formatPrice(membershipAmount)}</p>
+                                            <p className="text-xs text-white/75">{isRenewal ? m.annualRenewal : m.annualFee}</p>
+                                        </div>
                                     </div>
                                 </div>
+
+                                <ul className="mt-7 space-y-3">
+                                    {[m.benefitVideos, m.benefitAltar, m.benefitVoucher, m.benefitMasses].map((item, i) => (
+                                        <li key={i} className="flex items-start gap-3 text-[15px] text-ink">
+                                            <Check size={16} strokeWidth={2.5} className="mt-0.5 shrink-0 text-brand" />
+                                            {item}
+                                        </li>
+                                    ))}
+                                </ul>
                             </div>
 
-                            <div className="relative h-48 rounded-2xl overflow-hidden bg-gray-200">
-                                <AnimatePresence mode="wait">
-                                    <motion.div
-                                        key={slideIndex}
-                                        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                                        transition={{ duration: 0.5 }}
-                                        className="absolute inset-0"
-                                    >
-                                        <img src={slideImages[slideIndex]} className="w-full h-full object-cover opacity-80" alt="" />
-                                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent p-6 flex flex-col justify-end text-white">
-                                            <p className="font-bold text-sm mb-1">{slides[slideIndex].title}</p>
-                                            <p className="text-xs opacity-80 line-clamp-2">{slides[slideIndex].text}</p>
-                                        </div>
-                                    </motion.div>
-                                </AnimatePresence>
+                            <p className="flex items-center gap-2 text-xs text-muted">
+                                <Lock size={13} /> {m.step3.secureNote}
+                            </p>
+                        </aside>
+
+                        {/* MAIN */}
+                        <div className="flex min-h-0 flex-1 flex-col">
+                            {/* Mobile grab handle */}
+                            <div className="flex justify-center pt-2.5 md:hidden">
+                                <span className="h-1.5 w-10 rounded-full bg-line" />
                             </div>
-                        </div>
-
-
-                        {/* RIGHT MAIN CONTENT */}
-                        <div className="flex-1 flex flex-col h-full bg-white relative">
 
                             {/* Header */}
-                            <div className="p-6 border-b border-gray-100 flex items-center justify-between bg-white z-20">
-                                <div className="flex items-center gap-3">
-                                    {canGoBack && (
-                                        <button onClick={() => setStep(s => s - 1)} className="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-500">
-                                            <ChevronLeft size={20} />
-                                        </button>
-                                    )}
-                                    <div>
-                                        <div className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-0.5">
-                                            {m.step.replace('{current}', String(step)).replace('{total}', '4')}
+                            <header className="px-5 pb-4 pt-3 md:px-10 md:pt-8">
+                                <div className="flex items-center justify-between gap-3">
+                                    <div className="flex min-w-0 items-center gap-2">
+                                        {canGoBack && (
+                                            <button
+                                                type="button"
+                                                onClick={() => setStep(s => s - 1)}
+                                                aria-label="Back"
+                                                className="-ml-2 flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-ink transition-colors hover:bg-paper"
+                                            >
+                                                <ChevronLeft size={20} />
+                                            </button>
+                                        )}
+                                        <div className="min-w-0">
+                                            <p className="text-sm text-muted">{m.step.replace('{current}', String(step)).replace('{total}', '4')}</p>
+                                            <h3 className="truncate text-xl font-semibold tracking-[-0.02em] text-ink md:text-2xl">{stepTitle}</h3>
                                         </div>
-                                        <h3 className="font-serif text-xl font-bold text-garabandal-dark leading-none">
-                                            {step === 1 && m.titles.account}
-                                            {step === 2 && m.titles.personal}
-                                            {step === 3 && (isRenewal ? m.titles.renew : m.titles.payment)}
-                                            {step === 4 && m.titles.confirm}
-                                        </h3>
                                     </div>
+                                    <button
+                                        type="button"
+                                        onClick={onClose}
+                                        aria-label="Close"
+                                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-paper text-ink transition-colors hover:bg-line"
+                                    >
+                                        <X size={18} />
+                                    </button>
                                 </div>
-                                <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-400">
-                                    <X size={24} />
-                                </button>
-                            </div>
 
-                            {/* Body Scrollable */}
-                            <div className="flex-1 overflow-y-auto p-6 md:p-10 relative">
-                                <AnimatePresence mode="wait">
+                                {/* Progress */}
+                                <div className="mt-5 grid grid-cols-4 gap-1.5">
+                                    {[1, 2, 3, 4].map((n) => (
+                                        <span key={n} className="h-1 overflow-hidden rounded-full bg-line">
+                                            <motion.span
+                                                className="block h-full rounded-full bg-brand"
+                                                initial={false}
+                                                animate={{ width: n <= step ? "100%" : "0%" }}
+                                                transition={{ duration: 0.45, ease: EASE }}
+                                            />
+                                        </span>
+                                    ))}
+                                </div>
+
+                                {/* Mobile price summary */}
+                                <div className="mt-4 flex items-center justify-between rounded-xl bg-paper px-4 py-3 md:hidden">
+                                    <span className="text-sm text-muted">{isRenewal ? m.annualRenewal : m.annualFee}</span>
+                                    <span className="text-base font-semibold text-ink">{formatPrice(membershipAmount)}</span>
+                                </div>
+                            </header>
+
+                            {/* Body */}
+                            <div className="relative min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-6 md:px-10">
+                                <AnimatePresence mode="wait" initial={false}>
 
                                     {/* STEP 1: AUTH */}
                                     {step === 1 && (
-                                        <motion.div
-                                            key="step1"
-                                            initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}
-                                            className="max-w-md mx-auto pt-4"
-                                        >
-                                            <div className="text-center mb-8">
-                                                <div className="w-16 h-16 bg-garabandal-gold/10 text-garabandal-gold rounded-2xl flex items-center justify-center mx-auto mb-4">
-                                                    <Lock size={32} />
-                                                </div>
-                                                <h4 className="text-2xl font-serif text-garabandal-dark mb-2">{m.step1.heading}</h4>
-                                                <p className="text-gray-500">{m.step1.subheading}</p>
+                                        <motion.div key="step1" {...stepMotion} className="mx-auto max-w-md pt-2">
+                                            <p className="mb-6 text-[15px] leading-relaxed text-muted">{m.step1.subheading}</p>
+
+                                            <div className="mb-6 grid grid-cols-2 rounded-full bg-paper p-1" role="tablist">
+                                                {(["login", "signup"] as const).map((mode) => (
+                                                    <button
+                                                        key={mode}
+                                                        type="button"
+                                                        role="tab"
+                                                        aria-selected={authMode === mode}
+                                                        onClick={() => setAuthMode(mode)}
+                                                        className="relative h-10 rounded-full text-sm font-semibold transition-colors"
+                                                    >
+                                                        {authMode === mode && (
+                                                            <motion.span
+                                                                layoutId="membership-auth-tab"
+                                                                className="absolute inset-0 rounded-full bg-white shadow-[0_1px_3px_rgba(15,27,51,0.12)]"
+                                                                transition={{ type: "spring", stiffness: 420, damping: 36 }}
+                                                            />
+                                                        )}
+                                                        <span className={`relative ${authMode === mode ? "text-ink" : "text-muted"}`}>
+                                                            {mode === "login" ? m.step1.signIn : m.step1.signUp}
+                                                        </span>
+                                                    </button>
+                                                ))}
                                             </div>
 
-                                            <div className="bg-gray-100 p-1 rounded-xl flex mb-8">
-                                                <button
-                                                    className={`flex-1 py-2.5 text-xs font-bold uppercase tracking-wider rounded-lg transition-all ${authMode === 'login' ? 'bg-white shadow-sm text-garabandal-dark' : 'text-gray-400 hover:text-gray-600'}`}
-                                                    onClick={() => setAuthMode('login')}
-                                                >
-                                                    {m.step1.signIn}
-                                                </button>
-                                                <button
-                                                    className={`flex-1 py-2.5 text-xs font-bold uppercase tracking-wider rounded-lg transition-all ${authMode === 'signup' ? 'bg-white shadow-sm text-garabandal-dark' : 'text-gray-400 hover:text-gray-600'}`}
-                                                    onClick={() => setAuthMode('signup')}
-                                                >
-                                                    {m.step1.signUp}
-                                                </button>
+                                            <GoogleButton
+                                                isLoading={authLoading}
+                                                text={authMode === 'login' ? m.step1.googleSignIn : m.step1.googleSignUp}
+                                                className="h-12 rounded-full border-line bg-white py-3 shadow-none hover:bg-paper"
+                                                referralCode={manualReferralCode.trim()}
+                                                locale={locale}
+                                                next={getModalReturnPath()}
+                                            />
+
+                                            <div className="my-6 flex items-center gap-4 text-xs text-muted">
+                                                <span className="h-px flex-1 bg-line" />
+                                                {m.step1.orEmail}
+                                                <span className="h-px flex-1 bg-line" />
                                             </div>
 
-                                            <div className="mb-6">
-                                                <GoogleButton
-                                                    isLoading={authLoading}
-                                                    text={authMode === 'login' ? m.step1.googleSignIn : m.step1.googleSignUp}
-                                                    className="bg-white border-gray-200 shadow-sm hover:shadow-md py-3"
-                                                    referralCode={manualReferralCode.trim()}
-                                                    locale={locale}
-                                                    next={getModalReturnPath()}
-                                                />
-                                                <div className="relative flex items-center justify-center mt-6">
-                                                    <div className="absolute inset-0 flex items-center">
-                                                        <div className="w-full border-t border-gray-200"></div>
-                                                    </div>
-                                                    <span className="relative z-10 bg-white px-2 text-[10px] text-gray-400 font-bold uppercase tracking-widest">
-                                                        {m.step1.orEmail}
-                                                    </span>
-                                                </div>
-                                            </div>
-
-                                            <div className="space-y-5">
+                                            <div className="space-y-4">
                                                 <InputField
                                                     label={m.step1.email}
                                                     type="email"
+                                                    autoComplete="email"
+                                                    inputMode="email"
                                                     value={formData.email}
                                                     onChange={e => setFormData(p => ({ ...p, email: e.target.value }))}
                                                 />
 
                                                 <PasswordInput
                                                     label={m.step1.password}
+                                                    autoComplete={authMode === 'login' ? 'current-password' : 'new-password'}
                                                     value={password}
                                                     onChange={e => setPassword(e.target.value)}
                                                 />
 
-                                                {authMode === 'signup' && (
-                                                    <>
-                                                        <PasswordInput
-                                                            label={m.step1.confirmPassword}
-                                                            value={confirmPassword}
-                                                            onChange={e => setConfirmPassword(e.target.value)}
-                                                        />
+                                                {authMode === 'login' && (
+                                                    <div className="text-right">
+                                                        <Link href={t.urls.forgotPassword} className="text-sm font-medium text-brand hover:text-brand-700">
+                                                            {t.auth.login.forgotPassword}
+                                                        </Link>
+                                                    </div>
+                                                )}
 
-                                                        <div className="flex items-start gap-3 mt-4">
-                                                            <div className="relative flex items-center justify-center mt-0.5">
+                                                <AnimatePresence initial={false}>
+                                                    {authMode === 'signup' && (
+                                                        <motion.div
+                                                            key="signup-extra"
+                                                            initial={{ opacity: 0, height: 0 }}
+                                                            animate={{ opacity: 1, height: "auto" }}
+                                                            exit={{ opacity: 0, height: 0 }}
+                                                            transition={{ duration: 0.3, ease: EASE }}
+                                                            className="space-y-4 overflow-hidden"
+                                                        >
+                                                            <PasswordInput
+                                                                label={m.step1.confirmPassword}
+                                                                autoComplete="new-password"
+                                                                value={confirmPassword}
+                                                                onChange={e => setConfirmPassword(e.target.value)}
+                                                            />
+
+                                                            <label htmlFor="modal-terms" className="flex cursor-pointer items-start gap-3 pt-1">
                                                                 <input
                                                                     id="modal-terms"
                                                                     type="checkbox"
                                                                     checked={acceptedTerms}
                                                                     onChange={(e) => setAcceptedTerms(e.target.checked)}
-                                                                    className="w-5 h-5 rounded border-gray-300 text-garabandal-gold focus:ring-garabandal-gold cursor-pointer"
+                                                                    className="mt-0.5 h-5 w-5 shrink-0 cursor-pointer rounded border-line accent-brand"
                                                                 />
-                                                            </div>
-                                                            <label htmlFor="modal-terms" className="text-xs text-gray-500 leading-relaxed font-medium">
-                                                                {m.step1.acceptPrefix}{" "}
-                                                                <Link href={termsUrl} target="_blank" className="underline hover:text-garabandal-gold">
-                                                                    {m.step1.terms}
-                                                                </Link>{" "}
-                                                                {m.step1.acceptMid}{" "}
-                                                                <Link href={privacyUrl} target="_blank" className="underline hover:text-garabandal-gold">
-                                                                    {m.step1.privacy}
-                                                                </Link>{" "}
-                                                                {m.step1.acceptSuffix}
+                                                                <span className="text-sm leading-relaxed text-muted">
+                                                                    {m.step1.acceptPrefix}{" "}
+                                                                    <Link href={termsUrl} target="_blank" className="text-ink underline underline-offset-2 hover:text-brand">{m.step1.terms}</Link>{" "}
+                                                                    {m.step1.acceptMid}{" "}
+                                                                    <Link href={privacyUrl} target="_blank" className="text-ink underline underline-offset-2 hover:text-brand">{m.step1.privacy}</Link>{" "}
+                                                                    {m.step1.acceptSuffix}
+                                                                </span>
                                                             </label>
-                                                        </div>
-                                                    </>
-                                                )}
+                                                        </motion.div>
+                                                    )}
+                                                </AnimatePresence>
                                             </div>
 
                                             {pendingConfirmationEmail && (
-                                                <motion.div
-                                                    initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
-                                                    className="mt-6 p-4 bg-green-50 text-green-800 text-sm rounded-xl border border-green-100"
-                                                >
-                                                    <div className="font-bold mb-1">{m.step1.checkInboxTitle}</div>
-                                                    <div className="leading-relaxed">
-                                                        {m.step1.checkInboxHelp.replace('{email}', pendingConfirmationEmail)}
-                                                    </div>
-                                                    {resendMessage && (
-                                                        <div className="mt-2 text-xs font-semibold text-green-700">
-                                                            {resendMessage}
-                                                        </div>
-                                                    )}
+                                                <Notice tone="success">
+                                                    <p className="font-semibold">{m.step1.checkInboxTitle}</p>
+                                                    <p className="mt-1">{m.step1.checkInboxHelp.replace('{email}', pendingConfirmationEmail)}</p>
+                                                    {resendMessage && <p className="mt-2 font-medium">{resendMessage}</p>}
                                                     <button
                                                         type="button"
                                                         onClick={handleResendConfirmation}
                                                         disabled={resendLoading}
-                                                        className="mt-3 text-xs font-bold uppercase tracking-widest text-green-900 underline underline-offset-4 disabled:opacity-60"
+                                                        className="mt-3 font-semibold underline underline-offset-4 disabled:opacity-60"
                                                     >
                                                         {resendLoading ? m.step1.processing : m.step1.resendConfirmation}
                                                     </button>
-                                                </motion.div>
+                                                </Notice>
                                             )}
 
-                                            {error && (
-                                                <motion.div
-                                                    initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
-                                                    className="mt-6 p-4 bg-red-50 text-red-600 text-sm rounded-xl text-center font-bold flex items-center justify-center gap-2"
-                                                >
-                                                    <span>⚠️</span> {error}
-                                                </motion.div>
-                                            )}
-
-                                            <button
-                                                onClick={handleAuth}
-                                                disabled={authLoading}
-                                                className="w-full mt-8 bg-garabandal-dark text-white font-bold uppercase tracking-widest py-4 rounded-xl hover:bg-black transition-all flex justify-center items-center gap-2 shadow-lg shadow-garabandal-dark/20 hover:scale-[1.02] active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-                                            >
-                                                {authLoading ? m.step1.processing : m.step1.continue}
-                                                {!authLoading && <ChevronLeft size={16} className="rotate-180" />}
-                                            </button>
+                                            {error && <Notice tone="error">{error}</Notice>}
                                         </motion.div>
                                     )}
 
                                     {/* STEP 2: DETAILS */}
                                     {step === 2 && (
-                                        <motion.div
-                                            key="step2"
-                                            initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}
-                                            className="max-w-xl mx-auto"
-                                        >
-                                            <div className="mb-8">
-                                                <h4 className="text-2xl font-serif text-garabandal-dark mb-2">{m.step2.heading}</h4>
-                                                <p className="text-gray-500 text-sm">{m.step2.subheading}</p>
-                                            </div>
+                                        <motion.div key="step2" {...stepMotion} className="mx-auto max-w-xl pt-2">
+                                            <p className="mb-6 text-[15px] leading-relaxed text-muted">{m.step2.subheading}</p>
 
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                                                <div className="md:col-span-2">
-                                                    <InputField label={m.step2.fullName} value={formData.nome} onChange={e => setFormData(p => ({ ...p, nome: e.target.value }))} />
+                                            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                                                <div className="sm:col-span-2">
+                                                    <InputField label={m.step2.fullName} autoComplete="name" value={formData.nome} onChange={e => setFormData(p => ({ ...p, nome: e.target.value }))} />
                                                 </div>
-                                                <div className="md:col-span-2">
-                                                    <InputField
-                                                        label={m.step2.email}
-                                                        value={formData.email}
-                                                        readOnly
-                                                    />
-                                                    <p className="text-[11px] text-gray-500 mt-1 ml-1">{m.step2.emailLocked}</p>
+                                                <div className="sm:col-span-2">
+                                                    <InputField label={m.step2.email} value={formData.email} readOnly />
+                                                    <p className="mt-1.5 text-xs text-muted">{m.step2.emailLocked}</p>
                                                 </div>
-                                                <div>
-                                                    <SelectField label={m.step2.country} value={formData.pais} onChange={e => setFormData(p => ({ ...p, pais: e.target.value }))}>
-                                                        <option value="">{m.step2.selectCountry}</option>
-                                                        {countryOptions.map(c => <option key={c} value={c}>{c}</option>)}
-                                                    </SelectField>
-                                                </div>
-                                                <div>
-                                                    <InputField
-                                                        label={m.step2.phone}
-                                                        value={formData.telefone}
-                                                        placeholder={countryMeta?.phoneExample}
-                                                        onChange={e => setFormData(p => ({ ...p, telefone: withCountryPrefix(e.target.value, formData.pais) }))}
-                                                        onBlur={() => setFormData(p => ({ ...p, telefone: normalizePhone(withCountryPrefix(p.telefone, p.pais)) }))}
-                                                    />
-                                                </div>
-                                                <div className="md:col-span-2">
+                                                <SelectField label={m.step2.country} autoComplete="country-name" value={formData.pais} onChange={e => changeCountry(e.target.value)}>
+                                                    <option value="">{m.step2.selectCountry}</option>
+                                                    {countryOptions.map(c => <option key={c} value={c}>{c}</option>)}
+                                                </SelectField>
+                                                <PhoneField
+                                                    label={m.step2.phone}
+                                                    country={formData.pais}
+                                                    value={formData.telefone}
+                                                    hint={phoneHint}
+                                                    error={fieldErrors.telefone}
+                                                    onValueChange={(next) => {
+                                                        setFormData(p => ({ ...p, telefone: next }));
+                                                        if (fieldErrors.telefone) setFieldErrors(f => ({ ...f, telefone: null }));
+                                                    }}
+                                                    onBlur={checkPhone}
+                                                />
+                                                <div className="sm:col-span-2">
                                                     <InputField
                                                         label={m.step2.address}
                                                         value={formData.morada}
-                                                        inputMode={getPostalInputMode(formData.pais)}
+                                                        autoComplete="street-address"
                                                         onChange={e => setFormData(p => ({ ...p, morada: e.target.value }))}
                                                     />
                                                 </div>
-                                                <div>
-                                                    <InputField
-                                                        label={m.step2.postal}
-                                                        value={formData.codigoPostal}
-                                                        placeholder={countryMeta?.postalPlaceholder}
-                                                        onChange={e => setFormData(p => ({ ...p, codigoPostal: formatPostalCode(e.target.value, formData.pais) }))}
-                                                    />
-                                                </div>
-                                                <div>
-                                                    <InputField label={m.step2.nif} value={formData.nif} onChange={e => setFormData(p => ({ ...p, nif: e.target.value }))} />
-                                                </div>
+                                                <InputField
+                                                    label={m.step2.postal}
+                                                    value={formData.codigoPostal}
+                                                    inputMode={getPostalInputMode(formData.pais)}
+                                                    autoComplete="postal-code"
+                                                    placeholder={countryMeta?.postalPlaceholder}
+                                                    error={fieldErrors.codigoPostal}
+                                                    onChange={e => {
+                                                        setFormData(p => ({ ...p, codigoPostal: formatPostalCode(e.target.value, formData.pais) }));
+                                                        if (fieldErrors.codigoPostal) setFieldErrors(f => ({ ...f, codigoPostal: null }));
+                                                    }}
+                                                    onBlur={checkPostal}
+                                                />
+                                                <InputField label={m.step2.nif} value={formData.nif} onChange={e => setFormData(p => ({ ...p, nif: e.target.value }))} />
                                             </div>
 
-                                            {error && (
-                                                <div className="mt-6 p-4 bg-red-50 text-red-600 text-sm rounded-xl text-center font-bold">
-                                                    {error}
-                                                </div>
-                                            )}
-
-                                            <button
-                                                onClick={() => {
-                                                    const err = validateStepTwo();
-                                                    if (err) setError(err);
-                                                    else { setError(null); setStep(3); }
-                                                }}
-                                                className="w-full mt-8 bg-garabandal-dark text-white font-bold uppercase tracking-widest py-4 rounded-xl hover:bg-black transition-all flex justify-center items-center gap-2 shadow-lg shadow-garabandal-dark/20 hover:scale-[1.02] active:scale-95"
-                                            >
-                                                {m.step2.confirm}
-                                            </button>
+                                            {error && <Notice tone="error">{error}</Notice>}
                                         </motion.div>
                                     )}
 
                                     {/* STEP 3: PAYMENT */}
                                     {step === 3 && (
-                                        <motion.div
-                                            key="step3"
-                                            initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}
-                                            className="max-w-xl mx-auto"
-                                        >
-                                            <div className="mb-8">
-                                                <h4 className="text-2xl font-serif text-garabandal-dark mb-2">{isRenewal ? m.step3.headingRenew : m.step3.headingNew}</h4>
-                                                <p className="text-gray-500 text-sm">{m.step3.subheading.replace('{amount}', formatPrice(membershipAmount))}</p>
+                                        <motion.div key="step3" {...stepMotion} className="mx-auto max-w-xl pt-2">
+                                            <p className="mb-6 text-[15px] leading-relaxed text-muted">{m.step3.subheading.replace('{amount}', formatPrice(membershipAmount))}</p>
+
+                                            <div className="space-y-3" role="radiogroup">
+                                                {UNIFIED_ONLINE_PAYMENT_OPTIONS.map(opt => {
+                                                    const selected = selectedPaymentId === opt.id;
+                                                    return (
+                                                        <button
+                                                            key={opt.id}
+                                                            type="button"
+                                                            role="radio"
+                                                            aria-checked={selected}
+                                                            onClick={() => setSelectedPaymentId(opt.id)}
+                                                            className={`flex w-full items-center gap-4 rounded-2xl border p-4 text-left transition-[border-color,background-color,box-shadow] duration-200 ${selected ? 'border-brand bg-brand-50/50 shadow-[0_0_0_3px_rgba(53,99,233,0.12)]' : 'border-line bg-white hover:border-brand-200'}`}
+                                                        >
+                                                            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-line bg-white p-2">
+                                                                {opt.iconSrc ? (
+                                                                    <img src={opt.iconSrc} alt={opt.iconAlt || opt.label} className="h-full w-full object-contain" />
+                                                                ) : opt.id === 'reduniq_pix' ? (
+                                                                    <QrCode className="h-5 w-5 text-ink" />
+                                                                ) : (
+                                                                    <CreditCard className="h-5 w-5 text-ink" />
+                                                                )}
+                                                            </span>
+                                                            <span className="min-w-0 flex-1">
+                                                                <span className="flex flex-wrap items-center gap-2">
+                                                                    <span className="font-semibold text-ink">{opt.label}</span>
+                                                                    {opt.badge && <span className="text-xs font-medium text-brand">{opt.badge}</span>}
+                                                                </span>
+                                                                <span className="mt-0.5 block text-sm text-muted">{opt.description}</span>
+                                                            </span>
+                                                            <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors ${selected ? 'border-brand' : 'border-line'}`}>
+                                                                <motion.span
+                                                                    initial={false}
+                                                                    animate={{ scale: selected ? 1 : 0 }}
+                                                                    transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                                                                    className="h-2.5 w-2.5 rounded-full bg-brand"
+                                                                />
+                                                            </span>
+                                                        </button>
+                                                    );
+                                                })}
                                             </div>
 
                                             {!isRenewal && (
-                                                <div className="mb-8 p-5 bg-yellow-50 border border-yellow-100/60 rounded-2xl relative overflow-hidden group">
-                                                    <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none group-hover:scale-110 transition-transform duration-500">
-                                                        <Gift size={64} />
-                                                    </div>
-                                                    <div className="relative z-10">
-                                                        <InputField
-                                                            label={m.step3.referralLabel}
-                                                            placeholder={m.step3.referralPlaceholder}
-                                                            value={manualReferralCode}
-                                                            onChange={(e) => setManualReferralCode(e.target.value.toUpperCase())}
-                                                        />
-                                                        <p className="text-[11px] text-yellow-800/80 mt-2 font-medium">
-                                                            {m.step3.referralHint}
-                                                        </p>
-                                                    </div>
+                                                <div className="mt-6">
+                                                    <InputField
+                                                        label={m.step3.referralLabel}
+                                                        placeholder={m.step3.referralPlaceholder}
+                                                        value={manualReferralCode}
+                                                        autoCapitalize="characters"
+                                                        onChange={(e) => setManualReferralCode(e.target.value.toUpperCase())}
+                                                    />
+                                                    <p className="mt-1.5 text-xs text-muted">{m.step3.referralHint}</p>
                                                 </div>
                                             )}
 
-                                            <div className="space-y-4">
-                                                {UNIFIED_ONLINE_PAYMENT_OPTIONS.map(opt => (
-                                                    <button
-                                                        key={opt.id}
-                                                        onClick={() => setSelectedPaymentId(opt.id)}
-                                                        className={`w-full flex items-center gap-4 p-5 rounded-2xl border-2 transition-all duration-300 text-left group
-                                                        ${selectedPaymentId === opt.id
-                                                                ? 'border-garabandal-gold bg-garabandal-gold/5 shadow-md shadow-garabandal-gold/10'
-                                                                : 'border-gray-100 hover:border-gray-200 bg-white hover:bg-gray-50'
-                                                            }`}
-                                                    >
-                                                        <div className="w-14 h-14 flex items-center justify-center bg-white rounded-xl shadow-sm border border-gray-100 p-2 shrink-0">
-                                                            {opt.iconSrc ? (
-                                                                <img src={opt.iconSrc} alt={opt.iconAlt || opt.label} className="w-full h-full object-contain" />
-                                                            ) : opt.id === 'reduniq_pix' ? (
-                                                                <QrCode className="w-6 h-6 text-green-600" />
-                                                            ) : (
-                                                                <CreditCard className="w-6 h-6 text-gray-500" />
-                                                            )}
-                                                        </div>
-                                                        <div className="flex-1 min-w-0">
-                                                            <div className="flex items-center gap-2 mb-1">
-                                                                <span className="font-bold text-garabandal-dark text-lg">{opt.label}</span>
-                                                                {opt.badge && (
-                                                                    <span className="bg-green-100 text-green-700 text-[10px] font-bold uppercase px-2 py-0.5 rounded-full">
-                                                                        {opt.badge}
-                                                                    </span>
-                                                                )}
-                                                            </div>
-                                                            <div className="text-sm text-gray-500 font-medium">{opt.description}</div>
-                                                        </div>
-                                                        <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${selectedPaymentId === opt.id ? 'border-garabandal-gold' : 'border-gray-200 group-hover:border-gray-300'}`}>
-                                                            {selectedPaymentId === opt.id && <div className="w-3 h-3 rounded-full bg-garabandal-gold" />}
-                                                        </div>
-                                                    </button>
-                                                ))}
-                                            </div>
-
-                                            <div className="mt-8 flex items-center gap-3 p-4 bg-blue-50/50 rounded-xl text-xs font-bold text-blue-800/60 uppercase tracking-wide">
-                                                <Lock size={14} />
-                                                <span>{m.step3.secureNote}</span>
-                                            </div>
-
-                                            {paymentError && (
-                                                <div className="mt-4 p-4 bg-red-50 text-red-600 text-sm rounded-xl text-center font-bold">
-                                                    {paymentError}
-                                                </div>
-                                            )}
-
-                                            <button
-                                                onClick={handlePayment}
-                                                disabled={authLoading}
-                                                className="w-full mt-8 bg-garabandal-dark text-white font-bold uppercase tracking-widest py-4 rounded-xl hover:bg-black transition-all flex justify-center items-center gap-2 shadow-lg shadow-garabandal-dark/20 hover:scale-[1.02] active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-                                            >
-                                                {authLoading ? m.step3.processing : m.step3.payButton.replace('{amount}', formatPrice(membershipAmount))}
-                                            </button>
+                                            {paymentError && <Notice tone="error">{paymentError}</Notice>}
                                         </motion.div>
                                     )}
 
@@ -999,24 +1104,35 @@ export default function MembershipModal({ isOpen, onClose, impact, referralCode 
                                     {step === 4 && (
                                         <motion.div
                                             key="step4"
-                                            initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
-                                            className="flex flex-col items-center justify-center h-full text-center max-w-sm mx-auto"
+                                            initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
+                                            transition={{ duration: 0.4, ease: EASE }}
+                                            className="mx-auto flex h-full max-w-sm flex-col items-center justify-center py-10 text-center"
                                         >
-                                            <div className="w-24 h-24 bg-green-100 text-green-600 rounded-full flex items-center justify-center mb-8 animate-[bounce_2s_infinite]">
-                                                <CreditCard size={40} />
-                                            </div>
-                                            <h3 className="text-3xl font-serif text-garabandal-dark mb-4">{m.step4.heading}</h3>
-                                            <p className="text-gray-500 mb-8 text-lg font-light leading-relaxed">
-                                                {m.step4.subheadingPrefix} <strong className="text-gray-900 font-bold">{selectedPayment.label}</strong>.
+                                            <motion.div
+                                                initial={{ scale: 0.6, opacity: 0 }}
+                                                animate={{ scale: 1, opacity: 1 }}
+                                                transition={{ type: "spring", stiffness: 260, damping: 18, delay: 0.05 }}
+                                                className="mb-7 flex h-20 w-20 items-center justify-center rounded-full bg-brand text-white shadow-[0_16px_40px_-12px_rgba(53,99,233,0.7)]"
+                                            >
+                                                <Check size={36} strokeWidth={2.5} />
+                                            </motion.div>
+                                            <h3 className="text-2xl font-semibold tracking-[-0.02em] text-ink">{m.step4.heading}</h3>
+                                            <p className="mt-3 text-[15px] leading-relaxed text-muted">
+                                                {m.step4.subheadingPrefix} <strong className="font-semibold text-ink">{selectedPayment.label}</strong>.
                                             </p>
 
-                                            <div className="w-full max-w-xs bg-gray-100 rounded-full h-1.5 mb-8 overflow-hidden">
-                                                <div className="h-full bg-garabandal-gold animate-[progress_2s_ease-in-out_infinite]" style={{ width: '50%' }}></div>
+                                            <div className="mt-8 h-1 w-full max-w-[220px] overflow-hidden rounded-full bg-line">
+                                                <motion.div
+                                                    className="h-full rounded-full bg-brand"
+                                                    initial={{ width: "0%" }}
+                                                    animate={{ width: "100%" }}
+                                                    transition={{ duration: 1.5, ease: "easeInOut" }}
+                                                />
                                             </div>
 
                                             <a
                                                 href={paymentUrl || "#"}
-                                                className="text-sm font-bold text-garabandal-gold hover:text-garabandal-dark transition-colors uppercase tracking-widest border-b border-transparent hover:border-current"
+                                                className="mt-8 text-sm font-semibold text-brand underline-offset-4 hover:underline"
                                                 onClick={e => !paymentUrl && e.preventDefault()}
                                             >
                                                 {m.step4.fallbackLink}
@@ -1026,11 +1142,29 @@ export default function MembershipModal({ isOpen, onClose, impact, referralCode 
 
                                 </AnimatePresence>
                             </div>
+
+                            {/* Sticky footer with the step's primary action */}
+                            {footerAction && (
+                                <footer className="border-t border-line bg-white px-5 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4 md:px-10 md:pb-8 md:pt-5">
+                                    <div className={`mx-auto ${step === 1 ? 'max-w-md' : 'max-w-xl'}`}>
+                                        <button type="button" onClick={footerAction.onClick} disabled={footerAction.disabled} className={PRIMARY_BUTTON}>
+                                            {footerAction.disabled && authLoading && (
+                                                <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" aria-hidden />
+                                            )}
+                                            {footerAction.label}
+                                        </button>
+                                        {step === 3 && (
+                                            <p className="mt-3 flex items-center justify-center gap-1.5 text-xs text-muted md:hidden">
+                                                <Lock size={12} /> {m.step3.secureNote}
+                                            </p>
+                                        )}
+                                    </div>
+                                </footer>
+                            )}
                         </div>
                     </motion.div>
-                </div >
+                </div>
             )}
-
-        </AnimatePresence >
+        </AnimatePresence>
     );
 }

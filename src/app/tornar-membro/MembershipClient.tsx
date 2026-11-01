@@ -2,16 +2,13 @@
 
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import MembershipHero from "../../components/membership/MembershipHero";
-import MembershipBenefits from "../../components/membership/MembershipBenefits";
-import MembershipImpact from "../../components/membership/MembershipImpact";
-import MembershipFAQ from "../../components/membership/MembershipFAQ";
 import MembershipModal from "../../components/membership/MembershipModal";
+import MembershipLanding from "../../components/membership/MembershipLanding";
 import { QuotaWarning } from "../../components/membership/QuotaWarning";
 import { useAuth } from "../../contexts/AuthContext";
 import { getMembershipAmountClient } from "../../lib/membership-pricing";
-import AboutTeaser from "../../components/membership/AboutTeaser";
 import { useLocale } from "../../contexts/LocaleContext";
+import { useCurrency } from "../../components/providers/CurrencyProvider";
 
 function TornarMembroContent() {
     const search = useSearchParams();
@@ -21,6 +18,7 @@ function TornarMembroContent() {
     const { isMember, memberData, loading, isAuthenticated } = useAuth();
     const { t, locale } = useLocale();
     const m = t.membership;
+    const { formatPrice } = useCurrency();
     const [modalOpen, setModalOpen] = useState(false);
     const membershipAmount = getMembershipAmountClient();
     const [impact, setImpact] = useState({ members: 0, raised: 0, goal: 2500 });
@@ -62,22 +60,22 @@ function TornarMembroContent() {
     if (loading) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-white">
-                <div className="animate-spin w-8 h-8 border-2 border-garabandal-gold border-t-transparent rounded-full" />
+                <div className="animate-spin w-8 h-8 border-2 border-brand border-t-transparent rounded-full" />
             </div>
         );
     }
     if (isAuthenticated && hasMembership) return null;
 
+    // Same formatter as the landing, so the sticky bar shows the visitor's currency too.
+    const priceLabel = formatPrice(membershipAmount);
+
     return (
-        <main className="min-h-screen bg-white">
-            <div className="container mx-auto px-4 sm:px-6 lg:px-8 mt-24 lg:mt-28 mb-4">
-                <QuotaWarning memberData={memberData} />
-            </div>
-            <MembershipHero onJoinClick={() => setModalOpen(true)} />
-            <AboutTeaser />
-            <MembershipBenefits />
-            <MembershipImpact stats={impact} />
-            <MembershipFAQ />
+        <main className="min-h-screen bg-white pb-24 md:pb-0">
+            <MembershipLanding
+                onJoin={() => setModalOpen(true)}
+                impact={impact}
+                notice={<QuotaWarning memberData={memberData} />}
+            />
 
             <MembershipModal
                 isOpen={modalOpen}
@@ -87,12 +85,12 @@ function TornarMembroContent() {
             />
 
             {/* Mobile Sticky Bar */}
-            <div className="md:hidden fixed bottom-0 left-0 right-0 p-4 bg-white/90 backdrop-blur-md border-t border-gray-100 z-50">
+            <div className="md:hidden fixed bottom-0 left-0 right-0 p-4 bg-white/90 backdrop-blur-md border-t border-line z-50">
                 <button
                     onClick={() => setModalOpen(true)}
-                    className="w-full py-4 bg-garabandal-dark text-white rounded-xl font-bold uppercase tracking-widest shadow-lg"
+                    className="w-full min-h-14 rounded-full bg-brand text-base font-semibold text-white transition-colors hover:bg-brand-700"
                 >
-                    {m.mobileBar.cta} · {new Intl.NumberFormat(locale === 'en' ? 'en-GB' : 'pt-PT', { style: 'currency', currency: 'EUR' }).format(membershipAmount)}
+                    {m.mobileBar.cta} · {priceLabel}
                 </button>
             </div>
         </main>
@@ -102,7 +100,7 @@ function TornarMembroContent() {
 function MembershipSuspenseFallback() {
     return (
         <div className="h-screen flex items-center justify-center">
-            <div className="animate-spin w-8 h-8 border-2 border-garabandal-gold border-t-transparent rounded-full" />
+            <div className="animate-spin w-8 h-8 border-2 border-brand border-t-transparent rounded-full" />
         </div>
     );
 }
