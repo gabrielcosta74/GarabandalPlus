@@ -69,6 +69,8 @@ Jobs principais:
 - Recuperação de leads: Start Command `npm run cron:recover-leads`, Cron Schedule `0 12-23 * * *`
 - Automações marketing: Start Command `npm run cron:marketing-automations`, Cron Schedule `*/15 13-21 * * *`
 - Relatórios mensais: Start Command `npm run cron:monthly-reports`, Cron Schedule `0 7 1 * *`
+- Pushes da app (reativação, pedidos de oração, campanhas): Start Command `npm run cron:push-notifications`, Cron Schedule `0 * * * *`
+- Pushes da Comunidade (convites para rezar, amizades, comentários, gostos): Start Command `npm run cron:community-push`, Cron Schedule `*/5 * * * *`. A hora local e o limite diário são tratados no código; o cron de hora a hora continua a tratá-las também, sem duplicar envios.
 
 Para a reconciliação Reduniq, usa:
 
