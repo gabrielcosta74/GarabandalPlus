@@ -68,7 +68,7 @@ export type SavePostPayload = {
 };
 
 export type SaveResult =
-  | { ok: true; row: { id: string; updated_at: string; status: CmsStatus; slug: string } }
+  | { ok: true; row: { id: string; updated_at: string; status: CmsStatus; slug: string }; publishedNow?: boolean }
   | { ok: false; code: 'conflict' | 'not_found' | 'db_error' | 'forbidden' | 'invalid'; message: string };
 
 async function snapshotRevision(
@@ -633,7 +633,7 @@ export async function savePage(
   // Read current row for conflict detection + revision snapshot
   const { data: current, error: readErr } = await supabaseServer
     .from('wp_pages')
-    .select('id, slug, updated_at, content_html, content_json, title, meta_title, meta_description, og_image_url, status')
+    .select('id, slug, updated_at, content_html, content_json, title, meta_title, meta_description, og_image_url, status, published_at')
     .eq('id', payload.id)
     .maybeSingle();
   if (readErr) return { ok: false, code: 'db_error', message: readErr.message };
@@ -666,7 +666,7 @@ export async function savePage(
     ...mtField(false),
     published_at:
       payload.status === 'published'
-        ? (current as any).published_at ?? new Date().toISOString()
+        ? current.published_at ?? new Date().toISOString()
         : null,
   };
 
@@ -733,7 +733,7 @@ export async function savePost(
     ...mtField(false),
     published_at:
       payload.status === 'published'
-        ? payload.published_at ?? (current as any).published_at ?? new Date().toISOString()
+        ? payload.published_at ?? current.published_at ?? new Date().toISOString()
         : null,
   };
 
@@ -750,9 +750,13 @@ export async function savePost(
 
   await maybeAddRedirect(oldSlug, updated.slug, payload.locale, 'post');
   await writeAudit(user.id, user.email, 'cms.post.save', 'post', payload.id, {
-    before: { slug: oldSlug, status: current.status, featured: (current as any).featured },
+    before: { slug: oldSlug, status: current.status, featured: current.featured },
     after: { slug: updated.slug, status: updated.status, featured: update.featured },
   });
 
-  return { ok: true, row: updated };
+  return {
+    ok: true,
+    row: updated,
+    publishedNow: current.status !== 'published' && updated.status === 'published',
+  };
 }

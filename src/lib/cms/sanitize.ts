@@ -14,7 +14,7 @@ const ALLOWED_TAGS = [
   'p', 'br', 'hr',
   'ul', 'ol', 'li',
   'blockquote',
-  'strong', 'b', 'em', 'i', 'u', 's', 'mark', 'code',
+  'strong', 'b', 'em', 'i', 'u', 's', 'mark', 'pre', 'code',
   'a', 'img',
   'figure', 'figcaption',
   'table', 'thead', 'tbody', 'tr', 'td', 'th',
@@ -71,7 +71,8 @@ export function sanitizeHtml(input: string): string {
     // Disallow ALL JS URI schemes
     ALLOWED_URI_REGEXP: /^(?:(?:https?|mailto|tel|ftp):|[^a-z]|[a-z+.-]+(?:[^a-z+.\-:]|$))/i,
     FORBID_ATTR: ['style', 'id'],
-    USE_PROFILES: { html: true },
+    // USE_PROFILES overrides ALLOWED_TAGS and would silently remove videos.
+    // Keep the explicit HTML allow-list; validate embed hosts below.
     // Hook to validate iframe & img sources
     SAFE_FOR_TEMPLATES: false,
     ADD_ATTR: ['allowfullscreen'],
@@ -103,13 +104,16 @@ function pruneCmsAttributes(html: string): string {
 export function sanitizeAndValidate(html: string): string {
   let cleaned = pruneCmsAttributes(sanitizeHtml(html));
 
-  // Strip iframes whose src host isn't whitelisted
-  cleaned = cleaned.replace(/<iframe[^>]*src="([^"]+)"[^>]*><\/iframe>/gi, (full, src) => {
+  // Only HTTPS embeds from known providers may survive, including after
+  // DOMPurify has removed a dangerous or missing src attribute.
+  cleaned = cleaned.replace(/<iframe\b[^>]*>[\s\S]*?<\/iframe>/gi, (full) => {
+    const src = full.match(/\ssrc="([^"]+)"/i)?.[1];
+    if (!src) return '';
     try {
-      const u = new URL(src, 'https://example.com');
-      if (ALLOWED_IFRAME_HOSTS.some((h) => u.hostname === h || u.hostname.endsWith('.' + h))) {
-        return full;
-      }
+      const url = new URL(src);
+      if (url.protocol === 'https:' && ALLOWED_IFRAME_HOSTS.some((host) =>
+        url.hostname === host || url.hostname.endsWith('.' + host),
+      )) return full;
     } catch { /* malformed URL */ }
     return '';
   });

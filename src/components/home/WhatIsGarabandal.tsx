@@ -30,12 +30,12 @@ const WhatIsGarabandal = ({ locale }: { locale: 'pt' | 'en' }) => {
         ? [
             { value: '1961', label: 'First apparition' },
             { value: '4', label: 'Young visionaries' },
-            { value: '1961–65', label: 'Period of the accounts' },
+            { value: '1961–65', label: 'Years of the apparitions' },
         ]
         : [
             { value: '1961', label: 'Primeira aparição' },
             { value: '4', label: 'Jovens videntes' },
-            { value: '1961–65', label: 'Período dos relatos' },
+            { value: '1961–65', label: 'Anos das aparições' },
         ];
 
     return (
@@ -60,8 +60,8 @@ const WhatIsGarabandal = ({ locale }: { locale: 'pt' | 'en' }) => {
                     <div className="mt-8 space-y-5 text-lg leading-[1.7] text-muted">
                         <p>
                             {isEn
-                                ? 'San Sebastián de Garabandal is a village in Cantabria, northern Spain, known for the accounts of apparitions of Our Lady of Mount Carmel between 1961 and 1965. Four girls are associated with those events: Conchita González, Mari Loli Mazón, Jacinta González and Mari Cruz González.'
-                                : 'San Sebastián de Garabandal é uma aldeia da Cantábria, no norte de Espanha, conhecida pelos relatos das aparições de Nossa Senhora do Carmo entre 1961 e 1965. Quatro meninas ficaram ligadas a estes acontecimentos: Conchita González, Mari Loli Mazón, Jacinta González e Mari Cruz González.'}
+                                ? 'In San Sebastián de Garabandal, a village in Cantabria, northern Spain, Our Lady of Mount Carmel appeared to four girls between 1961 and 1965: Conchita González, Mari Loli Mazón, Jacinta González and Mari Cruz González.'
+                                : 'Em San Sebastián de Garabandal, uma aldeia da Cantábria, no norte de Espanha, Nossa Senhora do Carmo apareceu a quatro meninas entre 1961 e 1965: Conchita González, Mari Loli Mazón, Jacinta González e Mari Cruz González.'}
                         </p>
                         <p>
                             {isEn
