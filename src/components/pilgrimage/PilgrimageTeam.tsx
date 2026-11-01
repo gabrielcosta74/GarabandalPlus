@@ -53,7 +53,7 @@ function MemberCard({ member, isEn }: { member: TeamMember; isEn: boolean }) {
         <figure className="group flex flex-row gap-4 sm:flex-col sm:gap-0">
             {/* Portrait — compact thumbnail on mobile, full-width card on sm+ */}
             <div
-                className={`relative aspect-[4/5] w-24 shrink-0 overflow-hidden rounded-2xl bg-slate-100 shadow-sm transition-all duration-500 group-hover:shadow-xl sm:w-full sm:rounded-3xl ${member.is_special_guest ? 'ring-2 ring-yellow-300' : 'ring-1 ring-slate-200/70'
+                className={`relative aspect-[4/5] w-24 shrink-0 overflow-hidden rounded-2xl bg-slate-100 shadow-sm transition-all duration-500 group-hover:shadow-xl sm:w-full sm:rounded-3xl ${member.is_special_guest ? 'ring-2 ring-brand' : 'ring-1 ring-slate-200/70'
                     }`}
             >
                 {member.image_url ? (
@@ -70,7 +70,7 @@ function MemberCard({ member, isEn }: { member: TeamMember; isEn: boolean }) {
                 )}
 
                 {member.is_special_guest && (
-                    <span className="absolute left-1.5 top-1.5 rounded-full bg-yellow-400/95 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-yellow-950 shadow-sm backdrop-blur-sm sm:left-3 sm:top-3 sm:px-3 sm:py-1 sm:text-[10px] sm:tracking-widest">
+                    <span className="absolute left-1.5 top-1.5 rounded-full bg-brand/95 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-white shadow-sm backdrop-blur-sm sm:left-3 sm:top-3 sm:px-3 sm:py-1 sm:text-[10px] sm:tracking-widest">
                         {isEn ? 'Guest' : 'Convidado'}
                     </span>
                 )}
@@ -79,7 +79,7 @@ function MemberCard({ member, isEn }: { member: TeamMember; isEn: boolean }) {
             {/* Caption */}
             <figcaption className="min-w-0 flex-1 pt-0 sm:pt-4">
                 <h3 className="font-serif text-lg font-bold leading-tight text-slate-900">{member.name}</h3>
-                <p className="mt-1 flex items-center gap-2 text-sm font-semibold text-yellow-700">
+                <p className="mt-1 flex items-center gap-2 text-sm font-semibold text-brand">
                     <span>{role}</span>
                     {flag && (
                         <>
@@ -105,7 +105,7 @@ function MemberCard({ member, isEn }: { member: TeamMember; isEn: boolean }) {
                             <button
                                 type="button"
                                 onClick={() => setExpanded((v) => !v)}
-                                className="mt-1.5 text-xs font-bold uppercase tracking-wider text-slate-400 transition-colors hover:text-yellow-700"
+                                className="mt-1.5 text-xs font-bold uppercase tracking-wider text-slate-400 transition-colors hover:text-brand"
                             >
                                 {expanded ? (isEn ? 'Show less' : 'Ver menos') : (isEn ? 'Read more' : 'Ver mais')}
                             </button>
@@ -123,11 +123,11 @@ export default function PilgrimageTeam({ members, isEn }: { members: TeamMember[
     return (
         <section>
             <div className="mb-7 px-5 md:px-0">
-                <span className="text-xs font-black uppercase tracking-widest text-yellow-700">
+                <span className="text-xs font-black uppercase tracking-widest text-brand">
                     {isEn ? 'Who guides you' : 'Quem te acompanha'}
                 </span>
                 <h2 className="mt-1 flex items-center gap-2.5 font-serif text-2xl font-bold text-slate-900 md:text-3xl">
-                    <Users className="h-6 w-6 text-yellow-600" />
+                    <Users className="h-6 w-6 text-brand" />
                     {isEn ? 'Pilgrimage Team' : 'Equipa da Peregrinação'}
                 </h2>
             </div>

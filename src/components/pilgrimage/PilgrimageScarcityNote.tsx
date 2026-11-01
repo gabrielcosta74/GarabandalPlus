@@ -39,12 +39,12 @@ export default function PilgrimageScarcityNote({
     return (
         <div
             className={`flex items-center gap-3 rounded-2xl border px-4 py-3 ${critical
-                ? 'border-red-200 bg-gradient-to-r from-red-50 to-amber-50'
-                : 'border-amber-200 bg-amber-50/70'
+                ? 'border-red-200 bg-gradient-to-r from-red-50 to-white'
+                : 'border-brand-200 bg-brand-50'
                 } ${className}`}
             role="status"
         >
-            <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${critical ? 'bg-red-100 text-red-600' : 'bg-amber-100 text-amber-700'}`}>
+            <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${critical ? 'bg-red-100 text-red-600' : 'bg-white text-brand shadow-sm'}`}>
                 <Flame className="h-4 w-4" strokeWidth={2.5} />
             </span>
             <div className="min-w-0">
@@ -55,7 +55,7 @@ export default function PilgrimageScarcityNote({
                             <span className="relative inline-flex h-2 w-2 rounded-full bg-red-500" />
                         </span>
                     )}
-                    <p className={`text-sm font-black ${critical ? 'text-red-700' : 'text-amber-800'}`}>{title}</p>
+                    <p className={`text-sm font-black ${critical ? 'text-red-700' : 'text-brand-700'}`}>{title}</p>
                 </div>
                 <p className="text-xs font-medium text-slate-500">{subtitle}</p>
             </div>

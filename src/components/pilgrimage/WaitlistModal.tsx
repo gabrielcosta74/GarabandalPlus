@@ -56,7 +56,7 @@ export default function WaitlistModal({
                     type="button"
                     onClick={onClose}
                     aria-label={isEn ? 'Close' : 'Fechar'}
-                    className="absolute right-4 top-4 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-600 shadow-sm transition hover:bg-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    className="absolute right-4 top-4 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-600 shadow-sm transition hover:bg-slate-200 focus:outline-none focus:ring-2 focus:ring-brand"
                 >
                     <X className="h-5 w-5" />
                 </button>

@@ -150,7 +150,7 @@ export default function SpiritMap({ stages, height = 500 }: SpiritMapProps) {
                             type="line"
                             layout={{ 'line-join': 'round', 'line-cap': 'round' }}
                             paint={{
-                                'line-color': '#F59E0B',
+                                'line-color': '#4b7bf0',
                                 'line-width': 3,
                                 'line-opacity': 0.6,
                                 'line-dasharray': [2, 1]
@@ -182,7 +182,7 @@ export default function SpiritMap({ stages, height = 500 }: SpiritMapProps) {
                                 {/* Pin */}
                                 <div className={`
                                 w-auto min-w-[32px] h-8 px-2 rounded-full border-2 flex items-center justify-center shadow-lg transition-colors gap-1
-                                ${isActive ? 'bg-yellow-500 border-yellow-300 text-slate-900' : 'bg-slate-800 border-slate-600 text-white'}
+                                ${isActive ? 'bg-brand border-brand-200 text-white' : 'bg-slate-800 border-slate-600 text-white'}
                             `}>
                                     {index === 0 ? <span className="text-[10px] font-black">INÍCIO</span> :
                                         index === sortedStages.length - 1 ? <MapPin className="w-4 h-4" /> :
@@ -191,7 +191,7 @@ export default function SpiritMap({ stages, height = 500 }: SpiritMapProps) {
 
                                 {/* Pulse Effect for Active */}
                                 {isActive && (
-                                    <div className="absolute top-0 w-8 h-8 bg-yellow-400/50 rounded-full animate-ping -z-10" />
+                                    <div className="absolute top-0 w-8 h-8 bg-brand/50 rounded-full animate-ping -z-10" />
                                 )}
                             </div>
                         </Marker>
@@ -204,9 +204,9 @@ export default function SpiritMap({ stages, height = 500 }: SpiritMapProps) {
 
             {/* 1. Header & Title */}
             <div className="absolute top-6 left-6 z-10 pointer-events-none">
-                <div className="flex items-center gap-2 bg-slate-900/80 backdrop-blur-md px-4 py-2 rounded-full border border-yellow-500/20 shadow-lg">
-                    <Plane className="w-4 h-4 text-yellow-500" />
-                    <span className="text-yellow-100 text-xs font-bold uppercase tracking-wider">
+                <div className="flex items-center gap-2 bg-slate-900/80 backdrop-blur-md px-4 py-2 rounded-full border border-brand/30 shadow-lg">
+                    <Plane className="w-4 h-4 text-brand-200" />
+                    <span className="text-brand-50 text-xs font-bold uppercase tracking-wider">
                         {viewMode === 'story' ? 'Modo Visita Guiada' : 'Modo Livre'}
                     </span>
                 </div>
@@ -228,7 +228,7 @@ export default function SpiritMap({ stages, height = 500 }: SpiritMapProps) {
                             <div className="absolute inset-0 bg-gradient-to-t from-slate-900 to-transparent" />
 
                             {/* Day / Order Badge */}
-                            <div className="absolute top-3 left-3 bg-yellow-500 text-slate-900 text-[10px] font-bold px-2 py-0.5 rounded-full shadow-lg">
+                            <div className="absolute top-3 left-3 bg-brand text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-lg">
                                 PARAGEM {activeStage.display_order}
                             </div>
                         </div>
@@ -242,7 +242,7 @@ export default function SpiritMap({ stages, height = 500 }: SpiritMapProps) {
                         {/* Progress Bar (if playing) */}
                         {isPlaying && (
                             <div className="h-1 w-full bg-slate-800 relative overflow-hidden">
-                                <div className="absolute inset-0 bg-yellow-500 animate-[progress_8s_linear_infinite]" />
+                                <div className="absolute inset-0 bg-brand animate-[progress_8s_linear_infinite]" />
                             </div>
                         )}
                     </div>
@@ -257,7 +257,7 @@ export default function SpiritMap({ stages, height = 500 }: SpiritMapProps) {
                     <SkipBack className="w-5 h-5" />
                 </button>
 
-                <button onClick={togglePlay} className="p-4 bg-yellow-500 hover:bg-yellow-400 text-black rounded-xl transition-all shadow-lg hover:shadow-yellow-500/20 active:scale-95">
+                <button onClick={togglePlay} className="p-4 bg-brand hover:bg-brand-700 text-white rounded-xl transition-all shadow-lg hover:shadow-brand/30 active:scale-95">
                     {isPlaying ? <Pause className="w-6 h-6 fill-current" /> : <Play className="w-6 h-6 fill-current ml-0.5" />}
                 </button>
 

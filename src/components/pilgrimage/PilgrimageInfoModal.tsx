@@ -119,7 +119,7 @@ export default function PilgrimageInfoModal({
                         <div className="border-b border-slate-100 px-5 py-6 md:px-8 md:py-8">
                         <div className="mb-3 flex items-start justify-between gap-4 md:mb-4">
                             <div>
-                                <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.24em] text-yellow-700">
+                                <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.24em] text-brand">
                                     {isEn ? 'Important Information' : 'Informação Importante'}
                                 </p>
                                 <h2 className="text-2xl font-bold text-slate-900 md:text-3xl">
@@ -145,11 +145,11 @@ export default function PilgrimageInfoModal({
                         </div>
 
                         <div className="grid gap-2 md:gap-3 md:grid-cols-2">
-                            <div className="rounded-2xl border border-yellow-200 bg-yellow-50 p-4">
-                                <p className="mb-1 text-xs font-bold uppercase tracking-wider text-yellow-800">
+                            <div className="rounded-2xl border border-brand-200 bg-brand-50 p-4">
+                                <p className="mb-1 text-xs font-bold uppercase tracking-wider text-brand-700">
                                     {isEn ? 'To avoid doubts' : 'Para evitar dúvidas'}
                                 </p>
-                                <p className="text-sm font-medium leading-relaxed text-yellow-900">
+                                <p className="text-sm font-medium leading-relaxed text-ink-soft">
                                     {isEn ? 'The main price of this pilgrimage is the land package. Flights are not included in this base price.' : 'O valor principal desta peregrinação é o valor do terrestre. O voo não está incluído nesse valor base.'}
                                 </p>
                             </div>
@@ -243,7 +243,7 @@ export default function PilgrimageInfoModal({
 
                                 <section aria-labelledby="land-package-contents-title">
                                     <div className="mb-4">
-                                        <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-yellow-700">
+                                        <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-brand">
                                             {isEn ? 'Land package' : 'Pacote terrestre'}
                                         </p>
                                         <h3 id="land-package-contents-title" className="mt-1 text-xl font-bold text-slate-900">
@@ -315,7 +315,7 @@ export default function PilgrimageInfoModal({
                                 {(paymentPlanText || cancellationPolicyText) && (
                                     <div className="space-y-6 mt-8 border-t border-slate-100 pt-8">
                                         <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-                                            <ShieldCheck className="w-5 h-5 text-yellow-600" /> {isEn ? 'Conditions and payment / donation methods' : 'Condições e formas de pagamento / doação'}
+                                            <ShieldCheck className="w-5 h-5 text-brand" /> {isEn ? 'Conditions and payment methods' : 'Condições e formas de pagamento'}
                                         </h3>
                                         
                                         <div className="bg-slate-50 border border-slate-200 p-6 rounded-2xl flex flex-col items-center gap-4 w-full">
@@ -352,14 +352,14 @@ export default function PilgrimageInfoModal({
 
                                         <div className="grid grid-cols-1 gap-6">
                                             {paymentPlanText && (
-                                                <div className="bg-gradient-to-br from-indigo-50 to-indigo-50/30 p-6 rounded-2xl border border-indigo-100 shadow-sm relative overflow-hidden">
+                                                <div className="bg-gradient-to-br from-brand-50 to-brand-50/30 p-6 rounded-2xl border border-brand-200/70 shadow-sm relative overflow-hidden">
                                                     <div className="flex items-start gap-4 relative z-10">
-                                                        <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 shrink-0">
+                                                        <div className="w-10 h-10 rounded-full bg-brand-200/50 flex items-center justify-center text-brand shrink-0">
                                                             <CheckCircle2 className="w-5 h-5" />
                                                         </div>
                                                         <div>
-                                                            <h4 className="font-bold text-indigo-900 mb-2">{isEn ? 'Donation Options' : 'Facilidades de Doação'}</h4>
-                                                            <RichText value={paymentPlanText} className="text-indigo-800/80 leading-relaxed text-sm" />
+                                                            <h4 className="font-bold text-ink mb-2">{isEn ? 'Payment options' : 'Opções de pagamento'}</h4>
+                                                            <RichText value={paymentPlanText} className="text-ink-soft/80 leading-relaxed text-sm" />
                                                         </div>
                                                     </div>
                                                 </div>
@@ -389,14 +389,14 @@ export default function PilgrimageInfoModal({
                             </>
                         ) : countryBasedFlightPolicy ? (
                             <>
-                                <div className="rounded-3xl border border-amber-200 bg-amber-50 p-5 md:p-6">
+                                <div className="rounded-3xl border border-brand-200 bg-brand-50 p-5 md:p-6">
                                     <div className="flex items-start gap-3">
-                                        <ShieldCheck className="mt-0.5 h-6 w-6 shrink-0 text-amber-700" />
+                                        <ShieldCheck className="mt-0.5 h-6 w-6 shrink-0 text-brand-700" />
                                         <div>
-                                            <h3 className="text-lg font-black text-amber-950">
+                                            <h3 className="text-lg font-black text-ink">
                                                 {isEn ? 'The rule depends on your country of residence' : 'A regra depende do seu país de residência'}
                                             </h3>
-                                            <p className="mt-2 text-sm font-medium leading-relaxed text-amber-900">
+                                            <p className="mt-2 text-sm font-medium leading-relaxed text-ink-soft">
                                                 {isEn
                                                     ? 'The registration form applies the correct rule automatically. There is no optional flight choice for this pilgrimage.'
                                                     : 'O formulário de inscrição aplica automaticamente a regra correta. Nesta peregrinação não existe uma escolha opcional de voo.'}
@@ -406,8 +406,8 @@ export default function PilgrimageInfoModal({
                                 </div>
 
                                 <div className="grid gap-5 md:grid-cols-2">
-                                    <div className="rounded-3xl border-2 border-amber-200 bg-white p-6 shadow-sm">
-                                        <div className="mb-4 flex items-center gap-2 text-amber-800">
+                                    <div className="rounded-3xl border-2 border-brand-200 bg-white p-6 shadow-sm">
+                                        <div className="mb-4 flex items-center gap-2 text-brand-700">
                                             <Users className="h-5 w-5" />
                                             <h3 className="text-lg font-black">
                                                 {isEn ? 'Residents of Portugal or Brazil' : 'Residentes em Portugal ou no Brasil'}
@@ -425,30 +425,30 @@ export default function PilgrimageInfoModal({
                                                 isEn ? 'Split → home destination' : 'Split → destino de regresso',
                                             ].map(item => (
                                                 <li key={item} className="flex items-start gap-2">
-                                                    <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+                                                    <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-brand" />
                                                     {item}
                                                 </li>
                                             ))}
                                         </ul>
                                         <div className="mt-5 grid gap-3 sm:grid-cols-2 md:grid-cols-1">
-                                            <div className="rounded-2xl bg-amber-50 p-4">
-                                                <p className="text-xs font-black uppercase tracking-wider text-amber-700">
+                                            <div className="rounded-2xl bg-brand-50 p-4">
+                                                <p className="text-xs font-black uppercase tracking-wider text-brand-700">
                                                     {isEn ? 'Brazil estimate' : 'Estimativa Brasil'}
                                                 </p>
-                                                <p className="mt-1 text-xl font-black text-amber-950">
+                                                <p className="mt-1 text-xl font-black text-ink">
                                                     {formatFlightEstimate(countryBasedFlightPolicy.estimates_eur.BR, isEn ? 'en' : 'pt')}
                                                 </p>
                                             </div>
-                                            <div className="rounded-2xl bg-amber-50 p-4">
-                                                <p className="text-xs font-black uppercase tracking-wider text-amber-700">
+                                            <div className="rounded-2xl bg-brand-50 p-4">
+                                                <p className="text-xs font-black uppercase tracking-wider text-brand-700">
                                                     {isEn ? 'Portugal estimate' : 'Estimativa Portugal'}
                                                 </p>
-                                                <p className="mt-1 text-xl font-black text-amber-950">
+                                                <p className="mt-1 text-xl font-black text-ink">
                                                     {formatFlightEstimate(countryBasedFlightPolicy.estimates_eur.PT, isEn ? 'en' : 'pt')}
                                                 </p>
                                             </div>
                                         </div>
-                                        <p className="mt-4 text-xs font-bold leading-relaxed text-amber-800">
+                                        <p className="mt-4 text-xs font-bold leading-relaxed text-brand-700">
                                             {isEn
                                                 ? 'Paid directly to the agency. Never added to the land-package registration total.'
                                                 : 'Pago diretamente à agência. Nunca é somado ao total terrestre da inscrição.'}
@@ -505,32 +505,32 @@ export default function PilgrimageInfoModal({
                                         />
                                     </div>
 
-                                    <div className="rounded-3xl border border-indigo-100 bg-indigo-50 p-6">
-                                        <div className="mb-4 flex items-center gap-2 text-indigo-800">
+                                    <div className="rounded-3xl border border-brand-200/70 bg-brand-50 p-6">
+                                        <div className="mb-4 flex items-center gap-2 text-brand-700">
                                             <Users className="h-5 w-5" />
                                             <h3 className="text-lg font-bold">{isEn ? 'Group flight' : 'Voo de grupo'}</h3>
                                         </div>
                                         {flightPriceFrom ? (
                                             <>
-                                                <p className="mb-4 text-sm leading-relaxed text-indigo-900">
+                                                <p className="mb-4 text-sm leading-relaxed text-ink">
                                                     {isEn ? 'If you prefer, you can travel on the flight organised by the agency. This price is separate from the land package.' : 'Se preferir, pode seguir no voo organizado pela agência. Este valor é separado do terrestre.'}
                                                 </p>
                                                 {groupFlightDetails && (
-                                                    <div className="mb-4 rounded-2xl border border-indigo-100 bg-white/80 p-4">
-                                                        <RichText value={groupFlightDetails} className="text-sm leading-relaxed text-indigo-900" />
+                                                    <div className="mb-4 rounded-2xl border border-brand-200/70 bg-white/80 p-4">
+                                                        <RichText value={groupFlightDetails} className="text-sm leading-relaxed text-ink" />
                                                     </div>
                                                 )}
                                                 <div className="rounded-2xl bg-white p-4 shadow-sm">
-                                                    <p className="mb-1 text-xs font-bold uppercase tracking-wider text-indigo-500">
+                                                    <p className="mb-1 text-xs font-bold uppercase tracking-wider text-brand">
                                                         {isEn ? 'Reference price' : 'Valor de referência'}
                                                     </p>
                                                     <PilgrimagePrice
                                                         amountInEur={flightPriceFrom}
                                                         layout="stacked"
-                                                        primaryClassName="text-3xl font-black text-indigo-700"
-                                                        secondaryClassName="text-sm font-semibold text-indigo-500"
+                                                        primaryClassName="text-3xl font-black text-brand-700"
+                                                        secondaryClassName="text-sm font-semibold text-brand"
                                                     />
-                                                    <p className="mt-2 text-xs leading-relaxed text-indigo-500">
+                                                    <p className="mt-2 text-xs leading-relaxed text-brand">
                                                         {isEn ? 'This payment is handled directly with the partner agency.' : 'Este pagamento é tratado diretamente com a agência parceira.'}
                                                     </p>
                                                 </div>
@@ -589,7 +589,7 @@ export default function PilgrimageInfoModal({
                                 <Link
                                     href={registrationLink}
                                     onClick={onClose}
-                                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-yellow-400 px-4 py-3 text-sm font-black text-slate-950 transition-colors hover:bg-yellow-500"
+                                    className="btn-member group gap-2 rounded-full px-6 py-3 text-sm font-semibold tracking-[-0.01em] !text-white"
                                 >
                                     {isEn ? 'I want to register' : 'Quero inscrever-me'}
                                     <ArrowRight className="h-4 w-4" />

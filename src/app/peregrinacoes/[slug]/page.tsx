@@ -35,7 +35,7 @@ const SpiritMap = dynamic(() => import('../../../components/pilgrimage/SpiritMap
         return (
             <div className="rounded-3xl overflow-hidden shadow-2xl border border-slate-800 bg-slate-950 flex items-center justify-center" style={{ height: 500 }}>
                 <div className="text-center">
-                    <div className="w-16 h-16 border-4 border-yellow-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                    <div className="w-16 h-16 border-4 border-brand border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
                     <p className="text-slate-400 text-sm">{isEnLoad ? 'Loading map...' : 'A carregar mapa...'}</p>
                 </div>
             </div>
@@ -63,6 +63,7 @@ import {
     getConfiguredInstallmentDeadline,
     getMaxInstallments,
 } from '../../../lib/pilgrimage-installments';
+import './pilgrimage-detail.css';
 
 type Pilgrimage = {
     id: string;
@@ -363,8 +364,22 @@ export default function PilgrimageDetailPage() {
     if (loading) {
         return (
             <VIPLayout allowPublic={true}>
-                <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-                    <div className="animate-spin w-10 h-10 border-4 border-yellow-600 border-t-transparent rounded-full" />
+                {/* Skeleton with the same hero box as the loaded page, so the content
+                    swaps in without a layout shift. */}
+                <div className="pilgrimage-detail pilgrimage-loading -mx-4 bg-slate-50 min-h-screen relative md:mx-0" role="status" aria-live="polite">
+                    <span className="sr-only">{isEn ? 'Loading pilgrimage…' : 'A carregar peregrinação…'}</span>
+                    <div className="pilgrimage-hero pilgrimage-skeleton-hero relative min-h-[460px] w-full overflow-hidden md:h-[68vh] md:min-h-[620px]">
+                        <div className="absolute inset-0 container mx-auto px-4 md:px-6 flex flex-col justify-end gap-3 pb-10 md:pb-12">
+                            <span className="pilgrimage-skeleton-line h-9 w-32 rounded-full" />
+                            <span className="pilgrimage-skeleton-line h-7 w-48 rounded-full" />
+                            <span className="pilgrimage-skeleton-line h-10 w-[85%] max-w-2xl rounded-2xl" />
+                            <span className="pilgrimage-skeleton-line h-10 w-[60%] max-w-xl rounded-2xl" />
+                        </div>
+                    </div>
+                    <div className="container mx-auto px-4 md:px-6 -mt-8 md:-mt-10 relative z-30">
+                        <div className="pilgrimage-skeleton-card h-[60px] rounded-2xl" />
+                        <div className="pilgrimage-skeleton-card mt-4 h-64 rounded-3xl lg:w-2/3" />
+                    </div>
                 </div>
             </VIPLayout>
         );
@@ -390,7 +405,7 @@ export default function PilgrimageDetailPage() {
             <VIPLayout allowPublic={true}>
                 <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center text-center p-8">
                     <h1 className="text-2xl font-bold text-slate-900 mb-2">{isEn ? 'Trip not found' : 'Viagem não encontrada'}</h1>
-                    <Link href={listPath} className="text-yellow-600 hover:underline">{isEn ? 'back to list' : 'voltar à lista'}</Link>
+                    <Link href={listPath} className="text-brand hover:underline">{isEn ? 'back to list' : 'voltar à lista'}</Link>
                 </div>
             </VIPLayout>
         );
@@ -410,7 +425,7 @@ export default function PilgrimageDetailPage() {
         : Number.isFinite(Number(pilgrimage.current_vacancies))
             ? Math.max(0, Number(pilgrimage.current_vacancies))
             : Math.max(0, pilgrimage.total_vacancies - confirmedPax);
-    const isWaitlist = pilgrimage.status === 'waitlist' || remainingSpots <= 0;
+    const isWaitlist = !isClosed && (pilgrimage.status === 'waitlist' || remainingSpots <= 0);
     const scarcityPct = getScarcitySoldPercent(pilgrimage);
     const includedItemsToShow =
         isEn && (pilgrimage.included_items_en?.length || 0) > 0
@@ -472,15 +487,15 @@ export default function PilgrimageDetailPage() {
     // conversion). No amount maths changed.
     const sidebarBaseEUR = formatEUR(pilgrimage.base_price || 0);
     const sidebarDepositEUR = formatEUR(pilgrimage.deposit_value || 0);
-    const sidebarBaseConverted = formatConverted(pilgrimage.base_price || 0);
-    const sidebarDepositConverted = formatConverted(pilgrimage.deposit_value || 0);
+    const sidebarStartingEUR = formatEUR((pilgrimage.base_price || 0) + (pilgrimage.deposit_value || 0));
+    const sidebarStartingConverted = formatConverted((pilgrimage.base_price || 0) + (pilgrimage.deposit_value || 0));
     const isNovemberCampaign = isNovemberCampaignPilgrimage(pilgrimage);
     const publicLaunchTs = getPublicLaunchTimestamp(pilgrimage);
     const inEarlyAccess = publicLaunchTs !== null && Date.now() < publicLaunchTs;
 
     return (
         <VIPLayout allowPublic={true}>
-            <div className="-mx-4 bg-slate-50 min-h-screen relative pb-20 md:mx-0">
+            <div className="pilgrimage-detail -mx-4 bg-slate-50 min-h-screen relative md:mx-0">
                 {inEarlyAccess && publicLaunchTs !== null && (
                     <EarlyAccessBanner
                         target={publicLaunchTs}
@@ -498,27 +513,27 @@ export default function PilgrimageDetailPage() {
                     </div>
                 )}
                 {/* Hero Header */}
-                <div className="relative min-h-[560px] w-full overflow-hidden md:h-[68vh] md:min-h-[620px]">
+                <div className="pilgrimage-hero relative min-h-[460px] w-full overflow-hidden md:h-[68vh] md:min-h-[620px]">
                     <div className="absolute inset-0 bg-slate-950/35 z-10" />
                     {coverImageToShow && (
                         <img
                             src={coverImageToShow}
                             alt={pilgrimageTitle}
-                            className="absolute inset-0 w-full h-full object-cover"
+                            className="pilgrimage-hero-img absolute inset-0 w-full h-full object-cover"
                         />
                     )}
                     <div className="absolute inset-0 z-10 bg-gradient-to-t from-slate-950 via-slate-950/55 to-slate-950/10" />
                     <div className="absolute inset-0 z-10 bg-gradient-to-r from-slate-950/75 via-slate-950/25 to-transparent" />
-                    <div className="absolute inset-0 z-20 container mx-auto px-4 md:px-6 h-full flex flex-col justify-end pb-8 md:pb-12">
+                    <div className="pilgrimage-hero-content absolute inset-0 z-20 container mx-auto px-4 md:px-6 h-full flex flex-col justify-end pb-10 md:pb-12">
                         <Link
                             href={isAdminPreview && previewId ? `/admin/peregrinacoes/${previewId}` : listPath}
                             className="mb-5 inline-flex w-fit items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm font-bold text-white shadow-lg backdrop-blur-md transition-colors hover:bg-white/20"
                         >
                             <ArrowLeft className="w-4 h-4" /> {isAdminPreview ? 'Voltar ao editor' : (isEn ? 'Back to list' : 'Voltar à lista')}
                         </Link>
-                        <div className="mb-2.5 flex w-fit items-center gap-2 rounded-full bg-yellow-300 px-3 py-1.5 text-xs font-black uppercase tracking-widest text-slate-950 shadow-lg">
+                        <div className="mb-2.5 flex w-fit items-center gap-2 rounded-full bg-gradient-to-r from-[#4b7bf0] to-brand-700 px-3 py-1.5 text-xs font-black uppercase tracking-widest text-white shadow-lg shadow-brand/30 ring-1 ring-white/20">
                             <Plane className="w-4 h-4" />
-                            <Star className="w-3.5 h-3.5 fill-slate-950" />
+                            <Star className="w-3.5 h-3.5 fill-white" />
                             {isEn ? 'Official Pilgrimage' : 'Peregrinação Oficial'}
                         </div>
                         {scarcityPct > 0 && !isClosed && !isWaitlist && remainingSpots > 6 && (
@@ -532,12 +547,12 @@ export default function PilgrimageDetailPage() {
                             </div>
                         )}
                         <div className="max-w-4xl rounded-3xl border border-white/10 bg-slate-950/30 p-4 shadow-2xl backdrop-blur-sm md:bg-transparent md:p-0 md:shadow-none md:backdrop-blur-0 md:border-0">
-                            <h1 className="text-3xl sm:text-4xl md:text-6xl font-serif font-bold text-white mb-4 leading-tight drop-shadow-xl">
+                            <h1 className="text-[clamp(1.8rem,7.6vw,2.25rem)] sm:text-4xl md:text-6xl font-serif font-bold text-white mb-4 leading-[1.1] drop-shadow-xl">
                                 {pilgrimageTitle}
                             </h1>
                             <div className="flex flex-wrap items-center gap-3 text-white font-semibold text-base md:text-lg">
                                 <span className="inline-flex items-center gap-2 rounded-full bg-white/12 px-3 py-2 backdrop-blur-md">
-                                    <Calendar className="w-5 h-5 text-yellow-300" />
+                                    <Calendar className="w-5 h-5 text-brand-200" />
                                     <span>{format(startDate, longDateFmt, { locale: dateLocale })} {dateRangeSep} {format(endDate, longDateWithYearFmt, { locale: dateLocale })}</span>
                                 </span>
                                 <span className={`inline-flex items-center gap-2 rounded-full px-3 py-2 text-sm font-black uppercase tracking-wide ${
@@ -547,7 +562,7 @@ export default function PilgrimageDetailPage() {
                                 }`}>
                                     {isNovemberCampaign ? <AlertTriangle className="h-4 w-4" /> : null}
                                     <Users className="h-4 w-4" />
-                                    {isClosed ? (isEn ? 'Closed' : 'Encerradas') : isWaitlist ? (isEn ? 'Waiting List' : 'Lista de Espera') : (isEn ? 'Limited spots, filling fast' : 'Vagas limitadas, esgotam rápido')}
+                                    {isClosed ? (isEn ? 'Closed' : 'Encerradas') : isWaitlist ? (isEn ? 'Waiting List' : 'Lista de Espera') : remainingSpots <= 6 ? (isEn ? 'Last spots' : 'Últimos lugares') : (isEn ? 'Registration open' : 'Inscrições abertas')}
                                 </span>
                             </div>
                         </div>
@@ -556,11 +571,18 @@ export default function PilgrimageDetailPage() {
 
                 {/* Main Content Area */}
                 <div className="container mx-auto px-0 md:px-6 -mt-8 md:-mt-10 relative z-30">
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-10 lg:gap-12">
+                    <nav className="pilgrimage-jump-nav" aria-label={isEn ? 'On this page' : 'Nesta página'}>
+                        <a href="#overview">{isEn ? 'Overview' : 'Resumo'}</a>
+                        <a href="#team">{isEn ? 'Team' : 'Equipa'}</a>
+                        <a href="#itinerary">{isEn ? 'Itinerary' : 'Roteiro'}</a>
+                        <a className="pilgrimage-mobile-nav-link" href="#trip-details">{isEn ? 'Price & details' : 'Preço e detalhes'}</a>
+                        <a className="pilgrimage-desktop-nav-link" href="#pricing">{isEn ? 'Price & booking' : 'Preço e inscrição'}</a>
+                    </nav>
+                    <div className="pilgrimage-main-grid grid grid-cols-1 lg:grid-cols-3 gap-10 lg:gap-12">
                         {/* Column Left */}
                         <div className="lg:col-span-2 space-y-10 md:space-y-12">
-                            <div className="bg-white rounded-none p-5 shadow-xl border-y border-slate-100 md:rounded-3xl md:border md:p-8">
-                                <div className="mb-4 flex items-center gap-2 text-xs font-black uppercase tracking-widest text-yellow-700">
+                            <div id="overview" className="bg-white rounded-none p-5 shadow-xl border-y border-slate-100 md:rounded-3xl md:border md:p-8">
+                                <div className="mb-4 flex items-center gap-2 text-xs font-black uppercase tracking-widest text-brand">
                                     <ShieldCheck className="h-4 w-4" />
                                     {isEn ? 'Programme and mission' : 'Programa e missão'}
                                 </div>
@@ -572,8 +594,8 @@ export default function PilgrimageDetailPage() {
                                     </h3>
                                     <p className="mt-3 text-base leading-7 text-slate-600">
                                         {isEn
-                                            ? 'This programme is prepared for pilgrims who want to live Garabandal, Fatima and the Catholic shrines of the Iberian route with prayer, community and clear organisation before registration.'
-                                            : 'Este programa é preparado para peregrinos que desejam viver Garabandal, Fátima e os santuários católicos do percurso ibérico com oração, comunidade e organização clara antes da inscrição.'}
+                                            ? 'A journey through Garabandal and other Marian shrines, with time for prayer, community and spiritual guidance throughout the pilgrimage.'
+                                            : 'Um caminho por Garabandal e outros santuários marianos, com tempo para oração, vida em comunidade e acompanhamento espiritual ao longo da peregrinação.'}
                                     </p>
                                     <div className="mt-5 grid gap-3 sm:grid-cols-3">
                                         {[
@@ -590,13 +612,26 @@ export default function PilgrimageDetailPage() {
                                 </div>
                             </div>
 
+                            <section id="trip-details" className="pilgrimage-essentials lg:hidden" aria-labelledby="pilgrimage-essentials-heading">
+                                <p className="pilgrimage-essentials-kicker">{isEn ? 'Before booking' : 'Antes da inscrição'}</p>
+                                <h2 id="pilgrimage-essentials-heading">{isEn ? 'Price and trip details' : 'Preço e detalhes da viagem'}</h2>
+                                <div className="pilgrimage-essentials-price">
+                                    <span>{isEn ? 'From / person · flight not included' : 'Desde / pessoa · voo não incluído'}</span>
+                                    <strong>{sidebarStartingEUR}</strong>
+                                    <small>{sidebarBaseEUR} {isEn ? 'land package' : 'terrestre'} + {sidebarDepositEUR} {isEn ? 'registration' : 'inscrição'}</small>
+                                    {sidebarStartingConverted && <small>≈ {sidebarStartingConverted} · {isEn ? 'indicative exchange rate' : 'câmbio indicativo'}</small>}
+                                    <small>{isEn ? `Up to ${publicMaxInstallments} instalments` : `Até ${publicMaxInstallments} prestações`}</small>
+                                </div>
+                                {pilgrimage.registration_deadline && <p className="pilgrimage-essentials-deadline"><Clock className="h-4 w-4" aria-hidden="true" />{isEn ? 'Registration until' : 'Inscrições até'} {format(parseCivilDate(pilgrimage.registration_deadline), longDateWithYearFmt, { locale: dateLocale })}</p>}
+                            </section>
+
                             {/* Equipa da Peregrinação */}
-                            <PilgrimageTeam members={teamMembers} isEn={isEn} />
+                            <div id="team"><PilgrimageTeam members={teamMembers} isEn={isEn} /></div>
 
                             {/* Itinerary */}
-                            <div className="rounded-none bg-white p-5 shadow-xl border-y border-slate-100 md:rounded-[2rem] md:border md:p-8">
+                            <div id="itinerary" className="rounded-none bg-white p-5 shadow-xl border-y border-slate-100 md:rounded-[2rem] md:border md:p-8">
                                 <div className="mb-6">
-                                    <div className="mb-2 flex items-center gap-2 text-xs font-black uppercase tracking-widest text-yellow-700">
+                                    <div className="mb-2 flex items-center gap-2 text-xs font-black uppercase tracking-widest text-brand">
                                         <Clock className="w-4 h-4" />
                                         {isEn ? 'Day by day' : 'Dia a dia'}
                                     </div>
@@ -613,36 +648,31 @@ export default function PilgrimageDetailPage() {
                         </div>
 
                         {/* Column Right (Sidebar) */}
-                        <div className="md:px-0 lg:col-span-1">
+                        <div className={`${isClosed && !isWaitlist ? '' : 'hidden lg:block'} md:px-0 lg:col-span-1`}>
                             <div className="sticky top-24 space-y-6">
                                 {/* Waitlist OR Booking Card */}
-                                <div className="bg-white rounded-none shadow-2xl border-y border-yellow-500/10 relative overflow-hidden md:rounded-3xl md:border">
-                                        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-yellow-400 to-yellow-600" />
+                                <div id="pricing" className="bg-white rounded-none shadow-2xl border-y border-brand-200/60 relative overflow-hidden md:rounded-3xl md:border">
+                                        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-[#4b7bf0] via-brand to-brand-700" />
 
                                         {/* Price block */}
                                         <div className="px-5 pt-6 pb-4 border-b border-slate-100">
-                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">
-                                                {isEn ? 'Land package · flights not included' : 'Terrestre · voo não incluído'}
+                                            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3">
+                                                {isEn ? 'From / person · flight not included' : 'Desde / pessoa · voo não incluído'}
                                             </p>
-                                            {/* Base value + its conversion */}
+                                            {/* Lowest land-package price, including registration, before room supplements. */}
                                             <div className="flex items-baseline gap-x-2.5 gap-y-0.5 flex-wrap">
-                                                <span className="text-4xl font-black text-slate-900 leading-none">{sidebarBaseEUR}</span>
-                                                {sidebarBaseConverted && (
-                                                    <span className="text-sm font-bold text-slate-400 leading-none">≈ {sidebarBaseConverted}</span>
+                                                <span className="text-4xl font-black text-slate-900 leading-none">{sidebarStartingEUR}</span>
+                                                {sidebarStartingConverted && (
+                                                    <span className="text-sm font-bold text-slate-400 leading-none">≈ {sidebarStartingConverted}</span>
                                                 )}
                                             </div>
-                                            {/* Registration fee + its conversion */}
                                             <div className="mt-1.5 flex items-baseline gap-x-2 gap-y-0.5 flex-wrap">
-                                                <span className="text-lg font-black text-slate-600 leading-none">+ {sidebarDepositEUR}</span>
-                                                <span className="text-[11px] font-bold uppercase tracking-wide text-slate-400">{isEn ? 'registration' : 'inscrição'}</span>
-                                                {sidebarDepositConverted && (
-                                                    <span className="text-xs font-bold text-slate-400 leading-none">≈ {sidebarDepositConverted}</span>
-                                                )}
+                                                <span className="text-sm font-semibold text-slate-600">{sidebarBaseEUR} {isEn ? 'land package' : 'terrestre'} + {sidebarDepositEUR} {isEn ? 'registration' : 'inscrição'}</span>
                                             </div>
                                             <p className="mt-2.5 text-[10px] uppercase tracking-widest font-bold text-emerald-600">
-                                                {isEn ? 'Fixed price in EUR' : 'Preço fixo em EUR'}
-                                                {sidebarBaseConverted && (
-                                                    <span className="text-amber-500"> · {currency} {isEn ? "today's rate" : 'câmbio do dia'}</span>
+                                                {isEn ? 'Contract price in EUR' : 'Preço contratual em EUR'}
+                                                {sidebarStartingConverted && (
+                                                    <span className="text-brand"> · {currency} {isEn ? "today's rate" : 'câmbio do dia'}</span>
                                                 )}
                                             </p>
                                             <div className="flex items-center gap-2 mt-3">
@@ -656,7 +686,7 @@ export default function PilgrimageDetailPage() {
                                                 </span>
                                             </div>
                                             {currency !== 'EUR' && (
-                                                <p className="text-[9px] text-amber-600/80 mt-2 font-medium">
+                                                <p className="text-[9px] text-slate-500 mt-2 font-medium">
                                                     {isEn ? `* ${currency} is indicative · contract price in EUR` : `* ${currency} indicativo · preço contratual em EUR`}
                                                 </p>
                                             )}
@@ -669,7 +699,7 @@ export default function PilgrimageDetailPage() {
                                                     <button
                                                         type="button"
                                                         onClick={() => setActiveInfoModal('included')}
-                                                        className="flex w-full items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-left transition-colors hover:border-yellow-300 hover:bg-yellow-50"
+                                                        className="pilgrimage-sidebar-info flex w-full items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-left transition-colors hover:border-brand-200 hover:bg-brand-50"
                                                     >
                                                         <div>
                                                             <p className="text-sm font-bold text-slate-900">{isEn ? "See what's included in the land package" : 'Ver o que está incluído no terrestre'}</p>
@@ -682,7 +712,7 @@ export default function PilgrimageDetailPage() {
                                                     <button
                                                         type="button"
                                                         onClick={() => setActiveInfoModal('flights')}
-                                                        className="flex w-full items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-left transition-colors hover:border-yellow-300 hover:bg-yellow-50"
+                                                        className="pilgrimage-sidebar-info flex w-full items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-left transition-colors hover:border-brand-200 hover:bg-brand-50"
                                                     >
                                                         <div>
                                                             <p className="text-sm font-bold text-slate-900">
@@ -727,32 +757,26 @@ export default function PilgrimageDetailPage() {
                                             <button
                                                 type="button"
                                                 onClick={() => setIsWaitlistOpen(true)}
-                                                className="group flex w-full items-center justify-center gap-3 rounded-2xl border border-amber-300 bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-300 px-5 py-4 text-slate-950 shadow-xl shadow-amber-500/20 transition-all hover:-translate-y-0.5 hover:from-amber-300 hover:via-yellow-200 hover:to-amber-200 hover:shadow-2xl active:translate-y-0 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-amber-300/50"
+                                                className="pilgrimage-main-cta btn-member group min-h-12 w-full gap-3 rounded-full px-7 text-[15px] font-semibold tracking-[-0.01em] !text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700"
                                             >
-                                                <span className="text-base font-extrabold tracking-tight text-slate-950">{isEn ? 'Join the waiting list' : 'Entrar na lista de espera'}</span>
-                                                <span className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-950 text-white shadow-sm transition-transform group-hover:translate-x-1">
-                                                    <ArrowRight className="h-4 w-4" />
-                                                </span>
+                                                <span>{isEn ? 'Join the waiting list' : 'Entrar na lista de espera'}</span>
+                                                <ArrowRight size={18} aria-hidden className="shrink-0 transition-transform duration-200 motion-safe:group-hover:translate-x-0.5" />
                                             </button>
                                         ) : existingBooking ? (
-                                            <Link href={registrationLink} className="flex w-full items-center justify-center gap-2 rounded-xl bg-green-600 py-4 font-bold !text-white shadow-lg"><CheckCircle2 className="w-5 h-5" /> {isEn ? 'Manage Registration' : 'Gerir Inscrição'}</Link>
+                                            <Link href={registrationLink} className="pilgrimage-manage-cta flex w-full items-center justify-center gap-2 rounded-xl bg-green-600 py-4 font-bold !text-white shadow-lg"><CheckCircle2 className="w-5 h-5" /> {isEn ? 'Manage Registration' : 'Gerir Inscrição'}</Link>
                                         ) : shouldWarnBeforeRegistration ? (
                                             <button
                                                 type="button"
                                                 onClick={() => setIsPaymentWarningOpen(true)}
-                                                className="group flex w-full items-center justify-center gap-3 rounded-2xl border border-amber-300 bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-300 px-5 py-4 text-slate-950 shadow-xl shadow-amber-500/20 transition-all hover:-translate-y-0.5 hover:from-amber-300 hover:via-yellow-200 hover:to-amber-200 hover:shadow-2xl active:translate-y-0 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-amber-300/50"
+                                                className="pilgrimage-main-cta btn-member group min-h-12 w-full gap-3 rounded-full px-7 text-[15px] font-semibold tracking-[-0.01em] !text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700"
                                             >
-                                                <span className="text-base font-extrabold tracking-tight text-slate-950">{isEn ? 'Start registration' : 'Começar inscrição'}</span>
-                                                <span className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-950 text-white shadow-sm transition-transform group-hover:translate-x-1">
-                                                    <ArrowRight className="h-4 w-4" />
-                                                </span>
+                                                <span>{isEn ? 'Start registration' : 'Começar inscrição'}</span>
+                                                <ArrowRight size={18} aria-hidden className="shrink-0 transition-transform duration-200 motion-safe:group-hover:translate-x-0.5" />
                                             </button>
                                         ) : (
-                                            <Link href={registrationLink} className="group flex w-full items-center justify-center gap-3 rounded-2xl border border-amber-300 bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-300 px-5 py-4 !text-slate-950 shadow-xl shadow-amber-500/20 transition-all hover:-translate-y-0.5 hover:from-amber-300 hover:via-yellow-200 hover:to-amber-200 hover:!text-slate-950 hover:shadow-2xl active:translate-y-0 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-amber-300/50">
-                                                <span className="text-base font-extrabold tracking-tight !text-slate-950">{isEn ? 'Start registration' : 'Começar inscrição'}</span>
-                                                <span className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-950 !text-white shadow-sm transition-transform group-hover:translate-x-1">
-                                                    <ArrowRight className="h-4 w-4" />
-                                                </span>
+                                            <Link href={registrationLink} className="pilgrimage-main-cta btn-member group min-h-12 w-full gap-3 rounded-full px-7 text-[15px] font-semibold tracking-[-0.01em] !text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700">
+                                                <span>{isEn ? 'Start registration' : 'Começar inscrição'}</span>
+                                                <ArrowRight size={18} aria-hidden className="shrink-0 transition-transform duration-200 motion-safe:group-hover:translate-x-0.5" />
                                             </Link>
                                         )}
                                         </div>
@@ -762,7 +786,7 @@ export default function PilgrimageDetailPage() {
                     </div>
 
                     {/* Portaled Components */}
-                    <div className="pb-24 lg:pb-0">
+                    <div>
                         <UniversalStickyBar
                             price={pilgrimage.base_price}
                             deposit={pilgrimage.deposit_value || pilgrimage.min_deposit || 0}

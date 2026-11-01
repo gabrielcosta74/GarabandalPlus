@@ -14,7 +14,7 @@ interface ItineraryItem {
 
 function DayBadge({ label, className = '' }: { label: string; className?: string }) {
     return (
-        <span className={`inline-flex items-center rounded-full bg-yellow-300 px-3.5 py-1.5 text-[11px] font-black uppercase tracking-wide text-slate-950 shadow-sm ${className}`}>
+        <span className={`inline-flex items-center rounded-full bg-brand px-3.5 py-1.5 text-[11px] font-black uppercase tracking-wide text-white shadow-sm shadow-brand/30 ${className}`}>
             {label}
         </span>
     );
@@ -42,7 +42,7 @@ export default function PilgrimageItineraryDays({ items, isEn }: { items: Itiner
                 return (
                     <article
                         key={item.id}
-                        className="group overflow-hidden border-y border-slate-100 bg-white shadow-sm transition-all sm:rounded-3xl sm:border hover:shadow-lg hover:border-yellow-200"
+                        className="group overflow-hidden border-y border-slate-100 bg-white shadow-sm transition-all sm:rounded-3xl sm:border hover:shadow-lg hover:border-brand-200"
                     >
                         {gallery.length > 0 && (
                             <ItineraryDaySlideshow images={gallery} alt={title} dayLabel={dayLabel} />

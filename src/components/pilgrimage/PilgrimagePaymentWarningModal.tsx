@@ -59,7 +59,7 @@ export default function PilgrimagePaymentWarningModal({
                     <div className="border-b border-slate-100 px-5 py-4 md:px-8 md:py-6">
                         <div className="flex items-start justify-between gap-4">
                             <div>
-                                <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-yellow-100 text-yellow-700">
+                                <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-amber-100 text-amber-700">
                                     <AlertTriangle className="h-6 w-6" />
                                 </div>
                                 <h2 className="text-2xl font-bold text-slate-900">{isEn ? 'Before you start registration' : 'Antes de iniciar a inscrição'}</h2>
@@ -78,8 +78,8 @@ export default function PilgrimagePaymentWarningModal({
                     </div>
 
                     <div className="space-y-4 px-5 py-5 md:px-8 md:py-8">
-                        <div className="rounded-3xl border border-yellow-200 bg-yellow-50 p-5">
-                            <p className="text-base font-semibold leading-relaxed text-yellow-950">
+                        <div className="rounded-3xl border border-amber-200 bg-amber-50 p-5">
+                            <p className="text-base font-semibold leading-relaxed text-amber-950">
                                 {isEn
                                     ? 'After submitting your registration, you must pay the registration fee within 5 days to confirm and secure your place.'
                                     : 'Depois de fazer sua inscrição, você deve pagar a taxa de inscrição em até 5 dias para confirmar e garantir sua vaga.'}
@@ -103,7 +103,7 @@ export default function PilgrimagePaymentWarningModal({
                             <Link
                                 href={continueLink}
                                 onClick={onClose}
-                                className="inline-flex items-center justify-center gap-2 rounded-xl bg-yellow-400 px-4 py-3 text-sm font-black text-slate-950 transition-colors hover:bg-yellow-500"
+                                className="btn-member group gap-2 rounded-full px-6 py-3 text-sm font-semibold tracking-[-0.01em] !text-white"
                             >
                                 {isEn ? 'Continue to registration' : 'Continuar para inscrição'}
                                 <ArrowRight className="h-4 w-4" />

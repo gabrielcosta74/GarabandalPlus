@@ -1,0 +1,319 @@
+/* Same type as the homepage: Inter everywhere, with `font-serif` aliased to
+   Inter (see body:has(.home-page) in globals.css). Scoped with :has() so the
+   shared header/footer follow the page too. */
+body:has(.pilgrimage-detail) {
+  --font-serif: var(--font-inter), system-ui, sans-serif;
+  --font-sans: var(--font-inter), system-ui, sans-serif;
+  font-family: var(--font-sans);
+}
+
+.pilgrimage-detail {
+  padding-bottom: calc(var(--sticky-bar-h, 0px) + 2rem);
+  scroll-behavior: smooth;
+}
+
+.pilgrimage-detail #overview,
+.pilgrimage-detail #team,
+.pilgrimage-detail #itinerary,
+.pilgrimage-detail #trip-details,
+.pilgrimage-detail #pricing {
+  scroll-margin-top: 6.5rem;
+}
+
+/* Page entrance. Only opacity/transform/filter animate, so nothing reflows.
+   The hero sits on brand navy-blue until the photo arrives, the photo eases in
+   from a slight zoom, one soft blue light sweeps across, and the hero content
+   and page sections rise in a short stagger. */
+.pilgrimage-detail { --pg-ease: cubic-bezier(.22, 1, .36, 1); }
+.pilgrimage-hero {
+  background: radial-gradient(120% 80% at 20% 100%, #2b51c7 0%, #18326f 45%, #0f1b33 100%);
+  isolation: isolate;
+}
+.pilgrimage-hero-img {
+  animation: pilgrimage-hero-img 1.1s var(--pg-ease) both;
+}
+.pilgrimage-detail:not(.pilgrimage-loading) .pilgrimage-hero::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 15;
+  pointer-events: none;
+  background: linear-gradient(105deg, transparent 30%, rgb(75 123 240 / 28%) 50%, transparent 70%);
+  transform: translateX(-100%);
+  animation: pilgrimage-hero-sweep 1.6s .25s var(--pg-ease) both;
+}
+.pilgrimage-hero-content > * {
+  animation: pilgrimage-enter .7s var(--pg-ease) both;
+}
+.pilgrimage-hero-content > :nth-child(1) { animation-delay: .1s; }
+.pilgrimage-hero-content > :nth-child(2) { animation-delay: .18s; }
+.pilgrimage-hero-content > :nth-child(3) { animation-delay: .26s; }
+.pilgrimage-hero-content > :nth-child(4) { animation-delay: .34s; }
+.pilgrimage-hero-content > :nth-child(5) { animation-delay: .42s; }
+
+.pilgrimage-main-grid > div:first-child > *,
+.pilgrimage-main-grid > div:last-child > * > * {
+  animation: pilgrimage-enter .7s var(--pg-ease) both;
+}
+.pilgrimage-main-grid > div:first-child > :nth-child(1) { animation-delay: .45s; }
+.pilgrimage-main-grid > div:first-child > :nth-child(2) { animation-delay: .53s; }
+.pilgrimage-main-grid > div:first-child > :nth-child(n+3) { animation-delay: .6s; }
+.pilgrimage-main-grid > div:last-child > * > * { animation-delay: .5s; }
+
+/* Loading skeleton: same boxes as the loaded hero/nav, blue shimmer. */
+.pilgrimage-skeleton-line,
+.pilgrimage-skeleton-card {
+  display: block;
+  position: relative;
+  overflow: hidden;
+}
+.pilgrimage-skeleton-line { background: rgb(195 211 251 / 16%); }
+.pilgrimage-skeleton-card { border: 1px solid #e2e7f0; background: #fff; box-shadow: 0 12px 28px -20px rgb(15 23 42 / 38%); }
+.pilgrimage-skeleton-line::after,
+.pilgrimage-skeleton-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  animation: pilgrimage-shimmer 1.5s ease-in-out infinite;
+}
+.pilgrimage-skeleton-line::after { background: linear-gradient(90deg, transparent, rgb(195 211 251 / 28%), transparent); }
+.pilgrimage-skeleton-card::after { background: linear-gradient(90deg, transparent, rgb(238 243 255 / 95%), transparent); }
+
+.pilgrimage-jump-nav {
+  display: flex;
+  align-items: center;
+  gap: .35rem;
+  margin: 0 .75rem 1rem;
+  padding: .35rem;
+  overflow-x: auto;
+  border: 1px solid #e7eaf0;
+  border-radius: 1rem;
+  background: #fff;
+  box-shadow: 0 12px 28px -20px rgb(15 23 42 / 38%);
+  scrollbar-width: none;
+  animation: pilgrimage-enter .7s .38s var(--pg-ease) both;
+}
+.pilgrimage-jump-nav::-webkit-scrollbar { display: none; }
+.pilgrimage-jump-nav a {
+  display: inline-flex;
+  min-height: 44px;
+  flex: 1 0 auto;
+  align-items: center;
+  justify-content: center;
+  padding: .6rem .85rem;
+  border-radius: .75rem;
+  color: #334155;
+  font-size: .84rem;
+  font-weight: 750;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background-color .2s ease, color .2s ease, transform .2s ease;
+}
+.pilgrimage-jump-nav a:focus-visible,
+.pilgrimage-mobile-info:focus-visible,
+.pilgrimage-mobile-cta:focus-visible,
+.pilgrimage-main-cta:focus-visible,
+.pilgrimage-manage-cta:focus-visible {
+  outline: 3px solid var(--color-brand);
+  outline-offset: 3px;
+}
+.pilgrimage-jump-nav a:active { background: var(--color-brand-50); transform: scale(.98); }
+.pilgrimage-jump-nav .pilgrimage-desktop-nav-link { display: none; }
+
+.pilgrimage-essentials {
+  margin: 0 1rem;
+  padding: 1.25rem;
+  border: 1px solid #dbe2ec;
+  border-radius: 1.25rem;
+  background: #f8fafc;
+  box-shadow: 0 10px 28px -22px rgb(15 23 42 / 25%);
+}
+.pilgrimage-essentials-kicker {
+  margin-bottom: .35rem;
+  color: var(--color-brand);
+  font-size: .68rem;
+  font-weight: 800;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+.pilgrimage-essentials h2 {
+  color: #0f172a;
+  font-size: 1.35rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+.pilgrimage-essentials > p:not(.pilgrimage-essentials-kicker) {
+  margin-top: .5rem;
+  color: #475569;
+  font-size: .9rem;
+  line-height: 1.5;
+}
+.pilgrimage-essentials-price {
+  display: grid;
+  gap: .18rem;
+  margin-top: 1rem;
+  padding: 1rem;
+  border: 1px solid #d9e0eb;
+  border-radius: 1rem;
+  background: #fff;
+}
+.pilgrimage-essentials-price > span {
+  color: #64748b;
+  font-size: .69rem;
+  font-weight: 800;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+.pilgrimage-essentials-price strong { color: #0f172a; font-size: 1.9rem; font-weight: 850; line-height: 1.15; }
+.pilgrimage-essentials-price small { color: #475569; font-size: .79rem; }
+.pilgrimage-essentials-deadline { display: flex; align-items: center; gap: .45rem; color: var(--color-brand-700) !important; font-weight: 700; }
+.pilgrimage-sidebar-info { transition: border-color .2s ease, background-color .2s ease, box-shadow .2s ease, transform .2s ease; }
+.pilgrimage-sidebar-info:active { transform: scale(.985); }
+
+/* Same type as the navbar "Join" / home "Become a member". Set here because
+   the global unlayered `button { font: inherit }` beats Tailwind utilities on
+   <button> CTAs. */
+.pilgrimage-main-cta { font-size: 15px; font-weight: 600; letter-spacing: -.01em; }
+
+.pilgrimage-main-cta,
+.pilgrimage-manage-cta {
+  transition: background-color .2s ease, box-shadow .2s ease, transform .2s ease;
+}
+.pilgrimage-main-cta:active,
+.pilgrimage-manage-cta:active { transform: scale(.985); }
+
+.pilgrimage-mobile-bar {
+  padding-bottom: max(9px, env(safe-area-inset-bottom));
+}
+.pilgrimage-mobile-bar-inner {
+  display: flex;
+  width: min(100%, 640px);
+  flex-direction: column;
+  gap: .35rem;
+  margin: auto;
+  padding: .45rem .75rem .15rem;
+}
+.pilgrimage-mobile-price { display: grid; width: 100%; grid-template-columns: auto minmax(0, 1fr); align-items: baseline; column-gap: .6rem; }
+.pilgrimage-mobile-price-label {
+  grid-column: 1 / -1;
+  color: #64748b;
+  font-size: .59rem;
+  font-weight: 800;
+  letter-spacing: .02em;
+  text-transform: uppercase;
+}
+.pilgrimage-mobile-price strong {
+  color: #0f172a;
+  font-size: clamp(1.25rem, 5.5vw, 1.55rem);
+  font-weight: 850;
+  line-height: 1.05;
+  white-space: nowrap;
+}
+.pilgrimage-mobile-price-breakdown,
+.pilgrimage-mobile-price-converted {
+  overflow: hidden;
+  color: #475569;
+  font-size: .65rem;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pilgrimage-mobile-price-converted { color: #64748b; }
+.pilgrimage-mobile-info-row { display: grid; width: 100%; grid-template-columns: 1fr; gap: .4rem; }
+.pilgrimage-mobile-info-row.has-two { grid-template-columns: 1fr 1fr; }
+.pilgrimage-mobile-info {
+  display: flex;
+  min-height: 37px;
+  align-items: center;
+  justify-content: center;
+  gap: .35rem;
+  padding: .35rem .45rem;
+  border: 1px solid var(--color-brand-200);
+  border-radius: .7rem;
+  background: var(--color-brand-50);
+  color: var(--color-brand-700);
+  font-size: .72rem;
+  font-weight: 750;
+  line-height: 1.12;
+  text-align: center;
+  transition: background-color .2s ease, border-color .2s ease, transform .2s ease, box-shadow .2s ease;
+}
+.pilgrimage-mobile-info svg { flex: none; }
+.pilgrimage-mobile-info:active { transform: scale(.98); background: #e0e9ff; }
+.pilgrimage-mobile-cta {
+  display: flex;
+  min-height: 48px;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  gap: .75rem;
+  padding: .65rem .75rem;
+  border-radius: 999px;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -.01em;
+  line-height: 1.1;
+  text-align: center;
+  text-decoration: none;
+}
+.pilgrimage-mobile-cta svg { flex: none; transition: transform .2s ease; }
+.pilgrimage-mobile-cta:focus-visible { outline-color: var(--color-brand-700); }
+.pilgrimage-mobile-cta:active { transform: scale(.97); filter: brightness(.96); }
+
+@keyframes pilgrimage-enter {
+  from { opacity: 0; transform: translate3d(0, 14px, 0); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes pilgrimage-hero-img {
+  from { opacity: 0; transform: scale(1.06); filter: saturate(.7) brightness(.85); }
+  to { opacity: 1; transform: none; filter: none; }
+}
+@keyframes pilgrimage-hero-sweep {
+  from { transform: translateX(-100%); opacity: 1; }
+  to { transform: translateX(100%); opacity: 0; }
+}
+@keyframes pilgrimage-shimmer {
+  to { transform: translateX(100%); }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .pilgrimage-jump-nav a:hover { background: var(--color-brand-50); color: var(--color-brand-700); }
+  .pilgrimage-mobile-info:hover { transform: translateY(-1px); border-color: #9db6f7; background: #e0e9ff; box-shadow: 0 5px 12px -9px rgb(43 81 199 / 55%); }
+  .pilgrimage-sidebar-info:hover { transform: translateY(-2px); box-shadow: 0 10px 22px -14px rgb(43 81 199 / 35%); }
+  .pilgrimage-mobile-cta:hover svg { transform: translateX(3px); }
+  .pilgrimage-manage-cta:hover { transform: translateY(-2px); background-color: #15803d; box-shadow: 0 14px 30px -14px rgb(21 128 61 / 55%); }
+}
+
+@media (max-width: 639px) {
+  .pilgrimage-hero-content { padding-bottom: 2.4rem; }
+  .pilgrimage-jump-nav { margin-bottom: 1.15rem; }
+}
+
+@media (min-width: 1024px) {
+  .pilgrimage-detail { padding-bottom: 3rem; }
+  .pilgrimage-jump-nav { width: fit-content; max-width: 100%; gap: .4rem; margin: 0 0 1.5rem; padding: .4rem; }
+  .pilgrimage-jump-nav a { min-width: 115px; }
+  .pilgrimage-jump-nav .pilgrimage-mobile-nav-link { display: none; }
+  .pilgrimage-jump-nav .pilgrimage-desktop-nav-link { display: inline-flex; }
+}
+
+/* Phones: skip the zoom/filter on the big photo (cheaper paint), keep the fade. */
+@media (max-width: 639px) {
+  .pilgrimage-hero-img { animation-name: pilgrimage-fade; animation-duration: .8s; }
+}
+@keyframes pilgrimage-fade { from { opacity: 0; } to { opacity: 1; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .pilgrimage-detail .pilgrimage-hero::after,
+  .pilgrimage-skeleton-line::after,
+  .pilgrimage-skeleton-card::after { display: none; }
+  .pilgrimage-detail *, .pilgrimage-mobile-bar * {
+    scroll-behavior: auto !important;
+    animation-duration: .01ms !important;
+    animation-delay: 0s !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+  }
+}

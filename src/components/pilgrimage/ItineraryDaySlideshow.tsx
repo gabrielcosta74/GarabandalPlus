@@ -109,7 +109,7 @@ export default function ItineraryDaySlideshow({ images, alt, dayLabel, interval 
                 })}
 
                 {/* Day badge */}
-                <span className="absolute left-4 top-4 z-30 inline-flex items-center rounded-full bg-yellow-300 px-3.5 py-1.5 text-[11px] font-black uppercase tracking-wide text-slate-950 shadow-sm">
+                <span className="absolute left-4 top-4 z-30 inline-flex items-center rounded-full bg-brand px-3.5 py-1.5 text-[11px] font-black uppercase tracking-wide text-white shadow-sm shadow-brand/30">
                     {dayLabel}
                 </span>
 
