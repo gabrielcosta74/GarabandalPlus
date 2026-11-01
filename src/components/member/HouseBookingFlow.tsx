@@ -30,7 +30,8 @@ const words = {
     loadError: 'Não foi possível abrir a casa.', retry: 'Tentar de novo', loading: 'A carregar',
     codeBody: 'Todos os membros que usam a casa têm de ter a formação online validada para a sua missão em Garabandal.',
     code: 'Código de formação', noCode: 'Não tenho código',
-    noCodeBody: 'O código é dado pelo Apostolado depois da formação online.', contact: 'Falar com o Apostolado',
+    noCodeBody: 'Peça inscrição numa turma online. Depois de concluir a formação, o Apostolado entrega-lhe o código pessoal.', contact: 'Falar com o Apostolado',
+    requestTraining: 'Pedir inscrição na formação', viewTraining: 'Pedir ou acompanhar formação', trainingCardBody: 'O membro responsável pela reserva precisa de concluir a formação online para receber o código pessoal.',
     codeInvalid: 'Este código não existe. Confirme as letras e os números.',
     codeNotYours: 'Este código é de outro membro. Cada membro usa o seu.',
     codeRevoked: 'Este código foi anulado. Fale com o Apostolado.',
@@ -71,7 +72,8 @@ const words = {
     loadError: 'Could not open the house.', retry: 'Try again', loading: 'Loading',
     codeBody: 'Every member who uses the house must have completed the online training validated for their mission in Garabandal.',
     code: 'Training code', noCode: "I don't have a code",
-    noCodeBody: 'The Apostolate gives you the code after the online training.', contact: 'Contact the Apostolate',
+    noCodeBody: 'Request a place in an online class. After the training, the Apostolate gives you a personal code.', contact: 'Contact the Apostolate',
+    requestTraining: 'Request online training', viewTraining: 'Request or follow training', trainingCardBody: 'The member responsible for the booking completes the online training to receive a personal code.',
     codeInvalid: 'This code does not exist. Check the letters and numbers.',
     codeNotYours: 'This code belongs to another member. Each member uses their own.',
     codeRevoked: 'This code was cancelled. Contact the Apostolate.',
@@ -141,6 +143,7 @@ function stayLabel(booking: HouseBooking, locale: string) {
 
 export function HouseHome() {
   const { copy: t, locale, root, overview, loading, error, refresh } = useHouseContext();
+  const trainingLink = `${root}/${root.startsWith('/en') ? 'training' : 'formacao'}`;
   const [selected, setSelected] = useState<string | null>(null);
   const [cancelling, setCancelling] = useState(false);
   const [cancelError, setCancelError] = useState(false);
@@ -176,6 +179,11 @@ export function HouseHome() {
                 : active ? <p>{t.active}</p>
                 : <Link href={`${root}/${root.startsWith('/en') ? 'book' : 'reservar'}`} className="reg-primary">{t.booking}<ArrowRight size={19} /></Link>}
             </div>
+            {overview.seniorityOk && <section className="house-training-card" aria-labelledby="house-training-card-heading">
+              <GraduationCap size={25} aria-hidden="true" />
+              <div><h2 id="house-training-card-heading">{t.training}</h2><p>{t.trainingCardBody}</p>
+                <Link href={trainingLink} className="house-training-card-link">{t.viewTraining}<ArrowRight size={18} /></Link></div>
+            </section>}
             {!!overview.bookings.length && <section className="house-requests">
               <h2>{t.requests}</h2>
               {overview.bookings.map(booking => <div className="house-request" key={booking.id}>
@@ -267,6 +275,7 @@ function Field({ label, value, onChange, type = 'text', required = false, maxLen
 
 export function HouseBookingForm() {
   const { copy: t, locale, root, overview, loading, error: loadError, refresh, user, memberData } = useHouseContext();
+  const trainingLink = `${root}/${root.startsWith('/en') ? 'training' : 'formacao'}`;
   const router = useRouter();
   const [step, setStep] = useState(0);
   const [draft, setDraft] = useState<Draft>(blankDraft);
@@ -404,7 +413,7 @@ export function HouseBookingForm() {
           {step === 0 && <div className="reg-stack">
             <Field label={t.code} value={draft.code} maxLength={12} required onChange={code => { update({ code: code.toUpperCase() }); setCodeOk(false); }} />
             {codeOk && <p className="house-ok"><Check size={16} /> {t.codeValid}</p>}
-            <details className="house-help"><summary>{t.noCode}</summary><p>{t.noCodeBody}</p><a href="mailto:geral@apostoladodegarabandal.com"><Mail size={16} />{t.contact}</a></details>
+            <div className="house-training-prompt"><GraduationCap size={22} aria-hidden="true" /><div><strong>{t.noCode}</strong><p>{t.noCodeBody}</p><Link href={trainingLink} className="reg-secondary">{t.requestTraining}<ArrowRight size={17} /></Link><a href="mailto:geral@apostoladodegarabandal.com"><Mail size={16} />{t.contact}</a></div></div>
           </div>}
           {step === 1 && <div className="reg-stack">
             <Field label={t.name} value={draft.name ?? memberData?.nome ?? ''} required onChange={name => update({ name })} />

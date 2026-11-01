@@ -5,9 +5,10 @@ import AdminLayout from '../../../components/admin/AdminLayout';
 import { getBrowserAccessToken } from '../../../lib/supabase-browser';
 import { Toaster, toast } from 'sonner';
 import {
-    CalendarRange, Check, Copy, HandCoins, Hash, House, KeyRound, Loader2, Lock, Mail, MessageSquare,
+    CalendarRange, Check, Copy, GraduationCap, HandCoins, Hash, House, KeyRound, Loader2, Lock, Mail, MessageSquare,
     Phone, ScrollText, Settings, Users, X, type LucideIcon,
 } from 'lucide-react';
+import HouseTrainingManager from '../../../components/admin/HouseTrainingManager';
 
 type Status = 'pending' | 'confirmed' | 'declined' | 'cancelled';
 
@@ -82,6 +83,7 @@ const STATUS: Record<Status, { label: string; color: string; bg: string }> = {
 
 const TABS = [
     { key: 'pedidos', label: 'Pedidos', icon: CalendarRange },
+    { key: 'turmas', label: 'Turmas e inscrições', icon: GraduationCap },
     { key: 'codigos', label: 'Códigos de formação', icon: KeyRound },
     { key: 'datas', label: 'Datas fechadas', icon: Lock },
     { key: 'regras', label: 'Regras da casa', icon: ScrollText },
@@ -164,6 +166,7 @@ export default function AdminCasaPage() {
             </div>
 
             {data && tab === 'pedidos' && <BookingsTab bookings={data.bookings} reload={load} />}
+            {data && tab === 'turmas' && <HouseTrainingManager />}
             {data && tab === 'codigos' && <CodesTab codes={data.codes} members={data.members} reload={load} />}
             {data && tab === 'datas' && <BlockedTab blocked={data.blocked} reload={load} />}
             {data && tab === 'regras' && data.settings && <RulesTab documents={data.documents} reload={load} settings={data.settings} />}

@@ -13,6 +13,13 @@
 .house-action p { color: #d2d8e1; line-height: 1.55; }
 .house-action a:not(.reg-primary) { display: inline-block; margin-top: 12px; color: #bad1ff; text-decoration: underline; }
 .house-action .reg-primary { text-decoration: none; }
+.house-training-card { display: flex; gap: 16px; margin: -14px 0 36px; padding: 23px; border: 1px solid #c7a45d65; border-radius: 20px; background: linear-gradient(135deg, #1c2a41, #172134); color: #fff; }
+.house-training-card > svg { flex: none; color: #e7bd68; }
+.house-training-card h2 { margin: 0 0 5px; font: 700 23px Georgia, serif; }
+.house-training-card p { margin: 0 0 15px; color: #d2d8e1; line-height: 1.5; }
+.house-training-card-link { display: inline-flex; min-height: 44px; align-items: center; gap: 9px; padding: 10px 15px; border-radius: 12px; background: #f4cc70; color: #142036; font-weight: 800; text-decoration: none; transition: transform .2s ease, background .2s ease; }
+.house-training-card-link:hover { transform: translateY(-2px); background: #ffe19d; }
+.house-training-card-link:active { transform: scale(.98); }
 .house-requests h2 { margin: 0 0 15px; font: 700 25px Georgia, serif; }
 .house-request { margin-bottom: 11px; border: 1px solid #ffffff17; border-radius: 17px; background: #151e30; overflow: hidden; }
 .house-request-head { display: flex; width: 100%; align-items: center; gap: 16px; padding: 18px 20px; text-align: left; color: #fff; }
@@ -45,6 +52,28 @@
 .house-help summary { cursor: pointer; font-weight: 700; }
 .house-help p { margin: 10px 0; color: #626b78; }
 .house-help a { display: inline-flex; align-items: center; gap: 7px; color: #11295a; text-decoration: underline; }
+.house-training-prompt { display: flex; gap: 14px; padding: 18px; border: 1px solid #d8dfe9; border-radius: 17px; background: #f7f9fc; color: var(--reg-ink); }
+.house-training-prompt > svg { flex: none; color: var(--reg-accent); }
+.house-training-prompt > div { min-width: 0; }
+.house-training-prompt strong { font-size: 16px; }
+.house-training-prompt p { margin: 5px 0 15px; color: var(--reg-muted); line-height: 1.5; }
+.house-training-prompt .reg-secondary { min-height: 44px; margin-bottom: 13px; text-decoration: none; }
+.house-training-prompt a:not(.reg-secondary) { display: inline-flex; align-items: center; gap: 6px; color: var(--reg-accent); font-size: 13px; font-weight: 700; text-decoration: underline; }
+.house-training-title { color: var(--reg-ink); font-size: clamp(25px, 4vw, 31px); font-weight: 800; letter-spacing: -.03em; line-height: 1.2; }
+.house-training-status { display: grid; gap: 16px; padding: 18px; border: 1px solid #b8dec8; border-radius: 17px; background: #eff8f2; color: #173e2a; }
+.house-training-status > strong { display: flex; align-items: center; gap: 9px; font-size: 18px; }
+.house-training-status > p { margin: 0; line-height: 1.5; }
+.house-training-class { display: flex; gap: 12px; padding: 15px; border: 1px solid #d8dfe9; border-radius: 14px; background: #fff; color: var(--reg-ink); }
+.house-training-class > svg { flex: none; color: var(--reg-accent); }
+.house-training-class > div { display: grid; gap: 4px; }
+.house-training-class span { color: var(--reg-muted); font-size: 14px; }
+.house-training-class a { display: inline-flex; align-items: center; gap: 6px; margin-top: 5px; color: var(--reg-accent); font-weight: 700; text-decoration: underline; }
+.house-training-code { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 15px; padding: 15px; border: 1px solid #a9d2b7; border-radius: 13px; background: #fff; }
+.house-training-code span { flex-basis: 100%; font-size: 12px; font-weight: 700; text-transform: uppercase; }
+.house-training-code strong { flex: 1; min-width: 150px; font: 800 22px ui-monospace, monospace; letter-spacing: .08em; }
+.house-training-code button { display: inline-flex; min-height: 40px; align-items: center; gap: 6px; color: var(--reg-accent); font-weight: 700; }
+.house-training-form { margin-top: 22px; }
+.house-training-form-intro { margin: 0 0 3px; color: var(--reg-muted); line-height: 1.5; }
 .house-counter { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border: 1.5px solid var(--reg-line-strong); border-radius: 14px; color: var(--reg-ink); font-weight: 700; }
 .house-counter > div { display: flex; align-items: center; gap: 18px; }
 .house-counter button { display: grid; place-items: center; width: 36px; height: 36px; border: 1px solid var(--reg-line-strong); border-radius: 50%; font-size: 22px; }
@@ -84,6 +113,8 @@
 .house-sent strong { color: var(--reg-accent); }
 .house-sent .reg-primary { margin-top: 9px; }
 @media (max-width: 640px) {
+  .house-training-card { padding: 18px; }
+  .house-training-prompt { padding: 15px; }
   .house-facts { grid-template-columns: 1fr; }
   .house-hero { min-height: 280px; }
   .house-request-head { flex-wrap: wrap; }
