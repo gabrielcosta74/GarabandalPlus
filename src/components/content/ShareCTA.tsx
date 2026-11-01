@@ -110,10 +110,10 @@ export function ShareCTA({ url, title, locale = 'pt' }: { url: string; title: st
   }, [url]);
 
   const networks = [
-    { key: 'whatsapp', label: c.whatsapp, color: '#25D366', href: `https://wa.me/?text=${eTitle}%20${eUrl}`, Icon: WhatsAppIcon },
-    { key: 'facebook', label: c.facebook, color: '#1877F2', href: `https://www.facebook.com/sharer/sharer.php?u=${eUrl}`, Icon: FacebookIcon },
-    { key: 'telegram', label: c.telegram, color: '#229ED9', href: `https://t.me/share/url?url=${eUrl}&text=${eTitle}`, Icon: TelegramIcon },
-    { key: 'twitter', label: c.twitter, color: '#0f172a', href: `https://twitter.com/intent/tweet?url=${eUrl}&text=${eTitle}`, Icon: XIcon },
+    { key: 'whatsapp', label: c.whatsapp, href: `https://wa.me/?text=${eTitle}%20${eUrl}`, Icon: WhatsAppIcon },
+    { key: 'facebook', label: c.facebook, href: `https://www.facebook.com/sharer/sharer.php?u=${eUrl}`, Icon: FacebookIcon },
+    { key: 'telegram', label: c.telegram, href: `https://t.me/share/url?url=${eUrl}&text=${eTitle}`, Icon: TelegramIcon },
+    { key: 'twitter', label: c.twitter, href: `https://twitter.com/intent/tweet?url=${eUrl}&text=${eTitle}`, Icon: XIcon },
   ];
 
   return (
@@ -123,14 +123,13 @@ export function ShareCTA({ url, title, locale = 'pt' }: { url: string; title: st
         <p className="sharecta__sub">{c.sub}</p>
 
         <div className="sharecta__grid">
-          {networks.map(({ key, label, color, href, Icon }) => (
+          {networks.map(({ key, label, href, Icon }) => (
             <a
               key={key}
               href={href}
               target="_blank"
               rel="noopener noreferrer"
               className="sharecta__btn"
-              style={{ ['--brand' as string]: color }}
             >
               <Icon size={22} />
               <span>{label}</span>
@@ -142,7 +141,6 @@ export function ShareCTA({ url, title, locale = 'pt' }: { url: string; title: st
             type="button"
             className={`sharecta__btn sharecta__btn--ig${igCopied ? ' is-done' : ''}`}
             onClick={() => copyLink('ig')}
-            style={{ ['--brand' as string]: '#e1306c' }}
           >
             {igCopied ? <Check size={22} /> : <InstagramIcon size={22} />}
             <span>{igCopied ? c.copied : c.instagram}</span>
@@ -165,6 +163,7 @@ export function ShareCTA({ url, title, locale = 'pt' }: { url: string; title: st
 
       <style>{`
         .sharecta {
+          font-family: var(--font-inter), system-ui, sans-serif;
           background: #fff;
           border-top: 1px solid rgba(15,23,42,0.1);
           padding: 3.5rem 1.25rem 4rem;
@@ -175,9 +174,9 @@ export function ShareCTA({ url, title, locale = 'pt' }: { url: string; title: st
           text-align: center;
         }
         .sharecta__heading {
-          font-family: var(--font-serif), Georgia, serif;
+          font-family: var(--font-inter), system-ui, sans-serif;
           font-size: clamp(1.5rem, 5vw, 1.9rem);
-          font-weight: 700;
+          font-weight: 600;
           line-height: 1.2;
           margin: 0 0 0.75rem;
           color: var(--color-garabandal-dark, #0f172a);
@@ -209,17 +208,18 @@ export function ShareCTA({ url, title, locale = 'pt' }: { url: string; title: st
           background: #fff;
           color: #1e293b;
           font-size: 0.95rem;
-          font-weight: 700;
+          font-weight: 600;
           text-decoration: none;
           cursor: pointer;
-          box-shadow: 0 2px 8px rgba(15,23,42,0.05);
+          box-shadow: none;
           transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
           -webkit-tap-highlight-color: transparent;
         }
-        .sharecta__btn svg { color: var(--brand, #475569); }
-        .sharecta__btn:hover { transform: translateY(-2px); background: #f8fafc; box-shadow: 0 8px 18px rgba(15,23,42,0.1); }
+        .sharecta__btn svg { color: var(--color-muted, #5b6475); }
+        .sharecta__btn:hover { background: var(--color-brand-50, #eef3ff); border-color: var(--color-brand-200, #c3d3fb); box-shadow: 0 8px 18px rgba(15,23,42,0.1); }
+        .sharecta__btn:hover svg { color: var(--color-brand-700, #2b51c7); }
         .sharecta__btn:active { transform: translateY(0); }
-        .sharecta__btn:focus-visible { outline: 3px solid rgba(212,175,55,0.5); outline-offset: 2px; }
+        .sharecta__btn:focus-visible { outline: 2px solid var(--color-brand, #3563e9); outline-offset: 2px; }
         .sharecta__btn--ig {
           background: #fff;
         }
@@ -229,16 +229,16 @@ export function ShareCTA({ url, title, locale = 'pt' }: { url: string; title: st
         }
         .sharecta__btn--copy:hover { background: #f8fafc; }
         .sharecta__btn.is-done {
-          background: #16a34a !important;
+          background: var(--color-brand-700, #2b51c7) !important;
           color: #fff !important;
-          border-color: #16a34a;
+          border-color: var(--color-brand-700, #2b51c7);
         }
         .sharecta__btn.is-done svg { color: #fff; }
         .sharecta__toast {
           margin: 1rem 0 0;
           font-size: 0.85rem;
           font-weight: 600;
-          color: #15803d;
+          color: var(--color-brand-700, #2b51c7);
           opacity: 0;
           transform: translateY(-4px);
           transition: opacity 0.2s ease, transform 0.2s ease;

@@ -189,7 +189,7 @@ export function CategoryBrowser({
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder={s.search}
-              className="w-full rounded-xl border border-slate-200 bg-white py-3 pl-11 pr-10 text-sm text-garabandal-dark shadow-sm outline-none transition focus:border-garabandal-gold focus:ring-2 focus:ring-garabandal-gold/30"
+              className="w-full rounded-xl border border-slate-200 bg-white py-3 pl-11 pr-10 text-sm text-garabandal-dark shadow-sm outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/30"
             />
             {query && (
               <button
@@ -209,7 +209,7 @@ export function CategoryBrowser({
             <select
               value={sort}
               onChange={(e) => setSort(e.target.value as SortKey)}
-              className="w-full cursor-pointer appearance-none rounded-xl border border-slate-200 bg-white py-3 pl-10 pr-9 text-sm font-medium text-garabandal-dark shadow-sm outline-none transition focus:border-garabandal-gold focus:ring-2 focus:ring-garabandal-gold/30 sm:w-auto"
+              className="w-full cursor-pointer appearance-none rounded-xl border border-slate-200 bg-white py-3 pl-10 pr-9 text-sm font-medium text-garabandal-dark shadow-sm outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/30 sm:w-auto"
             >
               <option value="recent">{s.sortRecent}</option>
               <option value="old">{s.sortOld}</option>
@@ -251,7 +251,7 @@ export function CategoryBrowser({
                 setQuery('');
                 setActiveTag(null);
               }}
-              className="mt-5 inline-flex items-center gap-2 rounded-xl bg-garabandal-gold/20 px-5 py-2.5 text-sm font-bold text-garabandal-dark transition hover:bg-garabandal-gold"
+              className="mt-5 inline-flex items-center gap-2 rounded-xl bg-brand-50 px-5 py-2.5 text-sm font-bold text-brand-700 transition hover:bg-brand hover:text-white"
             >
               {s.clear}
             </button>
@@ -300,7 +300,7 @@ function Pagination({
           onClick={() => onChange(current - 1)}
           disabled={current === 1}
           aria-label={labels.prev}
-          className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-garabandal-dark transition hover:border-garabandal-gold/50 hover:bg-garabandal-gold/10 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-slate-200 disabled:hover:bg-white"
+          className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-garabandal-dark transition hover:border-brand-200 hover:bg-brand-50 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-slate-200 disabled:hover:bg-white"
         >
           <ChevronLeft size={18} />
         </button>
@@ -319,7 +319,7 @@ function Pagination({
               className={`flex h-10 min-w-10 items-center justify-center rounded-xl border px-3 text-sm font-bold transition ${
                 p === current
                   ? 'border-transparent bg-garabandal-dark text-white shadow-sm'
-                  : 'border-slate-200 bg-white text-garabandal-dark hover:border-garabandal-gold/50 hover:bg-garabandal-gold/10'
+                  : 'border-slate-200 bg-white text-garabandal-dark hover:border-brand-200 hover:bg-brand-50'
               }`}
             >
               {p}
@@ -332,7 +332,7 @@ function Pagination({
           onClick={() => onChange(current + 1)}
           disabled={current === total}
           aria-label={labels.next}
-          className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-garabandal-dark transition hover:border-garabandal-gold/50 hover:bg-garabandal-gold/10 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-slate-200 disabled:hover:bg-white"
+          className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-garabandal-dark transition hover:border-brand-200 hover:bg-brand-50 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-slate-200 disabled:hover:bg-white"
         >
           <ChevronRight size={18} />
         </button>
@@ -360,7 +360,7 @@ function Chip({
       className={`shrink-0 rounded-full border px-4 py-1.5 text-sm font-medium capitalize transition ${
         active
           ? 'border-transparent bg-garabandal-dark text-white shadow-sm'
-          : 'border-slate-200 bg-white text-slate-600 hover:border-garabandal-gold/50 hover:text-garabandal-dark'
+          : 'border-slate-200 bg-white text-slate-600 hover:border-brand-200 hover:text-brand-700'
       }`}
     >
       {children}
@@ -390,7 +390,7 @@ export function ContentCard({ item, read }: { item: BrowseItem; read: string }) 
         {item.excerpt && (
           <p className="mt-2 line-clamp-3 flex-1 text-sm leading-relaxed text-slate-600">{item.excerpt}</p>
         )}
-        <span className="mt-5 inline-flex w-fit items-center gap-2 rounded-xl bg-garabandal-gold/20 px-5 py-2.5 text-sm font-bold text-garabandal-dark shadow-sm transition-colors group-hover:bg-garabandal-gold">
+        <span className="mt-5 inline-flex w-fit items-center gap-2 rounded-xl bg-brand-50 px-5 py-2.5 text-sm font-bold text-brand-700 shadow-sm transition-colors group-hover:bg-brand group-hover:text-white">
           {read}
           <ArrowRight size={16} className="transition-transform group-hover:translate-x-1" />
         </span>

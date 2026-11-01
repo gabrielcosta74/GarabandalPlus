@@ -7,6 +7,10 @@ import { getHomeContent } from '../lib/cms/home';
 import { getLatestVideos } from '../lib/youtube';
 import { PUBLISHED_ONLY } from '../lib/content/preview';
 import { APP_URL } from '../lib/config';
+import { DEFAULT_OG_IMAGE, SITE_NAME } from '../lib/seo';
+
+const homeTitle = 'Garabandal: história, aparições e mensagens | Apostolado de Garabandal';
+const homeDescription = 'Conheça Garabandal: a história dos acontecimentos de 1961–1965, as quatro videntes e as mensagens. Documentos, testemunhos e peregrinações do Apostolado.';
 
 // The homepage is the page that has to rank, so it must be cacheable. This was
 // dynamic purely so admins could preview drafts here; that now lives at
@@ -17,9 +21,24 @@ export const revalidate = 600;
 
 export const metadata: Metadata = {
   title: {
-    absolute: 'Apostolado de Garabandal — Aparições, mensagens e peregrinações',
+    absolute: homeTitle,
   },
-  description: 'Site oficial da Associação do Apostolado de Garabandal, dedicado a divulgar a mensagem de Nossa Senhora em Garabandal através de peregrinações, oração e missão.',
+  description: homeDescription,
+  openGraph: {
+    title: homeTitle,
+    description: homeDescription,
+    url: `${APP_URL}/`,
+    type: 'website',
+    locale: 'pt_BR',
+    siteName: SITE_NAME,
+    images: [{ url: DEFAULT_OG_IMAGE, width: 1200, height: 630, alt: SITE_NAME }],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: homeTitle,
+    description: homeDescription,
+    images: [DEFAULT_OG_IMAGE],
+  },
   alternates: {
     canonical: `${APP_URL}/`,
     languages: {

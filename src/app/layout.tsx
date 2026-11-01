@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next';
-import { Inter, Playfair_Display } from 'next/font/google';
+import { Inter, Playfair_Display, Manrope, Lora } from 'next/font/google';
 import ClientLayout from '../components/layouts/ClientLayout';
 import AbortErrorSilencer from '../components/system/AbortErrorSilencer';
 import SenderScript from '../components/system/SenderScript';
@@ -8,6 +8,13 @@ import { APP_URL } from '../lib/config';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 const playfair = Playfair_Display({ subsets: ['latin'], variable: '--font-playfair' });
+// Homepage type pair (see `body:has(.home-page)` in globals.css): Manrope for
+// logo, headings and UI, Lora only for editorial content (quotes, article
+// titles). Loaded here so the shared header/footer can use them too, but
+// `preload: false` keeps every other route from fetching files it never
+// renders; the browser only downloads them when a glyph actually needs them.
+const manrope = Manrope({ subsets: ['latin'], variable: '--font-manrope', display: 'swap', preload: false });
+const lora = Lora({ subsets: ['latin'], style: ['normal', 'italic'], variable: '--font-lora', display: 'swap', preload: false });
 
 // Advertise both schemes so Samsung Internet can prefer our media-query styles
 // instead of auto-transforming colors, while globals.css keeps both schemes light.
@@ -90,6 +97,8 @@ export const metadata: Metadata = {
     },
   },
   manifest: '/site.webmanifest',
+  // Safari's native "open in app" banner for Garabandal+ (App Store id 6806348119).
+  other: { 'apple-itunes-app': 'app-id=6806348119' },
   icons: {
     icon: [
       { url: '/favicon.png', type: 'image/png', sizes: '32x32' },
@@ -129,7 +138,7 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className={`${inter.variable} ${playfair.variable} ${inter.className}`}>
+      <body className={`${inter.variable} ${playfair.variable} ${manrope.variable} ${lora.variable} ${inter.className}`}>
         <AbortErrorSilencer />
         <SenderScript />
         <script

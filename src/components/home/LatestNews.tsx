@@ -1,11 +1,9 @@
 import Link from 'next/link';
 import Image from 'next/image';
-import { ArrowRight, Newspaper } from 'lucide-react';
 import type { HomeArticle } from '../../lib/cms/home';
+import { Section, SectionHeader } from './ui';
 
-/**
- * Latest news strip for the homepage (compact list). Light theme, mobile-first.
- */
+/** Latest news: a compact list, one hairline per item. */
 export default function LatestNews({
   items,
   locale,
@@ -16,63 +14,46 @@ export default function LatestNews({
   allHref: string;
 }) {
   if (!items.length) return null;
-  const heading = locale === 'pt' ? 'Últimas notícias' : 'Latest news';
 
   return (
-    <section className="relative mx-auto w-full max-w-4xl px-4 py-12 sm:px-6 sm:py-16">
-      <div className="mb-6 flex items-center justify-between gap-4">
-        <h2 className="inline-flex items-center gap-2.5 font-serif text-2xl font-bold text-garabandal-dark sm:text-3xl">
-          <Newspaper size={22} className="text-garabandal-gold" /> {heading}
-        </h2>
-        <Link
-          href={allHref}
-          className="inline-flex shrink-0 items-center gap-1.5 text-sm font-semibold text-garabandal-dark/70 transition-colors hover:text-garabandal-dark"
-        >
-          {locale === 'pt' ? 'Ver todas' : 'See all'}
-          <ArrowRight size={15} />
-        </Link>
-      </div>
+    <Section tone="white" labelledBy="home-news-heading">
+      <SectionHeader
+        id="home-news-heading"
+        eyebrow={locale === 'pt' ? 'Atualidade' : 'Current'}
+        title={locale === 'pt' ? 'Últimas notícias' : 'Latest news'}
+        action={{ href: allHref, label: locale === 'pt' ? 'Ver todas' : 'See all' }}
+      />
 
-      <ul className="divide-y divide-slate-100 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <ul className="divide-y divide-line border-y border-line">
         {items.map((a) => (
           <li key={a.href}>
             <Link
               href={a.href}
-              className="group flex items-center gap-4 p-3 transition-colors hover:bg-garabandal-mist sm:p-4"
+              className="group flex items-center gap-5 py-5 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-brand sm:gap-8 sm:py-6"
             >
-              {a.image ? (
-                <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-slate-100 sm:h-[68px] sm:w-28">
+              {a.image && (
+                <div className="relative h-16 w-24 shrink-0 overflow-hidden rounded-lg bg-line sm:h-20 sm:w-32">
                   <Image
                     src={a.image}
                     alt=""
                     fill
-                    sizes="112px"
-                    className="object-cover transition-transform duration-500 group-hover:scale-105"
+                    sizes="128px"
+                    className="object-cover transition-transform duration-500 motion-safe:group-hover:scale-[1.04]"
                   />
                 </div>
-              ) : (
-                <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl bg-garabandal-gold/10 sm:h-[68px] sm:w-28">
-                  <Newspaper size={20} className="text-garabandal-gold" />
-                </div>
               )}
-
               <div className="min-w-0 flex-1">
-                <h3 className="line-clamp-2 font-serif text-base font-bold leading-snug text-garabandal-dark sm:text-lg">
+                <h3 className="line-clamp-2 text-base font-semibold leading-snug tracking-[-0.01em] text-ink underline-offset-4 decoration-1 group-hover:underline sm:text-lg">
                   {a.title}
                 </h3>
                 {a.excerpt && (
-                  <p className="mt-1 line-clamp-1 text-sm text-slate-500">{a.excerpt}</p>
+                  <p className="mt-1 line-clamp-1 text-sm text-muted">{a.excerpt}</p>
                 )}
               </div>
-
-              <ArrowRight
-                size={18}
-                className="shrink-0 text-garabandal-gold transition-transform group-hover:translate-x-1"
-              />
             </Link>
           </li>
         ))}
       </ul>
-    </section>
+    </Section>
   );
 }

@@ -1,15 +1,19 @@
 import { CAMPAIGN_CONTENT, CASA_IMAGE_URL } from './constants';
-import { ArrowUpRight, Home, Heart } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { DonationMeta, formatCurrency } from '../../lib/donations';
 import { getTranslations } from '../../i18n';
+import { CONTAINER, Eyebrow, H2_CLASS, buttonClass } from './ui';
 
 interface CampaignShowcaseProps {
     meta: DonationMeta;
     locale: 'pt' | 'en';
 }
 
+/**
+ * The one emotional, full-bleed moment on the page: the Welcome House campaign.
+ * Single column over the photograph; progress and amounts stay readable on ink.
+ */
 const CampaignShowcase = ({ meta, locale }: CampaignShowcaseProps) => {
     const t = getTranslations(locale);
     const isEn = locale === 'en';
@@ -17,102 +21,61 @@ const CampaignShowcase = ({ meta, locale }: CampaignShowcaseProps) => {
     const progress = meta.goal <= 0 ? 0 : Math.min(100, Math.round((meta.raised / meta.goal) * 100));
 
     return (
-        <section className="relative min-h-screen flex items-center justify-center overflow-hidden py-24 bg-slate-950">
+        <section aria-labelledby="home-campaign-heading" className="relative isolate overflow-hidden bg-ink py-24 text-white md:py-32">
+            <Image
+                src={CASA_IMAGE_URL}
+                alt=""
+                fill
+                className="object-cover"
+                sizes="100vw"
+            />
+            <div className="absolute inset-0 bg-ink/70" />
+            <div className="absolute inset-0 bg-gradient-to-r from-ink via-ink/70 to-transparent" />
 
-            {/* Parallax Background - Optimized with will-change and Next/Image */}
-            <div className="absolute inset-0 z-0">
-                <div className="absolute inset-0 h-full w-full">
-                    <Image
-                        src={CASA_IMAGE_URL}
-                        alt="Casa de Acolhimento"
-                        fill
-                        className="object-cover"
-                        sizes="100vw"
-                    />
-                </div>
+            <div className={`${CONTAINER} relative z-10`}>
+                <div className="max-w-xl">
+                    <Eyebrow onDark>{isEn ? 'Welcome House project' : 'Projeto Casa de Acolhimento'}</Eyebrow>
+                    <h2 id="home-campaign-heading" className={H2_CLASS}>
+                        {isEn ? 'Welcome House' : CAMPAIGN_CONTENT.title}
+                    </h2>
 
-                {/* Simplified Overlay - Removed mix-blend-multiply for performance */}
-                <div className="absolute inset-0 bg-slate-950/60" />
-                <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-transparent" />
-            </div>
+                    <p className="mt-6 text-lg leading-relaxed text-white/80">
+                        {isEn
+                            ? 'The Association has acquired a house in the mountains near Garabandal to serve as support for pilgrims seeking to encounter God through Garabandal.'
+                            : CAMPAIGN_CONTENT.description}
+                    </p>
 
-            <div className="container mx-auto px-6 relative z-10 w-full">
-                <div className="grid items-end gap-12 lg:grid-cols-2 lg:gap-20">
-
-                    {/* Left: Content Card */}
-                    <div className="lg:mb-12">
-                        <div className="bg-slate-900/80 backdrop-blur-md border border-white/10 p-8 md:p-12 rounded-[2.5rem] shadow-2xl relative overflow-hidden group">
-                            {/* Simplified Glow Effect */}
-                            <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/5 rounded-full blur-[60px] pointer-events-none" />
-
-                            <div className="relative z-10">
-                                <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-300 text-[10px] font-bold uppercase tracking-[0.2em] mb-8">
-                                    <Home className="w-3 h-3" />
-                                    {isEn ? 'Welcome House Project' : 'Projeto Casa de Acolhimento'}
-                                </span>
-
-                                <h2 className="font-serif text-4xl md:text-5xl lg:text-6xl text-white mb-6 leading-[1.1]">
-                                    {isEn ? 'Welcome House' : CAMPAIGN_CONTENT.title}
-                                </h2>
-
-                                <p className="text-xl text-slate-300 font-light leading-relaxed mb-8 border-l-2 border-amber-500/50 pl-6">
-                                    {isEn
-                                        ? 'The Association has acquired a house in the mountains near Garabandal to serve as support for pilgrims seeking to encounter God through Garabandal.'
-                                        : CAMPAIGN_CONTENT.description}
-                                </p>
-
-                                <div className="flex flex-col gap-6">
-                                    {/* Progress Bar */}
-                                    <div className="relative pt-2">
-                                        <div className="flex justify-between items-end mb-2 text-sm font-medium">
-                                            <span className="text-amber-400">{isEn ? 'Current Progress' : 'Progresso Atual'}</span>
-                                            <span className="text-white">{progress}%</span>
-                                        </div>
-                                        <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden">
-                                            <div
-                                                style={{ width: `${progress}%` }}
-                                                className="h-full bg-gradient-to-r from-amber-600 via-amber-400 to-amber-200 shadow-[0_0_10px_rgba(251,191,36,0.4)] relative"
-                                            >
-                                                <div className="absolute right-0 top-1/2 -translate-y-1/2 w-1 h-4 bg-white blur-[1px]" />
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {/* Stats Grid */}
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div className="bg-black/20 rounded-2xl p-4 border border-white/5">
-                                            <div className="text-xs text-white/50 uppercase tracking-widest mb-1">{isEn ? 'Raised' : 'Angariado'}</div>
-                                            <div className="text-2xl md:text-3xl font-serif text-white">{formatCurrency(meta.raised)}</div>
-                                        </div>
-                                        <div className="bg-black/20 rounded-2xl p-4 border border-white/5">
-                                            <div className="text-xs text-white/50 uppercase tracking-widest mb-1">{isEn ? 'Final Goal' : 'Meta Final'}</div>
-                                            <div className="text-xl md:text-2xl font-serif text-white/60">{formatCurrency(meta.goal)}</div>
-                                        </div>
-                                    </div>
-
-                                    <Link href={t.urls.donations} className="group relative mt-4 flex w-full items-center justify-center gap-3 rounded-xl bg-amber-500 px-8 py-5 text-xs font-bold uppercase tracking-widest text-slate-900 shadow-xl shadow-amber-900/20 transition-all duration-300 hover:bg-amber-400">
-                                        <span>{isEn ? 'Donate to the Project' : CAMPAIGN_CONTENT.cta}</span>
-                                        <ArrowUpRight className="w-4 h-4 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform duration-300" />
-                                    </Link>
-                                </div>
-                            </div>
+                    <div className="mt-10">
+                        <div className="flex items-baseline justify-between text-sm">
+                            <span className="text-white/70">{isEn ? 'Progress' : 'Progresso'}</span>
+                            <span className="font-semibold">{progress}%</span>
                         </div>
+                        <div
+                            role="progressbar"
+                            aria-valuenow={progress}
+                            aria-valuemin={0}
+                            aria-valuemax={100}
+                            aria-label={isEn ? 'Campaign progress' : 'Progresso da campanha'}
+                            className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-white/20"
+                        >
+                            <div style={{ width: `${progress}%` }} className="h-full rounded-full bg-white" />
+                        </div>
+
+                        <dl className="mt-6 grid grid-cols-2 gap-4 sm:gap-6">
+                            <div>
+                                <dt className="text-sm text-white/70">{isEn ? 'Raised' : 'Angariado'}</dt>
+                                <dd className="mt-1 text-2xl font-semibold tracking-[-0.03em] sm:text-3xl">{formatCurrency(meta.raised)}</dd>
+                            </div>
+                            <div>
+                                <dt className="text-sm text-white/70">{isEn ? 'Goal' : 'Meta'}</dt>
+                                <dd className="mt-1 text-2xl font-semibold tracking-[-0.03em] text-white/70 sm:text-3xl">{formatCurrency(meta.goal)}</dd>
+                            </div>
+                        </dl>
                     </div>
 
-                    {/* Right: Floating Quote/Highlight - Simplified animation */}
-                    <div className="lg:h-full flex items-center justify-center lg:justify-end pb-12 lg:pb-32">
-                        <div className="relative max-w-sm">
-                            <div className="absolute -inset-4 bg-gradient-to-r from-amber-500/10 to-blue-500/10 rounded-[2rem] blur-xl opacity-50" />
-                            <div className="relative bg-slate-900/90 backdrop-blur-sm border border-white/10 p-8 rounded-[2rem] text-center">
-                                <Heart className="w-8 h-8 text-amber-500 mx-auto mb-4 fill-amber-500/20" />
-                                <p className="font-serif text-2xl text-white italic mb-4">
-                                    &ldquo;{isEn ? 'Your support builds this refuge.' : CAMPAIGN_CONTENT.subtitle}&rdquo;
-                                </p>
-                                <div className="w-12 h-1 bg-gradient-to-r from-amber-500 to-transparent mx-auto rounded-full" />
-                            </div>
-                        </div>
-                    </div>
-
+                    <Link href={t.urls.donations} className={buttonClass('light', 'mt-10')}>
+                        {isEn ? 'Donate to the project' : CAMPAIGN_CONTENT.cta}
+                    </Link>
                 </div>
             </div>
         </section>

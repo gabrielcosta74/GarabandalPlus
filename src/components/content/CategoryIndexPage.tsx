@@ -254,7 +254,7 @@ export async function CategoryIndexPage({ category, locale }: Props) {
     <main className="min-h-screen bg-garabandal-mist text-garabandal-dark">
       {/* HERO — light */}
       <section className="relative overflow-hidden border-b border-slate-200/70 bg-gradient-to-b from-white to-garabandal-mist">
-        <div className="pointer-events-none absolute -top-24 right-0 h-72 w-72 rounded-full bg-garabandal-gold/10 blur-3xl" />
+        <div className="pointer-events-none absolute -top-24 right-0 h-72 w-72 rounded-full bg-brand/10 blur-3xl" />
         <div className="relative mx-auto w-full max-w-5xl px-4 pb-12 pt-28 sm:px-6 sm:pb-16 sm:pt-32">
           <nav aria-label="Breadcrumb" className="mb-6 flex items-center gap-2 text-sm text-slate-500">
             <Link href={localePrefix(locale) || '/'} className="inline-flex items-center gap-1.5 transition-colors hover:text-garabandal-dark">
@@ -265,8 +265,8 @@ export async function CategoryIndexPage({ category, locale }: Props) {
             <span className="font-medium text-garabandal-dark">{meta.label}</span>
           </nav>
 
-          <span className="inline-flex items-center gap-2 rounded-full border border-garabandal-gold/30 bg-garabandal-gold/10 px-4 py-1.5 text-[11px] font-bold uppercase tracking-[0.2em] text-garabandal-dark/70">
-            <Icon size={14} className="text-garabandal-gold" />
+          <span className="inline-flex items-center gap-2 rounded-full border border-brand-200 bg-brand-50 px-4 py-1.5 text-[11px] font-bold uppercase tracking-[0.2em] text-brand-700">
+            <Icon size={14} className="text-brand" />
             {t.section}
           </span>
 
@@ -315,7 +315,7 @@ export async function CategoryIndexPage({ category, locale }: Props) {
       {isEmpty && (
         <section className="mx-auto w-full max-w-2xl px-4 py-16 text-center sm:py-24">
           <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <Icon size={28} className="text-garabandal-gold" />
+            <Icon size={28} className="text-brand" />
           </div>
           <h2 className="mt-6 font-serif text-2xl font-bold sm:text-3xl">{t.emptyTitle}</h2>
           <p className="mx-auto mt-3 max-w-md text-slate-500">{t.emptyDesc}</p>
@@ -326,7 +326,7 @@ export async function CategoryIndexPage({ category, locale }: Props) {
       <section className="border-t border-slate-200 bg-white">
         <div className="mx-auto w-full max-w-6xl px-4 py-16 sm:px-6 sm:py-20">
           <div className="mb-8 flex items-center gap-3">
-            <Compass size={22} className="text-garabandal-gold" />
+            <Compass size={22} className="text-brand" />
             <div>
               <h2 className="font-serif text-2xl font-bold sm:text-3xl">{t.exploreHeading}</h2>
               <p className="mt-1 text-sm text-slate-500">{t.exploreSub}</p>
@@ -340,15 +340,15 @@ export async function CategoryIndexPage({ category, locale }: Props) {
                 <Link
                   key={key}
                   href={categoryLandingHref(key, locale)}
-                  className="group flex items-start gap-4 rounded-2xl border border-slate-200 bg-garabandal-mist/60 p-5 transition-all duration-300 hover:-translate-y-1 hover:border-garabandal-gold/40 hover:bg-white hover:shadow-lg"
+                  className="group flex items-start gap-4 rounded-2xl border border-slate-200 bg-garabandal-mist/60 p-5 transition-all duration-300 hover:-translate-y-1 hover:border-brand-200 hover:bg-white hover:shadow-lg"
                 >
-                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-garabandal-gold/15 text-garabandal-dark">
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-700">
                     <OIcon size={20} />
                   </span>
                   <div className="min-w-0">
                     <h3 className="flex items-center gap-1.5 font-serif text-lg font-bold">
                       {oc.label}
-                      <ArrowUpRight size={16} className="text-garabandal-gold opacity-0 transition-opacity group-hover:opacity-100" />
+                      <ArrowUpRight size={16} className="text-brand opacity-0 transition-opacity group-hover:opacity-100" />
                     </h3>
                     <p className="mt-1 line-clamp-2 text-sm leading-relaxed text-slate-500">{oc.tagline}</p>
                   </div>

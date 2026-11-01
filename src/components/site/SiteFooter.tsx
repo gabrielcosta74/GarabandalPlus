@@ -35,8 +35,16 @@ const CONTENT_HEADING: Record<string, string> = {
   pt: 'Conteúdo', en: 'Content', es: 'Contenido', fr: 'Contenu', it: 'Contenuto',
 };
 
+const COMPLAINTS_LABEL: Record<string, string> = {
+  pt: 'Livro de Reclamações Eletrónico',
+  en: 'Electronic Complaints Book',
+  es: 'Libro de Reclamaciones Electrónico',
+  fr: 'Livre de réclamations électronique',
+  it: 'Libro dei reclami elettronico',
+};
+
 export default function SiteFooter() {
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
   const pathname = usePathname();
 
   // Server-rendered internal links to the content hubs. The primary nav builds
@@ -68,7 +76,7 @@ export default function SiteFooter() {
             {/* h2, not h4: Lighthouse flagged the footer for skipping heading
                 levels, and the heading order is how assistive tech (and Google)
                 read the document outline. The visual size is unchanged. */}
-            <h2 className="font-serif text-2xl text-white mb-6">Apostolado de Garabandal</h2>
+            <h2 className="text-2xl font-bold tracking-[-0.03em] text-white mb-6">Apostolado de Garabandal</h2>
             <p className="text-white/50 font-light max-w-sm">
               {t.footer.description}
             </p>
@@ -78,7 +86,7 @@ export default function SiteFooter() {
             <h5 className="text-white font-medium uppercase tracking-widest text-sm mb-6">{CONTENT_HEADING[navLocale]}</h5>
             <div className="flex flex-col space-y-4 text-white/50 text-sm font-light">
               {contentLinks.map((link) => (
-                <Link key={link.href} href={link.href} className="hover:text-garabandal-gold transition-colors">{link.label}</Link>
+                <Link key={link.href} href={link.href} className="hover:text-brand-200 transition-colors">{link.label}</Link>
               ))}
             </div>
           </div>
@@ -86,10 +94,11 @@ export default function SiteFooter() {
           <div>
             <h5 className="text-white font-medium uppercase tracking-widest text-sm mb-6">{t.footer.explore}</h5>
             <div className="flex flex-col space-y-4 text-white/50 text-sm font-light">
-              <Link href={t.urls.becomeMember} className="hover:text-garabandal-gold transition-colors">{t.footer.becomeMember}</Link>
-              <Link href={t.urls.donations} className="hover:text-garabandal-gold transition-colors">{t.footer.donations}</Link>
-              <Link href={t.urls.store} className="hover:text-garabandal-gold transition-colors">{t.footer.onlineStore}</Link>
-              <Link href={t.urls.login} className="hover:text-garabandal-gold transition-colors">{t.footer.account}</Link>
+              <Link href={t.urls.becomeMember} className="hover:text-brand-200 transition-colors">{t.footer.becomeMember}</Link>
+              <Link href={t.urls.donations} className="hover:text-brand-200 transition-colors">{t.footer.donations}</Link>
+              <Link href={t.urls.store} className="hover:text-brand-200 transition-colors">{t.footer.onlineStore}</Link>
+              <Link href={t.urls.login} className="hover:text-brand-200 transition-colors">{t.footer.account}</Link>
+              <Link href={locale === 'pt' ? '/app' : '/en/app'} className="hover:text-brand-200 transition-colors">{locale === 'pt' ? 'App Garabandal+' : 'Garabandal+ app'}</Link>
             </div>
           </div>
 
@@ -97,9 +106,10 @@ export default function SiteFooter() {
             <h5 className="text-white font-medium uppercase tracking-widest text-sm mb-6">{t.footer.contact}</h5>
             <ul className="space-y-4 text-white/50 text-sm font-light">
               <li className="flex items-center">
-                <Mail size={16} className="mr-3 text-garabandal-gold" />
-                <span className="min-w-0 break-all">geral@apostoladodegarabandal.com</span>
+                <Mail size={16} className="mr-3 text-brand-200" />
+                <a href="mailto:geral@apostoladodegarabandal.com" className="min-w-0 break-all hover:text-white">geral@apostoladodegarabandal.com</a>
               </li>
+              <li><a href="tel:+351915206815" className="hover:text-white">+351 915 206 815</a></li>
             </ul>
             <div className="flex gap-4 mt-6">
               <a href="https://www.youtube.com/@apostoladodegarabandal" target="_blank" rel="noreferrer" aria-label="YouTube" className="w-12 h-12 rounded-xl bg-white/10 border border-white/20 flex items-center justify-center text-white shadow-lg transition-all hover:-translate-y-1 hover:border-transparent hover:bg-[#ff0000] hover:shadow-[0_10px_30px_-6px_rgba(255,0,0,0.6)]">
@@ -110,6 +120,20 @@ export default function SiteFooter() {
               </a>
             </div>
           </div>
+        </div>
+
+        <div className="mb-8 flex flex-col gap-4 rounded-xl border border-brand-200/70 bg-brand-50/20 p-5 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm leading-relaxed text-white/85">
+            Associação do Apostolado de Garabandal · NIPC 517582023 · Largo da Igreja, n.º 36, 4535-275 Paços de Brandão, Portugal
+          </p>
+          <a
+            href="https://www.livroreclamacoes.pt/Inicio/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex shrink-0 items-center justify-center rounded-lg bg-brand px-4 py-3 text-center text-sm font-bold text-white transition-colors hover:bg-brand-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-200"
+          >
+            {COMPLAINTS_LABEL[navLocale]}
+          </a>
         </div>
 
         <div className="border-t border-white/5 pt-8 flex flex-col md:flex-row justify-between items-center text-xs text-white/30 uppercase tracking-widest">

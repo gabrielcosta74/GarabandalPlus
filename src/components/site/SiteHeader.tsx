@@ -207,14 +207,14 @@ export default function SiteHeader() {
         className={`
           group flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200
           ${isActive
-            ? 'bg-yellow-50 text-yellow-700 font-semibold'
+            ? 'bg-brand-50 text-brand-700 font-semibold'
             : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900 font-medium'
           }
         `}
       >
-        {Icon && <Icon className={`w-5 h-5 ${isActive ? 'text-yellow-600' : 'text-slate-400 group-hover:text-slate-600'}`} />}
+        {Icon && <Icon className={`w-5 h-5 ${isActive ? 'text-brand' : 'text-slate-400 group-hover:text-slate-600'}`} />}
         <span>{label}</span>
-        {isActive && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-yellow-600 lg:hidden" />}
+        {isActive && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-brand lg:hidden" />}
       </Link>
     );
   };
@@ -269,7 +269,7 @@ export default function SiteHeader() {
                   className={`
                     relative group px-5 py-2 text-[14px] font-bold tracking-wide transition-all duration-300 rounded-full
                     ${(pathname === link.href)
-                      ? 'text-garabandal-dark bg-garabandal-gold/20 shadow-sm'
+                      ? 'text-brand-700 bg-brand-50 shadow-sm'
                       : 'text-slate-600 hover:text-garabandal-dark hover:bg-slate-100/80'
                     }
                   `}
@@ -283,8 +283,8 @@ export default function SiteHeader() {
                 className={`
                     ml-2 px-6 py-2 rounded-full text-[14px] font-bold tracking-wide transition-all duration-300 transform hover:scale-105 active:scale-95
                     ${hasMembership
-                    ? 'bg-garabandal-gold/20 text-garabandal-dark hover:bg-garabandal-gold/30 shadow-sm'
-                    : 'bg-garabandal-gold text-garabandal-dark shadow-md hover:shadow-lg'
+                    ? 'bg-brand-50 text-brand-700 hover:bg-brand-200/50 shadow-sm'
+                    : 'bg-brand text-white shadow-md hover:bg-brand-700 hover:shadow-lg'
                   }
                   `}
               >
@@ -315,7 +315,7 @@ export default function SiteHeader() {
               >
                 <ShoppingBag className="w-5 h-5" />
                 {cartCount > 0 && (
-                  <span className="absolute -top-1 -right-1 w-5 h-5 flex items-center justify-center bg-garabandal-gold text-garabandal-dark text-[10px] font-bold rounded-full shadow-sm ring-2 ring-white">
+                  <span className="absolute -top-1 -right-1 w-5 h-5 flex items-center justify-center bg-brand text-white text-[10px] font-bold rounded-full shadow-sm ring-2 ring-white">
                     {cartCount}
                   </span>
                 )}
@@ -342,7 +342,7 @@ export default function SiteHeader() {
                       ))}
                     </div>
                     <div className="p-3 border-t border-slate-100">
-                      <Link href={t.urls.checkout} className="flex w-full items-center justify-center py-2.5 px-4 bg-garabandal-gold text-garabandal-dark text-sm font-bold rounded-xl hover:brightness-105 transition-colors shadow-sm">
+                      <Link href={t.urls.checkout} className="flex w-full items-center justify-center py-2.5 px-4 bg-brand text-white text-sm font-bold rounded-xl hover:bg-brand-700 transition-colors shadow-sm">
                         {t.nav.cart.checkout}
                       </Link>
                     </div>
@@ -398,10 +398,10 @@ export default function SiteHeader() {
                               {/* Header */}
                               <div className="p-6 bg-gradient-to-br from-slate-900 to-slate-800 text-white relative overflow-hidden">
                                 <div className="absolute top-0 right-0 p-4 opacity-10">
-                                  <div className="w-32 h-32 rounded-full bg-yellow-500 blur-3xl" />
+                                  <div className="w-32 h-32 rounded-full bg-brand blur-3xl" />
                                 </div>
                                 <div className="relative z-10 flex items-center gap-4">
-                                  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-yellow-500 to-yellow-600 flex items-center justify-center text-slate-900 font-serif font-bold text-2xl shadow-lg border-4 border-white/10">
+                                  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-brand to-brand-700 flex items-center justify-center text-white font-sans font-bold text-2xl shadow-lg border-4 border-white/10">
                                     {memberData?.avatar_url ? (
                                       <img src={memberData.avatar_url} alt="Profile" className="w-full h-full object-cover rounded-full" />
                                     ) : (
@@ -411,7 +411,7 @@ export default function SiteHeader() {
                                   <div className="flex-1 min-w-0">
                                     <p className="font-bold text-lg leading-tight truncate">{user.email?.split('@')[0]}</p>
                                     <p className="text-xs text-slate-400 truncate mb-2">{user.email}</p>
-                                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${isMember ? 'bg-yellow-500 text-slate-900' : 'bg-slate-700 text-slate-300'}`}>
+                                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${isMember ? 'bg-brand text-white' : 'bg-slate-700 text-slate-300'}`}>
                                       {isMember ? (
                                         <><span className="w-1.5 h-1.5 rounded-full bg-slate-900 animate-pulse" /> {t.nav.userMenu.activeMember}</>
                                       ) : (
@@ -429,7 +429,7 @@ export default function SiteHeader() {
                                 </div>
                                 <div className="space-y-1">
                                   <Link href={t.urls.myRegistrations} onClick={() => setUserMenuOpen(false)} className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition-all group">
-                                    <div className="w-8 h-8 rounded-lg bg-yellow-50 text-yellow-600 flex items-center justify-center group-hover:bg-yellow-100 transition-colors">
+                                    <div className="w-8 h-8 rounded-lg bg-brand-50 text-brand flex items-center justify-center group-hover:bg-brand-200/50 transition-colors">
                                       <Ticket className="w-4 h-4" />
                                     </div>
                                     <div>
@@ -536,7 +536,7 @@ export default function SiteHeader() {
                       </Link>
                       <Link
                         href={t.urls.register}
-                        className="px-5 py-2.5 bg-garabandal-gold text-garabandal-dark text-[14px] font-bold rounded-full shadow-md transition-all hover:scale-105 hover:shadow-lg"
+                        className="px-5 py-2.5 bg-brand text-white text-[14px] font-bold rounded-full shadow-md transition-all hover:scale-105 hover:bg-brand-700 hover:shadow-lg"
                       >
                         {t.nav.createAccount}
                       </Link>
@@ -585,7 +585,7 @@ export default function SiteHeader() {
             >
               {/* Drawer Header */}
               <div className="h-20 flex items-center justify-between px-6 border-b border-slate-100 bg-white sticky top-0 z-10">
-                <span className="font-serif text-xl font-bold text-slate-900">Menu</span>
+                <span className="font-sans text-xl font-bold text-slate-900">Menu</span>
                 <button
                   onClick={() => setIsMobileOpen(false)}
                   className="p-2 -mr-2 text-slate-400 hover:text-slate-900 hover:bg-slate-100 rounded-full transition-colors"
@@ -627,7 +627,7 @@ export default function SiteHeader() {
                     </div>
 
                     <div className="space-y-1">
-                      <p className="text-xs font-bold text-yellow-800 uppercase tracking-widest px-2 mb-2 flex items-center gap-2">
+                      <p className="text-xs font-bold text-brand-700 uppercase tracking-widest px-2 mb-2 flex items-center gap-2">
                         <User className="w-3 h-3" /> {t.mobileNav.myAccount}
                       </p>
                       <NavLink href={t.urls.profile} icon={User} label={t.nav.userMenu.myProfile} onClick={() => setIsMobileOpen(false)} />
@@ -663,17 +663,17 @@ export default function SiteHeader() {
                     className={`
                       group flex items-center justify-between px-4 py-3 rounded-xl transition-all duration-200
                       ${pathname === t.urls.checkout
-                        ? 'bg-yellow-50 text-yellow-700 font-semibold'
+                        ? 'bg-brand-50 text-brand-700 font-semibold'
                         : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900 font-medium'
                       }
                     `}
                   >
                     <div className="flex items-center gap-3">
-                      <ShoppingBag className={`w-5 h-5 ${pathname === t.urls.checkout ? 'text-yellow-600' : 'text-slate-400 group-hover:text-slate-600'}`} />
+                      <ShoppingBag className={`w-5 h-5 ${pathname === t.urls.checkout ? 'text-brand' : 'text-slate-400 group-hover:text-slate-600'}`} />
                       <span>{t.nav.cart.title}</span>
                     </div>
                     {cartCount > 0 && (
-                      <span className="bg-yellow-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm">
+                      <span className="bg-brand text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm">
                         {cartCount}
                       </span>
                     )}
@@ -704,7 +704,7 @@ export default function SiteHeader() {
                     <Link
                       href={t.urls.register}
                       onClick={() => setIsMobileOpen(false)}
-                      className="flex justify-center py-3 rounded-xl font-bold text-white shadow-sm bg-yellow-600"
+                      className="flex justify-center py-3 rounded-xl font-bold text-white shadow-sm bg-brand hover:bg-brand-700 transition-colors"
                     >
                       {t.nav.createAccount}
                     </Link>
@@ -732,7 +732,7 @@ export default function SiteHeader() {
                         router.push(localeSwitchHref(pathname, 'pt'));
                         setIsMobileOpen(false);
                       }}
-                      className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all ${locale === 'pt' ? 'bg-yellow-500 text-white shadow-sm' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
+                      className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all ${locale === 'pt' ? 'bg-brand text-white shadow-sm' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
                     >
                       🇵🇹 Português
                     </button>
@@ -741,7 +741,7 @@ export default function SiteHeader() {
                         router.push(localeSwitchHref(pathname, 'en'));
                         setIsMobileOpen(false);
                       }}
-                      className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all ${locale === 'en' ? 'bg-yellow-500 text-white shadow-sm' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
+                      className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all ${locale === 'en' ? 'bg-brand text-white shadow-sm' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
                     >
                       🇬🇧 English
                     </button>

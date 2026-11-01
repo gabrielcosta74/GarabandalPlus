@@ -1,14 +1,12 @@
 import Link from 'next/link';
 import Image from 'next/image';
-import { ArrowRight, Star } from 'lucide-react';
 import type { HomeArticle } from '../../lib/cms/home';
-
-/** Branded fallback when an article has no cover/og image. */
-const FALLBACK_IMAGE = '/images/nossasenhoragarabandal.jpg';
+import { FALLBACK_IMAGE, MediaCard, Section, SectionHeader } from './ui';
 
 /**
- * Cross-category featured articles band for the homepage. Light theme to match
- * the rest of the page (mist background). Mobile-first grid.
+ * Cross-category featured articles. The first entry leads (large, left); the
+ * rest follow as a compact list, so the band has a clear entry point instead of
+ * three equal cards.
  */
 export default function FeaturedArticles({
   articles,
@@ -18,50 +16,65 @@ export default function FeaturedArticles({
   locale: 'pt' | 'en';
 }) {
   if (!articles.length) return null;
-  const heading = locale === 'pt' ? 'Em destaque' : 'Featured';
-  const sub = locale === 'pt'
-    ? 'Testemunhos, mensagens e reflexões em destaque sobre as Aparições de Garabandal.'
-    : 'Featured testimonies, messages and reflections on the Garabandal Apparitions.';
+  const [lead, ...rest] = articles;
 
   return (
-    <section className="relative mx-auto w-full max-w-6xl px-4 py-16 sm:px-6 sm:py-20">
-      <div className="mb-8 text-center sm:mb-12">
-        <span className="inline-flex items-center gap-2 rounded-full bg-garabandal-gold/15 px-4 py-1.5 text-xs font-bold uppercase tracking-wider text-garabandal-dark">
-          <Star size={14} className="text-garabandal-gold" />
-          {heading}
-        </span>
-        <p className="mx-auto mt-4 max-w-2xl text-sm text-slate-600 sm:text-base">{sub}</p>
-      </div>
+    <Section tone="paper" labelledBy="home-featured-heading">
+      <SectionHeader
+        id="home-featured-heading"
+        eyebrow={locale === 'pt' ? 'Leitura' : 'Reading'}
+        title={locale === 'pt' ? 'Em destaque' : 'Featured'}
+        description={locale === 'pt'
+          ? 'Testemunhos, mensagens e reflexões em destaque sobre as Aparições de Garabandal.'
+          : 'Featured testimonies, messages and reflections on the Garabandal Apparitions.'}
+      />
 
-      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        {articles.map((a) => (
-          <Link
-            key={a.href}
-            href={a.href}
-            className="group flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl"
-          >
-            <div className="relative aspect-[16/10] w-full overflow-hidden bg-slate-100">
-              <Image
-                src={a.image || FALLBACK_IMAGE}
-                alt=""
-                fill
-                sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-                className="object-cover transition-transform duration-700 group-hover:scale-105"
-              />
-            </div>
-            <div className="flex flex-1 flex-col p-5 sm:p-6">
-              <h3 className="font-serif text-lg font-bold leading-snug text-garabandal-dark">{a.title}</h3>
-              {a.excerpt && (
-                <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-slate-600">{a.excerpt}</p>
-              )}
-              <span className="mt-4 inline-flex items-center gap-1.5 text-sm font-bold text-garabandal-dark">
-                {locale === 'pt' ? 'Ler mais' : 'Read more'}
-                <ArrowRight size={15} className="text-garabandal-gold transition-transform group-hover:translate-x-1" />
-              </span>
-            </div>
-          </Link>
-        ))}
+      <div className="grid gap-12 lg:grid-cols-12 lg:gap-16">
+        <div className={rest.length ? 'lg:col-span-7' : 'lg:col-span-12'}>
+          <MediaCard
+            href={lead.href}
+            image={lead.image}
+            title={lead.title}
+            excerpt={lead.excerpt}
+            serifTitle
+            titleClass="text-2xl md:text-[1.75rem]"
+            aspect="aspect-[16/10]"
+            excerptLines="line-clamp-3"
+            sizes="(max-width: 1024px) 100vw, 680px"
+          />
+        </div>
+
+        {rest.length > 0 && (
+          <ul className="flex flex-col divide-y divide-line lg:col-span-5">
+            {rest.map((a) => (
+              <li key={a.href} className="py-6 first:pt-0 last:pb-0">
+                <Link
+                  href={a.href}
+                  className="group grid grid-cols-[7.5rem_1fr] items-start gap-5 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand sm:grid-cols-[10rem_1fr]"
+                >
+                  <div className="relative aspect-[4/3] overflow-hidden rounded-lg bg-line">
+                    <Image
+                      src={a.image || FALLBACK_IMAGE}
+                      alt=""
+                      fill
+                      sizes="160px"
+                      className="object-cover transition-transform duration-500 motion-safe:group-hover:scale-[1.04]"
+                    />
+                  </div>
+                  <div>
+                    <h3 className="line-clamp-3 font-serif text-lg font-medium leading-snug text-ink underline-offset-4 decoration-1 group-hover:underline">
+                      {a.title}
+                    </h3>
+                    {a.excerpt && (
+                      <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-muted">{a.excerpt}</p>
+                    )}
+                  </div>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
-    </section>
+    </Section>
   );
 }

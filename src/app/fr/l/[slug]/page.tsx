@@ -109,6 +109,7 @@ export default async function FrPostPage({ params }: { params: Promise<Params> }
         dangerouslySetInnerHTML={{ __html: jsonLdScript(ld, breadcrumb) }}
       />
       <ArticleHero
+        locale="fr"
         variant="post"
         title={post.title}
         subtitle={post.meta_description}
@@ -118,29 +119,11 @@ export default async function FrPostPage({ params }: { params: Promise<Params> }
           { href: '/fr/l', label: 'Articles' },
           { label: post.title },
         ]}
+        languages={peers.length > 1 ? <LocaleSwitcher current="fr" peers={peers} basePath="post" /> : null}
         meta={
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '1rem',
-                fontSize: '0.85rem',
-                color: cover ? 'rgba(255,255,255,0.9)' : 'var(--muted)',
-              }}
-            >
-              {date && (
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
-                  <Calendar size={14} aria-hidden /> {date}
-                </span>
-              )}
-              {minutes > 0 && (
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
-                  <Clock size={14} aria-hidden /> {minutes} min
-                </span>
-              )}
-            </div>
-            {peers.length > 1 ? <LocaleSwitcher current="fr" peers={peers} basePath="post" /> : null}
+          <div className="article-publication-meta">
+            {date && <span><Calendar size={17} aria-hidden /><time dateTime={post.published_at ?? post.created_at ?? undefined}>{date}</time></span>}
+            {minutes > 0 && <span><Clock size={17} aria-hidden />{minutes} min</span>}
           </div>
         }
       />

@@ -66,14 +66,14 @@ export default function MobilePilgrimagePaymentCard({
       aria-current={isActive ? 'page' : undefined}
       className={`group mb-7 block rounded-2xl border p-4 shadow-md transition-all active:scale-[0.99] ${
         isActive
-          ? 'border-garabandal-gold bg-garabandal-gold text-garabandal-dark'
+          ? 'border-brand bg-brand text-white'
           : isOverdue
             ? 'border-red-300 bg-gradient-to-br from-red-50 to-rose-100 text-garabandal-dark hover:border-red-400 hover:shadow-lg'
-          : 'border-amber-300 bg-gradient-to-br from-amber-50 to-yellow-100 text-garabandal-dark hover:border-garabandal-gold hover:shadow-lg'
+          : 'border-brand-200 bg-gradient-to-br from-brand-50 to-white text-garabandal-dark hover:border-brand hover:shadow-lg'
       }`}
     >
       <span className="flex items-center gap-3">
-        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white text-amber-700 shadow-sm">
+        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white text-brand shadow-sm">
           <Ticket className="h-6 w-6" aria-hidden="true" />
         </span>
         <span className="min-w-0 flex-1">
@@ -81,7 +81,7 @@ export default function MobilePilgrimagePaymentCard({
           <span className="mt-1 block text-xs font-semibold leading-snug text-slate-600">{description}</span>
           {extraAlerts > 0 && (
             <span className={`mt-2 inline-flex rounded-full px-2 py-0.5 text-[10px] font-extrabold ${
-              isOverdue ? 'bg-red-200 text-red-800' : 'bg-amber-200 text-amber-900'
+              isOverdue ? 'bg-red-200 text-red-800' : 'bg-brand-50 text-brand-700'
             }`}>
               {isEnglish
                 ? `+${extraAlerts} pending ${extraAlerts === 1 ? 'payment' : 'payments'}`
@@ -89,7 +89,7 @@ export default function MobilePilgrimagePaymentCard({
             </span>
           )}
         </span>
-        <ChevronRight className="h-5 w-5 shrink-0 text-amber-800 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
+        <ChevronRight className="h-5 w-5 shrink-0 text-brand-700 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
       </span>
     </Link>
   );

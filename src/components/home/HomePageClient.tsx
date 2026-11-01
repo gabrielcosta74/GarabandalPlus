@@ -1,3 +1,4 @@
+import AppDownloadBand from './AppDownloadBand';
 import CampaignShowcase from './CampaignShowcase';
 import ContactBar from './ContactBar';
 import DevotionalGrid from './DevotionalGrid';
@@ -7,7 +8,6 @@ import FeaturedStore from './FeaturedStore';
 import Hero from './Hero';
 import HomePilgrimagePreview from './HomePilgrimagePreview';
 import HomeQuotaWarning from './HomeQuotaWarning';
-import InstagramFollow from './InstagramFollow';
 import LatestArticles from './LatestArticles';
 import LatestNews from './LatestNews';
 import SpiritualPillars from './SpiritualPillars';
@@ -40,10 +40,8 @@ export default function HomePageClient({
   locale = 'pt',
 }: HomePageProps) {
   return (
-    <main className="min-h-screen bg-garabandal-mist text-slate-900 selection:bg-garabandal-gold selection:text-white">
+    <main className="home-page min-h-screen bg-white text-ink selection:bg-brand selection:text-white">
       <div className="relative isolate">
-        <div className="pointer-events-none fixed inset-0 z-0 bg-garabandal-mist" />
-
         <div className="relative z-10">
           <HomeQuotaWarning />
           <Hero locale={locale} />
@@ -53,16 +51,15 @@ export default function HomePageClient({
           <div className="home-below-fold">
             <WhatIsGarabandal locale={locale} />
             {homeContent && <DevotionalGrid categories={homeContent.categories} locale={locale} />}
+            {pilgrimages.length > 0 && <HomePilgrimagePreview pilgrimages={pilgrimages} locale={locale} />}
+            <Endorsements locale={locale} />
             <YouTubeLives videos={lives} locale={locale} />
-            <InstagramFollow locale={locale} />
             {homeContent && <FeaturedArticles articles={homeContent.featured} locale={locale} />}
             {homeContent && homeContent.articles.length > 0 && (
               <LatestArticles articles={homeContent.articles} locale={locale} />
             )}
-            <Endorsements locale={locale} />
             <SpiritualPillars locale={locale} />
             <CampaignShowcase meta={meta} locale={locale} />
-            {pilgrimages.length > 0 && <HomePilgrimagePreview pilgrimages={pilgrimages} locale={locale} />}
             {homeContent && (
               <LatestNews
                 items={homeContent.latestNews}
@@ -70,6 +67,7 @@ export default function HomePageClient({
                 allHref={locale === 'pt' ? '/noticias' : '/en/news'}
               />
             )}
+            <AppDownloadBand locale={locale} />
             <FeaturedStore products={featuredProducts} locale={locale} />
             <ContactBar locale={locale} />
           </div>

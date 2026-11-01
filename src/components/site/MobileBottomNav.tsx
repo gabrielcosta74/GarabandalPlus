@@ -85,7 +85,7 @@ export default function MobileBottomNav({
                 transition={{ type: 'spring', stiffness: 500, damping: 22 }}
                 className={cn(
                     'flex flex-col items-center justify-center gap-1 transition-colors duration-300',
-                    isActive ? 'text-garabandal-gold' : 'text-slate-700'
+                    isActive ? 'text-brand' : 'text-slate-700'
                 )}
             >
                 <Icon
@@ -94,7 +94,7 @@ export default function MobileBottomNav({
                 />
                 <span className={cn(
                     'text-[10px] leading-none tracking-tight',
-                    isActive ? 'font-bold text-garabandal-dark' : 'font-medium'
+                    isActive ? 'font-bold text-brand-700' : 'font-medium'
                 )}>{label}</span>
             </motion.div>
         );

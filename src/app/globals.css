@@ -3,6 +3,9 @@
 @source "../components/**/*.{ts,tsx,mdx}";
 @source "../lib/**/*.{ts,tsx}";
 
+/* Desktop with a mouse: where a QR code makes sense (phones and tablets can install directly). */
+@custom-variant desktop-mouse (@media (hover: hover) and (min-width: 1024px));
+
 @theme {
   --font-serif: var(--font-playfair), serif;
   --font-sans: var(--font-inter), sans-serif;
@@ -12,8 +15,69 @@
 
   --color-garabandal-dark: #0f172a;
   --color-garabandal-gold: #d4af37;
+  --color-home-blue: #176cf0;
   --color-garabandal-mist: #f8fafc;
   --color-garabandal-accent: #334155;
+
+  /* Homepage design tokens. One blue (a bright azure, softer than the electric
+     #176cf0 above), navy ink, and cool paper neutrals. Blue is reserved for
+     the primary action, links and focus; everything else is ink or paper. */
+  --color-brand: #3563e9;
+  --color-brand-700: #2b51c7;
+  --color-brand-200: #c3d3fb;
+  --color-brand-50: #eef3ff;
+  --color-ink: #0f1b33;
+  --color-ink-soft: #1b2a4a;
+  --color-paper: #f4f6fa;
+  --color-line: #e2e7f0;
+  --color-muted: #5b6475;
+}
+
+/* Homepage typography: Inter everywhere (headings, UI and editorial text), the
+   same face the articles use (see article-prose.css). `font-serif` is aliased to
+   Inter here so the homepage's serif headings match the articles too. Scoped with
+   :has() so the shared header/footer follow the page they sit on. */
+body:has(.home-page) {
+  --font-serif: var(--font-inter), system-ui, sans-serif;
+  --font-sans: var(--font-inter), system-ui, sans-serif;
+  font-family: var(--font-sans);
+}
+
+/* "Ser Membro" navbar button: brand-blue gradient, soft glow and a light sweep
+   that crosses the button every few seconds. Motion is off for reduced-motion. */
+.btn-member {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+  overflow: hidden;
+  isolation: isolate;
+  background: linear-gradient(135deg, #4b7bf0 0%, var(--color-brand) 45%, var(--color-brand-700) 100%);
+  box-shadow: 0 6px 18px -4px rgba(53, 99, 233, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+.btn-member::after {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 -60%;
+  width: 45%;
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.55), transparent);
+  transform: skewX(-20deg);
+  animation: btn-member-shine 4.5s ease-in-out infinite;
+  z-index: -1;
+  pointer-events: none;
+}
+.btn-member:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 26px -4px rgba(53, 99, 233, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+@keyframes btn-member-shine {
+  0%, 55% { left: -60%; }
+  100% { left: 130%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .btn-member::after { animation: none; display: none; }
 }
 
 /* The homepage remains fully present in the server HTML for SEO. On small

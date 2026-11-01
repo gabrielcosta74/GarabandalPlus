@@ -27,14 +27,6 @@ const COPY: Record<ContentLocale, Copy> = {
   it: { fab: 'Condividi', title: 'Condividi questo articolo', copy: 'Copia link', copied: 'Link copiato!', email: 'Email', whatsapp: 'WhatsApp', facebook: 'Facebook', telegram: 'Telegram', twitter: 'X', close: 'Chiudi', emailSubject: (t) => `Leggi: ${t}` },
 };
 
-const BRAND: Record<string, string> = {
-  whatsapp: '#25D366',
-  facebook: '#1877F2',
-  telegram: '#229ED9',
-  twitter: '#0f172a',
-  email: '#64748b',
-};
-
 export function WhatsAppIcon({ size = 22 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden>
@@ -161,7 +153,6 @@ export function ShareBar({ url, title, locale = 'pt' }: { url: string; title: st
               rel="noopener noreferrer"
               className="sharepanel__item"
               onClick={() => setOpen(false)}
-              style={{ ['--brand' as string]: BRAND[key] }}
             >
               <span className="sharepanel__icon"><Icon /></span>
               <span className="sharepanel__name">{label}</span>
@@ -197,10 +188,10 @@ export function ShareBar({ url, title, locale = 'pt' }: { url: string; title: st
           padding: 0;
           border: none;
           border-radius: 999px;
-          background: var(--color-garabandal-gold, #d4af37);
+          background: var(--color-brand, #3563e9);
           color: #fff;
           cursor: pointer;
-          box-shadow: 0 8px 24px rgba(15,23,42,0.25), 0 2px 6px rgba(212,175,55,0.4);
+          box-shadow: 0 8px 24px rgba(15,23,42,0.25), 0 2px 6px rgba(53,99,233,0.18);
           transition: transform 0.2s ease, box-shadow 0.2s ease, width 0.25s ease;
           -webkit-tap-highlight-color: transparent;
           overflow: hidden;
@@ -215,7 +206,7 @@ export function ShareBar({ url, title, locale = 'pt' }: { url: string; title: st
           transition: max-width 0.25s ease, opacity 0.2s ease, margin 0.25s ease;
         }
         .sharefab:active { transform: scale(0.94); }
-        .sharefab:focus-visible { outline: 3px solid rgba(212,175,55,0.5); outline-offset: 2px; }
+        .sharefab:focus-visible { outline: 3px solid var(--color-brand, #3563e9); outline-offset: 2px; }
         /* Desktop: no bottom nav → drop lower, expand to a labelled pill on hover */
         @media (min-width: 1024px) {
           .sharefab { height: 56px; width: 56px; bottom: 2rem; right: 2rem; justify-content: center; }
@@ -299,8 +290,8 @@ export function ShareBar({ url, title, locale = 'pt' }: { url: string; title: st
           justify-content: center;
           width: 54px; height: 54px;
           border-radius: 999px;
-          background: var(--brand, #475569);
-          color: #fff;
+          background: var(--color-brand-50, #eef3ff);
+          color: var(--color-brand-700, #2b51c7);
         }
         .sharepanel__name { font-size: 0.72rem; font-weight: 600; }
         .sharepanel__copy {
@@ -320,7 +311,7 @@ export function ShareBar({ url, title, locale = 'pt' }: { url: string; title: st
           transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
         }
         .sharepanel__copy:hover { background: #eef2f7; }
-        .sharepanel__copy.is-copied { background: #f0fdf4; color: #15803d; border-color: #86efac; }
+        .sharepanel__copy.is-copied { background: var(--color-brand-50, #eef3ff); color: var(--color-brand-700, #2b51c7); border-color: var(--color-brand-200, #c3d3fb); }
         @media (min-width: 640px) {
           .shareov { align-items: center; }
           .sharepanel { border-radius: 24px; margin: 0 1rem; padding-bottom: 1.5rem; animation: sharepanel-pop 0.22s cubic-bezier(0.22,1,0.36,1); }

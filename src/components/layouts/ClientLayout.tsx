@@ -14,6 +14,7 @@ import AuthLandingGuard from '../auth/AuthLandingGuard';
 import PublicAnalytics from '../analytics/PublicAnalytics';
 import CookieConsentBanner from '../privacy/CookieConsentBanner';
 import WhatsAppFloatingButton from '../site/WhatsAppFloatingButton';
+import AppPromoPopup from '../promo/AppPromoPopup';
 import { PilgrimagePaymentAlertsProvider } from '../../contexts/PilgrimagePaymentAlertsContext';
 import PilgrimagePaymentAlerts from '../pilgrimage/PilgrimagePaymentAlerts';
 import { isFocusedRecoveryPath } from '../../lib/recovery-flow';
@@ -34,9 +35,10 @@ export default function ClientLayout({
     const isFocusedRecovery = isFocusedRecoveryPath(pathname);
     const isEarlyAccessLanding = pathname === '/acesso-antecipado' || pathname?.startsWith('/acesso-antecipado/');
     const isCheckinForm = pathname?.startsWith('/dados-check-in/');
-    const suppressSenderPopup = isFocusedRecovery || isEarlyAccessLanding || isCheckinForm;
-    const hideHeader = isAdmin || isEmbed || isFocusedRecovery || isEarlyAccessLanding || isCheckinForm;
-    const hideFooter = isAdmin || isEmbed || isFocusedRecovery || isEarlyAccessLanding || isCheckinForm;
+    const isPilgrimageRegistration = /^\/(?:peregrinacoes\/[^/]+\/inscrever|en\/pilgrimages\/[^/]+\/register)(?:\/|$)/.test(pathname || '');
+    const suppressSenderPopup = isAdmin || isFocusedRecovery || isEarlyAccessLanding || isCheckinForm || isPilgrimageRegistration;
+    const hideHeader = isAdmin || isEmbed || isFocusedRecovery || isEarlyAccessLanding || isCheckinForm || isPilgrimageRegistration;
+    const hideFooter = isAdmin || isEmbed || isFocusedRecovery || isEarlyAccessLanding || isCheckinForm || isPilgrimageRegistration;
 
     useEffect(() => {
         if (!suppressSenderPopup) return;
@@ -87,6 +89,7 @@ export default function ClientLayout({
                         {children}
                         {!hideFooter && <SiteFooter />}
                         {!isAdmin && !isEmbed && !isFocusedRecovery && !isCheckinForm && <CookieConsentBanner />}
+                        {!isAdmin && !isEmbed && !isFocusedRecovery && !isEarlyAccessLanding && !isCheckinForm && <AppPromoPopup />}
                         {!isAdmin && !isEmbed && !isFocusedRecovery && !isEarlyAccessLanding && !isCheckinForm && <WhatsAppFloatingButton />}
                     </CurrencyProvider>
                 </PilgrimagePaymentAlertsProvider>

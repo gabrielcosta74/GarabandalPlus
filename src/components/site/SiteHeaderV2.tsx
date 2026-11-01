@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
 import { useLocale } from '../../contexts/LocaleContext';
 import { useAuth } from '../../contexts/AuthContext';
@@ -10,7 +9,7 @@ import { isActiveMember } from '../../lib/store-discounts';
 import { loadCart } from '../../app/loja-online/data';
 import { motion, AnimatePresence, useScroll } from 'framer-motion';
 import {
-  ShoppingBag, Menu, X, ChevronDown, User, LogOut, Heart, Home, MapPin,
+  ShoppingBag, Menu, X, ChevronDown, User, LogOut, Heart, Home, MapPin, Check,
   ShieldCheck, BookOpen, CreditCard, LayoutDashboard, Ticket, Store, Compass,
   Scroll, MessageCircleHeart, Users, Sparkles, Info, Gavel,
 } from 'lucide-react';
@@ -59,6 +58,7 @@ export default function SiteHeaderV2() {
 
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [openDropdown, setOpenDropdown] = useState<CategoryKey | 'content' | null>(null);
+  const [languageMenuOpen, setLanguageMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [cartCount, setCartCount] = useState(0);
   const [hidden, setHidden] = useState(false);
@@ -66,6 +66,8 @@ export default function SiteHeaderV2() {
   const [mounted, setMounted] = useState(false);
   const [highlights, setHighlights] = useState<NavHighlights>({});
   const [openMobileCat, setOpenMobileCat] = useState<CategoryKey | null>(null);
+  const lastScrollY = useRef(0);
+  const isHeaderHidden = useRef(false);
   const { scrollY } = useScroll();
 
   useEffect(() => { setMounted(true); }, []);
@@ -81,11 +83,31 @@ export default function SiteHeaderV2() {
   }, [locale]);
 
   useEffect(() => {
+    lastScrollY.current = scrollY.get();
+    isHeaderHidden.current = false;
+
     return scrollY.on('change', (latest: number) => {
       setScrolled(latest > 20);
-      const prev = scrollY.getPrevious() ?? 0;
-      if (latest > prev && latest > 100) setHidden(true);
-      else setHidden(false);
+
+      const delta = latest - lastScrollY.current;
+      lastScrollY.current = latest;
+
+      // Ignore tiny scroll deltas (trackpads can emit many of them) so the
+      // header never keeps restarting its transition. It hides while scrolling
+      // down past the intro, then reveals immediately and smoothly on a clear
+      // upward movement.
+      if (latest <= 100) {
+        if (isHeaderHidden.current) {
+          isHeaderHidden.current = false;
+          setHidden(false);
+        }
+      } else if (delta > 6 && !isHeaderHidden.current) {
+        isHeaderHidden.current = true;
+        setHidden(true);
+      } else if (delta < -6 && isHeaderHidden.current) {
+        isHeaderHidden.current = false;
+        setHidden(false);
+      }
     });
   }, [scrollY]);
 
@@ -117,6 +139,7 @@ export default function SiteHeaderV2() {
   // "Sobre o Apostolado" points to the migrated Webnode about page at its
   // original (SEO-preserved) URL, rather than a new /sobre-o-apostolado slug.
   const aboutHref = navLocale === 'en' ? '/en/our-apostolate' : '/apostolado-garabandal';
+  const homeHref = locale === 'pt' ? '/' : '/en';
 
   const handleLogout = async () => {
     await signOut();
@@ -131,7 +154,7 @@ export default function SiteHeaderV2() {
   // the solid white glass bar once scrolled (or on any other page).
   const transparent = isHomePage && !scrolled;
 
-  // Shared styling for the circular action buttons (language / cart / menu).
+  // Shared styling for the circular cart and mobile-menu action buttons.
   // Dark text/icons on every state — the bar always sits on a light (glass) fill.
   const circleBtn = transparent
     ? 'bg-white/50 hover:bg-white/70 text-slate-700 hover:text-garabandal-dark border border-white/50 backdrop-blur-md'
@@ -140,33 +163,16 @@ export default function SiteHeaderV2() {
   return (
     <>
       <header
-        className={`fixed left-0 right-0 z-[100] hidden lg:block transition-transform duration-500 ease-in-out top-3 sm:top-5 ${hidden ? '-translate-y-[150%]' : 'translate-y-0'}`}
+        className={`fixed left-0 right-0 z-[100] hidden lg:block will-change-transform transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] top-2 [&_a]:cursor-pointer [&_button]:cursor-pointer [body[data-modal-open]_&]:pointer-events-none [body[data-modal-open]_&]:opacity-0 ${hidden ? '-translate-y-[150%]' : 'translate-y-0'}`}
       >
         <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8">
           <div
-            className={`flex items-center justify-between transition-all duration-500 ease-in-out rounded-[2rem] h-[4.5rem] px-4 sm:px-6 ${scrolled ? 'py-1' : 'py-2'} ${transparent ? 'bg-white/40 backdrop-blur-xl shadow-[0_8px_30px_rgb(0,0,0,0.06)] border border-transparent' : 'bg-white/90 backdrop-blur-xl shadow-[0_8px_30px_rgb(0,0,0,0.06)] border border-slate-200/50'}`}
+            className={`flex items-center justify-between transition-all duration-500 ease-in-out rounded-[2rem] h-[4.5rem] px-4 sm:px-6 ${scrolled ? 'py-1' : 'py-2'} ${transparent ? 'bg-white/85 backdrop-blur-xl shadow-[0_8px_30px_rgb(0,0,0,0.06)] border border-transparent' : 'bg-white/90 backdrop-blur-xl shadow-[0_8px_30px_rgb(0,0,0,0.06)] border border-slate-200/50'}`}
           >
-            {/* 1. Brand Logo */}
-            <Link href={locale === 'pt' ? '/' : '/en'} className="flex items-center gap-3 sm:gap-4 group focus:outline-none">
-              <div className="relative w-11 h-11 overflow-hidden rounded-2xl shadow-md transition-transform duration-300 group-hover:scale-105 group-active:scale-95">
-                <Image
-                  src="/apple-touch-icon.png"
-                  alt="Nossa Senhora de Garabandal"
-                  fill
-                  sizes="44px"
-                  className="object-cover"
-                />
-              </div>
-              <div className="hidden lg:flex flex-col justify-center">
-                <span className="font-serif text-lg xl:text-xl font-bold tracking-tight leading-none text-garabandal-dark">
-                  Apostolado
-                </span>
-              </div>
-            </Link>
-
-            {/* 2. Central Navigation (Desktop) */}
-            <nav className="hidden lg:flex items-center justify-center flex-1 mx-4 xl:mx-8 gap-1">
-              <NavPill href={aboutHref} label={locale === 'pt' ? 'Apostolado' : 'Apostolate'} active={pathname === aboutHref} icon={Compass} transparent={transparent} />
+            {/* 1. Navigation (Desktop). "Início" is the first pill, same style as the rest. */}
+            <nav className="hidden lg:flex items-center justify-start flex-1 gap-0.5 xl:gap-1">
+              <NavPill href={homeHref} label={locale === 'pt' ? 'Início' : 'Home'} active={pathname === '/' || pathname === '/en'} transparent={transparent} />
+              <NavPill href={aboutHref} label={locale === 'pt' ? 'Apostolado' : 'Apostolate'} active={pathname === aboutHref} transparent={transparent} />
 
               {/* Mega Dropdown for Content Categories */}
               <div
@@ -174,9 +180,9 @@ export default function SiteHeaderV2() {
                 onMouseEnter={() => setOpenDropdown('content')}
                 onMouseLeave={() => setOpenDropdown(null)}
               >
-                <button className={`px-4 py-2.5 rounded-full text-sm font-bold flex items-center gap-2 transition-all duration-300 hover:scale-[1.04] ${openDropdown === 'content' ? 'bg-slate-100 text-garabandal-dark' : 'text-slate-700 hover:text-garabandal-dark hover:bg-slate-100/80'}`}>
-                  <BookOpen size={16} className="opacity-70" />
-                  {locale === 'pt' ? 'História' : 'The Message'}
+                <button className={`cursor-pointer px-3.5 xl:px-4 py-2.5 rounded-full flex items-center gap-1.5 transition-colors duration-200 ${openDropdown === 'content' ? 'bg-slate-100 text-garabandal-dark' : 'text-slate-700 hover:text-garabandal-dark hover:bg-slate-100/80'}`}>
+                  {/* Text sizing lives on a span: the unlayered `button { font: inherit }` in globals.css beats utilities on the button itself. Keep in sync with NavPill. */}
+                  <span className="text-[15px] xl:text-base font-medium">{locale === 'pt' ? 'História' : 'The Message'}</span>
                   <ChevronDown size={14} className={`transition-transform duration-300 opacity-50 ${openDropdown === 'content' ? 'rotate-180' : ''}`} />
                 </button>
 
@@ -187,11 +193,11 @@ export default function SiteHeaderV2() {
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       exit={{ opacity: 0, y: 10, scale: 0.98 }}
                       transition={{ type: "spring", stiffness: 400, damping: 30 }}
-                      className="absolute top-full left-1/2 -translate-x-1/2 pt-4 z-50 origin-top"
+                      className="absolute top-full left-0 pt-4 z-50 origin-top-left"
                     >
                       <div className="w-[600px] xl:w-[650px] bg-white rounded-[2rem] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.15)] border border-slate-100 p-6 grid grid-cols-2 gap-x-6 gap-y-3 relative">
-                        {/* Little triangle pointer */}
-                        <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-white border-t border-l border-slate-100 rotate-45" />
+                        {/* Little triangle pointer, centred under the "História" button */}
+                        <div className="absolute -top-2 left-12 -translate-x-1/2 w-4 h-4 bg-white border-t border-l border-slate-100 rotate-45" />
 
                         {PUBLIC_NAV_ORDER.map(key => {
                           const meta = CATEGORIES[key][navLocale];
@@ -199,12 +205,12 @@ export default function SiteHeaderV2() {
                           const Icon = ICONS[key];
                           return (
                             <Link key={key} href={href} className="flex items-start gap-4 p-4 rounded-2xl hover:bg-slate-50 transition-colors group/item relative z-10">
-                              <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-500 group-hover/item:bg-garabandal-gold/20 group-hover/item:text-garabandal-dark transition-colors shrink-0 shadow-sm">
+                              <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-500 group-hover/item:bg-brand-50 group-hover/item:text-brand-700 transition-colors shrink-0 shadow-sm">
                                 <Icon size={20} />
                               </div>
                               <div className="flex-1 min-w-0">
-                                <p className="text-sm font-bold text-garabandal-dark mb-1">{meta.label}</p>
-                                <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed">{meta.tagline}</p>
+                                <p className="text-base font-bold text-garabandal-dark mb-1">{meta.label}</p>
+                                <p className="text-[13px] text-slate-500 line-clamp-2 leading-relaxed">{meta.tagline}</p>
                               </div>
                             </Link>
                           );
@@ -215,29 +221,74 @@ export default function SiteHeaderV2() {
                 </AnimatePresence>
               </div>
 
-              <NavPill href={t.urls.pilgrimages} label={t.nav.pilgrimages} active={pathname === t.urls.pilgrimages} icon={MapPin} transparent={transparent} />
-              <NavPill href={t.urls.store} label={t.nav.store} active={pathname === t.urls.store} icon={Store} transparent={transparent} />
-              <NavPill href={t.urls.donations} label={t.nav.donations} active={pathname === t.urls.donations} icon={Heart} transparent={transparent} />
+              <NavPill href={t.urls.pilgrimages} label={t.nav.pilgrimages} active={pathname === t.urls.pilgrimages} transparent={transparent} />
+              <NavPill href={t.urls.store} label={t.nav.store} active={pathname === t.urls.store} transparent={transparent} />
+              <NavPill href={t.urls.donations} label={t.nav.donations} active={pathname === t.urls.donations} transparent={transparent} />
+
+              {/* Primary call to action, always blue with a slow shimmer + glow (see .btn-member in globals.css). */}
+              <Link href={membershipHref} className="btn-member ml-2 px-5 xl:px-6 py-2.5 rounded-full text-[15px] xl:text-base font-semibold whitespace-nowrap text-white">
+                <span>{hasMembership ? t.nav.memberArea : t.nav.becomeMember}</span>
+              </Link>
             </nav>
 
             {/* 3. Actions (Right side) */}
-            <div className="flex items-center gap-2 sm:gap-3">
-              {/* Language */}
-              <button
-                onClick={() => {
-                  router.push(localeSwitchHref(pathname, locale === 'pt' ? 'en' : 'pt'));
-                }}
-                className={`hidden sm:flex items-center justify-center w-11 h-11 rounded-full transition-all text-xs font-bold ${circleBtn}`}
-                aria-label="Switch language"
-              >
-                {locale === 'pt' ? 'EN' : 'PT'}
-              </button>
+            <div className="flex items-center gap-4 xl:gap-5">
+              {/* Language — intentionally text-only, with the active language checked in a compact menu. */}
+              <div className="relative hidden sm:block">
+                {languageMenuOpen && <button aria-label="Close language menu" className="fixed inset-0 z-40 cursor-default" onClick={() => setLanguageMenuOpen(false)} />}
+                <button
+                  type="button"
+                  onClick={() => setLanguageMenuOpen((open) => !open)}
+                  className="relative z-50 inline-flex cursor-pointer items-center py-2 text-[13px] font-semibold text-slate-900 transition-colors duration-200 hover:text-brand-700 focus:outline-none focus-visible:rounded-sm focus-visible:ring-2 focus-visible:ring-brand/30"
+                  aria-label="Change language"
+                  aria-expanded={languageMenuOpen}
+                  aria-haspopup="menu"
+                >
+                  <span>{locale === 'pt' ? 'PT' : 'EN'}</span>
+                  <ChevronDown size={13} strokeWidth={2.25} className={`text-slate-700 transition-transform duration-200 ${languageMenuOpen ? 'rotate-180' : ''}`} aria-hidden="true" />
+                </button>
+                <AnimatePresence>
+                  {languageMenuOpen && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -6, scale: 0.98 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: -6, scale: 0.98 }}
+                      transition={{ duration: 0.16, ease: 'easeOut' }}
+                      role="menu"
+                      className="absolute right-0 top-full z-50 mt-3 w-40 overflow-hidden rounded-2xl border border-slate-200/80 bg-white/95 p-1.5 shadow-[0_16px_38px_rgba(15,23,42,0.14)] backdrop-blur-xl"
+                    >
+                      {[
+                        { code: 'pt' as const, label: 'Português' },
+                        { code: 'en' as const, label: 'English' },
+                      ].map((option) => {
+                        const selected = locale === option.code;
+                        return (
+                          <button
+                            key={option.code}
+                            type="button"
+                            role="menuitemradio"
+                            aria-checked={selected}
+                            onClick={() => {
+                              setLanguageMenuOpen(false);
+                              if (!selected) router.push(localeSwitchHref(pathname, option.code));
+                            }}
+                            className={`flex h-10 w-full cursor-pointer items-center justify-between rounded-xl px-3 text-left text-sm font-medium transition-colors ${selected ? 'bg-brand-50 text-brand-700' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-950'}`}
+                          >
+                            <span>{option.label}</span>
+                            {selected && <Check size={16} strokeWidth={2.5} aria-hidden="true" />}
+                          </button>
+                        );
+                      })}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
 
               {/* Cart */}
               <Link href={t.urls.checkout} aria-label={t.nav.cart.label} className={`relative flex items-center justify-center w-11 h-11 rounded-full transition-all ${circleBtn}`}>
                 <ShoppingBag size={20} />
                 {cartCount > 0 && (
-                  <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-garabandal-gold text-garabandal-dark text-[10px] font-bold flex items-center justify-center shadow-sm ring-2 ring-white">
+                  <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-brand text-white text-[10px] font-bold flex items-center justify-center shadow-sm ring-2 ring-white">
                     {cartCount}
                   </span>
                 )}
@@ -249,25 +300,14 @@ export default function SiteHeaderV2() {
                   <UserPill user={user} memberData={memberData} isMember={isMember} open={userMenuOpen} setOpen={setUserMenuOpen} t={t} onLogout={handleLogout} />
                 ) : (
                   <div className="hidden lg:flex items-center gap-2">
-                    <Link href={t.urls.login} className="px-5 py-2.5 rounded-full text-sm font-bold transition-colors text-slate-700 hover:text-garabandal-dark hover:bg-slate-50">
+                    <Link href={t.urls.login} className="px-4 xl:px-5 py-2.5 rounded-full text-[15px] xl:text-base font-medium whitespace-nowrap transition-colors text-slate-700 hover:text-garabandal-dark hover:bg-slate-50">
                       {t.nav.signIn}
                     </Link>
-                    <Link href={t.urls.register} className="px-6 py-2.5 rounded-full text-sm font-bold bg-garabandal-gold text-garabandal-dark shadow-md hover:shadow-lg hover:scale-105 transition-all">
+                    <Link href={t.urls.register} className="hidden xl:inline-flex px-6 py-2.5 rounded-full text-base font-semibold whitespace-nowrap border border-slate-300 text-garabandal-dark hover:border-garabandal-dark hover:bg-slate-50 transition-colors">
                       {t.nav.createAccount}
                     </Link>
                   </div>
                 )
-              )}
-
-              {/* CTA for Mobile/Member */}
-              {mounted && !loading && user && (
-                <Link
-                  href={membershipHref}
-                  className={`hidden xl:flex items-center gap-2 px-6 py-2.5 rounded-full text-sm font-bold shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all ${hasMembership ? 'bg-garabandal-gold/20 text-garabandal-dark' : 'bg-garabandal-gold text-garabandal-dark'}`}
-                >
-                  <CreditCard size={16} className="opacity-70" />
-                  {hasMembership ? t.nav.memberArea : t.nav.becomeMember}
-                </Link>
               )}
 
               {/* Mobile Menu Toggle */}
@@ -298,7 +338,7 @@ export default function SiteHeaderV2() {
               className="fixed inset-y-0 right-0 z-[160] w-full max-w-sm bg-white shadow-2xl lg:hidden flex flex-col rounded-l-3xl"
             >
               <div className="h-20 flex items-center justify-between px-6 border-b border-slate-100/50">
-                <span className="font-serif text-2xl font-bold text-garabandal-dark">
+                <span className="font-sans text-2xl font-bold text-garabandal-dark">
                   Menu
                 </span>
                 <button onClick={() => setIsMobileOpen(false)} aria-label="Close" className="w-10 h-10 flex items-center justify-center rounded-full bg-slate-50 hover:bg-slate-100 text-slate-500 transition-colors">
@@ -335,7 +375,7 @@ export default function SiteHeaderV2() {
                     <Link href={t.urls.login} onClick={() => setIsMobileOpen(false)} className="h-12 flex items-center justify-center rounded-xl bg-slate-100 text-slate-700 font-bold text-sm hover:bg-slate-200 transition-colors">
                       {t.nav.signIn}
                     </Link>
-                    <Link href={t.urls.register} onClick={() => setIsMobileOpen(false)} className="h-12 flex items-center justify-center rounded-xl bg-garabandal-gold text-garabandal-dark font-bold text-sm shadow-md hover:shadow-lg transition-all">
+                    <Link href={t.urls.register} onClick={() => setIsMobileOpen(false)} className="h-12 flex items-center justify-center rounded-xl bg-brand text-white font-bold text-sm shadow-md transition-all hover:bg-brand-700 hover:shadow-lg">
                       {t.nav.createAccount}
                     </Link>
                   </div>
@@ -355,7 +395,7 @@ export default function SiteHeaderV2() {
                     <div key={key} className="mb-1">
                       <button
                         onClick={() => setOpenMobileCat(expanded ? null : key)}
-                        className={`w-full h-14 px-4 rounded-2xl flex items-center gap-3 transition-colors ${expanded ? 'bg-garabandal-gold/10 text-garabandal-dark' : 'text-slate-600 hover:bg-slate-50'}`}
+                        className={`w-full h-14 px-4 rounded-2xl flex items-center gap-3 transition-colors ${expanded ? 'bg-brand-50 text-brand-700' : 'text-slate-600 hover:bg-slate-50'}`}
                       >
                         <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${expanded ? 'bg-white shadow-sm text-garabandal-dark' : 'bg-slate-100 text-slate-500'}`}>
                           <Icon size={16} />
@@ -377,7 +417,7 @@ export default function SiteHeaderV2() {
                                   {it.title}
                                 </Link>
                               ))}
-                              <Link href={href} onClick={() => setIsMobileOpen(false)} className="py-2.5 px-3 text-sm font-bold text-garabandal-gold inline-flex items-center gap-1.5 mt-1">
+                              <Link href={href} onClick={() => setIsMobileOpen(false)} className="py-2.5 px-3 text-sm font-bold text-brand inline-flex items-center gap-1.5 mt-1">
                                 {locale === 'pt' ? 'Ver tudo' : 'See all'} <span aria-hidden="true">&rarr;</span>
                               </Link>
                             </div>
@@ -436,19 +476,14 @@ export default function SiteHeaderV2() {
 }
 
 function NavPill({
-  href, label, active, icon: Icon,
-}: { href: string; label: string; active: boolean; icon: typeof Heart; transparent?: boolean }) {
+  href, label, active,
+}: { href: string; label: string; active: boolean; transparent?: boolean }) {
   return (
     <Link
       href={href}
-      className={`group relative px-4 py-2.5 rounded-full text-sm font-bold inline-flex items-center gap-2 transition-all duration-300 hover:scale-[1.04] ${active ? 'bg-garabandal-gold/10 text-garabandal-dark' : 'text-slate-700 hover:text-garabandal-dark hover:bg-slate-100/80'}`}
+      className={`px-3.5 xl:px-4 py-2.5 rounded-full text-[15px] xl:text-base font-medium inline-flex items-center transition-colors duration-200 ${active ? 'bg-slate-100 text-garabandal-dark' : 'text-slate-700 hover:text-garabandal-dark hover:bg-slate-100/80'}`}
     >
-      <Icon size={16} className={`transition-all duration-300 group-hover:scale-110 ${active ? '' : 'opacity-70 group-hover:opacity-100'}`} />
       {label}
-      {/* Animated gold underline that grows under the cursor on hover */}
-      <span
-        className={`pointer-events-none absolute bottom-1 left-1/2 h-0.5 -translate-x-1/2 rounded-full bg-garabandal-gold transition-all duration-300 ${active ? 'w-5 opacity-100' : 'w-0 opacity-0 group-hover:w-5 group-hover:opacity-100'}`}
-      />
     </Link>
   );
 }
@@ -460,12 +495,18 @@ function UserPill({
     <div className="relative">
       <button
         onClick={() => setOpen(!open)}
-        className="flex items-center gap-2 pl-1.5 pr-4 py-1.5 rounded-full transition-all h-11 bg-slate-50 border border-slate-200 hover:bg-slate-100 text-slate-700 hover:text-garabandal-dark shadow-sm"
+        aria-expanded={open}
+        aria-haspopup="menu"
+        className="group flex h-11 min-w-[76px] cursor-pointer items-center justify-between gap-2 rounded-full border border-slate-200/90 bg-white py-1.5 pl-1.5 pr-3 text-slate-700 shadow-[0_2px_8px_rgba(15,23,42,0.06)] transition-all duration-200 hover:-translate-y-px hover:border-brand-200 hover:shadow-[0_8px_20px_rgba(53,99,233,0.14)] active:translate-y-0 active:scale-[0.98]"
       >
-        <span className="w-8 h-8 rounded-full bg-white text-garabandal-dark flex items-center justify-center font-serif font-bold text-sm border border-slate-200 shadow-sm">
-          {user.email?.[0]?.toUpperCase()}
+        <span className="relative flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-100 font-sans text-sm font-bold text-garabandal-dark ring-1 ring-slate-200/80 ring-offset-1 ring-offset-white transition-transform duration-200 group-hover:scale-105 group-active:scale-95">
+          {memberData?.avatar_url ? (
+            <img src={memberData.avatar_url} alt="" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-110" />
+          ) : (
+            user.email?.[0]?.toUpperCase()
+          )}
         </span>
-        <ChevronDown size={14} className="opacity-60" />
+        <ChevronDown size={15} strokeWidth={2.25} className={`shrink-0 text-slate-500 transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
       </button>
       <AnimatePresence>
         {open && (
@@ -492,7 +533,7 @@ function UserPill({
                 <Link
                   href={t.urls.memberQuota}
                   onClick={() => setOpen(false)}
-                  className={`flex items-center gap-3 px-4 py-2.5 rounded-2xl text-sm font-semibold transition-colors mt-1 ${isActiveMember(memberData) ? 'bg-garabandal-gold/10 text-garabandal-dark' : 'bg-red-50 text-red-700 hover:bg-red-100'}`}
+                  className={`flex items-center gap-3 px-4 py-2.5 rounded-2xl text-sm font-semibold transition-colors mt-1 ${isActiveMember(memberData) ? 'bg-brand-50 text-brand-700' : 'bg-red-50 text-red-700 hover:bg-red-100'}`}
                 >
                   <ShieldCheck size={16} className="opacity-70" /> {t.nav.userMenu.manageQuota}
                 </Link>
@@ -537,7 +578,7 @@ function Drawer({
     <Link
       href={href}
       onClick={onClick}
-      className={`flex items-center gap-3 px-4 h-14 rounded-2xl text-sm transition-all mb-1 font-bold ${active ? 'bg-garabandal-gold text-garabandal-dark shadow-sm' : 'text-slate-600 hover:bg-slate-50'}`}
+      className={`flex items-center gap-3 px-4 h-14 rounded-2xl text-sm transition-all mb-1 font-bold ${active ? 'bg-brand text-white shadow-sm' : 'text-slate-600 hover:bg-slate-50'}`}
     >
       <Icon size={18} className={active ? 'opacity-90' : 'opacity-70'} />
       {children}

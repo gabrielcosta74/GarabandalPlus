@@ -2,7 +2,8 @@
 
 import { useState } from 'react';
 import Image from 'next/image';
-import { Play, Youtube, Bell } from 'lucide-react';
+import { Play } from 'lucide-react';
+import { Eyebrow, H2_CLASS, Section, buttonClass } from './ui';
 import type { YouTubeVideo } from '../../lib/youtube';
 import { YOUTUBE_CHANNEL_URL } from '../../lib/youtube';
 
@@ -11,7 +12,7 @@ import { YOUTUBE_CHANNEL_URL } from '../../lib/youtube';
  *
  * A large featured player (plays inline on tap) with a horizontal playlist of
  * the other recent videos below; tapping a playlist item loads it into the big
- * player. Light theme to match the homepage.
+ * player.
  */
 export default function YouTubeLives({
   videos,
@@ -46,18 +47,35 @@ export default function YouTubeLives({
   };
 
   return (
-    <section className="relative mx-auto w-full max-w-5xl px-4 py-16 sm:px-6 sm:py-24">
-      {/* Header */}
-      <div className="mb-8 flex flex-col items-center text-center sm:mb-10">
-        <span className="inline-flex items-center gap-2 rounded-full bg-garabandal-gold px-4 py-1.5 text-xs font-bold uppercase tracking-wider text-garabandal-dark shadow-sm">
-          <Youtube size={16} />
-          {heading}
-        </span>
-        <p className="mx-auto mt-4 max-w-xl text-base text-slate-600">{sub}</p>
+    <Section tone="white" labelledBy="home-lives-heading">
+      <div className="mb-10 flex flex-col gap-6 md:mb-14 md:flex-row md:items-end md:justify-between">
+        <div className="max-w-2xl">
+          <Eyebrow>YouTube</Eyebrow>
+          <h2 id="home-lives-heading" className={H2_CLASS}>{heading}</h2>
+          <p className="mt-5 text-lg leading-relaxed text-muted">{sub}</p>
+        </div>
+        <div className="flex flex-col gap-3 sm:flex-row">
+          <a
+            href={`${YOUTUBE_CHANNEL_URL}?sub_confirmation=1`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={buttonClass('primary')}
+          >
+            {locale === 'pt' ? 'Subscrever o canal' : 'Subscribe to the channel'}
+          </a>
+          <a
+            href={YOUTUBE_CHANNEL_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={buttonClass('secondary')}
+          >
+            {locale === 'pt' ? 'Ver o canal' : 'View channel'}
+          </a>
+        </div>
       </div>
 
       {/* Featured player */}
-      <div className="overflow-hidden rounded-3xl bg-garabandal-dark shadow-2xl ring-1 ring-black/5">
+      <div className="overflow-hidden rounded-xl bg-ink">
         <div className="relative aspect-video w-full">
           {playing ? (
             <iframe
@@ -72,30 +90,26 @@ export default function YouTubeLives({
             <button
               type="button"
               onClick={() => setPlaying(true)}
-              className="group absolute inset-0 h-full w-full"
+              className="group absolute inset-0 h-full w-full focus-visible:outline-2 focus-visible:-outline-offset-4 focus-visible:outline-white"
               aria-label={locale === 'pt' ? 'Reproduzir vídeo' : 'Play video'}
             >
               <Image
                 src={active.thumbnail}
                 alt=""
                 fill
-                sizes="(max-width: 1024px) 100vw, 1024px"
-                className="object-cover transition-transform duration-700 group-hover:scale-105"
+                sizes="(max-width: 1200px) 100vw, 1200px"
+                className="object-cover transition-transform duration-700 motion-safe:group-hover:scale-[1.02]"
               />
-              <span className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-black/10" />
-              {/* Big play button */}
-              <span className="absolute left-1/2 top-1/2 flex h-20 w-20 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-garabandal-gold text-garabandal-dark shadow-xl transition-transform duration-300 group-hover:scale-110 sm:h-24 sm:w-24">
-                <Play size={36} className="ml-1.5" fill="currentColor" />
+              <span className="absolute inset-0 bg-gradient-to-t from-ink/85 via-ink/10 to-transparent" />
+              <span className="absolute left-1/2 top-1/2 flex h-20 w-20 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-white text-ink transition-transform duration-300 motion-safe:group-hover:scale-105">
+                <Play size={28} className="ml-1" fill="currentColor" aria-hidden />
               </span>
-              {/* Title on the gradient */}
-              <span className="absolute inset-x-0 bottom-0 p-5 text-left sm:p-7">
-                <span className="block font-serif text-xl font-bold leading-tight text-white drop-shadow sm:text-2xl">
+              <span className="absolute inset-x-0 bottom-0 p-6 text-left sm:p-8">
+                <span className="block max-w-3xl text-xl font-semibold leading-tight tracking-[-0.02em] text-white sm:text-2xl">
                   {active.title}
                 </span>
                 {active.published && (
-                  <span className="mt-1.5 block text-xs font-medium uppercase tracking-wide text-white/70">
-                    {fmt(active.published)}
-                  </span>
+                  <span className="mt-2 block text-sm text-white/70">{fmt(active.published)}</span>
                 )}
               </span>
             </button>
@@ -103,64 +117,38 @@ export default function YouTubeLives({
         </div>
       </div>
 
-      {/* Playlist — horizontal carousel (scroll-snap), larger cards */}
+      {/* Playlist */}
       {videos.length > 1 && (
-        <div className="-mx-4 mt-6 flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-4 sm:mx-0 sm:px-0 [-ms-overflow-style:none] [scrollbar-width:thin]">
+        <div className="-mx-5 mt-8 flex snap-x snap-mandatory gap-6 overflow-x-auto px-5 pb-2 sm:mx-0 sm:grid sm:grid-cols-3 sm:overflow-visible sm:px-0">
           {videos.filter((v) => v.id !== active.id).map((v) => (
             <button
               key={v.id}
               type="button"
               onClick={() => select(v.id)}
-              className="group w-[80vw] max-w-[360px] shrink-0 snap-start overflow-hidden rounded-2xl border border-slate-200 bg-white text-left shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg sm:w-[340px]"
+              className="group w-[75vw] max-w-[340px] shrink-0 snap-start rounded-xl text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand sm:w-auto sm:max-w-none"
             >
-              <div className="relative aspect-video w-full overflow-hidden bg-garabandal-dark">
+              <div className="relative aspect-video w-full overflow-hidden rounded-xl bg-ink">
                 <Image
                   src={v.thumbnail}
                   alt=""
                   fill
-                  sizes="(max-width: 640px) 80vw, 340px"
-                  className="object-cover transition-transform duration-500 group-hover:scale-105"
+                  sizes="(max-width: 640px) 75vw, 380px"
+                  className="object-cover transition-transform duration-500 motion-safe:group-hover:scale-[1.03]"
                 />
-                <span className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 transition-opacity group-hover:opacity-100">
-                  <span className="flex h-14 w-14 items-center justify-center rounded-full bg-garabandal-gold text-garabandal-dark shadow-lg">
-                    <Play size={22} className="ml-0.5" fill="currentColor" />
-                  </span>
+                <span className="absolute bottom-3 left-3 flex h-10 w-10 items-center justify-center rounded-full bg-white text-ink">
+                  <Play size={16} className="ml-0.5" fill="currentColor" aria-hidden />
                 </span>
               </div>
-              <div className="p-4">
-                <h3 className="line-clamp-2 font-serif text-base font-bold leading-snug text-garabandal-dark">
-                  {v.title}
-                </h3>
-                {v.published && (
-                  <span className="mt-1.5 block text-xs text-slate-400">{fmt(v.published)}</span>
-                )}
-              </div>
+              <h3 className="mt-4 line-clamp-2 text-base font-semibold leading-snug tracking-[-0.01em] text-ink underline-offset-4 decoration-1 group-hover:underline">
+                {v.title}
+              </h3>
+              {v.published && (
+                <span className="mt-1.5 block text-sm text-muted">{fmt(v.published)}</span>
+              )}
             </button>
           ))}
         </div>
       )}
-
-      {/* Channel CTAs — subscribe (primary) + view channel (secondary) */}
-      <div className="mt-9 flex flex-col items-stretch justify-center gap-3 sm:mt-12 sm:flex-row sm:items-center">
-        <a
-          href={`${YOUTUBE_CHANNEL_URL}?sub_confirmation=1`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="group inline-flex items-center justify-center gap-2.5 rounded-2xl bg-garabandal-gold px-8 py-4 text-base font-bold text-garabandal-dark shadow-[0_8px_24px_rgba(212,175,55,0.35)] transition-all hover:-translate-y-0.5 hover:shadow-[0_12px_30px_rgba(212,175,55,0.45)]"
-        >
-          <Bell size={20} className="transition-transform group-hover:rotate-12" fill="currentColor" />
-          {locale === 'pt' ? 'Subscrever o canal' : 'Subscribe to the channel'}
-        </a>
-        <a
-          href={YOUTUBE_CHANNEL_URL}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center justify-center gap-2.5 rounded-2xl border-2 border-garabandal-dark/15 bg-white px-8 py-4 text-base font-bold text-garabandal-dark transition-all hover:-translate-y-0.5 hover:border-garabandal-dark/30 hover:bg-garabandal-mist"
-        >
-          <Youtube size={20} />
-          {locale === 'pt' ? 'Ver o canal' : 'View channel'}
-        </a>
-      </div>
-    </section>
+    </Section>
   );
 }

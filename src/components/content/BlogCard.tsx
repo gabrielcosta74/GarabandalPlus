@@ -43,16 +43,17 @@ export function BlogCard({ post, locale }: { post: PostRow; locale: 'pt' | 'en' 
         display: 'flex',
         flexDirection: 'column',
         background: '#ffffff',
-        borderRadius: 24,
+        fontFamily: 'var(--font-inter), system-ui, sans-serif',
+        borderRadius: 12,
         overflow: 'hidden',
-        boxShadow: '0 4px 20px rgba(15,23,42,0.04), 0 1px 3px rgba(15,23,42,0.02)',
-        border: '1px solid rgba(15,23,42,0.04)',
+        boxShadow: 'none',
+        border: '1px solid var(--color-line, #e2e7f0)',
         textDecoration: 'none',
         color: 'inherit',
         height: '100%',
         position: 'relative',
       }}
-      className="blog-card group hover:shadow-[0_12px_40px_rgba(15,23,42,0.08)] hover:-translate-y-1 transition-all duration-300 ease-out"
+      className="blog-card group hover:shadow-[0_12px_40px_rgba(15,23,42,0.08)] transition-all duration-300 ease-out"
     >
       <div
         style={{
@@ -81,10 +82,10 @@ export function BlogCard({ post, locale }: { post: PostRow; locale: 'pt' | 'en' 
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              color: 'rgba(212,175,55,0.3)',
-              fontFamily: 'var(--font-serif), Georgia, serif',
+              color: 'var(--color-brand-200, #c3d3fb)',
+              fontFamily: 'var(--font-inter), system-ui, sans-serif',
               fontSize: '4rem',
-              fontWeight: 700,
+              fontWeight: 600,
             }}
           >
             G
@@ -102,7 +103,7 @@ export function BlogCard({ post, locale }: { post: PostRow; locale: 'pt' | 'en' 
         />
       </div>
       
-      <div style={{ padding: '1.75rem', display: 'flex', flexDirection: 'column', flex: 1, position: 'relative' }}>
+      <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', flex: 1, position: 'relative' }}>
         <div
           style={{
             display: 'flex',
@@ -112,12 +113,12 @@ export function BlogCard({ post, locale }: { post: PostRow; locale: 'pt' | 'en' 
             fontWeight: 600,
             color: 'var(--muted)',
             marginBottom: '1rem',
-            textTransform: 'uppercase',
-            letterSpacing: '0.05em',
+            textTransform: 'none',
+            letterSpacing: '0',
           }}
         >
           {date && (
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', color: 'var(--color-garabandal-gold, #d4af37)' }}>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', color: 'var(--color-muted, #5b6475)' }}>
               <Calendar size={14} aria-hidden /> {date}
             </span>
           )}
@@ -130,15 +131,15 @@ export function BlogCard({ post, locale }: { post: PostRow; locale: 'pt' | 'en' 
         
         <h3
           style={{
-            fontFamily: 'var(--font-serif), Georgia, serif',
-            fontSize: '1.4rem',
+            fontFamily: 'var(--font-inter), system-ui, sans-serif',
+            fontSize: '1.25rem',
             lineHeight: 1.35,
-            fontWeight: 700,
+            fontWeight: 600,
             margin: '0 0 0.75rem',
             color: 'var(--color-garabandal-dark, #0f172a)',
             transition: 'color 0.2s ease',
           }}
-          className="group-hover:text-blue-700"
+          className="group-hover:text-brand-700"
         >
           {post.title}
         </h3>
@@ -167,13 +168,13 @@ export function BlogCard({ post, locale }: { post: PostRow; locale: 'pt' | 'en' 
             alignItems: 'center', 
             gap: '0.5rem',
             fontSize: '0.9rem',
-            fontWeight: 700,
+            fontWeight: 600,
             color: 'var(--color-garabandal-dark, #0f172a)',
             marginTop: 'auto',
           }}
         >
-          <span className="transition-colors duration-300 group-hover:text-blue-700">Ler artigo</span>
-          <ArrowRight size={16} className="transition-transform duration-300 group-hover:translate-x-1 group-hover:text-blue-700" />
+          <span className="transition-colors duration-300 group-hover:text-brand-700">Ler artigo</span>
+          <ArrowRight size={16} className="transition-transform duration-300 group-hover:translate-x-1 group-hover:text-brand-700" />
         </div>
       </div>
     </Link>

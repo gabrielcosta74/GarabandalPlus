@@ -9,6 +9,9 @@ import { PUBLISHED_ONLY } from '../../lib/content/preview';
 import { APP_URL } from '../../lib/config';
 import { DEFAULT_OG_IMAGE, SITE_NAME } from '../../lib/seo';
 
+const homeTitle = 'Garabandal: history, apparitions and messages | Garabandal Apostolate';
+const homeDescription = 'Explore Garabandal: the events of 1961–1965, the four seers and the messages. Historical documents, testimonies and pilgrimages from the Garabandal Apostolate.';
+
 // The homepage is the page that has to rank, so it must be cacheable. This was
 // dynamic purely so admins could preview drafts here; that now lives at
 // /preview, which is session-gated and rendered per request. Leaving the
@@ -18,13 +21,13 @@ export const revalidate = 600;
 
 export const metadata: Metadata = {
   title: {
-    absolute: 'Garabandal Apostolate — Marian Apparitions & Pilgrimages',
+    absolute: homeTitle,
   },
-  description: 'Official website of the Garabandal Apostolate Association, dedicated to spreading the message of Our Lady of Garabandal through pilgrimages, prayer and mission.',
+  description: homeDescription,
   keywords: [
     'Garabandal Apostolate',
     'Garabandal official website',
-    'Garabandal pilgrimage 2026',
+    'Garabandal pilgrimage',
     'Catholic Marian pilgrimage',
     'Our Lady of Garabandal',
     'Catholic donations Garabandal',
@@ -46,8 +49,8 @@ export const metadata: Metadata = {
   },
   openGraph: {
     url: `${APP_URL}/en`,
-    title: 'Garabandal Apostolate — Official Site',
-    description: 'Catholic Marian pilgrimages to Garabandal, donations, membership and Catholic store. Official Garabandal Apostolate.',
+    title: homeTitle,
+    description: homeDescription,
     type: 'website',
     locale: 'en_GB',
     siteName: SITE_NAME,
@@ -55,8 +58,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Garabandal Apostolate — Official Site',
-    description: 'Catholic Marian pilgrimages, donations, membership and Catholic store.',
+    title: homeTitle,
+    description: homeDescription,
     images: [DEFAULT_OG_IMAGE],
   },
 };

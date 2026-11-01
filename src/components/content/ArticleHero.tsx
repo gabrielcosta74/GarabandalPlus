@@ -1,171 +1,50 @@
-import { cloneElement, isValidElement } from 'react';
+import { type ReactNode } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { ChevronRight } from 'lucide-react';
+import type { ContentLocale } from '../../lib/content/queries';
+import './article-layout.css';
 
 type Crumb = { href?: string; label: string };
 
-export function ArticleHero({
-  title,
-  subtitle,
-  coverImage,
-  breadcrumbs,
-  meta,
-  variant = 'page',
-}: {
+export function ArticleHero({ title, subtitle, coverImage, breadcrumbs, meta, languages, locale = 'pt', variant = 'page' }: {
   title: string;
   subtitle?: string | null;
   coverImage?: string | null;
   breadcrumbs?: Crumb[];
-  meta?: React.ReactNode;
+  meta?: ReactNode;
+  languages?: ReactNode;
   variant?: 'page' | 'post';
+  locale?: ContentLocale;
 }) {
-  // Hand the hero's light/dark theme down to themeable meta (e.g. the
-  // LocaleSwitcher) so it stays legible on both photo and pale heroes.
-  const tone: 'light' | 'dark' = coverImage ? 'dark' : 'light';
-  const metaNode = isValidElement(meta)
-    ? cloneElement(meta as React.ReactElement<{ tone?: 'light' | 'dark' }>, { tone })
-    : meta;
+  const label = { pt: ['Artigo', 'Página'], en: ['Article', 'Page'], es: ['Artículo', 'Página'], fr: ['Article', 'Page'], it: ['Articolo', 'Pagina'] }[locale][variant === 'post' ? 0 : 1];
+  const tone = coverImage ? 'dark' : 'light';
+  const visibleCrumbs = breadcrumbs?.filter((crumb, index) => !(index > 0 && index === breadcrumbs.length - 1 && crumb.label === title));
 
   return (
-    <header
-      data-article-hero-tone={tone}
-      style={{
-        position: 'relative',
-        width: '100%',
-        minHeight: coverImage ? 'min(70vh, 620px)' : 'auto',
-        display: 'flex',
-        alignItems: coverImage ? 'flex-end' : 'flex-start',
-        padding: coverImage ? 'clamp(6rem, 15vw, 12rem) 1.5rem 4rem' : '6rem 1.5rem 4rem',
-        overflow: 'hidden',
-        background: coverImage ? '#0f172a' : 'linear-gradient(180deg, #f8faff 0%, #eef2f8 100%)',
-      }}
-    >
-      {coverImage && (
-        <>
-          <Image
-            src={coverImage}
-            // Just the title. The old "Imagem de capa:" prefix was hardcoded
-            // Portuguese and shipped on the EN/ES/FR/IT articles too, and a
-            // screen reader already announces this as an image.
-            alt={title}
-            fill
-            priority
-            sizes="100vw"
-            style={{
-              objectFit: 'cover',
-              objectPosition: 'center',
-              opacity: 0.6,
-              filter: 'contrast(1.05) saturate(1.05)',
-              transform: 'scale(1.02)',
-            }}
-          />
-          <div
-            style={{
-              position: 'absolute',
-              inset: 0,
-              background: 'linear-gradient(to top, rgba(15,23,42,0.95) 0%, rgba(15,23,42,0.4) 50%, rgba(15,23,42,0.1) 100%)',
-            }}
-          />
-        </>
-      )}
-
-      <div
-        style={{
-          position: 'relative',
-          maxWidth: 900,
-          margin: '0 auto',
-          width: '100%',
-          zIndex: 10,
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '1.5rem',
-        }}
-      >
-        {breadcrumbs?.length ? (
-          <nav
-            aria-label="breadcrumb"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.6rem',
-              flexWrap: 'wrap',
-              fontSize: '0.85rem',
-              fontWeight: 700,
-              color: coverImage ? 'rgba(255,255,255,0.7)' : 'var(--muted)',
-              textTransform: 'uppercase',
-              letterSpacing: '0.08em',
-            }}
-          >
-            {breadcrumbs.map((c, i) => (
-              <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.6rem' }}>
-                {c.href ? (
-                  <Link
-                    href={c.href}
-                    style={{ color: 'inherit', transition: 'color 0.2s ease' }}
-                    className={coverImage ? 'hover:text-white' : 'hover:text-[#0f172a]'}
-                  >
-                    {c.label}
-                  </Link>
-                ) : (
-                  <span style={{ color: coverImage ? '#fff' : 'var(--color-garabandal-dark)' }}>{c.label}</span>
-                )}
-                {i < breadcrumbs.length - 1 && <ChevronRight size={14} aria-hidden />}
+    <header className="article-hero" data-article-hero-tone={tone}>
+      {coverImage && <>
+        <Image src={coverImage} alt={title} fill priority sizes="100vw" className="article-hero__image" />
+        <div className="article-hero__shade" />
+      </>}
+      <div className="article-hero__inner">
+        {visibleCrumbs?.length ? (
+          <nav className="article-hero__breadcrumbs" aria-label="breadcrumb">
+            {visibleCrumbs.map((crumb, index) => (
+              <span key={`${crumb.label}-${index}`}>
+                {crumb.href ? <Link href={crumb.href}>{crumb.label}</Link> : <span>{crumb.label}</span>}
+                {index < visibleCrumbs.length - 1 && <ChevronRight size={13} aria-hidden />}
               </span>
             ))}
           </nav>
         ) : null}
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
-          <span
-            style={{
-              display: 'inline-flex',
-              fontSize: '0.75rem',
-              fontWeight: 800,
-              letterSpacing: '0.15em',
-              textTransform: 'uppercase',
-              padding: '0.4rem 1rem',
-              borderRadius: 999,
-              background: coverImage ? 'rgba(212,175,55,0.2)' : 'rgba(212,175,55,0.1)',
-              color: coverImage ? '#fbbf24' : '#b49010',
-              border: `1px solid ${coverImage ? 'rgba(212,175,55,0.3)' : 'rgba(212,175,55,0.2)'}`,
-              backdropFilter: 'blur(8px)',
-            }}
-          >
-            {variant === 'post' ? 'Artigo' : 'Página'}
-          </span>
-          {metaNode}
+        <div className="article-hero__category">
+          <span className="article-hero__label">{label}</span>
         </div>
-
-        <h1
-          style={{
-            fontFamily: 'var(--font-serif), Georgia, serif',
-            fontSize: 'clamp(2.5rem, 5vw, 4.5rem)',
-            lineHeight: 1.1,
-            fontWeight: 700,
-            letterSpacing: '-0.02em',
-            margin: 0,
-            color: coverImage ? '#fff' : 'var(--color-garabandal-dark)',
-            textShadow: coverImage ? '0 4px 24px rgba(0,0,0,0.4)' : 'none',
-          }}
-        >
-          {title}
-        </h1>
-
-        {subtitle ? (
-          <p
-            style={{
-              fontSize: 'clamp(1.1rem, 2vw, 1.35rem)',
-              lineHeight: 1.6,
-              color: coverImage ? 'rgba(255,255,255,0.85)' : 'var(--muted)',
-              maxWidth: 760,
-              margin: 0,
-              fontWeight: 400,
-            }}
-          >
-            {subtitle}
-          </p>
-        ) : null}
+        <h1>{title}</h1>
+        {subtitle ? <p className="article-hero__subtitle">{subtitle}</p> : null}
+        {meta ? <div className="article-hero__meta">{meta}</div> : null}
+        {languages ? <div className="article-hero__languages">{languages}</div> : null}
       </div>
     </header>
   );
