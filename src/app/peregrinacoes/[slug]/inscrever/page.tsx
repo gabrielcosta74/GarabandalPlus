@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { supabaseBrowser } from '../../../../lib/supabase-browser';
 import { useForm, useFieldArray, FormProvider, useWatch, Controller } from 'react-hook-form';
@@ -1226,6 +1226,18 @@ function SubmittingOverlay({ show, isEn }: { show: boolean; isEn: boolean }) {
     );
 }
 
+// A saved registration draft is offered back for this long (same tab only).
+const DRAFT_TTL_MS = 12 * 60 * 60 * 1000;
+type RegistrationDraft = {
+    savedAt: number;
+    step: number;
+    userEmail: string;
+    userPhone?: string;
+    pilgrims: BookingFormValues['pilgrims'];
+    activePilgrimIndex?: number;
+    detailsSection?: number;
+};
+
 // -- Main Page Component --
 export default function PilgrimageBookingPage() {
     const params = useParams();
@@ -1389,6 +1401,98 @@ export default function PilgrimageBookingPage() {
         init();
     }, [draftId, isLocalDraftPreview, slug]);
 
+    // Keep what was typed when the page reloads: phones discard background tabs
+    // (switching apps to find a passport), and the browser back gesture leaves
+    // the page. Without this people land back on the contact step, empty.
+    // Restores at most the rooms step, never payment; the duplicate/account
+    // checks from step 1 run again first.
+    const draftKey = `registration-draft:${slug}`;
+    const [draftChecked, setDraftChecked] = useState(false);
+    useEffect(() => {
+        if (draftChecked || loading || authLoading || !pilgrimage) return;
+        let cancelled = false;
+        const restore = async () => {
+            let draft: RegistrationDraft | null = null;
+            try { draft = JSON.parse(window.sessionStorage.getItem(draftKey) || 'null'); } catch { /* blocked storage */ }
+            const email = String(draft?.userEmail || '').trim().toLowerCase();
+            const usable = draft && Date.now() - Number(draft.savedAt || 0) < DRAFT_TTL_MS
+                && email.includes('@') && Array.isArray(draft.pilgrims) && draft.pilgrims.length > 0
+                && (!user?.email || user.email.toLowerCase() === email);
+            if (!draft || !usable || isLocalDraftPreview) return;
+
+            try {
+                const dup = await fetch('/api/booking/check-duplicate', {
+                    method: 'POST',
+                    body: JSON.stringify({ email, pilgrimageId: pilgrimage.id })
+                }).then(r => r.json());
+                if (dup?.exists) return;
+                if (!user) {
+                    const account = await fetch('/api/auth/check-account-exists', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ email })
+                    }).then(r => r.json()).catch(() => ({ exists: false }));
+                    if (account?.exists) return;
+                }
+            } catch {
+                return;
+            }
+            if (cancelled) return;
+
+            methods.reset({ pilgrims: draft.pilgrims, payment_method: 'installments' });
+            setUserEmail(draft.userEmail);
+            setUserPhone(draft.userPhone || '');
+            const restoredStep = Math.min(Math.max(Number(draft.step) || 2, 2), 3);
+            const lastIndex = draft.pilgrims.length - 1;
+            setActivePilgrimIndex(Math.min(Math.max(Number(draft.activePilgrimIndex) || 0, 0), lastIndex));
+            setDetailsSection(restoredStep === 2 ? Math.min(Math.max(Number(draft.detailsSection) || 0, 0), 2) : 2);
+            historyStepRef.current = restoredStep;
+            setStep(restoredStep);
+        };
+        restore().finally(() => { if (!cancelled) setDraftChecked(true); });
+        return () => { cancelled = true; };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [draftChecked, loading, authLoading, pilgrimage, user]);
+
+    useEffect(() => {
+        if (!draftChecked || step < 2 || submitting) return;
+        try {
+            window.sessionStorage.setItem(draftKey, JSON.stringify({
+                savedAt: Date.now(), step, userEmail, userPhone,
+                pilgrims: currentPilgrims, activePilgrimIndex, detailsSection,
+            }));
+        } catch { /* full or blocked storage: nothing to keep */ }
+    }, [draftChecked, draftKey, step, userEmail, userPhone, currentPilgrims, activePilgrimIndex, detailsSection, submitting]);
+
+    // Browser back (Android button, iPhone swipe) goes to the previous step
+    // instead of leaving the form. Each step forward adds a history entry.
+    const historyStepRef = useRef(1);
+    const stepRef = useRef(step);
+    stepRef.current = step;
+    useEffect(() => {
+        if (step > historyStepRef.current) {
+            window.history.pushState({ ...window.history.state, regStep: step }, '');
+        }
+        historyStepRef.current = step;
+    }, [step]);
+    useEffect(() => {
+        const onPopState = (event: PopStateEvent) => {
+            const target = Number(event.state?.regStep) || 1;
+            const current = stepRef.current;
+            if (target < current) {
+                historyStepRef.current = target;
+                if (target === 2) setDetailsSection(2);
+                setStep(target);
+                window.scrollTo(0, 0);
+            } else if (target > 1 && current > 1) {
+                // Entry left over from an in-form "Back" click: keep going back.
+                window.history.back();
+            }
+        };
+        window.addEventListener('popstate', onPopState);
+        return () => window.removeEventListener('popstate', onPopState);
+    }, []);
+
     // Calculated Totals (Moved up for onSubmit access)
     const pricedPilgrims = useMemo(() => {
         return (currentPilgrims || []).map((pilgrim, index) => {
@@ -1467,11 +1571,14 @@ export default function PilgrimageBookingPage() {
             // (User mentioned >6, but legal responsibility requires 18. Adjusting for safety).
             const pilgrims = watch('pilgrims');
             const hasAdult = pilgrims.some(p => {
-                if (!p.birth_date) return false;
-                const birth = new Date(p.birth_date);
-                let age = new Date().getFullYear() - birth.getFullYear();
+                // Read the YYYY-MM-DD parts: `new Date(p.birth_date)` is UTC midnight,
+                // the day before in the Americas, so an 18th birthday today failed.
+                const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(p.birth_date || '');
+                if (!match) return false;
+                const [birthYear, birthMonth, birthDay] = match.slice(1).map(Number);
                 const today = new Date();
-                if (today.getMonth() < birth.getMonth() || (today.getMonth() === birth.getMonth() && today.getDate() < birth.getDate())) {
+                let age = today.getFullYear() - birthYear;
+                if (today.getMonth() + 1 < birthMonth || (today.getMonth() + 1 === birthMonth && today.getDate() < birthDay)) {
                     age--;
                 }
                 return age >= 18;

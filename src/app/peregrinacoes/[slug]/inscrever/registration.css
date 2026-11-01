@@ -236,6 +236,7 @@
 .reg-error:empty { display: none; }
 
 .reg-date { display: grid; grid-template-columns: 1fr 1.7fr 1.15fr; gap: 10px; }
+.reg-date.is-month-first { grid-template-columns: 1.7fr 1fr 1.15fr; }
 
 .reg-badge {
   display: inline-flex;
@@ -638,7 +639,8 @@
 }
 .reg-link-sent strong { display: block; color: var(--reg-ink); font-size: 16px; font-weight: 800; }
 .reg-link-sent .reg-account-check { margin-top: 2px; }
-.reg-hero-form { display: grid; gap: 14px; }
+/* minmax(0, …): a long email in the chip must truncate, not widen the form past the phone screen. */
+.reg-hero-form { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; }
 .reg-hero-q {
   display: block;
   margin: 6px 0 4px;
@@ -916,6 +918,7 @@
   .reg-step-head { margin-bottom: 18px; }
   .reg-row { grid-template-columns: 1fr; }
   .reg-date { grid-template-columns: 1fr 1.6fr 1.2fr; gap: 8px; }
+  .reg-date.is-month-first { grid-template-columns: 1.6fr 1fr 1.2fr; }
   .reg-date .reg-field { padding: 10px 12px; }
   .reg-field-label { display: block; }
   .reg-field-label em { margin-left: 2px; }
