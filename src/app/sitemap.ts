@@ -81,13 +81,14 @@ function appendTranslatedContentRoutes(
     const image = kind === 'post'
       ? row.cover_image_url ?? row.og_image_url
       : row.og_image_url;
+    const imageUrl = getAbsoluteImageUrl(image);
 
     target.push({
       url: contentUrl(kind, row),
       lastModified: getSitemapDate(row.updated_at, fallbackDate),
       changeFrequency: kind === 'post' ? 'weekly' : 'monthly',
       priority: kind === 'post' ? 0.65 : 0.7,
-      images: image ? [image] : undefined,
+      images: imageUrl ? [imageUrl] : undefined,
       alternates: { languages },
     });
   }
