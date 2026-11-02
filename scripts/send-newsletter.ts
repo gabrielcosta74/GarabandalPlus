@@ -146,6 +146,7 @@ async function main() {
   const renderFor = (contact: { display_name: string | null; normalized_email: string }) =>
     renderMarketingTemplateEmail({
       templateKey: 'newsletter_monthly',
+      utmCampaign: edition.campaignSlug,
       name: contact.display_name || '',
       email: contact.normalized_email,
       language: edition.language,

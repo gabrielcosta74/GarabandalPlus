@@ -109,3 +109,54 @@ describe('processMarketingEnrollment guards', () => {
     expect(result).toMatchObject({ status: 'skipped', reason: 'already_claimed' });
   });
 });
+
+import { aggregateMarketingPerformance } from '../lib/marketing-performance';
+
+describe('marketing performance aggregation', () => {
+  const sent = (template: string, meta: Record<string, any> = {}) => ({
+    template_key: template, status: 'sent', created_at: '2026-11-01T10:00:00Z', metadata: meta,
+  });
+
+  it('computes bounce and click rates per template and attributes UTM visits', () => {
+    const logs = [
+      sent('a', { delivered_at: 'x', clicked_at: 'x', click_count: 2 }),
+      sent('a', { delivered_at: 'x' }),
+      sent('a', { bounced_at: 'x', bounce_type: 'Transient' }),
+      sent('a', { delivered_at: 'x' }),
+      { template_key: 'a', status: 'skipped', created_at: '2026-11-01T10:00:00Z', metadata: {} },
+    ];
+    const sessions = [
+      { utm_campaign: 'a', visitor_id: 'v1' },
+      { utm_campaign: 'a', visitor_id: 'v1' },
+      { utm_campaign: 'a', visitor_id: 'v2' },
+    ];
+    const { templates } = aggregateMarketingPerformance(logs, sessions, new Set(['v2']));
+    const a = templates.find((t) => t.template_key === 'a')!;
+    expect(a).toMatchObject({ sent: 4, delivered: 3, bounced: 1, transient_bounces: 1, clicked: 1, clicks: 2, visits: 3, visitors: 2, bookings: 1 });
+    expect(a.bounce_rate).toBeCloseTo(0.25);
+    expect(a.click_rate).toBeCloseTo(1 / 3);
+  });
+
+  it('raises alerts above the bounce and complaint thresholds', () => {
+    const logs = Array.from({ length: 100 }, (_, i) => sent('b', i < 5 ? { bounced_at: 'x' } : { delivered_at: 'x' }));
+    const { health } = aggregateMarketingPerformance(logs);
+    expect(health.alerts.some((alert) => alert.severity === 'critico')).toBe(true);
+    const clean = aggregateMarketingPerformance(Array.from({ length: 100 }, () => sent('c', { delivered_at: 'x' })));
+    expect(clean.health.alerts).toEqual([]);
+  });
+});
+
+import { renderMarketingTemplateEmail } from '../lib/email-renderer';
+
+describe('marketing UTM campaign override', () => {
+  it('uses utmCampaign instead of the template key when given', () => {
+    const { html } = renderMarketingTemplateEmail({
+      templateKey: 'member_invitation',
+      name: 'Maria',
+      language: 'pt',
+      utmCampaign: 'newsletter-2026-11-pt',
+    });
+    expect(html).toContain('utm_campaign=newsletter-2026-11-pt');
+    expect(html).not.toContain('utm_campaign=member_invitation');
+  });
+});

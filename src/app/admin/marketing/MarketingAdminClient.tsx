@@ -30,7 +30,7 @@ import {
 } from 'lucide-react';
 import { toast, Toaster } from 'sonner';
 
-type View = 'overview' | 'flow' | 'contacts' | 'newsletter' | 'funnels' | 'scheduled' | 'outbox' | 'templates';
+type View = 'overview' | 'flow' | 'contacts' | 'newsletter' | 'funnels' | 'scheduled' | 'outbox' | 'performance' | 'templates';
 
 // Metadados das categorias de emails de marketing — ordem por jornada do contacto,
 // rótulos em PT-BR, ícone, cor e descrição do fluxo. Usado para agrupar a página de templates.
@@ -136,6 +136,7 @@ const platformNav: Array<{ view: View; label: string; href: string; icon: any }>
   { view: 'funnels', label: 'Automações', href: '/admin/marketing/funnels', icon: Zap },
   { view: 'scheduled', label: 'Próximos Envios', href: '/admin/marketing/scheduled', icon: Calendar },
   { view: 'outbox', label: 'Enviados', href: '/admin/marketing/outbox', icon: Mail },
+  { view: 'performance', label: 'Desempenho', href: '/admin/marketing/performance', icon: BarChart2 },
   { view: 'templates', label: 'Templates', href: '/admin/marketing/templates', icon: Eye },
 ];
 
@@ -297,6 +298,7 @@ export default function MarketingAdminClient({ view: initialView }: MarketingAdm
   const [scheduleBucket, setScheduleBucket] = useState('all');
   const [outboxStatus, setOutboxStatus] = useState('all');
   const [outboxSearch, setOutboxSearch] = useState('');
+  const [performanceDays, setPerformanceDays] = useState(30);
   const [previewTemplate, setPreviewTemplate] = useState<any>(null);
   const [previewLanguage, setPreviewLanguage] = useState<'pt' | 'en'>('pt');
   const [previewLoading, setPreviewLoading] = useState(false);
@@ -326,7 +328,9 @@ export default function MarketingAdminClient({ view: initialView }: MarketingAdm
             ? `/api/admin/marketing/contacts?${new URLSearchParams({ ...(search ? { search } : {}), ...(segment ? { segment } : {}) }).toString()}`
             : view === 'scheduled'
               ? `/api/admin/marketing/scheduled?${new URLSearchParams({ ...(scheduleBucket !== 'all' ? { bucket: scheduleBucket } : {}) }).toString()}`
-              : view === 'outbox'
+              : view === 'performance'
+                ? `/api/admin/marketing/performance?days=${performanceDays}`
+                : view === 'outbox'
                 ? `/api/admin/marketing/outbox?${new URLSearchParams({ ...(outboxStatus !== 'all' ? { status: outboxStatus } : {}), ...(outboxSearch ? { q: outboxSearch } : {}) }).toString()}`
                 : view === 'templates' || view === 'flow'
                   ? '/api/admin/marketing/templates'
@@ -366,6 +370,12 @@ export default function MarketingAdminClient({ view: initialView }: MarketingAdm
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [outboxStatus, outboxSearch]);
+
+  useEffect(() => {
+    if (view !== 'performance') return;
+    load(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [performanceDays]);
 
   const syncContacts = async () => {
     try {
@@ -909,6 +919,96 @@ export default function MarketingAdminClient({ view: initialView }: MarketingAdm
               </div>
             )}
 
+            {/* DESEMPENHO */}
+            {!loading && view === 'performance' && data && (
+              <div key="performance" className="space-y-6">
+                <div className="flex flex-wrap items-center gap-2">
+                  {[7, 30, 90, 365].map((days) => (
+                    <button
+                      key={days}
+                      onClick={() => setPerformanceDays(days)}
+                      className={`rounded-full border px-3 py-1.5 text-sm font-medium transition-colors ${
+                        performanceDays === days
+                          ? 'border-slate-900 bg-slate-900 text-white'
+                          : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-900'
+                      }`}
+                    >
+                      {days === 365 ? '12 meses' : `${days} dias`}
+                    </button>
+                  ))}
+                </div>
+
+                {(data.health?.alerts || []).map((alert: any, index: number) => (
+                  <div
+                    key={index}
+                    className={`rounded-xl border px-4 py-3 text-sm font-semibold ${
+                      alert.severity === 'critico' ? 'border-red-200 bg-red-50 text-red-800' : 'border-amber-200 bg-amber-50 text-amber-800'
+                    }`}
+                  >
+                    {alert.message}
+                  </div>
+                ))}
+
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                  {[
+                    ['Enviados', String(data.health?.sent ?? 0)],
+                    ['Bounces', data.health?.bounce_rate == null ? '—' : `${(data.health.bounce_rate * 100).toFixed(1)}%`],
+                    ['Queixas de spam', data.health?.complaint_rate == null ? '—' : `${(data.health.complaint_rate * 100).toFixed(2)}%`],
+                    ['Cancelamentos', String(data.health?.unsubscribes ?? 0)],
+                  ].map(([label, value]) => (
+                    <div key={label} className="rounded-xl border border-slate-200/60 bg-white p-4 shadow-sm">
+                      <p className="text-xs font-bold uppercase tracking-wider text-slate-500">{label}</p>
+                      <p className="mt-1 text-2xl font-extrabold text-slate-900">{value}</p>
+                    </div>
+                  ))}
+                </div>
+
+                {!data.trackingActive && (
+                  <p className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs font-medium text-slate-600">
+                    Ainda não há cliques registados neste período. O tracking de cliques só conta os envios feitos depois de verificado no Resend;
+                    as visitas atribuídas por UTM aparecem já ({data.attributedSessions ?? 0} neste período).
+                  </p>
+                )}
+
+                <div className="overflow-hidden rounded-xl border border-slate-200/60 bg-white shadow-sm">
+                  <table className="w-full text-left text-sm">
+                    <thead className="border-b border-slate-100 bg-slate-50/50 text-xs font-bold uppercase tracking-wider text-slate-500">
+                      <tr>
+                        <th className="p-4 pl-6">Template</th>
+                        <th className="p-4 text-right">Enviados</th>
+                        <th className="p-4 text-right">Entregues</th>
+                        <th className="p-4 text-right">Bounces</th>
+                        <th className="p-4 text-right">Cliques</th>
+                        <th className="p-4 text-right">Visitas</th>
+                        <th className="p-4 pr-6 text-right">Inscrições</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {(data.templates || []).map((row: any) => (
+                        <tr key={row.template_key} className="transition-colors hover:bg-slate-50/50">
+                          <td className="p-4 pl-6">
+                            <p className="font-semibold text-slate-900">{row.template_key}</p>
+                            <p className="text-xs text-slate-500">{row.last_sent_at ? `último envio ${formatDateTime(row.last_sent_at)}` : 'sem envios no período'}</p>
+                          </td>
+                          <td className="p-4 text-right font-semibold">{row.sent}</td>
+                          <td className="p-4 text-right">{row.delivered ? `${row.delivered} (${Math.round((row.delivery_rate || 0) * 100)}%)` : '—'}</td>
+                          <td className={`p-4 text-right ${row.bounce_rate >= 0.04 ? 'font-bold text-red-700' : ''}`}>
+                            {row.bounced ? `${row.bounced} (${(row.bounce_rate * 100).toFixed(1)}%)` : '0'}
+                          </td>
+                          <td className="p-4 text-right">{row.clicked ? `${row.clicked} (${((row.click_rate || 0) * 100).toFixed(1)}%)` : '—'}</td>
+                          <td className="p-4 text-right">{row.visits ? `${row.visits} / ${row.visitors} pessoas` : '—'}</td>
+                          <td className="p-4 pr-6 text-right font-semibold text-emerald-700">{row.bookings || '—'}</td>
+                        </tr>
+                      ))}
+                      {!(data.templates || []).length && (
+                        <tr><td colSpan={7} className="p-8 text-center text-sm text-slate-500">Sem envios neste período.</td></tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
             {/* OUTBOX */}
             {!loading && view === 'outbox' && data && (
               <div
@@ -950,7 +1050,7 @@ export default function MarketingAdminClient({ view: initialView }: MarketingAdm
                     {' · '}<span className="font-bold text-blue-700">{data.stats.opened || 0} abertos ({Math.round(((data.stats.opened || 0) / data.stats.sent) * 100)}%)</span>
                     {' · '}<span className="font-bold text-emerald-700">{data.stats.clicked || 0} clicados</span>
                     {typeof data.stats.bounced === 'number' && data.stats.bounced > 0 ? <>{' · '}<span className="font-bold text-red-700">{data.stats.bounced} devolvidos/spam</span></> : null}
-                    {' — '}dados de abertura começam a contar a partir da ativação do webhook do Resend.
+                    {' — '}só contam os envios feitos depois de o tracking do domínio estar verificado no Resend.
                   </p>
                 )}
 
@@ -1432,7 +1532,7 @@ export default function MarketingAdminClient({ view: initialView }: MarketingAdm
             )}
 
             {/* Other views fallback */}
-            {!loading && view !== 'overview' && view !== 'newsletter' && view !== 'flow' && view !== 'contacts' && view !== 'funnels' && view !== 'scheduled' && view !== 'outbox' && view !== 'templates' && data && (
+            {!loading && view !== 'overview' && view !== 'newsletter' && view !== 'flow' && view !== 'contacts' && view !== 'funnels' && view !== 'scheduled' && view !== 'outbox' && view !== 'performance' && view !== 'templates' && data && (
                <div
                 key="other"
                >

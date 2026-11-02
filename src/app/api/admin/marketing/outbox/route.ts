@@ -24,11 +24,20 @@ export async function GET(req: Request) {
     if (error) throw error;
 
     const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-    const { data: recent, error: statsError } = await auth.supabase
-      .from('marketing_message_logs')
-      .select('status, metadata')
-      .gte('created_at', since);
-    if (statsError) throw statsError;
+    // Por páginas: o PostgREST corta cada pedido em 1000 linhas e em semanas de
+    // campanha há bastante mais envios.
+    const recent: any[] = [];
+    for (let from = 0; from < 50_000; from += 1000) {
+      const { data: page, error: statsError } = await auth.supabase
+        .from('marketing_message_logs')
+        .select('status, metadata')
+        .gte('created_at', since)
+        .order('created_at', { ascending: true })
+        .range(from, from + 999);
+      if (statsError) throw statsError;
+      recent.push(...(page || []));
+      if (!page || page.length < 1000) break;
+    }
 
     // opened/clicked/bounced vêm do webhook do Resend (metadata gravada por evento).
     const stats = (recent || []).reduce<Record<string, number>>((acc, row: any) => {

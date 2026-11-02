@@ -2805,6 +2805,9 @@ export type MarketingTemplateArticle = {
 
 export type MarketingTemplatePayload = {
   templateKey: string;
+  // Sobrepõe utm_campaign (por omissão = template_key): permite distinguir edições
+  // da mesma newsletter, que partilham o template.
+  utmCampaign?: string | null;
   name?: string | null;
   email?: string | null;
   language?: EmailLocale;
@@ -4448,7 +4451,7 @@ export const renderMarketingTemplateEmail = (payload: MarketingTemplatePayload) 
         image: payload.pilgrimageImageUrl || MARIAN_2027_STEPS.find((step) => step.key === baseTemplate.key)!.image,
         pilgrimageUrl: ctaUrl,
         unsubscribeUrl: payload.unsubscribeUrl,
-      }), template.key),
+      }), payload.utmCampaign || template.key),
       templateKey: template.key,
     };
   }
@@ -4517,7 +4520,7 @@ export const renderMarketingTemplateEmail = (payload: MarketingTemplatePayload) 
           `,
         })}
       `,
-    }), template.key),
+    }), payload.utmCampaign || template.key),
     templateKey: template.key,
   };
 };
