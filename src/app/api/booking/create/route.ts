@@ -7,6 +7,7 @@ import { parseRoomInfo } from '../../../../lib/utils';
 import { generateViewToken, generateIdempotencyKey } from '../../../../lib/auth-utils';
 import { isActiveMember } from '../../../../lib/store-discounts';
 import { getPostHogClient } from '../../../../lib/posthog-server';
+import { identifySiteVisitor } from '../../../../lib/site-tracking-server';
 import { analyticsSessionProperties, getServerAnalyticsContext } from '../../../../lib/analytics-consent-server';
 import {
     deriveFlightOption,
@@ -522,6 +523,22 @@ export async function POST(req: Request) {
         }
 
         console.log("✅ [API] Success! Booking ID:", booking.id);
+
+        // Tracking próprio: liga o visitante do site a esta inscrição (nunca lança).
+        await identifySiteVisitor(body?.site, { email: bookingEmail, bookingId: booking.id, userId });
+
+        // O rascunho do formulário (booking_leads) ficava em 'draft' depois da
+        // inscrição e parecia um abandono nos funis e nas análises.
+        try {
+            await supabaseServer
+                .from('booking_leads')
+                .update({ status: 'converted', updated_at: new Date().toISOString() })
+                .eq('pilgrimage_id', pilgrimage_id)
+                .ilike('email', bookingEmail.replace(/[\\%_]/g, '\\$&'))
+                .in('status', ['draft', 'notified']);
+        } catch (leadErr) {
+            console.warn('⚠️ [API] Failed to mark booking lead as converted:', leadErr);
+        }
 
         // Track booking creation server-side
         try {

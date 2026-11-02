@@ -2,6 +2,7 @@
 
 import posthog, { type CaptureResult } from 'posthog-js';
 import { hasAnalyticsConsent } from './cookie-consent';
+import { trackSiteEvent } from './site-tracker';
 
 type AnalyticsProperties = Record<string, string | number | boolean | null | undefined>;
 
@@ -259,6 +260,8 @@ export const syncAnalyticsScope = (pathname?: string | null) => {
 export const captureAnalyticsEvent = (event: string, properties: AnalyticsProperties = {}) => {
   if (typeof window === 'undefined') return;
   if (!isPublicAnalyticsPath(window.location.pathname)) return;
+  // Espelha no tracking próprio, que não depende do consentimento do PostHog.
+  trackSiteEvent(event, sanitizeProperties(properties));
   if (!initAnalytics()) return;
 
   posthog.capture(event, {

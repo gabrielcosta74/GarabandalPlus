@@ -303,12 +303,22 @@ export const emptySourceSummary = (): MarketingSourceSummary => ({
   waitlist_available_pilgrimages: 0,
 });
 
+/**
+ * Inscreveu-se numa peregrinação. Conta também os registos em `pilgrims`: a
+ * inscrição só fica em `bookings` através da conta (user_id → membros), e quem
+ * se inscreve com outro email ficava com bookings = 0 e recebia emails de
+ * "inscrição por concluir" já inscrito (58 casos até 2026-11-02).
+ */
+export const hasBookedPilgrimage = (summary: Partial<Pick<MarketingSourceSummary, 'bookings' | 'pilgrims'>> | null | undefined) =>
+  Number(summary?.bookings || 0) > 0 || Number(summary?.pilgrims || 0) > 0;
+
 export const evaluateMarketingSegments = (contact: Pick<MarketingContact, 'source_summary' | 'lead_score' | 'lifecycle_stage'> & { language?: MarketingContact['language'] }) => {
   const s = contact.source_summary;
   const segments: string[] = [];
-  if (contact.lead_score >= 70 && s.leads > 0 && s.waitlists === 0 && s.bookings === 0) segments.push('hot-pilgrimage-leads');
-  if (s.leads > 0 && s.waitlists === 0 && s.bookings === 0) segments.push('abandoned-registration');
-  if (s.brochure_requests > 0 && s.bookings === 0) segments.push('brochure-requested-not-booked');
+  const booked = hasBookedPilgrimage(s);
+  if (contact.lead_score >= 70 && s.leads > 0 && s.waitlists === 0 && !booked) segments.push('hot-pilgrimage-leads');
+  if (s.leads > 0 && s.waitlists === 0 && !booked) segments.push('abandoned-registration');
+  if (s.brochure_requests > 0 && !booked) segments.push('brochure-requested-not-booked');
   if (s.waitlists > 0) segments.push('waitlist-contacts');
   if (s.pilgrims > 0 || s.bookings > 0) segments.push('past-pilgrims');
   if (s.succeeded_donations > 0 && !s.is_member) segments.push('donors-not-members');
@@ -367,7 +377,7 @@ export const determineLifecycleStage = (summary: MarketingSourceSummary): Market
 export const getMarketingRecommendation = (contact: Pick<MarketingContact, 'lead_score' | 'source_summary'>) => {
   const s = contact.source_summary;
   if (s.waitlists > 0 && s.bookings === 0) return 'Announce next available pilgrimage';
-  if (contact.lead_score >= 70 && (s.leads > 0 || s.brochure_requests > 0) && s.bookings === 0) {
+  if (contact.lead_score >= 70 && (s.leads > 0 || s.brochure_requests > 0) && !hasBookedPilgrimage(s)) {
     return 'Manual follow-up + pilgrimage funnel';
   }
   if (s.succeeded_donations > 0 && !s.is_member) return 'Invite to become a member';

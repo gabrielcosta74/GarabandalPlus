@@ -8,6 +8,7 @@
 import { Session } from '@supabase/supabase-js';
 import { supabaseBrowser } from './supabase-browser';
 import { getAnalyticsRequestContext } from './analytics';
+import { getSiteTrackingIds } from './site-tracker';
 
 export interface BookingResponse {
     success: boolean;
@@ -48,7 +49,7 @@ export async function createBooking(formData: BookingFormData): Promise<BookingR
             'Content-Type': 'application/json',
             ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
         },
-        body: JSON.stringify({ ...formData, analytics: getAnalyticsRequestContext() }),
+        body: JSON.stringify({ ...formData, analytics: getAnalyticsRequestContext(), site: getSiteTrackingIds() }),
     });
 
     if (!response.ok) {

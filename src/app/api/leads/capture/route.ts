@@ -6,6 +6,7 @@ import { sendBrochureEmail } from '../../../../lib/email';
 import { inferRequestLocale } from '../../../../lib/locale-routing';
 import { checkRateLimit } from '../../../../lib/rate-limit';
 import { getPostHogClient } from '../../../../lib/posthog-server';
+import { identifySiteVisitor } from '../../../../lib/site-tracking-server';
 import { analyticsSessionProperties, getServerAnalyticsContext } from '../../../../lib/analytics-consent-server';
 
 export async function POST(req: Request) {
@@ -112,6 +113,11 @@ export async function POST(req: Request) {
                 .single();
             if (insertError) throw insertError;
             result = insertData;
+        }
+
+        // Tracking próprio: liga o visitante do site a este lead (nunca lança).
+        if (email && result?.id) {
+            await identifySiteVisitor(body?.site, { email, leadId: result.id });
         }
 
         // IF BROCHURE: Trigger Delivery Immediately

@@ -1,5 +1,5 @@
 import { sendMarketingEmail } from './marketing-email';
-import { evaluateMarketingSegments, isContactInSegment, isDeliverableMarketingEmail, isInternalMemberEmail, normalizeEmail } from './marketing-core';
+import { evaluateMarketingSegments, hasBookedPilgrimage, isContactInSegment, isDeliverableMarketingEmail, isInternalMemberEmail, normalizeEmail } from './marketing-core';
 import { buildMarketingContacts, persistMarketingContacts } from './marketing-data';
 import {
   countMarketingSendsForContact,
@@ -76,7 +76,7 @@ export const getMarketingStepConditions = (step?: any) => {
 export const marketingContactReachedGoal = (contact: any, goals: string[] = []) => {
   const summary = getSummary(contact);
   return goals.some((goal) => {
-    if (goal === 'booked_pilgrimage') return Number(summary.bookings || 0) > 0;
+    if (goal === 'booked_pilgrimage') return hasBookedPilgrimage(summary);
     if (goal === 'donated') return Number(summary.succeeded_donations || 0) > 0;
     if (goal === 'became_member') return Boolean(summary.is_member);
     if (goal === 'suppressed') return contact?.consent_state === 'suppressed';
@@ -88,7 +88,7 @@ export const marketingContactReachedGoal = (contact: any, goals: string[] = []) 
 export const marketingStepConditionPasses = (contact: any, condition?: string | null) => {
   if (!condition) return true;
   const summary = getSummary(contact);
-  if (condition === 'not_booked') return Number(summary.bookings || 0) === 0;
+  if (condition === 'not_booked') return !hasBookedPilgrimage(summary);
   if (condition === 'not_member') return !summary.is_member;
   if (condition === 'has_availability') return Number(summary.available_pilgrimages || 0) > 0;
   if (condition === 'has_pending_payment') {

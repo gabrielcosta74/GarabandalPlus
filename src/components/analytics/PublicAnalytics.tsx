@@ -4,6 +4,7 @@ import { Suspense, useEffect } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { capturePublicPageView, syncAnalyticsScope } from '../../lib/analytics';
 import { COOKIE_CONSENT_CHANGED_EVENT } from '../../lib/cookie-consent';
+import { trackSitePageView } from '../../lib/site-tracker';
 
 function PublicAnalyticsPageView() {
   const pathname = usePathname();
@@ -13,6 +14,11 @@ function PublicAnalyticsPageView() {
     syncAnalyticsScope(pathname || '/');
     capturePublicPageView(pathname || '/', searchParams?.toString() || '');
   }, [pathname, searchParams]);
+
+  // O tracking próprio conta todas as visitas, com ou sem consentimento.
+  useEffect(() => {
+    trackSitePageView(pathname || '/');
+  }, [pathname]);
 
   useEffect(() => {
     const captureAfterConsent = () => {

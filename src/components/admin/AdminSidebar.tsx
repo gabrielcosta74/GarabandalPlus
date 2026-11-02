@@ -141,6 +141,7 @@ export default function AdminSidebar({ onLogout, className, collapsed = false }:
             items: [
                 { label: 'Marketing Platform', icon: Megaphone, href: '/admin/marketing', target: '_blank' },
                 { label: 'Search Console', icon: Search, href: '/admin/search-console' },
+                { label: 'Conversão (site)', icon: TrendingUp, href: '/admin/conversao' },
             ]
         },
         {

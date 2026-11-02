@@ -958,8 +958,92 @@ const supportSentence = (locale: EmailLocale) =>
     ? `If you need help before deciding, message us on ${contactWa} or email ${contactMail}.`
     : `Se precisar de ajuda antes de decidir, fale com a gente pelo ${contactWa} ou por ${contactMail}.`;
 
-const pilgrimageRecoveryContent = (locale: EmailLocale, stage: 'start' | 'faq' | 'final') => {
+export type RegistrationRecoveryStep = 'dados' | 'quartos' | 'voos' | 'pagamento';
+
+// Primeiro email de recuperação adaptado ao passo onde a pessoa parou. Cada
+// texto só promete o que o formulário oferece de facto (prestações, formas de
+// pagamento, opções de quarto); dúvidas de voos seguem para a equipa.
+const REGISTRATION_STEP_RECOVERY: Record<RegistrationRecoveryStep, Record<EmailLocale, { intro: string; title: string; desc: string; checklistTitle: string; items: string[] }>> = {
+  dados: {
+    pt: {
+      intro: 'Você começou a inscrição para <strong>{{pilgrimage_name}}</strong> e já deu o primeiro passo. Faltam só os dados de cada peregrino — leva poucos minutos.',
+      title: 'Faltam só os seus dados',
+      desc: 'Nome, data de nascimento e morada de cada pessoa. Pode retomar exatamente onde parou.',
+      checklistTitle: 'Tenha em mãos',
+      items: ['Nome completo de cada peregrino', 'Data de nascimento', 'Morada completa', 'CPF ou NIF, se quiser a fatura no seu nome'],
+    },
+    en: {
+      intro: 'You started registering for <strong>{{pilgrimage_name}}</strong> and already took the first step. Only each pilgrim’s details are missing — it takes a few minutes.',
+      title: 'Only your details are missing',
+      desc: 'Name, date of birth and address for each person. You can pick up exactly where you left off.',
+      checklistTitle: 'Have this at hand',
+      items: ['Full name of each pilgrim', 'Date of birth', 'Full address', 'Tax number, if you want the invoice in your name'],
+    },
+  },
+  quartos: {
+    pt: {
+      intro: 'Sua inscrição para <strong>{{pilgrimage_name}}</strong> ficou na escolha do quarto. Os seus dados já estão preenchidos — falta pouco.',
+      title: 'Falta só escolher o quarto',
+      desc: 'Pode escolher cama de casal ou camas separadas e indicar com quem quer ficar. Se viaja sozinho, pode partilhar com outro peregrino do grupo.',
+      checklistTitle: 'Opções de quarto',
+      items: ['Cama de casal ou camas separadas', 'Ficar com um amigo ou familiar do grupo', 'Partilhar com outro peregrino, se viaja sozinho'],
+    },
+    en: {
+      intro: 'Your registration for <strong>{{pilgrimage_name}}</strong> stopped at the room choice. Your details are already filled in — you are almost there.',
+      title: 'Only the room is left',
+      desc: 'Choose a double bed or twin beds and tell us who you want to share with. If you travel alone, you can share with another pilgrim in the group.',
+      checklistTitle: 'Room options',
+      items: ['Double bed or twin beds', 'Stay with a friend or relative in the group', 'Share with another pilgrim if you travel alone'],
+    },
+  },
+  voos: {
+    pt: {
+      intro: 'Sua inscrição para <strong>{{pilgrimage_name}}</strong> ficou na parte dos voos. É normal ter dúvidas aqui: o que está incluído depende do país de onde você parte.',
+      title: 'Dúvidas sobre os voos?',
+      desc: 'Conte pra gente de onde vai partir e explicamos o seu caso antes de confirmar.',
+      checklistTitle: 'A gente ajuda com',
+      items: ['O que está incluído para o seu país', 'Como chegar ao ponto de encontro do grupo', 'Datas e horários de chegada e regresso'],
+    },
+    en: {
+      intro: 'Your registration for <strong>{{pilgrimage_name}}</strong> stopped at the flights section. Questions here are normal: what is included depends on the country you depart from.',
+      title: 'Questions about flights?',
+      desc: 'Tell us where you will depart from and we will explain your specific case before you confirm.',
+      checklistTitle: 'We can help with',
+      items: ['What is included for your country', 'How to reach the group meeting point', 'Arrival and return dates and times'],
+    },
+  },
+  pagamento: {
+    pt: {
+      intro: 'Você estava quase lá: sua inscrição para <strong>{{pilgrimage_name}}</strong> chegou ao pagamento. Falta só escolher como quer pagar.',
+      title: 'Falta só o último passo',
+      desc: 'Pode pagar por PIX, cartão, MB WAY ou transferência, e dividir o valor em prestações.',
+      checklistTitle: 'Formas de pagar',
+      items: ['Pagamento em prestações', 'PIX, cartão, MB WAY ou transferência', 'A equipe confirma tudo com você depois da inscrição'],
+    },
+    en: {
+      intro: 'You were almost there: your registration for <strong>{{pilgrimage_name}}</strong> reached the payment step. Only the payment method is left.',
+      title: 'Just the last step left',
+      desc: 'You can pay by card, MB WAY or bank transfer, and split the amount into instalments.',
+      checklistTitle: 'Ways to pay',
+      items: ['Payment in instalments', 'Card, MB WAY or bank transfer', 'The team confirms everything with you after registration'],
+    },
+  },
+};
+
+const registrationStepRecoveryContent = (locale: EmailLocale, step: RegistrationRecoveryStep) => {
+  const copy = REGISTRATION_STEP_RECOVERY[step][locale === 'en' ? 'en' : 'pt'];
+  return `${Text('<strong>{{greeting}}</strong>,')}${Text(copy.intro)}
+      ${emailFeatureBlock({ image: '{{pilgrimage_image_url}}', eyebrow: locale === 'en' ? 'Your place is still waiting' : 'Sua vaga ainda espera por você', title: copy.title, desc: copy.desc })}
+      ${benefitChecklist(copy.checklistTitle, copy.items)}
+      ${testimonialCard(locale, 2)}
+      ${Text(supportSentence(locale))}`;
+};
+
+const pilgrimageRecoveryContent = (locale: EmailLocale, stage: 'start' | 'faq' | 'final', step?: RegistrationRecoveryStep | null) => {
   const isEn = locale === 'en';
+  if (stage === 'start' && step && REGISTRATION_STEP_RECOVERY[step]) {
+    return registrationStepRecoveryContent(locale, step);
+  }
   if (stage === 'faq') {
     return isEn
       ? `${Text('<strong>{{greeting}}</strong>,')}${Text('When a registration is left unfinished, it is often because of one concrete question. That is normal: a pilgrimage is a serious decision and you should move forward with peace.')}
@@ -2817,6 +2901,8 @@ export type MarketingTemplatePayload = {
   pilgrimageDates?: string | null;
   pilgrimageStatus?: 'open' | 'waitlist' | null;
   pilgrimageVacancies?: number | null;
+  /** Passo do formulário onde a pessoa parou (tracking próprio). Ainda nenhum envio o preenche: sem ele, o email fica igual. */
+  registrationStep?: RegistrationRecoveryStep | null;
   bookingResumeUrl?: string | null;
   brochureUrl?: string | null;
   memberUrl?: string | null;
@@ -3263,7 +3349,7 @@ export const MARKETING_EMAIL_TEMPLATES: Record<MarketingTemplateKey, MarketingTe
     title: 'Sua inscrição ficou quase pronta',
     subtitle: '{{pilgrimage_name}}',
     requiredVariables: ['name', 'booking_resume_url'],
-    contentHtml: (locale) => pilgrimageRecoveryContent(locale, 'start'),
+    contentHtml: (locale, payload) => pilgrimageRecoveryContent(locale, 'start', payload.registrationStep),
     paragraphs: [
       '<strong>{{greeting}}</strong>,',
       'Você iniciou a inscrição para <strong>{{pilgrimage_name}}</strong>, mas o processo ficou por concluir. As vagas são limitadas — e a sua pode ainda ser garantida.',

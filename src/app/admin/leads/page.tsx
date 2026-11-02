@@ -378,6 +378,15 @@ function StatusBadge({ status, notifiedAt }: { status: string, notifiedAt?: stri
         );
     }
 
+    if (status === 'converted') {
+        return (
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-100">
+                <CheckCircle className="w-3.5 h-3.5" />
+                Inscrito
+            </span>
+        );
+    }
+
     if (status === 'waitlist') {
         return (
             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-purple-50 text-purple-700 border border-purple-100">
