@@ -6,7 +6,7 @@ import { ensureNotificationRecord, markNotificationSent } from '../../../../lib/
 import { getAppUrl } from '../../../../lib/config';
 
 import { daysBetweenUtc } from '../../../../lib/membership-logic';
-import { isPaidStatus, isRevokedStatus } from '../../../../lib/membership-status';
+import { isRevokedStatus } from '../../../../lib/membership-status';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -55,7 +55,6 @@ export async function GET(request: Request) {
         if (Number.isNaN(dueDate.getTime())) continue;
 
         const diffDays = daysBetweenUtc(today, dueDate); // Positive = Future, Negative = Past
-        const isPaid = isPaidStatus(member.estado_quota);
         const isRevoked = isRevokedStatus(member.estado_quota) || (member.estado_quota || '').toLowerCase() === 'expirado';
 
         // 1. State Transitions (DB Updates)
@@ -69,27 +68,33 @@ export async function GET(request: Request) {
         }
 
         // 2. Notifications (Reminders)
-        // Don't send reminders if already revoked (unless it's the revocation notice itself)
+        // Os lembretes vão para quem ainda é membro e se aproxima do vencimento — pagos
+        // incluídos, que são precisamente quem renova (antes só saíam para "não pagos",
+        // pelo que um membro pago nunca recebia aviso). Cada faixa usa um intervalo em
+        // vez do dia exato: se o cron falhar um dia, o aviso sai na corrida seguinte, e
+        // a referência (membro + tipo + vencimento) impede repetições.
         if (isRevoked && diffDays < -35) continue; // Stop processing old revoked members
 
         let notificationType: string | null = null;
         let reminderPayload: { daysUntilDue?: number; daysOverdue?: number } = {};
 
-        if (diffDays === -1 && !isRevoked) {
-            // First day after due date -> membership revoked.
-            notificationType = 'membership_revoked';
-        } else if (!isPaid && !isRevoked) {
-            // Reminders only for members who are not paid and not revoked.
-            if (diffDays === 30) {
-                notificationType = 'quota_reminder_30d';
-                reminderPayload = { daysUntilDue: 30 };
-            } else if (diffDays === 7) {
-                notificationType = 'quota_reminder_7d';
-                reminderPayload = { daysUntilDue: 7 };
-            } else if (diffDays === 1) {
-                notificationType = 'quota_reminder_1d';
-                reminderPayload = { daysUntilDue: 1 };
-            }
+        const isExpiredByRule = (diffDays < 0 && !isRevoked) || (member.estado_quota || '').toLowerCase() === 'expirado';
+
+        if (diffDays <= -1 && diffDays >= -14 && isExpiredByRule) {
+          // Quota vencida há pouco: aviso de que a adesão terminou, com 2 semanas de margem
+          // para repetir caso o primeiro envio tenha falhado.
+          notificationType = 'membership_revoked';
+        } else if (!isRevoked && diffDays >= 0) {
+          if (diffDays <= 1) {
+            notificationType = 'quota_reminder_1d';
+            reminderPayload = { daysUntilDue: diffDays };
+          } else if (diffDays <= 7) {
+            notificationType = 'quota_reminder_7d';
+            reminderPayload = { daysUntilDue: diffDays };
+          } else if (diffDays <= 30) {
+            notificationType = 'quota_reminder_30d';
+            reminderPayload = { daysUntilDue: diffDays };
+          }
         }
 
         if (!notificationType) continue;

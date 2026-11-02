@@ -226,7 +226,7 @@ export async function POST(req: Request) {
                                 kind: 'new',
                                 hasDiploma: true,
                                 attachments: [{
-                                    filename: `diploma-socio-${memberData.numero_socio}.pdf`,
+                                    filename: `diploma-membro-${memberData.numero_socio}.pdf`,
                                     content: Buffer.from(pdfBytes),
                                     contentType: 'application/pdf'
                                 }]

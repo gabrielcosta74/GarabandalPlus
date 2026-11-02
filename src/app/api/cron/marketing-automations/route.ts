@@ -11,6 +11,7 @@ import {
   getMarketingEmailLimits,
   getMarketingSendWindow,
   getMarketingWindowStarts,
+  isMarketingSendingPaused,
   isWithinMarketingSendWindow,
 } from '../../../../lib/marketing-limits';
 import { processMarian2027ScheduledCampaigns } from '../../../../lib/marian-2027-scheduler';
@@ -55,6 +56,10 @@ export async function GET(req: Request) {
   try {
     const requestUrl = new URL(req.url);
     const dryRun = requestUrl.searchParams.get('dryRun') === '1';
+
+    if (!dryRun && isMarketingSendingPaused()) {
+      return NextResponse.json({ success: true, skipped: true, reason: 'marketing_paused', processed: [] });
+    }
 
     // Quiet hours: fora da janela (hora de São Paulo) nada é enviado; os
     // enrollments devidos saem na primeira corrida dentro da janela.

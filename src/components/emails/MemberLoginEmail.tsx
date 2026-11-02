@@ -66,7 +66,7 @@ export const MemberLoginEmail = ({
                             <Text style={credentialsTitle}>OS SEUS DADOS DE ACESSO</Text>
 
                             <Text style={credentialRow}>
-                                <span style={credentialLabel}>Nº Associado:</span> <span style={credentialValue}>#{memberNumber}</span>
+                                <span style={credentialLabel}>Nº de Membro:</span> <span style={credentialValue}>#{memberNumber}</span>
                             </Text>
                             <Text style={credentialRow}>
                                 <span style={credentialLabel}>Email:</span> <span style={credentialValue}>{email}</span>

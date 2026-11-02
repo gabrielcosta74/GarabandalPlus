@@ -1618,7 +1618,7 @@ export const renderMembershipEmail = (payload: MembershipNotificationInput) => {
           children: `
                                 ${InfoRow({ label: "Membro", value: memberLabel })}
                                 ${InfoRow({ label: "Email", value: payload.memberEmail || "-" })}
-                                ${InfoRow({ label: "Nº Associado", value: payload.memberNumber || "Pendente" })}
+                                ${InfoRow({ label: "Nº de Membro", value: payload.memberNumber || "Pendente" })}
                                 ${InfoRow({ label: "Valor", value: amountText })}
                                 ${InfoRow({ label: "Método", value: payload.paymentMethod })}
                                 ${InfoRow({ label: "Próximo Vencimento", value: formatDate(payload.nextQuotaDate) })}
@@ -1635,7 +1635,7 @@ export const renderMembershipEmail = (payload: MembershipNotificationInput) => {
 export const renderMemberReceiptEmail = (payload: MemberReceiptInput) => {
   const locale = payload.locale === "en" ? "en" : "pt";
   const isEn = locale === "en";
-  const memberLabel = payload.memberName || (isEn ? "Dear Member" : "Estimado Membro");
+  const memberLabel = payload.memberName || (isEn ? "Dear Member" : "membro(a) do Apostolado");
   const amountText = formatCurrency(payload.amount, payload.currency || "EUR", locale);
 
   return {
@@ -1916,9 +1916,13 @@ export const renderQuotaReminderEmail = (payload: QuotaReminderInput) => {
     ? isEn
       ? `${payload.daysOverdue} days overdue`
       : `${payload.daysOverdue} dias em atraso`
-    : isEn
-      ? `${payload.daysUntilDue} days until due`
-      : `${payload.daysUntilDue} dias para vencer`;
+    : payload.daysUntilDue === 0
+      ? isEn ? 'due today' : 'vence hoje'
+      : payload.daysUntilDue === 1
+        ? isEn ? '1 day until due' : '1 dia para vencer'
+        : isEn
+          ? `${payload.daysUntilDue} days until due`
+          : `${payload.daysUntilDue} dias para vencer`;
 
   const greetingName = payload.memberName
     || (isEn ? 'Apostolate member' : 'membro(a) do Apostolado');
@@ -2064,7 +2068,6 @@ export const renderPilgrimagePaymentReminderEmail = (
 
   const greetingName = payload.recipientName
     || (isEn ? 'pilgrim' : 'peregrino(a)');
-  const greetingPrefix = isEn ? 'Dear' : 'Estimado(a)';
 
   return {
     subject: effectiveIsOverdue
@@ -2084,7 +2087,7 @@ export const renderPilgrimagePaymentReminderEmail = (
       })}
                 ${Section({
         children: `
-                        ${Text(`${isEn ? 'Hello' : 'Olá'} <strong>${greetingPrefix} ${greetingName}</strong>,`)}
+                        ${Text(`${isEn ? 'Hello' : 'Olá'} <strong>${greetingName}</strong>,`)}
                         ${Text(introMap[payload.stage])}
                         ${Card({
           children: `
@@ -2320,7 +2323,6 @@ export const renderGeneralLeadEmail = (payload: GeneralLeadInput) => {
   const isEn = locale === 'en';
   const trimmedName = (payload.name || '').trim();
   const firstName = trimmedName.split(' ')[0] || (isEn ? 'friend' : 'amigo(a)');
-  const greetingPrefix = trimmedName ? '' : (isEn ? 'Dear ' : 'Estimado(a) ');
   return {
     subject: isEn ? `${firstName}, we received your interest — we are watching` : `${firstName}, recebemos o seu interesse — ficamos atentos`,
     html: Layout({
@@ -2331,7 +2333,7 @@ export const renderGeneralLeadEmail = (payload: GeneralLeadInput) => {
                 ${Header({ title: isEn ? "Your interest has been noted" : "O seu interesse foi registrado", subtitle: "Apostolado de Garabandal" })}
                 ${Section({
         children: `
-                        ${Text(isEn ? `Hello <strong>${greetingPrefix}${firstName}</strong>,` : `Olá <strong>${greetingPrefix}${firstName}</strong>,`)}
+                        ${Text(isEn ? `Hello <strong>${firstName}</strong>,` : `Olá <strong>${firstName}</strong>,`)}
                         ${Text(isEn
           ? "Your contact has been registered. When there are new dates, places or relevant opportunities, we will reach out to you directly — before the public announcement."
           : "O seu contacto foi registrado. Quando existirem novas datas, vagas ou oportunidades relevantes, entraremos diretamente em contato com você — antes de anunciarmos ao público."
@@ -2623,7 +2625,7 @@ export const renderStoreShippingEmail = (payload: any) => {
         ${Section({
         children: `
             ${Text(`Olá <strong>${payload.buyerName || 'cliente'}</strong>,`)}
-            ${Text('Óptimas notícias! A sua encomenda foi processada e está a caminho.')}
+            ${Text('Ótimas notícias! A sua encomenda foi processada e está a caminho.')}
             ${Card({
           children: `
                 ${carrierName ? InfoRow({ label: 'Transportador', value: carrierName }) : ''}
@@ -2649,15 +2651,15 @@ export const renderStoreShippingEmail = (payload: any) => {
 };
 
 export const renderStorePreparingEmail = (payload: any) => ({
-  subject: `Estamos a preparar a sua encomenda(${payload.orderRef})`,
+  subject: `Estamos preparando seu pedido (${payload.orderRef})`,
   html: Layout({
-    title: "Encomenda em Preparação",
+    title: "Pedido em Preparação",
     children: `
-            ${Header({ title: "Estamos a preparar a sua encomenda", subtitle: `Ref. ${payload.orderRef}` })}
+            ${Header({ title: "Estamos preparando seu pedido", subtitle: `Ref. ${payload.orderRef}` })}
             ${Section({
       children: `
                     ${Text(`Olá <strong>${payload.buyerName || "cliente"}</strong>,`)}
-                    ${Text("A sua encomenda está em preparação. Assim que for enviada, receberá nova atualização por email.")}
+                    ${Text("Seu pedido está em preparação. Assim que for enviado, você receberá uma nova atualização por email.")}
                 `,
     })}
 `,
@@ -2930,7 +2932,7 @@ const localizeMarketingUrl = (url: string, locale: EmailLocale) => {
 const fillMarketingVariables = (value: string, payload: MarketingTemplatePayload) => {
   const locale = payload.language === 'en' ? 'en' : 'pt';
   // When there is no real name, fall back to a respectful generic form.
-  // `greeting` is the full salutation (e.g. "Olá João" / "Estimado(a) amigo(a)")
+  // `greeting` is the full salutation (e.g. "Olá João" / "Olá, amigo(a)")
   // and is what templates use in the body. `first_name` is still used in
   // subjects but takes a graceful fallback like "amigo(a)" / "friend".
   const fallbackFirstName = locale === 'en' ? 'friend' : 'amigo(a)';
@@ -2939,7 +2941,7 @@ const fillMarketingVariables = (value: string, payload: MarketingTemplatePayload
   const firstName = trimmedName.split(/\s+/)[0] || fallbackFirstName;
   const greeting = trimmedName
     ? (locale === 'en' ? `Hello ${firstName}` : `Olá ${firstName}`)
-    : (locale === 'en' ? `Dear ${fallbackFirstName}` : `Estimado(a) ${fallbackFirstName}`);
+    : (locale === 'en' ? `Hello, ${fallbackFirstName}` : `Olá, ${fallbackFirstName}`);
   const isWaitlist = payload.pilgrimageStatus === 'waitlist';
   // Nº de vagas explícito (pedido do operador): "restam apenas 5 vagas" em vez
   // de "vaga aberta" genérico. Com fallback honesto quando não há contagem.
@@ -4903,7 +4905,7 @@ export const renderBookingAdminNotification = (
                             ${InfoRow({ label: "Método de Pagamento", value: payload.paymentMethod, isLast: true })}
                         `,
       })}
-                    ${Button({ label: "Ver Detalhes da Inscrição", url: APP_URL + "/admin/inscricoes" })}
+                    ${Button({ label: "Ver Detalhes da Inscrição", url: APP_URL + "/admin/peregrinacoes" })}
                 `,
     })}
 `,

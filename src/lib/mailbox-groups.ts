@@ -141,7 +141,12 @@ export async function sendToGroup(input: {
 }) {
     const apiKey = process.env.RESEND_API_KEY;
     if (!apiKey) throw new Error('RESEND_API_KEY em falta.');
-    const recipients = await resolveGroup(input.groupId);
+    const resolved = await resolveGroup(input.groupId);
+    // Mensagens operacionais (viagem, quota) chegam a quem cancelou o marketing, mas
+    // não a moradas que devolveram bounce nem a quem marcou spam: isso estraga a
+    // reputação do domínio para todos os emails, inclusive os de pagamentos.
+    const blocked = await deadAddresses();
+    const recipients = resolved.filter((r) => !blocked.has(r.email));
     if (!recipients.length) throw new Error('O grupo não tem ninguém com email.');
     if (recipients.length > MAX_GROUP_SIZE) throw new Error(`O grupo tem ${recipients.length} pessoas; o máximo é ${MAX_GROUP_SIZE}.`);
 
@@ -175,5 +180,22 @@ export async function sendToGroup(input: {
         await saveCopy(raw).catch((error) => console.warn('[mailbox] grupo enviado, sem cópia em Enviados', error));
     }
 
-    return { sent: sentTo.length, failed };
+    return { sent: sentTo.length, failed, skippedUndeliverable: resolved.length - recipients.length };
+}
+
+async function deadAddresses() {
+    const blocked = new Set<string>();
+    if (!supabaseServer) return blocked;
+    for (let from = 0; from < 50_000; from += 1000) {
+        const { data, error } = await supabaseServer
+            .from('marketing_suppression_list')
+            .select('normalized_email')
+            .in('reason', ['bounce', 'bounce_repeated_transient', 'newsletter_bounced', 'spam_complaint'])
+            .order('id')
+            .range(from, from + 999);
+        if (error) throw error;
+        for (const row of data || []) if (row.normalized_email) blocked.add(String(row.normalized_email).toLowerCase());
+        if (!data || data.length < 1000) break;
+    }
+    return blocked;
 }

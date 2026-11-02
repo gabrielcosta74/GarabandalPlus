@@ -41,7 +41,7 @@ export async function POST(request: Request) {
       issuedAt: new Date().toISOString(),
       attachments: [
         {
-          filename: `diploma-socio-${memberNumber}.pdf`,
+          filename: `diploma-membro-${memberNumber}.pdf`,
           content: Buffer.from(pdfBytes),
           contentType: 'application/pdf',
         },

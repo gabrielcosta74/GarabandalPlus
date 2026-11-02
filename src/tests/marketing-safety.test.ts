@@ -171,3 +171,18 @@ describe('plain text version of marketing emails', () => {
     expect(text).toBe('Olá Maria\nVeja a página (https://x.pt/a) · fim');
   });
 });
+
+import { sendMarketingEmail } from '../lib/marketing-email';
+
+describe('marketing kill switch', () => {
+  it('blocks every marketing send while MARKETING_SENDING_PAUSED is on', async () => {
+    process.env.MARKETING_SENDING_PAUSED = '1';
+    const result = await sendMarketingEmail({
+      contact: { display_name: 'Ana', normalized_email: 'ana@gmail.com', language: 'pt', recommendation: '' },
+      templateKey: 'member_welcome',
+    });
+    delete process.env.MARKETING_SENDING_PAUSED;
+    expect(result).toMatchObject({ sent: false });
+    expect(String((result as any).error)).toMatch(/pausad/i);
+  });
+});
