@@ -5,6 +5,10 @@ const parseEnvInt = (name: string, fallback: number, min: number, max: number) =
   return Math.min(max, Math.max(min, parsed));
 };
 
+// Interruptor global: MARKETING_SENDING_PAUSED=1 para todos os envios de marketing
+// (funis, campanhas, Marian, newsletter) sem mexer em código. Transacionais não param.
+export const isMarketingSendingPaused = () => ['1', 'true', 'on'].includes(String(process.env.MARKETING_SENDING_PAUSED || '').toLowerCase());
+
 export const getMarketingEmailLimits = () => ({
   minHoursBetweenEmails: parseEnvInt('MARKETING_MIN_HOURS_BETWEEN_EMAILS', 24, 12, 168),
   maxEmailsPer7Days: parseEnvInt('MARKETING_MAX_EMAILS_PER_7D', 7, 1, 7),

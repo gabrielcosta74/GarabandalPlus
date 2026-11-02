@@ -8,6 +8,7 @@ import type { MarketingContact } from './marketing-core';
 import { isDeliverableMarketingEmail, isInternalMemberEmail } from './marketing-core';
 import { APP_URL } from './config';
 import { createUnsubscribeToken } from './unsubscribe-token';
+import { isMarketingSendingPaused } from './marketing-limits';
 
 const buildUnsubscribeUrl = (email: string, language?: string | null) => {
   const { e, t } = createUnsubscribeToken(email);
@@ -106,6 +107,9 @@ export const sendMarketingEmail = async (input: MarketingEmailInput) => {
   }
   if (!isDeliverableMarketingEmail(input.contact.normalized_email)) {
     return { sent: false, error: 'Endereço inválido ou de teste; envio bloqueado.' };
+  }
+  if (isMarketingSendingPaused()) {
+    return { sent: false, error: 'Envios de marketing pausados (MARKETING_SENDING_PAUSED).' };
   }
   if (!resendClient) {
     return { sent: false, error: 'RESEND_API_KEY não configurada.' };

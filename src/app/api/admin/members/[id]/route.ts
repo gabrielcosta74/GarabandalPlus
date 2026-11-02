@@ -393,7 +393,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
                 locale: emailLocale,
                 attachments: [
                     {
-                        filename: `diploma-socio-${member.numero_socio}.pdf`,
+                        filename: `diploma-membro-${member.numero_socio}.pdf`,
                         content: Buffer.from(pdfBytes),
                         contentType: 'application/pdf',
                     },

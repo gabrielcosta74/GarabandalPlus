@@ -3,7 +3,15 @@ import { isContactInSegment } from '../../../../../../../lib/marketing-core';
 import { buildMarketingContacts } from '../../../../../../../lib/marketing-data';
 import { sendMarketingEmail } from '../../../../../../../lib/marketing-email';
 import { jsonError, requireMarketingAdmin } from '../../../../../../../lib/marketing-api';
-import { countMarketingSendsForContact, getMarketingEmailLimits } from '../../../../../../../lib/marketing-limits';
+import {
+  countMarketingSendsForContact,
+  countMarketingSendsSince,
+  getMarketingEmailLimits,
+  getMarketingSendWindow,
+  getMarketingWindowStarts,
+  isMarketingSendingPaused,
+  isWithinMarketingSendWindow,
+} from '../../../../../../../lib/marketing-limits';
 
 export const dynamic = 'force-dynamic';
 
@@ -55,10 +63,33 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     if (!campaign.subject) return NextResponse.json({ error: 'Campanha sem assunto.' }, { status: 400 });
     if (!campaign.segment_slug) return NextResponse.json({ error: 'Campanha sem segmento.' }, { status: 400 });
 
+    // Envio real: respeita o interruptor, a janela horária e o teto diário (antes enviava
+    // até 100 emails de uma vez a qualquer hora e sem contar para o teto), e não repete
+    // uma campanha já concluída.
+    let audienceRoom = limits.campaignAudienceLimit;
+    if (!dryRun) {
+      if (isMarketingSendingPaused()) {
+        return NextResponse.json({ error: 'Envios de marketing pausados.' }, { status: 409 });
+      }
+      if (campaign.status === 'completed') {
+        return NextResponse.json({ error: 'Esta campanha já foi concluída.' }, { status: 409 });
+      }
+      if (!isWithinMarketingSendWindow()) {
+        const { start, end } = getMarketingSendWindow();
+        return NextResponse.json({ error: `Fora da janela de envio (${start}h–${end}h, hora de Brasília).` }, { status: 409 });
+      }
+      const sentLast24h = await countMarketingSendsSince(auth.supabase, getMarketingWindowStarts(new Date(), limits).day);
+      const remaining = Math.max(0, limits.cronDailySendCap - sentLast24h);
+      if (remaining <= 0) {
+        return NextResponse.json({ error: `Teto diário de ${limits.cronDailySendCap} emails de marketing atingido.` }, { status: 409 });
+      }
+      audienceRoom = Math.min(audienceRoom, remaining);
+    }
+
     const contacts = (await buildMarketingContacts(auth.supabase))
       .filter((contact) => isContactInSegment(contact, campaign.segment_slug))
       .filter((contact) => contact.normalized_email && contact.consent_state !== 'suppressed' && contact.consent_state !== 'unsubscribed')
-      .slice(0, limits.campaignAudienceLimit);
+      .slice(0, audienceRoom);
 
     if (dryRun) {
       return NextResponse.json({

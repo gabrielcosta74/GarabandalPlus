@@ -124,6 +124,29 @@ const storeOwnerEmail = process.env.STORE_OWNER_EMAIL || notifyTo;
 
 const resendClient = resendApiKey ? new Resend(resendApiKey) : null;
 
+type ResendSendParams = Parameters<Resend['emails']['send']>;
+
+// O SDK do Resend devolve { error } em vez de lançar exceção: sem esta verificação
+// um envio recusado era dado como feito (as notificações ficavam marcadas como
+// enviadas e nunca eram repetidas). sendChecked lança; deliver devolve false.
+const sendChecked = async (...args: ResendSendParams) => {
+  const result = await resendClient!.emails.send(...args);
+  if (result?.error) {
+    throw new Error(`Resend recusou o envio: ${result.error.message || result.error.name || 'erro desconhecido'}`);
+  }
+  return result;
+};
+
+const deliver = async (...args: ResendSendParams) => {
+  try {
+    await sendChecked(...args);
+    return true;
+  } catch (error) {
+    console.error('[Email] Envio falhado:', error instanceof Error ? error.message : error);
+    return false;
+  }
+};
+
 export type FactPtFiscalDocumentEmailInput = {
   toEmail: string;
   sandbox?: boolean;
@@ -176,13 +199,12 @@ export const sendMembershipNotification = async (payload: MembershipNotification
   }
 
   const content = renderMembershipEmail(payload);
-  await resendClient.emails.send({
+  return deliver({
     from: notifyFrom,
     to: [notifyTo],
     subject: content.subject,
     html: content.html,
   });
-  return true;
 };
 
 export const sendMemberReceiptEmail = async (payload: MemberReceiptInput) => {
@@ -203,14 +225,13 @@ export const sendMemberReceiptEmail = async (payload: MemberReceiptInput) => {
   });
 
   const content = renderMemberReceiptEmail(payload);
-  await resendClient.emails.send({
+  return deliver({
     from: notifyFrom,
     to: [payload.toEmail],
     subject: content.subject,
     html: content.html,
     attachments: payload.attachments,
   });
-  return true;
 };
 
 export const sendMemberDiplomaEmail = async (payload: MemberDiplomaInput) => {
@@ -220,14 +241,13 @@ export const sendMemberDiplomaEmail = async (payload: MemberDiplomaInput) => {
   }
 
   const content = renderMemberDiplomaEmail(payload);
-  await resendClient.emails.send({
+  return deliver({
     from: notifyFrom,
     to: [payload.toEmail],
     subject: content.subject,
     html: content.html,
     attachments: payload.attachments,
   });
-  return true;
 };
 
 export const sendDonationReceiptEmail = async (payload: DonationReceiptInput) => {
@@ -237,13 +257,12 @@ export const sendDonationReceiptEmail = async (payload: DonationReceiptInput) =>
   }
 
   const content = renderDonationReceiptEmail(payload);
-  await resendClient.emails.send({
+  return deliver({
     from: notifyFrom,
     to: [payload.toEmail],
     subject: content.subject,
     html: content.html,
   });
-  return true;
 };
 
 
@@ -254,14 +273,13 @@ export const sendQuotaReminderEmail = async (payload: QuotaReminderInput) => {
   }
 
   const content = renderQuotaReminderEmail(payload);
-  await resendClient.emails.send({
+  return deliver({
     from: notifyFrom,
     to: [payload.toEmail],
     subject: content.subject,
     html: content.html,
     attachments: [], // Fix: ensure attachments is passed or undefined, but rendering doesn't need it.
   });
-  return true;
 };
 
 export const sendPilgrimagePaymentReminderEmail = async (payload: PilgrimagePaymentReminderInput) => {
@@ -271,13 +289,12 @@ export const sendPilgrimagePaymentReminderEmail = async (payload: PilgrimagePaym
   }
 
   const content = renderPilgrimagePaymentReminderEmail(payload);
-  await resendClient.emails.send({
+  return deliver({
     from: notifyFrom,
     to: [payload.toEmail],
     subject: content.subject,
     html: content.html,
   });
-  return true;
 };
 
 export const sendStoreOwnerEmail = async (payload: {
@@ -311,13 +328,12 @@ export const sendStoreOwnerEmail = async (payload: {
   }
 
   const content = renderStoreOwnerEmail(payload);
-  await resendClient.emails.send({
+  return deliver({
     from: notifyFrom,
     to: [storeOwnerEmail],
     subject: content.subject,
     html: content.html,
   });
-  return true;
 };
 
 export const sendStoreBuyerEmail = async (payload: {
@@ -355,13 +371,12 @@ export const sendStoreBuyerEmail = async (payload: {
   }
 
   const content = renderStoreBuyerEmail(payload);
-  await resendClient.emails.send({
+  return deliver({
     from: notifyFrom,
     to: [payload.buyerEmail],
     subject: content.subject,
     html: content.html,
   });
-  return true;
 };
 
 export const sendStoreShippingEmail = async (payload: {
@@ -383,13 +398,12 @@ export const sendStoreShippingEmail = async (payload: {
   }
 
   const content = renderStoreShippingEmail(payload);
-  await resendClient.emails.send({
+  return deliver({
     from: notifyFrom,
     to: [payload.buyerEmail],
     subject: content.subject,
     html: content.html,
   });
-  return true;
 };
 
 
@@ -404,13 +418,12 @@ export const sendStorePreparingEmail = async (payload: {
   }
 
   const content = renderStorePreparingEmail(payload);
-  await resendClient.emails.send({
+  return deliver({
     from: notifyFrom,
     to: [payload.buyerEmail],
     subject: content.subject,
     html: content.html,
   });
-  return true;
 };
 
 export const sendGeneralLeadEmail = async (payload: GeneralLeadInput) => {
@@ -420,13 +433,12 @@ export const sendGeneralLeadEmail = async (payload: GeneralLeadInput) => {
   }
 
   const content = renderGeneralLeadEmail(payload);
-  await resendClient.emails.send({
+  return deliver({
     from: notifyFrom,
     to: [payload.email],
     subject: content.subject,
     html: content.html,
   });
-  return true;
 
 };
 
@@ -437,13 +449,12 @@ export const sendWelcomeEmail = async (payload: { name: string; email: string })
   }
 
   const content = renderWelcomeEmail(payload);
-  await resendClient.emails.send({
+  return deliver({
     from: notifyFrom,
     to: [payload.email],
     subject: content.subject,
     html: content.html,
   });
-  return true;
 };
 
 export const sendBrochureEmail = async (payload: BrochureEmailInput) => {
@@ -453,13 +464,12 @@ export const sendBrochureEmail = async (payload: BrochureEmailInput) => {
   }
 
   const content = renderBrochureEmail(payload);
-  await resendClient.emails.send({
+  return deliver({
     from: notifyFrom,
     to: [payload.email],
     subject: content.subject,
     html: content.html,
   });
-  return true;
 };
 
 export const sendAbandonmentRecoveryEmail = async (payload: AbandonmentRecoveryInput) => {
@@ -472,14 +482,14 @@ export const sendAbandonmentRecoveryEmail = async (payload: AbandonmentRecoveryI
   const content = renderAbandonmentRecoveryEmail(payload);
 
   try {
-    await resendClient.emails.send({
+    const ok = await deliver({
       from: notifyFrom,
       to: [payload.email],
       subject: content.subject,
       html: content.html,
     });
-    console.log(`[Email] Successfully sent abandonment recovery to ${payload.email}`);
-    return true;
+    if (ok) console.log(`[Email] Successfully sent abandonment recovery to ${payload.email}`);
+    return ok;
   } catch (error) {
     console.error(`[Email] Failed to send abandonment recovery:`, error);
     throw error;
@@ -504,13 +514,12 @@ export const sendBookingConfirmationEmail = async (payload: {
   }
 
   const content = renderBookingConfirmationEmail(payload);
-  await resendClient.emails.send({
+  return deliver({
     from: notifyFrom,
     to: [payload.email],
     subject: content.subject,
     html: content.html,
   });
-  return true;
 };
 
 export const sendDonationNotification = async (payload: DonationNotificationInput) => {
@@ -520,34 +529,30 @@ export const sendDonationNotification = async (payload: DonationNotificationInpu
   }
 
   const content = renderDonationNotification(payload);
-  await resendClient.emails.send({
+  return deliver({
     from: notifyFrom,
     to: [notifyTo],
     subject: content.subject,
     html: content.html,
   });
-  return true;
 };
 
 export const sendQuotaWarningEmail = async (payload: { name: string; email: string; daysRemaining: number; payLink: string }) => {
   if (!resendClient) return false;
   const content = renderQuotaWarningEmail(payload);
-  await resendClient.emails.send({ from: notifyFrom, to: [payload.email], subject: content.subject, html: content.html });
-  return true;
+  return deliver({ from: notifyFrom, to: [payload.email], subject: content.subject, html: content.html });
 };
 
 export const sendQuotaOverdueEmail = async (payload: { name: string; email: string; payLink: string }) => {
   if (!resendClient) return false;
   const content = renderQuotaOverdueEmail(payload);
-  await resendClient.emails.send({ from: notifyFrom, to: [payload.email], subject: content.subject, html: content.html });
-  return true;
+  return deliver({ from: notifyFrom, to: [payload.email], subject: content.subject, html: content.html });
 };
 
 export const sendMembershipRevokedEmail = async (payload: { name: string; email: string; payLink: string; locale?: 'pt' | 'en' }) => {
   if (!resendClient) return false;
   const content = renderMembershipRevokedEmail(payload);
-  await resendClient.emails.send({ from: notifyFrom, to: [payload.email], subject: content.subject, html: content.html });
-  return true;
+  return deliver({ from: notifyFrom, to: [payload.email], subject: content.subject, html: content.html });
 };
 
 export const sendAuthMagicLinkEmail = async (payload: { email: string; magicLink: string }) => {
@@ -557,14 +562,12 @@ export const sendAuthMagicLinkEmail = async (payload: { email: string; magicLink
   }
 
   const content = renderAuthMagicLinkEmail({ magicLink: payload.magicLink });
-  await resendClient.emails.send({
+  return deliver({
     from: notifyFrom,
     to: [payload.email],
     subject: content.subject,
     html: content.html,
   });
-
-  return true;
 };
 
 export const sendAuthRecoveryEmail = async (payload: {
@@ -619,14 +622,12 @@ export const sendBookingAccessLinkEmail = async (payload: {
     pilgrimageName: payload.pilgrimageName,
     locale: payload.locale,
   });
-  await resendClient.emails.send({
+  return deliver({
     from: notifyFrom,
     to: [payload.email],
     subject: content.subject,
     html: content.html,
   });
-
-  return true;
 };
 
 // ── Auction Emails ──
@@ -639,14 +640,14 @@ export const sendAuctionOutbidEmail = async (payload: AuctionOutbidInput) => {
 
   const content = renderAuctionOutbidEmail(payload);
   try {
-    await resendClient.emails.send({
+    const ok = await deliver({
       from: notifyFrom,
       to: [payload.email],
       subject: content.subject,
       html: content.html,
     });
-    console.log(`[Auction Email] Outbid notification sent to ${payload.email}`);
-    return true;
+    if (ok) console.log(`[Auction Email] Outbid notification sent to ${payload.email}`);
+    return ok;
   } catch (error) {
     console.error('[Auction Email] Failed to send outbid email:', error);
     return false;
@@ -690,14 +691,14 @@ export const sendAuctionWinnerEmail = async (payload: AuctionWinnerInput) => {
 
   const content = renderAuctionWinnerEmail(payload);
   try {
-    await resendClient.emails.send({
+    const ok = await deliver({
       from: notifyFrom,
       to: [payload.email],
       subject: content.subject,
       html: content.html,
     });
-    console.log(`[Auction Email] Winner notification sent to ${payload.email}`);
-    return true;
+    if (ok) console.log(`[Auction Email] Winner notification sent to ${payload.email}`);
+    return ok;
   } catch (error) {
     console.error('[Auction Email] Failed to send winner email:', error);
     return false;
@@ -712,14 +713,14 @@ export const sendAuctionAdminNotification = async (payload: AuctionAdminNotifica
 
   const content = renderAuctionAdminNotificationEmail(payload);
   try {
-    await resendClient.emails.send({
+    const ok = await deliver({
       from: notifyFrom,
       to: [notifyTo],
       subject: content.subject,
       html: content.html,
     });
-    console.log(`[Auction Email] Admin notification sent for "${payload.itemTitle}"`);
-    return true;
+    if (ok) console.log(`[Auction Email] Admin notification sent for "${payload.itemTitle}"`);
+    return ok;
   } catch (error) {
     console.error('[Auction Email] Failed to send admin notification:', error);
     return false;
@@ -733,13 +734,12 @@ export const sendAuctionPaymentConfirmedEmail = async (payload: AuctionPaymentCo
   }
 
   const content = renderAuctionPaymentConfirmedEmail(payload);
-  await resendClient.emails.send({
+  return deliver({
     from: notifyFrom,
     to: [payload.toEmail],
     subject: content.subject,
     html: content.html,
   });
-  return true;
 };
 
 export const sendBookingAdminNotification = async (payload: BookingAdminNotificationInput) => {
@@ -749,13 +749,12 @@ export const sendBookingAdminNotification = async (payload: BookingAdminNotifica
   }
 
   const content = renderBookingAdminNotification(payload);
-  await resendClient.emails.send({
+  return deliver({
     from: notifyFrom,
     to: [notifyTo],
     subject: content.subject,
     html: content.html,
   });
-  return true;
 };
 
 // ─── Admin Bank Transfer Alert ────────────────────────────────────────────────
@@ -779,13 +778,12 @@ export const sendAdminBankTransferAlert = async (payload: AdminBankTransferAlert
   const adminUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://apostoladodegarabandal.com'}/admin/peregrinacoes`;
   const content = renderAdminBankTransferAlertEmail({ ...payload, adminUrl });
 
-  await resendClient.emails.send({
+  return deliver({
     from: notifyFrom,
     to: [notifyTo],
     subject: content.subject,
     html: content.html,
   });
-  return true;
 };
 
 type VolunteerApplicationEmailInput = {
@@ -810,13 +808,12 @@ export const sendVolunteerApplicationEmail = async (payload: VolunteerApplicatio
 
   const content = renderVolunteerApplicationEmail(payload);
 
-  await resendClient.emails.send({
+  return deliver({
     from: notifyFrom,
     to: [notifyTo],
     subject: content.subject,
     html: content.html,
   });
-  return true;
 };
 
 // Alerta a equipa de denuncias novas no mural de intencoes da app.
@@ -832,11 +829,10 @@ export const sendIntentionReportsAlert = async (payload: {
   const adminUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://apostoladodegarabandal.com'}/admin/moderacao`;
   const content = renderIntentionReportsAlertEmail({ ...payload, adminUrl });
 
-  await resendClient.emails.send({
+  return deliver({
     from: notifyFrom,
     to: [notifyTo],
     subject: content.subject,
     html: content.html,
   });
-  return true;
 };
