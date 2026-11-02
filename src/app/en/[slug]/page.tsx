@@ -81,6 +81,7 @@ export default async function EnMigratedPage({ params }: { params: Promise<Param
     <main>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdScript(...ld) }} />
       <ArticleHero
+        locale="en"
         variant="page"
         title={page.title}
         subtitle={page.meta_description}
@@ -89,7 +90,7 @@ export default async function EnMigratedPage({ params }: { params: Promise<Param
           { href: '/en', label: 'Home' },
           { label: page.title },
         ]}
-        meta={
+        languages={
           peers.length > 1 ? <LocaleSwitcher current="en" peers={peers} basePath="page" /> : null
         }
       />
