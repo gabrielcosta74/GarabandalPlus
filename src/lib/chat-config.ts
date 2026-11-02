@@ -27,8 +27,7 @@ export type ChatAction =
     | 'PAGAR'
     | 'MINHAS_INSCRICOES'
     | 'VOOS'
-    | 'WHATSAPP'
-    | 'CONTACTO';
+    | 'WHATSAPP';
 
 export const CHAT_ACTIONS: ChatAction[] = [
     'QUERO_IR',
@@ -38,7 +37,6 @@ export const CHAT_ACTIONS: ChatAction[] = [
     'MINHAS_INSCRICOES',
     'VOOS',
     'WHATSAPP',
-    'CONTACTO',
 ];
 
 export const ACTION_LABELS: Record<ChatAction, { pt: string; en: string }> = {
@@ -49,29 +47,49 @@ export const ACTION_LABELS: Record<ChatAction, { pt: string; en: string }> = {
     MINHAS_INSCRICOES: { pt: 'Ver as minhas inscrições', en: 'See my registrations' },
     VOOS: { pt: 'Ver Opções de Voo', en: 'See Flight Options' },
     WHATSAPP: { pt: 'Falar no WhatsApp', en: 'Talk on WhatsApp' },
-    CONTACTO: { pt: 'Deixar o meu contacto', en: 'Leave my contact' },
 };
 
 // Matches any [[TOKEN]] we know about, plus a trailing partial token still being
 // streamed (so half-written markers never flash on screen).
 const ACTION_PATTERN = new RegExp(`\\[\\[(${CHAT_ACTIONS.join('|')})\\]\\]`, 'g');
 
-/**
- * Splits an assistant reply into the text the person should see and the actions
- * the widget should render. Tolerates the model repeating a token.
- */
-export function parseChatActions(text: string): { visibleText: string; actions: ChatAction[] } {
-    const actions: ChatAction[] = [];
-    let visibleText = text.replace(ACTION_PATTERN, (_match, token: ChatAction) => {
-        if (!actions.includes(token)) actions.push(token);
-        return '';
-    });
+// Follow-up questions the assistant proposes at the end of every reply. Rendered
+// as tappable chips: half of all conversations start from a chip, but until now
+// they vanished after the first answer.
+const SUGGESTIONS_TOKEN = '[[SUGESTOES';
+const SUGGESTIONS_PATTERN = /\[\[SUGESTOES:\s*([^\]]*)\]\]/g;
+const MAX_SUGGESTIONS = 3;
 
-    // Hide a partial token mid-stream, e.g. "[[INSCRE" -> nothing yet.
+/**
+ * Splits an assistant reply into the text the person should see, the actions
+ * the widget should render and the follow-up questions to offer as chips.
+ * Tolerates the model repeating a token.
+ */
+export function parseChatActions(text: string): { visibleText: string; actions: ChatAction[]; suggestions: string[] } {
+    const actions: ChatAction[] = [];
+    const suggestions: string[] = [];
+    let visibleText = text
+        .replace(SUGGESTIONS_PATTERN, (_match, list: string) => {
+            for (const raw of list.split('|')) {
+                const item = raw.trim().replace(/^["“]|["”]$/g, '');
+                if (item && !suggestions.includes(item) && suggestions.length < MAX_SUGGESTIONS) suggestions.push(item);
+            }
+            return '';
+        })
+        .replace(ACTION_PATTERN, (_match, token: ChatAction) => {
+            if (!actions.includes(token)) actions.push(token);
+            return '';
+        });
+
+    // Hide a partial token mid-stream, e.g. "[[INSCRE" or "[[SUGESTOES: Quanto" -> nothing yet.
     const openIdx = visibleText.lastIndexOf('[[');
     if (openIdx !== -1 && !visibleText.slice(openIdx).includes(']]')) {
         const tail = visibleText.slice(openIdx);
-        if (CHAT_ACTIONS.some(a => `[[${a}]]`.startsWith(tail))) {
+        if (
+            CHAT_ACTIONS.some(a => `[[${a}]]`.startsWith(tail))
+            || tail.startsWith(SUGGESTIONS_TOKEN)
+            || SUGGESTIONS_TOKEN.startsWith(tail)
+        ) {
             visibleText = visibleText.slice(0, openIdx);
         }
     }
@@ -85,7 +103,7 @@ export function parseChatActions(text: string): { visibleText: string; actions: 
         .replace(/[:;,]\s*$/gm, '')
         .replace(/\n{3,}/g, '\n\n');
 
-    return { visibleText: visibleText.trimEnd(), actions };
+    return { visibleText: visibleText.trimEnd(), actions, suggestions };
 }
 
 export function buildWhatsAppLink(pilgrimageTitle?: string, prefilled?: string, isEn?: boolean) {
@@ -107,9 +125,11 @@ export function buildWhatsAppLink(pilgrimageTitle?: string, prefilled?: string, 
 // about the *possibility* of a spot — never assumes one is guaranteed.
 export function buildInterestWhatsAppLink(pilgrimageTitle?: string, isEn?: boolean) {
     const base = `https://wa.me/${WHATSAPP_NUMBER}`;
+    // Without a title, this used to name the November Garabandal pilgrimage, which is
+    // wrong on every other page the widget renders on.
     const subject = pilgrimageTitle
         ? (isEn ? `the ${pilgrimageTitle}` : `a ${pilgrimageTitle}`)
-        : (isEn ? 'the November pilgrimage to Garabandal' : 'a peregrinação de novembro a Garabandal');
+        : (isEn ? 'this pilgrimage' : 'esta peregrinação');
     const msg = isEn
         ? `Hello 🙏 I saw that ${subject} is on the waiting list, but I am REALLY interested in going. I understand only a limited number of people will be selected — I would love to be considered. Is there any possibility?`
         : `Olá 🙏 Vi que ${subject} está em lista de espera, mas estou MESMO muito interessado(a) em ir. Sei que só um número limitado de pessoas poderá ser selecionado — gostava muito de ser considerado(a). Há possibilidade?`;

@@ -4,7 +4,7 @@ Quando alguém diz "já me inscrevi", "já fiz a inscrição" ou "acabei de me i
 
 ## Os 3 passos seguintes (explicar sempre)
 
-1. **Pagar a 1ª doação (taxa de inscrição) até 5 dias úteis.** Sem este pagamento a vaga **não fica confirmada**. Este é o passo que decide se a pessoa vai ou não.
+1. **Pagar a 1ª doação (taxa de inscrição) até 5 dias.** Sem este pagamento a vaga **não fica confirmada** e poderá ser libertada para outra pessoa. Este é o passo que decide se a pessoa vai ou não.
 2. **Confirmação por email.** Depois do pagamento, o peregrino recebe a confirmação e passa a constar do grupo.
 3. **Plano de prestações.** O restante é pago mensalmente, terminando um mês antes do início da peregrinação.
 
@@ -24,13 +24,13 @@ Se a pessoa disser que **não encontra** onde pagar, não descrever apenas o cam
 ## Perguntas frequentes desta fase
 
 **P: Já me inscrevi, tenho de fazer mais alguma coisa?**
-R: Sim — pagar a 1ª doação até 5 dias úteis. Só aí a vaga fica confirmada.
+R: Sim — pagar a 1ª doação até 5 dias. Só aí a vaga fica confirmada.
 
 **P: Inscrevi-me a mim e a outra pessoa. Pago tudo junto?**
 R: O plano de pagamento aparece na área das inscrições com o valor total do grupo inscrito. Se houver dúvida sobre a divisão, confirmar com a equipa.
 
-**P: Posso pagar a 1ª doação mais tarde do que os 5 dias úteis?**
-R: O prazo geral é de 5 dias úteis. Qualquer exceção tem de ser tratada diretamente com a equipa do Apostolado pelo WhatsApp — nunca prometer que a exceção será aceite, nem sugerir lista de espera a quem já está inscrito numa peregrinação com vagas.
+**P: Posso pagar a 1ª doação mais tarde do que os 5 dias?**
+R: O prazo geral é de 5 dias. Qualquer exceção tem de ser tratada diretamente com a equipa do Apostolado pelo WhatsApp — nunca prometer que a exceção será aceite, nem sugerir lista de espera a quem já está inscrito numa peregrinação com vagas.
 
 **P: Já paguei, e agora?**
 R: Acolher e falar da preparação: o que levar, o ritmo espiritual do grupo, as intenções que quer levar à peregrinação.

@@ -5,7 +5,13 @@ import { INTEREST_MARKER } from './chat-config';
 import {
     formatFlightEstimate,
     getCountryBasedFlightPolicy,
+    getFlightRegistrationOptions,
 } from './pilgrimage-flight-policy';
+import {
+    getConfiguredInstallmentDeadline,
+    getMaxInstallments,
+} from './pilgrimage-installments';
+import { richTextToPlain } from './rich-text';
 
 let cachedKb: string | null = null;
 
@@ -54,6 +60,8 @@ type Pilgrimage = {
     pricing_config?: {
         room_supplements?: Record<string, number | null | undefined>;
         flight_registration_policy?: unknown;
+        flight_registration_options?: unknown;
+        installment_deadline?: unknown;
     } | null;
 };
 type ItineraryItem = { day_number: number; title: string; description: string };
@@ -76,9 +84,17 @@ export function buildPilgrimageContext(
     if (!p) return 'NENHUMA peregrinação específica foi selecionada — responde apenas a perguntas gerais.';
 
     const fmtDate = (d?: string | null) => d ? new Date(d).toLocaleDateString('pt-PT', { day: '2-digit', month: 'long', year: 'numeric' }) : 'N/D';
-    const money = (v: unknown) => (v === null || v === undefined) ? 'N/D' : `${Number(v).toFixed(2)}€`;
+    // "2350.00€" read as a machine dump and the model copied it verbatim; whole
+    // euros drop the decimals so it can format the number for the reader's language.
+    const money = (v: unknown) => {
+        if (v === null || v === undefined || !Number.isFinite(Number(v))) return 'N/D';
+        const n = Number(v);
+        return `${Number.isInteger(n) ? n : n.toFixed(2)} €`;
+    };
+    // Admin fields are TipTap HTML; raw <p> tags cost tokens and blur the facts.
+    const plain = (value?: string | null) => richTextToPlain(value);
     const list = (arr: unknown) => Array.isArray(arr) && arr.length ? arr.map((x: unknown) => `- ${typeof x === 'string' ? x : JSON.stringify(x)}`).join('\n') : '(nenhum)';
-    const oneLine = (value?: string | null) => (value || '').replace(/\s+/g, ' ').trim();
+    const oneLine = (value?: string | null) => plain(value);
     const cleanSlug = String(p.slug || '').trim();
     const pilgrimageUrl = cleanSlug ? `${APP_URL}/peregrinacoes/${cleanSlug}` : `${APP_URL}/peregrinacoes`;
     const registrationUrl = cleanSlug ? `${APP_URL}/peregrinacoes/${cleanSlug}/inscrever` : `${APP_URL}/peregrinacoes`;
@@ -107,7 +123,7 @@ export function buildPilgrimageContext(
     const itineraryBlock = itinerary.length
         ? itinerary
             .sort((a, b) => a.day_number - b.day_number)
-            .map(i => `Dia ${i.day_number} — ${i.title}\n${(i.description || '').trim()}`)
+            .map(i => `Dia ${i.day_number} — ${plain(i.title)}\n${plain(i.description)}`)
             .join('\n\n')
         : '(itinerário detalhado não disponível)';
 
@@ -121,12 +137,46 @@ export function buildPilgrimageContext(
         };
         return labels[key] || key;
     };
+    // A zero supplement rendered as "+0.00€" invited the model to improvise, so it is
+    // spelled out. The list below is the complete set of room types on offer — the
+    // generic KB lists only single/double/triple and was making the chat drop the
+    // quadruple option on pilgrimages that have it.
     const supplementsText = Object.keys(supplements).length
-        ? Object.entries(supplements).map(([k, v]) => `- ${supplementLabel(k)}: +${money(v)}`).join('\n')
+        ? Object.entries(supplements)
+            .map(([k, v]) => `- ${supplementLabel(k)}: ${Number(v) > 0 ? `+${money(v)}` : 'sem suplemento (incluído no valor apresentado)'}`)
+            .join('\n')
         : '(ver na página da peregrinação)';
     const singleSupplement = supplements.single ?? null;
 
+    // The chat used to quote payment_plan_text verbatim ("até 10x") and the generic
+    // "one month before departure" rule. Both drift from what the form actually
+    // offers: the plan is rebuilt from today's date against the configured deadline,
+    // so someone registering late sees fewer instalments than the copy promises.
+    const installmentDeadline = getConfiguredInstallmentDeadline(p);
+    const maxInstallments = p.start_date
+        ? getMaxInstallments(String(p.start_date), installmentDeadline)
+        : null;
+    const lastInstallmentDate = installmentDeadline
+        ? fmtDate(installmentDeadline)
+        : p.start_date
+            ? `${fmtDate(p.start_date)} menos um mês (regra geral)`
+            : 'N/D';
+
+    // Affordability framing ("~185 €/mês") is the strongest answer to "quanto custa?",
+    // and it has to be computed here so the model never does the division itself.
+    const remainingAmount = Number(p.base_price || 0);
+    const monthlyEstimate = maxInstallments && maxInstallments > 0 && remainingAmount > 0
+        ? Math.ceil(remainingAmount / maxInstallments)
+        : null;
+    const today = new Date();
+    const daysToStart = p.start_date
+        ? Math.ceil((new Date(p.start_date).getTime() - today.getTime()) / 86_400_000)
+        : null;
+
     const countryBasedFlightPolicy = getCountryBasedFlightPolicy(p);
+    const flightRegistrationOptions = getFlightRegistrationOptions(p);
+    const allowsAgencyFlight = flightRegistrationOptions.includes('agency');
+    const allowsOwnFlight = flightRegistrationOptions.includes('own');
     const hasGroupFlight = Boolean(p.flight_price_from || oneLine(p.group_flight_details));
     const flightSummary = countryBasedFlightPolicy
         ? `A regra é obrigatória por país de residência: Portugal e Brasil contratam o pacote completo diretamente com a agência indicada pelo Apostolado; todos os restantes países compram os próprios voos. O aéreo nunca é somado ao valor terrestre da inscrição. Estimativa Brasil: ${formatFlightEstimate(countryBasedFlightPolicy.estimates_eur.BR)}. Estimativa Portugal: ${formatFlightEstimate(countryBasedFlightPolicy.estimates_eur.PT)}.`
@@ -167,9 +217,16 @@ export function buildPilgrimageContext(
     const relatedBlock = relatedList || '(nenhuma outra peregrinação futura publicada no contexto)';
 
     return `
+FACTOS RÁPIDOS (os números que mais convencem — usa-os tal como estão):
+- Hoje: ${fmtDate(today.toISOString())}${daysToStart !== null && daysToStart > 0 ? ` · faltam ${daysToStart} dias para a partida` : ''}
+- Valor terrestre total: ${hasDisplayedPrice ? money(totalDisplayedPrice) : 'N/D'} (= 1ª doação ${money(p.deposit_value)} paga até 5 dias após a inscrição + restante ${money(p.base_price)})
+- Restante em até ${maxInstallments ?? 'N/D'} prestações mensais sem juros${monthlyEstimate ? `: cerca de ${monthlyEstimate} €/mês` : ''}${installmentDeadline ? `, a última em ${fmtDate(installmentDeadline)}` : ''}
+- Voo: NÃO incluído no valor terrestre.
+- Disponibilidade: ${availabilityLabel}
+
 PEREGRINAÇÃO ATUAL: ${p.title}
 Slug: ${p.slug}
-Descrição: ${p.description || '(sem descrição)'}
+Descrição: ${plain(p.description) || '(sem descrição)'}
 Link da página: ${pilgrimageUrl}
 Link de inscrição/lista de espera: ${registrationUrl}
 NOTA: não existe roteiro/programa em PDF para descarregar. Nunca ofereças um PDF nem inventes um link de download. O itinerário está na página da peregrinação e no bloco "ITINERÁRIO DIA-A-DIA" mais abaixo — usa esse conteúdo para descrever o programa.
@@ -184,9 +241,10 @@ PREÇOS:
 - Composição do valor: restante/base ${money(p.base_price)} + 1ª doação/taxa de inscrição ${money(p.deposit_value)}
 - Se perguntarem "custo total da viagem", explicar que o terrestre é o valor acima e que voo, seguro, despesas pessoais, quarto individual e outros extras podem alterar o total conforme a pessoa.
 - Se perguntarem em reais/BRL, explicar que o valor contratual é sempre em euros e que o valor em reais depende do câmbio do dia e do banco/operadora usados; sugerir consultar a cotação no próprio banco. Não inventar cotação nem indicar PDFs.
-- Suplementos de quarto:
+- Suplementos de quarto (esta é a lista COMPLETA de tipos de quarto desta peregrinação — não acrescentes nem retires tipos, e indica sempre o valor de cada um):
 ${supplementsText}
 - Suplemento de quarto individual: ${singleSupplement !== null && singleSupplement !== undefined ? `+${money(singleSupplement)}` : 'não publicado no contexto'}
+- O valor do suplemento individual varia muito entre peregrinações. Usa SEMPRE o valor acima; nunca cites valores de outras peregrinações nem da base de conhecimento geral.
 
 VAGAS:
 - Disponibilidade pública: ${availabilityLabel}
@@ -204,25 +262,37 @@ ${availabilityLabel === 'Lista de espera / esgotado'
 - IMPORTANTE (sinal técnico): quando a pessoa demonstrar vontade real de ir (ex.: "quero ir", "adorava ir", "ainda dá para entrar", "como faço para ir", "quero garantir a minha vaga"), termina a tua resposta acrescentando, na última linha e sozinho, exatamente o token ${INTEREST_MARKER}. Não expliques o token, não o alteres e não escrevas nada depois dele. Ele faz aparecer o botão "Estou interessado em ir".`
             : ''}
 
-PONTO DE ENCONTRO: ${p.meeting_point_text || 'N/D'}
-FIM DA PEREGRINAÇÃO: ${p.meeting_end_text || 'N/D'}
+PONTO DE ENCONTRO: ${plain(p.meeting_point_text) || 'N/D'}
+FIM DA PEREGRINAÇÃO: ${plain(p.meeting_end_text) || 'N/D'}
 
 VOOS / AÉREO:
 - Resumo para resposta curta: ${flightSummary}
 - Voo próprio / encontro com o grupo: ${ownFlightSummary}
-- Detalhes de voo de grupo/agência: ${p.group_flight_details || '(não publicado no contexto)'}
-- Valor de referência do voo de grupo/agência: ${p.flight_price_from ? money(p.flight_price_from) : 'não publicado no contexto'}
+- Detalhes de voo de grupo/agência: ${plain(p.group_flight_details) || '(não publicado no contexto)'}
+- Valor de referência do voo de grupo/agência: ${p.flight_price_from ? money(p.flight_price_from) : 'não publicado no contexto'}. Este é o ÚNICO valor de voo que existe — nunca cites outro.
+- A QUEM SE APLICA o voo de grupo: só a quem parte do aeroporto/país indicado nos detalhes acima. A quem vem de outro país (ex.: EUA, Reino Unido, Canadá), não ofereças esse voo nem o seu preço: explica que compra o próprio voo e encontra o grupo no ponto de encontro.
 - Se perguntarem nome/telefone da agência e não estiver nos detalhes acima, dizer que essa informação específica não está publicada e encaminhar para WhatsApp/email.
+- OPÇÕES DE VOO QUE O FORMULÁRIO DESTA PEREGRINAÇÃO ACEITA: ${flightRegistrationOptions.join(', ')}.
 ${countryBasedFlightPolicy
-    ? '- Nesta peregrinação a regra não é uma preferência: para residentes em Portugal/Brasil o pacote da agência é obrigatório; para todos os outros países, os voos próprios são obrigatórios. Não apresentar alternativas.'
-    : '- Quando houver voo organizado/agência publicado, recomendar essa opção com carinho: ajuda a pessoa a viajar acompanhada, chegar com outros peregrinos e, quando aplicável, voar com o sacerdote/diretor espiritual. Também ajuda a apoiar as despesas de voo do sacerdote. Fazer isto como convite, nunca como pressão.'}
+    ? '- OBRIGATORIEDADE: nesta peregrinação a regra não é uma preferência. Para residentes em Portugal/Brasil o pacote da agência é obrigatório; para todos os outros países, os voos próprios são obrigatórios. Não apresentar alternativas.'
+    : allowsAgencyFlight && allowsOwnFlight
+        ? `- OBRIGATORIEDADE: nesta peregrinação as duas opções são VÁLIDAS e a escolha é da pessoa — pacote aéreo da agência OU passagens próprias. É PROIBIDO dizer que o pacote da agência é "obrigatório" para o Brasil, para Portugal ou para qualquer país: não é. Quem opta por voo próprio inscreve-se na mesma, escolhendo a opção de voo próprio no passo "Voos".
+- Podes recomendar o voo da agência com carinho (viajar acompanhado, chegar com o grupo e, quando aplicável, voar com o sacerdote/diretor espiritual, ajudando a apoiar as despesas de voo do sacerdote), mas sempre como convite, nunca como obrigação nem pressão.`
+        : allowsAgencyFlight
+            ? '- OBRIGATORIEDADE: nesta peregrinação o formulário só aceita o pacote aéreo da agência. Não sugerir voo próprio.'
+            : '- OBRIGATORIEDADE: nesta peregrinação o formulário só aceita voo próprio. Não prometer voo de grupo/agência.'}
+- VENDA AVULSA DE TROÇOS: a agência parceira só vende o PACOTE AÉREO COMPLETO. Não vende troços separados (ex.: só o Roma–Split, só o regresso). Quem escolhe voo próprio trata dos três troços sozinho, respeitando os horários e o ponto de encontro do grupo indicados acima. Isto NÃO é motivo para escalar — é a regra e podes dizê-la.
 
 PLANO DE PAGAMENTO:
-${p.payment_plan_text || '(ver condições gerais)'}
-- Prazo geral de pagamento quando não houver data mais específica: as prestações devem terminar um mês antes do início da peregrinação, conforme condições gerais.
+${plain(p.payment_plan_text) || '(ver condições gerais)'}
+- NÚMERO MÁXIMO DE PRESTAÇÕES PARA QUEM SE INSCREVER HOJE: ${maxInstallments !== null ? `${maxInstallments}` : 'N/D'}.
+- DATA DA ÚLTIMA PRESTAÇÃO: ${lastInstallmentDate}.
+- REGRA CRÍTICA: o número acima é o que o formulário realmente vai oferecer, calculado a partir de hoje. O texto do plano de pagamento pode mencionar um máximo maior (ex.: "até 10x") porque esse é o máximo de quem se inscreveu cedo — ele vai diminuindo à medida que o tempo passa. Quando perguntarem "posso pagar em prestações?" ou "em quantas prestações?", diz o número acima, não o número do texto promocional, e explica numa frase que o máximo depende do tempo que falta até à data da última prestação.
+- Não repitas a regra genérica "terminam um mês antes do início" quando existir a data concreta acima: usa a data concreta.
+- As prestações são mensais (dia 10 de cada mês) e sem juros. A 1ª doação/taxa de inscrição é paga à parte, até 5 dias após a inscrição, e não conta como prestação.
 
 POLÍTICA DE CANCELAMENTO (resumo oficial desta peregrinação):
-${p.cancellation_policy_text || '(ver condições gerais)'}
+${plain(p.cancellation_policy_text) || '(ver condições gerais)'}
 Resumo conversacional: ${cancellationSummary}
 
 INCLUI:
@@ -233,7 +303,7 @@ ${list(p.not_included_items)}
 - Se perguntarem ementa/menu/cardápio específico, explicar que as ementas são definidas pelos próprios hotéis e restaurantes e normalmente não são conhecidas com antecedência. Há cuidado com alergias alimentares: a pessoa deve indicar alergias/restrições no formulário para que seja pedida uma refeição alternativa.
 
 RESUMO DO ITINERÁRIO:
-${p.itinerary_summary || '(ver página da peregrinação)'}
+${plain(p.itinerary_summary) || '(ver página da peregrinação)'}
 
 ITINERÁRIO DIA-A-DIA:
 ${itineraryBlock}

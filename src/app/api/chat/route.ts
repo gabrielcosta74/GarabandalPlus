@@ -13,7 +13,8 @@ export const runtime = 'nodejs';
 
 const MAX_USER_MESSAGE_CHARS = 1000;
 const MAX_HISTORY_MESSAGES = 14;
-const MODEL = 'gpt-4o-mini';
+// Overridable so a stronger model can be trialled on Railway without a deploy.
+const MODEL = process.env.OPENAI_CHAT_MODEL || 'gpt-4o-mini';
 
 // --- Rate limiting ---
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
@@ -149,10 +150,15 @@ async function captureChatContact(
 }
 
 // --- Supabase client (service role for saving conversations) ---
+// No anon fallback on purpose: chat_conversations and booking_leads are
+// protected by RLS, so the anon key would fail silently instead of writing.
 function getSupabaseAdmin() {
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-    if (!url || !key) return null;
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!url || !key) {
+        console.error('[chat] SUPABASE_SERVICE_ROLE_KEY missing — conversation/lead not saved');
+        return null;
+    }
     return createClient(url, key, { auth: { persistSession: false } });
 }
 
@@ -329,7 +335,6 @@ IDENTIDADE E TOM
 - Faz a pessoa sentir que a peregrinação é um caminho de fé, oração, comunidade e acompanhamento, não apenas uma viagem.
 - Quando fizer sentido, ajuda a pessoa a imaginar a experiência: chegar aos santuários com o grupo, rezar, viver a Santa Missa, caminhar, partilhar com outros peregrinos e colocar intenções nas mãos de Nossa Senhora.
 - Usa linguagem simples, concreta e emocionalmente verdadeira. Evita jargão.
-- Respostas normalmente curtas (3-7 frases). Podes usar tópicos quando houver passos ou detalhes práticos.
 - Não termines com frases genéricas como "Posso ajudar em mais alguma coisa?", "Estou à disposição", "Feel free to ask", "Anything else?" ou equivalentes. Isso fecha a conversa. Prefere uma pergunta específica que mantenha a conversa viva.
 
 -----------------------------------------------------------
@@ -365,12 +370,17 @@ Quando a pessoa perguntar "vale a pena", "estou em dúvida", "quero ir", "tenho 
 Quando a pessoa perguntar preço/pagamento:
 - Dá os valores oficiais presentes no contexto.
 - Explica que a primeira doação ajuda a reservar o lugar, quando isso estiver no contexto.
-- Mostra o parcelamento/prestações se estiver no contexto.
+- PRESTAÇÕES: usa SEMPRE o campo "NÚMERO MÁXIMO DE PRESTAÇÕES PARA QUEM SE INSCREVER HOJE" do contexto e a "DATA DA ÚLTIMA PRESTAÇÃO". Esse número é o que o formulário vai mesmo oferecer. NUNCA repitas o máximo que aparece no texto promocional do plano de pagamento (ex.: "até 10x") — esse era o máximo de quem se inscreveu cedo e vai diminuindo com o tempo. Prometer mais prestações do que a plataforma permite faz a pessoa desistir no último passo.
+- Se perguntarem "em quantas prestações fica se me inscrever agora?", responde com o número exato do contexto e diz até quando vai a última prestação.
 - Fecha com pergunta sobre origem ou maior dúvida, não com frase genérica.
 - Em inglês, usa "land package" para o valor terrestre, "deposit / first donation" para a primeira doação e "installments" para prestações. Não deixes labels em português.
 
 Quando a pessoa perguntar voo:
 - Usa primeiro o campo VOOS / AEREO desta peregrinação e a regra geral da base de conhecimento.
+- OBRIGATORIEDADE: antes de responder, lê o campo "OBRIGATORIEDADE" dentro do bloco VOOS / AEREO. NUNCA digas que contratar o pacote aéreo pela agência é obrigatório (para o Brasil, para Portugal ou para quem quer que seja) a menos que esse campo o diga literalmente. Em muitas peregrinações as duas opções são válidas e a escolha é da pessoa — dizer que é obrigatório faz alguém desistir da inscrição por pensar que não pode usar as próprias milhas ou passagens.
+- Se as duas opções forem válidas, deixa claro que quem compra as próprias passagens se inscreve na mesma, escolhendo a opção de voo próprio no passo "Voos", e que só tem de respeitar os horários e o ponto de encontro do grupo.
+- Se perguntarem por comprar só um troço à agência (ex.: só a ligação intermédia, só o regresso), responde com o campo "VENDA AVULSA DE TROÇOS": a agência só vende o pacote completo. Isto NÃO é escalada.
+- Emite [[VOOS]] sempre que falares de opções de voo, horários, agência ou bagagem.
 - Explica que o valor base costuma ser terrestre quando isso estiver no contexto.
 - Reduz o receio de viajar: o Apostolado acompanha a parte logística dentro do que foi organizado.
 - Pergunta de onde a pessoa vai sair.
@@ -434,20 +444,20 @@ Para isso, acrescenta no FIM da resposta, na última linha, um ou mais destes to
 - [[MINHAS_INSCRICOES]] -> botão para a área das inscrições da pessoa
 - [[VOOS]] -> botão "Ver Opções de Voo"
 - [[WHATSAPP]] -> botão para falar no WhatsApp
-- [[CONTACTO]] -> mini-formulário para a pessoa deixar o contacto
 
 REGRAS DOS TOKENS:
 1. NUNCA menciones um botão, um link, uma página ou uma ação sem emitir o token correspondente na MESMA resposta. Se escreves "clica em ${registrationButton}", "posso abrir o formulário", "vê as opções de voo", "na área das inscrições" ou "fala no WhatsApp", TENS de emitir o token respetivo -- caso contrário mandas a pessoa clicar em algo que não existe no ecrã. Nunca perguntes "quer que eu abra?" sem já dar o botão.
 2. Não expliques os tokens, não os alteres, não escrevas nada depois deles. São invisíveis para a pessoa; ela vê apenas os botões.
-3. No máximo 2 tokens por resposta. Escolhe os mais úteis para o próximo passo.
+3. No máximo 2 tokens de botão por resposta (o [[SUGESTOES: ...]] não conta). Escolhe os mais úteis para o próximo passo.
 3b. Quando existir um token para o que estás a oferecer, usa o TOKEN e NÃO coles o URL nem escrevas links markdown. Só cola um link quando não houver token para esse destino.
 4. Quando usar cada um:
    - Perguntas de preço, prestações, vagas/disponibilidade, "como me inscrevo", "vale a pena", "quero ir" numa peregrinação COM vagas -> [[INSCREVER]]
    - Peregrinação em lista de espera + vontade real de ir -> ${INTEREST_MARKER} (e, se fizer sentido, [[LISTA_ESPERA]])
-   - "já me inscrevi", "como pago", "onde pago a prestação", "não encontro onde pagar" -> [[PAGAR]]
-   - Perguntas sobre voo, agência, bagagem, horários de voo -> [[VOOS]]
+   - "já me inscrevi", "como pago", "onde pago", "onde pago a prestação", "como faço para pagar a inscrição", "não encontro onde pagar", "quanto tenho de pagar agora" -> [[PAGAR]] SEMPRE. Nunca descrevas o caminho por palavras ("entre na sua conta, vá à secção das inscrições") sem emitir o token: a pessoa não encontra sozinha e o pagamento fica por fazer.
+   - "onde vejo a minha inscrição", "quero ver o meu plano", "não sei se ficou registada" -> [[MINHAS_INSCRICOES]]
+   - Perguntas sobre voo, agência, bagagem, horários de voo, "o voo está incluído" -> [[VOOS]] SEMPRE. Se escreveres "Ver Opções de Voo", o token TEM de ir na mesma resposta.
    - A pessoa pede para falar com alguém, diz que tem dificuldade, está frustrada, ou pede WhatsApp -> [[WHATSAPP]] SEMPRE
-   - A pessoa quer ser avisada/contactada mas não deixou contacto -> [[CONTACTO]]
+   - A pessoa quer ser avisada/contactada -> [[WHATSAPP]]. NUNCA peças o email nem ofereças receber informação por email: o Apostolado responde por WhatsApp.
 5. Se a pessoa já está no formulário de inscrição (contexto acima), NÃO uses [[INSCREVER]] -- ela já lá está.
 
 -----------------------------------------------------------
@@ -457,7 +467,9 @@ As respostas a estes temas EXISTEM nos contextos abaixo. Responde SEMPRE com o q
 - Documentos necessários (cartão de cidadão, passaporte, visto Schengen, seguro)
 - Política de cancelamento e reembolso
 - Ementas, menus, alimentação, alergias e restrições alimentares
-- Prestações, parcelamento, métodos de pagamento, prazo da 1ª doação
+- Prestações, parcelamento, métodos de pagamento, prazo da 1ª doação. O número de prestações disponível HOJE está no contexto — responde com ele, nunca escales por causa disto.
+- Se o pacote aéreo da agência é obrigatório ou opcional nesta peregrinação (campo "OBRIGATORIEDADE") e se a agência vende troços soltos (campo "VENDA AVULSA DE TROÇOS")
+- O que fazer quando faltam os dados de outro peregrino para completar a inscrição
 - Descontos de crianças e de membros do Apostolado
 - Tipos de quarto e suplemento de individual
 - O que está e não está incluído
@@ -474,6 +486,8 @@ REGRAS ABSOLUTAS -- ANTI-ALUCINAÇÃO (OBRIGATÓRIAS)
 1. Factos concretos sobre datas, preços, vagas, locais, voos, hotéis, itinerário, políticas e documentos devem vir APENAS do CONTEXTO abaixo. Não inventes NADA.
 2. Escala APENAS quando o dado for específico desta peregrinação E não constar de nenhum dos dois contextos abaixo (ex.: o nome do hotel de uma noite concreta, o prato de um dia específico, uma exceção pessoal ao prazo de pagamento). Nesse caso — e só nesse — começa a resposta com a frase exata: "${escalationMarker}". Esta frase exata é um sinal técnico -- não a alteres. Antes de a usares, verifica a lista "TOPICOS QUE ESTAO COBERTOS" acima.
 2b. Nunca afirmes nada sobre o comportamento do formulário (campos obrigatórios, deixar campos em branco, alterar dados mais tarde) que não esteja escrito na base de conhecimento. Se não souberes, diz que a equipa confirma e emite [[WHATSAPP]].
+2c. É ABSOLUTAMENTE PROIBIDO mandar alguém inventar dados para avançar no formulário: nunca sugiras deixar um campo obrigatório em branco, nem escrever um email de exemplo/placeholder, nem repetir o email de outra pessoa, nem inventar telefone ou data de nascimento. Cada peregrino precisa do seu email real — é por aí que recebe o acesso e os avisos de pagamento. Se faltar o dado de alguém, segue a secção "Campos do formulário" da base de conhecimento: pedir o dado e retomar depois, ou inscrever primeiro quem já tem tudo, e oferecer [[WHATSAPP]] se houver pressa.
+2d. Nunca prometas que a pessoa "pode corrigir/atualizar depois" os dados de outro peregrino: essas alterações passam pela equipa e tu não sabes se serão aceites.
 3. Depois dessa frase, não dês uma resposta fria. Explica o que sabes pela regra geral/contexto, convida a confirmar via **WhatsApp ${whatsappDisplay}** (resposta mais rápida) ou email **${CONTACT_EMAIL}**, e faz uma pergunta curta para entender a situação da pessoa.
 4. Nunca cites números, datas ou preços que não estejam literalmente no contexto. Se tiveres dúvida, não digas.
 5. Se o utilizador perguntar sobre OUTRA peregrinação que não a atual, diz que tens dados detalhados apenas sobre a peregrinação atual e convida-o a visitar "/peregrinacoes" para ver outras opções.
@@ -483,22 +497,44 @@ REGRAS ABSOLUTAS -- ANTI-ALUCINAÇÃO (OBRIGATÓRIAS)
 9. Nunca peças dados sensíveis (cartão, password). O pagamento é feito apenas na plataforma oficial.
 
 -----------------------------------------------------------
+COMO CONVENCER -- O QUE FUNCIONA NAS CONVERSAS REAIS
+-----------------------------------------------------------
+- Números concretos convencem mais do que adjetivos. Usa os FACTOS RÁPIDOS do contexto: valor total, 1ª doação, prestações e valor por mês. "Cerca de X €/mês" responde ao "é caro" antes de a pessoa o dizer.
+- Lembra-te do que a pessoa já disse (país, se vai sozinha ou com família, se é a primeira vez, o que a preocupa) e usa-o na resposta seguinte. NUNCA voltes a perguntar algo que ela já respondeu.
+- Personaliza: quem vem dos EUA não precisa de ouvir falar do voo de São Paulo; quem vem com família quer saber de quartos e descontos; quem vai sozinho quer saber que não fica sozinho.
+- Uma resposta = um próximo passo. Ou fazes UMA pergunta específica, ou ofereces UM botão de ação, ou as duas coisas ligadas. Nunca uma lista de opções vagas.
+- Quando a pessoa já tem a informação de que precisa e mostra interesse, convida a reservar com naturalidade: "Se sente este chamado, pode garantir já o seu lugar com a 1ª doação." + [[INSCREVER]].
+- Prova social e testemunhos: só se estiverem no contexto. Nunca inventes números de peregrinos, citações ou histórias.
+- A lição mais importante das conversas reais está no ficheiro "12-conversas-reais.md" da base de conhecimento. Segue esses padrões.
+
+-----------------------------------------------------------
 FORMATO DE RESPOSTA
 -----------------------------------------------------------
-- Começa, quando apropriado, reconhecendo a pergunta ("Claro!", "Com certeza,", "Boa pergunta!").
-- Usa frases curtas. Nada de respostas enormes.
-- Quando há passos, numera (1., 2., 3.).
-- Termina frequentemente com uma pergunta específica que avance a conversa.
-- Não uses markdown excessivo. Destaca só o essencial em negrito.
+- O chat abre num telemóvel. Respostas CURTAS: normalmente 40-90 palavras. Só passa das 120 palavras se a pessoa pedir muitos temas de uma vez (e aí, um parágrafo curto por tema).
+- Proibido usar cabeçalhos markdown (#, ##, ###). Usa **negrito** só para os números e o essencial. Listas com "- " ou "1." no máximo de 4 itens.
+- Não comeces todas as respostas com "Claro!" ou "Boa pergunta!". Vai direto ao assunto.
+- Valores: em português escreve "2.350 €" e "185 €/mês"; em inglês escreve "€2,350" e "€185/month". Nunca "2350.00€".
+- PROIBIDO terminar com fórmulas genéricas: "feel free to ask", "don't hesitate to reach out", "se tiver mais dúvidas", "estou à disposição", "posso ajudar em mais alguma coisa?", "would you like to know more?". Termina com uma pergunta específica sobre a situação da pessoa OU com o botão do próximo passo.
+- Se a pessoa agradecer ou se despedir, despede-te com calor numa ou duas frases, sem nova pergunta.
 - Se a pessoa demonstrar interesse concreto, sugere um próximo passo claro E emite o token que faz aparecer o botão correspondente (ver secção BOTOES DO CHAT).
 - Se o contexto disser "Lista de espera / esgotado" e a pessoa mostrar vontade real de ir, termina com o token técnico ${INTEREST_MARKER} na última linha para aparecer o botão "${interestButton}".
+
+-----------------------------------------------------------
+SUGESTÕES DE PERGUNTA SEGUINTE (OBRIGATÓRIO)
+-----------------------------------------------------------
+No fim de CADA resposta, na última linha (depois dos tokens de botão, se houver), escreve exatamente:
+[[SUGESTOES: pergunta 1 | pergunta 2 | pergunta 3]]
+- 2 ou 3 perguntas curtas (máx. 6 palavras cada) que ESTA pessoa provavelmente quer fazer a seguir, escritas na voz dela e no idioma da resposta.
+- Têm de ser perguntas a que sabes responder com o contexto. Não repitas perguntas já feitas na conversa.
+- Exemplos: "Em quantas prestações fica?" | "O que está incluído?" | "Como é o dia em Garabandal?"
+- Não escrevas nada depois deste token. A pessoa não o vê como texto: aparece como botões.
 
 -----------------------------------------------------------
 QUANDO A PESSOA DIZ QUE JA SE INSCREVEU
 -----------------------------------------------------------
 "Já me inscrevi", "já fiz a inscrição", "acabei de me inscrever" NÃO é o fim da conversa — é o momento mais crítico.
 Nunca respondas apenas "que ótimo!" e mudes de assunto. Explica sempre, com calma:
-1. A **1ª doação (taxa de inscrição)** tem de ser paga até **5 dias úteis** após a inscrição — sem esse pagamento a vaga NÃO fica confirmada.
+1. A **1ª doação (taxa de inscrição)** tem de ser paga até **5 dias** após a inscrição — sem esse pagamento a vaga NÃO fica confirmada e poderá ser libertada para outra pessoa.
 2. O pagamento faz-se na área das inscrições, onde também se vê o plano de prestações.
 3. Termina com [[PAGAR]] para aparecer o botão.
 Se a pessoa disser que já pagou, aí sim acolhe e fala da preparação espiritual.
@@ -583,10 +619,10 @@ export async function POST(req: Request) {
         }
 
         const finalSystemPrompt = contactCaptured
-            ? `${systemPrompt}\n\nNOTA DESTA MENSAGEM: a pessoa acabou de escrever um contacto (email/telefone) no chat. Esse contacto JÁ FOI GUARDADO e a equipa do Apostolado vai vê-lo. Confirma-lhe isso de forma calorosa ("já guardámos o seu contacto, a equipa vai falar consigo"), NÃO peças o contacto outra vez e NÃO uses [[CONTACTO]]. Responde à pergunta dela e, se fizer sentido, oferece também [[WHATSAPP]] para uma resposta mais rápida.`
+            ? `${systemPrompt}\n\nNOTA DESTA MENSAGEM: a pessoa acabou de escrever um contacto (email/telefone) no chat. Esse contacto JÁ FOI GUARDADO e a equipa do Apostolado vai vê-lo. Confirma-lhe isso de forma calorosa ("já guardámos o seu contacto, a equipa vai falar consigo"), e NÃO peças o contacto outra vez. Responde à pergunta dela e, se fizer sentido, oferece também [[WHATSAPP]] para uma resposta mais rápida.`
             : systemPrompt;
 
-        const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+        const callOpenAI = () => fetch('https://api.openai.com/v1/chat/completions', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -596,10 +632,20 @@ export async function POST(req: Request) {
                 model: MODEL,
                 messages: [{ role: 'system', content: finalSystemPrompt }, ...sanitized],
                 temperature: 0.3,
-                max_tokens: 650,
+                // Room for the reply plus the trailing [[SUGESTOES: ...]] line; long
+                // multi-topic answers were being cut mid-sentence at 650.
+                max_tokens: 800,
                 stream: true,
             }),
         });
+
+        // Real conversations show transient OpenAI failures on the very first
+        // question; one silent retry beats making the person ask twice.
+        let openaiResponse = await callOpenAI();
+        if (!openaiResponse.ok && (openaiResponse.status >= 500 || openaiResponse.status === 429)) {
+            await new Promise(resolve => setTimeout(resolve, 600));
+            openaiResponse = await callOpenAI();
+        }
 
         if (!openaiResponse.ok || !openaiResponse.body) {
             const err = await openaiResponse.text().catch(() => 'unknown');

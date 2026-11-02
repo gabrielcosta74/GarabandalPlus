@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useRef, useEffect, useMemo } from 'react';
+import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import Link from 'next/link';
-import { MessageCircle, X, Send, Bot, User, Sparkles, Phone, Users, ArrowRight, CreditCard, Plane, ClipboardList, Check } from 'lucide-react';
+import { AnimatePresence, motion, useDragControls, useReducedMotion } from 'framer-motion';
+import { MessageCircle, X, ArrowUp, Sparkles, Users, ArrowRight, CreditCard, Plane, ClipboardList, Mail } from 'lucide-react';
 import {
     buildWhatsAppLink,
     buildInterestWhatsAppLink,
@@ -42,25 +43,35 @@ type Props = {
     currentStep?: number;
     /** Ordered labels of the registration form steps, for the in-chat stepper. */
     stepLabels?: string[];
+    /** Opens the page's flights modal. Without it, "See flight options" links to the pilgrimage page. */
+    onOpenFlights?: () => void;
+    /** Hides the floating button while a page modal is open, so it does not sit on its text. */
+    hideLauncher?: boolean;
 };
+
+type SendSource = 'typed' | 'chip' | 'suggestion';
 
 // Keyed by pilgrimage slug so different peregrinações keep separate sessions.
 const storageKey = (slug?: string) => `chat:session:${slug || 'generic'}`;
 const messagesKey = (slug?: string) => `chat:messages:${slug || 'generic'}`;
+const NUDGE_KEY = 'chat:nudged';
+
+// Same gradient as the "Ser membro" button (.btn-member), for surfaces that must not shimmer.
+const BRAND_GRADIENT = 'bg-[linear-gradient(135deg,#4b7bf0_0%,var(--color-brand)_45%,var(--color-brand-700)_100%)]';
 
 const CHIPS_PAGE_PT = [
-    'Como me inscrevo?',
     'Quanto custa?',
     'Posso pagar em prestações?',
     'O voo está incluído?',
+    'Como me inscrevo?',
     'Que documentos preciso?',
     'E se tiver de cancelar?',
 ];
 const CHIPS_PAGE_EN = [
-    'How do I register?',
     'How much does it cost?',
     'Can I pay in installments?',
     'Is the flight included?',
+    'How do I register?',
     'What documents do I need?',
     'What if I need to cancel?',
 ];
@@ -120,14 +131,47 @@ function useSessionId(slug?: string) {
     return ref.current;
 }
 
+function useIsMobile() {
+    const [isMobile, setIsMobile] = useState(false);
+    useEffect(() => {
+        const mq = window.matchMedia('(max-width: 639px)');
+        const update = () => setIsMobile(mq.matches);
+        update();
+        mq.addEventListener('change', update);
+        return () => mq.removeEventListener('change', update);
+    }, []);
+    return isMobile;
+}
+
+// iOS keeps 100dvh at the full screen height while the keyboard is up, which pushed
+// the input under the keyboard. The visual viewport is the part actually visible.
+function useVisualViewport(enabled: boolean) {
+    const [box, setBox] = useState<{ height: number; top: number } | null>(null);
+    useEffect(() => {
+        const vv = window.visualViewport;
+        if (!enabled || !vv) { setBox(null); return; }
+        const update = () => setBox({ height: vv.height, top: vv.offsetTop });
+        update();
+        vv.addEventListener('resize', update);
+        vv.addEventListener('scroll', update);
+        return () => {
+            vv.removeEventListener('resize', update);
+            vv.removeEventListener('scroll', update);
+        };
+    }, [enabled]);
+    return box;
+}
+
 type ResolvedAction = {
     key: ChatAction;
     label: string;
     href: string;
     external?: boolean;
     icon: React.ReactNode;
-    /** Primary actions get the yellow treatment; the rest stay quiet. */
+    /** Primary actions get the brand treatment; the rest stay quiet. */
     primary?: boolean;
+    /** Runs in place of navigating, for actions that open something on this page. */
+    onSelect?: () => void;
 };
 
 export default function ChatWidget({
@@ -140,51 +184,53 @@ export default function ChatWidget({
     isWaitlist,
     currentStep,
     stepLabels,
+    onOpenFlights,
+    hideLauncher,
 }: Props) {
     const { locale } = useLocale();
     const isEn = locale === 'en';
+    const isForm = context === 'registration-form';
     const CHIPS_PAGE = isWaitlist
         ? (isEn ? CHIPS_WAITLIST_EN : CHIPS_WAITLIST_PT)
         : (isEn ? CHIPS_PAGE_EN : CHIPS_PAGE_PT);
     const CHIPS_FORM = isEn ? CHIPS_FORM_EN : CHIPS_FORM_PT;
     const [isOpen, setIsOpen] = useState(false);
-    const [showTooltip, setShowTooltip] = useState(true);
+    const [showNudge, setShowNudge] = useState(false);
     const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
-    const messagesEndRef = useRef<HTMLDivElement>(null);
+    const scrollRef = useRef<HTMLDivElement>(null);
+    const inputRef = useRef<HTMLTextAreaElement>(null);
+    const pinnedToBottomRef = useRef(true);
     const abortRef = useRef<AbortController | null>(null);
+    // Messages already on screen when the panel opened render without an entrance animation.
+    const settledIdsRef = useRef<Set<string>>(new Set());
     const sessionId = useSessionId(pilgrimageSlug);
+    const isMobile = useIsMobile();
+    const reduceMotion = useReducedMotion();
+    const dragControls = useDragControls();
+    const viewport = useVisualViewport(isOpen && isMobile);
     const isNovemberCampaign = isNovemberCampaignPilgrimage({
         slug: pilgrimageSlug,
         title: pilgrimageTitle,
     });
 
-    const leadCapturedKey = `chat:lead:${pilgrimageSlug || 'generic'}`;
-    const [leadCaptured, setLeadCaptured] = useState(() =>
-        typeof window !== 'undefined' && window.sessionStorage.getItem(leadCapturedKey) === '1'
-    );
-    const [leadEmail, setLeadEmail] = useState('');
-    const [leadSubmitting, setLeadSubmitting] = useState(false);
-    const [leadDone, setLeadDone] = useState(leadCaptured);
-    const [leadError, setLeadError] = useState(false);
-
     const initialGreeting = useMemo<Message>(() => ({
         id: 'greeting',
         role: 'assistant',
-        content: context === 'registration-form'
+        content: isForm
             // Says out loud that the chat does not register anyone — people have finished
             // a whole conversation here believing they had signed up.
             ? (isEn
-                ? `Hello! 🙏 I'm here to help while you complete the registration for **${pilgrimageTitle || 'this pilgrimage'}**.\n\nJust so it's clear: **the registration is completed on the form behind this window, not here in the chat.** I'm only here to help you through it. Ask me anything about rooms, documents, payments, flights or the next step.`
-                : `Olá! 🙏 Estou aqui para ajudar enquanto você faz a inscrição da **${pilgrimageTitle || 'peregrinação'}**.\n\nSó para ficar claro: **a inscrição conclui-se no formulário atrás desta janela, não aqui no chat.** Eu só ajudo você a avançar. Pode me perguntar sobre quartos, documentos, pagamentos, voo ou o próximo passo.`)
+                ? `Hello! I'm here to help while you complete the registration for **${pilgrimageTitle || 'this pilgrimage'}**.\n\n**Complete the registration in the form behind this window.** I can help with rooms, documents, payments, flights or the next step.`
+                : `Olá! Estou aqui para ajudar durante a inscrição na **${pilgrimageTitle || 'peregrinação'}**.\n\n**Conclua a inscrição no formulário atrás desta janela.** Posso ajudar com quartos, documentos, pagamentos, voos ou o próximo passo.`)
             : pilgrimageTitle
                 ? (isEn
-                    ? `Hello! 🙏 I'm the Apostolate of Garabandal assistant. I can help you understand the **${pilgrimageTitle}** - the spiritual experience, itinerary, prices, flights, payments, and whether this pilgrimage is the right step for you. What would you like to know first?`
-                    : `Olá! 🙏 Sou o assistente do Apostolado de Garabandal. Posso ajudar você a entender a **${pilgrimageTitle}** - a experiência espiritual, itinerário, valores, voo, pagamentos e se esta peregrinação faz sentido para você. O que você gostaria de saber primeiro?`)
+                    ? `Hello! 🙏 I'm the Apostolate's assistant. Ask me anything about the **${pilgrimageTitle}**: prices and installments, the itinerary, flights or how to register.`
+                    : `Olá! 🙏 Sou o assistente do Apostolado. Pergunte-me o que quiser sobre a **${pilgrimageTitle}**: valores e prestações, itinerário, voo ou como se inscrever.`)
                 : (isEn
-                    ? 'Hello! 🙏 I am the Apostolate of Garabandal assistant. I can help you understand the pilgrimage and the next step with calm and clarity. What would you like to know first?'
-                    : 'Olá! 🙏 Sou o assistente do Apostolado de Garabandal. Posso ajudar você a entender a peregrinação e o próximo passo com calma e clareza. O que você gostaria de saber primeiro?'),
-    }), [pilgrimageTitle, context, isEn]);
+                    ? "Hello! 🙏 I'm the Apostolate's assistant. Ask me anything about our pilgrimages."
+                    : 'Olá! 🙏 Sou o assistente do Apostolado. Pergunte-me o que quiser sobre as nossas peregrinações.'),
+    }), [pilgrimageTitle, isForm, isEn]);
 
     const [messages, setMessages] = useState<Message[]>(() => {
         if (typeof window === 'undefined') return [initialGreeting];
@@ -214,25 +260,49 @@ export default function ChatWidget({
     // Sent to the API so the assistant knows exactly where the person is instead of
     // guessing step names — the single biggest source of bad answers in the form.
     const formStepInfo = useMemo(() => {
-        if (context !== 'registration-form' || !currentStep || !stepLabels?.length) return undefined;
+        if (!isForm || !currentStep || !stepLabels?.length) return undefined;
         return {
             current: currentStep,
             total: stepLabels.length,
             label: stepLabels[currentStep - 1],
             next: stepLabels[currentStep],
         };
-    }, [context, currentStep, stepLabels]);
+    }, [isForm, currentStep, stepLabels]);
 
-    const scrollToBottom = () => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    // Follow the stream only while the person is reading the end. Scrolling
+    // smoothly on every token made the sheet judder on phones.
+    useEffect(() => {
+        const el = scrollRef.current;
+        if (!el) return;
+        // A fresh conversation opens at the top so the greeting is read in full.
+        if (messages.length <= 1) el.scrollTop = 0;
+        else if (pinnedToBottomRef.current) el.scrollTop = el.scrollHeight;
+    }, [messages, isOpen]);
+
+    const onMessagesScroll = () => {
+        const el = scrollRef.current;
+        if (!el) return;
+        pinnedToBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
     };
 
-    useEffect(() => { scrollToBottom(); }, [messages, isOpen]);
+    // One gentle invitation per session, on every screen size. The old tooltip was
+    // desktop-only and the permanent red dot read as a fake notification.
+    useEffect(() => {
+        try {
+            if (window.sessionStorage.getItem(NUDGE_KEY)) return;
+        } catch { /* storage blocked */ }
+        const showTimer = setTimeout(() => {
+            setShowNudge(true);
+            try { window.sessionStorage.setItem(NUDGE_KEY, '1'); } catch { /* ignore */ }
+        }, isForm ? 20000 : 8000);
+        return () => clearTimeout(showTimer);
+    }, [isForm]);
 
     useEffect(() => {
-        const timer = setTimeout(() => setShowTooltip(false), 6000);
-        return () => clearTimeout(timer);
-    }, []);
+        if (!showNudge) return;
+        const hideTimer = setTimeout(() => setShowNudge(false), 10000);
+        return () => clearTimeout(hideTimer);
+    }, [showNudge]);
 
     // On phones the chat is a full-screen sheet, so the sticky booking bar has to
     // step aside and the page behind must stop scrolling. Both are driven by this
@@ -243,12 +313,58 @@ export default function ChatWidget({
         return () => document.body.classList.remove('chat-open');
     }, [isOpen]);
 
-    const toggleChat = () => {
-        setIsOpen(v => !v);
-        setShowTooltip(false);
+    // On phones the sheet looks like a screen of its own, so the Android back
+    // button must close it instead of leaving the pilgrimage page.
+    useEffect(() => {
+        if (!isOpen || !isMobile) return;
+        if (!window.history.state?.chatOpen) {
+            window.history.pushState({ ...window.history.state, chatOpen: true }, '');
+        }
+        const onPop = () => {
+            if (!window.history.state?.chatOpen) setIsOpen(false);
+        };
+        window.addEventListener('popstate', onPop);
+        return () => window.removeEventListener('popstate', onPop);
+    }, [isOpen, isMobile]);
+
+    const openChat = (source: 'fab' | 'nudge') => {
+        settledIdsRef.current = new Set(messages.map(m => m.id));
+        pinnedToBottomRef.current = true;
+        setIsOpen(true);
+        setShowNudge(false);
+        captureAnalyticsEvent('chat_opened', {
+            source,
+            pilgrimage_slug: pilgrimageSlug,
+            chat_context: context,
+            returning: messages.length > 1,
+        });
     };
 
-    const sendMessage = async (text: string) => {
+    const closeChat = useCallback(() => {
+        if (isMobile && window.history.state?.chatOpen) {
+            window.history.back(); // the popstate listener closes the sheet
+        } else {
+            setIsOpen(false);
+        }
+    }, [isMobile]);
+
+    useEffect(() => {
+        if (!isOpen) return;
+        const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') closeChat(); };
+        window.addEventListener('keydown', onKey);
+        return () => window.removeEventListener('keydown', onKey);
+    }, [isOpen, closeChat]);
+
+    const resizeInput = () => {
+        const el = inputRef.current;
+        if (!el) return;
+        el.style.height = 'auto';
+        el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
+    };
+
+    useEffect(resizeInput, [input]);
+
+    const sendMessage = async (text: string, source: SendSource = 'typed') => {
         if (!text.trim() || isLoading) return;
 
         const userMessage: Message = { id: `u-${Date.now()}`, role: 'user', content: text.trim() };
@@ -256,6 +372,14 @@ export default function ChatWidget({
         setMessages(nextMessages);
         setInput('');
         setIsLoading(true);
+        pinnedToBottomRef.current = true;
+
+        captureAnalyticsEvent('chat_message_sent', {
+            source,
+            message_index: nextMessages.filter(m => m.role === 'user').length,
+            pilgrimage_slug: pilgrimageSlug,
+            chat_context: context,
+        });
 
         const assistantId = `a-${Date.now()}`;
         setMessages(prev => [...prev, { id: assistantId, role: 'assistant', content: '', streaming: true }]);
@@ -285,7 +409,9 @@ export default function ChatWidget({
             // Fallback: API returned JSON (error case) — show content directly
             if (contentType.includes('application/json')) {
                 const data = await response.json().catch(() => ({}));
-                const content = data?.content || (isEn ? 'Sorry, an unexpected error occurred. Please try again or write to geral@apostoladodegarabandal.com.' : 'Desculpe, ocorreu um erro inesperado. Por favor tente novamente ou escreva para geral@apostoladodegarabandal.com.');
+                // Errors still end in the WhatsApp button: when the assistant is down, a
+                // person ready to ask is exactly who should reach the team instead.
+                const content = `${data?.content || (isEn ? 'Sorry, an unexpected error occurred. Please try again or write to geral@apostoladodegarabandal.com.' : 'Desculpe, ocorreu um erro inesperado. Por favor tente novamente ou escreva para geral@apostoladodegarabandal.com.')}\n[[WHATSAPP]]`;
                 setMessages(prev => prev.map(m =>
                     m.id === assistantId ? { ...m, content, streaming: false } : m
                 ));
@@ -333,7 +459,7 @@ export default function ChatWidget({
             console.error('[ChatWidget] Error:', err);
             setMessages(prev => prev.map(m =>
                 m.id === assistantId
-                    ? { ...m, content: (isEn ? 'Sorry, a connection error occurred. Please try again or write to geral@apostoladodegarabandal.com.' : 'Desculpe, ocorreu um erro de ligação. Por favor tente novamente ou escreva para geral@apostoladodegarabandal.com.'), streaming: false }
+                    ? { ...m, content: `${isEn ? 'Sorry, a connection error occurred. Please try again or write to geral@apostoladodegarabandal.com.' : 'Desculpe, ocorreu um erro de ligação. Por favor tente novamente ou escreva para geral@apostoladodegarabandal.com.'}\n[[WHATSAPP]]`, streaming: false }
                     : m
             ));
         } finally {
@@ -343,61 +469,27 @@ export default function ChatWidget({
 
     const handleSend = (e?: React.FormEvent) => {
         e?.preventDefault();
-        sendMessage(input);
+        sendMessage(input, 'typed');
     };
 
-    // 68% of conversations never reached a 2nd user message, so the old threshold meant
-    // the lead card was almost never seen. One message is enough intent.
-    const userMessageCount = messages.filter(m => m.role === 'user').length;
-    const showLeadCapture = context === 'pilgrimage-page' && userMessageCount >= 1 && !isLoading && !leadDone;
+    const onInputKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+        if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+            e.preventDefault();
+            handleSend();
+        }
+    };
 
     // Inside the form the header CTA is absent and "start registration" is meaningless,
     // so the standing offer is human help — the thing people ask for when stuck.
-    const persistentAction: ResolvedAction | null = context === 'registration-form'
+    const persistentAction: ResolvedAction | null = isForm
         ? {
             key: 'WHATSAPP',
             label: isEn ? 'I need help — talk to us' : 'Preciso de ajuda — falar connosco',
             href: buildWhatsAppLink(pilgrimageTitle, undefined, isEn),
             external: true,
-            icon: <WhatsAppIcon className="w-3.5 h-3.5" />,
+            icon: <WhatsAppIcon className="w-4 h-4" />,
         }
         : null;
-
-    const submitLead = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!leadEmail.trim() || leadSubmitting) return;
-        setLeadSubmitting(true);
-        setLeadError(false);
-        try {
-            const res = await fetch('/api/leads/capture', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    email: leadEmail.trim(),
-                    type: 'chat_lead',
-                    channel_preference: 'email',
-                    // step_reached is an integer column — sending a label here made
-                    // every chat lead fail with a 500 and silently vanish.
-                    data: { pilgrimageTitle, pilgrimageId, pilgrimageSlug, sessionId, source: 'chat_widget' },
-                }),
-            });
-            if (!res.ok) throw new Error(`capture failed: ${res.status}`);
-            setLeadDone(true);
-            setLeadCaptured(true);
-            if (typeof window !== 'undefined') {
-                window.sessionStorage.setItem(leadCapturedKey, '1');
-            }
-        } catch (err) {
-            // Never claim success we did not get — the person would wait for an
-            // email that was never going to arrive.
-            console.error('[ChatWidget] Lead capture failed:', err);
-            setLeadError(true);
-        } finally {
-            setLeadSubmitting(false);
-        }
-    };
-
-    const showChips = messages.length <= 1 && !isLoading;
 
     // Fire-and-forget capture of "Estou mesmo interessado em ir"; the anchor href opens WhatsApp.
     const handleInterestClick = () => {
@@ -406,7 +498,6 @@ export default function ChatWidget({
             sessionId,
             pilgrimageId,
             pilgrimageTitle,
-            email: leadCaptured && leadEmail ? leadEmail : undefined,
             locale: isEn ? 'en' : 'pt',
         });
     };
@@ -420,31 +511,36 @@ export default function ChatWidget({
         switch (key) {
             case 'INSCREVER':
                 // Never offer "start registration" to someone already inside the form.
-                if (!registrationLink || context === 'registration-form') return null;
-                return { key, label, href: registrationLink, icon: <ArrowRight className="w-3.5 h-3.5" />, primary: true };
+                if (!registrationLink || isForm) return null;
+                return { key, label, href: registrationLink, icon: <ArrowRight className="w-4 h-4" />, primary: true };
             case 'LISTA_ESPERA':
                 if (!registrationLink) return null;
-                return { key, label, href: registrationLink, icon: <ClipboardList className="w-3.5 h-3.5" />, primary: true };
+                return { key, label, href: registrationLink, icon: <ClipboardList className="w-4 h-4" />, primary: true };
             case 'QUERO_IR':
                 return {
                     key,
                     label,
                     href: buildInterestWhatsAppLink(pilgrimageTitle, isEn),
                     external: true,
-                    icon: <WhatsAppIcon className="w-3.5 h-3.5" />,
+                    icon: <WhatsAppIcon className="w-4 h-4" />,
                     primary: true,
                 };
             case 'PAGAR':
-                return { key, label, href: registrationsHref, icon: <CreditCard className="w-3.5 h-3.5" />, primary: true };
+                return { key, label, href: registrationsHref, icon: <CreditCard className="w-4 h-4" />, primary: true };
             case 'MINHAS_INSCRICOES':
-                return { key, label, href: registrationsHref, icon: <ClipboardList className="w-3.5 h-3.5" /> };
+                return { key, label, href: registrationsHref, icon: <ClipboardList className="w-4 h-4" /> };
             case 'VOOS':
                 if (!pilgrimageSlug) return null;
+                // The page shows flights in a modal, not at an anchor: the old "#voos"
+                // link went nowhere. Close the chat so the modal is not hidden behind it.
                 return {
                     key,
                     label,
-                    href: `${isEn ? '/en/pilgrimages' : '/peregrinacoes'}/${pilgrimageSlug}#voos`,
-                    icon: <Plane className="w-3.5 h-3.5" />,
+                    href: `${isEn ? '/en/pilgrimages' : '/peregrinacoes'}/${pilgrimageSlug}`,
+                    icon: <Plane className="w-4 h-4" />,
+                    onSelect: onOpenFlights
+                        ? () => { closeChat(); onOpenFlights(); }
+                        : undefined,
                 };
             case 'WHATSAPP':
                 return {
@@ -452,10 +548,8 @@ export default function ChatWidget({
                     label,
                     href: buildWhatsAppLink(pilgrimageTitle, undefined, isEn),
                     external: true,
-                    icon: <WhatsAppIcon className="w-3.5 h-3.5" />,
+                    icon: <WhatsAppIcon className="w-4 h-4" />,
                 };
-            case 'CONTACTO':
-                return null; // Rendered as the inline form below, not as a link.
             default:
                 return null;
         }
@@ -472,17 +566,17 @@ export default function ChatWidget({
 
     // Handles **bold** plus markdown and bare links — the model pastes URLs (PDFs,
     // payment pages) often enough that raw "[text](url)" was showing up on screen.
-    const renderContent = (text: string) => {
+    const renderInline = (text: string) => {
         const parts = text.split(/(\*\*[^*]+\*\*|\[[^\]]+\]\(https?:\/\/[^)\s]+\)|https?:\/\/[^\s)]+)/g);
         return parts.map((part, i) => {
             if (part.startsWith('**') && part.endsWith('**')) {
-                return <strong key={i}>{part.slice(2, -2)}</strong>;
+                return <strong key={i} className="font-semibold text-slate-900">{part.slice(2, -2)}</strong>;
             }
             const md = part.match(/^\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)$/);
             if (md) {
                 return (
                     <a key={i} href={md[2]} target="_blank" rel="noopener noreferrer"
-                       className="text-yellow-700 font-semibold underline underline-offset-2 hover:text-yellow-800 break-words">
+                       className="text-brand-700 font-semibold underline underline-offset-2 hover:text-brand break-words">
                         {md[1]}
                     </a>
                 );
@@ -490,426 +584,512 @@ export default function ChatWidget({
             if (/^https?:\/\//.test(part)) {
                 return (
                     <a key={i} href={part} target="_blank" rel="noopener noreferrer"
-                       className="text-yellow-700 font-semibold underline underline-offset-2 hover:text-yellow-800 break-all">
+                       className="text-brand-700 font-semibold underline underline-offset-2 hover:text-brand break-all">
                         {part.replace(/^https?:\/\//, '').slice(0, 40)}{part.length > 48 ? '…' : ''}
                     </a>
                 );
             }
-            return <span key={i}>{part}</span>;
+            return <span key={i}>{part.replace(/\*\*/g, '')}</span>;
         });
     };
+
+    // Lists used to show up as raw "- item" lines; headings the prompt forbids
+    // still slip through now and then, so they degrade to a bold line.
+    const renderContent = (text: string) => {
+        type Block = { kind: 'p' | 'ul' | 'ol'; lines: string[] };
+        const blocks: Block[] = [];
+        for (const rawLine of text.split('\n')) {
+            const line = rawLine.trim();
+            if (!line) { blocks.push({ kind: 'p', lines: [] }); continue; }
+            const bullet = line.match(/^[-•*]\s+(.*)$/);
+            const ordered = line.match(/^\d+[.)]\s+(.*)$/);
+            const kind: Block['kind'] = bullet ? 'ul' : ordered ? 'ol' : 'p';
+            const content = bullet?.[1] ?? ordered?.[1] ?? line.replace(/^#{1,6}\s+(.*)$/, '**$1**');
+            const last = blocks[blocks.length - 1];
+            if (last && last.kind === kind && (kind !== 'p' || last.lines.length > 0)) last.lines.push(content);
+            else blocks.push({ kind, lines: [content] });
+        }
+        return blocks.filter(b => b.lines.length > 0).map((block, i) => {
+            if (block.kind === 'ul') {
+                return (
+                    <ul key={i} className="space-y-1 pl-1">
+                        {block.lines.map((l, j) => (
+                            <li key={j} className="flex gap-2"><span className="mt-[0.6em] h-1.5 w-1.5 shrink-0 rounded-full bg-brand/70" /><span>{renderInline(l)}</span></li>
+                        ))}
+                    </ul>
+                );
+            }
+            if (block.kind === 'ol') {
+                return (
+                    <ol key={i} className="space-y-1">
+                        {block.lines.map((l, j) => (
+                            <li key={j} className="flex gap-2"><span className="shrink-0 font-semibold text-brand-700 tabular-nums">{j + 1}.</span><span>{renderInline(l)}</span></li>
+                        ))}
+                    </ol>
+                );
+            }
+            return <p key={i}>{block.lines.map((l, j) => <span key={j}>{j > 0 && <br />}{renderInline(l)}</span>)}</p>;
+        });
+    };
+
+    const lastMessage = messages[messages.length - 1];
+    const lastParsed = lastMessage?.role === 'assistant' && !lastMessage.streaming
+        ? parseChatActions(lastMessage.content)
+        : null;
+    // Before the first question: the curated starters. After each answer: whatever
+    // the assistant proposed for this person, so the conversation never stalls.
+    // Starters live inside the conversation, under the greeting: as a footer they
+    // wrapped into three rows on desktop and hid the greeting itself.
+    const starterChips = messages.length <= 1 && !isLoading ? (isForm ? CHIPS_FORM : CHIPS_PAGE) : [];
+    const suggestionChips = !isLoading && !starterChips.length ? lastParsed?.suggestions ?? [] : [];
+
+    const urgent = isNovemberCampaign || (typeof remainingSpots === 'number' && remainingSpots <= 5);
+
+    const panelMotion = reduceMotion
+        ? { initial: { opacity: 0 }, animate: { opacity: 1 }, exit: { opacity: 0 } }
+        : isMobile
+            ? { initial: { y: '100%' }, animate: { y: 0 }, exit: { y: '100%' } }
+            : { initial: { opacity: 0, y: 24, scale: 0.96 }, animate: { opacity: 1, y: 0, scale: 1 }, exit: { opacity: 0, y: 16, scale: 0.97 } };
+
+    const nudgeText = isForm
+        ? (isEn ? 'Need help with the form?' : 'Precisa de ajuda com o formulário?')
+        : (isEn ? 'Questions about prices or flights? Ask me 🙏' : 'Dúvidas sobre valores ou voo? Pergunte-me 🙏');
 
     return (
         // The FAB sits above the sticky booking bar, whose height it reads from the
         // --sticky-bar-h variable the bar publishes. Pages without a bar (the
         // registration form) resolve to 0px and the FAB drops to a normal offset.
-        <div className="fixed right-4 bottom-[calc(var(--sticky-bar-h,0px)+1rem)] lg:bottom-8 lg:right-12 z-[2147483647] flex flex-col items-end pointer-events-none">
-            {isOpen && (
-                <div className="pointer-events-auto flex flex-col overflow-hidden bg-white/95 backdrop-blur-xl shadow-[0_30px_60px_rgba(0,0,0,0.15)] animate-in fade-in
-                    max-sm:fixed max-sm:inset-0 max-sm:z-[2147483647] max-sm:h-[100dvh] max-sm:w-full max-sm:rounded-none max-sm:slide-in-from-bottom-4 max-sm:duration-200
-                    sm:mb-4 sm:w-[380px] sm:h-[540px] sm:max-h-[calc(100vh-140px)] sm:rounded-3xl sm:border sm:border-white/50 sm:slide-in-from-bottom-10 sm:duration-300 sm:origin-bottom-right">
-                    {/* Header */}
-                    <div className="bg-gradient-to-r from-yellow-400 to-yellow-500 p-4 max-sm:pt-[max(1rem,env(safe-area-inset-top))] flex items-center justify-between text-slate-900 shadow-sm relative z-10 shrink-0">
-                        <div className="flex items-center gap-3">
-                            <div className="relative">
-                                <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-md">
-                                    <Bot className="w-6 h-6 text-yellow-600" />
+        <div className={`fixed right-4 bottom-[calc(var(--sticky-bar-h,0px)+1rem)] lg:bottom-8 lg:right-10 z-[2147483647] flex flex-col items-end pointer-events-none ${isForm ? 'registration-chat' : ''}`}>
+            <AnimatePresence>
+                {isOpen && (
+                    <motion.div
+                        key="chat-panel"
+                        role="dialog"
+                        aria-label={isEn ? 'Pilgrimage assistant' : 'Assistente da peregrinação'}
+                        {...panelMotion}
+                        transition={reduceMotion ? { duration: 0.15 } : { type: 'spring', stiffness: 380, damping: 34, mass: 0.9 }}
+                        drag={isMobile && !reduceMotion ? 'y' : false}
+                        dragControls={dragControls}
+                        dragListener={false}
+                        dragConstraints={{ top: 0, bottom: 0 }}
+                        dragElastic={{ top: 0, bottom: 0.7 }}
+                        onDragEnd={(_e, info) => {
+                            if (info.offset.y > 120 || info.velocity.y > 600) closeChat();
+                        }}
+                        style={isMobile && viewport ? { height: viewport.height, top: viewport.top } : undefined}
+                        className="pointer-events-auto flex flex-col overflow-hidden bg-white shadow-[0_24px_64px_-12px_rgba(30,58,138,0.35)]
+                            max-sm:fixed max-sm:inset-x-0 max-sm:top-0 max-sm:z-[2147483647] max-sm:h-[100dvh] max-sm:w-full
+                            sm:mb-4 sm:w-[400px] sm:h-[600px] sm:max-h-[calc(100vh-130px)] sm:rounded-[28px] sm:border sm:border-brand-200/60 sm:origin-bottom-right"
+                    >
+                        {/* Header — the drag handle for swipe-to-close on phones. */}
+                        <div
+                            onPointerDown={(e) => { if (isMobile) dragControls.start(e); }}
+                            className={`${BRAND_GRADIENT} relative shrink-0 px-4 pb-3.5 pt-3 max-sm:pt-[max(0.75rem,env(safe-area-inset-top))] text-white touch-none select-none`}
+                        >
+                            <div className="mx-auto mb-2 h-1 w-10 rounded-full bg-white/40 sm:hidden" aria-hidden />
+                            <div className="flex items-center justify-between gap-3">
+                                <div className="flex min-w-0 items-center gap-3">
+                                    <div className="relative shrink-0">
+                                        <div className="flex h-11 w-11 items-center justify-center rounded-full bg-white/15 ring-1 ring-white/30 backdrop-blur">
+                                            <Sparkles className="h-5 w-5 text-white" />
+                                        </div>
+                                        <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-brand bg-emerald-400" />
+                                    </div>
+                                    <div className="min-w-0">
+                                        <h3 className="truncate text-[15px] font-semibold leading-tight">
+                                            {isEn ? 'AI assistant' : 'Assistente IA'}
+                                        </h3>
+                                        {/* Says "AI" plainly: people took the bot for the team and for the registration itself. */}
+                                        <p className="mt-0.5 truncate text-[12px] leading-tight text-white/80">
+                                            {isEn ? 'Online · replies instantly' : 'Online · responde na hora'}
+                                        </p>
+                                    </div>
                                 </div>
-                                <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-yellow-400 rounded-full"></span>
-                            </div>
-                            <div>
-                                <h3 className="font-bold text-sm leading-tight">{isEn ? 'Apostolate of Garabandal Assistant' : 'Assistente Apostolado de Garabandal'}</h3>
-                                <p className="text-[11px] text-yellow-900 font-medium opacity-80">
-                                    {pilgrimageTitle ? (isEn ? 'About this pilgrimage' : 'Sobre esta peregrinação') : (isEn ? 'Always online' : 'Sempre online')}
-                                </p>
-                            </div>
-                        </div>
-                        <div className="flex items-center gap-1">
-                            <a
-                                href={buildWhatsAppLink(pilgrimageTitle, undefined, isEn)}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="p-2 hover:bg-yellow-600/50 rounded-full transition-colors"
-                                aria-label={isEn ? 'Talk on WhatsApp' : 'Falar no WhatsApp'}
-                                title={isEn ? 'Talk on WhatsApp' : 'Falar no WhatsApp'}
-                            >
-                                <Phone className="w-4 h-4" />
-                            </a>
-                            {/* High-contrast close button: on a yellow header a plain
-                                icon reads as decoration, and people could not find the exit. */}
-                            <button
-                                onClick={toggleChat}
-                                className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-900 text-white shadow-md ring-2 ring-white/70 transition-all hover:bg-slate-800 active:scale-95 shrink-0"
-                                aria-label={isEn ? 'Close chat' : 'Fechar chat'}
-                                title={isEn ? 'Close chat' : 'Fechar chat'}
-                            >
-                                <X className="w-5 h-5" strokeWidth={3} />
-                            </button>
-                        </div>
-                    </div>
-
-                    {/* Registration progress -- makes it visually obvious that the form,
-                        not this conversation, is what completes the registration. */}
-                    {formStepInfo && (
-                        <div className="bg-slate-50 border-b border-slate-200/80 px-4 py-2.5">
-                            <div className="flex items-center justify-between mb-1.5">
-                                <span className="text-[10px] uppercase tracking-widest text-slate-400 font-bold">
-                                    {isEn ? 'Your registration' : 'A sua inscrição'}
-                                </span>
-                                <span className="text-[10px] font-bold text-slate-500">
-                                    {isEn ? 'Step' : 'Passo'} {formStepInfo.current}/{formStepInfo.total}
-                                </span>
-                            </div>
-                            <div className="flex items-center gap-1">
-                                {Array.from({ length: formStepInfo.total }).map((_, i) => (
-                                    <span
-                                        key={i}
-                                        className={`h-1.5 flex-1 rounded-full transition-colors ${
-                                            i < formStepInfo.current ? 'bg-yellow-400' : 'bg-slate-200'
-                                        }`}
-                                    />
-                                ))}
-                            </div>
-                            <p className="text-[11px] text-slate-600 mt-1.5 leading-tight">
-                                <span className="font-bold text-slate-800">{formStepInfo.label}</span>
-                                {formStepInfo.next
-                                    ? <span className="text-slate-400"> → {formStepInfo.next}</span>
-                                    : <span className="text-slate-400"> {isEn ? '→ press "Confirm Registration"' : '→ carregue em "Confirmar Inscrição"'}</span>}
-                            </p>
-                        </div>
-                    )}
-
-                    {/* Contextual CTA (vacancies + Reservar) -- only on pilgrimage page */}
-                    {registrationLink && (
-                        isWaitlist ? (
-                            <div className="bg-gradient-to-r from-amber-50 to-orange-50 border-b border-amber-200/60 px-4 py-3 shadow-sm space-y-2">
-                                <div className="flex items-center gap-2 text-[11px] md:text-xs text-amber-800 leading-snug">
-                                    <Sparkles className="w-3.5 h-3.5 shrink-0 text-amber-500" />
-                                    <span>
-                                        <span className="font-bold">{isEn ? 'Limited selection' : 'Seleção limitada'}</span>
-                                        <span className="text-amber-700/90"> {isEn ? '— only a few will be chosen to go' : '— só alguns serão escolhidos para ir'}</span>
-                                    </span>
-                                </div>
-                                <div className="flex items-center gap-2">
+                                <div className="flex shrink-0 items-center gap-1.5">
                                     <a
-                                        href={buildInterestWhatsAppLink(pilgrimageTitle, isEn)}
+                                        href={buildWhatsAppLink(pilgrimageTitle, undefined, isEn)}
                                         target="_blank"
                                         rel="noopener noreferrer"
-                                        onClick={handleInterestClick}
-                                        className="flex-1 inline-flex items-center justify-center gap-1.5 text-[11px] md:text-xs font-black bg-[#25D366] hover:bg-[#1fb858] text-white px-3 py-2 rounded-xl shadow-sm hover:shadow-md transition-all text-center"
+                                        onClick={() => onActionClick('WHATSAPP')}
+                                        className="flex h-10 w-10 items-center justify-center rounded-full bg-white/15 ring-1 ring-white/25 transition-colors hover:bg-white/25 active:scale-95"
+                                        aria-label={isEn ? 'Talk to the team on WhatsApp' : 'Falar com a equipa no WhatsApp'}
+                                        title={isEn ? 'Talk to the team on WhatsApp' : 'Falar com a equipa no WhatsApp'}
                                     >
-                                        <WhatsAppIcon className="w-3.5 h-3.5 shrink-0" />
-                                        {isEn ? "I'm really interested" : 'Estou mesmo interessado'}
+                                        <WhatsAppIcon className="h-[18px] w-[18px]" />
                                     </a>
-                                    <Link href={registrationLink} className="inline-flex items-center gap-1 text-[11px] md:text-xs font-bold text-amber-900/80 hover:text-amber-900 underline underline-offset-2 shrink-0">
-                                        {isEn ? 'Waiting list' : 'Lista de espera'}
-                                    </Link>
+                                    <button
+                                        onClick={closeChat}
+                                        className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-brand-700 shadow-sm transition-all hover:bg-brand-50 active:scale-95"
+                                        aria-label={isEn ? 'Close chat' : 'Fechar chat'}
+                                        title={isEn ? 'Close chat' : 'Fechar chat'}
+                                    >
+                                        <X className="h-5 w-5" strokeWidth={2.5} />
+                                    </button>
                                 </div>
                             </div>
-                        ) : (
-                            <div className={`border-b px-4 py-3 flex items-center justify-between gap-3 shadow-sm ${
-                                isNovemberCampaign || (typeof remainingSpots === 'number' && remainingSpots <= 5)
-                                    ? 'bg-gradient-to-r from-red-50 to-rose-50 border-red-200/60'
-                                    : 'bg-gradient-to-r from-yellow-50/80 to-amber-50/80 border-yellow-200/60'
-                            }`}>
-                                <div className={`flex items-center gap-2 text-[11px] md:text-xs leading-tight ${
-                                    isNovemberCampaign || (typeof remainingSpots === 'number' && remainingSpots <= 5) ? 'text-red-800' : 'text-slate-700'
-                                }`}>
-                                    <Users className="w-3.5 h-3.5 shrink-0" />
-                                    {isNovemberCampaign ? (
-                                        <span><span className="font-bold">{isEn ? 'Last spots' : 'Últimas vagas'}</span><span className="hidden sm:inline"> {isEn ? '— sign up now' : '— inscreva-se já'}</span></span>
-                                    ) : typeof remainingSpots === 'number' && remainingSpots <= 5 ? (
-                                        <span><span className="font-bold">{isEn ? 'Last spots' : 'Últimas vagas'}</span><span className="hidden sm:inline"> {isEn ? '— sign up now' : '— inscreva-se já'}</span></span>
-                                    ) : (
-                                        <span><span className="font-bold text-slate-900">{isEn ? 'Limited Spots' : 'Vagas limitadas'}</span><span className="hidden sm:inline text-slate-600"> {isEn ? '— places still available' : '— lugares a preencher'}</span></span>
-                                    )}
-                                </div>
-                                <Link
-                                    href={registrationLink}
-                                    className="inline-flex items-center gap-1.5 text-[11px] md:text-xs font-black bg-gradient-to-r from-yellow-400 to-amber-500 hover:from-yellow-500 hover:to-amber-600 text-slate-900 px-3 py-1.5 md:py-2 rounded-xl shadow-[0_2px_10px_rgba(245,158,11,0.2)] hover:shadow-[0_4px_15px_rgba(245,158,11,0.3)] transition-all shrink-0"
-                                >
-                                    {isEn ? 'Start Registration' : 'Iniciar Inscrição'} <ArrowRight className="w-3.5 h-3.5" />
-                                </Link>
-                            </div>
-                        )
-                    )}
+                        </div>
 
-                    {/* Messages */}
-                    <div className="flex-1 overflow-y-auto p-4 bg-slate-50/50 space-y-4">
-                        {messages.map((msg) => {
-                            const { visibleText, actions } = msg.role === 'assistant'
-                                ? parseChatActions(msg.content)
-                                : { visibleText: msg.content, actions: [] as ChatAction[] };
-                            const needsEscalation =
-                                msg.role === 'assistant' &&
-                                !msg.streaming &&
-                                ESCALATION_MARKERS.some(marker => msg.content.includes(marker)) &&
-                                !actions.includes('WHATSAPP');
-                            const resolvedActions = msg.role === 'assistant' && !msg.streaming
-                                ? actions.map(resolveAction).filter(Boolean) as ResolvedAction[]
-                                : [];
-                            const showContactForm =
-                                msg.role === 'assistant' && !msg.streaming && actions.includes('CONTACTO');
-                            return (
-                                <div key={msg.id} className="space-y-2">
-                                    <div className={`flex gap-2 max-w-[88%] ${msg.role === 'user' ? 'ml-auto flex-row-reverse' : ''}`}>
-                                        <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 mt-auto shadow-sm ${msg.role === 'user' ? 'bg-yellow-500' : 'bg-white border border-slate-100'}`}>
-                                            {msg.role === 'user' ? <User className="w-4 h-4 text-slate-900" /> : <Bot className="w-4 h-4 text-slate-600" />}
-                                        </div>
-                                        <div className={`p-3.5 text-sm shadow-sm leading-relaxed whitespace-pre-wrap ${
-                                            msg.role === 'user'
-                                                ? 'bg-yellow-500 text-slate-900 rounded-2xl rounded-br-sm'
-                                                : 'bg-white text-slate-700 border border-slate-100 rounded-2xl rounded-bl-sm'
-                                        }`}>
-                                            {visibleText
-                                                ? renderContent(visibleText)
-                                                : msg.streaming && (
-                                                    <span className="inline-flex gap-1 items-center h-4">
-                                                        <span className="w-1.5 h-1.5 bg-slate-300 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
-                                                        <span className="w-1.5 h-1.5 bg-slate-300 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
-                                                        <span className="w-1.5 h-1.5 bg-slate-300 rounded-full animate-bounce"></span>
-                                                    </span>
-                                                )
-                                            }
-                                            {msg.streaming && msg.content && (
-                                                <span className="inline-block w-0.5 h-3.5 bg-slate-400 animate-pulse ml-0.5 align-middle" />
-                                            )}
-                                        </div>
-                                    </div>
-                                    {needsEscalation && (
-                                        <div className="ml-9 flex flex-wrap gap-2">
-                                            <a
-                                                href={buildWhatsAppLink(pilgrimageTitle, undefined, isEn)}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                className="inline-flex items-center gap-1.5 text-xs font-semibold bg-[#25D366] hover:bg-[#1fb858] text-white px-3 py-2 rounded-full shadow-sm transition-colors"
-                                            >
-                                                <Phone className="w-3.5 h-3.5" />
-                                                {isEn ? 'Talk on WhatsApp' : 'Falar no WhatsApp'}
-                                            </a>
-                                            <a
-                                                href={`mailto:${CONTACT_EMAIL}`}
-                                                className="inline-flex items-center gap-1.5 text-xs font-semibold bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 px-3 py-2 rounded-full shadow-sm transition-colors"
-                                            >
-                                                {isEn ? 'Send email' : 'Enviar email'}
-                                            </a>
-                                        </div>
-                                    )}
-                                    {resolvedActions.length > 0 && (
-                                        <div className="ml-9 space-y-1.5 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                                            <div className="flex flex-wrap gap-2">
-                                                {resolvedActions.map(action => {
-                                                    const className = action.primary
-                                                        ? `inline-flex items-center gap-2 text-xs font-black px-4 py-2.5 rounded-full shadow-md hover:shadow-lg transition-all ${
-                                                            action.key === 'QUERO_IR' || action.key === 'WHATSAPP'
-                                                                ? 'bg-[#25D366] hover:bg-[#1fb858] text-white'
-                                                                : 'bg-gradient-to-r from-yellow-400 to-amber-500 hover:from-yellow-500 hover:to-amber-600 text-slate-900'
-                                                        }`
-                                                        : 'inline-flex items-center gap-1.5 text-xs font-semibold bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 px-3 py-2 rounded-full shadow-sm transition-colors';
-                                                    return action.external ? (
-                                                        <a
-                                                            key={action.key}
-                                                            href={action.href}
-                                                            target="_blank"
-                                                            rel="noopener noreferrer"
-                                                            onClick={() => onActionClick(action.key)}
-                                                            className={className}
-                                                        >
-                                                            {action.icon}{action.label}
-                                                        </a>
-                                                    ) : (
-                                                        <Link
-                                                            key={action.key}
-                                                            href={action.href}
-                                                            onClick={() => onActionClick(action.key)}
-                                                            className={className}
-                                                        >
-                                                            {action.icon}{action.label}
-                                                        </Link>
-                                                    );
-                                                })}
-                                            </div>
-                                            {resolvedActions.some(a => a.key === 'QUERO_IR') && (
-                                                <p className="text-[10px] text-slate-400 leading-tight max-w-[250px]">
-                                                    {isEn
-                                                        ? 'The Apostolate will select a limited number of people. Register now and talk on WhatsApp to be considered.'
-                                                        : 'O Apostolado vai selecionar um número limitado de pessoas. Registe já e fale no WhatsApp para ser considerado(a).'}
-                                                </p>
-                                            )}
-                                        </div>
-                                    )}
-                                    {showContactForm && !leadDone && (
-                                        <div className="ml-9">
-                                            {leadError && (
-                                                <p className="text-xs text-red-600 font-semibold mb-1.5">
-                                                    {isEn ? 'We could not save it. Please try again.' : 'Não conseguimos guardar. Tente novamente.'}
-                                                </p>
-                                            )}
-                                            <form onSubmit={submitLead} className="flex gap-2 max-w-[280px]">
-                                                <input
-                                                    type="email"
-                                                    value={leadEmail}
-                                                    onChange={e => setLeadEmail(e.target.value)}
-                                                    placeholder={isEn ? 'your@email.com' : 'o-seu@email.com'}
-                                                    required
-                                                    className="flex-1 min-w-0 text-xs bg-white border border-yellow-300 focus:border-yellow-400 focus:ring-1 focus:ring-yellow-400/30 rounded-lg px-3 py-2 outline-none"
-                                                />
-                                                <button
-                                                    type="submit"
-                                                    disabled={leadSubmitting || !leadEmail.trim()}
-                                                    className="shrink-0 text-xs font-bold bg-yellow-400 hover:bg-yellow-500 disabled:opacity-50 text-slate-900 px-3 py-2 rounded-lg transition-colors"
-                                                >
-                                                    {leadSubmitting ? '...' : (isEn ? 'Send' : 'Enviar')}
-                                                </button>
-                                            </form>
-                                        </div>
-                                    )}
-                                    {showContactForm && leadDone && (
-                                        <p className="ml-9 text-xs text-green-700 font-semibold inline-flex items-center gap-1.5">
-                                            <Check className="w-3.5 h-3.5" />
-                                            {isEn ? 'Thank you! We will be in touch shortly.' : 'Obrigado! Entraremos em contacto brevemente.'}
-                                        </p>
-                                    )}
+                        {/* Registration progress -- makes it visually obvious that the form,
+                            not this conversation, is what completes the registration. */}
+                        {formStepInfo && (
+                            <div className="shrink-0 border-b border-slate-200/80 bg-brand-50/60 px-4 py-2.5">
+                                <div className="mb-1.5 flex items-center justify-between">
+                                    <span className="text-[11px] font-bold uppercase tracking-wider text-brand-700/80">
+                                        {isEn ? 'Your registration' : 'A sua inscrição'}
+                                    </span>
+                                    <span className="text-[12px] font-semibold text-slate-600">
+                                        {isEn ? 'Step' : 'Passo'} {formStepInfo.current}/{formStepInfo.total}
+                                    </span>
                                 </div>
-                            );
-                        })}
-
-                        {showChips && (
-                            <div className="pt-2">
-                                <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-2">
-                                    <Sparkles className="w-3 h-3" />
-                                    {isEn ? 'Quick questions' : 'Perguntas rápidas'}
-                                </div>
-                                <div className="flex flex-wrap gap-2">
-                                    {(context === 'registration-form' ? CHIPS_FORM : CHIPS_PAGE).map((chip: string) => (
-                                        <button
-                                            key={chip}
-                                            onClick={() => sendMessage(chip)}
-                                            className="text-xs bg-white hover:bg-yellow-50 text-slate-700 border border-slate-200 hover:border-yellow-300 px-3 py-1.5 rounded-full shadow-sm transition-colors"
-                                        >
-                                            {chip}
-                                        </button>
+                                <div className="flex items-center gap-1">
+                                    {Array.from({ length: formStepInfo.total }).map((_, i) => (
+                                        <span
+                                            key={i}
+                                            className={`h-1.5 flex-1 rounded-full transition-colors duration-500 ${
+                                                i < formStepInfo.current ? 'bg-brand' : 'bg-slate-200'
+                                            }`}
+                                        />
                                     ))}
                                 </div>
+                                <p className="mt-1.5 text-[13px] leading-tight text-slate-600">
+                                    <span className="font-semibold text-slate-900">{formStepInfo.label}</span>
+                                    {formStepInfo.next
+                                        ? <span className="text-slate-500"> → {formStepInfo.next}</span>
+                                        : <span className="text-slate-500"> {isEn ? '→ press "Confirm Registration"' : '→ carregue em "Confirmar Inscrição"'}</span>}
+                                </p>
                             </div>
                         )}
 
-                        {/* Inline lead capture — appears after 2nd user message, once per session */}
-                        {showLeadCapture && (
-                            <div className="flex gap-2 max-w-[88%]">
-                                <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 mt-auto shadow-sm bg-white border border-slate-100">
-                                    <Bot className="w-4 h-4 text-slate-600" />
+                        {/* Contextual CTA (vacancies + registration) -- only on pilgrimage page */}
+                        {registrationLink && (
+                            isWaitlist ? (
+                                <div className="shrink-0 space-y-2 border-b border-amber-200/60 bg-amber-50 px-4 py-3">
+                                    <div className="flex items-center gap-2 text-[13px] leading-snug text-amber-900">
+                                        <Sparkles className="h-4 w-4 shrink-0 text-amber-500" />
+                                        <span>
+                                            <span className="font-semibold">{isEn ? 'Limited selection' : 'Seleção limitada'}</span>
+                                            <span className="text-amber-800/90"> {isEn ? '— only a few will be chosen' : '— só alguns serão escolhidos'}</span>
+                                        </span>
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                        <a
+                                            href={buildInterestWhatsAppLink(pilgrimageTitle, isEn)}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            onClick={() => onActionClick('QUERO_IR')}
+                                            className="inline-flex min-h-10 flex-1 items-center justify-center gap-2 rounded-full bg-[#25D366] px-4 text-[13px] font-bold text-white shadow-sm transition-all hover:bg-[#1fb858] active:scale-[0.98]"
+                                        >
+                                            <WhatsAppIcon className="h-4 w-4 shrink-0" />
+                                            {isEn ? "I'm really interested" : 'Estou mesmo interessado'}
+                                        </a>
+                                        <Link href={registrationLink} className="shrink-0 text-[13px] font-semibold text-amber-900 underline underline-offset-2">
+                                            {isEn ? 'Waiting list' : 'Lista de espera'}
+                                        </Link>
+                                    </div>
                                 </div>
-                                <div className="bg-white border border-yellow-200 rounded-2xl rounded-bl-sm p-3.5 shadow-sm flex-1">
-                                    {leadDone ? (
-                                        <p className="text-sm text-green-700 font-semibold">{isEn ? '✓ Thank you! Our team will contact you shortly. 🙏' : '✓ Obrigado! A nossa equipa entra em contacto consigo em breve. 🙏'}</p>
-                                    ) : (
-                                        <>
-                                            {/* Promises only what actually happens: the lead reaches the team
-                                                and a person follows up. There is no automated itinerary email. */}
-                                            <p className="text-sm text-slate-700 mb-3">
-                                                {isEn ? <>Would you like our team to send you the <strong>details of this pilgrimage</strong> by email?</> : <>Quer que a nossa equipa lhe envie os <strong>detalhes desta peregrinação</strong> por email?</>}
-                                            </p>
-                                            {leadError && (
-                                                <p className="text-xs text-red-600 font-semibold mb-2">
-                                                    {isEn ? 'We could not save it. Please try again or talk to us on WhatsApp.' : 'Não conseguimos guardar. Tente novamente ou fale connosco no WhatsApp.'}
-                                                </p>
-                                            )}
-                                            <form onSubmit={submitLead} className="flex gap-2">
-                                                <input
-                                                    type="email"
-                                                    value={leadEmail}
-                                                    onChange={e => setLeadEmail(e.target.value)}
-                                                    placeholder={isEn ? 'your@email.com' : 'o-seu@email.com'}
-                                                    required
-                                                    className="flex-1 min-w-0 text-xs bg-slate-50 border border-slate-200 focus:border-yellow-400 focus:ring-1 focus:ring-yellow-400/30 rounded-lg px-3 py-2 outline-none"
-                                                />
-                                                <button
-                                                    type="submit"
-                                                    disabled={leadSubmitting || !leadEmail.trim()}
-                                                    className="shrink-0 text-xs font-bold bg-yellow-400 hover:bg-yellow-500 disabled:opacity-50 text-slate-900 px-3 py-2 rounded-lg transition-colors"
+                            ) : (
+                                <div className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-100 bg-white px-4 py-2.5">
+                                    <div className={`flex min-w-0 items-center gap-2 text-[13px] leading-tight ${urgent ? 'text-red-700' : 'text-slate-600'}`}>
+                                        {urgent
+                                            ? <span className="relative flex h-2 w-2 shrink-0"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-60 motion-reduce:hidden" /><span className="relative inline-flex h-2 w-2 rounded-full bg-red-500" /></span>
+                                            : <Users className="h-4 w-4 shrink-0 text-brand" />}
+                                        <span className="truncate font-semibold">
+                                            {urgent ? (isEn ? 'Last spots' : 'Últimas vagas') : (isEn ? 'Limited spots' : 'Vagas limitadas')}
+                                        </span>
+                                    </div>
+                                    <Link
+                                        href={registrationLink}
+                                        onClick={() => onActionClick('INSCREVER')}
+                                        className="btn-member min-h-10 shrink-0 gap-1.5 rounded-full px-4 text-[13px] font-semibold text-white"
+                                    >
+                                        <span>{isEn ? 'Start Registration' : 'Iniciar Inscrição'}</span>
+                                        <ArrowRight className="h-4 w-4" />
+                                    </Link>
+                                </div>
+                            )
+                        )}
+
+                        {/* Messages */}
+                        <div
+                            ref={scrollRef}
+                            onScroll={onMessagesScroll}
+                            className="flex-1 space-y-3 overflow-y-auto overscroll-contain bg-[linear-gradient(180deg,#f6f8fe_0%,#eef2fb_100%)] px-4 py-4"
+                            aria-live="polite"
+                        >
+                            {messages.map((msg) => {
+                                const { visibleText, actions } = msg.role === 'assistant'
+                                    ? parseChatActions(msg.content)
+                                    : { visibleText: msg.content, actions: [] as ChatAction[] };
+                                const needsEscalation =
+                                    msg.role === 'assistant' &&
+                                    !msg.streaming &&
+                                    ESCALATION_MARKERS.some(marker => msg.content.includes(marker)) &&
+                                    !actions.includes('WHATSAPP');
+                                const resolvedActions = msg.role === 'assistant' && !msg.streaming
+                                    ? (actions.map(resolveAction).filter(Boolean) as ResolvedAction[])
+                                        .sort((a, b) => Number(Boolean(b.primary)) - Number(Boolean(a.primary)))
+                                    : [];
+                                const isUser = msg.role === 'user';
+                                return (
+                                    <motion.div
+                                        key={msg.id}
+                                        initial={settledIdsRef.current.has(msg.id) || reduceMotion ? false : { opacity: 0, y: 10 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        transition={{ duration: 0.25, ease: 'easeOut' }}
+                                        className="space-y-2"
+                                    >
+                                        <div className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
+                                            <div className={`max-w-[86%] px-4 py-3 text-[15px] leading-relaxed ${
+                                                isUser
+                                                    ? 'rounded-[20px] rounded-br-md border border-brand-200/80 bg-brand-100/70 text-slate-900 whitespace-pre-wrap'
+                                                    : 'space-y-2 rounded-[20px] rounded-bl-md border border-slate-200/70 bg-white text-slate-700 shadow-[0_2px_8px_-4px_rgba(15,23,42,0.12)]'
+                                            }`}>
+                                                {isUser
+                                                    ? msg.content
+                                                    : visibleText
+                                                        ? renderContent(visibleText)
+                                                        : msg.streaming && (
+                                                            <span className="flex h-5 items-center gap-1" aria-label={isEn ? 'Typing' : 'A escrever'}>
+                                                                <span className="h-2 w-2 animate-bounce rounded-full bg-brand/60 [animation-delay:-0.3s]" />
+                                                                <span className="h-2 w-2 animate-bounce rounded-full bg-brand/60 [animation-delay:-0.15s]" />
+                                                                <span className="h-2 w-2 animate-bounce rounded-full bg-brand/60" />
+                                                            </span>
+                                                        )
+                                                }
+                                            </div>
+                                        </div>
+                                        {needsEscalation && (
+                                            <div className="flex flex-wrap gap-2">
+                                                <a
+                                                    href={buildWhatsAppLink(pilgrimageTitle, undefined, isEn)}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    onClick={() => onActionClick('WHATSAPP')}
+                                                    className="inline-flex min-h-11 items-center gap-2 rounded-full bg-[#25D366] px-4 text-sm font-semibold text-white shadow-sm transition-all hover:bg-[#1fb858] active:scale-[0.98]"
                                                 >
-                                                    {leadSubmitting ? '...' : (isEn ? 'Send' : 'Enviar')}
-                                                </button>
-                                            </form>
-                                        </>
-                                    )}
-                                </div>
+                                                    <WhatsAppIcon className="h-4 w-4" />
+                                                    {isEn ? 'Talk on WhatsApp' : 'Falar no WhatsApp'}
+                                                </a>
+                                                <a
+                                                    href={`mailto:${CONTACT_EMAIL}`}
+                                                    className="inline-flex min-h-11 items-center gap-2 rounded-full border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition-colors hover:bg-slate-50"
+                                                >
+                                                    <Mail className="h-4 w-4" />
+                                                    {isEn ? 'Send email' : 'Enviar email'}
+                                                </a>
+                                            </div>
+                                        )}
+                                        {resolvedActions.length > 0 && (
+                                            <motion.div
+                                                initial={settledIdsRef.current.has(msg.id) || reduceMotion ? false : { opacity: 0, y: 8 }}
+                                                animate={{ opacity: 1, y: 0 }}
+                                                transition={{ duration: 0.3, delay: 0.1 }}
+                                                className="max-w-[86%] space-y-1.5"
+                                            >
+                                                <div className="flex flex-wrap gap-2">
+                                                    {resolvedActions.map(action => {
+                                                        // Primary actions are full-width buttons, never pill-shaped like a
+                                                        // chat bubble — people read the blue pill as a message, not a button.
+                                                        const className = action.primary
+                                                            ? (action.key === 'QUERO_IR' || action.key === 'WHATSAPP'
+                                                                ? 'flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-[#25D366] px-5 text-[15px] font-bold text-white shadow-[0_8px_20px_-8px_rgba(37,211,102,0.7)] transition-all hover:bg-[#1fb858] active:scale-[0.98]'
+                                                                : 'btn-member min-h-12 w-full gap-2 rounded-2xl px-5 text-[15px] font-bold tracking-wide text-white active:scale-[0.98]')
+                                                            : 'inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition-colors hover:border-brand-200 hover:bg-brand-50';
+                                                        const content = action.primary && action.key !== 'QUERO_IR'
+                                                            ? <><span>{action.label}</span>{action.icon}</>
+                                                            : <>{action.icon}{action.label}</>;
+                                                        if (action.onSelect) {
+                                                            return (
+                                                                <button
+                                                                    key={action.key}
+                                                                    type="button"
+                                                                    onClick={() => { onActionClick(action.key); action.onSelect?.(); }}
+                                                                    className={className}
+                                                                >
+                                                                    {content}
+                                                                </button>
+                                                            );
+                                                        }
+                                                        return action.external ? (
+                                                            <a
+                                                                key={action.key}
+                                                                href={action.href}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                onClick={() => onActionClick(action.key)}
+                                                                className={className}
+                                                            >
+                                                                {content}
+                                                            </a>
+                                                        ) : (
+                                                            <Link
+                                                                key={action.key}
+                                                                href={action.href}
+                                                                onClick={() => onActionClick(action.key)}
+                                                                className={className}
+                                                            >
+                                                                {content}
+                                                            </Link>
+                                                        );
+                                                    })}
+                                                </div>
+                                                {resolvedActions.some(a => a.key === 'QUERO_IR') && (
+                                                    <p className="max-w-[280px] text-[12px] leading-snug text-slate-500">
+                                                        {isEn
+                                                            ? 'The Apostolate will select a limited number of people. Register now and talk on WhatsApp to be considered.'
+                                                            : 'O Apostolado vai selecionar um número limitado de pessoas. Registe já e fale no WhatsApp para ser considerado(a).'}
+                                                    </p>
+                                                )}
+                                            </motion.div>
+                                        )}
+                                    </motion.div>
+                                );
+                            })}
+
+                            {starterChips.length > 0 && (
+                                <motion.div
+                                    initial={reduceMotion ? false : { opacity: 0, y: 8 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ duration: 0.3, delay: 0.15 }}
+                                    className="pt-1"
+                                >
+                                    <p className="mb-2 text-[12px] font-semibold text-slate-500">
+                                        {isEn ? 'Frequently asked' : 'Perguntas frequentes'}
+                                    </p>
+                                    <div className="flex flex-wrap gap-2">
+                                        {starterChips.map((chip) => (
+                                            <button
+                                                key={chip}
+                                                onClick={() => sendMessage(chip, 'chip')}
+                                                className="min-h-10 rounded-xl border border-brand-200 bg-white px-3.5 text-left text-[14px] font-medium text-brand-700 shadow-sm transition-all hover:border-brand hover:bg-brand-50 active:scale-[0.97]"
+                                            >
+                                                {chip}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </motion.div>
+                            )}
+                        </div>
+
+                        {/* Next questions the assistant proposed for this person. */}
+                        <AnimatePresence initial={false}>
+                            {suggestionChips.length > 0 && (
+                                <motion.div
+                                    key={lastMessage?.id ?? 'chips'}
+                                    initial={reduceMotion ? false : { opacity: 0, y: 8 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0 }}
+                                    transition={{ duration: 0.25 }}
+                                    className="shrink-0 border-t border-slate-100 bg-white pt-2.5"
+                                >
+                                    <div className="no-scrollbar flex gap-2 overflow-x-auto px-3 pb-0.5">
+                                        {suggestionChips.map((chip) => (
+                                            <button
+                                                key={chip}
+                                                onClick={() => sendMessage(chip, 'suggestion')}
+                                                className="min-h-9 shrink-0 whitespace-nowrap rounded-full border border-brand-200 bg-brand-50 px-3.5 text-[13px] font-medium text-brand-700 transition-all hover:border-brand hover:bg-white active:scale-[0.97]"
+                                            >
+                                                {chip}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
+
+                        {/* Persistent next-step bar -- the CTA no longer depends on the
+                            assistant remembering to emit a token. */}
+                        {persistentAction && (
+                            <div className="shrink-0 bg-white px-3 pt-2.5">
+                                <a
+                                    href={persistentAction.href}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    onClick={() => onActionClick(persistentAction.key)}
+                                    className="flex min-h-11 w-full items-center justify-center gap-2 rounded-full bg-[#25D366] px-4 text-sm font-bold text-white shadow-sm transition-all hover:bg-[#1fb858] active:scale-[0.99]"
+                                >
+                                    {persistentAction.icon}{persistentAction.label}
+                                </a>
                             </div>
                         )}
 
-                        <div ref={messagesEndRef} />
-                    </div>
-
-                    {/* Persistent next-step bar -- the CTA no longer depends on the
-                        assistant remembering to emit a token. */}
-                    {persistentAction && (
-                        <div className="px-3 pt-2.5 bg-white border-t border-slate-100">
-                            <a
-                                href={persistentAction.href}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                onClick={() => onActionClick(persistentAction.key)}
-                                className="flex items-center justify-center gap-2 w-full text-xs font-black bg-[#25D366] hover:bg-[#1fb858] text-white px-4 py-2.5 rounded-xl shadow-sm hover:shadow-md transition-all"
-                            >
-                                {persistentAction.icon}{persistentAction.label}
-                            </a>
+                        {/* Input -- 16px text so iOS does not zoom the page on focus. */}
+                        <div className="shrink-0 bg-white px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2.5">
+                            <form onSubmit={handleSend} className="flex items-end gap-2 rounded-[24px] border border-slate-200 bg-slate-50 p-1.5 pl-4 transition-all focus-within:border-brand focus-within:bg-white focus-within:ring-4 focus-within:ring-brand/10">
+                                <textarea
+                                    ref={inputRef}
+                                    rows={1}
+                                    value={input}
+                                    onChange={(e) => setInput(e.target.value)}
+                                    onKeyDown={onInputKeyDown}
+                                    // Not in this React version's textarea typings, but supported by mobile keyboards.
+                                    {...({ enterKeyHint: 'send' } as Record<string, string>)}
+                                    placeholder={isEn ? 'Type your question…' : 'Escreva a sua dúvida…'}
+                                    aria-label={isEn ? 'Your question' : 'A sua dúvida'}
+                                    className="max-h-[120px] flex-1 resize-none bg-transparent py-2 text-base leading-6 text-slate-900 outline-none placeholder:text-slate-400"
+                                />
+                                <button
+                                    type="submit"
+                                    disabled={!input.trim() || isLoading}
+                                    className={`${BRAND_GRADIENT} flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-white shadow-md transition-all hover:shadow-lg active:scale-95 disabled:opacity-40 disabled:shadow-none`}
+                                    aria-label={isEn ? 'Send' : 'Enviar'}
+                                >
+                                    <ArrowUp className="h-5 w-5" strokeWidth={2.5} />
+                                </button>
+                            </form>
+                            <p className="mt-2 text-center text-[11px] leading-tight text-slate-400">
+                                {isEn ? 'AI can make mistakes · official confirmation: ' : 'A IA pode errar · confirmação oficial: '}
+                                <a href={`mailto:${CONTACT_EMAIL}`} className="underline underline-offset-2 hover:text-slate-600">{CONTACT_EMAIL}</a>
+                            </p>
                         </div>
-                    )}
-
-                    {/* Input */}
-                    <div className="p-3 bg-white border-t border-slate-100 shrink-0">
-                        <form onSubmit={handleSend} className="flex gap-2 items-center">
-                            <input
-                                type="text"
-                                value={input}
-                                onChange={(e) => setInput(e.target.value)}
-                                placeholder={isEn ? 'Type your question...' : 'Escreva a sua dúvida...'}
-                                disabled={isLoading}
-                                className="flex-1 bg-slate-100/80 border border-slate-200 focus:border-yellow-400 focus:bg-white focus:ring-2 focus:ring-yellow-400/20 text-sm rounded-full px-5 py-3 transition-all outline-none disabled:opacity-60"
-                            />
-                            <button
-                                type="submit"
-                                disabled={!input.trim() || isLoading}
-                                className="bg-slate-900 hover:bg-slate-800 text-white disabled:opacity-50 disabled:cursor-not-allowed w-11 h-11 rounded-full shadow-md transition-all flex items-center justify-center shrink-0 group"
-                                aria-label={isEn ? 'Send' : 'Enviar'}
-                            >
-                                <Send className="w-4 h-4 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
-                            </button>
-                        </form>
-                    </div>
-                    <div className="bg-slate-50/80 text-[9px] text-slate-400 text-center py-2 max-sm:pb-[max(0.5rem,env(safe-area-inset-bottom))] border-t border-slate-100 shrink-0">
-                        {isEn ? 'Apostolate AI • For official confirmation: ' : 'IA do Apostolado • Para confirmação oficial: '}geral@apostoladodegarabandal.com
-                    </div>
-                </div>
-            )}
+                    </motion.div>
+                )}
+            </AnimatePresence>
 
             {/* FAB — hidden on phones while the sheet is open, since the sheet has
                 its own close button and the floating one would sit on top of it. */}
-            <div className={`relative pointer-events-auto items-center gap-4 ${isOpen ? 'hidden sm:flex' : 'flex'}`}>
-                {!isOpen && showTooltip && (
-                    <div className="hidden sm:flex items-center bg-white px-4 py-2.5 rounded-2xl shadow-lg border border-slate-100 animate-in fade-in slide-in-from-right-5 duration-500 cursor-pointer" onClick={toggleChat}>
-                        <span className="text-sm font-bold text-slate-700">{isEn ? 'Got questions? Ask the AI 🙏' : 'Tem dúvidas? Pergunte à IA 🙏'}</span>
-                        <div className="absolute right-[-6px] top-1/2 -translate-y-1/2 w-3 h-3 bg-white border-r border-t border-slate-100 transform rotate-45"></div>
-                    </div>
-                )}
-                <button
-                    onClick={toggleChat}
-                    aria-label={isOpen ? (isEn ? 'Close chat' : 'Fechar chat') : (isEn ? 'Open chat' : 'Abrir chat')}
-                    className={`relative flex items-center justify-center w-16 h-16 rounded-full shadow-[0_10px_40px_rgba(0,0,0,0.3)] transition-all duration-300 ${
-                        isOpen
-                            ? 'bg-slate-900 text-white hover:bg-slate-800 rotate-90 scale-90'
-                            : 'bg-gradient-to-tr from-yellow-500 to-yellow-400 text-slate-900 hover:scale-110 hover:shadow-[0_15px_50px_rgba(234,179,8,0.4)]'
-                    }`}
-                >
-                    {isOpen ? <X className="w-7 h-7" /> : <MessageCircle className="w-8 h-8" />}
-                    {!isOpen && (
-                        <span className="absolute top-0 right-0 flex h-4 w-4">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                            <span className="relative inline-flex rounded-full h-4 w-4 bg-red-500 border-2 border-white"></span>
-                        </span>
+            <div className={`relative pointer-events-auto items-center gap-3 ${hideLauncher && !isOpen ? 'hidden' : isOpen ? 'hidden sm:flex' : 'flex'}`}>
+                <AnimatePresence>
+                    {!isOpen && showNudge && (
+                        <motion.button
+                            key="nudge"
+                            type="button"
+                            initial={reduceMotion ? { opacity: 0 } : { opacity: 0, x: 16, scale: 0.95 }}
+                            animate={{ opacity: 1, x: 0, scale: 1 }}
+                            exit={{ opacity: 0, x: 8 }}
+                            transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+                            onClick={() => openChat('nudge')}
+                            className="relative max-w-[230px] rounded-2xl border border-brand-200/70 bg-white px-4 py-2.5 text-left text-[14px] font-semibold leading-snug text-slate-800 shadow-[0_10px_30px_-8px_rgba(30,58,138,0.35)]"
+                        >
+                            {nudgeText}
+                            <span className="absolute right-[-6px] top-1/2 h-3 w-3 -translate-y-1/2 rotate-45 border-r border-t border-brand-200/70 bg-white" />
+                        </motion.button>
                     )}
-                </button>
+                </AnimatePresence>
+                <motion.button
+                    onClick={() => (isOpen ? closeChat() : openChat('fab'))}
+                    aria-label={isOpen ? (isEn ? 'Close chat' : 'Fechar chat') : (isEn ? 'Open chat' : 'Abrir chat')}
+                    aria-expanded={isOpen}
+                    whileHover={reduceMotion ? undefined : { scale: 1.06, y: -2 }}
+                    whileTap={reduceMotion ? undefined : { scale: 0.94 }}
+                    className={`relative h-14 w-14 rounded-full text-white sm:h-[60px] sm:w-[60px] ${isOpen ? 'flex items-center justify-center bg-slate-900 shadow-lg' : 'btn-member'}`}
+                >
+                    <AnimatePresence mode="wait" initial={false}>
+                        <motion.span
+                            key={isOpen ? 'close' : 'open'}
+                            initial={reduceMotion ? false : { rotate: -90, opacity: 0 }}
+                            animate={{ rotate: 0, opacity: 1 }}
+                            exit={{ rotate: 90, opacity: 0 }}
+                            transition={{ duration: 0.18 }}
+                            className="flex items-center justify-center"
+                        >
+                            {isOpen ? <X className="h-6 w-6" /> : <MessageCircle className="h-7 w-7" />}
+                        </motion.span>
+                    </AnimatePresence>
+                    {!isOpen && showNudge && (
+                        <span className="absolute right-0.5 top-0.5 h-3.5 w-3.5 rounded-full border-2 border-white bg-red-500" />
+                    )}
+                </motion.button>
             </div>
         </div>
     );

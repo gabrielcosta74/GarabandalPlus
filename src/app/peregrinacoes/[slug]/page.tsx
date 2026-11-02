@@ -856,6 +856,8 @@ export default function PilgrimageDetailPage() {
                 remainingSpots={remainingSpots}
                 registrationLink={registrationLink}
                 isWaitlist={isWaitlist}
+                onOpenFlights={() => setActiveInfoModal('flights')}
+                hideLauncher={activeInfoModal !== null}
             />
         </VIPLayout >
     );
