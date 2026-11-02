@@ -641,7 +641,12 @@ export default function ChatWidget({
     // Starters live inside the conversation, under the greeting: as a footer they
     // wrapped into three rows on desktop and hid the greeting itself.
     const starterChips = messages.length <= 1 && !isLoading ? (isForm ? CHIPS_FORM : CHIPS_PAGE) : [];
-    const suggestionChips = !isLoading && !starterChips.length ? lastParsed?.suggestions ?? [] : [];
+    // When the model forgets its suggestions, fall back to starters not yet asked.
+    const askedQuestions = new Set(messages.filter(m => m.role === 'user').map(m => m.content.trim()));
+    const fallbackChips = (isForm ? CHIPS_FORM : CHIPS_PAGE).filter(chip => !askedQuestions.has(chip)).slice(0, 3);
+    const suggestionChips = !isLoading && !starterChips.length && lastParsed
+        ? (lastParsed.suggestions.length ? lastParsed.suggestions : fallbackChips)
+        : [];
 
     const urgent = isNovemberCampaign || (typeof remainingSpots === 'number' && remainingSpots <= 5);
 

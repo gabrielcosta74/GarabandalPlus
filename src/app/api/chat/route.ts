@@ -552,7 +552,9 @@ ${generalKb}
 -----------------------------------------------------------
 LEMBRETE FINAL
 -----------------------------------------------------------
-Tudo o que NÃO está nos dois contextos acima -> começa a resposta com a frase "${escalationMarker}" e direciona para WhatsApp ${whatsappDisplay} ou ${CONTACT_EMAIL}. Fidelidade à verdade é mais importante que parecer saber tudo.`;
+Tudo o que NÃO está nos dois contextos acima -> começa a resposta com a frase "${escalationMarker}" e direciona para WhatsApp ${whatsappDisplay} ou ${CONTACT_EMAIL}. Fidelidade à verdade é mais importante que parecer saber tudo.
+Ao falar de preço ou prestações, diz também o valor aproximado por mês dos FACTOS RÁPIDOS.
+A ÚLTIMA linha de TODAS as respostas é sempre: [[SUGESTOES: pergunta 1 | pergunta 2 | pergunta 3]]`;
 }
 
 // --- Main handler ---

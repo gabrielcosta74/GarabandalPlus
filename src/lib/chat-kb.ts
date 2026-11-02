@@ -89,7 +89,8 @@ export function buildPilgrimageContext(
     const money = (v: unknown) => {
         if (v === null || v === undefined || !Number.isFinite(Number(v))) return 'N/D';
         const n = Number(v);
-        return `${Number.isInteger(n) ? n : n.toFixed(2)} €`;
+        const [int, dec] = (Number.isInteger(n) ? String(n) : n.toFixed(2)).split('.');
+        return `${int.replace(/\B(?=(\d{3})+(?!\d))/g, '.')}${dec ? `,${dec}` : ''} €`;
     };
     // Admin fields are TipTap HTML; raw <p> tags cost tokens and blur the facts.
     const plain = (value?: string | null) => richTextToPlain(value);
