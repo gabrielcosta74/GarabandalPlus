@@ -106,11 +106,11 @@ export default function UniversalStickyBar({
                     {showFlightsButton && <button type="button" onClick={onOpenFlights} className="pilgrimage-mobile-info"><Plane className="h-4 w-4" aria-hidden="true" /><span>{isEn ? 'See flights' : 'Ver voos'}</span></button>}
                 </div>}
                 {onPrimaryClick ? (
-                    <button type="button" onClick={onPrimaryClick} className="pilgrimage-mobile-cta btn-member group">
+                    <button type="button" onClick={onPrimaryClick} className="pilgrimage-mobile-cta btn-member group" data-track="pilgrimage_cta_clicked" data-track-placement="sticky_bar">
                         <span>{resolvedButtonText}</span><ArrowRight size={18} className="shrink-0" aria-hidden="true" />
                     </button>
                 ) : (
-                    <Link href={link} className="pilgrimage-mobile-cta btn-member group">
+                    <Link href={link} className="pilgrimage-mobile-cta btn-member group" data-track="pilgrimage_cta_clicked" data-track-placement="sticky_bar">
                         <span>{resolvedButtonText}</span><ArrowRight size={18} className="shrink-0" aria-hidden="true" />
                     </Link>
                 )}

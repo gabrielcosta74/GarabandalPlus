@@ -334,6 +334,7 @@ export default function ChatWidget({
         setShowNudge(false);
         captureAnalyticsEvent('chat_opened', {
             source,
+            chat_session_id: sessionId,
             pilgrimage_slug: pilgrimageSlug,
             chat_context: context,
             returning: messages.length > 1,
@@ -376,6 +377,7 @@ export default function ChatWidget({
 
         captureAnalyticsEvent('chat_message_sent', {
             source,
+            chat_session_id: sessionId,
             message_index: nextMessages.filter(m => m.role === 'user').length,
             pilgrimage_slug: pilgrimageSlug,
             chat_context: context,

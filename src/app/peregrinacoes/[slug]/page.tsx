@@ -26,6 +26,7 @@ import { getScarcitySoldPercent, isNovemberCampaignPilgrimage, parseCivilDate } 
 import PilgrimageInfoModal from '../../../components/pilgrimage/PilgrimageInfoModal';
 import PilgrimagePaymentWarningModal from '../../../components/pilgrimage/PilgrimagePaymentWarningModal';
 import { useLocale } from '../../../contexts/LocaleContext';
+import { observeSiteSections, setSitePilgrimageContext, trackSiteEvent } from '../../../lib/site-tracker';
 
 // Lazy load heavy map component
 const SpiritMap = dynamic(() => import('../../../components/pilgrimage/SpiritMap'), {
@@ -361,6 +362,45 @@ export default function PilgrimageDetailPage() {
         });
     }, [previewId, slug, reloadKey]);
 
+    // Tracking próprio: visualização, secções lidas e modais abertos.
+    const trackedPilgrimageId = !loading && !isAdminPreview ? pilgrimage?.id : undefined;
+    useEffect(() => {
+        if (!trackedPilgrimageId || !pilgrimage) return;
+        setSitePilgrimageContext(trackedPilgrimageId);
+        trackSiteEvent('pilgrimage_viewed', {
+            slug: pilgrimage.slug,
+            status: pilgrimage.status ?? null,
+            has_booking: Boolean(existingBooking),
+        });
+        // Espera pelo layout final (mapa e roteiro carregam depois).
+        const timer = window.setTimeout(() => {
+            observeSiteSections({
+                overview: document.getElementById('overview'),
+                team: document.getElementById('team'),
+                itinerary: document.getElementById('itinerary'),
+                pricing: document.getElementById('pricing'),
+                trip_details: document.getElementById('trip-details'),
+            });
+        }, 300);
+        return () => {
+            window.clearTimeout(timer);
+            setSitePilgrimageContext(undefined);
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [trackedPilgrimageId]);
+
+    useEffect(() => {
+        if (trackedPilgrimageId && activeInfoModal) trackSiteEvent('pilgrimage_info_opened', { mode: activeInfoModal });
+    }, [trackedPilgrimageId, activeInfoModal]);
+
+    useEffect(() => {
+        if (trackedPilgrimageId && isPaymentWarningOpen) trackSiteEvent('pilgrimage_payment_warning_shown');
+    }, [trackedPilgrimageId, isPaymentWarningOpen]);
+
+    useEffect(() => {
+        if (trackedPilgrimageId && isWaitlistOpen) trackSiteEvent('pilgrimage_waitlist_opened');
+    }, [trackedPilgrimageId, isWaitlistOpen]);
+
     if (loading) {
         return (
             <VIPLayout allowPublic={true}>
@@ -572,11 +612,11 @@ export default function PilgrimageDetailPage() {
                 {/* Main Content Area */}
                 <div className="container mx-auto px-0 md:px-6 -mt-8 md:-mt-10 relative z-30">
                     <nav className="pilgrimage-jump-nav" aria-label={isEn ? 'On this page' : 'Nesta página'}>
-                        <a href="#overview">{isEn ? 'Overview' : 'Resumo'}</a>
-                        <a href="#team">{isEn ? 'Team' : 'Equipa'}</a>
-                        <a href="#itinerary">{isEn ? 'Itinerary' : 'Roteiro'}</a>
-                        <a className="pilgrimage-mobile-nav-link" href="#trip-details">{isEn ? 'Price & details' : 'Preço e detalhes'}</a>
-                        <a className="pilgrimage-desktop-nav-link" href="#pricing">{isEn ? 'Price & booking' : 'Preço e inscrição'}</a>
+                        <a href="#overview" data-track="pilgrimage_nav_clicked" data-track-target="overview">{isEn ? 'Overview' : 'Resumo'}</a>
+                        <a href="#team" data-track="pilgrimage_nav_clicked" data-track-target="team">{isEn ? 'Team' : 'Equipa'}</a>
+                        <a href="#itinerary" data-track="pilgrimage_nav_clicked" data-track-target="itinerary">{isEn ? 'Itinerary' : 'Roteiro'}</a>
+                        <a className="pilgrimage-mobile-nav-link" href="#trip-details" data-track="pilgrimage_nav_clicked" data-track-target="pricing">{isEn ? 'Price & details' : 'Preço e detalhes'}</a>
+                        <a className="pilgrimage-desktop-nav-link" href="#pricing" data-track="pilgrimage_nav_clicked" data-track-target="pricing">{isEn ? 'Price & booking' : 'Preço e inscrição'}</a>
                     </nav>
                     <div className="pilgrimage-main-grid grid grid-cols-1 lg:grid-cols-3 gap-10 lg:gap-12">
                         {/* Column Left */}
@@ -757,6 +797,8 @@ export default function PilgrimageDetailPage() {
                                             <button
                                                 type="button"
                                                 onClick={() => setIsWaitlistOpen(true)}
+                                                data-track="pilgrimage_waitlist_clicked"
+                                                data-track-placement="pricing"
                                                 className="pilgrimage-main-cta btn-member group min-h-12 w-full gap-3 rounded-full px-7 text-[15px] font-semibold tracking-[-0.01em] !text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700"
                                             >
                                                 <span>{isEn ? 'Join the waiting list' : 'Entrar na lista de espera'}</span>
@@ -768,13 +810,15 @@ export default function PilgrimageDetailPage() {
                                             <button
                                                 type="button"
                                                 onClick={() => setIsPaymentWarningOpen(true)}
+                                                data-track="pilgrimage_cta_clicked"
+                                                data-track-placement="pricing"
                                                 className="pilgrimage-main-cta btn-member group min-h-12 w-full gap-3 rounded-full px-7 text-[15px] font-semibold tracking-[-0.01em] !text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700"
                                             >
                                                 <span>{isEn ? 'Start registration' : 'Começar inscrição'}</span>
                                                 <ArrowRight size={18} aria-hidden className="shrink-0 transition-transform duration-200 motion-safe:group-hover:translate-x-0.5" />
                                             </button>
                                         ) : (
-                                            <Link href={registrationLink} className="pilgrimage-main-cta btn-member group min-h-12 w-full gap-3 rounded-full px-7 text-[15px] font-semibold tracking-[-0.01em] !text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700">
+                                            <Link href={registrationLink} data-track="pilgrimage_cta_clicked" data-track-placement="pricing" className="pilgrimage-main-cta btn-member group min-h-12 w-full gap-3 rounded-full px-7 text-[15px] font-semibold tracking-[-0.01em] !text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700">
                                                 <span>{isEn ? 'Start registration' : 'Começar inscrição'}</span>
                                                 <ArrowRight size={18} aria-hidden className="shrink-0 transition-transform duration-200 motion-safe:group-hover:translate-x-0.5" />
                                             </Link>

@@ -38,6 +38,7 @@ import VIPLayout from '../../../../components/member/VIPLayout';
 import DateInput from '../../../../components/ui/DateInput';
 import ChatWidget from '../../../../components/pilgrimage/ChatWidget';
 import PilgrimageFlightStep from '../../../../components/booking/PilgrimageFlightStep';
+import { getSiteTrackingIds, setSitePilgrimageContext, trackSiteEvent } from '../../../../lib/site-tracker';
 import './registration.css';
 
 /* -------------------------------------------------------------------------- */
@@ -53,6 +54,19 @@ const getCountries = (isEn: boolean) => listCountryOptions(isEn ? 'en' : 'pt-PT'
 }));
 const COUNTRIES = getCountries(false);
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+// "Como conheceu?" no último passo; os valores alimentam a análise de origem (site_events).
+const HEARD_FROM_OPTIONS = [
+    { value: 'whatsapp_grupo', pt: 'Grupo de WhatsApp', en: 'WhatsApp group' },
+    { value: 'amigo_familia', pt: 'Amigo ou familiar', en: 'Friend or family' },
+    { value: 'paroquia', pt: 'Paróquia ou grupo de oração', en: 'Parish or prayer group' },
+    { value: 'ja_peregrinou', pt: 'Já fui numa peregrinação do Apostolado', en: 'I went on an Apostolate pilgrimage before' },
+    { value: 'email', pt: 'Email do Apostolado', en: 'Apostolate email' },
+    { value: 'facebook_instagram', pt: 'Facebook ou Instagram', en: 'Facebook or Instagram' },
+    { value: 'youtube', pt: 'YouTube', en: 'YouTube' },
+    { value: 'google', pt: 'Pesquisa no Google', en: 'Google search' },
+    { value: 'app', pt: 'App do Apostolado', en: 'Apostolate app' },
+    { value: 'outro', pt: 'Outro', en: 'Other' },
+] as const;
 // Methods accepted on the booking payment page (Reduniq online + bank transfer with receipt).
 const PAYMENT_METHOD_CHIPS = [
     { label: 'PIX', labelEn: 'PIX', icon: '/payment-icons/pix.svg' },
@@ -343,7 +357,8 @@ function StepIdentification({
                         pilgrimageId,
                         step: 1,
                         data: { email, phone, locale },
-                        locale
+                        locale,
+                        site: getSiteTrackingIds()
                     })
                 });
             } catch (e) {
@@ -1401,6 +1416,33 @@ export default function PilgrimageBookingPage() {
         init();
     }, [draftId, isLocalDraftPreview, slug]);
 
+    // Tracking próprio: um evento por passo/sub-secção vista. Os nomes dos
+    // passos são os que o funil do admin (site_pilgrimage_funnel) espera.
+    const trackedPilgrimageId = !loading && !isLocalDraftPreview ? pilgrimage?.id as string | undefined : undefined;
+    useEffect(() => {
+        if (!trackedPilgrimageId) return;
+        setSitePilgrimageContext(trackedPilgrimageId);
+        return () => setSitePilgrimageContext(undefined);
+    }, [trackedPilgrimageId]);
+
+    useEffect(() => {
+        if (!trackedPilgrimageId) return;
+        const stepName = step === 1 ? 'identificacao'
+            : step === 2 ? 'dados'
+            : step === 3 ? 'quartos'
+            : step === finalStep ? 'pagamento'
+            : 'voos';
+        trackSiteEvent('registration_step_viewed', {
+            step,
+            step_name: stepName,
+            sub_section: step === 2 ? detailsSection : step === finalStep ? paymentSection : null,
+            pilgrim_index: step === 2 ? activePilgrimIndex : null,
+            pilgrim_count: fields.length,
+            logged_in: isAuthenticated,
+        });
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [trackedPilgrimageId, step, detailsSection, paymentSection, activePilgrimIndex]);
+
     // Keep what was typed when the page reloads: phones discard background tabs
     // (switching apps to find a passport), and the browser back gesture leaves
     // the page. Without this people land back on the contact step, empty.
@@ -1618,8 +1660,19 @@ export default function PilgrimageBookingPage() {
     };
 
     const advanceDetails = async () => {
-        const valid = await methods.trigger(detailFields(activePilgrimIndex, detailsSection), { shouldFocus: true });
-        if (!valid) return;
+        const sectionFields = detailFields(activePilgrimIndex, detailsSection);
+        const valid = await methods.trigger(sectionFields, { shouldFocus: true });
+        if (!valid) {
+            trackSiteEvent('registration_validation_failed', {
+                step,
+                sub_section: detailsSection,
+                fields: sectionFields
+                    .filter((field) => methods.getFieldState(field).invalid)
+                    .map((field) => `pilgrims.${field.split('.').pop()}`)
+                    .join(','),
+            });
+            return;
+        }
         if (detailsSection < 2) {
             setDetailsSection(value => value + 1);
             window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -1632,6 +1685,7 @@ export default function PilgrimageBookingPage() {
         const valid = await methods.trigger(`pilgrims.${activePilgrimIndex}`, { shouldFocus: true });
         if (!valid) return;
         append({ full_name: '', email: '', phone: '', birth_date: '', sex: 'M', address: '', postal_code: '', city: '', country: hasCountryBasedFlightStep ? '' : 'PT', flight_option: (hasCountryBasedFlightStep || requiresExplicitFlightChoice ? '' : 'none') as any, allergies: '', notes: '', cpf_nif: '' });
+        trackSiteEvent('registration_pilgrim_added', { pilgrim_count: fields.length + 1 });
         setActivePilgrimIndex(fields.length);
         setDetailsSection(0);
         setToast(isEn ? `Person ${fields.length + 1} added to the same registration` : `Pessoa ${fields.length + 1} adicionada à mesma inscrição`);
@@ -1658,6 +1712,19 @@ export default function PilgrimageBookingPage() {
     };
 
     const handleValidationErrors = () => {
+        // Só os nomes dos campos em erro, nunca os valores.
+        const errorFields = new Set<string>();
+        const collect = (node: any, key = '') => {
+            if (!node || typeof node !== 'object') return;
+            if (typeof node.message === 'string' || node.type) { errorFields.add(key.replace(/\.\d+\./g, '.')); return; }
+            for (const [childKey, child] of Object.entries(node)) collect(child, key ? `${key}.${childKey}` : childKey);
+        };
+        collect(methods.formState.errors);
+        trackSiteEvent('registration_validation_failed', {
+            step,
+            fields: Array.from(errorFields).slice(0, 12).join(','),
+        });
+
         // 1. Show Global Alert
         Swal.fire({
             title: isEn ? 'Required data missing!' : 'Faltam dados obrigatórios!',
@@ -1748,6 +1815,11 @@ export default function PilgrimageBookingPage() {
             ) : null;
 
             console.log("📞 [Frontend] Calling handleBookingWithAutoLogin...");
+            trackSiteEvent('registration_submitted', {
+                pilgrim_count: pilgrimsPayload.length,
+                payment_method: data.payment_method,
+                installments: data.payment_method === 'installments' ? (installmentCount || maximumInstallmentCount) : null,
+            }, { immediate: true });
 
             const result = await handleBookingWithAutoLogin({
                 email: userEmail,
@@ -1777,6 +1849,9 @@ export default function PilgrimageBookingPage() {
 
         } catch (err: any) {
             console.error("🚨 [Frontend] Booking error:", err);
+            trackSiteEvent('registration_submit_failed', {
+                error: String(err?.code || err?.message || 'unknown').replace(/\S+@\S+/g, '[email]').slice(0, 100),
+            }, { immediate: true });
 
             // [SENIOR UX] User exists logic
             if (err.message && (err.message.includes('already registered') || err.message.includes('User already registered') || err.code === 'user_already_exists')) {
@@ -1988,7 +2063,7 @@ export default function PilgrimageBookingPage() {
                                             </div>}
                                             </div>
                                             <div className="reg-actions">
-                                                <button type="button" onClick={() => { if (detailsSection > 0) setDetailsSection(value => value - 1); else if (activePilgrimIndex > 0) { setActivePilgrimIndex(value => value - 1); setDetailsSection(2); } else setStep(1); }} className="reg-ghost"><ChevronLeft className="w-5 h-5" />{isEn ? 'Back' : 'Voltar'}</button>
+                                                <button type="button" onClick={() => { if (detailsSection > 0) setDetailsSection(value => value - 1); else if (activePilgrimIndex > 0) { setActivePilgrimIndex(value => value - 1); setDetailsSection(2); } else setStep(1); }} className="reg-ghost" data-track="registration_back_clicked" data-track-from="dados"><ChevronLeft className="w-5 h-5" />{isEn ? 'Back' : 'Voltar'}</button>
                                                 <button type="button" onClick={advanceDetails} className="reg-primary">
                                                     {detailsSection === 2 ? (isEn ? 'Choose room' : 'Escolher quarto') : (isEn ? 'Continue' : 'Continuar')} <ChevronRight className="w-5 h-5" />
                                                 </button>
@@ -2006,7 +2081,7 @@ export default function PilgrimageBookingPage() {
                                                 onUpdate={setRooms}
                                                 pricing={pilgrimage?.pricing_config?.room_supplements}
                                             />
-                                            <div className="reg-actions"><button type="button" onClick={() => { setStep(2); setDetailsSection(2); }} className="reg-ghost"><ChevronLeft className="w-5 h-5" />{isEn ? 'Back' : 'Voltar'}</button><button type="button" onClick={nextStep} className="reg-primary">{hasCountryBasedFlightStep ? (isEn ? 'Flight information' : 'Informação dos voos') : (isEn ? 'Review payment' : 'Ver pagamento')} <ChevronRight className="w-5 h-5" /></button></div>
+                                            <div className="reg-actions"><button type="button" onClick={() => { setStep(2); setDetailsSection(2); }} className="reg-ghost" data-track="registration_back_clicked" data-track-from="quartos"><ChevronLeft className="w-5 h-5" />{isEn ? 'Back' : 'Voltar'}</button><button type="button" onClick={nextStep} className="reg-primary">{hasCountryBasedFlightStep ? (isEn ? 'Flight information' : 'Informação dos voos') : (isEn ? 'Review payment' : 'Ver pagamento')} <ChevronRight className="w-5 h-5" /></button></div>
                                         </div>
                                     )}
 
@@ -2215,6 +2290,20 @@ export default function PilgrimageBookingPage() {
                                             </div>}
 
                                             {paymentSection === 1 && <div>
+                                                {/* Atribuição: muita gente chega por passa-palavra, grupos de WhatsApp ou paróquia,
+                                                    que nenhum UTM apanha. Opcional e fora do schema: nunca bloqueia a inscrição. */}
+                                                <label className="reg-field reg-field-select">
+                                                    <span className="reg-field-label">{isEn ? 'How did you hear about this pilgrimage?' : 'Como conheceu esta peregrinação?'} <em>{isEn ? '· optional' : '· opcional'}</em></span>
+                                                    <select
+                                                        defaultValue=""
+                                                        onChange={(e) => { if (e.target.value) trackSiteEvent('registration_heard_from', { source: e.target.value }, { immediate: true }); }}
+                                                    >
+                                                        <option value="">{isEn ? 'Choose an option...' : 'Escolha uma opção...'}</option>
+                                                        {HEARD_FROM_OPTIONS.map((option) => (
+                                                            <option key={option.value} value={option.value}>{isEn ? option.en : option.pt}</option>
+                                                        ))}
+                                                    </select>
+                                                </label>
                                                 <p className="reg-confirm-note"><CalendarClock className="h-4 w-4" aria-hidden="true" /><span>{isEn ? <>After confirming you have <strong>5 days to pay</strong>{registrationFeeDueLabel ? ` (until ${registrationFeeDueLabel})` : ''}.</> : <>Depois de confirmar, tem <strong>5 dias para pagar</strong>{registrationFeeDueLabel ? ` (até ${registrationFeeDueLabel})` : ''}.</>}</span></p>
                                                 <label className="reg-terms">
                                                     <input type="checkbox" {...methods.register('terms_accepted')} />
@@ -2226,7 +2315,7 @@ export default function PilgrimageBookingPage() {
                                             </div>}
 
                                             <div className="reg-actions">
-                                                <button type="button" onClick={() => paymentSection === 1 ? setPaymentSection(0) : setStep(hasCountryBasedFlightStep ? 4 : 3)} className="reg-ghost"><ChevronLeft className="w-5 h-5" />{isEn ? 'Back' : 'Voltar'}</button>
+                                                <button type="button" onClick={() => paymentSection === 1 ? setPaymentSection(0) : setStep(hasCountryBasedFlightStep ? 4 : 3)} className="reg-ghost" data-track="registration_back_clicked" data-track-from="pagamento"><ChevronLeft className="w-5 h-5" />{isEn ? 'Back' : 'Voltar'}</button>
                                                 {/* Distinct keys: otherwise React reuses this <button> and flips it to
                                                     type="submit" mid-click, which submits the form on arrival. */}
                                                 {paymentSection === 0 ? <button key="review" type="button" onClick={() => { setPaymentSection(1); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="reg-primary">{isEn ? 'Review registration' : 'Rever inscrição'} <ChevronRight className="w-5 h-5" /></button> : <button
