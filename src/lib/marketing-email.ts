@@ -28,6 +28,32 @@ const formatFromWithBrand = (raw?: string | null) => {
 
 const notifyFrom = formatFromWithBrand(process.env.NOTIFY_EMAIL_FROM);
 
+// Versão texto do email: clientes sem HTML e filtros de spam esperam uma parte
+// text/plain coerente com o HTML (um email só com HTML pesa na reputação).
+export const htmlToPlainText = (html: string) =>
+  html
+    .replace(/<(style|script|head)[\s\S]*?<\/\1>/gi, '')
+    // preheader escondido e restante texto invisível
+    .replace(/<div[^>]*display:\s*none[^>]*>[\s\S]*?<\/div>/gi, '')
+    .replace(/<a\s[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi, (_match, href: string, label: string) => {
+      const text = label.replace(/<[^>]+>/g, '').trim();
+      if (!text || href.startsWith('mailto:')) return text || href.replace('mailto:', '');
+      return text === href ? href : `${text} (${href})`;
+    })
+    .replace(/<\/(p|div|tr|h[1-6]|li|table)>/gi, '\n')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&middot;/g, '·')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+
 export type MarketingEmailInput = {
   contact: Pick<
     MarketingContact,
@@ -93,6 +119,9 @@ export const sendMarketingEmail = async (input: MarketingEmailInput) => {
     to: [input.contact.normalized_email],
     subject: rendered.subject,
     html: rendered.html,
+    text: htmlToPlainText(rendered.html),
+    // Responder ao email chega a uma caixa lida por pessoas (definir MARKETING_REPLY_TO).
+    ...(process.env.MARKETING_REPLY_TO ? { replyTo: process.env.MARKETING_REPLY_TO } : {}),
     headers: {
       // RFC 8058 one-click unsubscribe — improves deliverability (Gmail/Outlook).
       'List-Unsubscribe': `<${oneClickUrl}>`,

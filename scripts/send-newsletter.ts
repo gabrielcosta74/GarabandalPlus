@@ -12,8 +12,13 @@
  * - ES fica fora por desenho: a audiência é o segmento newsletter-pt ou
  *   newsletter-en via language + newsletter_subscriber.
  *
+ * - Janela de envio: SEND=1 só corre dentro da janela de marketing (9–20h de
+ *   Brasília); FORCE_WINDOW=1 ignora-a. Respeita também o teto de emails por 7 dias.
+ * - Teste: SEND=1 ONLY=voce@email.com envia só a essa morada (estado 'test', sem
+ *   tocar na campanha nem nos lotes).
+ *
  * Uso:
- *   npx tsx scripts/send-newsletter.ts scripts/newsletter-editions/2026-07-pt.json          # dry run
+ *   npx tsx scripts/send-newsletter.ts scripts/newsletter-editions/2026-11-pt.json          # dry run
  *   SEND=1 npx tsx scripts/send-newsletter.ts scripts/newsletter-editions/2026-07-pt.json   # envio real (lote)
  *   SEND=1 MAX_SENDS=300 npx tsx scripts/send-newsletter.ts <edicao.json>                   # lote com teto explícito
  */
@@ -25,6 +30,7 @@ dotenv.config({ path: path.resolve(process.cwd(), '.env') });
 process.env.APP_URL = (process.env.APP_URL || 'https://apostoladodegarabandal.com').replace(/\/+$/, '');
 
 const SEND = process.env.SEND === '1';
+const ONLY = (process.env.ONLY || '').trim().toLowerCase();
 const MAX_SENDS = Math.max(1, Math.min(500, Number(process.env.MAX_SENDS || 300)));
 const SEND_DELAY_MS = 650;
 const APP_URL = process.env.APP_URL;
@@ -73,6 +79,7 @@ async function main() {
   const { renderMarketingTemplateEmail } = await import('../src/lib/email-renderer');
   const { createUnsubscribeToken } = await import('../src/lib/unsubscribe-token');
   const { isDeliverableMarketingEmail } = await import('../src/lib/marketing-core');
+  const { htmlToPlainText } = await import('../src/lib/marketing-email');
 
   if (!process.env.RESEND_API_KEY || !process.env.SUPABASE_SERVICE_ROLE_KEY || !process.env.NEXT_PUBLIC_SUPABASE_URL) {
     console.error('Faltam env vars (RESEND_API_KEY / SUPABASE_SERVICE_ROLE_KEY / NEXT_PUBLIC_SUPABASE_URL).');
@@ -88,44 +95,87 @@ async function main() {
     : rawFrom || 'no-reply@apostoladodegarabandal.com';
   const FROM = `Apostolado de Garabandal <${fromAddress}>`;
 
-  // ---- Audiência: subscritores da newsletter na língua da edição ----
-  const { data: contacts, error: contactsError } = await supabase
-    .from('marketing_contacts')
-    .select('id,display_name,normalized_email,language,consent_state,source_summary')
-    .eq('language', edition.language)
-    .not('consent_state', 'in', '(suppressed,unsubscribed)')
-    .not('normalized_email', 'is', null)
-    .order('normalized_email')
-    .range(0, 4999);
-  if (contactsError) throw contactsError;
+  const { isWithinMarketingSendWindow, getMarketingEmailLimits } = await import('../src/lib/marketing-limits');
+  if (SEND && !ONLY && !isWithinMarketingSendWindow() && process.env.FORCE_WINDOW !== '1') {
+    console.error('Fora da janela de envio de marketing (9–20h de Brasília). Volte a correr dentro da janela (ou FORCE_WINDOW=1).');
+    process.exit(1);
+  }
+  const limits = getMarketingEmailLimits();
 
-  const subscribers = (contacts || [])
+  // O PostgREST corta cada pedido em 1000 linhas: lê tudo por páginas.
+  const fetchAll = async <T,>(build: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: any }>) => {
+    const rows: T[] = [];
+    for (let from = 0; from < 100_000; from += 1000) {
+      const { data, error } = await build(from, from + 999);
+      if (error) throw error;
+      rows.push(...(data || []));
+      if (!data || data.length < 1000) break;
+    }
+    return rows;
+  };
+
+  // ---- Audiência: subscritores da newsletter na língua da edição ----
+  const contacts = await fetchAll<any>((from, to) =>
+    supabase
+      .from('marketing_contacts')
+      .select('id,display_name,normalized_email,language,consent_state,source_summary')
+      .eq('language', edition.language)
+      .not('consent_state', 'in', '(suppressed,unsubscribed)')
+      .not('normalized_email', 'is', null)
+      .order('normalized_email')
+      .range(from, to),
+  );
+
+  // A supressão lê-se diretamente (não só o consent_state guardado, que pode estar
+  // desatualizado até à próxima reconstrução de contactos).
+  const suppressionRows = await fetchAll<any>((from, to) =>
+    supabase.from('marketing_suppression_list').select('normalized_email').order('id').range(from, to),
+  );
+  const suppressedEmails = new Set(suppressionRows.map((row) => String(row.normalized_email || '').toLowerCase()).filter(Boolean));
+
+  const subscribers = contacts
     .filter((c) => Boolean((c.source_summary as any)?.newsletter_subscriber))
-    .filter((c) => isDeliverableMarketingEmail(c.normalized_email));
+    .filter((c) => isDeliverableMarketingEmail(c.normalized_email))
+    .filter((c) => !suppressedEmails.has(String(c.normalized_email).toLowerCase()));
 
   // ---- Dedupe da edição: quem já recebeu esta campanha não repete ----
-  const { data: campaignLogs, error: campaignLogsError } = await supabase
-    .from('marketing_message_logs')
-    .select('contact_id')
-    .eq('status', 'sent')
-    .eq('template_key', 'newsletter_monthly')
-    .contains('metadata', { campaign_slug: edition.campaignSlug });
-  if (campaignLogsError) throw campaignLogsError;
-  const alreadySent = new Set((campaignLogs || []).map((row) => row.contact_id).filter(Boolean));
+  const campaignLogs = await fetchAll<any>((from, to) =>
+    supabase
+      .from('marketing_message_logs')
+      .select('contact_id')
+      .eq('status', 'sent')
+      .eq('template_key', 'newsletter_monthly')
+      .contains('metadata', { campaign_slug: edition.campaignSlug })
+      .order('created_at')
+      .range(from, to),
+  );
+  const alreadySent = new Set(campaignLogs.map((row) => row.contact_id).filter(Boolean));
 
-  // ---- Regra 1 email de marketing/24h por contacto ----
+  // ---- Frequência: 1 email de marketing/24h e teto por 7 dias, por contacto ----
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-  const { data: recentLogs, error: recentError } = await supabase
-    .from('marketing_message_logs')
-    .select('contact_id')
-    .eq('status', 'sent')
-    .gte('created_at', since);
-  if (recentError) throw recentError;
-  const recentlyEmailed = new Set((recentLogs || []).map((row) => row.contact_id).filter(Boolean));
+  const weekSince = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  const weekLogs = await fetchAll<any>((from, to) =>
+    supabase
+      .from('marketing_message_logs')
+      .select('contact_id,created_at')
+      .eq('status', 'sent')
+      .gte('created_at', weekSince)
+      .order('created_at')
+      .range(from, to),
+  );
+  const recentlyEmailed = new Set(weekLogs.filter((row) => row.created_at >= since).map((row) => row.contact_id).filter(Boolean));
+  const weekCounts = new Map<string, number>();
+  for (const row of weekLogs) if (row.contact_id) weekCounts.set(row.contact_id, (weekCounts.get(row.contact_id) || 0) + 1);
 
   const pending = subscribers.filter((c) => !alreadySent.has(c.id));
-  const eligibleNow = pending.filter((c) => !recentlyEmailed.has(c.id));
-  const batch = eligibleNow.slice(0, MAX_SENDS);
+  const eligibleNow = pending.filter(
+    (c) => !recentlyEmailed.has(c.id) && (weekCounts.get(c.id) || 0) < limits.maxEmailsPer7Days,
+  );
+  // ONLY=email: envio de teste a uma só morada, sem dedupe nem limites.
+  const testContact = ONLY
+    ? [{ id: subscribers.find((c) => c.normalized_email === ONLY)?.id || null, display_name: subscribers.find((c) => c.normalized_email === ONLY)?.display_name || '', normalized_email: ONLY }]
+    : null;
+  const batch = (testContact as any[]) || eligibleNow.slice(0, MAX_SENDS);
 
   console.log(`Edição: ${edition.name} (${edition.campaignSlug}, ${edition.language.toUpperCase()})`);
   console.log(`Subscritores ${edition.language.toUpperCase()} contactáveis: ${subscribers.length}`);
@@ -185,7 +235,7 @@ async function main() {
     .maybeSingle();
 
   let campaignId = existingCampaign?.id || null;
-  if (!campaignId) {
+  if (!campaignId && !ONLY) {
     const { data: campaign, error: campaignError } = await supabase
       .from('marketing_campaigns')
       .insert({
@@ -220,11 +270,13 @@ async function main() {
           to: [email],
           subject: rendered.subject,
           html: rendered.html,
+          text: htmlToPlainText(rendered.html),
+          ...(process.env.MARKETING_REPLY_TO ? { replyTo: process.env.MARKETING_REPLY_TO } : {}),
           headers: {
             'List-Unsubscribe': `<${oneClickUrl(email)}>`,
             'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
           },
-        });
+        }, contact.id && !ONLY ? { idempotencyKey: `newsletter-${edition.campaignSlug}-${contact.id}` } : undefined);
         const resultError = (result as any)?.error;
         if (resultError) {
           const message = String(resultError?.message || resultError);
@@ -250,19 +302,20 @@ async function main() {
     if (ok) sent += 1;
     else failed += 1;
 
-    await supabase.from('marketing_message_logs').insert({
+    const { error: logError } = await supabase.from('marketing_message_logs').insert({
       contact_id: contact.id,
-      campaign_id: campaignId,
+      campaign_id: ONLY ? null : campaignId,
       channel: 'email',
       to_email: email,
       provider_message_id: providerId,
       subject: rendered.subject,
       template_key: 'newsletter_monthly',
-      status: ok ? 'sent' : 'failed',
+      status: ONLY ? 'test' : ok ? 'sent' : 'failed',
       error_message: errorMessage,
       sent_at: ok ? new Date().toISOString() : null,
-      metadata: { source: 'newsletter_script', campaign_slug: edition.campaignSlug },
+      metadata: { source: ONLY ? 'newsletter_script_test' : 'newsletter_script', campaign_slug: edition.campaignSlug },
     });
+    if (logError) console.error(`  ! log não gravado para ${email}: ${logError.message}`);
 
     if ((index + 1) % 50 === 0 || index === batch.length - 1) {
       console.log(`  ${index + 1}/${batch.length} · enviados ${sent} · falhados ${failed}`);
@@ -271,7 +324,7 @@ async function main() {
   }
 
   const remaining = pending.length - sent;
-  if (campaignId) {
+  if (campaignId && !ONLY) {
     const previousMetrics = (existingCampaign?.metrics as Record<string, unknown>) || {};
     await supabase
       .from('marketing_campaigns')

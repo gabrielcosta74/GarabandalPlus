@@ -160,3 +160,14 @@ describe('marketing UTM campaign override', () => {
     expect(html).not.toContain('utm_campaign=member_invitation');
   });
 });
+
+import { htmlToPlainText } from '../lib/marketing-email';
+
+describe('plain text version of marketing emails', () => {
+  it('keeps links and paragraphs, drops markup and the hidden preheader', () => {
+    const text = htmlToPlainText(
+      '<style>.a{}</style><div style="display:none;">preheader</div><p>Olá <strong>Maria</strong></p><p>Veja <a href="https://x.pt/a">a página</a> &middot; fim</p>',
+    );
+    expect(text).toBe('Olá Maria\nVeja a página (https://x.pt/a) · fim');
+  });
+});

@@ -35,13 +35,13 @@ const EDITIONS: Record<MarianStep, Edition> = {
     cta: 'Conhecer a peregrinação',
     body: (greeting) => `
       ${paragraph(`<strong>${greeting},</strong>`)}
-      ${paragraph('Em outubro de 2027, convidamos a percorrer connosco o Caminho Mariano: catorze dias de oração, encontro e descoberta, com início em Portugal e passagem por lugares marcantes da fé mariana em Espanha e França.')}
+      ${paragraph('Em outubro de 2027, convidamos você a percorrer conosco o Caminho Mariano: catorze dias de oração, encontro e descoberta, com início em Portugal e passagem por lugares marcantes da fé mariana em Espanha e França.')}
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:28px 0 27px;background:#f7f3f1;border-left:3px solid ${wine};"><tr><td style="padding:22px 25px;">
         <div style="color:${wine};font-size:10px;font-weight:700;letter-spacing:2.2px;">O PERCURSO</div>
         <div style="padding-top:8px;color:${ink};font-family:${serif};font-size:25px;line-height:32px;">De Fátima a Garabandal. De Lourdes a Paris.</div>
         <div style="padding-top:8px;color:${muted};font-size:14px;line-height:23px;">Portugal, Espanha e França, com acompanhamento espiritual e tempo para viver cada lugar.</div>
       </td></tr></table>
-      ${paragraph('O programa oficial reúne as etapas, as condições e todos os passos para a inscrição. Conheça-o e descubra se este caminho é para si.')}`,
+      ${paragraph('O programa oficial reúne as etapas, as condições e todos os passos para a inscrição. Conheça e descubra se este caminho é para você.')}`,
   },
   marian_2027_journey: {
     chapter: '02 / O ITINERÁRIO',
@@ -58,26 +58,26 @@ const EDITIONS: Record<MarianStep, Edition> = {
         ${detailRow('02', 'Lourdes e La Salette', 'Duas etapas marianas no coração do percurso por França.')}
         ${detailRow('03', 'Lisieux e Paris', 'Outros lugares de fé antes do regresso a casa.')}
       </table>
-      ${paragraph('Na página da peregrinação pode percorrer o programa dia a dia e consultar o que está incluído.')}`,
+      ${paragraph('Na página da peregrinação você pode percorrer o programa dia a dia e consultar o que está incluído.')}`,
   },
   marian_2027_practical: {
     chapter: '03 / ANTES DE DECIDIR',
-    title: 'Prepare o seu caminho.',
+    title: 'Prepare seu caminho.',
     subtitle: '11 a 24 de outubro de 2027 · Decidir com tranquilidade',
     photoLabel: 'LOURDES · FRANÇA',
     photoPosition: 'center 52%',
     cta: 'Ver programa e condições',
     body: (greeting) => `
       ${paragraph(`<strong>${greeting},</strong>`)}
-      ${paragraph('Se está a considerar o Caminho Mariano 2027, reunimos num só lugar as informações de que precisa para decidir com tranquilidade.')}
+      ${paragraph('Se você está considerando o Caminho Mariano 2027, reunimos em um só lugar as informações de que precisa para decidir com tranquilidade.')}
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:25px 0 29px;background:#f7f3f1;"><tr><td style="padding:24px 26px;">
         <div style="margin-bottom:14px;color:${wine};font-size:10px;font-weight:700;letter-spacing:2.2px;">NO PROGRAMA OFICIAL</div>
         <div style="padding:10px 0;border-top:1px solid #e4ded8;color:${ink};font-size:15px;line-height:23px;">11 a 24 de outubro de 2027</div>
         <div style="padding:10px 0;border-top:1px solid #e4ded8;color:${ink};font-size:15px;line-height:23px;">Itinerário e acompanhamento espiritual</div>
         <div style="padding:10px 0 0;border-top:1px solid #e4ded8;color:${ink};font-size:15px;line-height:23px;">Condições, preços e inscrição</div>
       </td></tr></table>
-      ${paragraph('Se surgir alguma dúvida, escreva-nos para <a href="mailto:geral@apostoladodegarabandal.com" style="color:#754c58;text-decoration:underline;">geral@apostoladodegarabandal.com</a>. Teremos todo o gosto em ajudar.')}
-      ${paragraph('Quando decidir, pode seguir os passos de inscrição diretamente na página.')}`,
+      ${paragraph('Se surgir alguma dúvida, escreva para <a href="mailto:geral@apostoladodegarabandal.com" style="color:#754c58;text-decoration:underline;">geral@apostoladodegarabandal.com</a>. Teremos prazer em ajudar.')}
+      ${paragraph('Quando decidir, você pode seguir os passos de inscrição diretamente na página.')}`,
   },
 };
 
@@ -187,8 +187,8 @@ export function renderMarian2027EditorialEmail(input: EditorialEmailInput): stri
       </td></tr>
       <tr><td class="edge" style="padding:25px 45px 29px;background:#f7f3f1;border-top:1px solid #e9e1dd;">
         <div style="color:${ink};font-family:${serif};font-size:19px;line-height:25px;">${isEn ? 'We are here to help.' : 'Estamos por perto.'}</div>
-        <p style="margin:8px 0 0;color:${muted};font-size:12px;line-height:20px;">${isEn ? 'Questions about the pilgrimage?' : 'Questões sobre a peregrinação?'} <a href="mailto:geral@apostoladodegarabandal.com" style="color:${wine};text-decoration:underline;">${isEn ? 'Email us' : 'Escreva-nos'}</a> ${isEn ? 'or message us on' : 'ou fale connosco pelo'} <a href="https://wa.me/351915206815" style="color:${wine};text-decoration:underline;">WhatsApp</a>.</p>
-        ${unsubscribeUrl ? `<p style="margin:20px 0 0;color:#7c838b;font-size:11px;line-height:17px;">${isEn ? 'You are receiving this email because you subscribed to our updates. You can' : 'Recebe este email por ter subscrito as nossas comunicações. Pode'} <a href="${unsubscribeUrl}" style="color:#7c838b;text-decoration:underline;">${isEn ? 'unsubscribe' : 'cancelar a subscrição'}</a> ${isEn ? 'at any time.' : 'a qualquer momento.'}</p>` : ''}
+        <p style="margin:8px 0 0;color:${muted};font-size:12px;line-height:20px;">${isEn ? 'Questions about the pilgrimage?' : 'Dúvidas sobre a peregrinação?'} <a href="mailto:geral@apostoladodegarabandal.com" style="color:${wine};text-decoration:underline;">${isEn ? 'Email us' : 'Escreva-nos'}</a> ${isEn ? 'or message us on' : 'ou fale conosco pelo'} <a href="https://wa.me/351915206815" style="color:${wine};text-decoration:underline;">WhatsApp</a>.</p>
+        ${unsubscribeUrl ? `<p style="margin:20px 0 0;color:#7c838b;font-size:11px;line-height:17px;">${isEn ? 'You are receiving this email because you subscribed to our updates. You can' : 'Você recebe este email por ter se inscrito em nossas comunicações. Você pode'} <a href="${unsubscribeUrl}" style="color:#7c838b;text-decoration:underline;">${isEn ? 'unsubscribe' : 'cancelar a inscrição'}</a> ${isEn ? 'at any time.' : 'a qualquer momento.'}</p>` : ''}
       </td></tr>
     </table>
     <div style="padding:22px 10px 0;color:#899097;font-size:10px;letter-spacing:1.1px;text-align:center;">APOSTOLADO DE GARABANDAL</div>

@@ -589,6 +589,21 @@ export const processMarketingEnrollment = async (supabase: any, enrollment: any)
 
   if (!marketingStepConditionsPass(contact, step)) {
     const conditions = getMarketingStepConditions(step);
+
+    // Sem vagas abertas, a recuperação espera em vez de saltar o passo: antes, com
+    // todas as peregrinações cheias, a inscrição percorria os 3 passos sem enviar
+    // nada e ficava "completa" para sempre (55 de 120). Espera até 30 dias.
+    const failing = conditions.filter((condition) => !marketingStepConditionPasses(contact, condition));
+    const waitedDays = enrollment.created_at ? (Date.now() - new Date(enrollment.created_at).getTime()) / 86_400_000 : 0;
+    if (failing.length > 0 && failing.every((condition) => condition === 'has_availability') && waitedDays < 30) {
+      const retryAt = addMarketingHours(new Date(), 48).toISOString();
+      await supabase
+        .from('marketing_enrollments')
+        .update({ next_run_at: retryAt, updated_at: nowIso })
+        .eq('id', enrollment.id);
+      return { enrollment: enrollment.id, status: 'deferred', reason: 'waiting_availability', retryAt };
+    }
+
     const nextStepIndex = enrollment.current_step + 1;
     const nextStep = steps[nextStepIndex];
     await supabase.from('marketing_message_logs').insert({
@@ -663,6 +678,10 @@ export const processMarketingEnrollment = async (supabase: any, enrollment: any)
   const registrationStep = step.template_key === 'abandoned_registration_1'
     ? await getAbandonedRegistrationStep(supabase, contact.normalized_email)
     : null;
+  const referralContext = REFERRAL_TEMPLATES.has(String(step.template_key))
+    ? await getMemberReferralContext(supabase, contact.normalized_email)
+    : {};
+  const context = { ...(registrationStep ? { registrationStep } : {}), ...referralContext };
   const result = await sendMarketingEmail({
     contact,
     subject: step.subject_override || null,
@@ -725,6 +744,29 @@ export const processMarketingEnrollment = async (supabase: any, enrollment: any)
 
   return { enrollment: enrollment.id, status: 'sent', step: enrollment.current_step };
 };
+
+// Os emails de referral levavam à página genérica /member. Com o código do próprio
+// membro, o botão abre o convite pessoal (/convite/<código>), que é o que a pessoa
+// vai partilhar.
+const REFERRAL_TEMPLATES = new Set(['referral_activation', 'share_mission', 'member_referral_activation']);
+
+async function getMemberReferralContext(supabase: any, email: string | null | undefined) {
+  if (!email) return {};
+  try {
+    const { data } = await supabase
+      .from('membros')
+      .select('referral_code')
+      .ilike('email', email.replace(/[%_\\]/g, '\\$&'))
+      .limit(1)
+      .maybeSingle();
+    const code = String(data?.referral_code || '').trim();
+    if (!code) return {};
+    return { referralCode: code, referralUrl: `${APP_URL}/convite/${encodeURIComponent(code)}` };
+  } catch (err) {
+    console.warn('[marketing] referral code lookup failed:', err);
+    return {};
+  }
+}
 
 /**
  * Passo do formulário onde a pessoa parou, para o primeiro email de

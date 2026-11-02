@@ -318,9 +318,9 @@ const Layout = ({
                 <tr>
                   <td align="center" class="px" style="padding:26px 40px 34px;text-align:center;">
                     <p class="email-heading" style="margin:0 0 8px;font-size:15px;line-height:22px;font-weight:800;color:${COLORS.heading};">${locale === "en" ? "Need help?" : "Precisa de ajuda?"}</p>
-                    <p class="email-text" style="margin:0;font-size:13px;line-height:21px;color:${COLORS.textLight};">${locale === "en" ? `Message us on ${contactWa} or email ${contactMail}.` : `Entre em contacto pelo ${contactWa} ou por ${contactMail}.`}</p>
+                    <p class="email-text" style="margin:0;font-size:13px;line-height:21px;color:${COLORS.textLight};">${locale === "en" ? `Message us on ${contactWa} or email ${contactMail}.` : `Fale conosco pelo ${contactWa} ou por ${contactMail}.`}</p>
                     ${WhatsAppButton(locale)}
-                    ${unsubscribeUrl ? `<p class="muted-text" style="margin:18px 0 0;font-size:11px;line-height:18px;color:${COLORS.textLight};">${locale === "en" ? `If you no longer wish to receive these emails, you can <a href="${unsubscribeUrl}" style="color:${COLORS.textLight};text-decoration:underline;">unsubscribe here</a>.` : `Se já não deseja receber estes emails, pode <a href="${unsubscribeUrl}" style="color:${COLORS.textLight};text-decoration:underline;">cancelar a subscrição aqui</a>.`}</p>` : ""}
+                    ${unsubscribeUrl ? `<p class="muted-text" style="margin:18px 0 0;font-size:11px;line-height:18px;color:${COLORS.textLight};">${locale === "en" ? `If you no longer wish to receive these emails, you can <a href="${unsubscribeUrl}" style="color:${COLORS.textLight};text-decoration:underline;">unsubscribe here</a>.` : `Se você não deseja mais receber estes emails, pode <a href="${unsubscribeUrl}" style="color:${COLORS.textLight};text-decoration:underline;">cancelar a inscrição aqui</a>.`}</p>` : ""}
                   </td>
                 </tr>
               </table>
@@ -328,7 +328,7 @@ const Layout = ({
           </tr>
           <tr>
             <td align="center" style="padding:22px 24px 0;">
-              <p class="muted-text" style="margin:0;font-size:12px;line-height:18px;color:#94a3b8;">${title} &middot; Apostolado de Garabandal<br>${locale === "en" ? "Uniting faith and hope." : "Unindo fé e esperança."}</p>
+              <p class="muted-text" style="margin:0;font-size:12px;line-height:18px;color:#94a3b8;">${title} &middot; Apostolado de Garabandal<br>${locale === "en" ? "Uniting faith and hope." : "Unindo fé e esperança."}${process.env.MARKETING_FOOTER_ADDRESS ? `<br>${process.env.MARKETING_FOOTER_ADDRESS}` : ""}</p>
             </td>
           </tr>
         </table>
@@ -4139,14 +4139,14 @@ const MARKETING_EMAIL_TEMPLATE_EN: Partial<Record<MarketingTemplateKey, Marketin
   },
   donation_thank_you: {
     goal: 'Thank the donor and open a future relationship.',
-    defaultSubject: '{{first_name}}, your donation arrived — and it makes a real difference',
+    defaultSubject: '{{first_name}}, thank you — your support makes a real difference',
     previewText: 'Thank you. Here is what your support makes concretely possible.',
     ctaLabel: 'Learn About the Mission',
-    title: 'Your support arrived — thank you',
+    title: 'Thank you for your support',
     subtitle: 'Apostolate of Garabandal',
     paragraphs: [
       'Hello <strong>{{first_name}}</strong>,',
-      'Your donation has been received — and we want you to know it is not just a number in an account. It is what makes it possible to keep this apostolate alive: pilgrimages to Garabandal, spiritual content, welcome and the living presence of Our Lady\'s message.',
+      'You supported the Apostolate with a donation — and we want you to know it is not just a number in an account. It is what makes it possible to keep this apostolate alive: pilgrimages to Garabandal, spiritual content, welcome and the living presence of Our Lady\'s message.',
       'We pray that Our Lady of Garabandal intercedes for you and your family. Your gesture is a concrete act of faith — and it is part of this mission.',
     ],
   },
