@@ -4,7 +4,7 @@ import type { PublicLocale } from '../../lib/cms/categories';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { ArrowRight, Search, X, SlidersHorizontal, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Search, X, ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react';
 
 /** Plain, serializable shape passed from the server page. */
 export type BrowseItem = {
@@ -14,6 +14,8 @@ export type BrowseItem = {
   cover: string | null;
   excerpt: string | null;
   date: string; // ISO — used for sorting
+  /** Formatted on the server so SSR and hydration render the same string. */
+  dateLabel: string;
   tags: string[];
 };
 
@@ -23,87 +25,87 @@ const STR = {
   pt: {
     search: 'Pesquisar nesta secção…',
     all: 'Todos',
+    sortLabel: 'Ordenar',
     sortRecent: 'Mais recentes',
     sortOld: 'Mais antigos',
     sortAz: 'A–Z',
     none: 'Nenhum resultado encontrado.',
     noneHint: 'Tente outra pesquisa ou limpe os filtros.',
     clear: 'Limpar filtros',
-    read: 'Ler',
-    result: 'resultado',
-    results: 'resultados',
+    result: 'artigo',
+    results: 'artigos',
     prev: 'Página anterior',
     next: 'Página seguinte',
-    page: 'Página',
-    of: 'de',
+    prevShort: 'Anterior',
+    nextShort: 'Seguinte',
   },
   en: {
     search: 'Search this section…',
     all: 'All',
+    sortLabel: 'Sort',
     sortRecent: 'Newest',
     sortOld: 'Oldest',
     sortAz: 'A–Z',
     none: 'No results found.',
     noneHint: 'Try another search or clear the filters.',
     clear: 'Clear filters',
-    read: 'Read',
-    result: 'result',
-    results: 'results',
+    result: 'article',
+    results: 'articles',
     prev: 'Previous page',
     next: 'Next page',
-    page: 'Page',
-    of: 'of',
+    prevShort: 'Previous',
+    nextShort: 'Next',
   },
   es: {
     search: 'Buscar en esta sección…',
     all: 'Todos',
+    sortLabel: 'Ordenar',
     sortRecent: 'Más recientes',
     sortOld: 'Más antiguos',
     sortAz: 'A–Z',
     none: 'No se han encontrado resultados.',
     noneHint: 'Pruebe otra búsqueda o borre los filtros.',
     clear: 'Borrar filtros',
-    read: 'Leer',
-    result: 'resultado',
-    results: 'resultados',
+    result: 'artículo',
+    results: 'artículos',
     prev: 'Página anterior',
     next: 'Página siguiente',
-    page: 'Página',
-    of: 'de',
+    prevShort: 'Anterior',
+    nextShort: 'Siguiente',
   },
   fr: {
     search: 'Rechercher dans cette section…',
     all: 'Tous',
+    sortLabel: 'Trier',
     sortRecent: 'Plus récents',
     sortOld: 'Plus anciens',
     sortAz: 'A–Z',
     none: 'Aucun résultat trouvé.',
     noneHint: 'Essayez une autre recherche ou effacez les filtres.',
     clear: 'Effacer les filtres',
-    read: 'Lire',
-    result: 'résultat',
-    results: 'résultats',
+    result: 'article',
+    results: 'articles',
     prev: 'Page précédente',
     next: 'Page suivante',
-    page: 'Page',
-    of: 'sur',
+    prevShort: 'Précédent',
+    nextShort: 'Suivant',
   },
   it: {
     search: 'Cerca in questa sezione…',
     all: 'Tutti',
+    sortLabel: 'Ordina',
     sortRecent: 'Più recenti',
     sortOld: 'Meno recenti',
     sortAz: 'A–Z',
     none: 'Nessun risultato trovato.',
     noneHint: 'Provi un\'altra ricerca o cancelli i filtri.',
     clear: 'Cancella filtri',
-    read: 'Leggi',
-    result: 'risultato',
-    results: 'risultati',
+    result: 'articolo',
+    results: 'articoli',
     prev: 'Pagina precedente',
     next: 'Pagina successiva',
-    page: 'Pagina',
-    of: 'di',
+    prevShort: 'Precedente',
+    nextShort: 'Successiva',
   },
 };
 
@@ -124,7 +126,7 @@ export function CategoryBrowser({
   items,
   tags,
   locale,
-  pageSize = 9,
+  pageSize = 10,
 }: {
   items: BrowseItem[];
   tags: string[];
@@ -178,72 +180,67 @@ export function CategoryBrowser({
 
   return (
     <div ref={topRef} className="scroll-mt-24">
-      {/* FILTER BAR */}
-      <div className="mb-8 flex flex-col gap-4">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-          {/* Search */}
-          <div className="relative flex-1">
-            <Search size={18} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input
-              type="search"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder={s.search}
-              className="w-full rounded-xl border border-slate-200 bg-white py-3 pl-11 pr-10 text-sm text-garabandal-dark shadow-sm outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/30"
-            />
-            {query && (
-              <button
-                type="button"
-                onClick={() => setQuery('')}
-                aria-label={s.clear}
-                className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1 text-slate-400 hover:bg-slate-100 hover:text-garabandal-dark"
-              >
-                <X size={16} />
-              </button>
-            )}
-          </div>
-
-          {/* Sort */}
-          <div className="relative shrink-0">
-            <SlidersHorizontal size={16} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-            <select
-              value={sort}
-              onChange={(e) => setSort(e.target.value as SortKey)}
-              className="w-full cursor-pointer appearance-none rounded-xl border border-slate-200 bg-white py-3 pl-10 pr-9 text-sm font-medium text-garabandal-dark shadow-sm outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/30 sm:w-auto"
+      {/* FILTER BAR — search + sort on one line, topics as text tabs below */}
+      <div className="flex items-center gap-4 border-b border-line">
+        <label className="relative flex min-w-0 flex-1 items-center">
+          <Search size={17} className="pointer-events-none absolute left-0 text-muted" />
+          <input
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder={s.search}
+            aria-label={s.search}
+            className="w-full bg-transparent py-3.5 pl-7 pr-8 text-[15px] text-ink outline-none placeholder:text-muted [&::-webkit-search-cancel-button]:hidden"
+          />
+          {query && (
+            <button
+              type="button"
+              onClick={() => setQuery('')}
+              aria-label={s.clear}
+              className="absolute right-0 rounded p-1 text-muted hover:text-ink"
             >
-              <option value="recent">{s.sortRecent}</option>
-              <option value="old">{s.sortOld}</option>
-              <option value="az">{s.sortAz}</option>
-            </select>
-            <span className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400">▾</span>
-          </div>
-        </div>
+              <X size={16} />
+            </button>
+          )}
+        </label>
 
-        {/* Tag chips */}
-        {tags.length > 0 && (
-          <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            <Chip active={activeTag === null} onClick={() => setActiveTag(null)}>
-              {s.all}
-            </Chip>
-            {tags.map((tag) => (
-              <Chip key={tag} active={activeTag === tag} onClick={() => setActiveTag(activeTag === tag ? null : tag)}>
-                {tag}
-              </Chip>
-            ))}
-          </div>
-        )}
-
-        {/* Result count */}
-        <p className="text-sm text-slate-400">
-          {filtered.length} {filtered.length === 1 ? s.result : s.results}
-        </p>
+        <label className="relative flex shrink-0 items-center">
+          <span className="sr-only">{s.sortLabel}</span>
+          <select
+            value={sort}
+            onChange={(e) => setSort(e.target.value as SortKey)}
+            className="cursor-pointer appearance-none bg-transparent py-3.5 pr-5 text-sm font-medium text-ink outline-none"
+          >
+            <option value="recent">{s.sortRecent}</option>
+            <option value="old">{s.sortOld}</option>
+            <option value="az">{s.sortAz}</option>
+          </select>
+          <ChevronDown size={14} className="pointer-events-none absolute right-0 text-muted" />
+        </label>
       </div>
+
+      {tags.length > 0 && (
+        <div className="-mx-4 flex gap-6 overflow-x-auto border-b border-line px-4 [scrollbar-width:none] sm:mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden">
+          <TopicTab active={activeTag === null} onClick={() => setActiveTag(null)}>
+            {s.all}
+          </TopicTab>
+          {tags.map((tag) => (
+            <TopicTab key={tag} active={activeTag === tag} onClick={() => setActiveTag(activeTag === tag ? null : tag)}>
+              {tag}
+            </TopicTab>
+          ))}
+        </div>
+      )}
+
+      <p className="mt-6 text-sm text-muted">
+        {filtered.length} {filtered.length === 1 ? s.result : s.results}
+      </p>
 
       {/* RESULTS */}
       {pageItems.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-slate-200 bg-white/60 px-6 py-16 text-center">
-          <p className="font-serif text-xl text-garabandal-dark">{s.none}</p>
-          <p className="mt-2 text-sm text-slate-500">{s.noneHint}</p>
+        <div className="py-16">
+          <p className="text-lg font-semibold text-ink">{s.none}</p>
+          <p className="mt-1.5 text-[15px] text-muted">{s.noneHint}</p>
           {hasFilters && (
             <button
               type="button"
@@ -251,7 +248,7 @@ export function CategoryBrowser({
                 setQuery('');
                 setActiveTag(null);
               }}
-              className="mt-5 inline-flex items-center gap-2 rounded-xl bg-brand-50 px-5 py-2.5 text-sm font-bold text-brand-700 transition hover:bg-brand hover:text-white"
+              className="mt-4 text-sm font-medium text-brand underline-offset-4 hover:underline"
             >
               {s.clear}
             </button>
@@ -259,9 +256,9 @@ export function CategoryBrowser({
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          <div>
             {pageItems.map((item) => (
-              <ContentCard key={item.id} item={item} read={s.read} />
+              <ArticleRow key={item.id} item={item} />
             ))}
           </div>
 
@@ -270,7 +267,7 @@ export function CategoryBrowser({
               current={current}
               total={totalPages}
               onChange={goTo}
-              labels={{ prev: s.prev, next: s.next, page: s.page, of: s.of }}
+              labels={{ prev: s.prev, next: s.next, prevShort: s.prevShort, nextShort: s.nextShort }}
             />
           )}
         </>
@@ -288,26 +285,23 @@ function Pagination({
   current: number;
   total: number;
   onChange: (p: number) => void;
-  labels: { prev: string; next: string; page: string; of: string };
+  labels: { prev: string; next: string; prevShort: string; nextShort: string };
 }) {
   const pages = pageList(current, total);
+  const stepClass =
+    'inline-flex items-center gap-1 text-sm font-medium text-ink transition-colors hover:text-brand disabled:invisible';
 
   return (
-    <nav aria-label="Pagination" className="mt-12 flex flex-col items-center gap-4">
-      <div className="flex items-center gap-1.5">
-        <button
-          type="button"
-          onClick={() => onChange(current - 1)}
-          disabled={current === 1}
-          aria-label={labels.prev}
-          className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-garabandal-dark transition hover:border-brand-200 hover:bg-brand-50 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-slate-200 disabled:hover:bg-white"
-        >
-          <ChevronLeft size={18} />
-        </button>
+    <nav aria-label="Pagination" className="mt-10 flex items-center justify-between gap-4">
+      <button type="button" onClick={() => onChange(current - 1)} disabled={current === 1} aria-label={labels.prev} className={stepClass}>
+        <ChevronLeft size={16} />
+        <span className="hidden sm:inline">{labels.prevShort}</span>
+      </button>
 
+      <div className="flex items-center gap-1">
         {pages.map((p, idx) =>
           p === '…' ? (
-            <span key={`gap-${idx}`} className="px-2 text-slate-400">
+            <span key={`gap-${idx}`} className="px-1.5 text-sm text-muted">
               …
             </span>
           ) : (
@@ -316,35 +310,25 @@ function Pagination({
               type="button"
               onClick={() => onChange(p)}
               aria-current={p === current ? 'page' : undefined}
-              className={`flex h-10 min-w-10 items-center justify-center rounded-xl border px-3 text-sm font-bold transition ${
-                p === current
-                  ? 'border-transparent bg-garabandal-dark text-white shadow-sm'
-                  : 'border-slate-200 bg-white text-garabandal-dark hover:border-brand-200 hover:bg-brand-50'
+              className={`flex h-9 min-w-9 items-center justify-center rounded-md px-2 text-sm tabular-nums transition-colors ${
+                p === current ? 'bg-paper font-semibold text-ink' : 'text-muted hover:text-ink'
               }`}
             >
               {p}
             </button>
           ),
         )}
-
-        <button
-          type="button"
-          onClick={() => onChange(current + 1)}
-          disabled={current === total}
-          aria-label={labels.next}
-          className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-garabandal-dark transition hover:border-brand-200 hover:bg-brand-50 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-slate-200 disabled:hover:bg-white"
-        >
-          <ChevronRight size={18} />
-        </button>
       </div>
-      <p className="text-xs uppercase tracking-widest text-slate-400">
-        {labels.page} {current} {labels.of} {total}
-      </p>
+
+      <button type="button" onClick={() => onChange(current + 1)} disabled={current === total} aria-label={labels.next} className={stepClass}>
+        <span className="hidden sm:inline">{labels.nextShort}</span>
+        <ChevronRight size={16} />
+      </button>
     </nav>
   );
 }
 
-function Chip({
+function TopicTab({
   active,
   onClick,
   children,
@@ -357,10 +341,9 @@ function Chip({
     <button
       type="button"
       onClick={onClick}
-      className={`shrink-0 rounded-full border px-4 py-1.5 text-sm font-medium capitalize transition ${
-        active
-          ? 'border-transparent bg-garabandal-dark text-white shadow-sm'
-          : 'border-slate-200 bg-white text-slate-600 hover:border-brand-200 hover:text-brand-700'
+      aria-pressed={active}
+      className={`-mb-px shrink-0 border-b-2 py-3 text-sm capitalize transition-colors ${
+        active ? 'border-ink font-medium text-ink' : 'border-transparent text-muted hover:text-ink'
       }`}
     >
       {children}
@@ -368,33 +351,63 @@ function Chip({
   );
 }
 
-export function ContentCard({ item, read }: { item: BrowseItem; read: string }) {
+/** One article in the list: date, title and excerpt, thumbnail on the right.
+ *  The title link is stretched over the whole row so the row is the target. */
+export function ArticleRow({ item }: { item: BrowseItem }) {
   return (
-    <Link
-      href={item.href}
-      className="group flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl"
-    >
-      <div className="relative aspect-[16/9] w-full overflow-hidden bg-slate-100">
+    <article className="group relative flex gap-5 border-b border-line py-7 sm:gap-8">
+      <div className="min-w-0 flex-1">
+        <time dateTime={item.date} className="text-[13px] text-muted">
+          {item.dateLabel}
+        </time>
+        <h3 className="mt-1.5 text-lg font-semibold leading-snug tracking-[-0.01em] text-ink transition-colors group-hover:text-brand sm:text-xl">
+          <Link href={item.href} className="after:absolute after:inset-0">
+            {item.title}
+          </Link>
+        </h3>
+        {item.excerpt && (
+          <p className="mt-2 line-clamp-2 text-[15px] leading-relaxed text-muted">{item.excerpt}</p>
+        )}
+      </div>
+      {item.cover && (
+        <div className="relative aspect-[4/3] w-24 shrink-0 self-start overflow-hidden rounded-md bg-paper sm:w-44">
+          <Image src={item.cover} alt="" fill sizes="(max-width: 640px) 96px, 176px" className="object-cover" />
+        </div>
+      )}
+    </article>
+  );
+}
+
+/** Image-led card for the "recommended" block: a large lead and smaller companions. */
+export function FeatureCard({ item, lead = false }: { item: BrowseItem; lead?: boolean }) {
+  return (
+    <article className="group relative">
+      <div className={`relative w-full overflow-hidden rounded-lg bg-paper ${lead ? 'aspect-[16/10]' : 'aspect-[16/9]'}`}>
         {item.cover && (
           <Image
             src={item.cover}
             alt=""
             fill
-            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-            className="object-cover transition-transform duration-700 group-hover:scale-105"
+            sizes={lead ? '(max-width: 1024px) 100vw, 600px' : '(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 380px'}
+            className="object-cover transition-transform duration-500 group-hover:scale-[1.02]"
           />
         )}
       </div>
-      <div className="flex flex-1 flex-col p-6">
-        <h3 className="font-serif text-xl font-bold leading-snug text-garabandal-dark">{item.title}</h3>
-        {item.excerpt && (
-          <p className="mt-2 line-clamp-3 flex-1 text-sm leading-relaxed text-slate-600">{item.excerpt}</p>
-        )}
-        <span className="mt-5 inline-flex w-fit items-center gap-2 rounded-xl bg-brand-50 px-5 py-2.5 text-sm font-bold text-brand-700 shadow-sm transition-colors group-hover:bg-brand group-hover:text-white">
-          {read}
-          <ArrowRight size={16} className="transition-transform group-hover:translate-x-1" />
-        </span>
-      </div>
-    </Link>
+      <time dateTime={item.date} className="mt-4 block text-[13px] text-muted">
+        {item.dateLabel}
+      </time>
+      <h3
+        className={`mt-1.5 font-semibold text-ink transition-colors group-hover:text-brand ${
+          lead ? 'text-2xl leading-tight tracking-[-0.02em] sm:text-[1.75rem]' : 'text-lg leading-snug tracking-[-0.01em]'
+        }`}
+      >
+        <Link href={item.href} className="after:absolute after:inset-0">
+          {item.title}
+        </Link>
+      </h3>
+      {lead && item.excerpt && (
+        <p className="mt-3 line-clamp-3 text-base leading-relaxed text-muted">{item.excerpt}</p>
+      )}
+    </article>
   );
 }

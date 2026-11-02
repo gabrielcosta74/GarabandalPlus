@@ -1,46 +1,28 @@
 import Link from 'next/link';
-import {
-  ArrowUpRight,
-  Scroll,
-  BookOpen,
-  MessageCircleHeart,
-  Users,
-  Sparkles,
-  Info,
-  Home,
-  Compass,
-} from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import { CATEGORIES, PUBLIC_NAV_ORDER, localePrefix, type CategoryKey, type PublicLocale } from '../../lib/cms/categories';
 import {
   cmsListPublishedByCategory,
   type NavItem,
 } from '../../lib/cms/queries';
 import { PUBLISHED_ONLY } from '../../lib/content/preview';
-import { CategoryBrowser, ContentCard, type BrowseItem } from './CategoryBrowser';
+import { CategoryBrowser, FeatureCard, type BrowseItem } from './CategoryBrowser';
 
 /**
  * Shared category landing page used by /historia, /ensinamentos, /mensagens,
  * /testemunhos, /profecias, /noticias and their EN counterparts.
  *
- * Light, white, mobile-first. Structure:
- *   1. Light hero: breadcrumb + category label + intro
- *   2. Recommended reads: curated highlights
- *   3. Browse all content: searchable, filterable (tags), sortable, paginated
+ * Editorial, white, mobile-first, Inter throughout. One left-aligned column
+ * edge for everything. Structure:
+ *   1. Header: breadcrumb + title + intro and overview prose in one text column
+ *   2. Recommended reads: one lead story and two companions
+ *   3. All articles: searchable, filterable (tags), sortable, paginated list
  *   4. Empty state when nothing is published yet
  *   5. Cross-category navigation ("Explorar a Mensagem")
  */
 type Props = {
   category: CategoryKey;
   locale: PublicLocale;
-};
-
-const ICONS: Record<CategoryKey, typeof Scroll> = {
-  historia: Scroll,
-  ensinamentos: BookOpen,
-  mensagens: MessageCircleHeart,
-  testemunhos: Users,
-  profecias: Sparkles,
-  noticias: Info,
 };
 
 // Unique, factual descriptive prose per category. Gives the landing pages real
@@ -118,67 +100,47 @@ const CATEGORY_KEYS = new Set<string>(Object.keys(CATEGORIES));
 const T = {
   pt: {
     featured: 'Recomendados para ler',
-    featuredSub: 'O conteúdo essencial para começar por aqui.',
-    all: 'Todos os conteúdos',
+    all: 'Todos os artigos',
     emptyTitle: 'Conteúdo a chegar em breve',
     emptyDesc: 'Estamos a preparar os artigos desta secção. Entretanto, explore as outras áreas da Mensagem.',
-    readMore: 'Ler',
     home: 'Início',
     exploreHeading: 'Explorar a Mensagem',
-    exploreSub: 'Continue a sua leitura por outras áreas de Garabandal.',
-    section: 'A Mensagem',
     heading: (l: string) => `${l} de Garabandal`,
   },
   en: {
     featured: 'Recommended reads',
-    featuredSub: 'The essential content to begin with.',
-    all: 'All content',
+    all: 'All articles',
     emptyTitle: 'Content coming soon',
     emptyDesc: 'We are preparing the articles for this section. In the meantime, explore the other areas of the Message.',
-    readMore: 'Read',
     home: 'Home',
     exploreHeading: 'Explore the Message',
-    exploreSub: 'Continue your reading through other areas of Garabandal.',
-    section: 'The Message',
     heading: (l: string) => `Garabandal ${l}`,
   },
   es: {
     featured: 'Lecturas recomendadas',
-    featuredSub: 'El contenido esencial para empezar.',
-    all: 'Todos los contenidos',
+    all: 'Todos los artículos',
     emptyTitle: 'Contenido próximamente',
     emptyDesc: 'Estamos preparando los artículos de esta sección. Mientras tanto, explore las demás áreas del Mensaje.',
-    readMore: 'Leer',
     home: 'Inicio',
     exploreHeading: 'Explorar el Mensaje',
-    exploreSub: 'Continúe su lectura por otras áreas de Garabandal.',
-    section: 'El Mensaje',
     heading: (l: string) => `${l} de Garabandal`,
   },
   fr: {
     featured: 'Lectures recommandées',
-    featuredSub: 'L\'essentiel pour commencer.',
-    all: 'Tous les contenus',
+    all: 'Tous les articles',
     emptyTitle: 'Contenu à venir',
     emptyDesc: 'Nous préparons les articles de cette section. En attendant, explorez les autres domaines du Message.',
-    readMore: 'Lire',
     home: 'Accueil',
     exploreHeading: 'Explorer le Message',
-    exploreSub: 'Poursuivez votre lecture dans les autres domaines de Garabandal.',
-    section: 'Le Message',
     heading: (l: string) => `${l} de Garabandal`,
   },
   it: {
     featured: 'Letture consigliate',
-    featuredSub: 'I contenuti essenziali per iniziare.',
-    all: 'Tutti i contenuti',
+    all: 'Tutti gli articoli',
     emptyTitle: 'Contenuti in arrivo',
     emptyDesc: 'Stiamo preparando gli articoli di questa sezione. Nel frattempo, esplori le altre aree del Messaggio.',
-    readMore: 'Leggi',
     home: 'Home',
     exploreHeading: 'Esplorare il Messaggio',
-    exploreSub: 'Prosegua la lettura nelle altre aree di Garabandal.',
-    section: 'Il Messaggio',
     heading: (l: string) => `${l} di Garabandal`,
   },
 };
@@ -187,10 +149,27 @@ function categoryLandingHref(key: CategoryKey, locale: PublicLocale) {
   return `${localePrefix(locale)}/${CATEGORIES[key][locale].slug}`;
 }
 
-/** Editorial prose for the category, or the shorter category intro when this
- *  locale has no hand-written paragraphs yet. */
+/** Editorial prose for the category. Locales without hand-written paragraphs
+ *  show only the category intro, which the header already renders. */
 function overviewFor(category: CategoryKey, locale: PublicLocale): string[] {
-  return OVERVIEW[category][locale] ?? [CATEGORIES[category][locale].intro];
+  return OVERVIEW[category][locale] ?? [];
+}
+
+const DATE_LOCALE: Record<PublicLocale, string> = {
+  pt: 'pt-PT',
+  en: 'en-GB',
+  es: 'es-ES',
+  fr: 'fr-FR',
+  it: 'it-IT',
+};
+
+function formatDate(iso: string, locale: PublicLocale) {
+  return new Intl.DateTimeFormat(DATE_LOCALE[locale], {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'UTC',
+  }).format(new Date(iso));
 }
 
 function articleHref(item: NavItem, locale: PublicLocale) {
@@ -200,13 +179,15 @@ function articleHref(item: NavItem, locale: PublicLocale) {
 
 function toBrowseItem(item: NavItem, locale: PublicLocale): BrowseItem {
   const withTags = item as NavItem & { tags?: string[] };
+  const date = item.published_at ?? item.updated_at;
   return {
     id: item.id,
     title: item.title,
     href: articleHref(item, locale),
     cover: item.cover_image_url ?? item.og_image_url ?? null,
     excerpt: item.meta_description ?? item.excerpt ?? null,
-    date: item.published_at ?? item.updated_at,
+    date,
+    dateLabel: formatDate(date, locale),
     tags: Array.isArray(withTags.tags) ? withTags.tags : [],
   };
 }
@@ -215,7 +196,6 @@ export async function CategoryIndexPage({ category, locale }: Props) {
   const cfg = CATEGORIES[category];
   const meta = cfg[locale];
   const t = T[locale];
-  const Icon = ICONS[category];
 
   const all = await cmsListPublishedByCategory(category, locale, 1, 200, PUBLISHED_ONLY);
   const allItems = all.items;
@@ -250,114 +230,99 @@ export async function CategoryIndexPage({ category, locale }: Props) {
   // Other categories for cross-navigation (the 5 "A Mensagem" buckets).
   const others = PUBLIC_NAV_ORDER.filter((k) => k !== category);
 
+  const [lead, ...companions] = recommendedItems;
+
   return (
-    <main className="min-h-screen bg-garabandal-mist text-garabandal-dark">
-      {/* HERO — light */}
-      <section className="relative overflow-hidden border-b border-slate-200/70 bg-gradient-to-b from-white to-garabandal-mist">
-        <div className="pointer-events-none absolute -top-24 right-0 h-72 w-72 rounded-full bg-brand/10 blur-3xl" />
-        <div className="relative mx-auto w-full max-w-5xl px-4 pb-12 pt-28 sm:px-6 sm:pb-16 sm:pt-32">
-          <nav aria-label="Breadcrumb" className="mb-6 flex items-center gap-2 text-sm text-slate-500">
-            <Link href={localePrefix(locale) || '/'} className="inline-flex items-center gap-1.5 transition-colors hover:text-garabandal-dark">
-              <Home size={14} />
-              {t.home}
-            </Link>
-            <span className="text-slate-300">/</span>
-            <span className="font-medium text-garabandal-dark">{meta.label}</span>
-          </nav>
+    <main className="min-h-screen bg-white font-sans text-ink">
+      {/* HEADER */}
+      <header className="mx-auto w-full max-w-5xl px-4 pb-14 pt-28 sm:px-6 sm:pb-20 sm:pt-36">
+        <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-sm text-muted">
+          <Link href={localePrefix(locale) || '/'} className="transition-colors hover:text-ink">
+            {t.home}
+          </Link>
+          <span aria-hidden className="text-slate-300">/</span>
+          <span className="text-ink">{meta.label}</span>
+        </nav>
 
-          <span className="inline-flex items-center gap-2 rounded-full border border-brand-200 bg-brand-50 px-4 py-1.5 text-[11px] font-bold uppercase tracking-[0.2em] text-brand-700">
-            <Icon size={14} className="text-brand" />
-            {t.section}
-          </span>
+        <h1 className="mt-5 text-4xl font-semibold leading-[1.08] tracking-[-0.025em] sm:text-5xl lg:text-[3.5rem]">
+          {t.heading(meta.label)}
+        </h1>
 
-          <h1 className="mt-5 font-serif text-4xl font-bold leading-[1.1] tracking-tight sm:text-5xl lg:text-6xl">
-            {t.heading(meta.label)}
-          </h1>
-          <p className="mt-5 max-w-2xl text-lg font-light leading-relaxed text-slate-600">
-            {meta.intro}
-          </p>
-        </div>
-      </section>
-
-      {/* OVERVIEW — unique descriptive prose for topical depth */}
-      <section className="mx-auto w-full max-w-3xl px-4 pt-12 sm:px-6 sm:pt-14">
-        <div className="space-y-4 text-base leading-relaxed text-slate-600">
+        <div className="mt-6 max-w-[42rem]">
+          <p className="text-lg leading-relaxed text-ink-soft sm:text-xl sm:leading-relaxed">{meta.intro}</p>
           {overviewFor(category, locale).map((para, i) => (
-            <p key={i}>{para}</p>
+            <p key={i} className="mt-4 text-base leading-[1.75] text-muted">
+              {para}
+            </p>
           ))}
         </div>
-      </section>
+      </header>
 
       {/* RECOMMENDED READS */}
-      {recommendedItems.length > 0 && (
-        <section className="mx-auto w-full max-w-6xl px-4 py-14 sm:px-6 sm:py-16">
-          <div className="mb-8">
-            <h2 className="font-serif text-2xl font-bold sm:text-3xl">{t.featured}</h2>
-            <p className="mt-2 text-sm text-slate-500 sm:text-base">{t.featuredSub}</p>
-          </div>
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {recommendedItems.map((item) => (
-              <ContentCard key={item.id} item={item} read={t.readMore} />
-            ))}
+      {lead && (
+        <section className="mx-auto w-full max-w-5xl px-4 sm:px-6">
+          <SectionHeading>{t.featured}</SectionHeading>
+          <div className="grid gap-10 lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)] lg:gap-12">
+            <FeatureCard item={lead} lead />
+            {companions.length > 0 && (
+              <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-1 lg:content-start">
+                {companions.map((item) => (
+                  <FeatureCard key={item.id} item={item} />
+                ))}
+              </div>
+            )}
           </div>
         </section>
       )}
 
-      {/* BROWSE ALL CONTENT — search + filter + sort + paginate */}
+      {/* ALL ARTICLES — search + filter + sort + paginate */}
       {browseItems.length > 0 && (
-        <section className="mx-auto w-full max-w-6xl px-4 pb-16 pt-2 sm:px-6 sm:pb-20">
-          <h2 className="mb-6 font-serif text-2xl font-bold sm:text-3xl">{t.all}</h2>
-          <CategoryBrowser items={browseItems} tags={availableTags} locale={locale} />
+        <section className="mx-auto w-full max-w-5xl px-4 pb-20 pt-16 sm:px-6 sm:pb-24 sm:pt-20">
+          <SectionHeading>{t.all}</SectionHeading>
+          <div className="max-w-3xl">
+            <CategoryBrowser items={browseItems} tags={availableTags} locale={locale} />
+          </div>
         </section>
       )}
 
       {/* EMPTY STATE */}
       {isEmpty && (
-        <section className="mx-auto w-full max-w-2xl px-4 py-16 text-center sm:py-24">
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <Icon size={28} className="text-brand" />
+        <section className="mx-auto w-full max-w-5xl px-4 pb-24 sm:px-6">
+          <div className="max-w-xl border-t border-line pt-8">
+            <h2 className="text-xl font-semibold">{t.emptyTitle}</h2>
+            <p className="mt-2 text-[15px] leading-relaxed text-muted">{t.emptyDesc}</p>
           </div>
-          <h2 className="mt-6 font-serif text-2xl font-bold sm:text-3xl">{t.emptyTitle}</h2>
-          <p className="mx-auto mt-3 max-w-md text-slate-500">{t.emptyDesc}</p>
         </section>
       )}
 
       {/* CROSS-CATEGORY NAVIGATION */}
-      <section className="border-t border-slate-200 bg-white">
-        <div className="mx-auto w-full max-w-6xl px-4 py-16 sm:px-6 sm:py-20">
-          <div className="mb-8 flex items-center gap-3">
-            <Compass size={22} className="text-brand" />
-            <div>
-              <h2 className="font-serif text-2xl font-bold sm:text-3xl">{t.exploreHeading}</h2>
-              <p className="mt-1 text-sm text-slate-500">{t.exploreSub}</p>
-            </div>
-          </div>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <nav aria-label={t.exploreHeading} className="border-t border-line bg-paper">
+        <div className="mx-auto w-full max-w-5xl px-4 py-14 sm:px-6 sm:py-16">
+          <h2 className="text-xl font-semibold tracking-[-0.01em]">{t.exploreHeading}</h2>
+          <ul className="mt-6 grid gap-x-10 sm:grid-cols-2 lg:grid-cols-3">
             {others.map((key) => {
               const oc = CATEGORIES[key][locale];
-              const OIcon = ICONS[key];
               return (
-                <Link
-                  key={key}
-                  href={categoryLandingHref(key, locale)}
-                  className="group flex items-start gap-4 rounded-2xl border border-slate-200 bg-garabandal-mist/60 p-5 transition-all duration-300 hover:-translate-y-1 hover:border-brand-200 hover:bg-white hover:shadow-lg"
-                >
-                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-700">
-                    <OIcon size={20} />
-                  </span>
-                  <div className="min-w-0">
-                    <h3 className="flex items-center gap-1.5 font-serif text-lg font-bold">
+                <li key={key} className="border-t border-line">
+                  <Link href={categoryLandingHref(key, locale)} className="group block py-5">
+                    <span className="flex items-center justify-between gap-3 text-base font-semibold text-ink transition-colors group-hover:text-brand">
                       {oc.label}
-                      <ArrowUpRight size={16} className="text-brand opacity-0 transition-opacity group-hover:opacity-100" />
-                    </h3>
-                    <p className="mt-1 line-clamp-2 text-sm leading-relaxed text-slate-500">{oc.tagline}</p>
-                  </div>
-                </Link>
+                      <ArrowRight size={16} className="shrink-0 text-muted transition group-hover:translate-x-0.5 group-hover:text-brand" />
+                    </span>
+                    <span className="mt-1 line-clamp-2 block text-sm leading-relaxed text-muted">{oc.tagline}</span>
+                  </Link>
+                </li>
               );
             })}
-          </div>
+          </ul>
         </div>
-      </section>
+      </nav>
     </main>
+  );
+}
+
+function SectionHeading({ children }: { children: React.ReactNode }) {
+  return (
+    <h2 className="mb-8 border-t border-ink pt-4 text-xl font-semibold tracking-[-0.01em] sm:text-2xl">{children}</h2>
   );
 }
