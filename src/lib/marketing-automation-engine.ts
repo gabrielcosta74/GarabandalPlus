@@ -675,13 +675,10 @@ export const processMarketingEnrollment = async (supabase: any, enrollment: any)
     return { enrollment: enrollment.id, status: 'skipped', reason: 'already_claimed' };
   }
 
-  const registrationStep = step.template_key === 'abandoned_registration_1'
-    ? await getAbandonedRegistrationStep(supabase, contact.normalized_email)
-    : null;
   const referralContext = REFERRAL_TEMPLATES.has(String(step.template_key))
     ? await getMemberReferralContext(supabase, contact.normalized_email)
     : {};
-  const context = { ...(registrationStep ? { registrationStep } : {}), ...referralContext };
+  const context = { ...referralContext };
   const result = await sendMarketingEmail({
     contact,
     subject: step.subject_override || null,
@@ -689,7 +686,7 @@ export const processMarketingEnrollment = async (supabase: any, enrollment: any)
     templateKey: step.template_key,
     // O Resend devolve o mesmo envio se a chave se repetir (válida 24h).
     idempotencyKey: `funnel-${enrollment.id}-step-${enrollment.current_step}`,
-    ...(registrationStep ? { context: { registrationStep } } : {}),
+    ...(Object.keys(context).length ? { context } : {}),
   });
 
   const { error: logError } = await supabase.from('marketing_message_logs').insert({
@@ -765,51 +762,5 @@ async function getMemberReferralContext(supabase: any, email: string | null | un
   } catch (err) {
     console.warn('[marketing] referral code lookup failed:', err);
     return {};
-  }
-}
-
-/**
- * Passo do formulário onde a pessoa parou, para o primeiro email de
- * recuperação (abandoned_registration_1). Desligado por omissão: só corre com
- * MARKETING_ABANDONED_STEP_COPY=on, depois de aprovado o texto por passo.
- * Usa o tracking próprio (site_events) e, sem ele, o step_reached do lead.
- */
-const RECOVERY_STEPS = ['dados', 'quartos', 'voos', 'pagamento'] as const;
-type RecoveryStep = (typeof RECOVERY_STEPS)[number];
-
-async function getAbandonedRegistrationStep(supabase: any, email: string | null | undefined): Promise<RecoveryStep | null> {
-  if (process.env.MARKETING_ABANDONED_STEP_COPY !== 'on' || !email) return null;
-  try {
-    const { data: lead } = await supabase
-      .from('booking_leads')
-      .select('id, step_reached')
-      .eq('email', email)
-      .eq('status', 'draft')
-      .order('updated_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    if (!lead?.id) return null;
-
-    const { data: visitors } = await supabase.from('site_visitors').select('id').eq('lead_id', lead.id);
-    const visitorIds = (visitors || []).map((v: { id: string }) => v.id);
-    if (visitorIds.length) {
-      const { data: events } = await supabase
-        .from('site_events')
-        .select('props')
-        .in('visitor_id', visitorIds)
-        .eq('name', 'registration_step_viewed');
-      const reached = (events || [])
-        .map((e: { props?: { step_name?: string } }) => e.props?.step_name)
-        .filter((name: unknown): name is RecoveryStep => RECOVERY_STEPS.includes(name as RecoveryStep))
-        .sort((a: RecoveryStep, b: RecoveryStep) => RECOVERY_STEPS.indexOf(b) - RECOVERY_STEPS.indexOf(a))[0];
-      if (reached) return reached;
-    }
-
-    // Sem eventos: o número do passo só é inequívoco fora do 4 (voos ou pagamento).
-    const byNumber: Record<number, RecoveryStep> = { 2: 'dados', 3: 'quartos', 5: 'pagamento' };
-    return byNumber[Number(lead.step_reached)] || null;
-  } catch (err) {
-    console.warn('[marketing] registration step lookup failed:', err);
-    return null;
   }
 }
