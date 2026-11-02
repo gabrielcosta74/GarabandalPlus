@@ -92,7 +92,7 @@ export const MemberLoginEmail = ({
 
                         <Text style={signoff}>
                             Unidos em oração,<br />
-                            <strong style={{ color: "#0F172A" }}>Apostolado de Garabandal</strong>
+                            <strong style={{ color: "#0f1b33" }}>Apostolado de Garabandal</strong>
                         </Text>
                     </Section>
 
@@ -115,7 +115,7 @@ export const MemberLoginEmail = ({
 export default MemberLoginEmail;
 
 const main = {
-    backgroundColor: "#F8FAFC",
+    backgroundColor: "#f4f6fa",
     fontFamily:
         '-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Oxygen-Sans,Ubuntu,Cantarell,"Helvetica Neue",sans-serif',
     padding: "40px 0",
@@ -134,7 +134,7 @@ const container = {
 const header = {
     padding: "48px 40px",
     textAlign: "center" as const,
-    backgroundColor: "#0F172A",
+    backgroundColor: "#0f1b33",
     backgroundImage: "linear-gradient(rgba(15,23,42,0.95), rgba(15,23,42,0.95)), url('https://apostoladodegarabandal.com/images/nossasenhoragarabandal.jpg')",
     backgroundSize: "cover",
     backgroundPosition: "center",
@@ -170,20 +170,20 @@ const content = {
 
 const greeting = {
     fontSize: "20px",
-    color: "#0F172A",
+    color: "#0f1b33",
     marginBottom: "24px",
 };
 
 const paragraph = {
     fontSize: "16px",
     lineHeight: "26px",
-    color: "#334155",
+    color: "#1b2a4a",
     marginBottom: "24px",
 };
 
 const credentialsBox = {
-    backgroundColor: "#F8FAFC",
-    border: "1px solid #E2E8F0",
+    backgroundColor: "#f4f6fa",
+    border: "1px solid #e2e7f0",
     borderRadius: "12px",
     padding: "24px",
     marginBottom: "32px",
@@ -192,7 +192,7 @@ const credentialsBox = {
 const credentialsTitle = {
     fontSize: "12px",
     fontWeight: "700",
-    color: "#64748B",
+    color: "#5b6475",
     textTransform: "uppercase" as const,
     letterSpacing: "1px",
     marginBottom: "16px",
@@ -206,20 +206,20 @@ const credentialRow = {
 };
 
 const credentialLabel = {
-    color: "#64748B",
+    color: "#5b6475",
     minWidth: "120px",
     display: "inline-block",
 };
 
 const credentialValue = {
-    color: "#0F172A",
+    color: "#0f1b33",
     fontWeight: "600",
 };
 
 const credentialPassword = {
-    color: "#0F172A",
+    color: "#0f1b33",
     fontWeight: "700",
-    backgroundColor: "#E2E8F0",
+    backgroundColor: "#e2e7f0",
     padding: "4px 8px",
     borderRadius: "6px",
     letterSpacing: "1px",
@@ -232,7 +232,7 @@ const btnContainer = {
 };
 
 const button = {
-    backgroundColor: "#CA8A04",
+    backgroundColor: "#3563e9",
     borderRadius: "50px",
     color: "#FFFFFF",
     fontSize: "14px",
@@ -246,7 +246,7 @@ const button = {
 };
 
 const link = {
-    color: "#CA8A04",
+    color: "#3563e9",
     fontWeight: "600",
     textDecoration: "underline",
 };
@@ -254,29 +254,29 @@ const link = {
 const signoff = {
     fontSize: "16px",
     lineHeight: "24px",
-    color: "#64748B",
+    color: "#5b6475",
     marginTop: "32px",
 };
 
 const footerText = {
     fontSize: "14px",
-    color: "#64748B",
+    color: "#5b6475",
     fontStyle: "italic",
 };
 
 const hr = {
-    borderColor: "#E2E8F0",
+    borderColor: "#e2e7f0",
     margin: "0",
 };
 
 const footer = {
     padding: "24px 40px",
-    backgroundColor: "#F8FAFC",
+    backgroundColor: "#f4f6fa",
     textAlign: "center" as const,
 };
 
 const footerDisclaimer = {
     fontSize: "12px",
-    color: "#94A3B8",
+    color: "#5b6475",
     margin: "0 0 8px",
 };

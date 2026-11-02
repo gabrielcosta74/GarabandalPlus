@@ -1,4 +1,5 @@
 import { Resend } from "resend";
+import { EMAIL_BUTTON, EMAIL_FONTS, EMAIL_THEME } from './email/theme';
 import { APP_URL, ASSETS_URL } from "./config";
 import { applyStoreBookPromo, getStoreBookPromoRemainingMs, STORE_BOOK_PROMO } from "./store-promo";
 import { renderMarian2027EditorialEmail } from "./marian-2027-email-design";
@@ -171,26 +172,25 @@ export type PaymentReceiptAdminNotificationInput = {
 /* -------------------------------------------------------------------------- */
 
 const COLORS = {
-  bg: "#eef2f8",
-  white: "#FFFFFF",
-  text: "#334155",
-  textLight: "#64748B",
-  heading: "#0F172A",
-  primary: "#d4af37", // Garabandal Gold
-  primaryDark: "#1a1306",
-  primaryLight: "#FEFCE8",
-  border: "#E2E8F0",
-  success: "#16A34A",
-  successBg: "#F0FDF4",
-  error: "#DC2626",
-  errorBg: "#FEF2F2",
-  link: "#CA8A04",
+  bg: EMAIL_THEME.paper,
+  white: EMAIL_THEME.white,
+  text: EMAIL_THEME.inkSoft,
+  textLight: EMAIL_THEME.muted,
+  heading: EMAIL_THEME.ink,
+  primary: EMAIL_THEME.brand, // azul da marca (botão "Tornar membro")
+  onPrimary: EMAIL_THEME.white, // texto sobre o azul
+  primaryDark: EMAIL_THEME.brand700, // hover, links e realces
+  primaryLight: EMAIL_THEME.brand50,
+  primarySoft: EMAIL_THEME.brand200,
+  border: EMAIL_THEME.line,
+  success: EMAIL_THEME.success,
+  successBg: EMAIL_THEME.successBg,
+  error: EMAIL_THEME.error,
+  errorBg: EMAIL_THEME.errorBg,
+  link: EMAIL_THEME.brand700,
 };
 
-const FONTS = {
-  serif: "'Helvetica Neue', Helvetica, Arial, sans-serif",
-  sans: "'Helvetica Neue', Helvetica, Arial, sans-serif",
-};
+const FONTS = EMAIL_FONTS;
 
 /* --------------------------- DIRECT CONTACT --------------------------------- */
 /* Emails are sent from no-reply@, so copy must never say "reply to this email".
@@ -270,7 +270,7 @@ const Layout = ({
     table, td { mso-table-lspace:0pt !important; mso-table-rspace:0pt !important; border-collapse:collapse !important; }
     img { -ms-interpolation-mode:bicubic; border:0; height:auto; line-height:100%; outline:none; text-decoration:none; }
     a { text-decoration:none; }
-    .hover-gold:hover { background:#c49a2a !important; }
+    .hover-brand:hover { background:${COLORS.primaryDark} !important; }
     @media only screen and (max-width:620px) {
       .container { width:100% !important; }
       .px { padding-left:24px !important; padding-right:24px !important; }
@@ -280,13 +280,13 @@ const Layout = ({
     @media (prefers-color-scheme: dark) {
       body, .email-bg, .outer-wrap { background:${COLORS.bg} !important; color:${COLORS.text} !important; }
       .email-card, .content-bg { background:${COLORS.white} !important; color:${COLORS.text} !important; }
-      .email-text, p, div, span, td { color:${COLORS.text} !important; }
-      .email-heading, h1, h2, h3, strong { color:${COLORS.heading} !important; }
+      .email-text { color:${COLORS.text} !important; }
+      .email-heading { color:${COLORS.heading} !important; }
       .hero-title, .hero-title div { color:#ffffff !important; }
       .hero-subtitle { color:#CBD5E1 !important; }
       .brand-text, .muted-text { color:${COLORS.textLight} !important; }
-      .gold-badge, .gold-button { background:${COLORS.primary} !important; color:${COLORS.primaryDark} !important; }
-      .gold-button a { color:${COLORS.primaryDark} !important; }
+      .brand-badge, .brand-button { background:${COLORS.primary} !important; color:${COLORS.onPrimary} !important; }
+      .brand-button a { color:${COLORS.onPrimary} !important; }
       .whatsapp-button, .whatsapp-button a { background:#25D366 !important; color:#ffffff !important; }
     }
     [data-ogsc] body, [data-ogsb] body, [data-ogsc] .email-bg, [data-ogsb] .email-bg, [data-ogsc] .outer-wrap, [data-ogsb] .outer-wrap { background:${COLORS.bg} !important; }
@@ -294,7 +294,7 @@ const Layout = ({
     [data-ogsc] .email-text, [data-ogsb] .email-text { color:${COLORS.text} !important; }
     [data-ogsc] .email-heading, [data-ogsb] .email-heading { color:${COLORS.heading} !important; }
     [data-ogsc] .hero-title, [data-ogsb] .hero-title { color:#ffffff !important; }
-    [data-ogsc] .gold-badge, [data-ogsb] .gold-badge, [data-ogsc] .gold-button, [data-ogsb] .gold-button { background:${COLORS.primary} !important; color:${COLORS.primaryDark} !important; }
+    [data-ogsc] .brand-badge, [data-ogsb] .brand-badge, [data-ogsc] .brand-button, [data-ogsb] .brand-button { background:${COLORS.primary} !important; color:${COLORS.onPrimary} !important; }
   </style>
 </head>
 <body bgcolor="${COLORS.bg}" style="margin:0;padding:0;background:${COLORS.bg};background-color:${COLORS.bg};font-family:${FONTS.sans};color:${COLORS.text};-webkit-font-smoothing:antialiased;">
@@ -307,11 +307,12 @@ const Layout = ({
         <table role="presentation" width="600" cellpadding="0" cellspacing="0" class="container" style="width:600px;max-width:600px;">
           <tr>
             <td align="center" style="padding:0 0 18px;">
-              <span class="brand-text" style="font-size:12px;letter-spacing:3px;text-transform:uppercase;color:${COLORS.textLight};font-weight:800;">Apostolado de Garabandal</span>
+              <span class="brand-text" style="font-size:13px;letter-spacing:2.4px;text-transform:uppercase;color:${COLORS.primaryDark};font-weight:700;">Apostolado de Garabandal</span>
             </td>
           </tr>
           <tr>
-            <td bgcolor="${COLORS.white}" class="email-card" style="background:${COLORS.white};background-color:${COLORS.white};border-radius:20px;overflow:hidden;box-shadow:0 18px 50px rgba(15,23,42,0.12);">
+            <td bgcolor="${COLORS.white}" class="email-card" style="background:${COLORS.white};background-color:${COLORS.white};border:1px solid ${COLORS.border};border-radius:16px;overflow:hidden;box-shadow:0 10px 30px rgba(15,27,51,0.06);">
+              <div style="height:4px;line-height:4px;font-size:0;background:${COLORS.primary};">&nbsp;</div>
               ${children}
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="${COLORS.white}" class="content-bg" style="background:${COLORS.white};background-color:${COLORS.white};">
                 <tr><td class="px" style="padding:0 40px;"><div style="border-top:1px solid #e7ebf3;font-size:0;line-height:0;">&nbsp;</div></td></tr>
@@ -342,31 +343,47 @@ const Layout = ({
 const Header = ({
   title,
   subtitle,
-  image = `${APP_URL}/images/nossasenhoragarabandal.jpg`,
+  image,
   category = "Apostolado",
 }: {
   title: string;
   subtitle?: string;
+  // Sem imagem, o cabeçalho é limpo (rótulo, título, subtítulo). Com imagem, usa uma
+  // foto de destaque com camada azul-escura — para campanhas e emails editoriais.
   image?: string;
   category?: string;
-}) => `
+}) => {
+  if (!image) {
+    return `
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="${COLORS.white}" class="content-bg" style="background:${COLORS.white};background-color:${COLORS.white};">
+  <tr>
+    <td class="px" style="padding:36px 40px 4px;">
+      <span class="brand-label" style="display:inline-block;padding:5px 11px;border-radius:6px;background:${COLORS.primaryLight};border:1px solid ${COLORS.primarySoft};color:${COLORS.primaryDark};font-size:11px;line-height:14px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;">${category}</span>
+      <div class="h1 email-heading" style="margin:16px 0 0;font-size:28px;line-height:34px;font-weight:700;letter-spacing:-0.4px;color:${COLORS.heading};">${title}</div>
+      ${subtitle ? `<div class="muted-text" style="margin:10px 0 0;font-size:16px;line-height:24px;font-weight:400;color:${COLORS.textLight};">${subtitle}</div>` : ""}
+    </td>
+  </tr>
+</table>
+`;
+  }
+  return `
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
   <tr>
-    <td background="${image}" valign="bottom" style="background:#0f172a url('${image}') center/cover no-repeat;background-size:cover;">
+    <td background="${image}" valign="bottom" style="background:${COLORS.heading} url('${image}') center/cover no-repeat;background-size:cover;">
       <!--[if gte mso 9]>
       <v:rect xmlns:v="urn:schemas-microsoft-com:vml" fill="true" stroke="false" style="width:600px;height:240px;">
-        <v:fill type="frame" src="${image}" color="#0f172a" />
+        <v:fill type="frame" src="${image}" color="${COLORS.heading}" />
         <v:textbox inset="0,0,0,0">
       <![endif]-->
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
         <tr>
-          <td height="240" valign="bottom" style="background:linear-gradient(180deg, rgba(15,23,42,0.10) 0%, rgba(15,23,42,0.82) 100%);">
+          <td height="240" valign="bottom" style="background:linear-gradient(180deg, rgba(15,27,51,0.10) 0%, rgba(15,27,51,0.84) 100%);">
             <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
               <tr>
                 <td class="px" style="padding:32px 40px 28px;">
-                  <span class="gold-badge" style="display:inline-block;padding:6px 14px;border-radius:999px;background:${COLORS.primary};color:${COLORS.primaryDark};font-size:11px;font-weight:900;letter-spacing:1.5px;text-transform:uppercase;">${category}</span>
-                  <div class="h1 hero-title" style="margin:16px 0 0;font-size:32px;line-height:38px;font-weight:900;color:#ffffff;">${title}</div>
-                  ${subtitle ? `<div class="hero-subtitle" style="margin:10px 0 0;font-size:15px;line-height:22px;font-weight:600;color:#CBD5E1;">${subtitle}</div>` : ""}
+                  <span class="brand-badge" style="display:inline-block;padding:6px 14px;border-radius:999px;background:${COLORS.primary};color:${COLORS.onPrimary};font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;">${category}</span>
+                  <div class="h1 hero-title" style="margin:16px 0 0;font-size:32px;line-height:38px;font-weight:700;letter-spacing:-0.4px;color:#ffffff;">${title}</div>
+                  ${subtitle ? `<div class="hero-subtitle" style="margin:10px 0 0;font-size:15px;line-height:22px;font-weight:500;color:${COLORS.primarySoft};">${subtitle}</div>` : ""}
                 </td>
               </tr>
             </table>
@@ -378,6 +395,7 @@ const Header = ({
   </tr>
 </table>
 `;
+};
 
 const Section = ({
   children,
@@ -396,12 +414,13 @@ const Section = ({
 `;
 
 const Card = ({ children, icon }: { children: string; icon?: string }) => `
-<div style="background:${COLORS.bg};border:1px solid ${COLORS.border};border-radius:12px;padding:24px;margin:24px 0;">
-    ${icon ? `<div style="font-size:24px;margin-bottom:16px;">${icon}</div>` : ""}
+<div style="background:${COLORS.bg};border:1px solid ${COLORS.border};border-radius:12px;padding:8px 24px;margin:24px 0;">
+    ${icon ? `<div style="font-size:24px;margin:16px 0;">${icon}</div>` : ""}
     ${children}
 </div>
 `;
 
+// Tabela (não flex): o Outlook ignora display:flex e empilhava rótulo e valor.
 const InfoRow = ({
   label,
   value,
@@ -411,10 +430,12 @@ const InfoRow = ({
   value: string | number;
   isLast?: boolean;
 }) => `
-<div style="display:flex;justify-content:space-between;padding:12px 0;border-bottom:${isLast ? "none" : `1px solid ${COLORS.border}`};">
-    <span style="color:${COLORS.textLight};font-size:14px;font-weight:500;">${label}</span>
-    <span style="color:${COLORS.heading};font-weight:600;text-align:right;">${value}</span>
-</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width:100%;">
+  <tr>
+    <td valign="top" style="padding:13px 12px 13px 0;border-bottom:${isLast ? "none" : `1px solid ${COLORS.border}`};color:${COLORS.textLight};font-size:14px;line-height:20px;font-weight:500;">${label}</td>
+    <td valign="top" align="right" style="padding:13px 0;border-bottom:${isLast ? "none" : `1px solid ${COLORS.border}`};color:${COLORS.heading};font-size:15px;line-height:20px;font-weight:600;text-align:right;">${value}</td>
+  </tr>
+</table>
 `;
 
 const Button = ({
@@ -431,18 +452,18 @@ const Button = ({
   size?: "md" | "lg";
 }) => {
   const styles = {
-    primary: `background:${COLORS.primary};color:${COLORS.primaryDark};border:none;`,
+    primary: `background:${COLORS.primary};color:${COLORS.onPrimary};border:none;`,
     secondary: `background:${COLORS.heading};color:${COLORS.white};border:none;`,
-    outline: `background:transparent;color:${COLORS.primary};border:1px solid ${COLORS.primary};`,
+    outline: `background:${COLORS.white};color:${COLORS.primaryDark};border:1px solid ${COLORS.primary};`,
   };
-  const textColor = variant === "primary" ? COLORS.primaryDark : variant === "outline" ? COLORS.primary : COLORS.white;
+  const textColor = variant === "primary" ? COLORS.onPrimary : variant === "outline" ? COLORS.primaryDark : COLORS.white;
   const isLarge = size === "lg";
-  const radius = isLarge ? 16 : 12;
+  const radius = EMAIL_BUTTON.radius;
   return `
-    <table role="presentation" cellpadding="0" cellspacing="0" align="center" ${isLarge ? 'width="100%" style="width:100%;margin:30px auto;"' : 'style="margin:32px auto;"'}>
+    <table role="presentation" cellpadding="0" cellspacing="0" align="center" ${isLarge ? 'width="100%" style="width:100%;margin:30px auto;"' : 'style="margin:30px auto;"'}>
       <tr>
-        <td align="center" bgcolor="${variant === "primary" ? COLORS.primary : variant === "secondary" ? COLORS.heading : "transparent"}" class="${variant === "primary" ? "hover-gold gold-button" : ""}" style="${styles[variant]}border-radius:${radius}px;${isLarge ? `box-shadow:0 6px 18px rgba(212,175,55,0.35);` : ''}">
-          <a href="${url}" style="display:${isLarge ? 'block' : 'inline-block'};padding:${isLarge ? '21px 28px' : '16px 34px'};border-radius:${radius}px;text-decoration:none;font-weight:900;font-size:${isLarge ? '18px' : '15px'};line-height:${isLarge ? '22px' : '18px'};color:${textColor};letter-spacing:0.2px;text-align:center;">
+        <td align="center" bgcolor="${variant === "primary" ? COLORS.primary : variant === "secondary" ? COLORS.heading : COLORS.white}" class="${variant === "primary" ? "hover-brand brand-button" : ""}" style="${styles[variant]}border-radius:${radius}px;${variant === "primary" ? `box-shadow:${EMAIL_BUTTON.shadow};` : ''}">
+          <a href="${url}" style="display:${isLarge ? 'block' : 'inline-block'};padding:${isLarge ? EMAIL_BUTTON.paddingLg : EMAIL_BUTTON.paddingMd};border-radius:${radius}px;text-decoration:none;font-weight:700;font-size:${isLarge ? '17px' : '15px'};line-height:${isLarge ? '22px' : '18px'};color:${textColor};letter-spacing:0.1px;text-align:center;">
             ${label}
           </a>
         </td>
@@ -533,7 +554,7 @@ const storeBookPromoCountdownBlock = (locale: EmailLocale) => {
     : (hours > 0 ? `Faltam só ${hours}h ${String(minutes).padStart(2, '0')}min` : 'Falta menos de 1 hora');
 
   return `
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#0f172a" style="margin:24px 0;border-radius:18px;background:#0f172a;background-color:#0f172a;overflow:hidden;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#0f1b33" style="margin:24px 0;border-radius:18px;background:#0f1b33;background-color:#0f1b33;overflow:hidden;">
   <tr>
     <td style="padding:22px 24px;text-align:center;">
       <div style="font-size:11px;line-height:16px;font-weight:900;letter-spacing:1.6px;text-transform:uppercase;color:${COLORS.primary};margin:0 0 10px;">${locale === 'en' ? 'Today only' : 'Só hoje'}</div>
@@ -541,12 +562,12 @@ const storeBookPromoCountdownBlock = (locale: EmailLocale) => {
       <table role="presentation" cellpadding="0" cellspacing="0" align="center" style="margin:0 auto 12px;">
         <tr>
           <td bgcolor="#ffffff" style="background:#ffffff;border-radius:14px;padding:12px 18px;text-align:center;">
-            <div style="font-size:30px;line-height:32px;font-weight:900;color:#0f172a;font-family:${FONTS.sans};">${String(hours).padStart(2, '0')}</div>
+            <div style="font-size:30px;line-height:32px;font-weight:900;color:#0f1b33;font-family:${FONTS.sans};">${String(hours).padStart(2, '0')}</div>
             <div style="font-size:10px;line-height:14px;font-weight:900;letter-spacing:1.2px;text-transform:uppercase;color:#64748B;">${locale === 'en' ? 'Hours' : 'Horas'}</div>
           </td>
           <td width="10" style="width:10px;font-size:0;line-height:0;">&nbsp;</td>
           <td bgcolor="#ffffff" style="background:#ffffff;border-radius:14px;padding:12px 18px;text-align:center;">
-            <div style="font-size:30px;line-height:32px;font-weight:900;color:#0f172a;font-family:${FONTS.sans};">${String(minutes).padStart(2, '0')}</div>
+            <div style="font-size:30px;line-height:32px;font-weight:900;color:#0f1b33;font-family:${FONTS.sans};">${String(minutes).padStart(2, '0')}</div>
             <div style="font-size:10px;line-height:14px;font-weight:900;letter-spacing:1.2px;text-transform:uppercase;color:#64748B;">MIN</div>
           </td>
         </tr>
@@ -580,7 +601,7 @@ const PromoProductCard = ({
   const discountedPrice = promoPrice ? formatPromoEuro(promoPrice.discountedPrice, locale) : price;
 
   return `
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#ffffff" style="margin:18px 0;border:1px solid rgba(212,175,55,0.55);border-radius:18px;overflow:hidden;background:#ffffff;background-color:#ffffff;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#ffffff" style="margin:18px 0;border:1px solid rgba(53,99,233,0.55);border-radius:18px;overflow:hidden;background:#ffffff;background-color:#ffffff;">
   <tr>
     ${imageUrl ? `<td width="142" valign="top" style="width:142px;padding:0;background:#f8fafc;"><img src="${imageUrl}" width="142" alt="" style="display:block;width:142px;max-width:142px;height:auto;border:0;" /></td>` : ""}
     <td valign="middle" style="padding:18px 20px;">
@@ -626,11 +647,11 @@ const benefitImageCard = ({ img, eyebrow, title, desc }: { img: string; eyebrow:
 </table>`;
 
 const benefitFeaturedCard = ({ img, badge, title, desc }: { img: string; badge: string; title: string; desc: string }) => `
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 16px;border:1px solid rgba(202,138,4,0.45);border-radius:16px;overflow:hidden;background:#1a1407;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 16px;border:1px solid rgba(53,99,233,0.45);border-radius:16px;overflow:hidden;background:#0f1b33;">
   <tr><td style="padding:0;line-height:0;position:relative;"><img src="${img}" width="552" alt="" style="display:block;width:100%;max-width:552px;height:auto;border:0;opacity:0.55;" /></td></tr>
-  <tr><td style="padding:22px 24px;background:#1a1407;">
-    <div style="display:inline-block;font-size:11px;font-weight:700;color:#fcd34d;text-transform:uppercase;letter-spacing:1.4px;padding:5px 12px;border:1px solid rgba(252,211,77,0.45);border-radius:999px;margin:0 0 12px;">✨ ${badge}</div>
-    <div style="font-size:20px;font-weight:700;color:#fde68a;font-family:${FONTS.serif};margin:0 0 8px;">${title}</div>
+  <tr><td style="padding:22px 24px;background:#0f1b33;">
+    <div style="display:inline-block;font-size:11px;font-weight:700;color:#c3d3fb;text-transform:uppercase;letter-spacing:1.4px;padding:5px 12px;border:1px solid rgba(195,211,251,0.45);border-radius:999px;margin:0 0 12px;">✨ ${badge}</div>
+    <div style="font-size:20px;font-weight:700;color:#ffffff;font-family:${FONTS.serif};margin:0 0 8px;">${title}</div>
     <div style="font-size:15px;line-height:1.6;color:#e5e7eb;">${desc}</div>
   </td></tr>
 </table>`;
@@ -644,7 +665,7 @@ const benefitChecklist = (title: string, items: string[]) => `
 </table>`;
 
 const offerHighlight = ({ eyebrow, title, sub }: { eyebrow: string; title: string; sub: string }) => `
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:8px 0 0;border:2px solid ${COLORS.primary};border-radius:16px;background:#FEFCE8;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:8px 0 0;border:2px solid ${COLORS.primary};border-radius:16px;background:#eef3ff;">
   <tr><td style="padding:24px;text-align:center;">
     <div style="font-size:12px;font-weight:700;color:${COLORS.primary};text-transform:uppercase;letter-spacing:1.2px;margin:0 0 8px;">${eyebrow}</div>
     <div style="font-size:21px;font-weight:800;color:${COLORS.heading};font-family:${FONTS.serif};line-height:1.3;margin:0 0 8px;">${title}</div>
@@ -721,7 +742,7 @@ const emailFeatureBlock = ({
 </table>`;
 
 const emailNotePanel = (title: string, body: string) => `
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#fffbeb" style="margin:20px 0;border:1px solid rgba(212,175,55,0.5);border-radius:14px;background:#fffbeb;background-color:#fffbeb;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#eef3ff" style="margin:20px 0;border:1px solid rgba(53,99,233,0.5);border-radius:14px;background:#eef3ff;background-color:#eef3ff;">
   <tr><td style="padding:20px 22px;">
     <div style="font-size:16px;line-height:22px;font-weight:900;color:${COLORS.heading};font-family:${FONTS.serif};margin:0 0 8px;">${title}</div>
     <div class="email-text" style="font-size:15px;line-height:24px;color:${COLORS.text};">${body}</div>
@@ -736,7 +757,7 @@ const emailSteps = (title: string, steps: string[]) => `
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 10px;">
         <tr>
           <td width="30" valign="top" style="width:30px;">
-            <div style="width:24px;height:24px;border-radius:999px;background:${COLORS.primary};color:${COLORS.primaryDark};font-size:13px;line-height:24px;text-align:center;font-weight:900;">${index + 1}</div>
+            <div style="width:24px;height:24px;border-radius:999px;background:${COLORS.primary};color:${COLORS.onPrimary};font-size:13px;line-height:24px;text-align:center;font-weight:700;">${index + 1}</div>
           </td>
           <td class="email-text" valign="top" style="font-size:15px;line-height:24px;color:${COLORS.text};">${step}</td>
         </tr>
@@ -774,7 +795,7 @@ const testimonialCard = (locale: EmailLocale, index = 0) => {
   const t = REAL_TESTIMONIALS[index % REAL_TESTIMONIALS.length];
   const quote = locale === 'en' ? t.en : t.pt;
   return `
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#fffbeb" style="margin:20px 0;border:1px solid rgba(212,175,55,0.4);border-left:4px solid ${COLORS.primary};border-radius:14px;background:#fffbeb;background-color:#fffbeb;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#eef3ff" style="margin:20px 0;border:1px solid rgba(53,99,233,0.4);border-left:4px solid ${COLORS.primary};border-radius:14px;background:#eef3ff;background-color:#eef3ff;">
   <tr><td style="padding:22px 24px;">
     <div style="font-size:34px;line-height:20px;color:${COLORS.primary};font-family:${FONTS.serif};height:20px;">&ldquo;</div>
     <div style="font-size:16px;line-height:26px;color:${COLORS.heading};font-family:${FONTS.serif};font-style:italic;margin:6px 0 12px;">${quote}</div>
@@ -1044,13 +1065,13 @@ const italyScarcityBar = (locale: EmailLocale) => {
   const isEn = locale === 'en';
   const pct = ITALY_CAMPAIGN.scarcityPct;
   return `
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#FEFCE8" style="margin:24px 0;border:2px solid ${COLORS.primary};border-radius:18px;background:#FEFCE8;background-color:#FEFCE8;overflow:hidden;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#eef3ff" style="margin:24px 0;border:2px solid ${COLORS.primary};border-radius:18px;background:#eef3ff;background-color:#eef3ff;overflow:hidden;">
   <tr><td style="padding:24px 26px;">
     <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 12px;">
-      <tr><td bgcolor="${COLORS.primary}" class="gold-badge" style="background:${COLORS.primary};background-color:${COLORS.primary};border-radius:999px;padding:5px 13px;font-size:11px;line-height:16px;font-weight:900;letter-spacing:1.4px;text-transform:uppercase;color:${COLORS.primaryDark};">${isEn ? 'Availability' : 'Disponibilidade'}</td></tr>
+      <tr><td bgcolor="${COLORS.primary}" class="brand-badge" style="background:${COLORS.primary};background-color:${COLORS.primary};border-radius:999px;padding:5px 13px;font-size:11px;line-height:16px;font-weight:700;letter-spacing:1.4px;text-transform:uppercase;color:${COLORS.onPrimary};">${isEn ? 'Availability' : 'Disponibilidade'}</td></tr>
     </table>
     <div class="email-heading" style="font-size:27px;line-height:33px;font-weight:900;color:${COLORS.heading};font-family:${FONTS.serif};margin:0 0 16px;">${isEn ? `${pct}% of the places are gone` : `${pct}% das vagas já foram`}</div>
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#e7e0c4" style="border-radius:999px;background:#e7e0c4;background-color:#e7e0c4;overflow:hidden;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#c3d3fb" style="border-radius:999px;background:#c3d3fb;background-color:#c3d3fb;overflow:hidden;">
       <tr>
         <td width="${pct}%" bgcolor="${COLORS.primary}" height="14" style="width:${pct}%;height:14px;background:${COLORS.primary};background-color:${COLORS.primary};border-radius:999px;font-size:0;line-height:14px;">&nbsp;</td>
         <td width="${100 - pct}%" height="14" style="width:${100 - pct}%;height:14px;font-size:0;line-height:14px;">&nbsp;</td>
@@ -1128,7 +1149,7 @@ const italyPriceWidget = (locale: EmailLocale, payload: MarketingTemplatePayload
     value ? `<span style="font-size:13px;line-height:19px;font-weight:800;color:${COLORS.textLight};">&nbsp;· ≈&nbsp;${value}</span>` : '';
   return `
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#ffffff" style="margin:24px 0;border:2px solid ${COLORS.primary};border-radius:18px;background:#ffffff;background-color:#ffffff;overflow:hidden;">
-  <tr><td bgcolor="#FEFCE8" style="padding:22px 24px 18px;background:#FEFCE8;background-color:#FEFCE8;text-align:center;">
+  <tr><td bgcolor="#eef3ff" style="padding:22px 24px 18px;background:#eef3ff;background-color:#eef3ff;text-align:center;">
     <div style="font-size:11px;line-height:16px;font-weight:900;letter-spacing:1.4px;text-transform:uppercase;color:${COLORS.primary};margin:0 0 8px;">${isEn ? 'Land package (no flight) · per person' : 'Terrestre (sem voo) · por pessoa'}</div>
     <div class="email-heading" style="font-size:42px;line-height:46px;font-weight:900;color:${COLORS.heading};font-family:${FONTS.serif};">${price}</div>
     ${localLand ? `<div class="email-text" style="font-size:15px;line-height:22px;font-weight:800;color:${COLORS.textLight};margin:4px 0 0;">≈ ${localLand}</div>` : ''}
@@ -1230,7 +1251,7 @@ const italyExtraSpotsBar = (locale: EmailLocale, payload: MarketingTemplatePaylo
     ? `${ITALY_CAMPAIGN.dates.en} · ${ITALY_CAMPAIGN.price.en} · up to ${ITALY_CAMPAIGN.installments} interest-free instalments`
     : `${ITALY_CAMPAIGN.dates.pt} · ${ITALY_CAMPAIGN.price.pt} · em até ${ITALY_CAMPAIGN.installments}x sem juros`;
   return `
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#FEFCE8" style="margin:26px 0;border:2px solid ${COLORS.primary};border-radius:18px;background:#FEFCE8;background-color:#FEFCE8;overflow:hidden;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#eef3ff" style="margin:26px 0;border:2px solid ${COLORS.primary};border-radius:18px;background:#eef3ff;background-color:#eef3ff;overflow:hidden;">
   <tr><td style="padding:26px 26px 22px;" align="center">
     <div class="email-heading" style="font-size:46px;line-height:50px;font-weight:900;color:${COLORS.heading};font-family:${FONTS.serif};margin:0;">${spots}</div>
     <div class="email-heading" style="font-size:22px;line-height:29px;font-weight:900;color:${COLORS.heading};font-family:${FONTS.serif};margin:2px 0 14px;">${headline}</div>
@@ -2597,13 +2618,13 @@ export const renderStoreShippingEmail = (payload: any) => {
       ${items.map(item => `
         <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #e2e8f0;">
           <span style="font-size:14px;color:#334155;">${item.qty}x ${item.name}</span>
-          <span style="font-size:14px;font-weight:600;color:#1e293b;">${formatCurrencyInline(item.unit_price * item.qty)}</span>
+          <span style="font-size:14px;font-weight:600;color:#1b2a4a;">${formatCurrencyInline(item.unit_price * item.qty)}</span>
         </div>
       `).join('')}
       ${totalAmount !== null ? `
         <div style="display:flex;justify-content:space-between;padding-top:12px;">
-          <span style="font-size:14px;font-weight:700;color:#1e293b;">Total</span>
-          <span style="font-size:16px;font-weight:800;color:#1e293b;">${formatCurrencyInline(totalAmount)}</span>
+          <span style="font-size:14px;font-weight:700;color:#1b2a4a;">Total</span>
+          <span style="font-size:16px;font-weight:800;color:#1b2a4a;">${formatCurrencyInline(totalAmount)}</span>
         </div>
       ` : ''}
     </div>
@@ -3014,8 +3035,8 @@ export const MARKETING_EMAIL_TEMPLATES: Record<MarketingTemplateKey, MarketingTe
     contentHtml: () => `
       ${Text('<strong>{{greeting}}</strong>,')}
       ${Text('Em outubro de 2027, convidamos a percorrer connosco o <strong>Caminho Mariano</strong>: uma peregrinação por lugares de oração e de encontro, com partida de Lisboa e passagem por Fátima, Garabandal, Lourdes e outros santuários europeus.')}
-      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:26px 0;border:1px solid #e8dfc7;background:#fbf8ef;border-radius:14px;"><tr><td style="padding:20px 22px;">
-        <div style="font-size:11px;line-height:17px;font-weight:900;letter-spacing:2px;text-transform:uppercase;color:#9a711f;">A PEREGRINAÇÃO</div>
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:26px 0;border:1px solid #e2e7f0;background:#f4f6fa;border-radius:14px;"><tr><td style="padding:20px 22px;">
+        <div style="font-size:11px;line-height:17px;font-weight:900;letter-spacing:2px;text-transform:uppercase;color:#2b51c7;">A PEREGRINAÇÃO</div>
         <div style="font-size:22px;line-height:30px;font-weight:800;color:#0f2445;margin-top:7px;">14 dias para caminhar com Maria</div>
         <div style="font-size:14px;line-height:23px;color:#48566a;margin-top:8px;">Acompanhamento espiritual, momentos de oração e um itinerário que atravessa Portugal, Espanha e França.</div>
       </td></tr></table>
@@ -3041,9 +3062,9 @@ export const MARKETING_EMAIL_TEMPLATES: Record<MarketingTemplateKey, MarketingTe
       ${Text('<strong>{{greeting}}</strong>,')}
       ${Text('O Caminho Mariano 2027 reúne lugares que tantos peregrinos desejam conhecer e rezar. O percurso começa em Portugal e segue por Espanha e França, sempre com o acompanhamento espiritual previsto no programa.')}
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:24px 0;border-top:1px solid #e5e9ef;border-bottom:1px solid #e5e9ef;">
-        <tr><td style="padding:16px 0;border-bottom:1px solid #e5e9ef;"><span style="color:#a87b28;font-size:12px;font-weight:900;letter-spacing:1px;">01</span><strong style="display:block;color:#102a4d;font-size:18px;line-height:25px;margin:3px 0;">Fátima e Garabandal</strong><span style="font-size:14px;line-height:22px;color:#526174;">Do acolhimento em Fátima ao silêncio da aldeia de Garabandal.</span></td></tr>
-        <tr><td style="padding:16px 0;border-bottom:1px solid #e5e9ef;"><span style="color:#a87b28;font-size:12px;font-weight:900;letter-spacing:1px;">02</span><strong style="display:block;color:#102a4d;font-size:18px;line-height:25px;margin:3px 0;">Lourdes e La Salette</strong><span style="font-size:14px;line-height:22px;color:#526174;">Duas etapas centrais do itinerário mariano em França.</span></td></tr>
-        <tr><td style="padding:16px 0;"><span style="color:#a87b28;font-size:12px;font-weight:900;letter-spacing:1px;">03</span><strong style="display:block;color:#102a4d;font-size:18px;line-height:25px;margin:3px 0;">Até Lisieux e Paris</strong><span style="font-size:14px;line-height:22px;color:#526174;">O caminho prossegue por outros lugares de fé antes do regresso.</span></td></tr>
+        <tr><td style="padding:16px 0;border-bottom:1px solid #e5e9ef;"><span style="color:#2b51c7;font-size:12px;font-weight:900;letter-spacing:1px;">01</span><strong style="display:block;color:#0f1b33;font-size:18px;line-height:25px;margin:3px 0;">Fátima e Garabandal</strong><span style="font-size:14px;line-height:22px;color:#526174;">Do acolhimento em Fátima ao silêncio da aldeia de Garabandal.</span></td></tr>
+        <tr><td style="padding:16px 0;border-bottom:1px solid #e5e9ef;"><span style="color:#2b51c7;font-size:12px;font-weight:900;letter-spacing:1px;">02</span><strong style="display:block;color:#0f1b33;font-size:18px;line-height:25px;margin:3px 0;">Lourdes e La Salette</strong><span style="font-size:14px;line-height:22px;color:#526174;">Duas etapas centrais do itinerário mariano em França.</span></td></tr>
+        <tr><td style="padding:16px 0;"><span style="color:#2b51c7;font-size:12px;font-weight:900;letter-spacing:1px;">03</span><strong style="display:block;color:#0f1b33;font-size:18px;line-height:25px;margin:3px 0;">Até Lisieux e Paris</strong><span style="font-size:14px;line-height:22px;color:#526174;">O caminho prossegue por outros lugares de fé antes do regresso.</span></td></tr>
       </table>
       ${Text('Descubra as datas de cada etapa, o que está incluído e as informações práticas no programa oficial.')}
     `,
@@ -3067,10 +3088,10 @@ export const MARKETING_EMAIL_TEMPLATES: Record<MarketingTemplateKey, MarketingTe
       ${Text('<strong>{{greeting}}</strong>,')}
       ${Text('Se está a considerar o Caminho Mariano 2027, este é um bom momento para consultar o programa completo e esclarecer as questões práticas antes de se inscrever.')}
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:24px 0;background:#f4f7fb;border:1px solid #e1e8f0;border-radius:14px;"><tr><td style="padding:22px 24px;">
-        <div style="font-size:11px;line-height:17px;font-weight:900;letter-spacing:2px;text-transform:uppercase;color:#9a711f;">À SUA DISPOSIÇÃO</div>
+        <div style="font-size:11px;line-height:17px;font-weight:900;letter-spacing:2px;text-transform:uppercase;color:#2b51c7;">À SUA DISPOSIÇÃO</div>
         <div style="font-size:15px;line-height:27px;color:#26384f;margin-top:10px;">✓ Datas: <strong>11 a 24 de outubro de 2027</strong><br>✓ Percurso e acompanhamento espiritual<br>✓ Condições, preços e inscrição na página oficial</div>
       </td></tr></table>
-      ${Text('Se houver alguma dúvida que a página não esclareça, escreva-nos para <a href="mailto:geral@apostoladodegarabandal.com" style="color:#9a711f;font-weight:700;">geral@apostoladodegarabandal.com</a>. Teremos todo o gosto em ajudar a perceber se esta peregrinação corresponde ao que procura.')}
+      ${Text('Se houver alguma dúvida que a página não esclareça, escreva-nos para <a href="mailto:geral@apostoladodegarabandal.com" style="color:#2b51c7;font-weight:700;">geral@apostoladodegarabandal.com</a>. Teremos todo o gosto em ajudar a perceber se esta peregrinação corresponde ao que procura.')}
       ${Text('Quando decidir, pode seguir os passos de inscrição diretamente na página.')}
     `,
     paragraphs: [],
@@ -5013,7 +5034,7 @@ export const renderAuthRecoveryEmail = (payload: {
         <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:28px 0 0;">
           <tr><td style="padding:0 0 14px;text-align:center;color:${COLORS.textLight};font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">${isEn ? 'Or use the code' : 'Ou use o código'}</td></tr>
           <tr>
-            <td style="padding:22px 16px;background:#FFF8E7;border:2px solid ${COLORS.primary};border-radius:14px;text-align:center;">
+            <td style="padding:22px 16px;background:#eef3ff;border:2px solid ${COLORS.primary};border-radius:14px;text-align:center;">
               <p style="margin:0 0 8px;font-size:13px;color:${COLORS.textLight};">${isEn ? 'Enter these 6 digits on the recovery screen' : 'Introduza estes 6 dígitos no ecrã de recuperação'}</p>
               <p style="margin:0;font-size:34px;line-height:1.2;font-weight:900;letter-spacing:10px;color:${COLORS.text};font-family:'Courier New',monospace;">${escapeHtml(payload.otpCode)}</p>
               ${payload.codeEntryLink ? `<p style="margin:16px 0 0;font-size:14px;"><a href="${escapeHtml(payload.codeEntryLink)}" style="color:${COLORS.primary};font-weight:800;text-decoration:underline;">${isEn ? 'Open the code screen' : 'Abrir o ecrã do código'}</a></p>` : ''}

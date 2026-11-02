@@ -1,3 +1,5 @@
+import { EMAIL_FONTS, EMAIL_THEME } from './email/theme';
+
 type MarianStep = 'marian_2027_invitation' | 'marian_2027_journey' | 'marian_2027_practical';
 
 type EditorialEmailInput = {
@@ -11,17 +13,19 @@ type EditorialEmailInput = {
   unsubscribeUrl?: string | null;
 };
 
-const ink = '#203146';
-const muted = '#66717d';
-const wine = '#754c58';
-const paper = '#f5f2ed';
-const serif = "'New York', 'Iowan Old Style', Baskerville, Georgia, serif";
+// Mesma linguagem visual do resto dos emails (azul da marca, Inter); o formato editorial
+// (foto, capítulo, título grande) mantém-se. `wine` ficou como nome do realce da marca.
+const ink = EMAIL_THEME.ink;
+const muted = EMAIL_THEME.muted;
+const wine = EMAIL_THEME.brand700;
+const paper = EMAIL_THEME.paper;
+const serif = EMAIL_FONTS.sans;
 
 const escapeHtml = (value: string) => value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 const paragraph = (copy: string) => `<p style="margin:0 0 20px;color:${ink};font-size:16px;line-height:27px;">${copy}</p>`;
 const detailRow = (number: string, title: string, copy: string) => `
-  <tr><td width="46" valign="top" style="padding:18px 0;border-top:1px solid #e4ded8;color:${wine};font-family:${serif};font-size:22px;line-height:28px;">${number}</td>
-  <td valign="top" style="padding:18px 0;border-top:1px solid #e4ded8;"><div style="color:${ink};font-family:${serif};font-size:23px;line-height:28px;">${title}</div><div style="padding-top:5px;color:${muted};font-size:14px;line-height:23px;">${copy}</div></td></tr>`;
+  <tr><td width="46" valign="top" style="padding:18px 0;border-top:1px solid #e2e7f0;color:${wine};font-family:${serif};font-size:22px;line-height:28px;">${number}</td>
+  <td valign="top" style="padding:18px 0;border-top:1px solid #e2e7f0;"><div style="color:${ink};font-family:${serif};font-size:21px;font-weight:600;line-height:27px;">${title}</div><div style="padding-top:5px;color:${muted};font-size:14px;line-height:23px;">${copy}</div></td></tr>`;
 
 type Edition = { chapter: string; title: string; subtitle: string; photoLabel: string; photoPosition: string; cta: string; body: (greeting: string) => string };
 
@@ -36,7 +40,7 @@ const EDITIONS: Record<MarianStep, Edition> = {
     body: (greeting) => `
       ${paragraph(`<strong>${greeting},</strong>`)}
       ${paragraph('Em outubro de 2027, convidamos você a percorrer conosco o Caminho Mariano: catorze dias de oração, encontro e descoberta, com início em Portugal e passagem por lugares marcantes da fé mariana em Espanha e França.')}
-      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:28px 0 27px;background:#f7f3f1;border-left:3px solid ${wine};"><tr><td style="padding:22px 25px;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:28px 0 27px;background:#eef3ff;border-left:3px solid ${wine};"><tr><td style="padding:22px 25px;">
         <div style="color:${wine};font-size:10px;font-weight:700;letter-spacing:2.2px;">O PERCURSO</div>
         <div style="padding-top:8px;color:${ink};font-family:${serif};font-size:25px;line-height:32px;">De Fátima a Garabandal. De Lourdes a Paris.</div>
         <div style="padding-top:8px;color:${muted};font-size:14px;line-height:23px;">Portugal, Espanha e França, com acompanhamento espiritual e tempo para viver cada lugar.</div>
@@ -70,13 +74,13 @@ const EDITIONS: Record<MarianStep, Edition> = {
     body: (greeting) => `
       ${paragraph(`<strong>${greeting},</strong>`)}
       ${paragraph('Se você está considerando o Caminho Mariano 2027, reunimos em um só lugar as informações de que precisa para decidir com tranquilidade.')}
-      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:25px 0 29px;background:#f7f3f1;"><tr><td style="padding:24px 26px;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:25px 0 29px;background:#eef3ff;"><tr><td style="padding:24px 26px;">
         <div style="margin-bottom:14px;color:${wine};font-size:10px;font-weight:700;letter-spacing:2.2px;">NO PROGRAMA OFICIAL</div>
-        <div style="padding:10px 0;border-top:1px solid #e4ded8;color:${ink};font-size:15px;line-height:23px;">11 a 24 de outubro de 2027</div>
-        <div style="padding:10px 0;border-top:1px solid #e4ded8;color:${ink};font-size:15px;line-height:23px;">Itinerário e acompanhamento espiritual</div>
-        <div style="padding:10px 0 0;border-top:1px solid #e4ded8;color:${ink};font-size:15px;line-height:23px;">Condições, preços e inscrição</div>
+        <div style="padding:10px 0;border-top:1px solid #e2e7f0;color:${ink};font-size:15px;line-height:23px;">11 a 24 de outubro de 2027</div>
+        <div style="padding:10px 0;border-top:1px solid #e2e7f0;color:${ink};font-size:15px;line-height:23px;">Itinerário e acompanhamento espiritual</div>
+        <div style="padding:10px 0 0;border-top:1px solid #e2e7f0;color:${ink};font-size:15px;line-height:23px;">Condições, preços e inscrição</div>
       </td></tr></table>
-      ${paragraph('Se surgir alguma dúvida, escreva para <a href="mailto:geral@apostoladodegarabandal.com" style="color:#754c58;text-decoration:underline;">geral@apostoladodegarabandal.com</a>. Teremos prazer em ajudar.')}
+      ${paragraph('Se surgir alguma dúvida, escreva para <a href="mailto:geral@apostoladodegarabandal.com" style="color:#2b51c7;text-decoration:underline;">geral@apostoladodegarabandal.com</a>. Teremos prazer em ajudar.')}
       ${paragraph('Quando decidir, você pode seguir os passos de inscrição diretamente na página.')}`,
   },
 };
@@ -92,7 +96,7 @@ const EDITIONS_EN: Record<MarianStep, Edition> = {
     body: (greeting) => `
       ${paragraph(`<strong>${greeting},</strong>`)}
       ${paragraph('In October 2027, we invite you to join us on the Marian Way: fourteen days of prayer, reflection and discovery, beginning in Portugal and continuing through Marian pilgrimage sites in Spain and France.')}
-      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:28px 0 27px;background:#f7f3f1;border-left:3px solid ${wine};"><tr><td style="padding:22px 25px;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:28px 0 27px;background:#eef3ff;border-left:3px solid ${wine};"><tr><td style="padding:22px 25px;">
         <div style="color:${wine};font-size:10px;font-weight:700;letter-spacing:2.2px;">THE JOURNEY</div>
         <div style="padding-top:8px;color:${ink};font-family:${serif};font-size:25px;line-height:32px;">From Fátima to Garabandal. From Lourdes to Paris.</div>
         <div style="padding-top:8px;color:${muted};font-size:14px;line-height:23px;">Portugal, Spain and France, with spiritual guidance and time to experience each place.</div>
@@ -126,13 +130,13 @@ const EDITIONS_EN: Record<MarianStep, Edition> = {
     body: (greeting) => `
       ${paragraph(`<strong>${greeting},</strong>`)}
       ${paragraph('If you are considering the Marian Way 2027, you can find the dates, route and registration details together in one place.')}
-      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:25px 0 29px;background:#f7f3f1;"><tr><td style="padding:24px 26px;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:25px 0 29px;background:#eef3ff;"><tr><td style="padding:24px 26px;">
         <div style="margin-bottom:14px;color:${wine};font-size:10px;font-weight:700;letter-spacing:2.2px;">IN THE OFFICIAL PROGRAMME</div>
-        <div style="padding:10px 0;border-top:1px solid #e4ded8;color:${ink};font-size:15px;line-height:23px;">11–24 October 2027</div>
-        <div style="padding:10px 0;border-top:1px solid #e4ded8;color:${ink};font-size:15px;line-height:23px;">Itinerary and spiritual guidance</div>
-        <div style="padding:10px 0 0;border-top:1px solid #e4ded8;color:${ink};font-size:15px;line-height:23px;">Conditions, prices and registration</div>
+        <div style="padding:10px 0;border-top:1px solid #e2e7f0;color:${ink};font-size:15px;line-height:23px;">11–24 October 2027</div>
+        <div style="padding:10px 0;border-top:1px solid #e2e7f0;color:${ink};font-size:15px;line-height:23px;">Itinerary and spiritual guidance</div>
+        <div style="padding:10px 0 0;border-top:1px solid #e2e7f0;color:${ink};font-size:15px;line-height:23px;">Conditions, prices and registration</div>
       </td></tr></table>
-      ${paragraph('If you have a question, write to us at <a href="mailto:geral@apostoladodegarabandal.com" style="color:#754c58;text-decoration:underline;">geral@apostoladodegarabandal.com</a>. We will be glad to help.')}
+      ${paragraph('If you have a question, write to us at <a href="mailto:geral@apostoladodegarabandal.com" style="color:#2b51c7;text-decoration:underline;">geral@apostoladodegarabandal.com</a>. We will be glad to help.')}
       ${paragraph('When you are ready, you can follow the registration steps directly on the pilgrimage page.')}`,
   },
 };
@@ -163,7 +167,7 @@ export function renderMarian2027EditorialEmail(input: EditorialEmailInput): stri
   <div style="display:none;max-height:0;overflow:hidden;opacity:0;font-size:1px;line-height:1px;">${escapeHtml(input.preview)}</div>
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="${paper}" style="background:${paper};"><tr><td class="outer" align="center" style="padding:32px 12px;">
     <table role="presentation" class="container" width="600" cellpadding="0" cellspacing="0" style="width:600px;max-width:600px;background:#ffffff;">
-      <tr><td align="center" class="edge" style="padding:27px 38px 25px;background:#ffffff;border-top:4px solid ${wine};">
+      <tr><td align="center" class="edge" style="padding:27px 38px 25px;background:#ffffff;border-top:4px solid ${EMAIL_THEME.brand};">
         <div style="color:${ink};font-family:${serif};font-size:18px;line-height:24px;letter-spacing:.3px;">Apostolado de Garabandal</div>
         <div style="padding-top:7px;color:${wine};font-size:9px;font-weight:700;letter-spacing:2.6px;">${isEn ? 'MARIAN WAY' : 'CAMINHO MARIANO'} &nbsp;·&nbsp; 2027</div>
       </td></tr>
@@ -175,23 +179,23 @@ export function renderMarian2027EditorialEmail(input: EditorialEmailInput): stri
       <tr><td class="edge" style="padding:17px 45px 0;color:${muted};font-size:10px;letter-spacing:1.8px;">${edition.photoLabel}</td></tr>
       <tr><td class="edge" style="padding:34px 45px 0;">
         <div style="color:${wine};font-size:10px;font-weight:700;letter-spacing:2.6px;">${edition.chapter}</div>
-        <h1 class="headline" style="margin:15px 0 0;color:${ink};font-family:${serif};font-size:42px;font-weight:400;line-height:46px;letter-spacing:-1.2px;">${title}</h1>
-        <p style="margin:13px 0 0;color:${muted};font-family:${serif};font-size:17px;font-style:italic;line-height:24px;">${escapeHtml(edition.subtitle)}</p>
+        <h1 class="headline" style="margin:15px 0 0;color:${ink};font-family:${serif};font-size:38px;font-weight:700;line-height:44px;letter-spacing:-1px;">${title}</h1>
+        <p style="margin:13px 0 0;color:${muted};font-family:${serif};font-size:17px;font-style:normal;line-height:25px;">${escapeHtml(edition.subtitle)}</p>
       </td></tr>
-      <tr><td class="edge" style="padding:29px 45px 0;"><div style="border-top:1px solid #e4ded8;font-size:0;line-height:0;">&nbsp;</div></td></tr>
+      <tr><td class="edge" style="padding:29px 45px 0;"><div style="border-top:1px solid #e2e7f0;font-size:0;line-height:0;">&nbsp;</div></td></tr>
       <tr><td class="edge" style="padding:31px 45px 5px;">${edition.body(greeting)}</td></tr>
       <tr><td class="edge" style="padding:0 45px 44px;">
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" bgcolor="${ink}" style="background:${ink};">
-          <a href="${url}" target="_blank" rel="noopener noreferrer" style="display:block;padding:18px 20px;color:#ffffff;font-size:13px;font-weight:700;letter-spacing:.3px;line-height:20px;text-align:center;text-decoration:none;">${edition.cta} &nbsp;→</a>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" bgcolor="${EMAIL_THEME.brand}" style="background:${EMAIL_THEME.brand};border-radius:999px;">
+          <a href="${url}" target="_blank" rel="noopener noreferrer" style="display:block;padding:18px 20px;color:#ffffff;font-size:15px;font-weight:700;letter-spacing:.1px;line-height:20px;text-align:center;text-decoration:none;border-radius:999px;">${edition.cta} &nbsp;→</a>
         </td></tr></table>
       </td></tr>
-      <tr><td class="edge" style="padding:25px 45px 29px;background:#f7f3f1;border-top:1px solid #e9e1dd;">
+      <tr><td class="edge" style="padding:25px 45px 29px;background:#eef3ff;border-top:1px solid #e2e7f0;">
         <div style="color:${ink};font-family:${serif};font-size:19px;line-height:25px;">${isEn ? 'We are here to help.' : 'Estamos por perto.'}</div>
         <p style="margin:8px 0 0;color:${muted};font-size:12px;line-height:20px;">${isEn ? 'Questions about the pilgrimage?' : 'Dúvidas sobre a peregrinação?'} <a href="mailto:geral@apostoladodegarabandal.com" style="color:${wine};text-decoration:underline;">${isEn ? 'Email us' : 'Escreva-nos'}</a> ${isEn ? 'or message us on' : 'ou fale conosco pelo'} <a href="https://wa.me/351915206815" style="color:${wine};text-decoration:underline;">WhatsApp</a>.</p>
-        ${unsubscribeUrl ? `<p style="margin:20px 0 0;color:#7c838b;font-size:11px;line-height:17px;">${isEn ? 'You are receiving this email because you subscribed to our updates. You can' : 'Você recebe este email por ter se inscrito em nossas comunicações. Você pode'} <a href="${unsubscribeUrl}" style="color:#7c838b;text-decoration:underline;">${isEn ? 'unsubscribe' : 'cancelar a inscrição'}</a> ${isEn ? 'at any time.' : 'a qualquer momento.'}</p>` : ''}
+        ${unsubscribeUrl ? `<p style="margin:20px 0 0;color:#5b6475;font-size:11px;line-height:17px;">${isEn ? 'You are receiving this email because you subscribed to our updates. You can' : 'Você recebe este email por ter se inscrito em nossas comunicações. Você pode'} <a href="${unsubscribeUrl}" style="color:#5b6475;text-decoration:underline;">${isEn ? 'unsubscribe' : 'cancelar a inscrição'}</a> ${isEn ? 'at any time.' : 'a qualquer momento.'}</p>` : ''}
       </td></tr>
     </table>
-    <div style="padding:22px 10px 0;color:#899097;font-size:10px;letter-spacing:1.1px;text-align:center;">APOSTOLADO DE GARABANDAL</div>
+    <div style="padding:22px 10px 0;color:#5b6475;font-size:10px;letter-spacing:1.1px;text-align:center;">APOSTOLADO DE GARABANDAL</div>
   </td></tr></table>
 </body></html>`;
 }
