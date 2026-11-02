@@ -149,13 +149,29 @@ const addEvent = (contact: MutableContact, event: MarketingEvent) => {
   contact.latest_activity_at = latest(contact.latest_activity_at, event.occurred_at);
 };
 
+const SOURCE_PAGE_SIZE = 1000;
+const SOURCE_MAX_PAGES = 50;
+
+// Lê a tabela inteira por páginas (o PostgREST corta em 1000 linhas por pedido).
+// Falha em voz alta: uma fonte em falta não pode virar "lista vazia", porque
+// isso despromovia contactos de segmentos e, no caso da supressão, voltava a
+// marcar como contactáveis quem já tinha feito unsubscribe ou devolvido bounce.
 const safeSelect = async (supabase: SupabaseLike, table: string, select: string) => {
-  const { data, error } = await supabase.from(table).select(select);
-  if (error) {
-    console.warn(`[Marketing] Failed to fetch ${table}:`, error.message || error);
-    return [];
+  const rows: any[] = [];
+  for (let page = 0; page < SOURCE_MAX_PAGES; page += 1) {
+    const from = page * SOURCE_PAGE_SIZE;
+    const { data, error } = await supabase
+      .from(table)
+      .select(select)
+      .order('id', { ascending: true })
+      .range(from, from + SOURCE_PAGE_SIZE - 1);
+    if (error) {
+      throw new Error(`[Marketing] Failed to fetch ${table}: ${error.message || error}`);
+    }
+    rows.push(...(data || []));
+    if (!data || data.length < SOURCE_PAGE_SIZE) return rows;
   }
-  return data || [];
+  throw new Error(`[Marketing] ${table} exceeds ${SOURCE_MAX_PAGES * SOURCE_PAGE_SIZE} rows`);
 };
 
 export async function buildMarketingContacts(supabase: SupabaseLike): Promise<MarketingContact[]> {
@@ -180,7 +196,7 @@ export async function buildMarketingContacts(supabase: SupabaseLike): Promise<Ma
     safeSelect(supabase, 'pilgrimage_payments', 'id,booking_id,user_id,amount,status,method,created_at,bookings(id,pilgrimages(title,slug))'),
     safeSelect(supabase, 'donations', 'id,user_id,amount_cents,currency,status,method,metadata,donor_name,donor_email,donor_country,created_at,updated_at'),
     safeSelect(supabase, 'store_orders', 'id,order_ref,buyer_user_id,buyer_name,buyer_email,buyer_phone,billing_country,shipping_country,total_amount,currency,status,created_at'),
-    safeSelect(supabase, 'pagamentos_quotas', 'id,user_id,data_pagamento,valor,metodo_pagamento,estado,membros(id,email,nome,telefone,country,estado_quota,is_membro)'),
+    safeSelect(supabase, 'pagamentos_quotas', 'id,user_id,data_pagamento,valor,metodo_pagamento,estado,membros!pagamentos_quotas_user_id_fkey(id,email,nome,telefone,country,estado_quota,is_membro)'),
     safeSelect(supabase, 'newsletter_subscribers', 'id,normalized_email,display_name,language,group_label,country,city,consent_state,subscribed_at,imported_at'),
     safeSelect(supabase, 'marketing_suppression_list', 'normalized_email,normalized_phone,reason'),
   ]);
@@ -200,7 +216,9 @@ export async function buildMarketingContacts(supabase: SupabaseLike): Promise<Ma
       locale: member.country ? undefined : null,
       occurredAt: member.updated_at || member.data_adesao,
     });
-    contact.source_summary.is_member = Boolean(member.is_membro || member.numero_socio || member.estado_quota);
+    // Só é membro quem tem is_membro (quota paga). Todas as contas têm estado_quota,
+    // por isso 'pendente'/'revogado' já não contam como membros.
+    contact.source_summary.is_member = Boolean(member.is_membro);
     contact.source_summary.member_status = normalizeQuotaStatus(member.estado_quota);
     contact.source_summary.member_type = normalizeText(member.tipo_subscricao) || null;
     contact.source_summary.member_since = member.data_adesao || null;
@@ -479,11 +497,12 @@ export async function buildMarketingContacts(supabase: SupabaseLike): Promise<Ma
       locale: subscriber.language,
       occurredAt: subscriber.subscribed_at,
     });
-    contact.source_summary.newsletter_subscriber = true;
-    contact.source_summary.newsletter_group = normalizeText(subscriber.group_label) || null;
-    // Newsletter opt-in is an explicit consent upgrade — but never override a
-    // stronger negative state (suppression is applied further below and wins).
-    if (contact.consent_state === 'assumed' || contact.consent_state === 'unknown') {
+    const hasExplicitNewsletterConsent = subscriber.consent_state === 'explicit';
+    contact.source_summary.newsletter_subscriber = hasExplicitNewsletterConsent;
+    contact.source_summary.newsletter_group = hasExplicitNewsletterConsent ? normalizeText(subscriber.group_label) || null : null;
+    // Only a documented explicit opt-in upgrades the marketing consent state.
+    // Suppression is applied further below and always wins.
+    if (hasExplicitNewsletterConsent && (contact.consent_state === 'assumed' || contact.consent_state === 'unknown')) {
       contact.consent_state = 'explicit';
     }
     addLink(contact, { source_table: 'newsletter_subscribers', source_id: subscriber.id, source_label: subscriber.group_label || 'Newsletter' });

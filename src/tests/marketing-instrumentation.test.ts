@@ -107,9 +107,9 @@ describe('waitlist_open_spot states the real number of places', () => {
 });
 
 describe('marketing quiet hours (São Paulo window)', () => {
-  it('defaults to 9-21', () => {
+  it('defaults to 9-20', () => {
     delete process.env.MARKETING_SEND_WINDOW;
-    expect(getMarketingSendWindow()).toEqual({ start: 9, end: 21 });
+    expect(getMarketingSendWindow()).toEqual({ start: 9, end: 20 });
   });
 
   it('allows mid-afternoon and blocks the middle of the night in São Paulo', () => {
@@ -118,10 +118,10 @@ describe('marketing quiet hours (São Paulo window)', () => {
     expect(isWithinMarketingSendWindow(new Date('2026-07-09T18:00:00Z'))).toBe(true);
     // 06:00 UTC = 03:00 em São Paulo → fora da janela
     expect(isWithinMarketingSendWindow(new Date('2026-07-09T06:00:00Z'))).toBe(false);
-    // 23:30 UTC = 20:30 em São Paulo → ainda dentro (fim é exclusivo às 21)
-    expect(isWithinMarketingSendWindow(new Date('2026-07-09T23:30:00Z'))).toBe(true);
-    // 00:30 UTC = 21:30 em São Paulo → fora
-    expect(isWithinMarketingSendWindow(new Date('2026-07-10T00:30:00Z'))).toBe(false);
+    // 22:30 UTC = 19:30 em São Paulo → ainda dentro (fim é exclusivo às 20)
+    expect(isWithinMarketingSendWindow(new Date('2026-07-09T22:30:00Z'))).toBe(true);
+    // 23:30 UTC = 20:30 em São Paulo → fora
+    expect(isWithinMarketingSendWindow(new Date('2026-07-09T23:30:00Z'))).toBe(false);
   });
 
   it('honours MARKETING_SEND_WINDOW env override', () => {

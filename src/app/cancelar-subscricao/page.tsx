@@ -8,16 +8,22 @@ export const dynamic = 'force-dynamic';
 export default async function CancelarSubscricaoPage({
   searchParams,
 }: {
-  searchParams: Promise<{ e?: string; t?: string }>;
+  searchParams: Promise<{ e?: string; t?: string; confirm?: string }>;
 }) {
-  const { e = '', t = '' } = await searchParams;
+  const { e = '', t = '', confirm = '' } = await searchParams;
   const email = decodeUnsubscribeEmail(e);
 
-  let status: 'success' | 'invalid' | 'error' = 'invalid';
+  // Só cancela depois de a pessoa carregar no botão (confirm=1): abrir a ligação
+  // não chega, para que verificadores automáticos de ligações não descadastrem ninguém.
+  let status: 'confirm' | 'success' | 'invalid' | 'error' = 'invalid';
   if (email && verifyUnsubscribeToken(email, t) && supabaseServer) {
-    const result = await applyMarketingUnsubscribe(supabaseServer, email);
-    status = result.ok ? 'success' : 'error';
+    if (confirm !== '1') {
+      status = 'confirm';
+    } else {
+      const result = await applyMarketingUnsubscribe(supabaseServer, email);
+      status = result.ok ? 'success' : 'error';
+    }
   }
 
-  return <UnsubscribeResult status={status} locale="pt" />;
+  return <UnsubscribeResult status={status} locale="pt" confirmFields={{ e, t }} />;
 }

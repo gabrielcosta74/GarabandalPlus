@@ -173,34 +173,53 @@ export const prepareMarketingFunnelEnrollments = async (
   const contacts = await buildMarketingContacts(supabase);
   await persistMarketingContacts(supabase, contacts);
 
-  const eligible = contacts
+  const candidates = contacts
     .filter((contact) => isDeliverableMarketingEmail(contact.normalized_email) && contact.consent_state !== 'suppressed' && contact.consent_state !== 'unsubscribed')
-    .filter((contact) => isContactInSegment(contact, funnel.segment_slug))
-    .slice(0, options.limit || 250);
+    // Sem copy em espanhol: os contactos ES ficam fora dos funis.
+    .filter((contact) => contact.language !== 'es')
+    .filter((contact) => isContactInSegment(contact, funnel.segment_slug));
 
-  if (!eligible.length) {
+  if (!candidates.length) {
     return { sourceContacts: contacts.length, eligible: 0, enrolled: 0, skippedExisting: 0 };
   }
 
-  const emails = eligible.map((contact) => contact.normalized_email).filter(Boolean);
-  const { data: persistedContacts, error: persistedError } = await supabase
-    .from('marketing_contacts')
-    .select('id,normalized_email')
-    .in('normalized_email', emails);
-  if (persistedError) throw persistedError;
+  // Os ids persistidos vêm em blocos (um .in() com centenas de emails rebenta o URL).
+  const byEmail = new Map<string, string>();
+  const candidateEmails = candidates.map((contact) => contact.normalized_email).filter(Boolean) as string[];
+  for (let i = 0; i < candidateEmails.length; i += 100) {
+    const { data: persistedContacts, error: persistedError } = await supabase
+      .from('marketing_contacts')
+      .select('id,normalized_email')
+      .in('normalized_email', candidateEmails.slice(i, i + 100));
+    if (persistedError) throw persistedError;
+    for (const contact of persistedContacts || []) byEmail.set(contact.normalized_email, contact.id);
+  }
 
-  const byEmail = new Map((persistedContacts || []).map((contact: any) => [contact.normalized_email, contact.id]));
-  const contactIds = Array.from(byEmail.values());
-  const { data: existingEnrollments, error: existingError } = contactIds.length
-    ? await supabase
-        .from('marketing_enrollments')
-        .select('id,contact_id,status')
-        .eq('funnel_id', funnel.id)
-        .in('contact_id', contactIds)
-    : { data: [], error: null };
+  // Todas as inscrições existentes neste funil (poucas centenas), para tirar da fila
+  // quem já está inscrito ANTES de cortar no limite — senão os primeiros N contactos,
+  // já inscritos, ocupam sempre a fatia e os novos nunca entram.
+  const { data: existingEnrollments, error: existingError } = await supabase
+    .from('marketing_enrollments')
+    .select('id,contact_id,status')
+    .eq('funnel_id', funnel.id)
+    .range(0, 4999);
   if (existingError) throw existingError;
 
   const existingByContactId = new Map((existingEnrollments || []).map((row: any) => [row.contact_id, row]));
+  const reactivating = options.reactivatePaused
+    ? (contact: any) => ['paused', 'failed'].includes(String((existingByContactId.get(byEmail.get(contact.normalized_email) as string) as any)?.status))
+    : () => false;
+  const eligible = candidates
+    .filter((contact) => {
+      const contactId = byEmail.get(contact.normalized_email as string);
+      return contactId && (!existingByContactId.has(contactId) || reactivating(contact));
+    })
+    .slice(0, options.limit || 250);
+
+  if (!eligible.length) {
+    return { sourceContacts: contacts.length, eligible: 0, enrolled: 0, skippedExisting: candidates.length };
+  }
+  const contactIds = eligible.map((contact) => byEmail.get(contact.normalized_email as string) as string);
   const blockedContactIds = await getBlockedContactIds(supabase, funnel.slug, contactIds as string[]);
   const firstStep = Array.isArray(funnel.steps) ? funnel.steps[0] : null;
   const delayHours = Number(firstStep?.delay_hours || 0);
@@ -209,7 +228,7 @@ export const prepareMarketingFunnelEnrollments = async (
   let skippedExisting = 0;
 
   for (const contact of eligible) {
-    const contactId = byEmail.get(contact.normalized_email);
+    const contactId = byEmail.get(contact.normalized_email as string);
     if (!contactId) continue;
     if (blockedContactIds.has(String(contactId))) continue;
 
@@ -517,6 +536,24 @@ export const processMarketingEnrollment = async (supabase: any, enrollment: any)
     return { enrollment: enrollment.id, status: 'stopped', reason: 'internal_member_email' };
   }
 
+  // Moradas de teste/placeholder (ex. @chat.local) e gralhas de domínio só geram bounces.
+  if (!isDeliverableMarketingEmail(contact.normalized_email)) {
+    await supabase
+      .from('marketing_enrollments')
+      .update({ status: 'stopped', stopped_reason: 'undeliverable_address', next_run_at: null, updated_at: nowIso })
+      .eq('id', enrollment.id);
+    return { enrollment: enrollment.id, status: 'stopped', reason: 'undeliverable_address' };
+  }
+
+  // Não há copy em espanhol: os contactos ES ficam fora dos funis até haver.
+  if (contact.language === 'es') {
+    await supabase
+      .from('marketing_enrollments')
+      .update({ status: 'paused', stopped_reason: 'language_unsupported', next_run_at: null, updated_at: nowIso })
+      .eq('id', enrollment.id);
+    return { enrollment: enrollment.id, status: 'paused', reason: 'language_unsupported' };
+  }
+
   if (marketingContactReachedGoal(contact, Array.isArray(step.stop_if) ? step.stop_if : ['suppressed', 'unsubscribed'])) {
     await supabase
       .from('marketing_enrollments')
@@ -607,14 +644,36 @@ export const processMarketingEnrollment = async (supabase: any, enrollment: any)
     return { enrollment: enrollment.id, status: 'rate_limited', retryAt, limits, sendCounts };
   }
 
+  // Reserva o passo antes de enviar: se duas corridas do cron se sobrepuserem, só
+  // uma consegue mudar next_run_at a partir do valor lido e a outra desiste.
+  // Se a corrida morrer a meio, o passo volta a estar devido dentro de 1h.
+  const { data: claimed, error: claimError } = await supabase
+    .from('marketing_enrollments')
+    .update({ next_run_at: addMarketingHours(new Date(), 1).toISOString(), updated_at: nowIso })
+    .eq('id', enrollment.id)
+    .eq('status', 'active')
+    .eq('current_step', enrollment.current_step)
+    .eq('next_run_at', enrollment.next_run_at)
+    .select('id');
+  if (claimError) throw claimError;
+  if (!claimed?.length) {
+    return { enrollment: enrollment.id, status: 'skipped', reason: 'already_claimed' };
+  }
+
+  const registrationStep = step.template_key === 'abandoned_registration_1'
+    ? await getAbandonedRegistrationStep(supabase, contact.normalized_email)
+    : null;
   const result = await sendMarketingEmail({
     contact,
     subject: step.subject_override || null,
     body: step.body_override || null,
     templateKey: step.template_key,
+    // O Resend devolve o mesmo envio se a chave se repetir (válida 24h).
+    idempotencyKey: `funnel-${enrollment.id}-step-${enrollment.current_step}`,
+    ...(registrationStep ? { context: { registrationStep } } : {}),
   });
 
-  await supabase.from('marketing_message_logs').insert({
+  const { error: logError } = await supabase.from('marketing_message_logs').insert({
     contact_id: contact.id,
     funnel_id: funnel.id,
     enrollment_id: enrollment.id,
@@ -628,13 +687,28 @@ export const processMarketingEnrollment = async (supabase: any, enrollment: any)
     sent_at: result.sent ? nowIso : null,
     metadata: { step },
   });
+  if (logError) {
+    // O email já saiu (ou falhou) — o log em falta não pode passar em silêncio, porque
+    // é ele que alimenta os limites de frequência e as métricas.
+    console.error('[Marketing] Failed to write message log:', enrollment.id, logError.message || logError);
+  }
 
   if (!result.sent) {
+    // Falhas pontuais do fornecedor (limite de pedidos, rede) não devem queimar a
+    // inscrição para sempre: 3 tentativas espaçadas, depois fica 'failed'.
+    const failures = Number(enrollment.metadata?.send_failures || 0) + 1;
+    const exhausted = failures >= 3;
     await supabase
       .from('marketing_enrollments')
-      .update({ status: 'failed', stopped_reason: result.error || 'send_failed', updated_at: nowIso })
+      .update({
+        status: exhausted ? 'failed' : 'active',
+        stopped_reason: exhausted ? result.error || 'send_failed' : null,
+        next_run_at: exhausted ? null : addMarketingHours(new Date(), 6).toISOString(),
+        metadata: { ...(enrollment.metadata || {}), send_failures: failures, last_send_error: result.error || null },
+        updated_at: nowIso,
+      })
       .eq('id', enrollment.id);
-    return { enrollment: enrollment.id, status: 'failed', error: result.error };
+    return { enrollment: enrollment.id, status: exhausted ? 'failed' : 'retry_scheduled', error: result.error };
   }
 
   const nextStepIndex = enrollment.current_step + 1;
@@ -651,3 +725,49 @@ export const processMarketingEnrollment = async (supabase: any, enrollment: any)
 
   return { enrollment: enrollment.id, status: 'sent', step: enrollment.current_step };
 };
+
+/**
+ * Passo do formulário onde a pessoa parou, para o primeiro email de
+ * recuperação (abandoned_registration_1). Desligado por omissão: só corre com
+ * MARKETING_ABANDONED_STEP_COPY=on, depois de aprovado o texto por passo.
+ * Usa o tracking próprio (site_events) e, sem ele, o step_reached do lead.
+ */
+const RECOVERY_STEPS = ['dados', 'quartos', 'voos', 'pagamento'] as const;
+type RecoveryStep = (typeof RECOVERY_STEPS)[number];
+
+async function getAbandonedRegistrationStep(supabase: any, email: string | null | undefined): Promise<RecoveryStep | null> {
+  if (process.env.MARKETING_ABANDONED_STEP_COPY !== 'on' || !email) return null;
+  try {
+    const { data: lead } = await supabase
+      .from('booking_leads')
+      .select('id, step_reached')
+      .eq('email', email)
+      .eq('status', 'draft')
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (!lead?.id) return null;
+
+    const { data: visitors } = await supabase.from('site_visitors').select('id').eq('lead_id', lead.id);
+    const visitorIds = (visitors || []).map((v: { id: string }) => v.id);
+    if (visitorIds.length) {
+      const { data: events } = await supabase
+        .from('site_events')
+        .select('props')
+        .in('visitor_id', visitorIds)
+        .eq('name', 'registration_step_viewed');
+      const reached = (events || [])
+        .map((e: { props?: { step_name?: string } }) => e.props?.step_name)
+        .filter((name: unknown): name is RecoveryStep => RECOVERY_STEPS.includes(name as RecoveryStep))
+        .sort((a: RecoveryStep, b: RecoveryStep) => RECOVERY_STEPS.indexOf(b) - RECOVERY_STEPS.indexOf(a))[0];
+      if (reached) return reached;
+    }
+
+    // Sem eventos: o número do passo só é inequívoco fora do 4 (voos ou pagamento).
+    const byNumber: Record<number, RecoveryStep> = { 2: 'dados', 3: 'quartos', 5: 'pagamento' };
+    return byNumber[Number(lead.step_reached)] || null;
+  } catch (err) {
+    console.warn('[marketing] registration step lookup failed:', err);
+    return null;
+  }
+}

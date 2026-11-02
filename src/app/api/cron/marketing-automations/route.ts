@@ -143,17 +143,29 @@ export async function GET(req: Request) {
       });
     }
 
+    // Se a leitura das fontes falhar, não se inscreve ninguém nesta corrida, mas os
+    // passos já devidos continuam a sair (o consentimento persistido é atualizado
+    // pelo webhook e pelo unsubscribe).
     let enrolled = 0;
+    const prepareErrors: string[] = [];
     for (const funnel of funnels || []) {
-      const result = await prepareMarketingFunnelEnrollments(supabaseServer, funnel, { limit: limits.enrollmentPrepareLimit });
-      enrolled += result.enrolled;
+      try {
+        const result = await prepareMarketingFunnelEnrollments(supabaseServer, funnel, { limit: limits.enrollmentPrepareLimit });
+        enrolled += result.enrolled;
+      } catch (prepareError: any) {
+        console.error('[Marketing Automations] Prepare failed:', funnel?.slug, prepareError);
+        prepareErrors.push(`${funnel?.slug}: ${prepareError?.message || prepareError}`);
+        break;
+      }
     }
 
     const waitlistOpenSpot = await processWaitlistOpenSpotNotifications(supabaseServer, {
       limit: batchLimit,
     });
+    // As campanhas só usam o que sobra acima da reserva dos funis.
+    const campaignRoom = Math.max(0, remainingDailyCapacity - waitlistOpenSpot.sent - limits.funnelReservedDailySends);
     const marian2027 = await processMarian2027ScheduledCampaigns(supabaseServer, {
-      limit: Math.min(10, Math.max(0, batchLimit - waitlistOpenSpot.sent)),
+      limit: Math.min(10, Math.max(0, batchLimit - waitlistOpenSpot.sent), campaignRoom),
     });
     const enrollmentBatchLimit = Math.max(0, batchLimit - waitlistOpenSpot.sent - marian2027.sent);
 
@@ -180,6 +192,7 @@ export async function GET(req: Request) {
       remainingDailyCapacity,
       activeFunnels: (funnels || []).length,
       enrolled,
+      ...(prepareErrors.length ? { prepareErrors } : {}),
       waitlistOpenSpot,
       marian2027,
       processed,

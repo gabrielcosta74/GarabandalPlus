@@ -167,9 +167,41 @@ export const isInternalMemberEmail = (value: unknown) => {
   return Boolean(email && email.endsWith(INTERNAL_MEMBER_EMAIL_SUFFIX));
 };
 
+// Domínios que nunca recebem email real: placeholders do próprio sistema (o chat
+// cria leads com @chat.local), domínios reservados e gralhas conhecidas de
+// gmail/hotmail/yahoo que só geram bounces e prejudicam a reputação do domínio.
+const UNDELIVERABLE_DOMAIN_SUFFIXES = ['.local', '.localhost', '.test', '.invalid', '.example', '.internal'];
+const UNDELIVERABLE_DOMAINS = new Set([
+  'example.com',
+  'example.org',
+  'example.net',
+  'gamail.com',
+  'gmial.com',
+  'gmail.con',
+  'gmail.co',
+  'gmail.com.br',
+  'gmai.com',
+  'hitmail.com',
+  'hotmial.com',
+  'hotmai.com',
+  'hotmail.con',
+  'hotmail.clm',
+  'yahou.com',
+  'yaho.com',
+  'outlok.com',
+]);
+const EMAIL_SHAPE = /^[^\s@]+@[^\s@.]+(\.[^\s@.]+)+$/;
+
+export const isUndeliverableEmailDomain = (value: unknown) => {
+  const email = normalizeEmail(value);
+  if (!email || !EMAIL_SHAPE.test(email)) return true;
+  const domain = email.slice(email.lastIndexOf('@') + 1);
+  return UNDELIVERABLE_DOMAINS.has(domain) || UNDELIVERABLE_DOMAIN_SUFFIXES.some((suffix) => domain.endsWith(suffix));
+};
+
 export const isDeliverableMarketingEmail = (value: unknown) => {
   const email = normalizeEmail(value);
-  return Boolean(email && !isInternalMemberEmail(email));
+  return Boolean(email && !isInternalMemberEmail(email) && !isUndeliverableEmailDomain(email));
 };
 
 export const normalizePhone = (value: unknown) => {

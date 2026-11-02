@@ -5,17 +5,17 @@ import { renderMarketingTemplateEmail } from '../lib/email-renderer';
 describe('Caminho Mariano 2027 campaign', () => {
   it('keeps only explicit Portuguese opt-ins and excludes bookings and unsubscribes', () => {
     const subscribers = [
-      { normalized_email: ' MARIA@example.com ', display_name: 'Maria', language: 'pt', consent_state: 'explicit', external_status: 'active' },
-      { normalized_email: 'maria@example.com', display_name: 'Duplicado', language: 'pt', consent_state: 'explicit', external_status: 'active' },
-      { normalized_email: 'booked@example.com', display_name: 'Inscrita', language: 'pt', consent_state: 'explicit', external_status: 'active' },
-      { normalized_email: 'optout@example.com', display_name: 'Sem emails', language: 'pt', consent_state: 'explicit', external_status: 'active' },
-      { normalized_email: 'assumed@example.com', display_name: 'Sem prova', language: 'pt', consent_state: 'assumed', external_status: 'active' },
-      { normalized_email: 'en@example.com', display_name: 'English', language: 'en', consent_state: 'explicit', external_status: 'active' },
-      { normalized_email: 'bounced@example.com', display_name: 'Bounce', language: 'pt', consent_state: 'explicit', external_status: 'bounced' },
+      { normalized_email: ' MARIA@gmail.com ', display_name: 'Maria', language: 'pt', consent_state: 'explicit', external_status: 'active' },
+      { normalized_email: 'maria@gmail.com', display_name: 'Duplicado', language: 'pt', consent_state: 'explicit', external_status: 'active' },
+      { normalized_email: 'booked@gmail.com', display_name: 'Inscrita', language: 'pt', consent_state: 'explicit', external_status: 'active' },
+      { normalized_email: 'optout@gmail.com', display_name: 'Sem emails', language: 'pt', consent_state: 'explicit', external_status: 'active' },
+      { normalized_email: 'assumed@gmail.com', display_name: 'Sem prova', language: 'pt', consent_state: 'assumed', external_status: 'active' },
+      { normalized_email: 'en@gmail.com', display_name: 'English', language: 'en', consent_state: 'explicit', external_status: 'active' },
+      { normalized_email: 'bounced@gmail.com', display_name: 'Bounce', language: 'pt', consent_state: 'explicit', external_status: 'bounced' },
     ];
-    const audience = selectMarian2027Audience(subscribers, new Set(['booked@example.com', 'optout@example.com']));
-    expect(audience.map((contact) => contact.normalized_email)).toEqual(['maria@example.com']);
-    expect(selectMarian2027Audience(subscribers, new Set(), 'en').map((contact) => contact.normalized_email)).toEqual(['en@example.com']);
+    const audience = selectMarian2027Audience(subscribers, new Set(['booked@gmail.com', 'optout@gmail.com']));
+    expect(audience.map((contact) => contact.normalized_email)).toEqual(['maria@gmail.com']);
+    expect(selectMarian2027Audience(subscribers, new Set(), 'en').map((contact) => contact.normalized_email)).toEqual(['en@gmail.com']);
   });
 
   it('renders three distinct emails in Portuguese and English with the correct pilgrimage link', () => {

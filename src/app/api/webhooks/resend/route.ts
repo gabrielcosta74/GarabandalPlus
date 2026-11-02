@@ -18,7 +18,9 @@ type ResendEventType =
   | 'email.opened'
   | 'email.clicked'
   | 'email.bounced'
-  | 'email.complained';
+  | 'email.complained'
+  | 'email.delivery_delayed'
+  | 'email.failed';
 
 const EVENT_MAP: Record<string, { logField: string; eventType: string; title: string }> = {
   'email.delivered': { logField: 'delivered_at', eventType: 'email_delivered', title: 'Email entregue' },
@@ -26,7 +28,16 @@ const EVENT_MAP: Record<string, { logField: string; eventType: string; title: st
   'email.clicked': { logField: 'clicked_at', eventType: 'email_clicked', title: 'Clique no email' },
   'email.bounced': { logField: 'bounced_at', eventType: 'email_bounced', title: 'Email devolvido (bounce)' },
   'email.complained': { logField: 'complained_at', eventType: 'email_complained', title: 'Marcado como spam' },
+  'email.delivery_delayed': { logField: 'delayed_at', eventType: 'email_delayed', title: 'Entrega adiada' },
+  'email.failed': { logField: 'failed_at', eventType: 'email_failed', title: 'Envio falhado' },
 };
+
+// Um bounce 'Transient' (caixa cheia, servidor ocupado) não é uma morada morta:
+// só suprime ao fim de vários no mesmo endereço. 'Permanent' e 'Undetermined'
+// suprimem logo.
+const TRANSIENT_BOUNCES_TO_SUPPRESS = 3;
+const TRANSIENT_BOUNCE_WINDOW_DAYS = 30;
+const MAX_TRACKED_EVENT_IDS = 20;
 
 const COUNTER_FIELD: Partial<Record<ResendEventType, string>> = {
   'email.opened': 'open_count',
@@ -94,21 +105,31 @@ export async function POST(request: Request) {
 
     if (log?.id) {
       const metadata = { ...(log.metadata || {}) } as Record<string, unknown>;
+      // Os reenvios do Resend repetem o mesmo svix-id: sem isto os contadores de
+      // aberturas e cliques duplicavam.
+      const seenEventIds = Array.isArray(metadata.event_ids) ? (metadata.event_ids as string[]) : [];
+      if (seenEventIds.includes(svixId)) {
+        return NextResponse.json({ received: true, type, duplicate: true });
+      }
+      metadata.event_ids = [...seenEventIds, svixId].slice(-MAX_TRACKED_EVENT_IDS);
+
       if (!metadata[mapping.logField]) metadata[mapping.logField] = occurredAt;
       const counterField = COUNTER_FIELD[type];
       if (counterField) metadata[counterField] = Number(metadata[counterField] || 0) + 1;
       if (type === 'email.clicked' && data.click?.link) metadata.last_click_url = String(data.click.link);
       if (type === 'email.bounced' && data.bounce?.type) metadata.bounce_type = String(data.bounce.type);
+      if (type === 'email.bounced' && data.bounce?.message) metadata.bounce_message = String(data.bounce.message).slice(0, 300);
 
-      await supabaseServer
+      const { error: updateError } = await supabaseServer
         .from('marketing_message_logs')
         .update({ metadata })
         .eq('id', log.id);
+      if (updateError) throw updateError;
 
       if (log.contact_id) {
         // Upsert dedupla por (contact_id, event_type, source_table, source_id):
         // 1 evento por tipo por email — os contadores vivem no log.
-        await supabaseServer.from('marketing_events').upsert(
+        const { error: eventError } = await supabaseServer.from('marketing_events').upsert(
           {
             contact_id: log.contact_id,
             event_type: mapping.eventType,
@@ -120,29 +141,49 @@ export async function POST(request: Request) {
           },
           { onConflict: 'contact_id,event_type,source_table,source_id' },
         );
+        if (eventError) throw eventError;
       }
     }
 
-    // 2. Bounce/queixa suprime o endereço — mesmo que o envio não seja de marketing,
-    //    um endereço inválido ou que marcou spam nunca mais deve receber marketing.
+    // 2. Bounce definitivo ou queixa de spam suprime o endereço — mesmo que o envio não
+    //    seja de marketing, uma morada inválida ou que marcou spam nunca mais deve
+    //    receber marketing. Bounces transitórios só suprimem se se repetirem.
     if (SUPPRESSING_EVENTS.has(type) && toEmails.length) {
+      const bounceType = String(data.bounce?.type || '');
       for (const email of toEmails) {
+        let reason = type === 'email.bounced' ? 'bounce' : 'spam_complaint';
+
+        if (type === 'email.bounced' && bounceType === 'Transient') {
+          const since = new Date(Date.now() - TRANSIENT_BOUNCE_WINDOW_DAYS * 24 * 60 * 60 * 1000).toISOString();
+          const { count, error: countError } = await supabaseServer
+            .from('marketing_message_logs')
+            .select('id', { count: 'exact', head: true })
+            .eq('to_email', email)
+            .eq('metadata->>bounce_type', 'Transient')
+            .gte('created_at', since);
+          if (countError) throw countError;
+          if ((count || 0) < TRANSIENT_BOUNCES_TO_SUPPRESS) continue;
+          reason = 'bounce_repeated_transient';
+        }
+
         const { data: existing } = await supabaseServer
           .from('marketing_suppression_list')
           .select('id')
           .eq('normalized_email', email)
           .maybeSingle();
         if (!existing?.id) {
-          await supabaseServer.from('marketing_suppression_list').insert({
+          const { error: insertError } = await supabaseServer.from('marketing_suppression_list').insert({
             normalized_email: email,
-            reason: type === 'email.bounced' ? 'bounce' : 'spam_complaint',
+            reason,
             source: 'resend_webhook',
           });
+          if (insertError) throw insertError;
         }
-        await supabaseServer
+        const { error: contactError } = await supabaseServer
           .from('marketing_contacts')
           .update({ consent_state: 'suppressed', lifecycle_stage: 'suppressed', updated_at: new Date().toISOString() })
           .eq('normalized_email', email);
+        if (contactError) throw contactError;
       }
     }
 

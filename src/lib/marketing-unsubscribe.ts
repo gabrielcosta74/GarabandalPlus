@@ -19,5 +19,20 @@ export const applyMarketingUnsubscribe = async (
     );
 
   if (error) return { ok: false, error: error.message };
+
+  // Aplica já ao contacto e à subscrição: os envios que lêem o estado guardado
+  // (cron, campanhas) não esperam pela próxima reconstrução dos contactos.
+  const now = new Date().toISOString();
+  const { error: contactError } = await supabase
+    .from('marketing_contacts')
+    .update({ consent_state: 'unsubscribed', updated_at: now })
+    .eq('normalized_email', normalized);
+  if (contactError) return { ok: false, error: contactError.message };
+  const { error: subscriberError } = await supabase
+    .from('newsletter_subscribers')
+    .update({ consent_state: 'unsubscribed' })
+    .eq('normalized_email', normalized);
+  if (subscriberError) return { ok: false, error: subscriberError.message };
+
   return { ok: true };
 };
