@@ -9,6 +9,7 @@ import { getPageBySlug, getTranslationPeers, listAllSlugs } from '../../../lib/c
 import { PUBLISHED_ONLY } from '../../../lib/content/preview';
 import { articleJsonLd, breadcrumbJsonLd, buildHreflang, jsonLdScript } from '../../../lib/content/content-seo';
 import { entityJsonLd } from '../../../lib/content/entity-schema';
+import { withHistoryTimeline } from '../../../lib/content/history-timeline';
 import { APP_URL } from '../../../lib/config';
 
 export const revalidate = 600;
@@ -92,7 +93,7 @@ export default async function EnMigratedPage({ params }: { params: Promise<Param
           peers.length > 1 ? <LocaleSwitcher current="en" peers={peers} basePath="page" /> : null
         }
       />
-      <ArticleBody html={page.content_html} />
+      <ArticleBody html={slug === 'garabandal-history' ? withHistoryTimeline(page.content_html) : page.content_html} />
       <ShareBar url={`${APP_URL}/en/${slug}`} title={page.title} locale="en" />
       <ShareCTA url={`${APP_URL}/en/${slug}`} title={page.title} locale="en" />
     </main>
