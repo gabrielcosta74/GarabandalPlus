@@ -11,12 +11,12 @@ const SITE = 'https://apostoladodegarabandal.com';
 const LOGO = `${SITE}/apple-touch-icon.png`;
 const HANDWRITTEN = `${SITE}/images/assinatura-garabandal.png`;
 
-const INK = '#0f172a';
-const TEXT = '#1f2937';
-const MUTED = '#64748b';
-const GOLD = '#d4af37';
-// O dourado da marca é claro demais para texto em fundo branco.
-const GOLD_TEXT = '#9a7b1f';
+const INK = '#0f1b33';
+const TEXT = '#1b2a4a';
+const MUTED = '#5b6475';
+const GOLD = '#3563e9';
+// Azul um pouco mais escuro para texto e ligações sobre fundo branco.
+const GOLD_TEXT = '#2b51c7';
 const SERIF = "Georgia, 'Times New Roman', serif";
 
 export type SignatureSettings = {

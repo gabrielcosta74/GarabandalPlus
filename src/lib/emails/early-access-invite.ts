@@ -38,12 +38,12 @@ export type EarlyAccessInviteInput = {
   unsubscribeUrl?: string;
 };
 
-const GOLD = '#d4bc7d';
-const GOLD_BRIGHT = '#f0cc70';
-const GOLD_SOFT = '#e0c37b';
-const BG = '#080808';
-const CARD = '#0e0e0e';
-const INK = '#f4f1e9';
+const GOLD = '#3563e9';
+const GOLD_BRIGHT = '#8fb0ff';
+const GOLD_SOFT = '#c3d3fb';
+const BG = '#0a1226';
+const CARD = '#0f1b33';
+const INK = '#eef3ff';
 
 type InviteCopy = {
   htmlLang: string;
@@ -194,7 +194,7 @@ export function renderEarlyAccessInviteEmail(
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${BG};">
     <tr>
       <td align="center" style="padding:40px 12px;">
-        <table role="presentation" class="container" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px;max-width:600px;background:${CARD};border:1px solid rgba(212,188,125,0.14);border-radius:20px;overflow:hidden;">
+        <table role="presentation" class="container" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px;max-width:600px;background:${CARD};border:1px solid rgba(143,176,255,0.14);border-radius:20px;overflow:hidden;">
 
           <!-- Hero -->
           <tr>
@@ -238,7 +238,7 @@ export function renderEarlyAccessInviteEmail(
                 <tr>
                   <td align="center" style="padding:0 20px;">
                     <div style="font-family:'Cormorant Garamond',Georgia,serif;font-size:30px;line-height:1;color:${GOLD_BRIGHT};font-weight:600;">${c.dateAccess.value}</div>
-                    <div style="margin-top:8px;font-family:Helvetica,Arial,sans-serif;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:rgba(224,195,123,0.7);">${c.dateAccess.label}</div>
+                    <div style="margin-top:8px;font-family:Helvetica,Arial,sans-serif;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:rgba(195,211,251,0.7);">${c.dateAccess.label}</div>
                   </td>
                   <td align="center" style="color:rgba(255,255,255,0.2);font-size:18px;">·</td>
                   <td align="center" style="padding:0 20px;">
@@ -256,11 +256,11 @@ export function renderEarlyAccessInviteEmail(
               <!--[if mso]>
               <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="${ctaUrl}" style="height:52px;v-text-anchor:middle;width:280px;" arcsize="50%" fillcolor="${GOLD}" stroke="f">
                 <w:anchorlock/>
-                <center style="color:#1a1306;font-family:Helvetica,Arial,sans-serif;font-size:14px;font-weight:bold;letter-spacing:2px;">${c.cta.toUpperCase()}</center>
+                <center style="color:#ffffff;font-family:Helvetica,Arial,sans-serif;font-size:14px;font-weight:bold;letter-spacing:2px;">${c.cta.toUpperCase()}</center>
               </v:roundrect>
               <![endif]-->
               <!--[if !mso]><!-- -->
-              <a class="cta" href="${ctaUrl}" style="display:inline-block;background:${GOLD};color:#1a1306;font-family:Helvetica,Arial,sans-serif;font-size:14px;font-weight:700;letter-spacing:2px;text-transform:uppercase;padding:17px 40px;border-radius:40px;">${c.cta}</a>
+              <a class="cta" href="${ctaUrl}" style="display:inline-block;background:${GOLD};color:#ffffff;font-family:Helvetica,Arial,sans-serif;font-size:14px;font-weight:700;letter-spacing:2px;text-transform:uppercase;padding:17px 40px;border-radius:40px;">${c.cta}</a>
               <!--<![endif]-->
             </td>
           </tr>
