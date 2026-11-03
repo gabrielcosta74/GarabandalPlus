@@ -669,20 +669,21 @@ export default function PilgrimageDetailPage() {
                             <div id="team"><PilgrimageTeam members={teamMembers} isEn={isEn} /></div>
 
                             {/* Itinerary */}
-                            <div id="itinerary" className="rounded-none bg-white p-5 shadow-xl border-y border-slate-100 md:rounded-[2rem] md:border md:p-8">
+                            <section id="itinerary" className="rounded-none bg-white p-5 shadow-xl border-y border-slate-100 md:rounded-[2rem] md:border md:p-8" aria-labelledby="itinerary-heading">
                                 <div className="mb-6">
                                     <div className="mb-2 flex items-center gap-2 text-xs font-black uppercase tracking-widest text-brand">
                                         <Clock className="w-4 h-4" />
                                         {isEn ? 'Day by day' : 'Dia a dia'}
                                     </div>
-                                    <h2 className="text-2xl md:text-3xl font-serif font-bold text-slate-900">{isEn ? 'Spiritual Itinerary' : 'Roteiro Espiritual'}</h2>
-                                    <p className="mt-2 text-sm md:text-base leading-relaxed text-slate-500">
-                                        {isEn ? 'A simple view of the journey, organised for quick reading on mobile.' : 'Uma leitura simples do caminho, organizada para ser fácil de acompanhar no telemóvel.'}
+                                    <h2 id="itinerary-heading" className="text-2xl md:text-3xl font-serif font-bold text-slate-900">{isEn ? 'Spiritual Itinerary' : 'Roteiro Espiritual'}</h2>
+                                    <p className="mt-2 max-w-2xl text-sm md:text-base leading-relaxed text-slate-600">
+                                        {isEn ? 'Explore each day of the journey. Select a day below to go straight to its programme.' : 'Descubra cada dia da viagem. Escolha um dia abaixo para ir diretamente ao seu programa.'}
                                     </p>
+                                    {itineraryItems.length > 0 && <span className="itinerary-day-count">{itineraryItems.length} {isEn ? (itineraryItems.length === 1 ? 'day in the programme' : 'days in the programme') : (itineraryItems.length === 1 ? 'dia de programa' : 'dias de programa')}</span>}
                                 </div>
-                                {stages.length > 0 && <div className="mb-8 overflow-hidden rounded-2xl"><SpiritMap stages={stages} height={360} /></div>}
+                                {stages.length > 0 && <div className="itinerary-map mb-8 overflow-hidden rounded-2xl"><SpiritMap stages={stages} height={420} /></div>}
                                 <PilgrimageItineraryDays items={itineraryItems} isEn={isEn} />
-                            </div>
+                            </section>
 
 
                         </div>

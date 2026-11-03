@@ -1,5 +1,6 @@
 import RichText from './RichText';
 import ItineraryDaySlideshow from './ItineraryDaySlideshow';
+import './pilgrimage-itinerary.css';
 
 interface ItineraryItem {
     id: string;
@@ -12,28 +13,28 @@ interface ItineraryItem {
     images?: string[] | null;
 }
 
-function DayBadge({ label, className = '' }: { label: string; className?: string }) {
-    return (
-        <span className={`inline-flex items-center rounded-full bg-brand px-3.5 py-1.5 text-[11px] font-black uppercase tracking-wide text-white shadow-sm shadow-brand/30 ${className}`}>
-            {label}
-        </span>
-    );
-}
-
 export default function PilgrimageItineraryDays({ items, isEn }: { items: ItineraryItem[]; isEn: boolean }) {
     if (!items || items.length === 0) {
-        return (
-            <p className="text-slate-500 italic">
-                {isEn ? 'Detailed itinerary coming soon.' : 'Roteiro detalhado em breve.'}
-            </p>
-        );
+        return <p className="itinerary-empty">{isEn ? 'Detailed itinerary coming soon.' : 'Roteiro detalhado em breve.'}</p>;
     }
 
+    const days = [...items].sort((a, b) => a.day_number - b.day_number);
+
     return (
-        // Break out of the section's horizontal padding on mobile so day cards
-        // run edge-to-edge (full screen width); contained again from `sm` up.
-        <div className="-mx-5 space-y-4 sm:mx-0 md:space-y-6">
-            {items.map((item) => {
+        <div className="pilgrimage-itinerary">
+            {days.length > 1 && (
+                <nav className="itinerary-day-nav" aria-label={isEn ? 'Jump to a day' : 'Ir para um dia'}>
+                    {days.map((item) => (
+                        <a key={item.id} href={`#itinerary-day-${item.id}`}>
+                            <span>{isEn ? 'Day' : 'Dia'} {item.day_number}</span>
+                            <span className="itinerary-day-nav-title">{isEn ? item.title_en || item.title : item.title}</span>
+                        </a>
+                    ))}
+                </nav>
+            )}
+
+            <div className="itinerary-day-list">
+                {days.map((item) => {
                 const title = isEn ? item.title_en || item.title : item.title;
                 const dayLabel = isEn ? `Day ${item.day_number}` : `Dia ${item.day_number}`;
                 const gallery = (Array.isArray(item.images) ? item.images : [])
@@ -41,26 +42,28 @@ export default function PilgrimageItineraryDays({ items, isEn }: { items: Itiner
                 if (gallery.length === 0 && item.image_url) gallery.push(item.image_url);
                 return (
                     <article
+                        id={`itinerary-day-${item.id}`}
                         key={item.id}
-                        className="group overflow-hidden border-y border-slate-100 bg-white shadow-sm transition-all sm:rounded-3xl sm:border hover:shadow-lg hover:border-brand-200"
+                        className={`itinerary-day-card ${gallery.length ? 'has-gallery' : ''}`}
                     >
                         {gallery.length > 0 && (
-                            <ItineraryDaySlideshow images={gallery} alt={title} dayLabel={dayLabel} />
+                            <div className="itinerary-card-media"><ItineraryDaySlideshow images={gallery} alt={title} dayLabel={dayLabel} isEn={isEn} /></div>
                         )}
 
-                        <div className="p-5 sm:p-6 md:p-7">
-                            {gallery.length === 0 && <DayBadge label={dayLabel} className="mb-3" />}
-                            <h3 className="mb-2 font-serif text-xl font-bold leading-tight text-slate-950 sm:text-2xl">
-                                {title}
-                            </h3>
+                        <div className="itinerary-card-content">
+                            <div className="itinerary-card-heading">
+                                <span className="itinerary-card-number" aria-hidden="true">{String(item.day_number).padStart(2, '0')}</span>
+                                <div><span className="itinerary-card-eyebrow">{dayLabel}</span><h3>{title}</h3></div>
+                            </div>
                             <RichText
                                 value={isEn ? item.description_en || item.description : item.description}
-                                className="text-[15px] leading-7 text-slate-600 sm:text-base"
+                                className="itinerary-card-description"
                             />
                         </div>
                     </article>
                 );
-            })}
+                })}
+            </div>
         </div>
     );
 }

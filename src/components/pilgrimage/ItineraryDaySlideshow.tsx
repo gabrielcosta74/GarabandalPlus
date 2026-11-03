@@ -9,11 +9,12 @@ interface Props {
     images: string[];
     alt: string;
     dayLabel: string;
+    isEn?: boolean;
     /** ms between auto-advances */
     interval?: number;
 }
 
-export default function ItineraryDaySlideshow({ images, alt, dayLabel, interval = 5000 }: Props) {
+export default function ItineraryDaySlideshow({ images, alt, dayLabel, isEn = false, interval = 5000 }: Props) {
     const slides = images.filter(Boolean);
     const count = slides.length;
     const multiple = count > 1;
@@ -23,7 +24,6 @@ export default function ItineraryDaySlideshow({ images, alt, dayLabel, interval 
     const [zoom, setZoom] = useState(false); // lightbox open
     const reducedMotion = useRef(false);
     const touchX = useRef<number | null>(null);
-    const moved = useRef(false);
 
     useEffect(() => {
         reducedMotion.current =
@@ -61,10 +61,7 @@ export default function ItineraryDaySlideshow({ images, alt, dayLabel, interval 
 
     if (count === 0) return null;
 
-    const onTouchStart = (e: React.TouchEvent) => { touchX.current = e.touches[0].clientX; moved.current = false; };
-    const onTouchMove = (e: React.TouchEvent) => {
-        if (touchX.current !== null && Math.abs(e.touches[0].clientX - touchX.current) > 10) moved.current = true;
-    };
+    const onTouchStart = (e: React.TouchEvent) => { touchX.current = e.touches[0].clientX; };
     const onTouchEnd = (e: React.TouchEvent) => {
         if (touchX.current === null) return;
         const dx = e.changedTouches[0].clientX - touchX.current;
@@ -75,13 +72,11 @@ export default function ItineraryDaySlideshow({ images, alt, dayLabel, interval 
     return (
         <>
             <div
-                className="group/slide relative aspect-[4/3] w-full cursor-zoom-in overflow-hidden bg-slate-900 sm:aspect-[16/9]"
+                className="group/slide relative aspect-[4/3] w-full overflow-hidden bg-slate-900 sm:aspect-[16/9]"
                 onMouseEnter={() => setPaused(true)}
                 onMouseLeave={() => setPaused(false)}
                 onTouchStart={onTouchStart}
-                onTouchMove={onTouchMove}
                 onTouchEnd={onTouchEnd}
-                onClick={() => { if (!moved.current) setZoom(true); }}
                 role="group"
                 aria-roledescription="carousel"
                 aria-label={alt}
@@ -114,10 +109,10 @@ export default function ItineraryDaySlideshow({ images, alt, dayLabel, interval 
                 </span>
 
                 {/* Counter + expand affordance (signals the image is tappable) */}
-                <span className="absolute right-4 top-4 z-30 flex items-center gap-1.5 rounded-full bg-black/45 px-2.5 py-1 text-[11px] font-bold text-white backdrop-blur-sm">
+                <button type="button" onClick={() => setZoom(true)} aria-label={isEn ? `Expand photos for ${alt}` : `Ampliar fotografias de ${alt}`} className="absolute right-3 top-3 z-30 flex min-h-11 items-center gap-1.5 rounded-full bg-black/60 px-3 text-[11px] font-bold text-white backdrop-blur-sm transition-colors hover:bg-black/80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
                     {multiple && <span>{index + 1} / {count}</span>}
-                    <Maximize2 className="h-3.5 w-3.5" />
-                </span>
+                    <Maximize2 className="h-4 w-4" />
+                </button>
 
                 {multiple && (
                     <>
@@ -125,16 +120,16 @@ export default function ItineraryDaySlideshow({ images, alt, dayLabel, interval 
                         <button
                             type="button"
                             onClick={(e) => { e.stopPropagation(); go(-1); }}
-                            aria-label="Anterior"
-                            className="absolute left-3 top-1/2 z-30 -translate-y-1/2 rounded-full bg-black/40 p-2 text-white opacity-0 backdrop-blur-sm transition-all hover:bg-black/70 focus:opacity-100 group-hover/slide:opacity-100"
+                            aria-label={isEn ? 'Previous photo' : 'Fotografia anterior'}
+                            className="absolute left-2 top-1/2 z-30 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-black/55 text-white backdrop-blur-sm transition-colors hover:bg-black/75 focus-visible:outline-2 focus-visible:outline-white sm:opacity-0 sm:focus-visible:opacity-100 sm:group-hover/slide:opacity-100"
                         >
                             <ChevronLeft className="h-5 w-5" />
                         </button>
                         <button
                             type="button"
                             onClick={(e) => { e.stopPropagation(); go(1); }}
-                            aria-label="Seguinte"
-                            className="absolute right-3 top-1/2 z-30 -translate-y-1/2 rounded-full bg-black/40 p-2 text-white opacity-0 backdrop-blur-sm transition-all hover:bg-black/70 focus:opacity-100 group-hover/slide:opacity-100"
+                            aria-label={isEn ? 'Next photo' : 'Fotografia seguinte'}
+                            className="absolute right-2 top-1/2 z-30 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-black/55 text-white backdrop-blur-sm transition-colors hover:bg-black/75 focus-visible:outline-2 focus-visible:outline-white sm:opacity-0 sm:focus-visible:opacity-100 sm:group-hover/slide:opacity-100"
                         >
                             <ChevronRight className="h-5 w-5" />
                         </button>
@@ -146,9 +141,10 @@ export default function ItineraryDaySlideshow({ images, alt, dayLabel, interval 
                                     key={i}
                                     type="button"
                                     onClick={(e) => { e.stopPropagation(); goTo(i); }}
-                                    aria-label={`Ir para a foto ${i + 1}`}
-                                    className={`h-1.5 rounded-full transition-all ${i === index ? 'w-6 bg-white' : 'w-1.5 bg-white/50 hover:bg-white/80'}`}
-                                />
+                                    aria-label={isEn ? `Go to photo ${i + 1}` : `Ir para a fotografia ${i + 1}`}
+                                    aria-current={i === index ? 'true' : undefined}
+                                    className="flex h-8 w-8 items-center justify-center rounded-full focus-visible:outline-2 focus-visible:outline-white"
+                                ><span className={`h-1.5 rounded-full transition-all ${i === index ? 'w-5 bg-white' : 'w-1.5 bg-white/60'}`} /></button>
                             ))}
                         </div>
                     </>
@@ -162,7 +158,6 @@ export default function ItineraryDaySlideshow({ images, alt, dayLabel, interval 
                     style={{ colorScheme: 'dark' }}
                     onClick={() => setZoom(false)}
                     onTouchStart={onTouchStart}
-                    onTouchMove={onTouchMove}
                     onTouchEnd={onTouchEnd}
                     role="dialog"
                     aria-modal="true"
@@ -171,7 +166,7 @@ export default function ItineraryDaySlideshow({ images, alt, dayLabel, interval 
                     <button
                         type="button"
                         onClick={(e) => { e.stopPropagation(); setZoom(false); }}
-                        aria-label="Fechar"
+                        aria-label={isEn ? 'Close photos' : 'Fechar fotografias'}
                         className="absolute right-4 top-[calc(env(safe-area-inset-top)+1rem)] z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur-md transition-colors hover:bg-white/20"
                     >
                         <X className="h-5 w-5" />
@@ -190,7 +185,7 @@ export default function ItineraryDaySlideshow({ images, alt, dayLabel, interval 
                             <button
                                 type="button"
                                 onClick={(e) => { e.stopPropagation(); go(-1); }}
-                                aria-label="Anterior"
+                                aria-label={isEn ? 'Previous photo' : 'Fotografia anterior'}
                                 className="absolute left-3 top-1/2 z-10 -translate-y-1/2 flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur-md transition-colors hover:bg-white/20"
                             >
                                 <ChevronLeft className="h-6 w-6" />
@@ -198,7 +193,7 @@ export default function ItineraryDaySlideshow({ images, alt, dayLabel, interval 
                             <button
                                 type="button"
                                 onClick={(e) => { e.stopPropagation(); go(1); }}
-                                aria-label="Seguinte"
+                                aria-label={isEn ? 'Next photo' : 'Fotografia seguinte'}
                                 className="absolute right-3 top-1/2 z-10 -translate-y-1/2 flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur-md transition-colors hover:bg-white/20"
                             >
                                 <ChevronRight className="h-6 w-6" />
