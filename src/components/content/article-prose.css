@@ -112,6 +112,28 @@
 .article-prose .cms-index-link::after { content:"→"; position:absolute; right:1.15rem; top:50%; transform:translateY(-50%); color:var(--prose-accent); pointer-events:none; }
 .article-prose .cms-index-link a { color:var(--prose-heading); text-decoration:none; }
 .article-prose .cms-index-link a::before { content:""; position:absolute; inset:0; border-radius:inherit; }
+/* A readable, keyboard-accessible chronology for the English history page. */
+.article-prose .history-timeline { margin:2rem 0 2.75rem; border:1px solid var(--prose-line); border-radius:14px; overflow:hidden; background:#fff; }
+.article-prose .history-timeline__intro { display:grid; grid-template-columns:minmax(0,1fr) minmax(180px,38%); gap:1.5rem; align-items:center; padding:1.35rem clamp(1.2rem,3vw,2rem); background:var(--color-brand-50,#eef3ff); border-bottom:1px solid var(--prose-line); }
+.article-prose .history-timeline__intro p { margin:0; font-size:1rem; line-height:1.65; color:var(--prose-heading); }
+.article-prose .history-timeline__intro figure { margin:0; }
+.article-prose .history-timeline__intro img { width:100%; height:auto; max-height:none; aspect-ratio:16/9; object-fit:cover; margin:0; border-radius:7px; }
+.article-prose .history-timeline__intro figcaption { margin:.45rem 0 0; text-align:left; font-size:.7rem; line-height:1.4; }
+.article-prose .history-timeline__list { list-style:none; margin:0; padding:0; }
+.article-prose .history-timeline__item { margin:0; padding:0; }
+.article-prose .history-timeline__item + .history-timeline__item { border-top:1px solid var(--prose-line); }
+.article-prose .history-timeline summary { display:grid; grid-template-columns:10.5rem minmax(0,1fr) 1.5rem; gap:1rem; align-items:center; padding:1.2rem clamp(1.2rem,3vw,2rem); cursor:pointer; list-style:none; transition:background .15s; }
+.article-prose .history-timeline summary::-webkit-details-marker { display:none; }
+.article-prose .history-timeline summary:hover { background:var(--color-brand-50,#eef3ff); }
+.article-prose .history-timeline summary:focus-visible { outline:2px solid var(--prose-accent); outline-offset:-4px; border-radius:3px; }
+.article-prose .history-timeline time { color:var(--prose-link); font-family:var(--article-heading-font,var(--font-inter)),system-ui,sans-serif; font-size:.85rem; font-weight:650; letter-spacing:.01em; }
+.article-prose .history-timeline__title { color:var(--prose-heading); font-family:var(--article-heading-font,var(--font-inter)),system-ui,sans-serif; font-size:1.02rem; font-weight:600; line-height:1.4; letter-spacing:-.015em; }
+.article-prose .history-timeline__toggle { width:1.4rem; height:1.4rem; display:grid; place-items:center; border:1px solid var(--color-brand-200,#c3d3fb); border-radius:50%; color:var(--prose-link); font-size:1rem; line-height:1; }
+.article-prose .history-timeline__toggle::before { content:"+"; }
+.article-prose .history-timeline details[open] .history-timeline__toggle::before { content:"−"; }
+.article-prose .history-timeline__detail { padding:0 clamp(1.2rem,3vw,2rem) 1.3rem calc(clamp(1.2rem,3vw,2rem) + 11.5rem); font-size:.98rem; line-height:1.65; }
+.article-prose .history-timeline__detail p { margin:0 0 .55rem; }
+.article-prose .history-timeline__detail a { font-size:.92rem; }
 @media(min-width:1024px) {
   .article-prose :is(img.cms-image,figure.cms-image,figure.cms-figure)[data-align="wide"] { width:calc(100% + 6rem); max-width:calc(100% + 6rem); margin-left:-3rem; margin-right:-3rem; }
 }
@@ -124,6 +146,12 @@
   .article-prose .cms-columns { grid-template-columns:1fr; grid-auto-flow:row; gap:1.5rem; }
   .article-prose .cms-gallery { grid-template-columns:repeat(2,minmax(0,1fr)); }
   .article-prose--feature { padding:1.5rem 1.25rem; }
+  .article-prose .history-timeline__intro { grid-template-columns:1fr; gap:1rem; }
+  .article-prose .history-timeline summary { grid-template-columns:minmax(0,1fr) 1.5rem; gap:.35rem .75rem; padding:1rem 1.15rem; }
+  .article-prose .history-timeline time { grid-column:1; font-size:.8rem; }
+  .article-prose .history-timeline__title { grid-column:1; grid-row:2; }
+  .article-prose .history-timeline__toggle { grid-column:2; grid-row:1 / span 2; }
+  .article-prose .history-timeline__detail { padding:0 1.15rem 1.2rem; }
 }
 @media(max-width:480px) { .article-prose .cms-gallery { grid-template-columns:1fr; } }
-@media(prefers-reduced-motion:reduce) { .article-prose a,.article-prose .cms-index-link { transition:none; } }
+@media(prefers-reduced-motion:reduce) { .article-prose a,.article-prose .cms-index-link,.article-prose .history-timeline summary { transition:none; } }
