@@ -38,6 +38,7 @@ import {
     BellRing,
     ShieldAlert,
     X,
+    Landmark,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAdminNotifications } from '../../context/AdminNotificationContext';
@@ -57,7 +58,7 @@ type NavGroup = {
     items: NavItem[];
 };
 
-const DEFAULT_OPEN_GROUPS = ['Gestão'];
+const DEFAULT_OPEN_GROUPS = ['Gestão', 'Finanças'];
 
 /** Compara ignorando acentos e maiúsculas para o filtro rápido. */
 const normalize = (value: string) =>
@@ -116,8 +117,15 @@ export default function AdminSidebar({ onLogout, className, collapsed = false }:
                     ],
                 },
                 { label: 'Loja & Stock', icon: ShoppingBag, href: '/admin/loja' },
+            ]
+        },
+        {
+            label: 'Finanças',
+            items: [
+                { label: 'Contabilidade', icon: Landmark, href: '/admin/contabilidade' },
                 { label: 'Transações', icon: CreditCard, href: '/admin/transacoes' },
                 { label: 'Faturação', icon: ReceiptText, href: '/admin/faturacao', badge: counts.factpt },
+                { label: 'Doações', icon: Heart, href: '/admin/doacoes' },
             ]
         },
         {
@@ -126,7 +134,6 @@ export default function AdminSidebar({ onLogout, className, collapsed = false }:
                 { label: 'Leads & Inscrições', icon: Target, href: '/admin/leads' },
                 { label: 'Interessados (Novembro)', icon: Star, href: '/admin/leads/interessados' },
                 { label: 'Acesso Antecipado (Out 2027)', icon: Sparkles, href: '/admin/leads/acesso-antecipado' },
-                { label: 'Doações', icon: Heart, href: '/admin/doacoes' },
                 { label: 'Convites de Membros', icon: UserPlus, href: '/admin/convites' },
                 { label: 'Leilão', icon: Gavel, href: '/admin/leilao' },
                 { label: 'Email geral', icon: Mail, href: '/admin/email' },
