@@ -236,6 +236,19 @@ export default function MovementDrawer({ movement, readOnlyReason, onClose, onCh
                   )}
                   {view.status === 'ignored' && view.ignoreReason && <Line label="Motivo">{view.ignoreReason}</Line>}
                 </dl>
+                {view.status !== 'reconciled' && view.status !== 'ignored' && (view.appInvoiceRef || view.suggestion) && (
+                  <div className={cx('mt-4 rounded-2xl px-4 py-3 text-sm',
+                    view.appInvoiceRef ? 'bg-emerald-50 text-emerald-800'
+                      : view.suggestion?.confidence === 'ambiguous' ? 'bg-orange-50 text-orange-800' : 'bg-sky-50 text-sky-800')}>
+                    {view.appInvoiceRef ? (
+                      <p><span className="font-semibold">Reconhecida automaticamente.</span> É o pagamento {view.linkedPaymentLabel ? `«${view.linkedPaymentLabel}»` : 'da reserva'}, registado na peregrinação, com a {view.appInvoiceRef} já emitida pela app. Não foi criado nada novo; só falta confirmar.</p>
+                    ) : view.suggestion?.confidence === 'ambiguous' ? (
+                      <p><span className="font-semibold">Várias faturas possíveis:</span> {view.suggestion.invoiceRefs.join(', ')}. Escolha a reserva certa nas sugestões abaixo; não emita uma FR nova.</p>
+                    ) : (
+                      <p><span className="font-semibold">Provável:</span> {view.suggestion?.invoiceRef} — {view.suggestion?.reason}. Se for este pagamento, escolha-o nas sugestões abaixo; não emita uma FR nova.</p>
+                    )}
+                  </div>
+                )}
 
                 {open && (
                   <div className="mt-6 space-y-6">

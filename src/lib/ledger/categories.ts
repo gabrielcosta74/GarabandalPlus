@@ -26,6 +26,7 @@ export const LEDGER_CATEGORIES: LedgerCategory[] = [
   { code: 'viagem', label: 'Viagem e transportes', direction: 'out' },
   { code: 'alojamento', label: 'Alojamento e refeições', direction: 'out' },
   { code: 'remuneracao', label: 'Remuneração', direction: 'out' },
+  { code: 'impostos', label: 'Impostos e Segurança Social', direction: 'out' },
   { code: 'recibos_verdes', label: 'Recibos verdes', direction: 'out' },
   { code: 'fornecedores', label: 'Fornecedores', direction: 'out' },
   { code: 'devolucao', label: 'Devolução', direction: 'both' },

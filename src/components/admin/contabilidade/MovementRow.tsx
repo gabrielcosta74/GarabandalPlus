@@ -50,15 +50,34 @@ export default function MovementRow({
         </p>
       </div>
       <div className="hidden min-w-0 md:block"><CategoryPill code={code} tentative={tentative} /></div>
-      <div className="hidden md:block"><StatePill movement={movement} /></div>
+      <div className="hidden md:block"><RowBadge movement={movement} /></div>
       <Amount value={movement.amount} className="text-right text-sm" />
       <div className="col-span-3 flex items-center justify-between gap-2 md:col-span-1 md:justify-end">
         <div className="flex items-center gap-2 md:hidden">
           <CategoryPill code={code} tentative={tentative} />
-          <StatePill movement={movement} />
+          <RowBadge movement={movement} />
         </div>
         {action ?? <ChevronRight className="h-4 w-4 text-zinc-300 transition-all duration-200 ease-out group-hover:translate-x-0.5 group-hover:text-zinc-500" aria-hidden />}
       </div>
     </div>
   );
+}
+
+/**
+ * What the cross-check with the site's invoices found, in plain words;
+ * otherwise the usual state ("Falta fatura", "Completo"…).
+ */
+function RowBadge({ movement }: { movement: LedgerMovement }) {
+  const open = movement.status === 'unreviewed' || movement.status === 'suggested';
+  const base = 'inline-flex max-w-full items-center gap-1 truncate whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-medium ring-1 ring-inset';
+  if (open && movement.appInvoiceRef) {
+    return <span className={cx(base, 'bg-emerald-50 text-emerald-700 ring-emerald-600/10')} title="Ligada ao pagamento registado na peregrinação; a FR já foi emitida pela app.">{movement.appInvoiceRef} · app</span>;
+  }
+  if (open && movement.suggestion?.confidence === 'likely' && movement.suggestion.invoiceRef) {
+    return <span className={cx(base, 'bg-sky-50 text-sky-700 ring-sky-600/10')} title={movement.suggestion.reason}>Provável {movement.suggestion.invoiceRef}</span>;
+  }
+  if (open && movement.suggestion?.confidence === 'ambiguous') {
+    return <span className={cx(base, 'bg-orange-50 text-orange-700 ring-orange-600/10')} title={movement.suggestion.reason}>{movement.suggestion.invoiceRefs.length} FRs possíveis</span>;
+  }
+  return <StatePill movement={movement} />;
 }

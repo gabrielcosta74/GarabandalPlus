@@ -25,6 +25,10 @@ export type LedgerMovement = {
   invoiceFromApp?: boolean;
   linkedPaymentId?: string | null;
   linkedPaymentLabel?: string | null;
+  /** FR already issued by the app for the linked pilgrimage payment. */
+  appInvoiceRef?: string | null;
+  /** What the cross-check with the site's invoices found (see lib/ledger/enrich.ts). */
+  suggestion?: { confidence: string; reason: string; invoiceRef: string | null; invoiceRefs: string[] } | null;
   status: 'unreviewed' | 'suggested' | 'reconciled' | 'ignored';
   ignoreReason: string | null;
   notes: string | null;

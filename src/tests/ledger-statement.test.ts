@@ -167,6 +167,16 @@ describe('classifyMovement', () => {
     ['COMISS.TPA 01683607 091 T0E009000648682', -0.35, 'gateway_fee', 'comissao_reduniq', 'comissao_reduniq'],
     ['PAGSERV 10126 659952921 230002342831741', -585.95, 'direct_debit', null, 'outra_despesa'],
     ['COMPRA ACE HOTEL 230002335158030', -84.9, 'card_purchase', null, 'alojamento'],
+    // Rules added from the first real bank sync (Nov 2026)
+    ['IMP SELO OPE TGIS 17 2 4', -1.2, 'stamp_duty', 'imposto_selo', 'imposto_selo'],
+    ['PAG. NET24 DUC 230002341111111', -315.37, 'direct_debit', 'impostos', 'impostos'],
+    ['PAGAMENTO TSU - TRANSFERENCIA', -610.54, 'direct_debit', 'impostos', 'impostos'],
+    ['COMPRA STREAMYARD.COM 230002300000000', -380.44, 'card_purchase', 'software', 'software'],
+    ['COMPRA MOBBIN.COM 230002348062982', -20.2, 'card_purchase', 'software', 'software'],
+    ['COMPRA CTT - CORREIOS 230002300000001', -7, 'card_purchase', null, 'fornecedores'],
+    ['COMPRA HOSTARIA GARABANDAL 230002300000002', -7566, 'card_purchase', null, 'alojamento'],
+    ['TRF.IPS P/ TRANSVIAGENS T EM 742008097000000', -13500, 'outgoing_transfer', null, 'viagem'],
+    ['TRF.IPS P/ OMNITUR AGENCIA DE 742008097000001', -1728, 'outgoing_transfer', null, 'viagem'],
   ];
 
   it.each(cases)('%s (%d) → %s', (description, amount, kind, category, suggested) => {

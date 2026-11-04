@@ -109,6 +109,19 @@ export async function GET(req: Request) {
       invoiceRefs.set(link.bank_transaction_id, [...(invoiceRefs.get(link.bank_transaction_id) || []), link.label]);
       if (link.method === 'rule') invoiceFromApp.add(link.bank_transaction_id);
     });
+    // FR the app already issued for the pilgrimage payment a movement is linked to.
+    const linkedPaymentIds = [...new Set(linkedPayments.values())];
+    const appInvoiceByPayment = new Map<string, { number: string; status: string }>();
+    if (linkedPaymentIds.length) {
+      const { data: appDocs, error: appDocsError } = await db().from('factpt_documents')
+        .select('source_id, factpt_number, status')
+        .eq('environment', 'production').eq('source_table', 'pilgrimage_payments')
+        .in('source_id', linkedPaymentIds);
+      if (appDocsError) throw appDocsError;
+      (appDocs || []).forEach(doc => {
+        if (doc.factpt_number) appInvoiceByPayment.set(String(doc.source_id), { number: doc.factpt_number, status: doc.status });
+      });
+    }
     const documentCount = new Map<string, number>();
     (documents.data || []).forEach((doc: { bank_transaction_id: string }) => {
       documentCount.set(doc.bank_transaction_id, (documentCount.get(doc.bank_transaction_id) || 0) + 1);
@@ -133,6 +146,17 @@ export async function GET(req: Request) {
       invoiceFromApp: invoiceFromApp.has(row.id),
       linkedPaymentId: linkedPayments.get(row.id) || null,
       linkedPaymentLabel: linkedPaymentLabels.get(row.id) || null,
+      appInvoiceRef: (() => {
+        const paymentId = linkedPayments.get(row.id);
+        const doc = paymentId ? appInvoiceByPayment.get(paymentId) : null;
+        return doc && ['issued', 'email_failed'].includes(doc.status) ? doc.number : null;
+      })(),
+      suggestion: row.raw?.suggestion && typeof row.raw.suggestion === 'object' ? {
+        confidence: String(row.raw.suggestion.confidence || ''),
+        reason: String(row.raw.suggestion.reason || ''),
+        invoiceRef: row.raw.suggestion.invoiceRef ? String(row.raw.suggestion.invoiceRef) : null,
+        invoiceRefs: Array.isArray(row.raw.suggestion.invoiceRefs) ? row.raw.suggestion.invoiceRefs.map(String) : [],
+      } : null,
       status: row.status,
       ignoreReason: row.ignore_reason,
       notes: row.notes,

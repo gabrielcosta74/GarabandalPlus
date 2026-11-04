@@ -1,4 +1,5 @@
 import { syncMontepio } from '../../../../../lib/ledger/bank-sync';
+import { enrichIncomingMovements } from '../../../../../lib/ledger/enrich';
 import { requireAdmin } from '../../../../../lib/ledger/server';
 
 export const dynamic = 'force-dynamic';
@@ -17,9 +18,13 @@ export async function POST(req: Request) {
       manual: true,
       psu: ipAddress ? { ipAddress, userAgent: req.headers.get('user-agent') } : undefined,
     });
+    const enriched = await enrichIncomingMovements().catch(error => {
+      console.error('Contabilidade: falhou o cruzamento com a faturação', error);
+      return null;
+    });
     const status = result.status === 'failed' ? 502
         : result.status === 'not_configured' || result.status === 'not_ready' || result.status === 'expired' ? 503 : 200;
-    return Response.json(result, { status, headers: { 'Cache-Control': 'no-store' } });
+    return Response.json({ ...result, enriched }, { status, headers: { 'Cache-Control': 'no-store' } });
   } catch {
     return Response.json({ error: 'Não foi possível sincronizar o Montepio. Tente novamente mais tarde.' }, { status: 500 });
   }

@@ -75,6 +75,7 @@ export const CATEGORY_VISUALS: Record<string, CategoryVisual> = {
   viagem: { icon: Fuel, tone: T.sky, group: 'Viagens' },
   alojamento: { icon: BedDouble, tone: T.fuchsia, group: 'Alojamento e refeições' },
   remuneracao: { icon: UserRound, tone: T.emerald, group: 'Pessoas' },
+  impostos: { icon: Landmark, tone: T.zinc, group: 'Impostos e Seg. Social' },
   recibos_verdes: { icon: Receipt, tone: T.lime, group: 'Pessoas' },
   fornecedores: { icon: Package, tone: T.orange, group: 'Fornecedores' },
   devolucao: { icon: Undo2, tone: T.zinc, group: 'Outras' },

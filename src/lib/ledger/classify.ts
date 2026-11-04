@@ -23,12 +23,13 @@ export type CategoryCode =
   | 'doacao' | 'quota' | 'peregrinacao' | 'loja'
   | 'liquidacao_reduniq' | 'liquidacao_stripe' | 'fecho_tpa' | 'outra_entrada'
   | 'comissao_reduniq' | 'comissao_bancaria' | 'imposto_selo' | 'software'
-  | 'comunicacoes' | 'contabilidade' | 'viagem' | 'alojamento' | 'remuneracao'
+  | 'comunicacoes' | 'contabilidade' | 'viagem' | 'alojamento' | 'remuneracao' | 'impostos'
   | 'recibos_verdes' | 'fornecedores' | 'devolucao' | 'outra_despesa'
   | 'transferencia_interna';
 
 /** Mirrors ledger_categories.requires_document in the migration. */
 export const CATEGORIES_REQUIRING_DOCUMENT: ReadonlySet<CategoryCode> = new Set<CategoryCode>([
+  'impostos',
   'software', 'comunicacoes', 'contabilidade', 'viagem', 'alojamento',
   'remuneracao', 'recibos_verdes', 'fornecedores', 'outra_despesa',
 ]);
@@ -73,10 +74,13 @@ export function movementMatchKey(description: string): string {
   return normalizeForMatch(stripReference(description)).replace(/[^A-Z0-9]+/g, ' ').trim().slice(0, 24);
 }
 
-const SOFTWARE_VENDORS = /\b(RAILWAY|RESEND|SUPABASE|VERCEL|GOOGLE|OPENAI|ANTHROPIC|CLOUDFLARE|GITHUB|APPLE\.COM|WEBNODE|SENDER|CANVA|ADOBE|MICROSOFT|ZOOM|NOTION|DEEPL|POSTHOG)\b/;
+const SOFTWARE_VENDORS = /\b(RAILWAY|RESEND|SUPABASE|VERCEL|GOOGLE|OPENAI|ANTHROPIC|CLOUDFLARE|GITHUB|APPLE\.COM|WEBNODE|SENDER|CANVA|ADOBE|MICROSOFT|ZOOM|NOTION|DEEPL|POSTHOG|STREAMYARD|MOBBIN|FIGMA|DROPBOX|CHATGPT|CLAUDE)\b/;
 const FUEL = /\b(E\.?S\.|GALP|REPSOL|PRIO|CEPSA|BP |SHELL|MOEVE|INTERMARCHE COMB)/;
 const TOLLS_AND_TRANSPORT = /\b(A\d{1,2}\b|BRISA|VIA VERDE|ASCENDI|CP |COMBOIOS|RENFE|FLIXBUS|RYANAIR|TAP |EASYJET|UBER|BOLT|PARQUE|PARKING)/;
-const LODGING = /\b(HOTEL|HOSTAL|POSADA|RESTAURANTE|BOOKING\.COM)/;
+const LODGING = /\b(HOTEL|HOSTAL|HOSTARIA|POSADA|RESTAURANTE|RESTO|ALBERGUE|BOOKING\.COM)/;
+// Travel agencies and coach companies used for the pilgrimages.
+const AGENCIES = /\b(TRANSVIAGENS|OMNITUR|VIAGENS|AGENCIA|TRAVEL|TOURS?|AUTOCARROS|RIDAN)\b/;
+const POSTAGE = /\bCTT\b|CORREIOS/;
 const TELECOM = /\b(VODAFONE|MEO|NOS COMUNICA|NOWO|DIGI)\b/;
 
 export function normalizeForMatch(value: string): string {
@@ -179,7 +183,7 @@ function classifyBuiltIn(description: string, text: string, incoming: boolean): 
   if (/^COMISS?\.? ?TPA|^COMIS\.? ?P\.? ?SERV/.test(text)) {
     return result('gateway_fee', 'comissao_reduniq', null);
   }
-  if (/^I\.? ?SELO|^I\.S\./.test(text)) {
+  if (/^I\.? ?SELO|^I\.S\.|^IMP\.? ?SELO/.test(text)) {
     return result('stamp_duty', 'imposto_selo', null);
   }
   if (/^COM\.? SERV|^COMISSAO|^COMIS\.? |^COM\.? |^SOLUCAO E\.?MPRES|^MANUT/.test(text)) {
@@ -188,8 +192,13 @@ function classifyBuiltIn(description: string, text: string, incoming: boolean): 
   if (/FAC?TOR M\b/.test(text)) {
     return result(incoming ? 'incoming_transfer' : 'outgoing_transfer', 'contabilidade', null, 'Factor M');
   }
+  // Payments to the State: DUC (Finanças) and Segurança Social contributions.
+  if (!incoming && (/\bDUC\b/.test(text) || /\bTSU\b|SEG(URANCA)? SOCIAL/.test(text))) {
+    return result('direct_debit', 'impostos', null, /TSU|SOCIAL/.test(text) ? 'Segurança Social' : 'Autoridade Tributária');
+  }
   if (/^COMPRA /.test(text)) {
     if (SOFTWARE_VENDORS.test(text)) return result('card_purchase', 'software', null);
+    if (POSTAGE.test(text)) return result('card_purchase', null, 'fornecedores');
     if (FUEL.test(text) || TOLLS_AND_TRANSPORT.test(text)) return result('card_purchase', null, 'viagem');
     if (LODGING.test(text)) return result('card_purchase', null, 'alojamento');
     return result('card_purchase', null, 'outra_despesa');
@@ -205,6 +214,7 @@ function classifyBuiltIn(description: string, text: string, incoming: boolean): 
   if (!incoming && /^(ORD\.? ?PAG|TRF\.? ?(IPS )?P\/|TRF P\/|TRF\.? ?SEPA)/.test(text)) {
     const name = extractCounterparty(description);
     if (LODGING.test(text)) return result('outgoing_transfer', null, 'alojamento', name);
+    if (AGENCIES.test(text)) return result('outgoing_transfer', null, 'viagem', name);
     return result('outgoing_transfer', null, 'outra_despesa', name);
   }
   if (incoming && /^DEVOL/.test(text)) {

@@ -1,6 +1,7 @@
 import { timingSafeEqual } from 'node:crypto';
 
 import { syncMontepio } from '../../../../lib/ledger/bank-sync';
+import { enrichIncomingMovements } from '../../../../lib/ledger/enrich';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -18,10 +19,15 @@ export async function GET(req: Request) {
   if (!authorized(req)) return Response.json({ error: 'Sem acesso.' }, { status: 401 });
   try {
     const result = await syncMontepio();
+    // Match incoming transfers to the site's invoices even when the bank was not read.
+    const enriched = await enrichIncomingMovements().catch(error => {
+      console.error('Contabilidade: falhou o cruzamento com a faturação', error);
+      return null;
+    });
     const status = result.status === 'rate_limited' ? 429
       : result.status === 'failed' ? 502
         : result.status === 'not_configured' || result.status === 'not_ready' || result.status === 'expired' ? 503 : 200;
-    return Response.json(result, { status, headers: { 'Cache-Control': 'no-store' } });
+    return Response.json({ ...result, enriched }, { status, headers: { 'Cache-Control': 'no-store' } });
   } catch {
     return Response.json({ error: 'A sincronização do banco falhou.' }, { status: 500 });
   }

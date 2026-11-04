@@ -185,7 +185,10 @@ export default function PilgrimageTransferField({ movementId, amount, disabled, 
       </div>}
       {!!nearbyIssuedCount && <label className="flex cursor-pointer items-start gap-2 text-xs text-orange-800">
         <input type="checkbox" checked={acknowledgeNearby} onChange={event => setAcknowledgeNearby(event.target.checked)} />
-        Confirmei que as FRs da app com valor e data próximos não correspondem a esta transferência.
+        <span>
+          <span className="font-semibold">Atenção: já há {nearbyIssuedCount === 1 ? 'uma fatura emitida pela app' : `${nearbyIssuedCount} faturas emitidas pela app`} com este valor e data próxima.</span>{' '}
+          Se esta transferência for um desses pagamentos, escolha-o nas sugestões acima (não cria nada novo). Marque só se tiver a certeza de que é um pagamento diferente — será emitida uma FR nova.
+        </span>
       </label>}
       {error && <p className="text-sm text-rose-700">{error}</p>}
       <button type="button" disabled={!canRegister} onClick={() => void register()}

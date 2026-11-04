@@ -2,7 +2,7 @@
 
 import { AnimatePresence, motion } from 'framer-motion';
 import { useMemo, useState } from 'react';
-import { CheckCheck, FileWarning, HandCoins, HelpCircle, PartyPopper, type LucideIcon } from 'lucide-react';
+import { CheckCheck, Link2, FileWarning, HandCoins, HelpCircle, PartyPopper, type LucideIcon } from 'lucide-react';
 
 import { inboxGroup, type InboxGroup } from '../../../lib/ledger/categories';
 import MovementRow from './MovementRow';
@@ -11,7 +11,16 @@ import { Button, Card, EmptyState, cx, isOpen } from './ui';
 
 const VISIBLE_PER_GROUP = 6;
 
-const SECTIONS: { key: InboxGroup; title: string; hint: string; icon: LucideIcon; tile: string }[] = [
+type Section = InboxGroup | 'linked';
+
+const SECTIONS: { key: Section; title: string; hint: string; icon: LucideIcon; tile: string }[] = [
+  {
+    key: 'linked',
+    title: 'Já ligadas a uma fatura da app',
+    hint: 'Transferências de peregrinação que o sistema reconheceu com certeza (mesmo valor e mesmo nome). A FR já foi emitida; só falta confirmar.',
+    icon: Link2,
+    tile: 'bg-emerald-50 text-emerald-600',
+  },
   {
     key: 'income',
     title: 'Entradas para confirmar',
@@ -42,7 +51,8 @@ const SECTIONS: { key: InboxGroup; title: string; hint: string; icon: LucideIcon
   },
 ];
 
-export function groupFor(movement: LedgerMovement): InboxGroup {
+export function groupFor(movement: LedgerMovement): Section {
+  if (movement.linkedPaymentId && movement.appInvoiceRef) return 'linked';
   return inboxGroup({
     amount: movement.amount,
     categoryCode: movement.categoryCode,
@@ -67,11 +77,11 @@ export default function PorTratarTab({
 }) {
   const open = useMemo(() => movements.filter(isOpen), [movements]);
   const grouped = useMemo(() => {
-    const map = new Map<InboxGroup, LedgerMovement[]>(SECTIONS.map(s => [s.key, []]));
+    const map = new Map<Section, LedgerMovement[]>(SECTIONS.map(s => [s.key, []]));
     open.forEach(m => map.get(groupFor(m))!.push(m));
     return map;
   }, [open]);
-  const [expanded, setExpanded] = useState<Set<InboxGroup>>(new Set());
+  const [expanded, setExpanded] = useState<Set<Section>>(new Set());
 
   if (movements.length === 0) {
     return (
@@ -116,7 +126,7 @@ export default function PorTratarTab({
                   <p className="mt-0.5 text-[13px] text-zinc-500">{section.hint}</p>
                 </div>
               </div>
-              {section.key === 'safe' && (
+              {(section.key === 'safe' || section.key === 'linked') && (
                 <Button
                   variant="primary"
                   size="sm"
@@ -145,7 +155,7 @@ export default function PorTratarTab({
                   movement={m}
                   onOpen={onOpen}
                   active={m.id === selectedId}
-                  action={section.key === 'safe' ? (
+                  action={section.key === 'safe' || section.key === 'linked' ? (
                     <Button
                       size="sm"
                       disabled={!!readOnlyReason}

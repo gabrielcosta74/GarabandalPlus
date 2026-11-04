@@ -1,6 +1,7 @@
 import { logAdminAudit } from '../../../../../lib/admin-audit';
 import { readStatementFile } from '../../../../../lib/ledger/read-statement';
 import { movementMatchKey } from '../../../../../lib/ledger/classify';
+import { enrichIncomingMovements } from '../../../../../lib/ledger/enrich';
 import {
   db,
   getMontepioAccount,
@@ -87,6 +88,7 @@ export async function POST(req: Request) {
     if (error) throw new Error(error.message);
 
     const result = data as { batch_id: string; rows_new: number; rows_duplicate: number };
+    await enrichIncomingMovements().catch(error => console.error('Contabilidade: falhou o cruzamento com a faturação', error));
     await logAdminAudit({
       adminEmail: admin.email,
       action: 'ledger.statement_imported',
