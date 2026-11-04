@@ -1,7 +1,7 @@
 import { timingSafeEqual } from 'node:crypto';
 
 import { syncMontepio } from '../../../../lib/ledger/bank-sync';
-import { enrichIncomingMovements } from '../../../../lib/ledger/enrich';
+import { enrichIncomingMovements, reclassifyOpenMovements } from '../../../../lib/ledger/enrich';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -20,6 +20,7 @@ export async function GET(req: Request) {
   try {
     const result = await syncMontepio();
     // Match incoming transfers to the site's invoices even when the bank was not read.
+    await reclassifyOpenMovements().catch(error => console.error('Contabilidade: falhou a reclassificação', error));
     const enriched = await enrichIncomingMovements().catch(error => {
       console.error('Contabilidade: falhou o cruzamento com a faturação', error);
       return null;

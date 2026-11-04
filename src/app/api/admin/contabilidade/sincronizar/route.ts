@@ -1,5 +1,5 @@
 import { syncMontepio } from '../../../../../lib/ledger/bank-sync';
-import { enrichIncomingMovements } from '../../../../../lib/ledger/enrich';
+import { enrichIncomingMovements, reclassifyOpenMovements } from '../../../../../lib/ledger/enrich';
 import { requireAdmin } from '../../../../../lib/ledger/server';
 
 export const dynamic = 'force-dynamic';
@@ -18,6 +18,7 @@ export async function POST(req: Request) {
       manual: true,
       psu: ipAddress ? { ipAddress, userAgent: req.headers.get('user-agent') } : undefined,
     });
+    await reclassifyOpenMovements().catch(error => console.error('Contabilidade: falhou a reclassificação', error));
     const enriched = await enrichIncomingMovements().catch(error => {
       console.error('Contabilidade: falhou o cruzamento com a faturação', error);
       return null;

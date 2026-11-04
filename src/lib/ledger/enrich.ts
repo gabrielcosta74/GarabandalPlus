@@ -1,7 +1,8 @@
 import 'server-only';
 
+import { classifyMovement } from './classify';
 import { addDays, samePerson } from './invoice-safety';
-import { db } from './server';
+import { db, loadCustomRules } from './server';
 
 /*
  * Uses what the site already knows (FACT.pt documents issued by the app and
@@ -151,4 +152,41 @@ async function saveSuggestion(movement: Movement, patch: Record<string, unknown>
   const raw = { ...(movement.raw || {}), ...patch };
   const { error } = await db().from('bank_transactions').update({ raw }).eq('id', movement.id);
   if (error) throw error;
+}
+
+/**
+ * Re-applies the current categorisation rules to movements nobody has handled
+ * yet (rules improve over time). Never touches reviewed, ignored or linked
+ * movements, and never changes the bank facts.
+ */
+export async function reclassifyOpenMovements(options: { dryRun?: boolean } = {}): Promise<{ changed: number }> {
+  const [{ data: movements, error }, { data: links, error: linksError }, rules] = await Promise.all([
+    db().from('bank_transactions')
+      .select('id, description_raw, amount, category_code, needs_document, raw, status, reviewed_by')
+      .in('status', ['unreviewed', 'suggested'])
+      .is('reviewed_by', null),
+    db().from('bank_transaction_links').select('bank_transaction_id'),
+    loadCustomRules(),
+  ]);
+  if (error) throw error;
+  if (linksError) throw linksError;
+  const linked = new Set((links || []).map(link => link.bank_transaction_id as string));
+  let changed = 0;
+  for (const movement of movements || []) {
+    if (linked.has(movement.id)) continue;
+    const guess = classifyMovement(movement.description_raw, Number(movement.amount), rules);
+    const raw = (movement.raw || {}) as Record<string, unknown>;
+    const nextSuggested = raw.suggestion ? raw.suggested_category : guess.suggestedCategoryCode;
+    if (guess.categoryCode === movement.category_code && nextSuggested === raw.suggested_category) continue;
+    changed += 1;
+    if (options.dryRun) continue;
+    const { error: updateError } = await db().from('bank_transactions').update({
+      category_code: guess.categoryCode,
+      status: guess.categoryCode ? 'suggested' : 'unreviewed',
+      needs_document: guess.needsDocument,
+      raw: { ...raw, suggested_category: nextSuggested ?? null },
+    }).eq('id', movement.id);
+    if (updateError) throw updateError;
+  }
+  return { changed };
 }
