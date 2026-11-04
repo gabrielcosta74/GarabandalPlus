@@ -27,6 +27,8 @@ import PilgrimageInfoModal from '../../../components/pilgrimage/PilgrimageInfoMo
 import PilgrimagePaymentWarningModal from '../../../components/pilgrimage/PilgrimagePaymentWarningModal';
 import { useLocale } from '../../../contexts/LocaleContext';
 import { observeSiteSections, setSitePilgrimageContext, trackSiteEvent } from '../../../lib/site-tracker';
+import { capturePostHogEvent } from '../../../lib/analytics';
+import { COOKIE_CONSENT_CHANGED_EVENT } from '../../../lib/cookie-consent';
 
 // Lazy load heavy map component
 const SpiritMap = dynamic(() => import('../../../components/pilgrimage/SpiritMap'), {
@@ -372,6 +374,17 @@ export default function PilgrimageDetailPage() {
             status: pilgrimage.status ?? null,
             has_booking: Boolean(existingBooking),
         });
+        let capturedPostHogView = false;
+        const captureView = () => {
+            if (capturedPostHogView) return;
+            capturedPostHogView = capturePostHogEvent('pilgrimage_viewed', {
+                pilgrimage_id: trackedPilgrimageId,
+                pilgrimage_slug: pilgrimage.slug,
+                status: pilgrimage.status ?? null,
+            });
+        };
+        captureView();
+        window.addEventListener(COOKIE_CONSENT_CHANGED_EVENT, captureView);
         // Espera pelo layout final (mapa e roteiro carregam depois).
         const timer = window.setTimeout(() => {
             observeSiteSections({
@@ -384,6 +397,7 @@ export default function PilgrimageDetailPage() {
         }, 300);
         return () => {
             window.clearTimeout(timer);
+            window.removeEventListener(COOKIE_CONSENT_CHANGED_EVENT, captureView);
             setSitePilgrimageContext(undefined);
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps

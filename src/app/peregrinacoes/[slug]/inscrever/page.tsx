@@ -39,6 +39,8 @@ import DateInput from '../../../../components/ui/DateInput';
 import ChatWidget from '../../../../components/pilgrimage/ChatWidget';
 import PilgrimageFlightStep from '../../../../components/booking/PilgrimageFlightStep';
 import { getSiteTrackingIds, setSitePilgrimageContext, trackSiteEvent } from '../../../../lib/site-tracker';
+import { capturePostHogEvent } from '../../../../lib/analytics';
+import { COOKIE_CONSENT_CHANGED_EVENT } from '../../../../lib/cookie-consent';
 import './registration.css';
 
 /* -------------------------------------------------------------------------- */
@@ -1443,6 +1445,30 @@ export default function PilgrimageBookingPage() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [trackedPilgrimageId, step, detailsSection, paymentSection, activePilgrimIndex]);
 
+    // One PostHog event per actual form step, independent of subsection edits.
+    useEffect(() => {
+        if (!trackedPilgrimageId) return;
+        const stepName = step === 1 ? 'identificacao'
+            : step === 2 ? 'dados'
+            : step === 3 ? 'quartos'
+            : step === finalStep ? 'pagamento'
+            : 'voos';
+        let capturedPostHogStep = false;
+        const captureStep = () => {
+            if (capturedPostHogStep) return;
+            capturedPostHogStep = capturePostHogEvent('registration_step_viewed', {
+                pilgrimage_id: trackedPilgrimageId,
+                pilgrimage_slug: pilgrimage?.slug,
+                step,
+                step_name: stepName,
+            });
+        };
+        captureStep();
+        window.addEventListener(COOKIE_CONSENT_CHANGED_EVENT, captureStep);
+        return () => window.removeEventListener(COOKIE_CONSENT_CHANGED_EVENT, captureStep);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [trackedPilgrimageId, step]);
+
     // Keep what was typed when the page reloads: phones discard background tabs
     // (switching apps to find a passport), and the browser back gesture leaves
     // the page. Without this people land back on the contact step, empty.
@@ -1820,6 +1846,11 @@ export default function PilgrimageBookingPage() {
                 payment_method: data.payment_method,
                 installments: data.payment_method === 'installments' ? (installmentCount || maximumInstallmentCount) : null,
             }, { immediate: true });
+            capturePostHogEvent('registration_submitted', {
+                pilgrimage_id: pilgrimage.id,
+                pilgrimage_slug: pilgrimage.slug,
+                payment_method: data.payment_method,
+            });
 
             const result = await handleBookingWithAutoLogin({
                 email: userEmail,
@@ -1852,6 +1883,10 @@ export default function PilgrimageBookingPage() {
             trackSiteEvent('registration_submit_failed', {
                 error: String(err?.code || err?.message || 'unknown').replace(/\S+@\S+/g, '[email]').slice(0, 100),
             }, { immediate: true });
+            capturePostHogEvent('registration_submit_failed', {
+                pilgrimage_id: pilgrimage?.id,
+                pilgrimage_slug: pilgrimage?.slug,
+            });
 
             // [SENIOR UX] User exists logic
             if (err.message && (err.message.includes('already registered') || err.message.includes('User already registered') || err.code === 'user_already_exists')) {

@@ -1,4 +1,5 @@
 import { PostHog } from 'posthog-node';
+import { after } from 'next/server';
 
 let posthogClient: PostHog | null = null;
 
@@ -17,4 +18,18 @@ export function getPostHogClient(): PostHog | null {
     );
   }
   return posthogClient;
+}
+
+/** Keep a route handler alive until a critical conversion event is delivered. */
+export function capturePostHogAfterResponse(event: Parameters<PostHog['captureImmediate']>[0]): void {
+  const posthog = getPostHogClient();
+  if (!posthog) return;
+
+  after(async () => {
+    try {
+      await posthog.captureImmediate(event);
+    } catch (error) {
+      console.warn('PostHog capture failed:', error);
+    }
+  });
 }

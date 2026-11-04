@@ -56,6 +56,7 @@ export function BrochureDownloadModal({ pilgrimageId, slug, className, trigger, 
                 setSuccess(true);
                 captureAnalyticsEvent('brochure_requested', {
                     pilgrimage_id: pilgrimageId,
+                    pilgrimage_slug: slug,
                     channel: 'email',
                     locale,
                 });

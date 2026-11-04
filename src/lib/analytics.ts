@@ -14,6 +14,7 @@ export type AnalyticsRequestContext = {
 
 const POSTHOG_PROXY_PATH = '/maria-sinais';
 const POSTHOG_UI_HOST = 'https://us.posthog.com';
+const INTERNAL_VISITOR_KEY = 'gp_internal';
 
 const EXCLUDED_PUBLIC_ANALYTICS_PREFIXES = [
   '/admin',
@@ -26,6 +27,11 @@ const EXCLUDED_PUBLIC_ANALYTICS_PREFIXES = [
   '/en/library',
   '/encomendas',
   '/peregrinacoes/minhas-inscricoes',
+  '/peregrinacoes/inscricao',
+  '/en/pilgrimages/registration',
+  '/peregrinacoes/preview-admin',
+  '/dados-check-in',
+  '/checkin',
 ];
 
 const EXCLUDED_PAGEVIEW_PREFIXES = [
@@ -90,6 +96,19 @@ const POSTHOG_RESERVED_PROPERTY_KEYS = new Set(['token']);
 let initialized = false;
 let lastPageview: { key: string; capturedAt: number } | null = null;
 
+export const pilgrimageAnalyticsProperties = (pathname: string) => {
+  const match = pathname.match(/^\/(?:peregrinacoes|en\/pilgrimages)\/([^/]+)(?:\/(inscrever|register))?\/?$/);
+  if (!match || match[1] === 'inscricao' || match[1] === 'registration' || match[1] === 'preview-admin') return {};
+  return {
+    site_area: 'pilgrimage',
+    pilgrimage_slug: match[1],
+    pilgrimage_page: match[2] ? 'registration' : 'detail',
+  };
+};
+
+export const analyticsLocale = (pathname: string) =>
+  pathname.match(/^\/(en|es|fr|it)(?:\/|$)/)?.[1] || 'pt';
+
 const getPostHogToken = () =>
   process.env.NEXT_PUBLIC_POSTHOG_KEY || process.env.NEXT_PUBLIC_POSTHOG_TOKEN || '';
 
@@ -106,6 +125,20 @@ const hasDoNotTrack = () => {
   if (typeof window === 'undefined') return true;
   const nav = window.navigator as Navigator & { msDoNotTrack?: string };
   return nav.doNotTrack === '1' || nav.msDoNotTrack === '1';
+};
+
+const isInternalVisitor = () => {
+  if (typeof window === 'undefined') return false;
+  if (window.location.pathname === '/admin' || window.location.pathname.startsWith('/admin/')) {
+    try { window.localStorage.setItem(INTERNAL_VISITOR_KEY, '1'); } catch { /* unavailable storage */ }
+    return true;
+  }
+  try { return window.localStorage.getItem(INTERNAL_VISITOR_KEY) === '1'; } catch { return false; }
+};
+
+const isPreviewPage = () => {
+  if (typeof window === 'undefined') return false;
+  return window.location.search ? new URLSearchParams(window.location.search).has('previewId') : false;
 };
 
 const matchesPrefix = (pathname: string, prefixes: string[]) =>
@@ -167,7 +200,7 @@ const isSensitiveInteractionPath = (pathname?: string | null) =>
   matchesPrefix(pathname || '/', SENSITIVE_INTERACTION_PREFIXES);
 
 const sanitizeBeforeSend = (event: CaptureResult | null): CaptureResult | null => {
-  if (!event || !hasAnalyticsConsent()) return null;
+  if (!event || !hasAnalyticsConsent() || isInternalVisitor() || isPreviewPage()) return null;
 
   const properties = event.properties || {};
   const pathname = getPathnameFromProperties(properties);
@@ -196,7 +229,7 @@ const sanitizeBeforeSend = (event: CaptureResult | null): CaptureResult | null =
 
 export const initAnalytics = () => {
   if (typeof window === 'undefined') return false;
-  if (!isAllowedAnalyticsHost() || hasDoNotTrack() || !hasAnalyticsConsent()) {
+  if (!isAllowedAnalyticsHost() || hasDoNotTrack() || !hasAnalyticsConsent() || isInternalVisitor() || isPreviewPage()) {
     if (initialized) {
       posthog.stopSessionRecording();
       posthog.opt_out_capturing();
@@ -262,21 +295,30 @@ export const captureAnalyticsEvent = (event: string, properties: AnalyticsProper
   if (!isPublicAnalyticsPath(window.location.pathname)) return;
   // Espelha no tracking próprio, que não depende do consentimento do PostHog.
   trackSiteEvent(event, sanitizeProperties(properties));
-  if (!initAnalytics()) return;
-
-  posthog.capture(event, {
-    ...sanitizeProperties(properties),
-    analytics_path: window.location.pathname,
-  });
+  capturePostHogEvent(event, properties);
 };
 
-export const capturePublicPageView = (pathname: string, search?: string) => {
+/** PostHog-only milestones for actions already recorded by the first-party tracker. */
+export const capturePostHogEvent = (event: string, properties: AnalyticsProperties = {}): boolean => {
+  if (typeof window === 'undefined' || !isPublicAnalyticsPath(window.location.pathname)) return false;
+  if (!initAnalytics()) return false;
+  posthog.capture(event, {
+    ...pilgrimageAnalyticsProperties(window.location.pathname),
+    ...sanitizeProperties(properties),
+    $current_url: sanitizeAnalyticsUrl(window.location.href),
+    $pathname: window.location.pathname,
+    analytics_path: window.location.pathname,
+  });
+  return true;
+};
+
+export const capturePublicPageView = (pathname: string) => {
   if (typeof window === 'undefined') return;
   if (!isPageviewPath(pathname)) return;
   if (!initAnalytics()) return;
 
   const safeUrl = sanitizeAnalyticsUrl(window.location.href);
-  const key = `${pathname}?${search || ''}`;
+  const key = safeUrl;
   const now = Date.now();
   if (lastPageview?.key === key && now - lastPageview.capturedAt < 1500) return;
   lastPageview = { key, capturedAt: now };
@@ -285,7 +327,8 @@ export const capturePublicPageView = (pathname: string, search?: string) => {
     $current_url: safeUrl,
     $pathname: pathname,
     path: pathname,
-    locale: pathname === '/en' || pathname.startsWith('/en/') ? 'en' : 'pt',
+    locale: analyticsLocale(pathname),
+    ...pilgrimageAnalyticsProperties(pathname),
   });
 };
 

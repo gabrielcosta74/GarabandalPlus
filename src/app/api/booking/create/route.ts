@@ -6,7 +6,7 @@ import { getAppUrl } from '../../../../lib/config';
 import { parseRoomInfo } from '../../../../lib/utils';
 import { generateViewToken, generateIdempotencyKey } from '../../../../lib/auth-utils';
 import { isActiveMember } from '../../../../lib/store-discounts';
-import { getPostHogClient } from '../../../../lib/posthog-server';
+import { capturePostHogAfterResponse } from '../../../../lib/posthog-server';
 import { identifySiteVisitor } from '../../../../lib/site-tracking-server';
 import { analyticsSessionProperties, getServerAnalyticsContext } from '../../../../lib/analytics-consent-server';
 import {
@@ -84,7 +84,7 @@ export async function POST(req: Request) {
         // creating an account or writing booking data.
         const { data: pilgrimage, error: pilgError } = await supabaseServer
             .from('pilgrimages')
-            .select('base_price, title, title_en, deposit_value, min_deposit, pricing_config, start_date')
+            .select('base_price, title, title_en, slug, deposit_value, min_deposit, pricing_config, start_date')
             .eq('id', pilgrimage_id)
             .single();
 
@@ -543,13 +543,13 @@ export async function POST(req: Request) {
         // Track booking creation server-side
         try {
             if (analyticsContext) {
-                const posthog = getPostHogClient();
-                posthog?.capture({
+                capturePostHogAfterResponse({
                     distinctId: analyticsContext.distinctId,
                     event: 'booking_created',
                     properties: {
                         ...analyticsSessionProperties(analyticsContext),
                         pilgrimage_id: pilgrimage_id,
+                        pilgrimage_slug: pilgrimage.slug,
                         pilgrimage_name: pilgrimage.title,
                         pilgrim_count: pilgrimsToInsert.length,
                         total_amount: totalAmount,

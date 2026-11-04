@@ -12,7 +12,7 @@ import { inferIsDigitalProduct } from '../../../../lib/product-kind';
 import { checkRateLimit } from '../../../../lib/rate-limit';
 import { inferRequestLocale, withLocalePrefix } from '../../../../lib/locale-routing';
 import { localizeStoreProductText } from '../../../../lib/store-i18n';
-import { getPostHogClient } from '../../../../lib/posthog-server';
+import { capturePostHogAfterResponse } from '../../../../lib/posthog-server';
 import { applyStoreBookPromo } from '../../../../lib/store-promo';
 import { analyticsSessionProperties, getServerAnalyticsContext } from '../../../../lib/analytics-consent-server';
 
@@ -428,8 +428,7 @@ export async function POST(request: Request) {
         // Track checkout initiation server-side
         try {
           if (analyticsContext) {
-            const posthog = getPostHogClient();
-            posthog?.capture({
+            capturePostHogAfterResponse({
               distinctId: analyticsContext.distinctId,
               event: 'store_checkout_initiated',
               properties: {

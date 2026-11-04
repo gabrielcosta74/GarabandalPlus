@@ -5,7 +5,7 @@ import { APP_URL } from '../../../../lib/config';
 import { sendBrochureEmail } from '../../../../lib/email';
 import { inferRequestLocale } from '../../../../lib/locale-routing';
 import { checkRateLimit } from '../../../../lib/rate-limit';
-import { getPostHogClient } from '../../../../lib/posthog-server';
+import { capturePostHogAfterResponse } from '../../../../lib/posthog-server';
 import { identifySiteVisitor } from '../../../../lib/site-tracking-server';
 import { analyticsSessionProperties, getServerAnalyticsContext } from '../../../../lib/analytics-consent-server';
 
@@ -184,8 +184,7 @@ export async function POST(req: Request) {
         // Track lead capture server-side
         try {
             if (analyticsContext) {
-                const posthog = getPostHogClient();
-                posthog?.capture({
+                capturePostHogAfterResponse({
                     distinctId: analyticsContext.distinctId,
                     event: 'lead_captured',
                     properties: {

@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
+import { isIP } from 'node:net';
 
 /**
  * Reverse proxy for PostHog.
@@ -34,6 +35,8 @@ function upstreamFor(path: string): string {
 const STRIP_REQUEST = new Set([
   'host', 'connection', 'keep-alive', 'transfer-encoding', 'upgrade',
   'proxy-authorization', 'proxy-connection', 'te', 'trailer',
+  // The SDK authenticates in its payload. Site cookies must stay on our domain.
+  'cookie', 'authorization',
   // Let undici negotiate its own encoding and decode for us.
   'accept-encoding', 'content-length',
 ]);
@@ -65,6 +68,18 @@ const STRIP_RESPONSE = new Set([
   'content-encoding', 'content-length', 'transfer-encoding', 'connection',
 ]);
 
+function visitorIp(request: NextRequest): string | null {
+  // Cloudflare supplies the visitor IP to our origin, but its cf-* headers
+  // cannot be forwarded to PostHog's Cloudflare zone (they cause a 403).
+  const cloudflareIp = request.headers.get('cf-connecting-ip')?.trim();
+  if (cloudflareIp && isIP(cloudflareIp)) return cloudflareIp;
+
+  // Railway and other hosting edges commonly provide this standard header.
+  // Forward one validated address, never an untrusted multi-hop chain.
+  const forwardedIp = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim();
+  return forwardedIp && isIP(forwardedIp) ? forwardedIp : null;
+}
+
 async function proxy(request: NextRequest, path: string[]) {
   const suffix = path.join('/');
   if (!suffix) return new NextResponse('Not found', { status: 404 });
@@ -79,6 +94,11 @@ async function proxy(request: NextRequest, path: string[]) {
     if (STRIP_PREFIXES.some((p) => k.startsWith(p))) return;
     headers.set(key, value);
   });
+
+  if (target.origin === INGEST_HOST) {
+    const ip = visitorIp(request);
+    if (ip) headers.set('x-forwarded-for', ip);
+  }
 
   const hasBody = request.method !== 'GET' && request.method !== 'HEAD';
 

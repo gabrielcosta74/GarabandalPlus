@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { supabaseServer } from '../../../../lib/supabase';
 import { inferRequestLocale } from '../../../../lib/locale-routing';
 import { checkRateLimit } from '../../../../lib/rate-limit';
-import { getPostHogClient } from '../../../../lib/posthog-server';
+import { capturePostHogAfterResponse } from '../../../../lib/posthog-server';
 import { analyticsSessionProperties, getServerAnalyticsContext } from '../../../../lib/analytics-consent-server';
 
 /**
@@ -108,8 +108,7 @@ export async function POST(req: Request) {
 
         try {
             if (analyticsContext) {
-                const posthog = getPostHogClient();
-                posthog?.capture({
+                capturePostHogAfterResponse({
                     distinctId: analyticsContext.distinctId,
                     event: 'pilgrimage_interest',
                     properties: {
