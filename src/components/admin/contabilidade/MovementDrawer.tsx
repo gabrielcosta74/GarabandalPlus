@@ -333,6 +333,10 @@ export default function MovementDrawer({ movement, readOnlyReason, onClose, onCh
                       </div>
                     )}
 
+                    {category === 'doacao' && donationGate?.blockedReason && (
+                      <p className="rounded-xl bg-zinc-50 px-3.5 py-3 text-sm text-zinc-700">{donationGate.blockedReason}</p>
+                    )}
+
                     {issuingDonation && donationGate && (
                       <Field label="Dados do doador">
                         <DonationInvoiceField

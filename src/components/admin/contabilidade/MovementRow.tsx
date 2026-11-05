@@ -65,13 +65,19 @@ export default function MovementRow({
 
 /**
  * What the cross-check with the site's invoices found, in plain words;
- * otherwise the usual state ("Falta fatura", "Completo"…).
+ * otherwise the usual state ("Sem FR ligada", "Completo"…).
  */
 function RowBadge({ movement }: { movement: LedgerMovement }) {
   const open = movement.status === 'unreviewed' || movement.status === 'suggested';
   const base = 'inline-flex max-w-full items-center gap-1 truncate whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-medium ring-1 ring-inset';
   if (open && movement.appInvoiceRef) {
     return <span className={cx(base, 'bg-emerald-50 text-emerald-700 ring-emerald-600/10')} title="Ligada ao pagamento registado no site; a FR já foi emitida pela app.">{movement.appInvoiceRef} · app</span>;
+  }
+  if (open && movement.appInvoiceState === 'failed') {
+    return <span className={cx(base, 'bg-rose-50 text-rose-700 ring-rose-600/10')} title="A FR não foi emitida. Reveja-a em Faturação.">FR falhou</span>;
+  }
+  if (open && movement.appInvoiceState === 'processing') {
+    return <span className={cx(base, 'bg-sky-50 text-sky-700 ring-sky-600/10')} title="A FR sai dentro de minutos. Não a emita noutro sítio.">FR a ser emitida</span>;
   }
   if (open && movement.suggestion?.confidence === 'manual' && movement.suggestion.invoiceRef) {
     return <span className={cx(base, 'bg-emerald-50 text-emerald-700 ring-emerald-600/10')} title={movement.suggestion.reason}>{movement.suggestion.invoiceRef}</span>;

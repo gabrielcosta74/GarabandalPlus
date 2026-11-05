@@ -101,6 +101,49 @@ export function matchManualInvoice(
   return { confidence: 'ambiguous', invoiceRefs: candidates.map(invoice => invoice.number) };
 }
 
+export type RepeatedInvoice = { invoiceRefs: string[]; amount: number; date: string; client: string | null };
+
+/**
+ * Two FRs for the same client and amount within days are the footprint of a
+ * duplicate. Monthly payers are weeks apart, so they never appear here. It only
+ * warns: two people on one booking can be legitimate.
+ */
+export function findRepeatedInvoices(rows: {
+  number: string; doc_type: string; gross: number | string; doc_date: string;
+  payment_status: string | null; client_id: string | null; client_name: string | null;
+}[], withinDays = 3): RepeatedInvoice[] {
+  const groups = new Map<string, typeof rows>();
+  for (const row of rows) {
+    const generic = /consumidor final/i.test(row.client_name || '');
+    if (!row.client_id || generic || CANCELLED.test(row.payment_status || '') || !invoiceRefFor(row.doc_type, row.number)) continue;
+    const key = `${row.client_id}:${Math.round(Number(row.gross) * 100)}`;
+    groups.set(key, [...(groups.get(key) || []), row]);
+  }
+  const repeated: RepeatedInvoice[] = [];
+  for (const group of groups.values()) {
+    const ordered = [...group].sort((a, b) => a.doc_date.localeCompare(b.doc_date));
+    let run: typeof rows = [];
+    const close = () => {
+      if (run.length > 1) {
+        repeated.push({
+          invoiceRefs: run.map(row => invoiceRefFor(row.doc_type, row.number) as string),
+          amount: Number(run[0].gross), date: run[run.length - 1].doc_date,
+          client: run.find(row => row.client_name)?.client_name ?? null,
+        });
+      }
+    };
+    for (const row of ordered) {
+      if (run.length && row.doc_date > addDays(run[run.length - 1].doc_date, withinDays)) {
+        close();
+        run = [];
+      }
+      run.push(row);
+    }
+    close();
+  }
+  return repeated.sort((a, b) => b.date.localeCompare(a.date));
+}
+
 export type DonorIdentity = {
   name: string; email: string; nif: string | null;
   address: string; zip: string; city: string; country: string;
@@ -118,5 +161,7 @@ export function missingDonorFields(donor: Partial<DonorIdentity>): string[] {
     .map(([, label]) => label);
   if (donor.email?.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(donor.email.trim())) missing.push('email válido');
   if (donor.country?.trim() && !/^[a-z]{2}$/i.test(donor.country.trim())) missing.push('país com 2 letras');
+  const nif = String(donor.nif || '').replace(/[\s.-]/g, '');
+  if (nif && !/^\d{5,15}$/.test(nif)) missing.push('NIF válido');
   return missing;
 }

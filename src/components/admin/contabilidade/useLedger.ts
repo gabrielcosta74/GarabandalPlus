@@ -29,6 +29,8 @@ export type BankInfo = {
   lastErrorCode?: string | null;
   lastAttemptAt?: string | null;
   manualBlockedUntil?: string | null;
+  /** When set, donations from this date can have their FR issued by the app. */
+  donationIssueFrom?: string | null;
 };
 
 export async function adminFetch(input: string, init: RequestInit = {}) {
@@ -45,7 +47,7 @@ export async function adminFetch(input: string, init: RequestInit = {}) {
   });
   const body = await response.json().catch(() => null);
   if (response.status === 401 || response.status === 403) clearStoredPreview();
-  if (!response.ok) throw new Error(body?.error || 'Ocorreu um erro. Tente novamente.');
+  if (!response.ok) throw Object.assign(new Error(body?.error || 'Ocorreu um erro. Tente novamente.'), { body });
   return body;
 }
 

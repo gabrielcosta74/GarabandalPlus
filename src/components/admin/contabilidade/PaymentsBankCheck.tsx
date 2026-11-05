@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { ArrowUpRight, ShieldAlert, ShieldCheck } from 'lucide-react';
+import { ArrowUpRight, Files, ShieldAlert, ShieldCheck } from 'lucide-react';
 
 import { formatDay, formatEur } from '../../../lib/ledger/format';
 import { adminFetch } from './useLedger';
@@ -12,6 +12,7 @@ type Check = {
   checked: number;
   waiting: number;
   missing: { id: string; amount: number; paidOn: string; label: string; href: string }[];
+  repeated?: { invoiceRefs: string[]; amount: number; date: string; client: string | null }[];
 };
 
 /** Payments marked as paid with no money in the bank. Quiet when everything agrees. */
@@ -29,6 +30,46 @@ export default function PaymentsBankCheck({ refreshKey }: { refreshKey: unknown 
 }
 
 export function PaymentsBankCheckView({ check }: { check: Check }) {
+  return (
+    <>
+      <RepeatedInvoices rows={check.repeated || []} />
+      <MoneyCheck check={check} />
+    </>
+  );
+}
+
+function RepeatedInvoices({ rows }: { rows: NonNullable<Check['repeated']> }) {
+  if (rows.length === 0) return null;
+  return (
+    <Card className="mb-4 overflow-hidden">
+      <header className="flex items-start gap-3 px-5 pb-3 pt-5">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-orange-50 text-orange-600" aria-hidden>
+          <Files className="h-[18px] w-[18px]" />
+        </span>
+        <div>
+          <h2 className="flex items-center gap-2 text-[15px] font-semibold text-zinc-900">
+            FRs que podem estar repetidas
+            <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium tabular-nums text-zinc-600">{rows.length}</span>
+          </h2>
+          <p className="mt-0.5 text-[13px] text-zinc-500">Mesmo cliente e mesmo valor com poucos dias de diferença. Pode estar certo, por exemplo duas pessoas na mesma reserva. Confirme na FACT.pt.</p>
+        </div>
+      </header>
+      <div className="divide-y divide-zinc-100 border-t border-zinc-100">
+        {rows.map(row => (
+          <div key={row.invoiceRefs.join()} className="flex items-center justify-between gap-4 px-5 py-3 text-sm">
+            <span className="min-w-0">
+              <span className="block truncate font-medium text-zinc-900">{row.invoiceRefs.join(' e ')}</span>
+              <span className="text-[13px] text-zinc-500">{row.client || 'Cliente da FACT.pt'} · {formatDay(row.date, true)}</span>
+            </span>
+            <span className="shrink-0 font-medium tabular-nums text-zinc-900">{formatEur(row.amount)}</span>
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
+function MoneyCheck({ check }: { check: Check }) {
   if (check.checked === 0) return null;
 
   if (check.missing.length === 0) {

@@ -15,7 +15,7 @@ const FILTERS: { key: Filter; label: string; test: (m: LedgerMovement) => boolea
   { key: 'in', label: 'Entradas', test: m => m.amount > 0 },
   { key: 'out', label: 'Saídas', test: m => m.amount < 0 },
   { key: 'open', label: 'Por tratar', test: isOpen },
-  { key: 'no_invoice', label: 'Falta fatura', test: missingInvoice },
+  { key: 'no_invoice', label: 'Sem FR ligada', test: missingInvoice },
   { key: 'no_document', label: 'Falta documento', test: missingDocument },
 ];
 

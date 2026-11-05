@@ -101,7 +101,7 @@ export function rowState(movement: LedgerMovement): { state: RowState; label: st
   if (movement.status === 'ignored') return { state: 'ignored', label: 'Ignorado' };
   const items = missingItems(movement);
   if (items.length === 0) return { state: 'complete', label: 'Completo' };
-  if (items.includes('fatura')) return { state: 'missing', label: 'Falta fatura' };
+  if (items.includes('fatura')) return { state: 'missing', label: 'Sem FR ligada' };
   if (items.includes('documento')) return { state: 'missing', label: 'Falta documento' };
   if (items.includes('categoria')) return { state: 'missing', label: 'Sem categoria' };
   return { state: 'confirm', label: 'Por confirmar' };

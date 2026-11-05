@@ -31,7 +31,7 @@ const SECTIONS: { key: Section; title: string; hint: string; icon: LucideIcon; t
   {
     key: 'income',
     title: 'Entradas para confirmar',
-    hint: 'Doações e quotas que chegaram por transferência. Confirme quem é e associe a fatura-recibo.',
+    hint: 'Transferências sem FR encontrada. Abra cada uma e diga o que é.',
     icon: HandCoins,
     tile: 'bg-rose-50 text-rose-600',
   },

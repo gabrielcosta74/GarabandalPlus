@@ -576,6 +576,23 @@ export class FactPtClient {
     );
   }
 
+  /**
+   * Read only. FACT.pt refuses a second final consumer with the same name, so a
+   * profile with this name and other details would make the FR fail later.
+   */
+  async findFinalConsumerConflict(
+    input: FactPtClientCreateInput,
+  ): Promise<FactPtRemoteClient | null> {
+    if (!input.finalConsumer) return null;
+    const byEmail = await this.findClients(input.email);
+    const byName = await this.findClients(input.name);
+    if (uniqueFinalConsumerClient([...byEmail, ...byName], input)) return null;
+    const wanted = normalizedClientName(input.name);
+    return byName.find((candidate) =>
+      candidate.isFinalConsumer && normalizedClientName(candidate.name) === wanted,
+    ) || null;
+  }
+
   async createClient(input: FactPtClientCreateInput): Promise<FactPtCreatedResource> {
     const normalizedTin = input.tin?.replace(/[\s.-]/g, '') || '';
     if (!input.finalConsumer && !/^\d{5,15}$/.test(normalizedTin)) {

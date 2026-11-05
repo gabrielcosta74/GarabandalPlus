@@ -1,6 +1,6 @@
 import 'server-only';
 
-import { mirrorFreshness, loadManualInvoices } from './factpt-mirror';
+import { factptReadClient, mirrorFreshness, loadManualInvoices } from './factpt-mirror';
 import { matchManualInvoice, type DonorIdentity } from './factpt-mirror-rules';
 import { assessInvoice } from './invoice-assessment';
 import { addDays, samePerson } from './invoice-safety';
@@ -11,12 +11,13 @@ type Movement = { id: string; amount: number; booking_date: string; counterparty
 export type DonationGate = {
   /** False: the "Emitir pela app" option is not offered, and the route refuses. */
   available: boolean;
+  /** Null while the feature is simply off: there is nothing for the admin to act on. */
   blockedReason: string | null;
   /** Hand-issued FRs with this amount and date but another name: the admin must rule them out. */
   nearbyManual: string[];
 };
 
-const blocked = (blockedReason: string): DonationGate => ({ available: false, blockedReason, nearbyManual: [] });
+const blocked = (blockedReason: string | null): DonationGate => ({ available: false, blockedReason, nearbyManual: [] });
 
 /**
  * Everything that must be true before the app may issue a donation FR. The
@@ -30,11 +31,11 @@ export async function donationGate(movement: Movement): Promise<DonationGate> {
       .eq('environment', 'production').maybeSingle(),
   ]);
   // Before the migration the column does not exist: the feature simply stays off.
-  if (accountError) return blocked('A emissão pela app ainda não está ativa.');
+  if (accountError) return blocked(null);
   if (settingsError) throw settingsError;
 
   const from = account?.app_donation_fr_from as string | null | undefined;
-  if (!from) return blocked('A emissão pela app ainda não está ativa.');
+  if (!from) return blocked(null);
   if (movement.booking_date < from) return blocked('Movimento anterior ao início da emissão pela app. A FR é emitida na FACT.pt.');
   if (!settings?.auto_enabled || !settings.production_donations_enabled || !settings.donations_go_live_at
       || Date.parse(settings.donations_go_live_at) > Date.now()) {
@@ -61,6 +62,27 @@ export async function donationGate(movement: Movement): Promise<DonationGate> {
   if (namedMany) return blocked('Há várias FRs manuais para esta pessoa com este valor. Associe a certa em vez de emitir outra.');
 
   return { available: true, blockedReason: null, nearbyManual: manual?.invoiceRefs || [] };
+}
+
+export type ClientConflict = Pick<DonorIdentity, 'name' | 'email' | 'address' | 'zip' | 'city' | 'country'>;
+
+/**
+ * Read only. With no tax number, FACT.pt refuses a second final consumer with
+ * the same name. Finding it now lets the admin use the existing details instead
+ * of the FR failing after the donation is registered.
+ */
+export async function clientConflict(donor: Partial<DonorIdentity>): Promise<ClientConflict | null> {
+  if (String(donor.nif || '').replace(/\D/g, '')) return null;
+  const remote = await factptReadClient().findFinalConsumerConflict({
+    name: String(donor.name), email: String(donor.email), address: String(donor.address),
+    zip: String(donor.zip), city: String(donor.city), country: String(donor.country).toLowerCase(),
+    finalConsumer: true,
+  });
+  if (!remote) return null;
+  return {
+    name: remote.name || String(donor.name), email: remote.email || '', address: remote.address || '',
+    zip: remote.zip || '', city: remote.city || '', country: (remote.country || '').toUpperCase(),
+  };
 }
 
 async function takenInvoiceRefs(): Promise<Set<string>> {

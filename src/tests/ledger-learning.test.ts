@@ -3,7 +3,7 @@ import { FactPtClient, type FactPtRateLimiter } from '../lib/factpt/client';
 import type { FactPtConfig } from '../lib/factpt/config';
 import { afterConfirmation, afterUndo, aliasKey, isLearned } from '../lib/ledger/alias-rules';
 import {
-  invoiceRefFor, isAppDocument, matchManualInvoice, missingDonorFields, pagesNewestFirst,
+  findRepeatedInvoices, invoiceRefFor, isAppDocument, matchManualInvoice, missingDonorFields, pagesNewestFirst,
   toMirrorRow, usableManualInvoice, type ManualInvoice,
 } from '../lib/ledger/factpt-mirror-rules';
 import { pickSamePayerInvoice } from '../lib/ledger/invoice-safety';
@@ -144,7 +144,51 @@ describe('FACT.pt documents issued by hand', () => {
   });
 });
 
+describe('FRs that may be repeated', () => {
+  const row = (number: string, doc_date: string, extra = {}) => ({
+    number, doc_date, doc_type: 'invoicereceipt', gross: '25.00', payment_status: 'paid', client_id: '7', client_name: 'Ana Costa', ...extra,
+  });
+
+  it('finds the same client and amount days apart', () => {
+    expect(findRepeatedInvoices([row('2026D/1', '2026-10-10'), row('2026D/2', '2026-10-12')]))
+      .toEqual([{ invoiceRefs: ['FR 2026D/1', 'FR 2026D/2'], amount: 25, date: '2026-10-12', client: 'Ana Costa' }]);
+  });
+
+  it('leaves monthly payers alone', () => {
+    expect(findRepeatedInvoices([row('2026D/1', '2026-09-10'), row('2026D/2', '2026-10-10'), row('2026D/3', '2026-11-10')])).toEqual([]);
+  });
+
+  it('ignores other amounts, other clients and cancelled documents', () => {
+    expect(findRepeatedInvoices([row('2026D/1', '2026-10-10'), row('2026D/2', '2026-10-10', { gross: '26.00' })])).toEqual([]);
+    expect(findRepeatedInvoices([row('2026D/1', '2026-10-10'), row('2026D/2', '2026-10-10', { client_id: '8' })])).toEqual([]);
+    expect(findRepeatedInvoices([row('2026D/1', '2026-10-10'), row('2026D/2', '2026-10-10', { payment_status: 'canceled' })])).toEqual([]);
+  });
+
+  it('never treats the shared final-consumer client as one person', () => {
+    const generic = { client_name: 'Consumidor Final' };
+    expect(findRepeatedInvoices([row('2026D/1', '2026-10-10', generic), row('2026D/2', '2026-10-10', generic)])).toEqual([]);
+  });
+});
+
 describe('reading FACT.pt', () => {
+  it('sees a same-name client with other details as a conflict, and the same person as none', async () => {
+    const people = { id: '1', name: 'Ana Costa', email: 'outro@example.com', address: 'Rua 2', zip: '2000-001', city: 'Porto', country: 'PT', isFinalConsumer: true };
+    const input = { name: 'ANA COSTA', email: 'ana@example.com', address: 'Rua 1', zip: '1000-001', city: 'Lisboa', country: 'pt', finalConsumer: true };
+    const listing = (rows: unknown[]) => new Response(JSON.stringify({ AppStatusMsg: 'OK', AppResponse: { data: rows } }), { status: 200 });
+    const limiter = { run: <T,>(operation: () => Promise<T>) => operation() } as unknown as FactPtRateLimiter;
+    const settings = { environment: 'sandbox', baseUrl: 'http://api.sandbox.fact.pt', apiKey: 'k', apiVersion: '1.0.0', timeoutMs: 1000 } as unknown as FactPtConfig;
+
+    const conflicting = new FactPtClient(settings, { fetch: vi.fn().mockResolvedValueOnce(listing([])).mockResolvedValueOnce(listing([people])), rateLimiter: limiter });
+    await expect(conflicting.findFinalConsumerConflict(input)).resolves.toMatchObject({ id: '1' });
+
+    const samePerson = { ...people, email: 'ana@example.com' };
+    const reused = new FactPtClient(settings, { fetch: vi.fn().mockResolvedValueOnce(listing([samePerson])).mockResolvedValueOnce(listing([samePerson])), rateLimiter: limiter });
+    await expect(reused.findFinalConsumerConflict(input)).resolves.toBeNull();
+
+    const withNif = new FactPtClient(settings, { fetch: vi.fn(), rateLimiter: limiter });
+    await expect(withNif.findFinalConsumerConflict({ ...input, finalConsumer: false })).resolves.toBeNull();
+  });
+
   const config = { environment: 'sandbox', baseUrl: 'http://api.sandbox.fact.pt', apiKey: 'k', apiVersion: '1.0.0', timeoutMs: 1000 } as unknown as FactPtConfig;
   const rateLimiter = { run: <T,>(operation: () => Promise<T>) => operation() } as unknown as FactPtRateLimiter;
   const reply = (AppResponse: unknown) => vi.fn().mockResolvedValue(new Response(JSON.stringify({ AppStatusMsg: 'OK', AppResponse }), { status: 200 }));

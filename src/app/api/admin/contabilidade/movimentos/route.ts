@@ -27,7 +27,10 @@ async function bankConnection() {
     throw error;
   }
   if (!data) return null;
+  // Absent before its migration: the option then simply stays off.
+  const { data: issuing } = await db().from('bank_accounts').select('app_donation_fr_from').eq('id', account.id).maybeSingle();
   return {
+    donationIssueFrom: (issuing?.app_donation_fr_from as string | null | undefined) ?? null,
     fetchedAt: data.last_synced_at,
     nextRefreshAt: data.next_attempt_at,
     rateLimited: data.last_error_code === 'ASPSP_RATE_LIMIT_EXCEEDED',
@@ -113,7 +116,7 @@ export async function GET(req: Request) {
     });
     // FR the app already issued for the site payment a movement is linked to.
     const linkedPaymentIds = [...new Set(linkedPayments.values())];
-    const appInvoiceByPayment = new Map<string, { number: string; status: string }>();
+    const appInvoiceByPayment = new Map<string, { number: string | null; status: string }>();
     if (linkedPaymentIds.length) {
       const { data: appDocs, error: appDocsError } = await db().from('factpt_documents')
         .select('source_id, factpt_number, status')
@@ -121,7 +124,7 @@ export async function GET(req: Request) {
         .in('source_id', linkedPaymentIds);
       if (appDocsError) throw appDocsError;
       (appDocs || []).forEach(doc => {
-        if (doc.factpt_number) appInvoiceByPayment.set(String(doc.source_id), { number: doc.factpt_number, status: doc.status });
+        appInvoiceByPayment.set(String(doc.source_id), { number: doc.factpt_number, status: doc.status });
       });
     }
     const documentCount = new Map<string, number>();
@@ -153,6 +156,13 @@ export async function GET(req: Request) {
         const paymentId = linkedPayments.get(row.id);
         const doc = paymentId ? appInvoiceByPayment.get(paymentId) : null;
         return doc && ['issued', 'email_failed'].includes(doc.status) ? doc.number : null;
+      })(),
+      appInvoiceState: (() => {
+        const paymentId = linkedPayments.get(row.id);
+        const doc = paymentId ? appInvoiceByPayment.get(paymentId) : null;
+        if (!doc) return null;
+        if (doc.number && ['issued', 'email_failed'].includes(doc.status)) return 'issued';
+        return ['failed', 'needs_data'].includes(doc.status) ? 'failed' : 'processing';
       })(),
       suggestion: row.raw?.suggestion && typeof row.raw.suggestion === 'object' ? {
         confidence: String(row.raw.suggestion.confidence || ''),

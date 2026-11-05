@@ -58,6 +58,7 @@ export default function DonationInvoiceField({
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [conflict, setConflict] = useState<Partial<DonorIdentity> | null>(null);
 
   const missing = missingDonorFields(donor);
   const ready = missing.length === 0 && (gate.nearbyManual.length === 0 || acknowledged);
@@ -74,6 +75,7 @@ export default function DonationInvoiceField({
       onIssued();
     } catch (issueError) {
       setError(issueError instanceof Error ? issueError.message : 'Não foi possível registar a doação.');
+      setConflict((issueError as { body?: { conflict?: Partial<DonorIdentity> } }).body?.conflict ?? null);
       setConfirming(false);
     } finally {
       setBusy(false);
@@ -93,7 +95,7 @@ export default function DonationInvoiceField({
             <span className="mb-1 block text-xs font-medium text-zinc-600">{field.label}</span>
             <input
               value={donor[field.key] || ''}
-              onChange={event => { setDonor(previous => ({ ...previous, [field.key]: event.target.value })); setConfirming(false); }}
+              onChange={event => { setDonor(previous => ({ ...previous, [field.key]: event.target.value })); setConfirming(false); setConflict(null); }}
               placeholder={field.placeholder}
               disabled={disabled || busy}
               className="h-10 w-full rounded-xl bg-zinc-50 px-3 text-sm text-zinc-900 ring-1 ring-transparent transition placeholder:text-zinc-400 focus:bg-white focus:outline-none focus:ring-zinc-300"
@@ -111,6 +113,27 @@ export default function DonationInvoiceField({
 
       {error && <p className="rounded-xl bg-rose-50 px-3.5 py-3 text-sm text-rose-700">{error}</p>}
 
+      {conflict && (
+        <div className="rounded-2xl bg-zinc-50 p-4 text-sm text-zinc-800">
+          <p className="font-semibold">{conflict.name}</p>
+          <p className="mt-1 text-zinc-600">{[conflict.email, conflict.address, conflict.zip, conflict.city, conflict.country].filter(Boolean).join(' · ')}</p>
+          <p className="mt-2 text-xs text-zinc-500">Se for outra pessoa com o mesmo nome, emita esta FR na FACT.pt.</p>
+          <Button
+            variant="secondary"
+            className="mt-3 w-full"
+            onClick={() => {
+              // Blanks in FACT.pt never erase what was typed.
+              const known = Object.fromEntries(Object.entries(conflict).filter(([, value]) => value));
+              setDonor(previous => ({ ...previous, ...known }));
+              setConflict(null);
+              setError(null);
+            }}
+          >
+            É a mesma pessoa: usar estes dados
+          </Button>
+        </div>
+      )}
+
       {confirming ? (
         <div className="rounded-2xl bg-zinc-50 p-4">
           <p className="text-sm text-zinc-800">
@@ -120,7 +143,7 @@ export default function DonationInvoiceField({
             <Button variant="ghost" className="flex-1" disabled={busy} onClick={() => setConfirming(false)}>Voltar</Button>
             <Button variant="primary" className="flex-1" disabled={busy} onClick={() => void issue()}>
               {busy ? <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden /> : <Send className="h-4 w-4" aria-hidden />}
-              Emitir fatura-recibo
+              {busy ? 'A confirmar na FACT.pt…' : 'Emitir fatura-recibo'}
             </Button>
           </div>
         </div>

@@ -1,6 +1,7 @@
 import { logAdminAudit } from '../../../../../../../lib/admin-audit';
 import { learnCounterparty } from '../../../../../../../lib/ledger/aliases';
-import { donationGate, donorPrefill } from '../../../../../../../lib/ledger/donation-issue';
+import { clientConflict, donationGate, donorPrefill } from '../../../../../../../lib/ledger/donation-issue';
+import { syncFactptMirror } from '../../../../../../../lib/ledger/factpt-mirror';
 import { missingDonorFields, type DonorIdentity } from '../../../../../../../lib/ledger/factpt-mirror-rules';
 import { db, requireAdmin } from '../../../../../../../lib/ledger/server';
 
@@ -62,11 +63,23 @@ export async function POST(req: Request, context: { params: Promise<{ id: string
     if (!movement || movement.amount <= 0 || !['unreviewed', 'suggested'].includes(movement.status)) {
       return Response.json({ error: 'Movimento indisponível para registar como doação.' }, { status: 409 });
     }
-    // Checked again here: the page may have been open for a while.
+    // The copy may be hours old, and an FR issued by hand this morning must count.
+    // If FACT.pt cannot be read right now, nothing is issued.
+    try {
+      await syncFactptMirror({ maxPages: 2, maxClients: 5 });
+    } catch (readError) {
+      console.error('Contabilidade: leitura da FACT.pt antes de emitir falhou', readError);
+      return Response.json({ error: 'Não foi possível confirmar na FACT.pt que esta FR não existe. Nada foi emitido; tente daqui a pouco.' }, { status: 503 });
+    }
     const gate = await donationGate(movement);
-    if (!gate.available) return Response.json({ error: gate.blockedReason }, { status: 409 });
+    if (!gate.available) return Response.json({ error: gate.blockedReason || 'A emissão pela app não está ativa.' }, { status: 409 });
     if (gate.nearbyManual.length && !body.acknowledgeManual) {
       return Response.json({ error: 'Há FRs manuais com este valor e data próxima. Confirme que não pertencem a esta transferência.' }, { status: 409 });
+    }
+
+    const conflict = await clientConflict(donor);
+    if (conflict) {
+      return Response.json({ error: 'Já existe um cliente com este nome na FACT.pt, com outros dados. Use os dados dele para a FR não falhar.', conflict }, { status: 409 });
     }
 
     const { data: donationId, error } = await db().rpc('ledger_register_donation_transfer', {

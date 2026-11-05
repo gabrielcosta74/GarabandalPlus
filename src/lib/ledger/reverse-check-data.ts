@@ -1,5 +1,7 @@
 import 'server-only';
 
+import { loadRepeatedInvoices } from './factpt-mirror';
+import type { RepeatedInvoice } from './factpt-mirror-rules';
 import { addDays } from './invoice-safety';
 import { checkPaymentsAgainstBank, type CheckedPayment } from './reverse-check';
 import { db } from './server';
@@ -22,6 +24,7 @@ export type ReverseCheck = {
   candidates: number;
   waiting: number;
   missing: MissingPayment[];
+  repeated: RepeatedInvoice[];
 };
 
 type PaymentRow = {
@@ -29,7 +32,7 @@ type PaymentRow = {
   bookings: { pilgrimage_id: string; pilgrimages: { title: string | null } | null; pilgrims: { full_name: string }[] | null } | null;
 };
 
-const EMPTY: ReverseCheck = { bankReadUntil: null, checked: 0, linked: 0, candidates: 0, waiting: 0, missing: [] };
+const EMPTY: ReverseCheck = { bankReadUntil: null, checked: 0, linked: 0, candidates: 0, waiting: 0, missing: [], repeated: [] };
 
 /** Read only. Which bank-transfer payments marked as paid have no money behind them? */
 export async function loadReverseCheck(): Promise<ReverseCheck> {
@@ -85,6 +88,7 @@ export async function loadReverseCheck(): Promise<ReverseCheck> {
   const states = checkPaymentsAgainstBank(checked, available, last.booking_date);
 
   const count = (state: string) => [...states.values()].filter(value => value === state).length;
+  const repeated = await loadRepeatedInvoices();
   return {
     bankReadUntil: last.booking_date,
     checked: checked.length,
@@ -95,5 +99,6 @@ export async function loadReverseCheck(): Promise<ReverseCheck> {
       .filter(([, state]) => state === 'missing')
       .map(([id]) => details.get(id) as MissingPayment)
       .sort((a, b) => a.paidOn.localeCompare(b.paidOn)),
+    repeated,
   };
 }

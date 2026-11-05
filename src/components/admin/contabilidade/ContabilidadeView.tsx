@@ -13,6 +13,7 @@ import ImportDialog from './ImportDialog';
 import MovementDrawer from './MovementDrawer';
 import MovimentosTab from './MovimentosTab';
 import Overview from './Overview';
+import AdminGuide from './AdminGuide';
 import PaymentsBankCheck from './PaymentsBankCheck';
 import PorTratarTab from './PorTratarTab';
 import { ToastProvider, useToast } from './Toasts';
@@ -282,6 +283,7 @@ function Contabilidade() {
           {bulkError && <ErrorState message={bulkError} />}
 
           <motion.div key={tab} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.22, ease: 'easeOut' }}>
+          {tab === 'por-tratar' && <AdminGuide issuing={!!ledger.bank?.donationIssueFrom} />}
           {tab === 'por-tratar' && ledger.mode === 'live' && <PaymentsBankCheck refreshKey={ledger.movements} />}
           {tab === 'por-tratar' ? (
             <PorTratarTab

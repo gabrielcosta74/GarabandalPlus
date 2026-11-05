@@ -2,7 +2,7 @@ import 'server-only';
 
 import { FactPtClient } from '../factpt/client';
 import { getFactPtConfig } from '../factpt/config';
-import { isAppDocument, pagesNewestFirst, toMirrorRow, usableManualInvoice, type ManualInvoice, type MirrorRow } from './factpt-mirror-rules';
+import { findRepeatedInvoices, isAppDocument, pagesNewestFirst, toMirrorRow, usableManualInvoice, type ManualInvoice, type MirrorRow, type RepeatedInvoice } from './factpt-mirror-rules';
 import { addDays } from './invoice-safety';
 import { db, isMissingTableError } from './server';
 
@@ -18,10 +18,14 @@ export const MIRROR_FRESH_HOURS = 26;
 
 export type MirrorResult = { pages: number; documents: number; clients: number };
 
+export function factptReadClient() {
+  return new FactPtClient(getFactPtConfig('donation', 'production'));
+}
+
 export async function syncFactptMirror(options: { maxPages?: number; maxClients?: number } = {}): Promise<MirrorResult> {
   const maxPages = options.maxPages ?? 30;
   const maxClients = options.maxClients ?? 25;
-  const client = new FactPtClient(getFactPtConfig('donation', 'production'));
+  const client = factptReadClient();
   const cutoff = addDays(new Date().toISOString().slice(0, 10), -KEEP_DAYS);
 
   const { data: oldest, error: oldestError } = await db().from('factpt_remote_documents')
@@ -105,6 +109,16 @@ export async function mirrorFreshness(): Promise<{ fresh: boolean; updatedAt: st
   }
   const updatedAt = (data?.updated_at as string | undefined) ?? null;
   return { updatedAt, fresh: !!updatedAt && Date.now() - Date.parse(updatedAt) < MIRROR_FRESH_HOURS * 3600000 };
+}
+
+export async function loadRepeatedInvoices(): Promise<RepeatedInvoice[]> {
+  const { data, error } = await db().from('factpt_remote_documents')
+    .select('number, doc_type, gross, doc_date, payment_status, client_id, client_name');
+  if (error) {
+    if (isMissingTableError(error)) return [];
+    throw error;
+  }
+  return findRepeatedInvoices(data || []);
 }
 
 export async function findMirrorAmount(invoiceRef: string): Promise<number | null> {
