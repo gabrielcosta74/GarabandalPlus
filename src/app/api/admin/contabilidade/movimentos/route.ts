@@ -100,22 +100,24 @@ export async function GET(req: Request) {
     const invoiceFromApp = new Set<string>();
     const linkedPayments = new Map<string, string>();
     const linkedPaymentLabels = new Map<string, string>();
+    const linkedDonations = new Set<string>();
     (links.data || []).forEach((link: { bank_transaction_id: string; target_type: string; target_id: string | null; label: string | null; method?: string }) => {
-      if (link.target_type === 'pilgrimage_payment' && link.target_id) {
+      if ((link.target_type === 'pilgrimage_payment' || link.target_type === 'donation') && link.target_id) {
         linkedPayments.set(link.bank_transaction_id, link.target_id);
+        if (link.target_type === 'donation') linkedDonations.add(link.bank_transaction_id);
         if (link.label) linkedPaymentLabels.set(link.bank_transaction_id, link.label);
       }
       if (link.target_type !== 'factpt_document' || !link.label) return;
       invoiceRefs.set(link.bank_transaction_id, [...(invoiceRefs.get(link.bank_transaction_id) || []), link.label]);
       if (link.method === 'rule') invoiceFromApp.add(link.bank_transaction_id);
     });
-    // FR the app already issued for the pilgrimage payment a movement is linked to.
+    // FR the app already issued for the site payment a movement is linked to.
     const linkedPaymentIds = [...new Set(linkedPayments.values())];
     const appInvoiceByPayment = new Map<string, { number: string; status: string }>();
     if (linkedPaymentIds.length) {
       const { data: appDocs, error: appDocsError } = await db().from('factpt_documents')
         .select('source_id, factpt_number, status')
-        .eq('environment', 'production').eq('source_table', 'pilgrimage_payments')
+        .eq('environment', 'production').in('source_table', ['pilgrimage_payments', 'donations'])
         .in('source_id', linkedPaymentIds);
       if (appDocsError) throw appDocsError;
       (appDocs || []).forEach(doc => {
@@ -146,6 +148,7 @@ export async function GET(req: Request) {
       invoiceFromApp: invoiceFromApp.has(row.id),
       linkedPaymentId: linkedPayments.get(row.id) || null,
       linkedPaymentLabel: linkedPaymentLabels.get(row.id) || null,
+      linkedPaymentKind: linkedPayments.has(row.id) ? (linkedDonations.has(row.id) ? 'donation' : 'pilgrimage') : null,
       appInvoiceRef: (() => {
         const paymentId = linkedPayments.get(row.id);
         const doc = paymentId ? appInvoiceByPayment.get(paymentId) : null;

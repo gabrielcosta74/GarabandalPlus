@@ -13,6 +13,7 @@ import ImportDialog from './ImportDialog';
 import MovementDrawer from './MovementDrawer';
 import MovimentosTab from './MovimentosTab';
 import Overview from './Overview';
+import PaymentsBankCheck from './PaymentsBankCheck';
 import PorTratarTab from './PorTratarTab';
 import { ToastProvider, useToast } from './Toasts';
 import type { LedgerMovement } from './types';
@@ -98,7 +99,11 @@ function Contabilidade() {
         await adminFetch(`/api/admin/contabilidade/movimentos/${row.id}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'approve', categoryCode: row.categoryCode }),
+          body: JSON.stringify({
+            action: 'approve',
+            categoryCode: row.categoryCode || row.suggestedCategoryCode,
+            invoiceRef: row.suggestion?.confidence === 'manual' ? row.suggestion.invoiceRef : undefined,
+          }),
         });
         done += 1;
       } catch (error) {
@@ -277,6 +282,7 @@ function Contabilidade() {
           {bulkError && <ErrorState message={bulkError} />}
 
           <motion.div key={tab} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.22, ease: 'easeOut' }}>
+          {tab === 'por-tratar' && ledger.mode === 'live' && <PaymentsBankCheck refreshKey={ledger.movements} />}
           {tab === 'por-tratar' ? (
             <PorTratarTab
               movements={ledger.movements}

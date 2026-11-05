@@ -18,6 +18,11 @@ export type InvoiceAssessment = {
   linkedPaymentId?: string | null;
 };
 
+const LINKED_SOURCES: Record<string, { linkType: 'pilgrimage_payment' | 'donation'; table: string } | undefined> = {
+  peregrinacao: { linkType: 'pilgrimage_payment', table: 'pilgrimage_payments' },
+  doacao: { linkType: 'donation', table: 'donations' },
+};
+
 const customerName = (value: unknown): string | null => {
   if (!value || typeof value !== 'object') return null;
   const customer = (value as { customer?: { name?: unknown } }).customer;
@@ -30,15 +35,17 @@ export async function assessInvoice(movement: Movement, category: string): Promi
     return { issued: null, pending: null, ambiguous: false, nearbyIssuedCount: 0 };
   }
 
-  if (category === 'peregrinacao') {
+  // A movement already tied to a site payment can only use that payment's FR.
+  const linkedSource = LINKED_SOURCES[category];
+  if (linkedSource) {
     const { data: link, error: linkError } = await db().from('bank_transaction_links')
       .select('target_id').eq('bank_transaction_id', movement.id)
-      .eq('target_type', 'pilgrimage_payment').maybeSingle();
+      .eq('target_type', linkedSource.linkType).maybeSingle();
     if (linkError) throw linkError;
     if (link?.target_id) {
       const { data: document, error: documentError } = await db().from('factpt_documents')
         .select('id, factpt_number, status, amount, payment_confirmed_at, source_table, source_id')
-        .eq('environment', 'production').eq('source_table', 'pilgrimage_payments')
+        .eq('environment', 'production').eq('source_table', linkedSource.table)
         .eq('source_id', link.target_id).maybeSingle();
       if (documentError) throw documentError;
       const amountMatches = document && Math.round(Number(document.amount) * 100) === Math.round(movement.amount * 100);
@@ -47,7 +54,7 @@ export async function assessInvoice(movement: Movement, category: string): Promi
           amount: Number(document.amount), paymentDate: document.payment_confirmed_at,
           customerName: null, sourceTable: document.source_table, sourceId: document.source_id }
         : null;
-      return { issued: issued || null, pending: issued ? null : { type: document ? 'factpt_document' : 'pilgrimage_payment', id: document?.id || link.target_id },
+      return { issued: issued || null, pending: issued ? null : { type: document ? 'factpt_document' : linkedSource.linkType, id: document?.id || link.target_id },
         ambiguous: !!document && !amountMatches, nearbyIssuedCount: 0, linkedPaymentId: link.target_id };
     }
   }

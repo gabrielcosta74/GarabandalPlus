@@ -250,3 +250,15 @@ export type FactPtBuiltDocument =
       identifierId: string;
       payload: FactPtSimplifiedInvoicePayload;
     };
+
+export type FactPtRemoteDocument = {
+  id: string | number;
+  clientId?: string | number | null;
+  number?: string | null;
+  type?: string | null;
+  date?: string | null;
+  paymentStatus?: string | null;
+  gross?: string | number | null;
+  permanentUrl?: string | null;
+  identifierId?: string | null;
+};

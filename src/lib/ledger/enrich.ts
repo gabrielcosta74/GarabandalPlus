@@ -1,6 +1,8 @@
 import 'server-only';
 
 import { classifyMovement } from './classify';
+import { loadManualInvoices } from './factpt-mirror';
+import { matchManualInvoice } from './factpt-mirror-rules';
 import { addDays, samePerson } from './invoice-safety';
 import { db, loadCustomRules } from './server';
 
@@ -16,7 +18,8 @@ import { db, loadCustomRules } from './server';
  *   - likely (exactly one app FR with this amount and date, different payer,
  *     e.g. paid by Wise or a spouse): only a suggestion, nothing is linked;
  *   - several possible FRs: only the category is suggested; the admin picks.
- * Movements with no app FR stay as they are (spontaneous donations, quotas…).
+ * With no app FR, the read-only copy of FACT.pt is searched for an invoice the
+ * admin issued by hand. That is always a suggestion: nothing is linked.
  */
 
 type Movement = { id: string; booking_date: string; amount: number; counterparty_name: string | null; raw: Record<string, unknown> | null };
@@ -67,12 +70,19 @@ export async function enrichIncomingMovements(options: { sinceDays?: number; dry
   const invoices: AppInvoice[] = (documents || [])
     .filter(doc => doc.factpt_number && doc.payment_confirmed_at)
     .filter(doc => !takenTargets.has(`factpt_document:${doc.factpt_number}`)
-      && !takenTargets.has(`pilgrimage_payment:${doc.source_id}`))
+      && !takenTargets.has(`pilgrimage_payment:${doc.source_id}`)
+      && !takenTargets.has(`donation:${doc.source_id}`))
     .map(doc => ({
       id: doc.id, number: doc.factpt_number as string, amount: Number(doc.amount),
       date: String(doc.payment_confirmed_at).slice(0, 10), customer: customerName(doc.fiscal_snapshot),
       sourceType: doc.source_type as AppInvoice['sourceType'], sourceId: doc.source_id as string,
     }));
+
+  const takenRefs = new Set((links || []).filter(link => link.target_type === 'factpt_document').map(link => String(link.target_id)));
+  const appNumbers = new Set((documents || []).map(doc => doc.factpt_number as string | null).filter(Boolean));
+  const manualInvoices = (await loadManualInvoices(addDays(rows[0].booking_date, -2), takenRefs))
+    .filter(invoice => !appNumbers.has(invoice.number));
+  const usedManual = new Set<string>();
 
   const used = new Set<string>();
   const result: EnrichResult = { examined: 0, linked: 0, likely: 0, ambiguous: 0, plan: options.dryRun ? [] : undefined };
@@ -85,7 +95,27 @@ export async function enrichIncomingMovements(options: { sinceDays?: number; dry
       && Math.round(invoice.amount * 100) === Math.round(movement.amount * 100)
       && invoice.date >= addDays(movement.booking_date, -2)
       && invoice.date <= addDays(movement.booking_date, 30));
-    if (candidates.length === 0) continue;
+    if (candidates.length === 0) {
+      const manual = matchManualInvoice(
+        { amount: movement.amount, bookingDate: movement.booking_date, counterpartyName: movement.counterparty_name },
+        manualInvoices.filter(invoice => !usedManual.has(invoice.number)),
+      );
+      if (!manual) continue;
+      if (manual.confidence !== 'ambiguous') usedManual.add(manual.invoiceRefs[0]);
+      if (manual.confidence === 'ambiguous') result.ambiguous += 1; else result.likely += 1;
+      const found = manual.confidence === 'ambiguous'
+        ? { confidence: 'ambiguous', invoiceRefs: manual.invoiceRefs, reason: `${manual.invoiceRefs.length} FRs manuais na FACT.pt com este valor e data próxima — escolha a certa` }
+        : {
+            confidence: manual.confidence,
+            invoiceRef: manual.invoiceRefs[0],
+            reason: manual.confidence === 'manual'
+              ? 'FR emitida à mão na FACT.pt com o mesmo valor e o nome do pagador'
+              : 'FR emitida à mão na FACT.pt com o mesmo valor; o cliente tem outro nome',
+          };
+      if (options.dryRun) result.plan?.push(`${manual.confidence.toUpperCase()} ${movement.booking_date} ${movement.amount} ${movement.counterparty_name} -> ${manual.invoiceRefs.join('/')}`);
+      else await saveSuggestion(movement, { suggested_category: 'doacao', suggestion: found });
+      continue;
+    }
 
     const named = candidates.filter(invoice => samePerson(movement.counterparty_name, invoice.customer));
     const category = CATEGORY_FOR[candidates[0].sourceType];

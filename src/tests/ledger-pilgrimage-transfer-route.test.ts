@@ -6,6 +6,8 @@ vi.mock('../lib/ledger/server', () => ({
   requireAdmin: async () => ({ ok: true, email: 'admin@example.com', userId: '33333333-3333-4333-8333-333333333333' }),
 }));
 vi.mock('../lib/ledger/invoice-assessment', () => ({ assessInvoice: mocks.assess }));
+vi.mock('../lib/ledger/aliases', () => ({ learnCounterparty: async () => undefined, forgetConfirmation: async () => undefined }));
+vi.mock('../lib/ledger/factpt-mirror', () => ({ findMirrorAmount: async () => null }));
 vi.mock('../lib/admin-audit', () => ({ logAdminAudit: mocks.audit }));
 
 import { POST } from '../app/api/admin/contabilidade/movimentos/[id]/peregrinacao/route';

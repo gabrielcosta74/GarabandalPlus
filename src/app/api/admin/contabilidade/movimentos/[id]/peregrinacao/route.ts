@@ -1,4 +1,5 @@
 import { logAdminAudit } from '../../../../../../../lib/admin-audit';
+import { learnCounterparty } from '../../../../../../../lib/ledger/aliases';
 import { assessInvoice } from '../../../../../../../lib/ledger/invoice-assessment';
 import { db, requireAdmin } from '../../../../../../../lib/ledger/server';
 
@@ -92,5 +93,7 @@ export async function POST(req: Request, context: { params: Promise<{ id: string
   } catch (auditError) {
     console.error('Pagamento registado, mas falhou o log administrativo da contabilidade:', auditError);
   }
+  await learnCounterparty(movement.counterparty_name, 'peregrinacao')
+    .catch(learnError => console.error('Contabilidade: falhou a aprendizagem', learnError));
   return Response.json({ ok: true, paymentId, invoiceStatus: linkingExisting ? 'issued' : 'pending', linkedExisting: linkingExisting });
 }

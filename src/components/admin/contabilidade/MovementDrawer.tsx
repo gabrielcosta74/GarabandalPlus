@@ -12,6 +12,7 @@ import type { LedgerMovement } from './types';
 import { adminFetch } from './useLedger';
 import { useToast } from './Toasts';
 import { Button, StatePill, cx, isOpen, movementTitle } from './ui';
+import DonationInvoiceField, { useDonationGate } from './DonationInvoiceField';
 import PilgrimageTransferField from './PilgrimageTransferField';
 
 type Props = {
@@ -31,9 +32,16 @@ type InvoiceAssessment = {
   linkedPaymentId?: string | null;
 };
 
+/** The FR found by hand in FACT.pt, ready to confirm. */
+function manualInvoiceRef(movement: LedgerMovement | null): string {
+  const suggestion = movement?.suggestion;
+  return suggestion && ['manual', 'manual_likely'].includes(suggestion.confidence) ? suggestion.invoiceRef || '' : '';
+}
+
 export default function MovementDrawer({ movement, readOnlyReason, onClose, onChanged, onLocalChange }: Props) {
   const [category, setCategory] = useState('');
   const [pilgrimageMode, setPilgrimageMode] = useState<'site' | 'issued'>('site');
+  const [donationMode, setDonationMode] = useState<'issued' | 'app'>('issued');
   const [invoiceRef, setInvoiceRef] = useState('');
   const [invoiceAssessment, setInvoiceAssessment] = useState<InvoiceAssessment | null>(null);
   const [checkingInvoice, setCheckingInvoice] = useState(false);
@@ -54,7 +62,8 @@ export default function MovementDrawer({ movement, readOnlyReason, onClose, onCh
     if (!movement) return;
     setCategory(movement.categoryCode || movement.suggestedCategoryCode || '');
     setPilgrimageMode('site');
-    setInvoiceRef('');
+    setDonationMode('issued');
+    setInvoiceRef(manualInvoiceRef(movement));
     setAcknowledgeNearby(false);
     setNotes(movement.notes || '');
     setIgnoring(false);
@@ -65,9 +74,12 @@ export default function MovementDrawer({ movement, readOnlyReason, onClose, onCh
   }, [movement?.id]);
 
   useEffect(() => {
-    setInvoiceRef('');
+    setInvoiceRef(category === 'doacao' ? manualInvoiceRef(movement) : '');
     setAcknowledgeNearby(false);
     setPilgrimageMode('site');
+    setDonationMode('issued');
+    // Only a change of category clears what was typed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [category]);
 
   useEffect(() => {
@@ -172,6 +184,9 @@ export default function MovementDrawer({ movement, readOnlyReason, onClose, onCh
 
   const view = movement ?? shown;
   const open = !!view && isOpen(view);
+  const offerDonationGate = open && category === 'doacao' && !onLocalChange && !view?.linkedPaymentId;
+  const donationGate = useDonationGate(offerDonationGate && movementId ? movementId : null);
+  const issuingDonation = category === 'doacao' && donationMode === 'app' && !!donationGate?.available;
   const needsInvoice = !!view && view.amount > 0 && requiresInvoice(category);
   const needsDocument = !!view && view.amount < 0 && requiresDocument(category);
   const locked = !!readOnlyReason;
@@ -180,7 +195,7 @@ export default function MovementDrawer({ movement, readOnlyReason, onClose, onCh
     : !checkingInvoice && !invoiceCheckError && !invoiceAssessment?.pending && !invoiceAssessment?.ambiguous
       && (!!invoiceAssessment?.issued?.number || invoiceRef.trim().length > 0)
       && (!invoiceAssessment?.nearbyIssuedCount || !!invoiceAssessment.issued || acknowledgeNearby));
-  const canApprove = open && !locked && !busy && !!category && invoiceReady
+  const canApprove = open && !locked && !busy && !!category && invoiceReady && !issuingDonation
     && (category !== 'peregrinacao' || pilgrimageMode === 'issued');
   const visual = visualFor(category || null);
   const Icon = visual.icon;
@@ -227,7 +242,7 @@ export default function MovementDrawer({ movement, readOnlyReason, onClose, onCh
                   <Line label="Data valor">{formatDay(view.valueDate, true)}</Line>
                   <Line label="Saldo após">{formatEur(view.balanceAfter)}</Line>
                   {view.invoiceRefs.length > 0 && <Line label="Fatura-recibo">{view.invoiceRefs.join(', ')}{view.invoiceFromApp ? ' · emitida pela app' : ''}</Line>}
-                  {view.linkedPaymentId && <Line label="Pagamento da reserva">{view.linkedPaymentLabel || `${view.linkedPaymentId.slice(0, 8)}…`}</Line>}
+                  {view.linkedPaymentId && <Line label={view.linkedPaymentKind === 'donation' ? 'Doação' : 'Pagamento da reserva'}>{view.linkedPaymentLabel || `${view.linkedPaymentId.slice(0, 8)}…`}</Line>}
                   {view.status !== 'unreviewed' && view.status !== 'suggested' && (
                     <Line label={view.status === 'ignored' ? 'Ignorado' : 'Confirmado'}>
                       {view.reviewedBy || '—'}
@@ -238,12 +253,16 @@ export default function MovementDrawer({ movement, readOnlyReason, onClose, onCh
                 </dl>
                 {view.status !== 'reconciled' && view.status !== 'ignored' && (view.appInvoiceRef || view.suggestion) && (
                   <div className={cx('mt-4 rounded-2xl px-4 py-3 text-sm',
-                    view.appInvoiceRef ? 'bg-emerald-50 text-emerald-800'
+                    view.appInvoiceRef || view.suggestion?.confidence === 'manual' ? 'bg-emerald-50 text-emerald-800'
                       : view.suggestion?.confidence === 'ambiguous' ? 'bg-orange-50 text-orange-800' : 'bg-sky-50 text-sky-800')}>
                     {view.appInvoiceRef ? (
-                      <p><span className="font-semibold">Reconhecida automaticamente.</span> É o pagamento {view.linkedPaymentLabel ? `«${view.linkedPaymentLabel}»` : 'da reserva'}, registado na peregrinação, com a {view.appInvoiceRef} já emitida pela app. Não foi criado nada novo; só falta confirmar.</p>
+                      <p><span className="font-semibold">Reconhecida automaticamente.</span> É o pagamento {view.linkedPaymentLabel ? `«${view.linkedPaymentLabel}»` : 'registado no site'}, com a {view.appInvoiceRef} já emitida pela app. Só falta confirmar.</p>
                     ) : view.suggestion?.confidence === 'ambiguous' ? (
-                      <p><span className="font-semibold">Várias faturas possíveis:</span> {view.suggestion.invoiceRefs.join(', ')}. Escolha a reserva certa nas sugestões abaixo; não emita uma FR nova.</p>
+                      <p><span className="font-semibold">Várias faturas possíveis:</span> {view.suggestion.invoiceRefs.join(', ')}. Indique a certa; não emita uma FR nova.</p>
+                    ) : view.suggestion?.confidence === 'learned' ? (
+                      <p><span className="font-semibold">Pagador conhecido.</span> {view.suggestion.reason}.</p>
+                    ) : view.suggestion?.confidence === 'manual' || view.suggestion?.confidence === 'manual_likely' ? (
+                      <p><span className="font-semibold">{view.suggestion.confidence === 'manual' ? 'Encontrada na FACT.pt:' : 'Possível na FACT.pt:'}</span> {view.suggestion.invoiceRef} — {view.suggestion.reason}. Não emita uma FR nova.</p>
                     ) : (
                       <p><span className="font-semibold">Provável:</span> {view.suggestion?.invoiceRef} — {view.suggestion?.reason}. Se for este pagamento, escolha-o nas sugestões abaixo; não emita uma FR nova.</p>
                     )}
@@ -262,7 +281,7 @@ export default function MovementDrawer({ movement, readOnlyReason, onClose, onCh
                             <button
                               key={option.code}
                               type="button"
-                              disabled={locked || !!view.linkedPaymentId && option.code !== 'peregrinacao'}
+                              disabled={locked || !!view.linkedPaymentId && option.code !== (view.linkedPaymentKind === 'donation' ? 'doacao' : 'peregrinacao')}
                               onClick={() => setCategory(option.code)}
                               className={cx(
                                 'flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-[13px] font-medium outline-none transition-all duration-200 ease-out active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-emerald-500/40',
@@ -279,7 +298,7 @@ export default function MovementDrawer({ movement, readOnlyReason, onClose, onCh
                           );
                         })}
                       </div>
-                      {view.linkedPaymentId && <p className="mt-2 text-xs text-blue-700">Este movimento já está ligado a um pagamento de peregrinação. A categoria fica fixa até resolver a FR.</p>}
+                      {view.linkedPaymentId && <p className="mt-2 text-xs text-blue-700">Este movimento já está ligado a um pagamento do site. A categoria fica fixa até resolver a FR.</p>}
                     </Field>
 
                     {category === 'peregrinacao' && <div className="space-y-3">
@@ -301,7 +320,32 @@ export default function MovementDrawer({ movement, readOnlyReason, onClose, onCh
                             onRegistered={() => { onChanged(); onClose(); toast({ title: 'Movimento associado à reserva', description: 'A fatura-recibo fica ligada a este movimento.' }); }} />)}
                     </div>}
 
-                    {needsInvoice && (category !== 'peregrinacao' || pilgrimageMode === 'issued') && (
+                    {category === 'doacao' && donationGate?.available && (
+                      <div className="grid grid-cols-2 gap-2 text-sm">
+                        <button type="button" onClick={() => setDonationMode('issued')}
+                          className={cx('cursor-pointer rounded-xl px-3 py-2.5 font-medium transition', donationMode === 'issued' ? 'bg-zinc-900 text-white' : 'bg-zinc-100 text-zinc-700 hover:bg-zinc-200')}>
+                          FR já emitida
+                        </button>
+                        <button type="button" onClick={() => setDonationMode('app')}
+                          className={cx('cursor-pointer rounded-xl px-3 py-2.5 font-medium transition', donationMode === 'app' ? 'bg-emerald-600 text-white' : 'bg-zinc-100 text-zinc-700 hover:bg-zinc-200')}>
+                          Emitir pela app
+                        </button>
+                      </div>
+                    )}
+
+                    {issuingDonation && donationGate && (
+                      <Field label="Dados do doador">
+                        <DonationInvoiceField
+                          movementId={view.id}
+                          amount={view.amount}
+                          gate={donationGate}
+                          disabled={locked}
+                          onIssued={() => { onChanged(); onClose(); toast({ title: 'Doação registada', description: 'A fatura-recibo está a ser emitida e será enviada ao doador.' }); }}
+                        />
+                      </Field>
+                    )}
+
+                    {needsInvoice && !issuingDonation && (category !== 'peregrinacao' || pilgrimageMode === 'issued') && (
                       <Field label="Fatura-recibo" hint="Associe uma FR já emitida. Confirmar este movimento não emite nenhuma FR.">
                         {checkingInvoice && <p className="mb-2 text-sm text-blue-700">A verificar documentos da app…</p>}
                         {invoiceCheckError && <p className="mb-2 text-sm text-rose-700">{invoiceCheckError}</p>}
@@ -408,7 +452,7 @@ export default function MovementDrawer({ movement, readOnlyReason, onClose, onCh
                   ) : (
                     <div className="flex gap-2">
                       <Button variant="secondary" disabled={locked || busy || !!view.linkedPaymentId} onClick={() => setIgnoring(true)}>Ignorar</Button>
-                      {(category !== 'peregrinacao' || pilgrimageMode === 'issued') && <Button
+                      {!issuingDonation && (category !== 'peregrinacao' || pilgrimageMode === 'issued') && <Button
                         variant="primary"
                         size="lg"
                         className="flex-1"

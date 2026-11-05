@@ -9,6 +9,7 @@ import type {
   FactPtErrorResponse,
   FactPtInvoiceReceiptPayload,
   FactPtPage,
+  FactPtRemoteDocument,
   FactPtProduct,
   FactPtResponseEnvelope,
   FactPtRemoteClient,
@@ -708,6 +709,21 @@ export class FactPtClient {
       if (!reconciledClient) throw error;
       return { client: reconciledClient, created: false, updated: false };
     }
+  }
+
+  /** Read only. Documents come 20 per page, oldest first. */
+  async listDocuments(page: number): Promise<FactPtPage<FactPtRemoteDocument>> {
+    return this.request<FactPtPage<FactPtRemoteDocument>>(
+      `/documents?page=${encodeURIComponent(String(page))}`,
+    );
+  }
+
+  /** Read only. */
+  async getClient(clientId: string): Promise<FactPtRemoteClient> {
+    const result = await this.request<{ data: FactPtRemoteClient }>(
+      `/clients/${encodeURIComponent(clientId)}`,
+    );
+    return result.data;
   }
 
   async listTaxes(): Promise<FactPtTax[]> {

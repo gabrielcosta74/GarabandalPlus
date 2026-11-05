@@ -14,6 +14,8 @@ type Seed = {
   amount: number;
   /** Final state, as if the admin had already worked on it. */
   done?: { category?: LedgerMovement['categoryCode']; invoice?: string; document?: boolean; paper?: boolean; ignored?: string };
+  /** What the cross-check with FACT.pt or past confirmations would have found. */
+  suggestion?: LedgerMovement['suggestion'];
 };
 
 const NOVEMBER: Seed[] = [
@@ -24,8 +26,8 @@ const NOVEMBER: Seed[] = [
   { day: 3, description: 'COM SERV ESTR 0001', amount: -0.46, done: { category: 'comissao_bancaria' } },
   { day: 3, description: 'I.SELO OP.BANC.', amount: -0.02, done: { category: 'imposto_selo' } },
   { day: 3, description: 'TR-IPS-JOAO PEDRO MARQUES', amount: 25, done: { category: 'quota', invoice: 'FR 2026Q/131' } },
-  { day: 4, description: 'TR-IPS-Ana Beatriz Fontes', amount: 54.34 },
-  { day: 4, description: 'TRF.CRED  HELENA CARVALHO NUNES', amount: 200 },
+  { day: 4, description: 'TR-IPS-Ana Beatriz Fontes', amount: 54.34, suggestion: { confidence: 'manual', reason: 'FR emitida à mão na FACT.pt com o mesmo valor e o nome do pagador', invoiceRef: 'FR 2026D/1254', invoiceRefs: [] } },
+  { day: 4, description: 'TRF.CRED  HELENA CARVALHO NUNES', amount: 200, suggestion: { confidence: 'learned', reason: 'Confirmado 3 vezes como Doação', invoiceRef: null, invoiceRefs: [] } },
   { day: 4, description: 'TR-UNICRE S.A.', amount: 1285.9 },
   { day: 4, description: 'COMISS.TPA        01641285 034', amount: -3.12 },
   { day: 5, description: 'COMPRA RESEND', amount: -19.37 },
@@ -102,6 +104,7 @@ function build(period: string, unsorted: Seed[], openingBalance: number): Ledger
       paperDocument: !!done?.paper,
       documentCount: done?.document ? 1 : 0,
       invoiceRefs: done?.invoice ? [done.invoice] : [],
+      suggestion: seed.suggestion ?? null,
       status,
       ignoreReason: done?.ignored ?? null,
       notes: null,

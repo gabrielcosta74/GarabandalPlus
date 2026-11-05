@@ -2,7 +2,7 @@
 
 import { AnimatePresence, motion } from 'framer-motion';
 import { useMemo, useState } from 'react';
-import { CheckCheck, Link2, FileWarning, HandCoins, HelpCircle, PartyPopper, type LucideIcon } from 'lucide-react';
+import { CheckCheck, FileCheck2, Link2, FileWarning, HandCoins, HelpCircle, PartyPopper, type LucideIcon } from 'lucide-react';
 
 import { inboxGroup, type InboxGroup } from '../../../lib/ledger/categories';
 import MovementRow from './MovementRow';
@@ -11,14 +11,21 @@ import { Button, Card, EmptyState, cx, isOpen } from './ui';
 
 const VISIBLE_PER_GROUP = 6;
 
-type Section = InboxGroup | 'linked';
+type Section = InboxGroup | 'linked' | 'manual';
 
 const SECTIONS: { key: Section; title: string; hint: string; icon: LucideIcon; tile: string }[] = [
   {
     key: 'linked',
     title: 'Já ligadas a uma fatura da app',
-    hint: 'Transferências de peregrinação que o sistema reconheceu com certeza (mesmo valor e mesmo nome). A FR já foi emitida; só falta confirmar.',
+    hint: 'Transferências que o sistema reconheceu com certeza (mesmo valor e mesmo nome). A FR já foi emitida; só falta confirmar.',
     icon: Link2,
+    tile: 'bg-emerald-50 text-emerald-600',
+  },
+  {
+    key: 'manual',
+    title: 'FR encontrada na FACT.pt',
+    hint: 'Doações com uma fatura-recibo emitida à mão, com o mesmo valor e o mesmo nome. Só falta confirmar; nada é emitido.',
+    icon: FileCheck2,
     tile: 'bg-emerald-50 text-emerald-600',
   },
   {
@@ -53,6 +60,7 @@ const SECTIONS: { key: Section; title: string; hint: string; icon: LucideIcon; t
 
 export function groupFor(movement: LedgerMovement): Section {
   if (movement.linkedPaymentId && movement.appInvoiceRef) return 'linked';
+  if (movement.suggestion?.confidence === 'manual' && movement.suggestion.invoiceRef) return 'manual';
   return inboxGroup({
     amount: movement.amount,
     categoryCode: movement.categoryCode,
@@ -126,10 +134,11 @@ export default function PorTratarTab({
                   <p className="mt-0.5 text-[13px] text-zinc-500">{section.hint}</p>
                 </div>
               </div>
-              {(section.key === 'safe' || section.key === 'linked') && (
+              {(section.key === 'safe' || section.key === 'linked' || section.key === 'manual') && (
                 <Button
                   variant="primary"
                   size="sm"
+                  className="shrink-0 whitespace-nowrap"
                   disabled={!!readOnlyReason}
                   title={readOnlyReason || undefined}
                   onClick={() => onApprove(rows)}
@@ -155,7 +164,7 @@ export default function PorTratarTab({
                   movement={m}
                   onOpen={onOpen}
                   active={m.id === selectedId}
-                  action={section.key === 'safe' || section.key === 'linked' ? (
+                  action={section.key === 'safe' || section.key === 'linked' || section.key === 'manual' ? (
                     <Button
                       size="sm"
                       disabled={!!readOnlyReason}

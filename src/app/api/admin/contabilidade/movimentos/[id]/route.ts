@@ -1,5 +1,7 @@
 import { logAdminAudit } from '../../../../../../lib/admin-audit';
+import { forgetConfirmation, learnCounterparty } from '../../../../../../lib/ledger/aliases';
 import { LEDGER_CATEGORIES, requiresInvoice } from '../../../../../../lib/ledger/categories';
+import { findMirrorAmount } from '../../../../../../lib/ledger/factpt-mirror';
 import { assessInvoice } from '../../../../../../lib/ledger/invoice-assessment';
 import { normalizeInvoiceRef, validateInvoiceRef } from '../../../../../../lib/ledger/invoice-safety';
 import { db, requireAdmin } from '../../../../../../lib/ledger/server';
@@ -99,6 +101,11 @@ export async function PATCH(req: Request, context: { params: Promise<{ id: strin
         return Response.json({ error: 'Indique uma FR da série correta para esta categoria e ano, ou associe a FR já emitida pela app.' }, { status: 400 });
       }
       if (invoiceRef) {
+        // A typed number is checked against what FACT.pt really issued.
+        const issuedAmount = await findMirrorAmount(invoiceRef);
+        if (issuedAmount !== null && Math.round(issuedAmount * 100) !== Math.round(Number(movement.amount) * 100)) {
+          return Response.json({ error: `A ${invoiceRef} é de ${issuedAmount.toFixed(2).replace('.', ',')} € na FACT.pt, não deste valor.` }, { status: 409 });
+        }
         const { data: existingAppDocuments, error: lookupError } = await db().from('factpt_documents')
           .select('id, amount, source_table, status')
           .eq('environment', 'production')
@@ -127,6 +134,8 @@ export async function PATCH(req: Request, context: { params: Promise<{ id: strin
           { status: duplicate || approveError.code === 'P0001' ? 409 : 500 });
       }
       await logAdminAudit({ adminEmail: admin.email, action: 'ledger.approve', details: { bank_transaction_id: id, categoryCode: body.categoryCode, invoiceRef } });
+      await learnCounterparty(movement.counterparty_name, body.categoryCode)
+        .catch(learnError => console.error('Contabilidade: falhou a aprendizagem', learnError));
       return Response.json({ ok: true });
     }
     case 'ignore': {
@@ -148,6 +157,10 @@ export async function PATCH(req: Request, context: { params: Promise<{ id: strin
         p_actor: admin.email,
       });
       if (reopenError) return Response.json({ error: reopenError.message }, { status: reopenError.code === 'P0001' ? 409 : 500 });
+      if (movement.status === 'reconciled') {
+        await forgetConfirmation(movement.counterparty_name, movement.category_code)
+          .catch(learnError => console.error('Contabilidade: falhou a aprendizagem', learnError));
+      }
       await logAdminAudit({ adminEmail: admin.email, action: 'ledger.reopen', details: { bank_transaction_id: id } });
       return Response.json({ ok: true });
     }

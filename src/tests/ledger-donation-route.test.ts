@@ -1,0 +1,88 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+const mocks = vi.hoisted(() => ({ from: vi.fn(), rpc: vi.fn(), gate: vi.fn(), prefill: vi.fn(), audit: vi.fn(), learn: vi.fn() }));
+vi.mock('../lib/ledger/server', () => ({
+  db: () => ({ from: mocks.from, rpc: mocks.rpc }),
+  requireAdmin: async () => ({ ok: true, email: 'admin@example.com', userId: '33333333-3333-4333-8333-333333333333' }),
+}));
+vi.mock('../lib/ledger/donation-issue', () => ({ donationGate: mocks.gate, donorPrefill: mocks.prefill }));
+vi.mock('../lib/ledger/aliases', () => ({ learnCounterparty: mocks.learn }));
+vi.mock('../lib/admin-audit', () => ({ logAdminAudit: mocks.audit }));
+
+import { POST } from '../app/api/admin/contabilidade/movimentos/[id]/doacao/route';
+
+const id = '11111111-1111-4111-8111-111111111111';
+const context = { params: Promise.resolve({ id }) };
+const donor = { name: 'Ana Costa', email: 'ana@example.com', address: 'Rua 1', zip: '1000-001', city: 'Lisboa', country: 'PT' };
+const request = (body: unknown) => new Request(`http://localhost/api/admin/contabilidade/movimentos/${id}/doacao`, {
+  method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+});
+const movement = (status = 'suggested') => ({
+  select: () => ({ eq: () => ({ maybeSingle: async () => ({
+    data: { id, amount: '25.00', booking_date: '2026-11-10', counterparty_name: 'Ana Costa', status, account_id: 'a' }, error: null,
+  }) }) }),
+});
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  mocks.from.mockImplementation(() => movement());
+  mocks.gate.mockResolvedValue({ available: true, blockedReason: null, nearbyManual: [] });
+  mocks.rpc.mockResolvedValue({ data: '44444444-4444-4444-8444-444444444444', error: null });
+  mocks.audit.mockResolvedValue(undefined);
+  mocks.learn.mockResolvedValue(undefined);
+});
+
+describe('donation FR through the app', () => {
+  it('issues when every safeguard passes', async () => {
+    const response = await POST(request({ donor }), context);
+    expect(response.status).toBe(200);
+    expect(mocks.rpc).toHaveBeenCalledWith('ledger_register_donation_transfer', expect.objectContaining({
+      p_transaction_id: id, p_donor_name: 'Ana Costa', p_donor_email: 'ana@example.com', p_actor: 'admin@example.com',
+    }));
+    expect(mocks.learn).toHaveBeenCalledWith('Ana Costa', 'doacao');
+  });
+
+  it('refuses incomplete fiscal data before touching anything', async () => {
+    const response = await POST(request({ donor: { name: 'Ana Costa' } }), context);
+    expect(response.status).toBe(400);
+    expect((await response.json()).error).toContain('morada');
+    expect(mocks.gate).not.toHaveBeenCalled();
+    expect(mocks.rpc).not.toHaveBeenCalled();
+  });
+
+  it('never issues when a safeguard blocks it', async () => {
+    mocks.gate.mockResolvedValue({ available: false, blockedReason: 'A FR 2026D/9 já foi emitida à mão.', nearbyManual: [] });
+    const response = await POST(request({ donor }), context);
+    expect(response.status).toBe(409);
+    expect((await response.json()).error).toContain('FR 2026D/9');
+    expect(mocks.rpc).not.toHaveBeenCalled();
+  });
+
+  it('needs the admin to rule out a nearby manual FR', async () => {
+    mocks.gate.mockResolvedValue({ available: true, blockedReason: null, nearbyManual: ['FR 2026D/9'] });
+    expect((await POST(request({ donor }), context)).status).toBe(409);
+    expect(mocks.rpc).not.toHaveBeenCalled();
+    expect((await POST(request({ donor, acknowledgeManual: true }), context)).status).toBe(200);
+    expect(mocks.rpc).toHaveBeenCalledTimes(1);
+  });
+
+  it('refuses a movement already handled', async () => {
+    mocks.from.mockImplementation(() => movement('reconciled'));
+    expect((await POST(request({ donor }), context)).status).toBe(409);
+    expect(mocks.rpc).not.toHaveBeenCalled();
+  });
+
+  it('reports a second donation for the same movement clearly', async () => {
+    mocks.rpc.mockResolvedValue({ data: null, error: { code: '23505', message: 'duplicate' } });
+    const response = await POST(request({ donor }), context);
+    expect(response.status).toBe(409);
+    expect((await response.json()).error).toBe('Já existe uma doação para este movimento.');
+  });
+
+  it('keeps only short text from the request', async () => {
+    await POST(request({ donor: { ...donor, name: `  ${'A'.repeat(500)}  `, city: { evil: true }, extra: 'x' } }), context);
+    expect(mocks.rpc).not.toHaveBeenCalled();
+    await POST(request({ donor: { ...donor, name: `  ${'A'.repeat(500)}  ` } }), context);
+    expect(mocks.rpc.mock.calls[0][1].p_donor_name).toHaveLength(200);
+  });
+});
