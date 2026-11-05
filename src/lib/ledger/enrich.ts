@@ -110,7 +110,7 @@ export async function enrichIncomingMovements(options: { sinceDays?: number; dry
             invoiceRef: manual.invoiceRefs[0],
             reason: manual.confidence === 'manual'
               ? 'FR emitida à mão na FACT.pt com o mesmo valor e o nome do pagador'
-              : 'FR emitida à mão na FACT.pt com o mesmo valor; o cliente tem outro nome',
+              : `FR emitida à mão em nome de ${manualInvoices.find(invoice => invoice.number === manual.invoiceRefs[0])?.customer || 'outro cliente'}, com o mesmo valor; quem pagou foi outra pessoa`,
           };
       if (options.dryRun) result.plan?.push(`${manual.confidence.toUpperCase()} ${movement.booking_date} ${movement.amount} ${movement.counterparty_name} -> ${manual.invoiceRefs.join('/')}`);
       else {
@@ -164,7 +164,7 @@ export async function enrichIncomingMovements(options: { sinceDays?: number; dry
       result.likely += 1;
     } else if (candidates.length === 1) {
       used.add(candidates[0].id);
-      suggestion = { confidence: 'likely', invoiceRef: candidates[0].number, reason: 'FR da app com o mesmo valor; o pagador é outra pessoa' };
+      suggestion = { confidence: 'likely', invoiceRef: candidates[0].number, reason: `FR da app em nome de ${candidates[0].customer || 'outra pessoa'}, com o mesmo valor; quem pagou foi outra pessoa` };
       result.likely += 1;
     } else {
       suggestion = {

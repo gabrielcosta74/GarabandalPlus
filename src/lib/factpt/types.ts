@@ -201,6 +201,11 @@ export type FactPtFiscalSnapshot = {
   reference?: string;
   emailSourceLabel?: string;
   /**
+   * Issued to FACT.pt's generic "Consumidor final", with no personal data and
+   * no email. Only ever set by the admin in Contabilidade, up to the legal limit.
+   */
+  genericConsumer?: boolean;
+  /**
    * Existing FACT.pt customer found while preparing the fiscal snapshot.
    * It is persisted with the reviewed snapshot so emission reuses that exact
    * customer instead of creating a duplicate.

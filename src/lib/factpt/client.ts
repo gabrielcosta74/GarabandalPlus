@@ -593,6 +593,20 @@ export class FactPtClient {
     ) || null;
   }
 
+  /** Read only. The account's own "Consumidor final", which holds no personal data. */
+  async findGenericFinalConsumer(): Promise<FactPtRemoteClient | null> {
+    const generic = (await this.findClients('Consumidor final')).filter((candidate) =>
+      candidate.isFinalConsumer
+      && normalizedClientName(candidate.name) === 'consumidor final'
+      && !candidate.email?.trim()
+      && !candidate.address?.trim(),
+    );
+    if (generic.length === 0) return null;
+    return generic.reduce((oldest, candidate) =>
+      (Number(candidate.id) < Number(oldest.id) ? candidate : oldest),
+    );
+  }
+
   async createClient(input: FactPtClientCreateInput): Promise<FactPtCreatedResource> {
     const normalizedTin = input.tin?.replace(/[\s.-]/g, '') || '';
     if (!input.finalConsumer && !/^\d{5,15}$/.test(normalizedTin)) {

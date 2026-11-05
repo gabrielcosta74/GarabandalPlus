@@ -36,6 +36,32 @@ function readTabFromUrl(): Tab {
   return TABS.some(tab => tab.key === value) ? (value as Tab) : 'por-tratar';
 }
 
+/** The page shows one month at a time; this keeps the others from being forgotten. */
+function OpenMonths({ counts, current, onPick }: { counts: Record<string, number>; current: string | null; onPick: (period: string) => void }) {
+  const months = Object.entries(counts).sort(([a], [b]) => a.localeCompare(b));
+  const total = months.reduce((sum, [, count]) => sum + count, 0);
+  if (months.length < 2) return null;
+  return (
+    <div className="mb-4 flex flex-wrap items-center gap-2">
+      <span className="mr-1 text-[13px] text-zinc-500">{total} por tratar em {months.length} meses:</span>
+      {months.map(([period, count]) => (
+        <button
+          key={period}
+          type="button"
+          onClick={() => onPick(period)}
+          aria-current={period === current ? 'true' : undefined}
+          className={cx(
+            'rounded-full px-3 py-1 text-[13px] font-medium transition-all duration-200 ease-out active:scale-[0.97]',
+            period === current ? 'bg-zinc-900 text-white' : 'bg-white text-zinc-700 ring-1 ring-zinc-200 hover:bg-zinc-50',
+          )}
+        >
+          {formatPeriod(period)} <span className="tabular-nums opacity-70">{count}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export default function ContabilidadeView() {
   return (
     <ToastProvider>
@@ -284,6 +310,9 @@ function Contabilidade() {
 
           <motion.div key={tab} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.22, ease: 'easeOut' }}>
           {tab === 'por-tratar' && <AdminGuide issuing={!!ledger.bank?.donationIssueFrom} />}
+          {tab === 'por-tratar' && (
+            <OpenMonths counts={ledger.openByPeriod} current={ledger.period} onPick={ledger.setPeriod} />
+          )}
           {tab === 'por-tratar' && ledger.mode === 'live' && <PaymentsBankCheck refreshKey={ledger.movements} />}
           {tab === 'por-tratar' ? (
             <PorTratarTab

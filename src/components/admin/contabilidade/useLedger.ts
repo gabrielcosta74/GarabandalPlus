@@ -95,6 +95,7 @@ type LedgerState = {
   period: string | null;
   movements: LedgerMovement[];
   closed: { closed_by: string; closed_at: string } | null;
+  openByPeriod: Record<string, number>;
   bank: BankInfo | null;
 };
 
@@ -115,6 +116,7 @@ function localState(mode: 'preview' | 'demo' | 'bank', all: LedgerMovement[], wa
     period,
     movements: all.filter(m => m.period === period),
     closed: null,
+    openByPeriod: {},
     bank,
   };
 }
@@ -129,7 +131,7 @@ export function useLedger() {
   const [reloadKey, setReloadKey] = useState(0);
   const [state, setState] = useState<LedgerState>({
     loading: true, error: null, mode: 'live', previewFileName: null, localMovements: [],
-    periods: [], period: null, movements: [], closed: null, bank: null,
+    periods: [], period: null, movements: [], closed: null, openByPeriod: {}, bank: null,
   });
 
   const modeRef = useRef<LedgerMode>('live');
@@ -186,6 +188,7 @@ export function useLedger() {
           period: body.period || null,
           movements: body.movements || [],
           closed: body.closed || null,
+          openByPeriod: body.openByPeriod || {},
           bank: body.bank || null,
         });
       })

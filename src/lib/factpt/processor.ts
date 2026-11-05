@@ -320,6 +320,7 @@ export function buildInitialFactPtFiscalSnapshot(
     emailLanguage: source.language,
     reference: source.sourceReference,
     emailSourceLabel: source.emailSourceLabel,
+    ...(source.genericConsumer ? { genericConsumer: true } : {}),
   };
 }
 
@@ -448,6 +449,12 @@ async function resolveRemoteClient(
   fiscal: FactPtFiscalSnapshot,
   client: FactPtClient,
 ) {
+  if (fiscal.genericConsumer) {
+    const generic = await client.findGenericFinalConsumer();
+    if (!generic) throw new Error('O cliente genérico «Consumidor final» não foi encontrado na FACT.pt.');
+    return { remoteId: String(generic.id), cacheId: null, action: 'reused' as const };
+  }
+
   const tin = normalizeFactPtTin(fiscal.customer.nif);
   const input = buildFactPtClientInput(fiscal.customer);
   const lookupKey = factPtClientLookupKey(fiscal.customer);
@@ -728,6 +735,28 @@ async function sendIssuedDocumentEmail(
   downloadedPdf?: Uint8Array,
   emailIdempotencyKey = `factpt-${job.id}`,
 ) {
+  if (fiscal.genericConsumer) {
+    // Nobody to send it to: the FR stays available in Faturação.
+    const { error } = await db
+      .from('factpt_documents')
+      .update({
+        status: 'issued',
+        email_last_error: null,
+        last_error: null,
+        last_error_code: null,
+        processing_started_at: null,
+        factpt_response: {
+          documentId: document.id,
+          documentNumber: document.number,
+          emailSkipped: true,
+          environment: job.environment,
+        },
+      })
+      .eq('id', job.id);
+    if (error) throw error;
+    return false;
+  }
+
   const recipient =
     job.environment === 'sandbox'
       ? await sandboxEmailTarget(db)

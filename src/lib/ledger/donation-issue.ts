@@ -85,6 +85,10 @@ export async function clientConflict(donor: Partial<DonorIdentity>): Promise<Cli
   };
 }
 
+export async function genericClientExists(): Promise<boolean> {
+  return !!await factptReadClient().findGenericFinalConsumer();
+}
+
 async function takenInvoiceRefs(): Promise<Set<string>> {
   const { data, error } = await db().from('bank_transaction_links').select('target_id').eq('target_type', 'factpt_document');
   if (error) throw error;

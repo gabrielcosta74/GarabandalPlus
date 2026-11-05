@@ -53,7 +53,7 @@ export async function GET(req: Request) {
     const url = new URL(req.url);
     const { data: periodRows, error: periodError } = await db()
       .from('bank_transactions')
-      .select('period')
+      .select('period, status')
       .order('period', { ascending: false })
       .limit(5000);
     if (periodError) {
@@ -73,6 +73,10 @@ export async function GET(req: Request) {
       throw periodError;
     }
     const periods = [...new Set((periodRows || []).map(row => row.period as string))];
+    const openByPeriod: Record<string, number> = {};
+    (periodRows || []).forEach(row => {
+      if (row.status === 'unreviewed' || row.status === 'suggested') openByPeriod[row.period] = (openByPeriod[row.period] || 0) + 1;
+    });
     const bank = await bankConnection();
     const requested = url.searchParams.get('period');
     const period = requested && /^\d{4}-\d{2}$/.test(requested) ? requested : periods[0];
@@ -183,6 +187,7 @@ export async function GET(req: Request) {
       periods,
       closed: closed.data?.status === 'closed' ? closed.data : null,
       bank,
+      openByPeriod,
       movements,
     });
   } catch (error) {

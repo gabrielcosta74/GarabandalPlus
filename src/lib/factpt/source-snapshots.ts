@@ -44,6 +44,7 @@ export type FactPtSourceSnapshot = {
   comments: string | null;
   language: 'pt' | 'en';
   emailSourceLabel?: string;
+  genericConsumer?: boolean;
 };
 
 const clean = (value: unknown): string | null => {
@@ -179,7 +180,8 @@ const loadDonationSnapshot = async (
     typeof donation.amount_cents === 'number' ? donation.amount_cents / 100 : donation.amount,
     'donation',
   );
-  const email = requireEmail(donation.donor_email, 'donation');
+  const genericConsumer = metadata.factpt_generic_consumer === true;
+  const email = genericConsumer ? '' : requireEmail(donation.donor_email, 'donation');
 
   return {
     sourceType: 'donation',
@@ -198,7 +200,7 @@ const loadDonationSnapshot = async (
     paymentDate: toPaymentDate(donation.confirmed_at, donation.updated_at, donation.created_at),
     customer: {
       userId: clean(donation.user_id),
-      name: clean(donation.donor_name) || 'Doador',
+      name: genericConsumer ? 'Consumidor final' : clean(donation.donor_name) || 'Doador',
       email,
       nif: taxIdRequested ? normalizeNif(donation.donor_nif) : null,
       address: clean(donation.donor_address),
@@ -218,6 +220,7 @@ const loadDonationSnapshot = async (
     comments: 'Doação sem contrapartidas',
     language: metadata.locale === 'en' ? 'en' : 'pt',
     emailSourceLabel: FACTPT_DONATION_ITEM_DESCRIPTION,
+    ...(genericConsumer ? { genericConsumer: true } : {}),
   };
 };
 

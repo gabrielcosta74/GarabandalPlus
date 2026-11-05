@@ -61,10 +61,11 @@ export default function AdminGuide({ issuing }: { issuing: boolean }) {
               </Step>
               <Step title="2. Peregrinação por transferência">
                 <p>Registe o pagamento na página da peregrinação, como sempre. A app emite a FR e o movimento liga-se sozinho.</p>
+                <p>Se outra pessoa pagou pelo peregrino, aparece como «Provável»: abra o movimento e escolha a reserva.</p>
               </Step>
               <Step title="3. Doação por transferência">
                 {issuing
-                  ? <p>Com os dados da pessoa, abra o movimento e use «Emitir pela app». Sem os dados, emita na FACT.pt.</p>
+                  ? <p>Abra o movimento e use «Emitir pela app». Sem dados da pessoa, até 100 € pode sair como Consumidor final; acima disso, peça os dados à pessoa.</p>
                   : <p>Emita a FR na FACT.pt, como sempre.</p>}
                 <p>Se a emitir na FACT.pt, o sistema encontra-a na atualização seguinte e só falta aprovar.</p>
               </Step>

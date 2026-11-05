@@ -12,6 +12,8 @@ import type {
 export const FACTPT_DONATION_COMMENT = 'Doação sem contrapartidas';
 export const FACTPT_SIMPLIFIED_PRODUCT_LIMIT = 1_000;
 export const FACTPT_SIMPLIFIED_SERVICE_LIMIT = 100;
+/** Above this FACT.pt refuses the generic client: the law asks for a name and address. */
+export const FACTPT_GENERIC_CONSUMER_LIMIT = 100;
 
 const IDENTIFIER_ALLOWED = /[^a-zA-Z0-9:{}-]/g;
 
@@ -174,7 +176,7 @@ export function validateFactPtSnapshot(snapshot: FactPtFiscalSnapshot): string[]
   const errors: string[] = [];
 
   if (!snapshot.sourceId.trim()) errors.push('sourceId');
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(snapshot.customer.email.trim())) {
+  if (!snapshot.genericConsumer && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(snapshot.customer.email.trim())) {
     errors.push('customer.email');
   }
   const paymentDate = snapshot.paidAt.slice(0, 10);
@@ -285,6 +287,16 @@ export function decideFactPtDocument(
       reason: 'invalid_snapshot',
       missingFields: snapshotErrors,
     };
+  }
+
+  if (snapshot.genericConsumer) {
+    return snapshot.sourceType === 'donation' && snapshot.total <= FACTPT_GENERIC_CONSUMER_LIMIT
+      ? { type: 'invoice_receipt', reason: 'donation_final_consumer' }
+      : {
+          type: 'needs_data',
+          reason: 'missing_donation_billing_data',
+          missingFields: factPtBillingIdentityMissingFields(snapshot.customer),
+        };
   }
 
   if (hasCompleteFactPtBillingData(snapshot.customer)) {

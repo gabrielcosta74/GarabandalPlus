@@ -12,6 +12,8 @@ type Gate = {
   available: boolean;
   blockedReason: string | null;
   nearbyManual: string[];
+  /** Up to the legal limit an FR can go to "Consumidor final", with no personal data. */
+  genericAllowed?: boolean;
   prefill: (Partial<DonorIdentity> & { source: 'donation' | 'factpt' | null }) | null;
 };
 
@@ -60,27 +62,30 @@ export default function DonationInvoiceField({
   const [donor, setDonor] = useState<Partial<DonorIdentity>>({ country: 'PT', ...gate.prefill });
   const [acknowledged, setAcknowledged] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  const [confirmingGeneric, setConfirmingGeneric] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [conflict, setConflict] = useState<Partial<DonorIdentity> | null>(null);
 
   const missing = missingDonorFields(donor);
-  const ready = missing.length === 0 && (gate.nearbyManual.length === 0 || acknowledged);
+  const manualRuledOut = gate.nearbyManual.length === 0 || acknowledged;
+  const ready = missing.length === 0 && manualRuledOut;
 
-  const issue = async () => {
+  const issue = async (generic = false) => {
     setBusy(true);
     setError(null);
     try {
       await adminFetch(`/api/admin/contabilidade/movimentos/${movementId}/doacao`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ donor, acknowledgeManual: acknowledged }),
+        body: JSON.stringify(generic ? { generic: true, acknowledgeManual: acknowledged } : { donor, acknowledgeManual: acknowledged }),
       });
       onIssued();
     } catch (issueError) {
       setError(issueError instanceof Error ? issueError.message : 'Não foi possível registar a doação.');
       setConflict((issueError as { body?: { conflict?: Partial<DonorIdentity> } }).body?.conflict ?? null);
       setConfirming(false);
+      setConfirmingGeneric(false);
     } finally {
       setBusy(false);
     }
@@ -138,16 +143,29 @@ export default function DonationInvoiceField({
         </div>
       )}
 
-      {confirming ? (
+      {confirmingGeneric ? (
+        <div className="rounded-2xl bg-zinc-50 p-4">
+          <p className="text-sm text-zinc-800">
+            Vai ser emitida uma fatura-recibo da série 2026D de <span className="font-semibold">{formatEur(amount)}</span> em nome de <span className="font-semibold">Consumidor final</span>, sem dados da pessoa. Não segue por email: fica guardada em Faturação. Uma fatura emitida não se apaga.
+          </p>
+          <div className="mt-3 flex gap-2">
+            <Button variant="ghost" className="flex-1" disabled={busy} onClick={() => setConfirmingGeneric(false)}>Voltar</Button>
+            <Button variant="primary" className="flex-1" disabled={busy} onClick={() => void issue(true)}>
+              {busy ? <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden /> : <Send className="h-4 w-4" aria-hidden />}
+              {busy ? 'A confirmar…' : 'Emitir FR'}
+            </Button>
+          </div>
+        </div>
+      ) : confirming ? (
         <div className="rounded-2xl bg-zinc-50 p-4">
           <p className="text-sm text-zinc-800">
             Vai ser emitida uma fatura-recibo da série 2026D para <span className="font-semibold">{donor.name}</span> de <span className="font-semibold">{formatEur(amount)}</span>, enviada para {donor.email}. Uma fatura emitida não se apaga.
           </p>
           <div className="mt-3 flex gap-2">
             <Button variant="ghost" className="flex-1" disabled={busy} onClick={() => setConfirming(false)}>Voltar</Button>
-            <Button variant="primary" className="flex-1" disabled={busy} onClick={() => void issue()}>
+            <Button variant="primary" className="flex-1" disabled={busy} onClick={() => void issue(false)}>
               {busy ? <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden /> : <Send className="h-4 w-4" aria-hidden />}
-              {busy ? 'A confirmar na FACT.pt…' : 'Emitir fatura-recibo'}
+              {busy ? 'A confirmar…' : 'Emitir FR'}
             </Button>
           </div>
         </div>
@@ -166,6 +184,13 @@ export default function DonationInvoiceField({
             <Send className="h-4 w-4" aria-hidden />
             Emitir pela app
           </Button>
+          {gate.genericAllowed ? (
+            <Button variant="ghost" className="w-full" disabled={disabled || !manualRuledOut} onClick={() => setConfirmingGeneric(true)}>
+              Não sabemos os dados: emitir como Consumidor final
+            </Button>
+          ) : (
+            <p className="text-[13px] text-zinc-500">Acima de 100 € a lei exige nome e morada. Sem estes dados, peça-os à pessoa antes de emitir.</p>
+          )}
         </>
       )}
     </div>

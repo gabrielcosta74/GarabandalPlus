@@ -260,13 +260,21 @@ export default function MovementDrawer({ movement, readOnlyReason, onClose, onCh
                     {view.appInvoiceRef ? (
                       <p><span className="font-semibold">Reconhecida automaticamente.</span> É o pagamento {view.linkedPaymentLabel ? `«${view.linkedPaymentLabel}»` : 'registado no site'}, com a {view.appInvoiceRef} já emitida pela app. Só falta confirmar.</p>
                     ) : view.suggestion?.confidence === 'ambiguous' ? (
-                      <p><span className="font-semibold">Várias faturas possíveis:</span> {view.suggestion.invoiceRefs.join(', ')}. Indique a certa; não emita uma FR nova.</p>
+                      <>
+                        <p><span className="font-semibold">Várias faturas possíveis.</span> {category === 'peregrinacao' ? 'Escolha a reserva certa abaixo' : 'Escolha a certa'}; não emita uma FR nova.</p>
+                        <div className="mt-2 flex flex-wrap gap-1.5">
+                          {view.suggestion.invoiceRefs.map(ref => category === 'peregrinacao'
+                            ? <span key={ref} className="rounded-full bg-white/70 px-2.5 py-1 text-xs font-medium">{ref}</span>
+                            : <button key={ref} type="button" disabled={locked} onClick={() => setInvoiceRef(ref)}
+                                className={cx('rounded-full px-2.5 py-1 text-xs font-medium transition-colors duration-200', invoiceRef === ref ? 'bg-zinc-900 text-white' : 'bg-white/70 hover:bg-white')}>{ref}</button>)}
+                        </div>
+                      </>
                     ) : view.suggestion?.confidence === 'learned' ? (
                       <p><span className="font-semibold">Pagador conhecido.</span> {view.suggestion.reason}.</p>
                     ) : view.suggestion?.confidence === 'manual' || view.suggestion?.confidence === 'manual_likely' ? (
                       <p><span className="font-semibold">{view.suggestion.confidence === 'manual' ? 'Encontrada na FACT.pt:' : 'Possível na FACT.pt:'}</span> {view.suggestion.invoiceRef} — {view.suggestion.reason}. Não emita uma FR nova.</p>
                     ) : (
-                      <p><span className="font-semibold">Provável:</span> {view.suggestion?.invoiceRef} — {view.suggestion?.reason}. Se for este pagamento, escolha-o nas sugestões abaixo; não emita uma FR nova.</p>
+                      <p><span className="font-semibold">Provável:</span> {view.suggestion?.invoiceRef} — {view.suggestion?.reason}. Se for este o pagamento, escolha a reserva nas sugestões abaixo; não emita uma FR nova.</p>
                     )}
                   </div>
                 )}

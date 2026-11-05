@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const mocks = vi.hoisted(() => ({ from: vi.fn(), rpc: vi.fn(), gate: vi.fn(), prefill: vi.fn(), audit: vi.fn(), learn: vi.fn(), mirror: vi.fn(), conflict: vi.fn() }));
+const mocks = vi.hoisted(() => ({ from: vi.fn(), rpc: vi.fn(), gate: vi.fn(), prefill: vi.fn(), audit: vi.fn(), learn: vi.fn(), mirror: vi.fn(), conflict: vi.fn(), generic: vi.fn() }));
 vi.mock('../lib/ledger/server', () => ({
   db: () => ({ from: mocks.from, rpc: mocks.rpc }),
   requireAdmin: async () => ({ ok: true, email: 'admin@example.com', userId: '33333333-3333-4333-8333-333333333333' }),
 }));
-vi.mock('../lib/ledger/donation-issue', () => ({ donationGate: mocks.gate, donorPrefill: mocks.prefill, clientConflict: mocks.conflict }));
+vi.mock('../lib/ledger/donation-issue', () => ({ donationGate: mocks.gate, donorPrefill: mocks.prefill, clientConflict: mocks.conflict, genericClientExists: mocks.generic }));
 vi.mock('../lib/ledger/factpt-mirror', () => ({ syncFactptMirror: mocks.mirror }));
 vi.mock('../lib/ledger/aliases', () => ({ learnCounterparty: mocks.learn }));
 vi.mock('../lib/admin-audit', () => ({ logAdminAudit: mocks.audit }));
@@ -18,9 +18,9 @@ const donor = { name: 'Ana Costa', email: 'ana@example.com', address: 'Rua 1', z
 const request = (body: unknown) => new Request(`http://localhost/api/admin/contabilidade/movimentos/${id}/doacao`, {
   method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
 });
-const movement = (status = 'suggested') => ({
+const movement = (status = 'suggested', amount = '25.00') => ({
   select: () => ({ eq: () => ({ maybeSingle: async () => ({
-    data: { id, amount: '25.00', booking_date: '2026-11-10', counterparty_name: 'Ana Costa', status, account_id: 'a' }, error: null,
+    data: { id, amount, booking_date: '2026-11-10', counterparty_name: 'Ana Costa', status, account_id: 'a' }, error: null,
   }) }) }),
 });
 
@@ -33,6 +33,7 @@ beforeEach(() => {
   mocks.learn.mockResolvedValue(undefined);
   mocks.mirror.mockResolvedValue({ pages: 2, documents: 40, clients: 0 });
   mocks.conflict.mockResolvedValue(null);
+  mocks.generic.mockResolvedValue(true);
 });
 
 describe('donation FR through the app', () => {
@@ -90,6 +91,33 @@ describe('donation FR through the app', () => {
     expect(mocks.rpc).not.toHaveBeenCalled();
     expect((await POST(request({ donor, acknowledgeManual: true }), context)).status).toBe(200);
     expect(mocks.rpc).toHaveBeenCalledTimes(1);
+  });
+
+  it('issues to Consumidor final with no personal data, up to 100 €', async () => {
+    mocks.from.mockImplementation(() => movement('suggested', '100.00'));
+    const response = await POST(request({ generic: true }), context);
+    expect(response.status).toBe(200);
+    expect(mocks.rpc).toHaveBeenCalledWith('ledger_register_generic_donation_transfer', expect.objectContaining({ p_transaction_id: id, p_actor: 'admin@example.com' }));
+    expect(mocks.conflict).not.toHaveBeenCalled();
+  });
+
+  it('refuses Consumidor final above 100 € before reading anything', async () => {
+    mocks.from.mockImplementation(() => movement('suggested', '100.01'));
+    const response = await POST(request({ generic: true }), context);
+    expect(response.status).toBe(409);
+    expect(mocks.mirror).not.toHaveBeenCalled();
+    expect(mocks.rpc).not.toHaveBeenCalled();
+  });
+
+  it('keeps every safeguard on the Consumidor final path', async () => {
+    mocks.gate.mockResolvedValue({ available: false, blockedReason: 'A FR 2026D/9 já foi emitida à mão.', nearbyManual: [] });
+    expect((await POST(request({ generic: true }), context)).status).toBe(409);
+    mocks.gate.mockResolvedValue({ available: true, blockedReason: null, nearbyManual: ['FR 2026D/9'] });
+    expect((await POST(request({ generic: true }), context)).status).toBe(409);
+    mocks.gate.mockResolvedValue({ available: true, blockedReason: null, nearbyManual: [] });
+    mocks.generic.mockResolvedValue(false);
+    expect((await POST(request({ generic: true }), context)).status).toBe(409);
+    expect(mocks.rpc).not.toHaveBeenCalled();
   });
 
   it('refuses a movement already handled', async () => {

@@ -1,8 +1,9 @@
 import { logAdminAudit } from '../../../../../../../lib/admin-audit';
 import { learnCounterparty } from '../../../../../../../lib/ledger/aliases';
-import { clientConflict, donationGate, donorPrefill } from '../../../../../../../lib/ledger/donation-issue';
+import { clientConflict, donationGate, donorPrefill, genericClientExists } from '../../../../../../../lib/ledger/donation-issue';
 import { syncFactptMirror } from '../../../../../../../lib/ledger/factpt-mirror';
 import { missingDonorFields, type DonorIdentity } from '../../../../../../../lib/ledger/factpt-mirror-rules';
+import { FACTPT_GENERIC_CONSUMER_LIMIT } from '../../../../../../../lib/factpt/rules';
 import { db, requireAdmin } from '../../../../../../../lib/ledger/server';
 
 export const dynamic = 'force-dynamic';
@@ -40,7 +41,8 @@ export async function GET(req: Request, context: { params: Promise<{ id: string 
     if (!movement || movement.amount <= 0) return Response.json({ error: 'Movimento indisponível.' }, { status: 404 });
     const gate = await donationGate(movement);
     const prefill = gate.available ? await donorPrefill(movement.counterparty_name) : null;
-    return Response.json({ ...gate, prefill }, { headers: { 'Cache-Control': 'no-store' } });
+    const genericAllowed = gate.available && movement.amount <= FACTPT_GENERIC_CONSUMER_LIMIT;
+    return Response.json({ ...gate, prefill, genericAllowed }, { headers: { 'Cache-Control': 'no-store' } });
   } catch (error) {
     return Response.json({ error: error instanceof Error ? error.message : 'Falha ao verificar a emissão.' }, { status: 500 });
   }
@@ -51,17 +53,21 @@ export async function POST(req: Request, context: { params: Promise<{ id: string
   const admin = await requireAdmin(req);
   if (!admin.ok) return admin.response;
   const { id } = await context.params;
-  const body = await req.json().catch(() => null) as { donor?: unknown; acknowledgeManual?: boolean } | null;
-  if (!UUID.test(id) || !body?.donor) return Response.json({ error: 'Pedido inválido.' }, { status: 400 });
+  const body = await req.json().catch(() => null) as { donor?: unknown; generic?: boolean; acknowledgeManual?: boolean } | null;
+  const generic = body?.generic === true;
+  if (!UUID.test(id) || (!generic && !body?.donor)) return Response.json({ error: 'Pedido inválido.' }, { status: 400 });
 
-  const donor = cleanDonor(body.donor);
-  const missing = missingDonorFields(donor);
+  const donor = cleanDonor(body?.donor);
+  const missing = generic ? [] : missingDonorFields(donor);
   if (missing.length) return Response.json({ error: `Falta: ${missing.join(', ')}.` }, { status: 400 });
 
   try {
     const movement = await loadMovement(id);
     if (!movement || movement.amount <= 0 || !['unreviewed', 'suggested'].includes(movement.status)) {
       return Response.json({ error: 'Movimento indisponível para registar como doação.' }, { status: 409 });
+    }
+    if (generic && movement.amount > FACTPT_GENERIC_CONSUMER_LIMIT) {
+      return Response.json({ error: 'Acima de 100 € a lei exige nome e morada. Preencha os dados da pessoa.' }, { status: 409 });
     }
     // The copy may be hours old, and an FR issued by hand this morning must count.
     // If FACT.pt cannot be read right now, nothing is issued.
@@ -73,33 +79,42 @@ export async function POST(req: Request, context: { params: Promise<{ id: string
     }
     const gate = await donationGate(movement);
     if (!gate.available) return Response.json({ error: gate.blockedReason || 'A emissão pela app não está ativa.' }, { status: 409 });
-    if (gate.nearbyManual.length && !body.acknowledgeManual) {
+    if (gate.nearbyManual.length && !body?.acknowledgeManual) {
       return Response.json({ error: 'Há FRs manuais com este valor e data próxima. Confirme que não pertencem a esta transferência.' }, { status: 409 });
     }
 
-    const conflict = await clientConflict(donor);
+    if (generic && !await genericClientExists()) {
+      return Response.json({ error: 'O cliente «Consumidor final» não foi encontrado na FACT.pt. Nada foi emitido.' }, { status: 409 });
+    }
+    const conflict = generic ? null : await clientConflict(donor);
     if (conflict) {
       return Response.json({ error: 'Já existe um cliente com este nome na FACT.pt, com outros dados. Use os dados dele para a FR não falhar.', conflict }, { status: 409 });
     }
 
-    const { data: donationId, error } = await db().rpc('ledger_register_donation_transfer', {
-      p_transaction_id: id,
-      p_donor_name: donor.name,
-      p_donor_email: donor.email,
-      p_donor_nif: donor.nif || null,
-      p_donor_address: donor.address,
-      p_donor_zip: donor.zip,
-      p_donor_city: donor.city,
-      p_donor_country: donor.country,
-      p_admin_user_id: admin.userId,
-      p_actor: admin.email,
-    });
+    const { data: donationId, error } = generic
+      ? await db().rpc('ledger_register_generic_donation_transfer', {
+          p_transaction_id: id,
+          p_admin_user_id: admin.userId,
+          p_actor: admin.email,
+        })
+      : await db().rpc('ledger_register_donation_transfer', {
+          p_transaction_id: id,
+          p_donor_name: donor.name,
+          p_donor_email: donor.email,
+          p_donor_nif: donor.nif || null,
+          p_donor_address: donor.address,
+          p_donor_zip: donor.zip,
+          p_donor_city: donor.city,
+          p_donor_country: donor.country,
+          p_admin_user_id: admin.userId,
+          p_actor: admin.email,
+        });
     if (error) {
       const known = error.code === 'P0001' || error.code === '23505';
       return Response.json({ error: error.code === '23505' ? 'Já existe uma doação para este movimento.' : error.message }, { status: known ? 409 : 500 });
     }
     try {
-      await logAdminAudit({ adminEmail: admin.email, action: 'ledger.register_donation_transfer', details: { bank_transaction_id: id, donation_id: donationId } });
+      await logAdminAudit({ adminEmail: admin.email, action: 'ledger.register_donation_transfer', details: { bank_transaction_id: id, donation_id: donationId, generic } });
     } catch (auditError) {
       console.error('Doação registada, mas falhou o log administrativo da contabilidade:', auditError);
     }
