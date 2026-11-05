@@ -36,7 +36,16 @@ export type ManualMatch = {
   invoiceRefs: string[];
 };
 
-const CANCELLED = /cancel|anul|void/i;
+// Refunded FRs were paid back through a credit note: they no longer justify money.
+const CANCELLED = /cancel|anul|void|refund/i;
+
+const CATEGORY_BY_SERIES: Record<string, string> = { D: 'doacao', Q: 'quota', L: 'loja' };
+
+/** The FR's series says what it was issued for: FR 2026Q/12 is a quota. */
+export function categoryForInvoice(invoiceRef: string): string | null {
+  const series = invoiceRef.match(/^FR \d{4}([A-Z]+)\//)?.[1];
+  return series ? CATEGORY_BY_SERIES[series] ?? null : null;
+}
 
 /** The app stamps its documents with "gp:<source>:<id>"; anything else was made by hand. */
 export function isAppDocument(identifierId: string | null | undefined): boolean {

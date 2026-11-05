@@ -7,6 +7,7 @@ import { CheckCircle2, CircleDashed, FileText, LoaderCircle, Paperclip, Undo2, U
 
 import { KIND_LABELS, categoriesFor, categoryLabel, requiresDocument, requiresInvoice } from '../../../lib/ledger/categories';
 import { formatDay, formatEur } from '../../../lib/ledger/format';
+import { validateInvoiceRef } from '../../../lib/ledger/invoice-safety';
 import { visualFor } from './theme';
 import type { LedgerMovement } from './types';
 import { adminFetch } from './useLedger';
@@ -32,10 +33,11 @@ type InvoiceAssessment = {
   linkedPaymentId?: string | null;
 };
 
-/** The FR found by hand in FACT.pt, ready to confirm. */
-function manualInvoiceRef(movement: LedgerMovement | null): string {
+/** The FR found by hand in FACT.pt, ready to confirm, when its series fits the category. */
+function manualInvoiceRef(movement: LedgerMovement | null, category: string): string {
   const suggestion = movement?.suggestion;
-  return suggestion && ['manual', 'manual_likely'].includes(suggestion.confidence) ? suggestion.invoiceRef || '' : '';
+  if (!movement || !suggestion?.invoiceRef || !['manual', 'manual_likely'].includes(suggestion.confidence)) return '';
+  return validateInvoiceRef(suggestion.invoiceRef, category, movement.bookingDate) ? suggestion.invoiceRef : '';
 }
 
 export default function MovementDrawer({ movement, readOnlyReason, onClose, onChanged, onLocalChange }: Props) {
@@ -63,7 +65,7 @@ export default function MovementDrawer({ movement, readOnlyReason, onClose, onCh
     setCategory(movement.categoryCode || movement.suggestedCategoryCode || '');
     setPilgrimageMode('site');
     setDonationMode('issued');
-    setInvoiceRef(manualInvoiceRef(movement));
+    setInvoiceRef(manualInvoiceRef(movement, movement.categoryCode || movement.suggestedCategoryCode || ''));
     setAcknowledgeNearby(false);
     setNotes(movement.notes || '');
     setIgnoring(false);
@@ -74,7 +76,7 @@ export default function MovementDrawer({ movement, readOnlyReason, onClose, onCh
   }, [movement?.id]);
 
   useEffect(() => {
-    setInvoiceRef(category === 'doacao' ? manualInvoiceRef(movement) : '');
+    setInvoiceRef(manualInvoiceRef(movement, category));
     setAcknowledgeNearby(false);
     setPilgrimageMode('site');
     setDonationMode('issued');

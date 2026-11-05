@@ -51,12 +51,13 @@ reserva continua a usar exclusivamente `amount`.
     `finalConsumer:true`; nome, email e morada permanecem no cliente e a
     FACT.pt identifica o contribuinte como `Consumidor final`.
   - Nome, email, morada, código postal, cidade e país continuam obrigatórios.
+- Doações: sempre Fatura-Recibo, com as mesmas regras das peregrinações. Sem
+  identidade completa ficam em `needs_data`, qualquer que seja o valor.
 - Restantes origens com NIF e dados fiscais completos: Fatura-Recibo.
 - Restantes origens sem NIF/dados completos: Fatura Simplificada para
   Consumidor Final.
 - Limite total da Fatura Simplificada: encomendas da loja até 1.000 €;
-  quotas e donativos até 100 €. O limite da simplificada não se aplica às
-  peregrinações porque estas usam sempre Fatura-Recibo.
+  quotas até 100 €.
 - Acima do limite sem dados suficientes: `needs_data`, sem chamada à FACT.pt.
 - Email é obrigatório. Um email vazio ou técnico é um erro de integridade.
 - O PDF oficial segue como anexo no template institucional do Apostolado. O

@@ -3,7 +3,7 @@ import { FactPtClient, type FactPtRateLimiter } from '../lib/factpt/client';
 import type { FactPtConfig } from '../lib/factpt/config';
 import { afterConfirmation, afterUndo, aliasKey, isLearned } from '../lib/ledger/alias-rules';
 import {
-  findRepeatedInvoices, invoiceRefFor, isAppDocument, matchManualInvoice, missingDonorFields, pagesNewestFirst,
+  categoryForInvoice, findRepeatedInvoices, invoiceRefFor, isAppDocument, matchManualInvoice, missingDonorFields, pagesNewestFirst,
   toMirrorRow, usableManualInvoice, type ManualInvoice,
 } from '../lib/ledger/factpt-mirror-rules';
 import { pickSamePayerInvoice } from '../lib/ledger/invoice-safety';
@@ -97,6 +97,19 @@ describe('FACT.pt documents issued by hand', () => {
   it('walks from the newest end, whichever end that is', () => {
     expect(pagesNewestFirst(3, '2026-01-01', '2026-07-29')).toEqual([3, 2, 1]);
     expect(pagesNewestFirst(3, '2026-07-29', '2026-01-01')).toEqual([1, 2, 3]);
+  });
+
+  it('reads the category from the FR series', () => {
+    expect(categoryForInvoice('FR 2026D/9')).toBe('doacao');
+    expect(categoryForInvoice('FR 2026Q/9')).toBe('quota');
+    expect(categoryForInvoice('FR 2026L/9')).toBe('loja');
+    expect(categoryForInvoice('FR 2026X/9')).toBeNull();
+    expect(categoryForInvoice('nonsense')).toBeNull();
+  });
+
+  it('never suggests a refunded FR', () => {
+    const row = { doc_type: 'invoicereceipt', number: '2026D/9', gross: '25.00', doc_date: '2026-10-10', payment_status: 'refunded_credit', identifier_id: null, client_name: 'Ana Costa' };
+    expect(usableManualInvoice(row)).toBeNull();
   });
 
   it('never treats an app or cancelled document as a manual invoice', () => {

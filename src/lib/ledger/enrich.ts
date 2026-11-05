@@ -2,7 +2,7 @@ import 'server-only';
 
 import { classifyMovement } from './classify';
 import { loadManualInvoices } from './factpt-mirror';
-import { matchManualInvoice } from './factpt-mirror-rules';
+import { categoryForInvoice, matchManualInvoice } from './factpt-mirror-rules';
 import { addDays, pickSamePayerInvoice, samePerson } from './invoice-safety';
 import { db, loadCustomRules } from './server';
 
@@ -113,7 +113,12 @@ export async function enrichIncomingMovements(options: { sinceDays?: number; dry
               : 'FR emitida à mão na FACT.pt com o mesmo valor; o cliente tem outro nome',
           };
       if (options.dryRun) result.plan?.push(`${manual.confidence.toUpperCase()} ${movement.booking_date} ${movement.amount} ${movement.counterparty_name} -> ${manual.invoiceRefs.join('/')}`);
-      else await saveSuggestion(movement, { suggested_category: 'doacao', suggestion: found });
+      else {
+        // With candidates from different series only the admin can say which it is.
+        const categories = new Set(manual.invoiceRefs.map(categoryForInvoice));
+        const suggested = categories.size === 1 ? [...categories][0] : null;
+        await saveSuggestion(movement, { suggested_category: suggested ?? movement.raw?.suggested_category ?? null, suggestion: found });
+      }
       continue;
     }
 

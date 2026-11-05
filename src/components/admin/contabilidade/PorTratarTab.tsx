@@ -24,7 +24,7 @@ const SECTIONS: { key: Section; title: string; hint: string; icon: LucideIcon; t
   {
     key: 'manual',
     title: 'FR encontrada na FACT.pt',
-    hint: 'Doações com uma fatura-recibo emitida à mão, com o mesmo valor e o mesmo nome. Só falta confirmar; nada é emitido.',
+    hint: 'Entradas com uma fatura-recibo emitida à mão, com o mesmo valor e o mesmo nome. Só falta confirmar; nada é emitido.',
     icon: FileCheck2,
     tile: 'bg-emerald-50 text-emerald-600',
   },

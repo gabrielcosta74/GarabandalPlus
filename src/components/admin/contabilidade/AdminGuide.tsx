@@ -69,7 +69,7 @@ export default function AdminGuide({ issuing }: { issuing: boolean }) {
                 <p>Se a emitir na FACT.pt, o sistema encontra-a na atualização seguinte e só falta aprovar.</p>
               </Step>
               <Step title="4. Quota ou loja">
-                <p>Emita a FR na FACT.pt e escreva o número no movimento.</p>
+                <p>Emita a FR na FACT.pt, como sempre. O sistema encontra-a na atualização seguinte; se não a encontrar, escreva o número no movimento.</p>
               </Step>
               <Step title="5. Despesas">
                 <p>Escolha o que é e marque a fatura em papel, se a tiver guardada no dossier.</p>

@@ -34,7 +34,11 @@ export function useDonationGate(movementId: string | null) {
     let active = true;
     void adminFetch(`/api/admin/contabilidade/movimentos/${movementId}/doacao`)
       .then((result: Gate) => { if (active) setGate(result); })
-      .catch(() => { if (active) setGate({ available: false, blockedReason: null, nearbyManual: [], prefill: null }); });
+      .catch(checkError => {
+        if (!active) return;
+        const reason = checkError instanceof Error ? checkError.message : 'erro desconhecido';
+        setGate({ available: false, blockedReason: `Não foi possível verificar se a app pode emitir (${reason}). Não emita à mão sem confirmar.`, nearbyManual: [], prefill: null });
+      });
     return () => { active = false; };
   }, [movementId]);
   return gate;
@@ -148,16 +152,21 @@ export default function DonationInvoiceField({
           </div>
         </div>
       ) : (
-        <Button
-          variant="primary"
-          className="w-full"
-          disabled={disabled || !ready}
-          title={missing.length ? `Falta: ${missing.join(', ')}` : undefined}
-          onClick={() => setConfirming(true)}
-        >
-          <Send className="h-4 w-4" aria-hidden />
-          Emitir pela app
-        </Button>
+        <>
+          {missing.length > 0 && <p className="text-[13px] text-zinc-500">Falta: {missing.join(', ')}.</p>}
+          {missing.length === 0 && gate.nearbyManual.length > 0 && !acknowledged && (
+            <p className="text-[13px] text-zinc-500">Falta confirmar a FR indicada acima.</p>
+          )}
+          <Button
+            variant="primary"
+            className="w-full"
+            disabled={disabled || !ready}
+            onClick={() => setConfirming(true)}
+          >
+            <Send className="h-4 w-4" aria-hidden />
+            Emitir pela app
+          </Button>
+        </>
       )}
     </div>
   );
