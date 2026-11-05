@@ -3,7 +3,7 @@ import 'server-only';
 import { classifyMovement } from './classify';
 import { loadManualInvoices } from './factpt-mirror';
 import { matchManualInvoice } from './factpt-mirror-rules';
-import { addDays, samePerson } from './invoice-safety';
+import { addDays, pickSamePayerInvoice, samePerson } from './invoice-safety';
 import { db, loadCustomRules } from './server';
 
 /*
@@ -122,8 +122,8 @@ export async function enrichIncomingMovements(options: { sinceDays?: number; dry
     const sameKind = candidates.every(invoice => invoice.sourceType === candidates[0].sourceType);
     let suggestion: Record<string, unknown>;
 
-    if (named.length === 1) {
-      const invoice = named[0];
+    const invoice = pickSamePayerInvoice(named);
+    if (invoice) {
       used.add(invoice.id);
       if (invoice.sourceType === 'pilgrimage') {
         const { data: payment, error: paymentError } = await db().from('pilgrimage_payments')

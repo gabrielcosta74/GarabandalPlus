@@ -1,4 +1,4 @@
-import { addDays, samePerson } from './invoice-safety';
+import { addDays, pickSamePayerInvoice, samePerson } from './invoice-safety';
 
 /*
  * Rules for the read-only copy of FACT.pt documents. The copy lets the system
@@ -94,7 +94,8 @@ export function matchManualInvoice(
     && invoice.date <= addDays(movement.bookingDate, 30));
   if (candidates.length === 0) return null;
   const named = candidates.filter(invoice => samePerson(movement.counterpartyName, invoice.customer));
-  if (named.length === 1) return { confidence: 'manual', invoiceRefs: [named[0].number] };
+  const samePayer = pickSamePayerInvoice(named);
+  if (samePayer) return { confidence: 'manual', invoiceRefs: [samePayer.number] };
   if (named.length > 1) return { confidence: 'ambiguous', invoiceRefs: named.map(invoice => invoice.number) };
   if (candidates.length === 1) return { confidence: 'manual_likely', invoiceRefs: [candidates[0].number] };
   return { confidence: 'ambiguous', invoiceRefs: candidates.map(invoice => invoice.number) };

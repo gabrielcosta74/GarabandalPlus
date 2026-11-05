@@ -46,6 +46,18 @@ export function samePerson(bankName: string | null, customerName: string | null)
   return shared.length >= 2 && shared.length >= Math.min(2, customer.length);
 }
 
+/**
+ * Someone paying the same amount every month has several FRs in the window.
+ * Movements are read oldest first, so the oldest FR belongs to this one. Two
+ * different people are never decided here: that stays with the admin.
+ */
+export function pickSamePayerInvoice<T extends { date: string; customer: string | null }>(named: T[]): T | null {
+  if (named.length === 0) return null;
+  const people = new Set(named.map(invoice => normalizeForMatch(invoice.customer || '')));
+  if (people.size > 1) return null;
+  return [...named].sort((a, b) => a.date.localeCompare(b.date))[0];
+}
+
 export function matchingCandidates(
   candidates: InvoiceCandidate[],
   movement: { amount: number; bookingDate: string; counterpartyName: string | null },

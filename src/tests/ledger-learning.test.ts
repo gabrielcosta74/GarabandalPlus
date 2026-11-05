@@ -6,6 +6,7 @@ import {
   invoiceRefFor, isAppDocument, matchManualInvoice, missingDonorFields, pagesNewestFirst,
   toMirrorRow, usableManualInvoice, type ManualInvoice,
 } from '../lib/ledger/factpt-mirror-rules';
+import { pickSamePayerInvoice } from '../lib/ledger/invoice-safety';
 import { checkPaymentsAgainstBank } from '../lib/ledger/reverse-check';
 
 describe('learning from confirmations', () => {
@@ -121,6 +122,14 @@ describe('FACT.pt documents issued by hand', () => {
   it('several possibilities are left to the admin', () => {
     expect(matchManualInvoice(movement, [invoice('FR 2026D/1', 'Rui Lopes'), invoice('FR 2026D/2', null)])?.confidence).toBe('ambiguous');
     expect(matchManualInvoice(movement, [invoice('FR 2026D/1', 'Ana Costa'), invoice('FR 2026D/2', 'Ana Maria Costa')])?.confidence).toBe('ambiguous');
+  });
+
+  it('a monthly payer gets the oldest FR, never a guess between two people', () => {
+    expect(matchManualInvoice(movement, [invoice('FR 2026D/2', 'Ana Costa', '2026-11-02'), invoice('FR 2026D/1', 'Ana Costa', '2026-10-12')]))
+      .toEqual({ confidence: 'manual', invoiceRefs: ['FR 2026D/1'] });
+    expect(pickSamePayerInvoice([])).toBeNull();
+    expect(pickSamePayerInvoice([{ date: '2026-10-01', customer: 'Ana Costa' }, { date: '2026-10-02', customer: 'Ana Maria Costa' }])).toBeNull();
+    expect(pickSamePayerInvoice([{ date: '2026-10-02', customer: 'ANA COSTA' }, { date: '2026-10-01', customer: 'Ana Costa' }])?.date).toBe('2026-10-01');
   });
 
   it('ignores other amounts and dates', () => {
