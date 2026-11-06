@@ -2,6 +2,7 @@ import { logAdminAudit } from '../../../../../../../lib/admin-audit';
 import { learnCounterparty } from '../../../../../../../lib/ledger/aliases';
 import { clientConflict, donationGate, donorPrefill, genericClientExists } from '../../../../../../../lib/ledger/donation-issue';
 import { syncFactptMirror } from '../../../../../../../lib/ledger/factpt-mirror';
+import { closeWhenInvoiced } from '../../../../../../../lib/ledger/finish-confirmed';
 import { missingDonorFields, type DonorIdentity } from '../../../../../../../lib/ledger/factpt-mirror-rules';
 import { FACTPT_GENERIC_CONSUMER_LIMIT } from '../../../../../../../lib/factpt/rules';
 import { db, requireAdmin } from '../../../../../../../lib/ledger/server';
@@ -118,6 +119,7 @@ export async function POST(req: Request, context: { params: Promise<{ id: string
     } catch (auditError) {
       console.error('Doação registada, mas falhou o log administrativo da contabilidade:', auditError);
     }
+    await closeWhenInvoiced(id).catch(closeError => console.error('Contabilidade: falhou a marca de fecho', closeError));
     await learnCounterparty(movement.counterparty_name, 'doacao')
       .catch(learnError => console.error('Contabilidade: falhou a aprendizagem', learnError));
     return Response.json({ ok: true, donationId });

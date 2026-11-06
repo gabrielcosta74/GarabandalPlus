@@ -3,6 +3,7 @@ import 'server-only';
 import { applyLearnedCategories } from './aliases';
 import { enrichIncomingMovements, reclassifyOpenMovements } from './enrich';
 import { syncFactptMirror } from './factpt-mirror';
+import { closeInvoicedMovements } from './finish-confirmed';
 
 /**
  * What runs after the bank is read, even when the read itself failed. Each step
@@ -24,5 +25,6 @@ export async function runLedgerFollowUps(options: { mirrorPages?: number } = {})
   await attempt('a reclassificação', () => reclassifyOpenMovements());
   const enriched = await attempt('o cruzamento com a faturação', () => enrichIncomingMovements());
   const learned = await attempt('a aprendizagem', () => applyLearnedCategories());
-  return { mirror, enriched, learned };
+  const finished = await attempt('o fecho dos movimentos com FR', () => closeInvoicedMovements());
+  return { mirror, enriched, learned, finished };
 }

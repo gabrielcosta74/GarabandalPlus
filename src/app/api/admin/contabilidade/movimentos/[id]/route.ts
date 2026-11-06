@@ -2,6 +2,7 @@ import { logAdminAudit } from '../../../../../../lib/admin-audit';
 import { forgetConfirmation, learnCounterparty } from '../../../../../../lib/ledger/aliases';
 import { LEDGER_CATEGORIES, requiresInvoice } from '../../../../../../lib/ledger/categories';
 import { findMirrorAmount } from '../../../../../../lib/ledger/factpt-mirror';
+import { stopClosingWhenInvoiced } from '../../../../../../lib/ledger/finish-confirmed';
 import { assessInvoice } from '../../../../../../lib/ledger/invoice-assessment';
 import { normalizeInvoiceRef, validateInvoiceRef } from '../../../../../../lib/ledger/invoice-safety';
 import { db, requireAdmin } from '../../../../../../lib/ledger/server';
@@ -157,6 +158,7 @@ export async function PATCH(req: Request, context: { params: Promise<{ id: strin
         p_actor: admin.email,
       });
       if (reopenError) return Response.json({ error: reopenError.message }, { status: reopenError.code === 'P0001' ? 409 : 500 });
+      await stopClosingWhenInvoiced(id).catch(stopError => console.error('Contabilidade: falhou ao reabrir', stopError));
       if (movement.status === 'reconciled') {
         await forgetConfirmation(movement.counterparty_name, movement.category_code)
           .catch(learnError => console.error('Contabilidade: falhou a aprendizagem', learnError));

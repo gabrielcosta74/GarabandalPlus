@@ -14,6 +14,7 @@ vi.mock('../lib/ledger/server', () => ({
 vi.mock('../lib/ledger/invoice-assessment', () => ({ assessInvoice: mocks.assess }));
 vi.mock('../lib/ledger/aliases', () => ({ learnCounterparty: async () => undefined, forgetConfirmation: async () => undefined }));
 vi.mock('../lib/ledger/factpt-mirror', () => ({ findMirrorAmount: async () => null }));
+vi.mock('../lib/ledger/finish-confirmed', () => ({ stopClosingWhenInvoiced: async () => undefined }));
 vi.mock('../lib/admin-audit', () => ({ logAdminAudit: mocks.audit }));
 
 import { PATCH } from '../app/api/admin/contabilidade/movimentos/[id]/route';

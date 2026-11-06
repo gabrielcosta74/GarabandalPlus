@@ -8,6 +8,7 @@ vi.mock('../lib/ledger/server', () => ({
 vi.mock('../lib/ledger/donation-issue', () => ({ donationGate: mocks.gate, donorPrefill: mocks.prefill, clientConflict: mocks.conflict, genericClientExists: mocks.generic }));
 vi.mock('../lib/ledger/factpt-mirror', () => ({ syncFactptMirror: mocks.mirror }));
 vi.mock('../lib/ledger/aliases', () => ({ learnCounterparty: mocks.learn }));
+vi.mock('../lib/ledger/finish-confirmed', () => ({ closeWhenInvoiced: async () => undefined }));
 vi.mock('../lib/admin-audit', () => ({ logAdminAudit: mocks.audit }));
 
 import { POST } from '../app/api/admin/contabilidade/movimentos/[id]/doacao/route';

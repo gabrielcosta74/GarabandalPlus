@@ -45,6 +45,7 @@ export default function MovementDrawer({ movement, readOnlyReason, onClose, onCh
   const [category, setCategory] = useState('');
   const [pilgrimageMode, setPilgrimageMode] = useState<'site' | 'issued'>('site');
   const [donationMode, setDonationMode] = useState<'issued' | 'app'>('issued');
+  const [typingInvoice, setTypingInvoice] = useState(false);
   const [invoiceRef, setInvoiceRef] = useState('');
   const [invoiceAssessment, setInvoiceAssessment] = useState<InvoiceAssessment | null>(null);
   const [checkingInvoice, setCheckingInvoice] = useState(false);
@@ -66,6 +67,7 @@ export default function MovementDrawer({ movement, readOnlyReason, onClose, onCh
     setCategory(movement.categoryCode || movement.suggestedCategoryCode || '');
     setPilgrimageMode('site');
     setDonationMode('issued');
+    setTypingInvoice(false);
     setInvoiceRef(manualInvoiceRef(movement, movement.categoryCode || movement.suggestedCategoryCode || ''));
     setAcknowledgeNearby(false);
     setNotes(movement.notes || '');
@@ -81,6 +83,7 @@ export default function MovementDrawer({ movement, readOnlyReason, onClose, onCh
     setAcknowledgeNearby(false);
     setPilgrimageMode('site');
     setDonationMode('issued');
+    setTypingInvoice(false);
     // Only a change of category clears what was typed.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [category]);
@@ -190,6 +193,13 @@ export default function MovementDrawer({ movement, readOnlyReason, onClose, onCh
   const offerDonationGate = open && category === 'doacao' && !onLocalChange && !view?.linkedPaymentId;
   const donationGate = useDonationGate(offerDonationGate && movementId ? movementId : null);
   const issuingDonation = category === 'doacao' && donationMode === 'app' && !!donationGate?.available;
+
+  // With no FR found, issuing it is the normal path; typing a number is the exception.
+  useEffect(() => {
+    if (!donationGate?.available || !movement) return;
+    const foundElsewhere = !!manualInvoiceRef(movement, 'doacao') || movement.suggestion?.confidence === 'ambiguous';
+    if (!foundElsewhere) setDonationMode('app');
+  }, [donationGate, movement]);
   const needsInvoice = !!view && view.amount > 0 && requiresInvoice(category);
   const needsDocument = !!view && view.amount < 0 && requiresDocument(category);
   const locked = !!readOnlyReason;
@@ -356,37 +366,24 @@ export default function MovementDrawer({ movement, readOnlyReason, onClose, onCh
                             onRegistered={() => { onChanged(); onClose(); toast({ title: 'Movimento associado à reserva', description: 'A fatura-recibo fica ligada a este movimento.' }); }} />)}
                     </div>}
 
-                    {category === 'doacao' && donationGate?.available && (
-                      <div className="grid grid-cols-2 gap-2 text-sm">
-                        <button type="button" onClick={() => setDonationMode('issued')}
-                          className={cx('cursor-pointer rounded-xl px-3 py-2.5 font-medium transition', donationMode === 'issued' ? 'bg-zinc-900 text-white' : 'bg-zinc-100 text-zinc-700 hover:bg-zinc-200')}>
-                          FR já emitida
-                        </button>
-                        <button type="button" onClick={() => setDonationMode('app')}
-                          className={cx('cursor-pointer rounded-xl px-3 py-2.5 font-medium transition', donationMode === 'app' ? 'bg-emerald-600 text-white' : 'bg-zinc-100 text-zinc-700 hover:bg-zinc-200')}>
-                          Emitir pela app
-                        </button>
-                      </div>
-                    )}
-
                     {category === 'doacao' && donationGate?.blockedReason && (
                       <p className="rounded-xl bg-zinc-50 px-3.5 py-3 text-sm text-zinc-700">{donationGate.blockedReason}</p>
                     )}
 
                     {issuingDonation && donationGate && (
-                      <Field label="Dados do doador">
+                      <Field label="Emitir fatura-recibo">
                         <DonationInvoiceField
                           movementId={view.id}
                           amount={view.amount}
                           gate={donationGate}
                           disabled={locked}
-                          onIssued={() => { onChanged(); onClose(); toast({ title: 'Doação registada', description: 'A fatura-recibo está a ser emitida e será enviada ao doador.' }); }}
+                          onIssued={() => { onChanged(); onClose(); toast({ title: 'Doação registada', description: 'A fatura-recibo sai dentro de minutos e o movimento fecha sozinho.' }); }}
                         />
                       </Field>
                     )}
 
                     {needsInvoice && !issuingDonation && (category !== 'peregrinacao' || pilgrimageMode === 'issued') && (
-                      <Field label="Fatura-recibo" hint="Associe uma FR já emitida. Confirmar este movimento não emite nenhuma FR.">
+                      <Field label="Fatura-recibo" hint={invoiceAssessment?.issued?.number || invoiceRef ? 'Confirmar liga esta FR ao movimento. Não emite nada.' : undefined}>
                         {checkingInvoice && <p className="mb-2 text-sm text-blue-700">A verificar documentos da app…</p>}
                         {invoiceCheckError && <p className="mb-2 text-sm text-rose-700">{invoiceCheckError}</p>}
                         {invoiceAssessment?.issued?.number && (
@@ -409,7 +406,7 @@ export default function MovementDrawer({ movement, readOnlyReason, onClose, onCh
                             <span>Verifiquei que as FRs da app com valor e data próximos não pertencem a este movimento.</span>
                           </label>
                         ) : null}
-                        {!invoiceAssessment?.issued && (
+                        {!invoiceAssessment?.issued && (invoiceRef || typingInvoice ? (
                         <div className="relative">
                           <FileText className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" aria-hidden />
                           <input
@@ -420,8 +417,25 @@ export default function MovementDrawer({ movement, readOnlyReason, onClose, onCh
                             className="h-11 w-full rounded-xl bg-zinc-50 pl-10 pr-3 text-sm text-zinc-900 ring-1 ring-transparent transition placeholder:text-zinc-400 focus:bg-white focus:outline-none focus:ring-zinc-300"
                           />
                         </div>
+                        ) : (
+                          <p className="rounded-xl bg-zinc-50 px-3.5 py-3 text-sm text-zinc-700">
+                            {category === 'quota' || category === 'loja'
+                              ? 'Ainda não há FR. Por agora emite-se na FACT.pt, e aparece aqui sozinha na atualização seguinte.'
+                              : 'Ainda não há FR encontrada para este movimento.'}
+                          </p>
+                        ))}
+                        {!invoiceAssessment?.issued && !invoiceRef && !typingInvoice && (
+                          <button type="button" onClick={() => setTypingInvoice(true)} className="mt-2 text-[13px] text-zinc-500 underline underline-offset-2 transition-colors duration-200 hover:text-zinc-800">
+                            Sei o número da FR
+                          </button>
                         )}
                       </Field>
+                    )}
+
+                    {category === 'doacao' && donationGate?.available && (
+                      <button type="button" onClick={() => setDonationMode(mode => (mode === 'app' ? 'issued' : 'app'))} className="text-[13px] text-zinc-500 underline underline-offset-2 transition-colors duration-200 hover:text-zinc-800">
+                        {donationMode === 'app' ? 'Esta FR já foi emitida' : 'Emitir a FR aqui'}
+                      </button>
                     )}
 
                     {documentField}

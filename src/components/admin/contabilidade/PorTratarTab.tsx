@@ -31,7 +31,7 @@ const SECTIONS: { key: Section; title: string; hint: string; icon: LucideIcon; t
   {
     key: 'income',
     title: 'Entradas para confirmar',
-    hint: 'Transferências sem FR encontrada. Abra cada uma e diga o que é.',
+    hint: 'Transferências sem FR encontrada. Abra cada uma, diga o que é e emita a fatura.',
     icon: HandCoins,
     tile: 'bg-rose-50 text-rose-600',
   },
