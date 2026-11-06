@@ -73,7 +73,7 @@ export default function AdminGuide({ issuing }: { issuing: boolean }) {
                 <p>Emita a FR na FACT.pt, como sempre. O sistema encontra-a na atualização seguinte; se não a encontrar, escreva o número no movimento.</p>
               </Step>
               <Step title="5. Despesas">
-                <p>Escolha o que é e marque a fatura em papel, se a tiver guardada no dossier.</p>
+                <p>Abra a despesa e anexe o PDF ou a fotografia da fatura. Se só existir em papel, marque «Fatura em papel» e guarde-a no dossier.</p>
               </Step>
               <Step title="A regra mais importante">
                 <p>Cada pagamento tem uma só FR: nunca a emita nos dois sítios. Se vir «FR a ser emitida», espere. Se vir «FR falhou», vá a Faturação antes de emitir outra.</p>

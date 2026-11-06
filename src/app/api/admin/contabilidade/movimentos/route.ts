@@ -53,7 +53,7 @@ export async function GET(req: Request) {
     const url = new URL(req.url);
     const { data: periodRows, error: periodError } = await db()
       .from('bank_transactions')
-      .select('period, status')
+      .select('id, period, status, amount, needs_document, paper_document')
       .order('period', { ascending: false })
       .limit(5000);
     if (periodError) {
@@ -73,9 +73,14 @@ export async function GET(req: Request) {
       throw periodError;
     }
     const periods = [...new Set((periodRows || []).map(row => row.period as string))];
+    const { data: documented, error: documentedError } = await db().from('expense_documents').select('bank_transaction_id');
+    if (documentedError) throw documentedError;
+    const withDocument = new Set((documented || []).map(row => row.bank_transaction_id as string));
     const openByPeriod: Record<string, number> = {};
     (periodRows || []).forEach(row => {
-      if (row.status === 'unreviewed' || row.status === 'suggested') openByPeriod[row.period] = (openByPeriod[row.period] || 0) + 1;
+      const open = row.status === 'unreviewed' || row.status === 'suggested';
+      const noDocument = row.status === 'reconciled' && Number(row.amount) < 0 && row.needs_document && !row.paper_document && !withDocument.has(row.id);
+      if (open || noDocument) openByPeriod[row.period] = (openByPeriod[row.period] || 0) + 1;
     });
     const bank = await bankConnection();
     const requested = url.searchParams.get('period');

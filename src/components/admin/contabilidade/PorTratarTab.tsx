@@ -7,7 +7,7 @@ import { CheckCheck, FileCheck2, Link2, FileWarning, HandCoins, HelpCircle, Part
 import { inboxGroup, type InboxGroup } from '../../../lib/ledger/categories';
 import MovementRow from './MovementRow';
 import type { LedgerMovement } from './types';
-import { Button, Card, EmptyState, cx, isOpen } from './ui';
+import { Button, Card, EmptyState, cx, isOpen, missingDocument } from './ui';
 
 const VISIBLE_PER_GROUP = 6;
 
@@ -45,7 +45,7 @@ const SECTIONS: { key: Section; title: string; hint: string; icon: LucideIcon; t
   {
     key: 'document',
     title: 'Despesas sem documento',
-    hint: 'Anexe a fatura ou marque que está em papel.',
+    hint: 'Abra cada uma e anexe a fatura, ou marque que está em papel. O mês só fecha com todas justificadas.',
     icon: FileWarning,
     tile: 'bg-orange-50 text-orange-600',
   },
@@ -83,7 +83,8 @@ export default function PorTratarTab({
   onOpen: (movement: LedgerMovement) => void;
   onApprove: (rows: LedgerMovement[]) => void;
 }) {
-  const open = useMemo(() => movements.filter(isOpen), [movements]);
+  // An approved expense without its invoice is still work to do.
+  const open = useMemo(() => movements.filter(movement => isOpen(movement) || missingDocument(movement)), [movements]);
   const grouped = useMemo(() => {
     const map = new Map<Section, LedgerMovement[]>(SECTIONS.map(s => [s.key, []]));
     open.forEach(m => map.get(groupFor(m))!.push(m));

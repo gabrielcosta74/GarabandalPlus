@@ -3,7 +3,7 @@
 import { Dialog, DialogBackdrop, DialogPanel, DialogTitle } from '@headlessui/react';
 import Link from 'next/link';
 import { useEffect, useState, type ReactNode } from 'react';
-import { CheckCircle2, CircleDashed, FileText, LoaderCircle, Paperclip, Undo2, UploadCloud, X } from 'lucide-react';
+import { CheckCircle2, CircleDashed, FileText, LoaderCircle, Undo2, UploadCloud, X } from 'lucide-react';
 
 import { KIND_LABELS, categoriesFor, categoryLabel, requiresDocument, requiresInvoice } from '../../../lib/ledger/categories';
 import { formatDay, formatEur } from '../../../lib/ledger/format';
@@ -14,6 +14,7 @@ import { adminFetch } from './useLedger';
 import { useToast } from './Toasts';
 import { Button, StatePill, cx, isOpen, movementTitle } from './ui';
 import DonationInvoiceField, { useDonationGate } from './DonationInvoiceField';
+import ExpenseDocumentsField from './ExpenseDocumentsField';
 import PilgrimageTransferField from './PilgrimageTransferField';
 
 type Props = {
@@ -202,6 +203,30 @@ export default function MovementDrawer({ movement, readOnlyReason, onClose, onCh
   const visual = visualFor(category || null);
   const Icon = visual.icon;
 
+  // An approved expense can still be waiting for its invoice.
+  const documentField = needsDocument && view ? (
+    <Field label="Documento da despesa">
+      {onLocalChange ? (
+        <button
+          type="button"
+          disabled={locked || busy}
+          onClick={() => void send({ action: 'attach' }, false)}
+          className="flex w-full flex-col items-center gap-1.5 rounded-2xl border border-dashed border-zinc-300 px-4 py-6 text-center transition-colors hover:border-zinc-400 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          <UploadCloud className="h-6 w-6 text-zinc-400" aria-hidden />
+          <span className="text-sm font-medium text-zinc-800">{view.documentCount > 0 ? `${view.documentCount} documento(s) anexado(s)` : 'Anexar fatura'}</span>
+          <span className="text-xs text-zinc-500">PDF ou fotografia, até 9 MB</span>
+        </button>
+      ) : (
+        <ExpenseDocumentsField movementId={view.id} disabled={locked} onChanged={onChanged} />
+      )}
+      <label className="mt-3 flex cursor-pointer items-center justify-between rounded-xl bg-zinc-50 px-4 py-3 text-sm text-zinc-700">
+        Fatura em papel, guardada no dossier
+        <Toggle checked={view.paperDocument} disabled={locked || busy} onChange={value => void send({ action: 'paper_document', value }, false)} />
+      </label>
+    </Field>
+  ) : null;
+
   return (
     <Dialog open={!!movement} onClose={onClose} className="relative z-50">
       <DialogBackdrop
@@ -252,6 +277,7 @@ export default function MovementDrawer({ movement, readOnlyReason, onClose, onCh
                     </Line>
                   )}
                   {view.status === 'ignored' && view.ignoreReason && <Line label="Motivo">{view.ignoreReason}</Line>}
+                  {!open && view.notes && <Line label="Nota">{view.notes}</Line>}
                 </dl>
                 {view.status !== 'reconciled' && view.status !== 'ignored' && (view.appInvoiceRef || view.suggestion) && (
                   <div className={cx('mt-4 rounded-2xl px-4 py-3 text-sm',
@@ -398,31 +424,7 @@ export default function MovementDrawer({ movement, readOnlyReason, onClose, onCh
                       </Field>
                     )}
 
-                    {needsDocument && (
-                      <Field label="Documento da despesa">
-                        {view.documentCount > 0 ? (
-                          <p className="flex items-center gap-2 rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-                            <Paperclip className="h-4 w-4" aria-hidden /> {view.documentCount} documento(s) anexado(s)
-                          </p>
-                        ) : (
-                          <button
-                            type="button"
-                            disabled={locked || busy || !onLocalChange}
-                            title={onLocalChange ? undefined : 'O carregamento de ficheiros chega na próxima fase.'}
-                            onClick={() => void send({ action: 'attach' }, false)}
-                            className="flex w-full flex-col items-center gap-1.5 rounded-2xl border border-dashed border-zinc-300 px-4 py-6 text-center transition-colors hover:border-zinc-400 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-60"
-                          >
-                            <UploadCloud className="h-6 w-6 text-zinc-400" aria-hidden />
-                            <span className="text-sm font-medium text-zinc-800">Anexar fatura</span>
-                            <span className="text-xs text-zinc-500">PDF ou fotografia, até 15 MB</span>
-                          </button>
-                        )}
-                        <label className="mt-3 flex cursor-pointer items-center justify-between rounded-xl bg-zinc-50 px-4 py-3 text-sm text-zinc-700">
-                          Fatura em papel, guardada no dossier
-                          <Toggle checked={view.paperDocument} disabled={locked || busy} onChange={value => void send({ action: 'paper_document', value }, false)} />
-                        </label>
-                      </Field>
-                    )}
+                    {documentField}
 
                     <Field label="Nota interna">
                       <textarea
@@ -449,6 +451,8 @@ export default function MovementDrawer({ movement, readOnlyReason, onClose, onCh
                     )}
                   </div>
                 )}
+
+                {!open && view.status === 'reconciled' && documentField && <div className="mt-6">{documentField}</div>}
 
                 {error && <p className="mt-4 rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</p>}
               </div>

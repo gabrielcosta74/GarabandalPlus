@@ -19,7 +19,7 @@ import PorTratarTab from './PorTratarTab';
 import { ToastProvider, useToast } from './Toasts';
 import type { LedgerMovement } from './types';
 import { adminFetch, useLedger } from './useLedger';
-import { ErrorState, LoadingRows, cx, isOpen } from './ui';
+import { ErrorState, LoadingRows, cx, isOpen, missingDocument } from './ui';
 
 type Tab = 'por-tratar' | 'movimentos' | 'fecho';
 
@@ -94,7 +94,7 @@ function Contabilidade() {
     window.history.replaceState(null, '', url.toString());
   }, []);
 
-  const openCount = useMemo(() => ledger.movements.filter(isOpen).length, [ledger.movements]);
+  const openCount = useMemo(() => ledger.movements.filter(movement => isOpen(movement) || missingDocument(movement)).length, [ledger.movements]);
 
   // Months are listed newest first; "previous" goes back in time.
   const periodIndex = ledger.period ? ledger.periods.indexOf(ledger.period) : -1;
