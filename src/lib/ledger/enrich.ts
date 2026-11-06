@@ -95,11 +95,13 @@ export async function enrichIncomingMovements(options: { sinceDays?: number; dry
       && Math.round(invoice.amount * 100) === Math.round(movement.amount * 100)
       && invoice.date >= addDays(movement.booking_date, -2)
       && invoice.date <= addDays(movement.booking_date, 30));
-    if (candidates.length === 0) {
-      const manual = matchManualInvoice(
-        { amount: movement.amount, bookingDate: movement.booking_date, counterpartyName: movement.counterparty_name },
-        manualInvoices.filter(invoice => !usedManual.has(invoice.number)),
-      );
+    const named = candidates.filter(invoice => samePerson(movement.counterparty_name, invoice.customer));
+    const manual = named.length > 0 ? null : matchManualInvoice(
+      { amount: movement.amount, bookingDate: movement.booking_date, counterpartyName: movement.counterparty_name },
+      manualInvoices.filter(invoice => !usedManual.has(invoice.number)),
+    );
+    // A hand-issued FR with the payer's name beats an app FR in someone else's.
+    if (candidates.length === 0 || manual?.confidence === 'manual') {
       if (!manual) continue;
       if (manual.confidence !== 'ambiguous') usedManual.add(manual.invoiceRefs[0]);
       if (manual.confidence === 'ambiguous') result.ambiguous += 1; else result.likely += 1;
@@ -122,7 +124,6 @@ export async function enrichIncomingMovements(options: { sinceDays?: number; dry
       continue;
     }
 
-    const named = candidates.filter(invoice => samePerson(movement.counterparty_name, invoice.customer));
     const category = CATEGORY_FOR[candidates[0].sourceType];
     const sameKind = candidates.every(invoice => invoice.sourceType === candidates[0].sourceType);
     let suggestion: Record<string, unknown>;
