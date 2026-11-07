@@ -29,14 +29,22 @@ function dayHeading(iso: string): string {
 }
 
 /** Opening balance = first balance minus its own movement. */
-export function monthBalances(movements: LedgerMovement[]) {
+/**
+ * Statement files carry a balance on every line; the bank feed does not, so the
+ * month then uses the balance worked back from the bank's own figure.
+ */
+export function monthBalances(movements: LedgerMovement[], fromBank?: { opening: number; closing: number } | null) {
   const withBalance = movements.filter(movement => movement.balanceAfter !== null);
-  if (withBalance.length === 0) return null;
+  const income = sumAmounts(movements.filter(m => m.amount > 0).map(m => m.amount));
+  const expenses = sumAmounts(movements.filter(m => m.amount < 0).map(m => m.amount));
+  if (withBalance.length === 0) {
+    if (!fromBank) return null;
+    const computed = sumAmounts([fromBank.opening, income, expenses]);
+    return { opening: fromBank.opening, income, expenses, closing: fromBank.closing, matches: Math.abs(computed - fromBank.closing) < 0.005, computed };
+  }
   const first = withBalance[0];
   const last = withBalance[withBalance.length - 1];
   const opening = sumAmounts([first.balanceAfter as number, -first.amount]);
-  const income = sumAmounts(movements.filter(m => m.amount > 0).map(m => m.amount));
-  const expenses = sumAmounts(movements.filter(m => m.amount < 0).map(m => m.amount));
   const computed = sumAmounts([opening, income, expenses]);
   const closing = last.balanceAfter as number;
   return { opening, income, expenses, closing, matches: Math.abs(computed - closing) < 0.005, computed };
@@ -46,10 +54,12 @@ export default function MovimentosTab({
   movements,
   selectedId,
   onOpen,
+  monthBalance,
 }: {
   movements: LedgerMovement[];
   selectedId: string | null;
   onOpen: (movement: LedgerMovement) => void;
+  monthBalance?: { opening: number; closing: number } | null;
 }) {
   const [filter, setFilter] = useState<Filter>('all');
   const [query, setQuery] = useState('');
@@ -69,7 +79,7 @@ export default function MovimentosTab({
     return [...groups.entries()].sort((a, b) => b[0].localeCompare(a[0]));
   }, [movements, filter, query]);
 
-  const balances = useMemo(() => monthBalances(movements), [movements]);
+  const balances = useMemo(() => monthBalances(movements, monthBalance), [movements, monthBalance]);
 
   return (
     <div className="flex flex-col gap-4">

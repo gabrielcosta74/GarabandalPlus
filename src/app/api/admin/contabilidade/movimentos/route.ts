@@ -85,6 +85,16 @@ export async function GET(req: Request) {
     const bank = await bankConnection();
     const requested = url.searchParams.get('period');
     const period = requested && /^\d{4}-\d{2}$/.test(requested) ? requested : periods[0];
+
+    // The bank sends no balance per line. Worked back from today's balance it
+    // matched the admin's statement to the cent for every month checked.
+    const cents = (value: unknown) => Math.round(Number(value) * 100);
+    const monthBalance = bank?.balance === null || bank?.balance === undefined || !period ? null : (() => {
+      const later = (periodRows || []).filter(row => row.period > period).reduce((sum, row) => sum + cents(row.amount), 0);
+      const within = (periodRows || []).filter(row => row.period === period).reduce((sum, row) => sum + cents(row.amount), 0);
+      const closing = cents(bank.balance) - later;
+      return { opening: (closing - within) / 100, closing: closing / 100, asOf: bank.balanceCheckedAt, current: period === periods[0] };
+    })();
     if (!period) return Response.json({ dbReady: true, periods: [], movements: [], period: null, bank });
 
     const { data, error } = await db()
@@ -193,6 +203,7 @@ export async function GET(req: Request) {
       closed: closed.data?.status === 'closed' ? closed.data : null,
       bank,
       openByPeriod,
+      monthBalance,
       movements,
     });
   } catch (error) {

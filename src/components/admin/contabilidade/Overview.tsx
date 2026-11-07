@@ -39,12 +39,15 @@ export default function Overview({
   movements,
   previous,
   onOpenTodo,
+  monthBalance,
 }: {
   movements: LedgerMovement[];
   previous: LedgerMovement[] | null;
   onOpenTodo: () => void;
+  monthBalance?: { closing: number; current: boolean } | null;
 }) {
   const now = useMemo(() => totals(movements), [movements]);
+  const balance = now.balance ?? monthBalance?.closing ?? null;
   const before = useMemo(() => (previous && previous.length ? totals(previous) : null), [previous]);
   const open = movements.filter(isOpen).length;
   const treated = movements.length - open;
@@ -61,7 +64,7 @@ export default function Overview({
         <Kpi icon={ArrowUpRight} dot="bg-zinc-400" label="Saídas" value={now.expenses}>
           <Change current={now.expenses} previous={before?.expenses ?? null} lowerIsBetter />
         </Kpi>
-        <Kpi icon={Wallet} dot="bg-zinc-900" label="Saldo no fim do mês" value={now.balance}>
+        <Kpi icon={Wallet} dot="bg-zinc-900" label={monthBalance?.current ? 'Saldo atual no banco' : 'Saldo no fim do mês'} value={balance}>
           <p className="text-[13px] text-zinc-500">
             Resultado do mês{' '}
             <span className={cx('font-medium tabular-nums', result >= 0 ? 'text-emerald-600' : 'text-zinc-900')}>{formatEur(result, { signed: true })}</span>

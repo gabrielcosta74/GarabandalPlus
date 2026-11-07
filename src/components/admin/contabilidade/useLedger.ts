@@ -18,6 +18,8 @@ export type StoredPreview = {
 /** live = database · preview = an uploaded statement, not saved · demo = invented example data */
 export type LedgerMode = 'live' | 'preview' | 'demo' | 'bank';
 
+export type MonthBalance = { opening: number; closing: number; asOf: string | null; current: boolean };
+
 export type BankInfo = {
   fetchedAt: string | null;
   nextRefreshAt: string | null;
@@ -96,6 +98,8 @@ type LedgerState = {
   movements: LedgerMovement[];
   closed: { closed_by: string; closed_at: string } | null;
   openByPeriod: Record<string, number>;
+  /** Start and end of the month, worked back from the bank's own balance. */
+  monthBalance: MonthBalance | null;
   bank: BankInfo | null;
 };
 
@@ -117,6 +121,7 @@ function localState(mode: 'preview' | 'demo' | 'bank', all: LedgerMovement[], wa
     movements: all.filter(m => m.period === period),
     closed: null,
     openByPeriod: {},
+    monthBalance: null,
     bank,
   };
 }
@@ -131,7 +136,7 @@ export function useLedger() {
   const [reloadKey, setReloadKey] = useState(0);
   const [state, setState] = useState<LedgerState>({
     loading: true, error: null, mode: 'live', previewFileName: null, localMovements: [],
-    periods: [], period: null, movements: [], closed: null, openByPeriod: {}, bank: null,
+    periods: [], period: null, movements: [], closed: null, openByPeriod: {}, monthBalance: null, bank: null,
   });
 
   const modeRef = useRef<LedgerMode>('live');
@@ -189,6 +194,7 @@ export function useLedger() {
           movements: body.movements || [],
           closed: body.closed || null,
           openByPeriod: body.openByPeriod || {},
+          monthBalance: body.monthBalance || null,
           bank: body.bank || null,
         });
       })

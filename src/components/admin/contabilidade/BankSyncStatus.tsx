@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { CalendarClock, FileUp, RefreshCw, TriangleAlert } from 'lucide-react';
 
 import type { BankInfo } from './useLedger';
+import { formatEur } from '../../../lib/ledger/format';
 import { Button, cx } from './ui';
 
 /**
@@ -88,6 +89,12 @@ export default function BankSyncStatus({
             : bank?.fetchedAt
               ? <>Atualizado <span className="font-medium text-zinc-900">{relative(bank.fetchedAt, now)}</span></>
               : 'Ainda sem leitura do banco'}
+          {!syncing && bank?.balance !== null && bank?.balance !== undefined && (
+            <>
+              <span className="text-zinc-400">·</span>
+              <span>Saldo <span className="font-semibold tabular-nums text-zinc-900">{formatEur(bank.balance)}</span></span>
+            </>
+          )}
           <span className="text-zinc-400">·</span>
           <span className="text-zinc-500">próxima automática {clock(nextAutomatic, now)}</span>
         </span>

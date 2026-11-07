@@ -267,7 +267,7 @@ function Contabilidade() {
         <LoadingRows />
       ) : (
         <>
-          <Overview movements={ledger.movements} previous={ledger.previous} onOpenTodo={() => changeTab('por-tratar')} />
+          <Overview movements={ledger.movements} previous={ledger.previous} monthBalance={ledger.monthBalance} onOpenTodo={() => changeTab('por-tratar')} />
 
           {/* Tabs */}
           <div className="flex items-center justify-between gap-4">
@@ -323,7 +323,7 @@ function Contabilidade() {
               onApprove={rows => void approve(rows)}
             />
           ) : tab === 'movimentos' ? (
-            <MovimentosTab movements={ledger.movements} selectedId={selectedId} onOpen={openMovement} />
+            <MovimentosTab movements={ledger.movements} selectedId={selectedId} onOpen={openMovement} monthBalance={ledger.monthBalance} />
           ) : (
             <FechoTab
               period={ledger.period}
@@ -331,6 +331,7 @@ function Contabilidade() {
               readOnlyReason={ledger.readOnlyReason}
               closedBy={ledger.closed}
               onGo={changeTab}
+              monthBalance={ledger.monthBalance}
             />
           )}
           </motion.div>

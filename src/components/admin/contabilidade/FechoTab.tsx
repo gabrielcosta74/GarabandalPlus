@@ -22,18 +22,20 @@ export default function FechoTab({
   readOnlyReason,
   closedBy,
   onGo,
+  monthBalance,
 }: {
   period: string | null;
   movements: LedgerMovement[];
   readOnlyReason: string | null;
   closedBy: { closed_by: string; closed_at: string } | null;
   onGo: (tab: 'por-tratar' | 'movimentos') => void;
+  monthBalance?: { opening: number; closing: number } | null;
 }) {
   const checks = useMemo<CheckItem[]>(() => {
     const open = movements.filter(isOpen).length;
     const noInvoice = movements.filter(missingInvoice).length;
     const noDocument = movements.filter(missingDocument).length;
-    const balances = monthBalances(movements);
+    const balances = monthBalances(movements, monthBalance);
     return [
       { key: 'open', label: 'Todos os movimentos confirmados', state: open ? 'fail' : 'ok', detail: open ? `${open} ainda por tratar` : 'Nenhum por tratar', goTo: 'por-tratar' },
       { key: 'invoice', label: 'Entradas com fatura-recibo', state: noInvoice ? 'fail' : 'ok', detail: noInvoice ? `${noInvoice} sem fatura` : 'Todas as doações, quotas e vendas têm FR', goTo: 'movimentos' },
@@ -47,7 +49,7 @@ export default function FechoTab({
       },
       { key: 'factpt', label: 'Totais iguais aos da FACT.pt', state: 'pending', detail: 'Comparação automática — em breve' },
     ];
-  }, [movements]);
+  }, [movements, monthBalance]);
 
   if (!period || movements.length === 0) {
     return <Card><EmptyState title="Sem movimentos para fechar" /></Card>;
