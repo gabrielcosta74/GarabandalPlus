@@ -162,14 +162,33 @@ export async function assessInvoice(movement: Movement, category: string): Promi
     }
   }
 
+  // An FR already tied to another bank movement cannot be this one's: it must not
+  // ask the admin to rule it out.
+  const nearbyDocs = (documents || []).filter(document => document.factpt_number && ['issued', 'email_failed'].includes(document.status));
+  const takenNearby = new Set<string>();
+  if (nearbyDocs.length) {
+    const { data: taken, error: takenError } = await db().from('bank_transaction_links')
+      .select('bank_transaction_id, target_type, target_id')
+      .or(`target_id.in.(${nearbyDocs.map(document => document.source_id).join(',')}),target_type.eq.factpt_document`)
+      .neq('bank_transaction_id', movement.id);
+    if (takenError) throw takenError;
+    for (const link of taken || []) {
+      if (link.target_type === 'factpt_document') takenNearby.add(String(link.target_id));
+      else if (link.target_type === 'donation' || link.target_type === 'pilgrimage_payment') {
+        const owner = nearbyDocs.find(document => document.source_id === link.target_id);
+        if (owner) takenNearby.add(owner.factpt_number);
+      }
+    }
+  }
+
   return {
     issued: issued.length === 1 && matched.length === 1 && pendingRows.length === 0 && !competingBankMovement ? issued[0] : null,
     pending: queued.length === 1 && matched.length === 1 && pendingRows.length === 0
       ? { type: 'factpt_document', id: queued[0].id }
       : pendingRows.length === 1 && matched.length === 0 ? pendingRows[0] : null,
     ambiguous: matched.length + pendingRows.length > 1 || competingBankMovement,
-    nearbyIssuedCount: (documents || []).filter(document =>
-      document.factpt_number && ['issued', 'email_failed'].includes(document.status)
+    nearbyIssuedCount: nearbyDocs.filter(document =>
+      !takenNearby.has(document.factpt_number)
       && (category === 'doacao' || category === 'peregrinacao'
         ? ['donation', 'pilgrimage'].includes(document.source_type)
         : document.source_type === sourceType)

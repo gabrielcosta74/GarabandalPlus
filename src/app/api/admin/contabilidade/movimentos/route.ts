@@ -123,7 +123,9 @@ export async function GET(req: Request) {
     const linkedPayments = new Map<string, string>();
     const linkedPaymentLabels = new Map<string, string>();
     const linkedDonations = new Set<string>();
+    const agreements = new Map<string, { id: string; label: string | null }>();
     (links.data || []).forEach((link: { bank_transaction_id: string; target_type: string; target_id: string | null; label: string | null; method?: string }) => {
+      if (link.target_type === 'agreement' && link.target_id) agreements.set(link.bank_transaction_id, { id: link.target_id, label: link.label });
       if ((link.target_type === 'pilgrimage_payment' || link.target_type === 'donation') && link.target_id) {
         linkedPayments.set(link.bank_transaction_id, link.target_id);
         if (link.target_type === 'donation') linkedDonations.add(link.bank_transaction_id);
@@ -170,6 +172,8 @@ export async function GET(req: Request) {
       invoiceFromApp: invoiceFromApp.has(row.id),
       linkedPaymentId: linkedPayments.get(row.id) || null,
       linkedPaymentLabel: linkedPaymentLabels.get(row.id) || null,
+      agreementId: agreements.get(row.id)?.id ?? null,
+      agreementLabel: agreements.get(row.id)?.label ?? null,
       linkedPaymentKind: linkedPayments.has(row.id) ? (linkedDonations.has(row.id) ? 'donation' : 'pilgrimage') : null,
       appInvoiceRef: (() => {
         const paymentId = linkedPayments.get(row.id);

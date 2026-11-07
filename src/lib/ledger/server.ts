@@ -26,6 +26,9 @@ export type LedgerMovement = {
   linkedPaymentId?: string | null;
   linkedPaymentLabel?: string | null;
   linkedPaymentKind?: 'pilgrimage' | 'donation' | null;
+  /** The supplier agreement (proforma) this expense pays off. */
+  agreementId?: string | null;
+  agreementLabel?: string | null;
   /** FR already issued by the app for the linked pilgrimage payment. */
   appInvoiceRef?: string | null;
   appInvoiceState?: 'issued' | 'processing' | 'failed' | null;

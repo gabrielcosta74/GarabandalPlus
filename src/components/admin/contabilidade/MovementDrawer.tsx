@@ -7,6 +7,7 @@ import { CheckCircle2, CircleDashed, FileText, LoaderCircle, Undo2, UploadCloud,
 
 import { KIND_LABELS, categoriesFor, categoryLabel, requiresDocument, requiresInvoice } from '../../../lib/ledger/categories';
 import { formatDay, formatEur } from '../../../lib/ledger/format';
+import { categoryForInvoice } from '../../../lib/ledger/factpt-mirror-rules';
 import { validateInvoiceRef } from '../../../lib/ledger/invoice-safety';
 import { visualFor } from './theme';
 import type { LedgerMovement } from './types';
@@ -14,6 +15,7 @@ import { adminFetch } from './useLedger';
 import { useToast } from './Toasts';
 import { Button, StatePill, cx, isOpen, movementTitle } from './ui';
 import DonationInvoiceField, { useDonationGate } from './DonationInvoiceField';
+import AgreementField from './AgreementField';
 import ExpenseDocumentsField from './ExpenseDocumentsField';
 import PilgrimageTransferField from './PilgrimageTransferField';
 
@@ -213,6 +215,13 @@ export default function MovementDrawer({ movement, readOnlyReason, onClose, onCh
   const visual = visualFor(category || null);
   const Icon = visual.icon;
 
+  // Hotels and restaurants are paid in instalments of a proforma.
+  const agreementField = view && view.amount < 0 && view.status !== 'ignored' && !onLocalChange ? (
+    <Field label="Proforma do fornecedor">
+      <AgreementField movementId={view.id} amount={view.amount} linkedAgreementId={view.agreementId ?? null} disabled={locked} onChanged={onChanged} />
+    </Field>
+  ) : null;
+
   // An approved expense can still be waiting for its invoice.
   const documentField = needsDocument && view ? (
     <Field label="Documento da despesa">
@@ -308,7 +317,26 @@ export default function MovementDrawer({ movement, readOnlyReason, onClose, onCh
                     ) : view.suggestion?.confidence === 'learned' ? (
                       <p><span className="font-semibold">Pagador conhecido.</span> {view.suggestion.reason}.</p>
                     ) : view.suggestion?.confidence === 'manual' || view.suggestion?.confidence === 'manual_likely' ? (
-                      <p><span className="font-semibold">{view.suggestion.confidence === 'manual' ? 'Encontrada na FACT.pt:' : 'Possível na FACT.pt:'}</span> {view.suggestion.invoiceRef} — {view.suggestion.reason}. Não emita uma FR nova.</p>
+                      <>
+                        <p><span className="font-semibold">{view.suggestion.confidence === 'manual' ? 'Encontrada na FACT.pt:' : 'Possível na FACT.pt:'}</span> {view.suggestion.invoiceRef} — {view.suggestion.reason}. Não emita uma FR nova.</p>
+                        {open && view.suggestion.invoiceRef && (
+                          <Button
+                            size="sm"
+                            variant="primary"
+                            className="mt-3"
+                            disabled={locked || busy}
+                            onClick={() => {
+                              const ref = view.suggestion!.invoiceRef!;
+                              // The series decides when the chosen category does not fit the FR (Q is a quota).
+                              const fits = validateInvoiceRef(ref, category, view.bookingDate) ? category : categoryForInvoice(ref) || 'doacao';
+                              void send({ action: 'approve', categoryCode: fits, invoiceRef: ref, acknowledgeNearby: true });
+                            }}
+                          >
+                            <CheckCircle2 className="h-4 w-4" aria-hidden />
+                            É esta: confirmar com {view.suggestion.invoiceRef}
+                          </Button>
+                        )}
+                      </>
                     ) : (
                       <p><span className="font-semibold">Provável:</span> {view.suggestion?.invoiceRef} — {view.suggestion?.reason}. Se for este o pagamento, escolha a reserva nas sugestões abaixo; não emita uma FR nova.</p>
                     )}
@@ -438,6 +466,8 @@ export default function MovementDrawer({ movement, readOnlyReason, onClose, onCh
                       </button>
                     )}
 
+                    {agreementField}
+
                     {documentField}
 
                     <Field label="Nota interna">
@@ -466,7 +496,9 @@ export default function MovementDrawer({ movement, readOnlyReason, onClose, onCh
                   </div>
                 )}
 
-                {!open && view.status === 'reconciled' && documentField && <div className="mt-6">{documentField}</div>}
+                {!open && view.status === 'reconciled' && (agreementField || documentField) && (
+                  <div className="mt-6 space-y-6">{agreementField}{documentField}</div>
+                )}
 
                 {error && <p className="mt-4 rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</p>}
               </div>
