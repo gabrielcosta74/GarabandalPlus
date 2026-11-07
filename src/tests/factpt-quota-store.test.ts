@@ -6,6 +6,7 @@ import {
   buildInitialFactPtFiscalSnapshot,
   factPtNeedsDataMessage,
   findManualDuplicate,
+  quotaExemptTaxId,
 } from '../lib/factpt/processor';
 import { decideFactPtDocument } from '../lib/factpt/rules';
 import { loadFactPtSourceSnapshot } from '../lib/factpt/source-snapshots';
@@ -282,6 +283,18 @@ describe('FACT.pt quota and store documents', () => {
       reason: 'missing_quota_billing_data',
       missingFields: ['customer.city'],
     });
+  });
+
+  it('picks the art. 9.º exemption (M07) among the 0 % taxes', () => {
+    const taxes = [
+      { id: 727, value: '6.00', name: '6%' },
+      { id: 729, value: '0.00', name: 'Is.IVA M05' },
+      { id: 730, value: '0.00', name: 'Is.IVA M07' },
+    ];
+    expect(quotaExemptTaxId(taxes)).toBe(730);
+    expect(quotaExemptTaxId(taxes.slice(0, 2))).toBeUndefined();
+    expect(quotaExemptTaxId([...taxes, { id: 731, value: '0', name: 'M07 bis' }]))
+      .toBeUndefined();
   });
 
   it('uses each series production key once the server allows production', () => {

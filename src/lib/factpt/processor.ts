@@ -30,6 +30,7 @@ import type {
   FactPtRemoteClient,
   FactPtRemoteDocument,
   FactPtSourceType,
+  FactPtTax,
 } from './types';
 import {
   loadFactPtSourceSnapshot,
@@ -454,9 +455,10 @@ async function resolveFiscalSnapshot(
   const zeroTaxVariable = job.series_code === '2026L'
     ? null
     : `FACTPT_${job.environment === 'production' ? 'PRODUCTION_' : ''}ZERO_TAX_ID_${job.series_code}`;
-  const zeroTaxId = zeroTaxVariable
+  const zeroTaxId = (zeroTaxVariable
     ? process.env[zeroTaxVariable]?.trim()
-    : undefined;
+    : undefined)
+    || (job.series_code === '2026Q' ? quotaExemptTaxId(taxes) : undefined);
   const lines: FactPtFiscalLine[] = [];
   for (const line of fiscal.lines) {
     const matchingProducts = await client.findProductsByReference(
@@ -558,6 +560,18 @@ async function completeIdentityFromFactPtClient(
       country: countryCode(chosen.country || null),
     },
   };
+}
+
+/**
+ * Quotas are exempt under art. 9.º CIVA (code M07), as on every quota FR
+ * issued by hand. Found by name when no variable names the tax; anything but
+ * exactly one match leaves the choice to the explicit variable.
+ */
+export function quotaExemptTaxId(taxes: FactPtTax[]): FactPtTax['id'] | undefined {
+  const matches = taxes.filter((tax) =>
+    Math.abs(Number.parseFloat(tax.value)) < 0.001
+    && /\bM07\b|artigo\s*9/i.test(String(tax.name || '')));
+  return matches.length === 1 ? matches[0].id : undefined;
 }
 
 /** What the admin reads in Faturação when a document cannot go out yet. */
