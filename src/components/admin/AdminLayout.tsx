@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Menu } from 'lucide-react';
 import AdminSidebar from './AdminSidebar';
 import AdminHeader from './AdminHeader';
 import { supabaseBrowser } from '../../lib/supabase-browser';
@@ -14,11 +15,13 @@ type AdminLayoutProps = {
     userEmail?: string | null;
     isLoading?: boolean;
     hideHeader?: boolean;
+    /** Full-bleed dark canvas: the page paints everything inside the main area. */
+    bare?: boolean;
 };
 
 const SIDEBAR_STORAGE_KEY = 'admin:sidebar-collapsed';
 
-export default function AdminLayout({ children, title = "Dashboard", description, isLoading, hideHeader = false }: AdminLayoutProps) {
+export default function AdminLayout({ children, title = "Dashboard", description, isLoading, hideHeader = false, bare = false }: AdminLayoutProps) {
     const [isMobileOpen, setIsMobileOpen] = useState(false);
     const [isCollapsed, setIsCollapsed] = useState(false);
     const router = useRouter();
@@ -105,11 +108,25 @@ export default function AdminLayout({ children, title = "Dashboard", description
                     />
                 )}
 
-                <main className="flex-1 overflow-y-auto p-6 md:p-8 scroll-smooth">
-                    <div className="max-w-7xl mx-auto pb-12">
+                {bare ? (
+                    <main className="relative flex-1 overflow-y-auto scroll-smooth bg-[#08090B]">
+                        <button
+                            type="button"
+                            onClick={() => setIsMobileOpen(true)}
+                            aria-label="Abrir menu"
+                            className="fixed left-4 top-4 z-30 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur-xl lg:hidden"
+                        >
+                            <Menu className="h-5 w-5" aria-hidden />
+                        </button>
                         {children}
-                    </div>
-                </main>
+                    </main>
+                ) : (
+                    <main className="flex-1 overflow-y-auto p-6 md:p-8 scroll-smooth">
+                        <div className="max-w-7xl mx-auto pb-12">
+                            {children}
+                        </div>
+                    </main>
+                )}
             </div>
         </div>
     );
