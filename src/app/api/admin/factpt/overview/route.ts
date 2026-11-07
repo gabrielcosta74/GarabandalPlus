@@ -147,7 +147,8 @@ export async function GET(request: Request) {
         .select(
           'environment, auto_enabled, go_live_at, '
           + 'production_pilgrimages_only, production_donations_enabled, '
-          + 'donations_go_live_at, auto_issue_reconciled_reduniq',
+          + 'donations_go_live_at, production_quotas_enabled, quotas_go_live_at, '
+          + 'production_store_enabled, store_go_live_at, auto_issue_reconciled_reduniq',
         )
         .eq('environment', environment)
         .maybeSingle(),

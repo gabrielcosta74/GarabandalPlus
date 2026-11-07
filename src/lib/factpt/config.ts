@@ -35,11 +35,13 @@ const SOURCE_CONFIG: Record<
     series: '2026Q',
     credentialSlot: 'Q',
     sandboxApiKeyVariable: 'FACTPT_SANDBOX_KEY_2026Q',
+    productionApiKeyVariable: 'FACTPT_PRODUCTION_KEY_2026Q',
   },
   store: {
     series: '2026L',
     credentialSlot: 'L',
     sandboxApiKeyVariable: 'FACTPT_SANDBOX_KEY_2026L',
+    productionApiKeyVariable: 'FACTPT_PRODUCTION_KEY_2026L',
   },
   donation: {
     series: '2026D',
@@ -104,17 +106,9 @@ export function getFactPtConfig(
   env: Environment = process.env,
 ): FactPtConfig {
   assertNoPublicFactPtSecrets(env);
+  // Each series has its own production key. Whether a series may issue at all
+  // is decided by the per-series gates in factpt_settings, not here.
   const sourceConfig = SOURCE_CONFIG[sourceType];
-  if (
-    environment === 'production'
-    && sourceType !== 'pilgrimage'
-    && sourceType !== 'donation'
-  ) {
-    throw new Error(
-      'A FACT.pt de produção aceita exclusivamente peregrinações e doações diretas.',
-    );
-  }
-
   if (environment === 'production' && !isFactPtProductionEnabled(env)) {
     throw new Error(
       'A FACT.pt de produção está desativada no servidor.',

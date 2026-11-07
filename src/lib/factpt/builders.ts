@@ -57,11 +57,15 @@ function documentItems(snapshot: FactPtFiscalSnapshot): FactPtDocumentItem[] {
   });
 }
 
-function donationComments(snapshot: FactPtFiscalSnapshot) {
-  return snapshot.sourceType === 'donation' ||
-    snapshot.sourceType === 'pilgrimage'
-    ? FACTPT_DONATION_COMMENT
-    : undefined;
+function documentComments(snapshot: FactPtFiscalSnapshot) {
+  if (
+    snapshot.sourceType === 'donation'
+    || snapshot.sourceType === 'pilgrimage'
+  ) {
+    return FACTPT_DONATION_COMMENT;
+  }
+  const comments = snapshot.comments?.trim();
+  return comments ? comments.slice(0, 255) : undefined;
 }
 
 function normalizedReference(reference?: string) {
@@ -93,7 +97,7 @@ export function buildFactPtDocument(
   const commonDocument = {
     date,
     paymentType: resolveFactPtPaymentType(snapshot.paymentMethod),
-    comments: donationComments(snapshot),
+    comments: documentComments(snapshot),
     reference: normalizedReference(snapshot.reference),
     download: false as const,
     allowRound: true as const,

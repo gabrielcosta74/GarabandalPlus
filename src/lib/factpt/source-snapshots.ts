@@ -1,5 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
+import type { FactPtBlockingReason } from './types';
+
 type SupabaseServiceClient = Pick<SupabaseClient, 'from' | 'auth'>;
 
 export type FactPtSourceType = 'quota' | 'store' | 'donation' | 'pilgrimage';
@@ -45,6 +47,8 @@ export type FactPtSourceSnapshot = {
   language: 'pt' | 'en';
   emailSourceLabel?: string;
   genericConsumer?: boolean;
+  blockingReason?: FactPtBlockingReason;
+  blockingFields?: string[];
 };
 
 const clean = (value: unknown): string | null => {
@@ -86,15 +90,31 @@ const toPaymentDate = (...values: unknown[]): string => {
   return new Date().toISOString().slice(0, 10);
 };
 
-const normalizeTaxRate = (value: unknown, fallback: number): number => {
-  const numeric = Number(value);
-  if (!Number.isFinite(numeric) || numeric < 0) return fallback;
-  return numeric > 0 && numeric < 1 ? numeric * 100 : numeric;
-};
-
 const FACTPT_DONATION_ITEM_REFERENCE = 'AAG-003';
 const FACTPT_DONATION_ITEM_DESCRIPTION =
   'Doação - Associação do Apostolado de Garabandal';
+
+/** The FACT.pt article used on every quota FR issued by hand (FR 2026Q/146). */
+const FACTPT_QUOTA_ITEM_REFERENCE = 'AAG-001';
+const FACTPT_QUOTA_ITEM_DESCRIPTION =
+  'Pagamento quota anual - Membro Associado do Apostolado de Garabandal';
+
+const quotaComments = (year: string) =>
+  `Pagamento da quota relativo ao ano de ${year}\nMembership Payment ${year}`;
+
+/**
+ * The FACT.pt article and VAT rate of each store product, copied from the FRs
+ * issued by hand (2026L/26, 2026L/30: book at 6 %; 2026L/27: digital diary at
+ * 23 %). The store does not record either, so a product missing here stops
+ * its order before anything reaches FACT.pt.
+ */
+export const FACTPT_STORE_ARTICLES: Record<
+  string,
+  { reference: string; taxRate: number }
+> = {
+  '200000048': { reference: 'AAG-004', taxRate: 6 },
+  '978-989-33-8094--9': { reference: 'AAG-005', taxRate: 23 },
+};
 
 const paymentKindFromNotes = (notes: unknown): string => {
   const match = /Tipo:\s*([a-z_]+)/i.exec(String(notes || ''));
@@ -245,8 +265,21 @@ const loadQuotaSnapshot = async (
   const member = await loadMember(supabase, userId);
   const authEmail = await loadAuthEmail(supabase, userId);
   const amount = requirePositiveAmount(payment.valor, sourceType);
-  const year = String(payment.data_pagamento || '').slice(0, 4);
+  const paidYear = String(payment.data_pagamento || payment.created_at || '').slice(0, 4);
+  const year = /^\d{4}$/.test(paidYear) ? paidYear : String(new Date().getFullYear());
   const isDonation = sourceType === 'donation';
+  // A billing identity confirmed at checkout wins over the member profile.
+  // The columns exist but no checkout fills them yet.
+  const hasBillingSnapshot = Boolean(
+    clean(payment.billing_name)
+    || clean(payment.billing_email)
+    || clean(payment.billing_address)
+    || clean(payment.billing_postal_code)
+    || clean(payment.billing_city)
+    || clean(payment.billing_country),
+  );
+  const pick = (billing: unknown, profile: unknown) =>
+    hasBillingSnapshot ? clean(billing) : clean(profile);
 
   return {
     sourceType,
@@ -262,28 +295,42 @@ const loadQuotaSnapshot = async (
     paymentDate: toPaymentDate(payment.data_pagamento, payment.created_at),
     customer: {
       userId,
-      name: clean(member?.nome) || 'Membro',
-      email: requireEmail(member?.email || authEmail, sourceType),
-      nif: normalizeNif(member?.nif),
-      address: clean(member?.address),
-      zip: clean(member?.postal_code),
-      city: clean(member?.city),
-      country: clean(member?.country),
+      name: pick(payment.billing_name, member?.nome) || 'Membro',
+      email: requireEmail(
+        hasBillingSnapshot ? payment.billing_email : member?.email || authEmail,
+        sourceType,
+      ),
+      nif: hasBillingSnapshot
+        ? (payment.billing_tax_id_requested === true ? normalizeNif(payment.billing_nif) : null)
+        : normalizeNif(member?.nif),
+      address: pick(payment.billing_address, member?.address),
+      zip: pick(payment.billing_postal_code, member?.postal_code),
+      city: pick(payment.billing_city, member?.city),
+      country: pick(payment.billing_country, member?.country),
       phone: clean(member?.telefone),
     },
-    items: [{
-      reference: isDonation ? FACTPT_DONATION_ITEM_REFERENCE : 'QUOTA',
-      description: isDonation
-        ? FACTPT_DONATION_ITEM_DESCRIPTION
-        : `Quota de membro${/^\d{4}$/.test(year) ? ` ${year}` : ''}`,
-      price: amount,
-      quantity: 1,
-      taxRate: 0,
-      type: isDonation ? 'other' : 'service',
-    }],
-    comments: isDonation ? 'Doação sem contrapartidas' : null,
+    items: [isDonation
+      ? {
+          reference: FACTPT_DONATION_ITEM_REFERENCE,
+          description: FACTPT_DONATION_ITEM_DESCRIPTION,
+          price: amount,
+          quantity: 1,
+          taxRate: 0,
+          type: 'other',
+        }
+      : {
+          reference: FACTPT_QUOTA_ITEM_REFERENCE,
+          description: FACTPT_QUOTA_ITEM_DESCRIPTION,
+          price: amount,
+          quantity: 1,
+          taxRate: 0,
+          type: 'service',
+        }],
+    comments: isDonation ? 'Doação sem contrapartidas' : quotaComments(year),
     language: String(payment.notes || '').includes('[locale:en]') ? 'en' : 'pt',
-    emailSourceLabel: isDonation ? FACTPT_DONATION_ITEM_DESCRIPTION : undefined,
+    emailSourceLabel: isDonation
+      ? FACTPT_DONATION_ITEM_DESCRIPTION
+      : `Quota anual de membro ${year}`,
   };
 };
 
@@ -318,29 +365,46 @@ const loadStoreSnapshot = async (
     (products || []).map((product) => [String(product.product_id), product]),
   );
 
+  const unmappedProducts: string[] = [];
   const items: FactPtSourceItem[] = rows.map((row) => {
     const product = productMap.get(String(row.product_id));
     const isPhysical = row.item_type
       ? row.item_type === 'product'
       : product?.is_physical !== false;
+    const article = FACTPT_STORE_ARTICLES[String(row.product_id)]
+      || FACTPT_STORE_ARTICLES[String(clean(row.sku) || clean(product?.sku) || '')];
+    if (!article) unmappedProducts.push(String(row.product_id));
     return {
-      reference: clean(row.sku) || clean(product?.sku) || `PROD-${String(row.product_id).slice(0, 12)}`,
+      reference: article?.reference || `PROD-${String(row.product_id).slice(0, 12)}`,
       description: clean(row.name) || 'Produto',
+      // The price actually charged, VAT included (member discount already
+      // applied), exactly as the FRs issued by hand print it.
       price: Number(row.unit_price || 0),
       quantity: Number(row.qty || 1),
-      taxRate: normalizeTaxRate(row.tax_rate, isPhysical ? 6 : 23),
+      taxRate: article?.taxRate ?? Number.NaN,
       type: isPhysical ? 'product' : 'service',
     };
   });
 
+  // Shipping follows the VAT rate of the goods it carries. With goods at
+  // different rates there is no single right answer, so a person decides.
   const shippingCost = Number(order.shipping_cost || 0);
+  const goodsRates = new Set(
+    items.filter((item) => Number.isFinite(item.taxRate)).map((item) => item.taxRate),
+  );
+  const recordedShippingRate = Number(order.shipping_tax_rate);
+  const shippingTaxRate = order.shipping_tax_rate !== null
+    && order.shipping_tax_rate !== undefined
+    && Number.isFinite(recordedShippingRate)
+    ? recordedShippingRate
+    : goodsRates.size === 1 ? [...goodsRates][0] : Number.NaN;
   if (shippingCost > 0) {
     items.push({
       reference: 'PORTES',
       description: 'Portes de envio',
       price: shippingCost,
       quantity: 1,
-      taxRate: 6,
+      taxRate: Number.isFinite(shippingTaxRate) ? shippingTaxRate : 0,
       type: 'service',
     });
   }
@@ -355,17 +419,37 @@ const loadStoreSnapshot = async (
     });
   }
 
+  const storeCreditsUsed = Number(order.store_credits_used || 0);
+  const orderRef = clean(order.order_ref) || `SHOP-${sourceId.slice(0, 8)}`;
+  const block: Pick<FactPtSourceSnapshot, 'blockingReason' | 'blockingFields'> =
+    unmappedProducts.length > 0
+      ? {
+          blockingReason: 'unmapped_store_product',
+          blockingFields: unmappedProducts.map((id) => `store_products.${id}`),
+        }
+      : storeCreditsUsed > 0
+        ? {
+            blockingReason: 'store_credits_policy_unconfirmed',
+            blockingFields: ['store_orders.store_credits_used'],
+          }
+        : shippingCost > 0 && !Number.isFinite(shippingTaxRate)
+          ? {
+              blockingReason: 'ambiguous_shipping_tax',
+              blockingFields: ['store_orders.shipping_tax_rate'],
+            }
+          : {};
+
   return {
     sourceType: 'store',
     sourceTable: 'store_orders',
     sourceId,
-    sourceReference: clean(order.order_ref) || `SHOP-${sourceId.slice(0, 8)}`,
+    sourceReference: orderRef,
     credentialAlias: 'L',
     seriesCode: '2026L',
     amount,
     currency: clean(order.currency) || 'EUR',
     paymentMethod: clean(order.payment_method) || clean(order.payment_provider) || 'reduniq',
-    paymentDate: toPaymentDate(order.paid_at, order.updated_at, order.created_at),
+    paymentDate: toPaymentDate(order.paid_at, order.claimed_at, order.created_at),
     customer: {
       userId: clean(order.buyer_user_id),
       name: clean(order.buyer_name) || 'Cliente da loja',
@@ -377,9 +461,17 @@ const loadStoreSnapshot = async (
       country: clean(order.billing_country) || clean(order.shipping_country),
       phone: clean(order.buyer_phone),
     },
-    items,
+    // An unmapped item has no VAT rate yet; give it a placeholder so the
+    // snapshot stays valid while the block keeps it away from FACT.pt.
+    items: block.blockingReason
+      ? items.map((item) => ({
+          ...item,
+          taxRate: Number.isFinite(item.taxRate) ? item.taxRate : 0,
+        }))
+      : items,
     comments: null,
     language: clean(order.locale) === 'en' ? 'en' : 'pt',
+    ...block,
   };
 };
 

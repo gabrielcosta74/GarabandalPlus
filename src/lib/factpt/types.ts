@@ -201,6 +201,18 @@ export type FactPtFiscalSnapshot = {
   reference?: string;
   emailSourceLabel?: string;
   /**
+   * Observations printed on a quota or store document. Donations and
+   * pilgrimages always print the fixed donation sentence instead.
+   */
+  comments?: string;
+  /**
+   * A block found while reading the payment (for example a store product with
+   * no known FACT.pt article). The worker records it as needs_data and never
+   * calls FACT.pt.
+   */
+  blockingReason?: FactPtBlockingReason;
+  blockingFields?: string[];
+  /**
    * Issued to FACT.pt's generic "Consumidor final", with no personal data and
    * no email. Only ever set by the admin in Contabilidade, up to the legal limit.
    */
@@ -217,13 +229,20 @@ export type FactPtFiscalSnapshot = {
     | 'admin_selected';
 };
 
+export type FactPtBlockingReason =
+  | 'unmapped_store_product'
+  | 'ambiguous_shipping_tax'
+  | 'store_credits_policy_unconfirmed';
+
 export type FactPtDocumentDecision =
   | {
       type: 'invoice_receipt';
       reason:
         | 'complete_billing_data'
         | 'pilgrimage_final_consumer'
-        | 'donation_final_consumer';
+        | 'donation_final_consumer'
+        | 'quota_final_consumer'
+        | 'store_final_consumer';
     }
   | {
       type: 'simplified_invoice';
@@ -235,6 +254,9 @@ export type FactPtDocumentDecision =
         | 'missing_email'
         | 'missing_pilgrimage_holder_data'
         | 'missing_donation_billing_data'
+        | 'missing_quota_billing_data'
+        | 'missing_store_billing_data'
+        | FactPtBlockingReason
         | 'missing_billing_data_above_simplified_limit'
         | 'invalid_snapshot';
       missingFields?: string[];

@@ -8,12 +8,13 @@ import {
   buildFactPtClientInput,
   calculateFactPtSnapshotTotal,
   decideFactPtDocument,
+  factPtBillingIdentityMissingFields,
   normalizeFactPtTin,
   parseFactPtPaymentMethod,
   resolveFactPtTaxId,
 } from './rules';
 import { buildFactPtDocument } from './builders';
-import { FactPtClient, FactPtError } from './client';
+import { clientNamesAreCompatible, FactPtClient, FactPtError } from './client';
 import {
   getFactPtConfig,
   getFactPtUnitId,
@@ -27,6 +28,7 @@ import type {
   FactPtFiscalLine,
   FactPtFiscalSnapshot,
   FactPtRemoteClient,
+  FactPtRemoteDocument,
   FactPtSourceType,
 } from './types';
 import {
@@ -136,21 +138,47 @@ function fiscalReference(value: string, index: number) {
   return (normalized || `ITEM-${index + 1}`).slice(0, 20);
 }
 
+const COUNTRY_CODES: Record<string, string> = {
+  portugal: 'pt', portugues: 'pt',
+  brasil: 'br', brazil: 'br',
+  espanha: 'es', spain: 'es', espana: 'es',
+  franca: 'fr', france: 'fr', francia: 'fr',
+  italia: 'it', italy: 'it',
+  'estados unidos': 'us', 'estados unidos da america': 'us', eua: 'us', usa: 'us',
+  'united states': 'us', 'united states of america': 'us',
+  'reino unido': 'gb', 'united kingdom': 'gb', uk: 'gb', inglaterra: 'gb', england: 'gb',
+  escocia: 'gb', scotland: 'gb',
+  irlanda: 'ie', ireland: 'ie',
+  alemanha: 'de', germany: 'de', alemania: 'de',
+  suica: 'ch', switzerland: 'ch', suiza: 'ch',
+  belgica: 'be', belgium: 'be',
+  holanda: 'nl', 'paises baixos': 'nl', netherlands: 'nl',
+  luxemburgo: 'lu', luxembourg: 'lu',
+  austria: 'at', polonia: 'pl', poland: 'pl',
+  canada: 'ca', mexico: 'mx', colombia: 'co', argentina: 'ar', chile: 'cl',
+  peru: 'pe', uruguai: 'uy', uruguay: 'uy', paraguai: 'py', paraguay: 'py',
+  venezuela: 've', equador: 'ec', ecuador: 'ec', bolivia: 'bo',
+  'costa rica': 'cr', panama: 'pa', guatemala: 'gt', 'el salvador': 'sv',
+  honduras: 'hn', nicaragua: 'ni', 'porto rico': 'pr', 'puerto rico': 'pr',
+  'republica dominicana': 'do', 'dominican republic': 'do', cuba: 'cu',
+  gibraltar: 'gi', malta: 'mt', andorra: 'ad', monaco: 'mc',
+  angola: 'ao', mocambique: 'mz', mozambique: 'mz', 'cabo verde': 'cv',
+  'guine-bissau': 'gw', 'sao tome e principe': 'st', 'timor-leste': 'tl',
+  australia: 'au', 'nova zelandia': 'nz', 'new zealand': 'nz',
+  'africa do sul': 'za', 'south africa': 'za', filipinas: 'ph', philippines: 'ph',
+  india: 'in', japao: 'jp', japan: 'jp',
+};
+
 function countryCode(value: string | null) {
-  const normalized = value?.trim().toLowerCase() || '';
-  const known: Record<string, string> = {
-    portugal: 'pt',
-    português: 'pt',
-    brasil: 'br',
-    brazil: 'br',
-    espanha: 'es',
-    spain: 'es',
-    frança: 'fr',
-    france: 'fr',
-    itália: 'it',
-    italy: 'it',
-  };
-  return /^[a-z]{2}$/.test(normalized) ? normalized : known[normalized] || null;
+  const normalized = (value || '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .replace(/\s+/g, ' ');
+  return /^[a-z]{2}$/.test(normalized)
+    ? normalized
+    : COUNTRY_CODES[normalized] || null;
 }
 
 export function hydrateFactPtFiscalSnapshotFromClient(
@@ -321,6 +349,18 @@ export function buildInitialFactPtFiscalSnapshot(
     reference: source.sourceReference,
     emailSourceLabel: source.emailSourceLabel,
     ...(source.genericConsumer ? { genericConsumer: true } : {}),
+    ...(
+      (source.sourceType === 'quota' || source.sourceType === 'store')
+      && source.comments
+        ? { comments: source.comments }
+        : {}
+    ),
+    ...(source.blockingReason
+      ? {
+          blockingReason: source.blockingReason,
+          blockingFields: source.blockingFields,
+        }
+      : {}),
   };
 }
 
@@ -399,15 +439,24 @@ async function resolveFiscalSnapshot(
     if (error) throw error;
   }
 
+  // A block found while reading the payment is final until someone acts:
+  // nothing about this document is sent to or read from FACT.pt.
+  if (fiscal.blockingReason) return fiscal;
+
+  if (!job.approved_at) {
+    fiscal = await completeIdentityFromFactPtClient(fiscal, client);
+  }
+
   const taxes = await client.listTaxes();
-  const zeroTaxId =
-    job.series_code === '2026D'
-      ? (
-          job.environment === 'production'
-            ? process.env.FACTPT_PRODUCTION_ZERO_TAX_ID_2026D
-            : process.env.FACTPT_ZERO_TAX_ID_2026D
-        )?.trim()
-      : undefined;
+  // Several FACT.pt taxes are 0 % (each with its own exemption reason), so the
+  // zero-rate series name theirs explicitly: 2026D for donations, 2026Q for
+  // «Isento Artigo 9.º do CIVA».
+  const zeroTaxVariable = job.series_code === '2026L'
+    ? null
+    : `FACTPT_${job.environment === 'production' ? 'PRODUCTION_' : ''}ZERO_TAX_ID_${job.series_code}`;
+  const zeroTaxId = zeroTaxVariable
+    ? process.env[zeroTaxVariable]?.trim()
+    : undefined;
   const lines: FactPtFiscalLine[] = [];
   for (const line of fiscal.lines) {
     const matchingProducts = await client.findProductsByReference(
@@ -441,6 +490,186 @@ async function resolveFiscalSnapshot(
     })
     .eq('id', job.id);
   return fiscal;
+}
+
+function sameText(left: unknown, right: unknown) {
+  const a = String(left || '').trim().toLowerCase();
+  return Boolean(a) && a === String(right || '').trim().toLowerCase();
+}
+
+function samePayer(
+  customer: FactPtFiscalSnapshot['customer'],
+  remote: { name?: string | null; email?: string | null },
+) {
+  return sameText(customer.email, remote.email)
+    || clientNamesAreCompatible(customer.name, remote.name || '')
+    || clientNamesAreCompatible(remote.name || '', customer.name);
+}
+
+/**
+ * Quota and store payers often have an incomplete member profile, while the
+ * FR issued by hand last time already created a full FACT.pt client for them.
+ * Reuse that client only when exactly one complete identity matches both the
+ * email and the name. Read only.
+ */
+async function completeIdentityFromFactPtClient(
+  fiscal: FactPtFiscalSnapshot,
+  client: FactPtClient,
+): Promise<FactPtFiscalSnapshot> {
+  if (fiscal.sourceType !== 'quota' && fiscal.sourceType !== 'store') return fiscal;
+  if (fiscal.genericConsumer || fiscal.existingClientId) return fiscal;
+  if (factPtBillingIdentityMissingFields(fiscal.customer).length === 0) return fiscal;
+  if (!VALID_EMAIL.test(fiscal.customer.email)) return fiscal;
+
+  const candidates = (await client.findClients(fiscal.customer.email)).filter(
+    (candidate) =>
+      sameText(candidate.email, fiscal.customer.email)
+      && (
+        clientNamesAreCompatible(fiscal.customer.name, candidate.name || '')
+        || clientNamesAreCompatible(candidate.name || '', fiscal.customer.name)
+      )
+      && candidate.address?.trim()
+      && candidate.zip?.trim()
+      && candidate.city?.trim()
+      && countryCode(candidate.country || null),
+  );
+  const identities = new Set(
+    candidates.map((candidate) =>
+      [candidate.address, candidate.zip, candidate.city, candidate.country, candidate.tin]
+        .map((value) => String(value || '').trim().toLowerCase())
+        .join('\u001f')),
+  );
+  if (identities.size !== 1) return fiscal;
+
+  // Same identity on several records: FACT.pt ids are sequential, use the newest.
+  const chosen = candidates.reduce((newest, candidate) =>
+    (Number(candidate.id) > Number(newest.id) ? candidate : newest));
+  return {
+    ...fiscal,
+    existingClientId: String(chosen.id),
+    existingClientMatchReason: 'exact_email_and_compatible_name',
+    customer: {
+      ...fiscal.customer,
+      name: chosen.name!.trim(),
+      nif: normalizeFactPtTin(chosen.tin),
+      address: chosen.address!.trim(),
+      postalCode: chosen.zip!.trim(),
+      city: chosen.city!.trim(),
+      country: countryCode(chosen.country || null),
+    },
+  };
+}
+
+/** What the admin reads in Faturação when a document cannot go out yet. */
+export function factPtNeedsDataMessage(decision: FactPtDocumentDecision): string {
+  if (decision.type !== 'needs_data') return '';
+  switch (decision.reason) {
+    case 'unmapped_store_product': {
+      const products = (decision.missingFields || [])
+        .map((field) => field.replace(/^store_products\./, ''))
+        .join(', ');
+      return `Produto da loja sem artigo FACT.pt definido (${products}). `
+        + 'Emita esta FR à mão na FACT.pt e peça para acrescentar o produto à tabela de artigos.';
+    }
+    case 'store_credits_policy_unconfirmed':
+      return 'Encomenda paga em parte com créditos da loja. Emita esta FR à mão na FACT.pt.';
+    case 'ambiguous_shipping_tax':
+      return 'Encomenda com portes e artigos de taxas de IVA diferentes. Emita esta FR à mão na FACT.pt.';
+    default:
+      return decision.missingFields?.join(', ') || decision.reason;
+  }
+}
+
+const MANUAL_DUPLICATE_LOOKBACK_DAYS = 7;
+const CREDIT_DOCUMENT_TYPES = new Set(['credit', 'clientrefund', 'creditnote']);
+
+const CANCELLED_STATUS = /cancel|anul|void|refund/i;
+
+function isAppIdentifier(value: unknown) {
+  return String(value || '').startsWith('gp:');
+}
+
+function countsAsManualInvoice(document: {
+  identifier: unknown;
+  type: unknown;
+  paymentStatus: unknown;
+}) {
+  return !isAppIdentifier(document.identifier)
+    && !CREDIT_DOCUMENT_TYPES.has(String(document.type || '').toLowerCase())
+    && !CANCELLED_STATUS.test(String(document.paymentStatus || ''));
+}
+
+/**
+ * Quotas and store orders were invoiced by hand until their go-live. Before
+ * issuing one, look for an FR already issued by hand in the same series for
+ * the same amount and person, both in the daily copy of FACT.pt and live in
+ * its newest documents. Returns that FR's number, or null. Read only.
+ */
+export async function findManualDuplicate(
+  db: SupabaseClient,
+  job: Pick<FactPtJob, 'source_type' | 'series_code'>,
+  fiscal: FactPtFiscalSnapshot,
+  client: Pick<FactPtClient, 'listDocuments' | 'getClient'>,
+): Promise<string | null> {
+  if (job.source_type !== 'quota' && job.source_type !== 'store') return null;
+
+  const since = new Date(`${fiscal.paidAt.slice(0, 10)}T00:00:00.000Z`);
+  since.setUTCDate(since.getUTCDate() - MANUAL_DUPLICATE_LOOKBACK_DAYS);
+  const sinceDate = since.toISOString().slice(0, 10);
+  const seriesPrefix = `${job.series_code}/`;
+  const sameAmount = (gross: unknown) =>
+    Math.abs(Number(gross) - fiscal.total) < 0.005;
+
+  const { data: copied, error: copyError } = await db
+    .from('factpt_remote_documents')
+    .select('number, doc_type, doc_date, gross, payment_status, client_name, client_snapshot, identifier_id')
+    .like('number', `${seriesPrefix}%`)
+    .gte('doc_date', sinceDate);
+  if (copyError && copyError.code !== '42P01' && copyError.code !== 'PGRST205') {
+    throw copyError;
+  }
+  for (const row of copied || []) {
+    if (!countsAsManualInvoice({
+      identifier: row.identifier_id,
+      type: row.doc_type,
+      paymentStatus: row.payment_status,
+    })) continue;
+    if (!sameAmount(row.gross)) continue;
+    const snapshot = (row.client_snapshot || {}) as { name?: string; email?: string };
+    if (samePayer(fiscal.customer, { name: row.client_name || snapshot.name, email: snapshot.email })) {
+      return String(row.number);
+    }
+  }
+
+  // The copy can be up to a day old: read the newest documents live too.
+  // Which end of the listing holds the newest documents is read from the
+  // data: take the two newest pages (about 40 documents across all series).
+  const first = await client.listDocuments(1);
+  const totalPages = Math.max(1, Number(first.totalPages || 1));
+  const last = totalPages > 1 ? await client.listDocuments(totalPages) : first;
+  const firstDate = String(first.data?.[0]?.date || '');
+  const lastDate = String(last.data?.[last.data.length - 1]?.date || '');
+  const newestFirst = firstDate > lastDate;
+  const recent: FactPtRemoteDocument[] = [...(newestFirst ? first : last).data || []];
+  const nextPage = newestFirst ? 2 : totalPages - 1;
+  if (nextPage >= 1 && nextPage <= totalPages && totalPages > 1) {
+    const listing = nextPage === 1 ? first : nextPage === totalPages ? last : await client.listDocuments(nextPage);
+    recent.push(...(listing.data || []));
+  }
+  for (const document of recent) {
+    if (!String(document.number || '').includes(seriesPrefix)) continue;
+    if (!countsAsManualInvoice({
+      identifier: document.identifierId,
+      type: document.type,
+      paymentStatus: document.paymentStatus,
+    })) continue;
+    if (!sameAmount(document.gross)) continue;
+    if (String(document.date || '').slice(0, 10) < sinceDate) continue;
+    if (document.clientId === undefined || document.clientId === null) continue;
+    const remote = await client.getClient(String(document.clientId));
+    if (samePayer(fiscal.customer, remote)) return String(document.number);
+  }
+  return null;
 }
 
 async function resolveRemoteClient(
@@ -598,7 +827,7 @@ function reviewPreview(
     comments:
       fiscal.sourceType === 'donation' || fiscal.sourceType === 'pilgrimage'
         ? 'Doação sem contrapartidas'
-        : undefined,
+        : fiscal.comments,
     lines: fiscal.lines,
     preparedAt,
     clientResolution,
@@ -940,12 +1169,31 @@ async function processJob(db: SupabaseClient, job: FactPtJob) {
         .update({
           status: 'needs_data',
           last_error_code: decision.reason,
-          last_error: decision.missingFields?.join(', ') || decision.reason,
+          last_error: factPtNeedsDataMessage(decision),
           processing_started_at: null,
         })
         .eq('id', job.id);
       if (needsDataError) throw needsDataError;
       return 'needs_data' as const;
+    }
+
+    if (!job.approved_at) {
+      const manual = await findManualDuplicate(db, job, fiscal, client);
+      if (manual) {
+        const { error: holdError } = await db
+          .from('factpt_documents')
+          .update({
+            status: 'awaiting_approval',
+            last_error_code: 'possible_manual_duplicate',
+            last_error:
+              `A ${manual} já foi emitida à mão na FACT.pt para esta pessoa com o mesmo valor. `
+              + 'Se for a fatura deste pagamento, não aprove; se for outro pagamento, prepare e aprove.',
+            processing_started_at: null,
+          })
+          .eq('id', job.id);
+        if (holdError) throw holdError;
+        return 'needs_data' as const;
+      }
     }
 
     const remoteClient = decision.type === 'invoice_receipt'
@@ -1055,7 +1303,7 @@ export async function prepareFactPtDocumentForReview(
         document_type: null,
         review_prepared_at: null,
         last_error_code: decision.reason,
-        last_error: decision.missingFields?.join(', ') || decision.reason,
+        last_error: factPtNeedsDataMessage(decision),
         processing_started_at: null,
       })
       .eq('id', job.id);
@@ -1122,7 +1370,7 @@ export async function approveFactPtDocument(
   if (
     data.environment === 'production'
     && (
-      !['pilgrimage', 'donation'].includes(data.source_type)
+      !['pilgrimage', 'donation', 'quota', 'store'].includes(data.source_type)
       || !isFactPtProductionEnabled()
     )
   ) {
@@ -1186,7 +1434,7 @@ export async function processFactPtQueue(
     }
     const { data: settings, error: settingsError } = await db
       .from('factpt_settings')
-      .select('auto_enabled, production_pilgrimages_only, production_donations_enabled')
+      .select('auto_enabled, production_pilgrimages_only, production_donations_enabled, production_quotas_enabled, production_store_enabled')
       .eq('environment', 'production')
       .maybeSingle();
     if (settingsError) throw settingsError;
@@ -1195,6 +1443,8 @@ export async function processFactPtQueue(
       || (
         !settings.production_pilgrimages_only
         && !settings.production_donations_enabled
+        && !settings.production_quotas_enabled
+        && !settings.production_store_enabled
       )
     ) {
       return {

@@ -68,6 +68,10 @@ export type FactPtAdminSettings = {
   production_pilgrimages_only?: boolean | null;
   production_donations_enabled?: boolean | null;
   donations_go_live_at?: string | null;
+  production_quotas_enabled?: boolean | null;
+  quotas_go_live_at?: string | null;
+  production_store_enabled?: boolean | null;
+  store_go_live_at?: string | null;
   auto_issue_reconciled_reduniq?: boolean | null;
 };
 
@@ -412,11 +416,25 @@ const isPaymentInAutomaticCoverage = (
       return occurredAt >= new Date(settings.go_live_at).getTime();
     }
     if (
-      payment.sourceTable === 'donations'
+      payment.sourceType === 'donation'
       && settings.production_donations_enabled
       && settings.donations_go_live_at
     ) {
       return occurredAt >= new Date(settings.donations_go_live_at).getTime();
+    }
+    if (
+      payment.sourceType === 'quota'
+      && settings.production_quotas_enabled
+      && settings.quotas_go_live_at
+    ) {
+      return occurredAt >= new Date(settings.quotas_go_live_at).getTime();
+    }
+    if (
+      payment.sourceType === 'store'
+      && settings.production_store_enabled
+      && settings.store_go_live_at
+    ) {
+      return occurredAt >= new Date(settings.store_go_live_at).getTime();
     }
     return false;
   }
@@ -750,8 +768,16 @@ export function buildFactPtAdminOverview(input: {
                 && input.settings.donations_go_live_at,
               ),
               donationsFrom: input.settings?.donations_go_live_at || null,
-              store: false,
-              quotas: false,
+              store: Boolean(
+                input.settings?.production_store_enabled
+                && input.settings.store_go_live_at,
+              ),
+              storeFrom: input.settings?.store_go_live_at || null,
+              quotas: Boolean(
+                input.settings?.production_quotas_enabled
+                && input.settings.quotas_go_live_at,
+              ),
+              quotasFrom: input.settings?.quotas_go_live_at || null,
             }
           : {
               sandbox: Boolean(

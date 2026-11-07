@@ -10,8 +10,6 @@ import type {
 } from './types';
 
 export const FACTPT_DONATION_COMMENT = 'Doação sem contrapartidas';
-export const FACTPT_SIMPLIFIED_PRODUCT_LIMIT = 1_000;
-export const FACTPT_SIMPLIFIED_SERVICE_LIMIT = 100;
 /** Above this FACT.pt refuses the generic client: the law asks for a name and address. */
 export const FACTPT_GENERIC_CONSUMER_LIMIT = 100;
 
@@ -262,17 +260,37 @@ export function hasCompleteFactPtBillingIdentity(
   );
 }
 
-function simplifiedInvoiceLimit(
-  sourceType: FactPtFiscalSnapshot['sourceType'],
-): number {
-  return sourceType === 'store'
-    ? FACTPT_SIMPLIFIED_PRODUCT_LIMIT
-    : FACTPT_SIMPLIFIED_SERVICE_LIMIT;
-}
+const MISSING_IDENTITY_REASONS = {
+  pilgrimage: 'missing_pilgrimage_holder_data',
+  donation: 'missing_donation_billing_data',
+  quota: 'missing_quota_billing_data',
+  store: 'missing_store_billing_data',
+} as const;
 
+const FINAL_CONSUMER_REASONS = {
+  pilgrimage: 'pilgrimage_final_consumer',
+  donation: 'donation_final_consumer',
+  quota: 'quota_final_consumer',
+  store: 'store_final_consumer',
+} as const;
+
+/**
+ * Every payment gets a Fatura-Recibo with the payer's name and address. A
+ * Fatura Simplificada without a client is never chosen automatically: the
+ * Associação always issues named FRs, so missing data stops the document
+ * until someone completes it.
+ */
 export function decideFactPtDocument(
   snapshot: FactPtFiscalSnapshot,
 ): FactPtDocumentDecision {
+  if (snapshot.blockingReason) {
+    return {
+      type: 'needs_data',
+      reason: snapshot.blockingReason,
+      missingFields: snapshot.blockingFields,
+    };
+  }
+
   const snapshotErrors = validateFactPtSnapshot(snapshot);
   if (snapshotErrors.includes('customer.email')) {
     return {
@@ -306,44 +324,17 @@ export function decideFactPtDocument(
     };
   }
 
-  if (
-    snapshot.sourceType === 'pilgrimage'
-    || snapshot.sourceType === 'donation'
-  ) {
-    const missingFields = factPtBillingIdentityMissingFields(snapshot.customer);
-    if (missingFields.length > 0) {
-      return {
-        type: 'needs_data',
-        reason: snapshot.sourceType === 'pilgrimage'
-          ? 'missing_pilgrimage_holder_data'
-          : 'missing_donation_billing_data',
-        missingFields,
-      };
-    }
+  const missingFields = factPtBillingIdentityMissingFields(snapshot.customer);
+  if (missingFields.length > 0) {
     return {
-      type: 'invoice_receipt',
-      reason: snapshot.sourceType === 'pilgrimage'
-        ? 'pilgrimage_final_consumer'
-        : 'donation_final_consumer',
+      type: 'needs_data',
+      reason: MISSING_IDENTITY_REASONS[snapshot.sourceType],
+      missingFields,
     };
   }
-
-  const missingFields = [
-    !normalizeFactPtTin(snapshot.customer.nif) ? 'customer.nif' : null,
-    ...factPtBillingIdentityMissingFields(snapshot.customer),
-  ].filter((field): field is string => Boolean(field));
-
-  if (snapshot.total <= simplifiedInvoiceLimit(snapshot.sourceType)) {
-    return {
-      type: 'simplified_invoice',
-      reason: 'missing_billing_data_within_limit',
-    };
-  }
-
   return {
-    type: 'needs_data',
-    reason: 'missing_billing_data_above_simplified_limit',
-    missingFields,
+    type: 'invoice_receipt',
+    reason: FINAL_CONSUMER_REASONS[snapshot.sourceType],
   };
 }
 

@@ -264,7 +264,7 @@ function clientAddressesAreCompatible(localAddress: string, remoteAddress: strin
   return local === remote || local.startsWith(remote) || remote.startsWith(local);
 }
 
-function clientNamesAreCompatible(localName: string, remoteName: string): boolean {
+export function clientNamesAreCompatible(localName: string, remoteName: string): boolean {
   const local = normalizedClientName(localName);
   const remote = normalizedClientName(remoteName);
   if (!local || !remote) return false;
