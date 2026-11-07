@@ -332,6 +332,8 @@ function Contabilidade() {
               closedBy={ledger.closed}
               onGo={changeTab}
               monthBalance={ledger.monthBalance}
+              live={ledger.mode === 'live'}
+              onChanged={ledger.reload}
             />
           )}
           </motion.div>

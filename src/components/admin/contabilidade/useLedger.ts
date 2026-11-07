@@ -53,6 +53,25 @@ export async function adminFetch(input: string, init: RequestInit = {}) {
   return body;
 }
 
+/** Downloads a file from an admin route, sending the same session as adminFetch. */
+export async function downloadAdminFile(input: string, fallbackName: string) {
+  if (!supabaseBrowser) throw new Error('A ligação à área administrativa não está disponível.');
+  const { data: { session } } = await supabaseBrowser.auth.getSession();
+  if (!session) throw new Error('A sessão de administrador expirou. Entre novamente.');
+  const response = await fetch(input, { headers: { Authorization: `Bearer ${session.access_token}` }, cache: 'no-store' });
+  if (!response.ok) {
+    const body = await response.json().catch(() => null);
+    throw new Error(body?.error || 'Não foi possível descarregar o ficheiro.');
+  }
+  const name = response.headers.get('content-disposition')?.match(/filename="([^"]+)"/)?.[1] || fallbackName;
+  const url = URL.createObjectURL(await response.blob());
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = name;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 export function readStoredPreview(): StoredPreview | null {
   try {
     const raw = window.sessionStorage.getItem(PREVIEW_STORAGE_KEY);

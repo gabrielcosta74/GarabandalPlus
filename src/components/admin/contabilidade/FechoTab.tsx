@@ -1,20 +1,43 @@
 "use client";
 
-import { useMemo } from 'react';
-import { ArrowRight, Check, FileSpreadsheet, Lock } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { ArrowRight, Check, Download, FileSpreadsheet, LoaderCircle, Lock, LockOpen } from 'lucide-react';
 
-import { formatEur, formatPeriod } from '../../../lib/ledger/format';
+import { formatDay, formatEur, formatPeriod } from '../../../lib/ledger/format';
 import { monthBalances } from './MovimentosTab';
+import { useToast } from './Toasts';
 import type { LedgerMovement } from './types';
+import { adminFetch, downloadAdminFile } from './useLedger';
 import { Button, Card, EmptyState, cx, isOpen, missingDocument, missingInvoice } from './ui';
 
 type CheckItem = {
   key: string;
   label: string;
-  state: 'ok' | 'fail' | 'pending';
+  state: 'ok' | 'fail' | 'warn';
   detail: string;
   goTo?: 'por-tratar' | 'movimentos';
 };
+
+type CloseState = {
+  checks: CheckItem[];
+  ready: boolean;
+  closed: { closed_by: string; closed_at: string } | null;
+  history: { action: 'closed' | 'reopened'; actor: string; reason: string | null; created_at: string }[];
+};
+
+/** Example data only: the same questions, answered in the browser. */
+function localChecks(movements: LedgerMovement[], monthBalance?: { opening: number; closing: number } | null): CheckItem[] {
+  const open = movements.filter(isOpen).length;
+  const noInvoice = movements.filter(missingInvoice).length;
+  const noDocument = movements.filter(missingDocument).length;
+  const balances = monthBalances(movements, monthBalance);
+  return [
+    { key: 'open', label: 'Todos os movimentos tratados', state: open ? 'fail' : 'ok', detail: open ? `${open} ainda por tratar` : 'Nenhum por tratar', goTo: 'por-tratar' },
+    { key: 'invoice', label: 'Entradas com fatura-recibo', state: noInvoice ? 'fail' : 'ok', detail: noInvoice ? `${noInvoice} sem FR` : 'Todas têm FR', goTo: 'movimentos' },
+    { key: 'document', label: 'Despesas com documento', state: noDocument ? 'fail' : 'ok', detail: noDocument ? `${noDocument} sem documento` : 'Todas justificadas', goTo: 'por-tratar' },
+    { key: 'balance', label: 'Saldo confirmado pelo banco', state: balances?.matches ? 'ok' : 'fail', detail: balances ? `Saldo final ${formatEur(balances.closing)}` : 'Sem saldo' },
+  ];
+}
 
 export default function FechoTab({
   period,
@@ -23,6 +46,8 @@ export default function FechoTab({
   closedBy,
   onGo,
   monthBalance,
+  live,
+  onChanged,
 }: {
   period: string | null;
   movements: LedgerMovement[];
@@ -30,73 +55,120 @@ export default function FechoTab({
   closedBy: { closed_by: string; closed_at: string } | null;
   onGo: (tab: 'por-tratar' | 'movimentos') => void;
   monthBalance?: { opening: number; closing: number } | null;
+  live: boolean;
+  onChanged: () => void;
 }) {
-  const checks = useMemo<CheckItem[]>(() => {
-    const open = movements.filter(isOpen).length;
-    const noInvoice = movements.filter(missingInvoice).length;
-    const noDocument = movements.filter(missingDocument).length;
-    const balances = monthBalances(movements, monthBalance);
-    return [
-      { key: 'open', label: 'Todos os movimentos confirmados', state: open ? 'fail' : 'ok', detail: open ? `${open} ainda por tratar` : 'Nenhum por tratar', goTo: 'por-tratar' },
-      { key: 'invoice', label: 'Entradas com fatura-recibo', state: noInvoice ? 'fail' : 'ok', detail: noInvoice ? `${noInvoice} sem fatura` : 'Todas as doações, quotas e vendas têm FR', goTo: 'movimentos' },
-      { key: 'document', label: 'Despesas com documento', state: noDocument ? 'fail' : 'ok', detail: noDocument ? `${noDocument} sem documento` : 'Todas têm fatura anexada ou em papel', goTo: 'movimentos' },
-      {
-        key: 'balance',
-        label: 'Saldo igual ao do banco',
-        state: !balances ? 'pending' : balances.matches ? 'ok' : 'fail',
-        detail: !balances ? 'Sem saldos no extrato' : balances.matches ? `Saldo final ${formatEur(balances.closing)}` : `As contas dão ${formatEur(balances.computed)}`,
-        goTo: 'movimentos',
-      },
-      { key: 'factpt', label: 'Totais iguais aos da FACT.pt', state: 'pending', detail: 'Comparação automática — em breve' },
-    ];
-  }, [movements, monthBalance]);
+  const toast = useToast();
+  const [server, setServer] = useState<CloseState | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [busy, setBusy] = useState<'close' | 'reopen' | 'download' | null>(null);
+  const [confirmingClose, setConfirmingClose] = useState(false);
+  const [reopening, setReopening] = useState(false);
+  const [reason, setReason] = useState('');
+
+  const load = useCallback(async () => {
+    if (!live || !period) return;
+    setLoadError(null);
+    try {
+      setServer(await adminFetch(`/api/admin/contabilidade/fecho?period=${period}`));
+    } catch (error) {
+      setLoadError(error instanceof Error ? error.message : 'Não foi possível verificar o mês.');
+    }
+  }, [live, period]);
+
+  useEffect(() => {
+    setServer(null);
+    setConfirmingClose(false);
+    setReopening(false);
+    setReason('');
+    void load();
+  }, [load, movements]);
+
+  const checks = useMemo<CheckItem[]>(() => (live ? server?.checks || [] : localChecks(movements, monthBalance)), [live, server, movements, monthBalance]);
+  const closed = live ? server?.closed ?? null : closedBy;
+  const ready = live ? !!server?.ready : checks.every(check => check.state !== 'fail');
 
   if (!period || movements.length === 0) {
     return <Card><EmptyState title="Sem movimentos para fechar" /></Card>;
   }
 
-  const required = checks.filter(c => c.state !== 'pending');
-  const passed = required.filter(c => c.state === 'ok').length;
-  const ready = checks.every(check => check.state === 'ok');
+  const blocking = checks.filter(check => check.state !== 'warn');
+  const passed = blocking.filter(check => check.state === 'ok').length;
+
+  const act = async (action: 'close' | 'reopen') => {
+    setBusy(action);
+    try {
+      await adminFetch('/api/admin/contabilidade/fecho', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(action === 'close' ? { period, action } : { period, action, reason }),
+      });
+      toast(action === 'close'
+        ? { title: `${formatPeriod(period)} fechado`, description: 'O Excel para a Factor M ficou guardado.' }
+        : { tone: 'info', title: `${formatPeriod(period)} reaberto`, description: 'Pode voltar a alterar este mês.' });
+      setConfirmingClose(false);
+      setReopening(false);
+      setReason('');
+      onChanged();
+      await load();
+    } catch (error) {
+      toast({ tone: 'error', title: action === 'close' ? 'Não foi possível fechar' : 'Não foi possível reabrir', description: error instanceof Error ? error.message : undefined });
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const download = async () => {
+    setBusy('download');
+    try {
+      await downloadAdminFile(`/api/admin/contabilidade/fecho/excel?period=${period}`, `contabilidade-${period}.xlsx`);
+    } catch (error) {
+      toast({ tone: 'error', title: 'Não foi possível descarregar', description: error instanceof Error ? error.message : undefined });
+    } finally {
+      setBusy(null);
+    }
+  };
 
   return (
     <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
       <Card className="overflow-hidden">
         <div className="flex items-center gap-5 px-6 py-6">
-          <Ring value={passed} total={required.length} />
+          <Ring value={passed} total={blocking.length} />
           <div>
             <p className="text-sm text-zinc-500">{formatPeriod(period)}</p>
             <h2 className="text-xl font-semibold tracking-tight text-zinc-900">
-              {closedBy ? 'Mês fechado' : ready ? 'Verificações concluídas' : 'Fecho por preparar'}
+              {closed ? 'Mês fechado' : ready ? 'Pronto a fechar' : 'Fecho por preparar'}
             </h2>
             <p className="mt-0.5 text-sm text-zinc-500">
-              {closedBy
-                ? `Fechado por ${closedBy.closed_by} a ${closedBy.closed_at.slice(0, 10)}.`
+              {closed
+                ? `Fechado por ${closed.closed_by} a ${formatDay(closed.closed_at.slice(0, 10), true)}. Nada deste mês pode ser alterado.`
                 : ready
-                  ? 'As verificações estão concluídas. O fecho e a exportação ainda estão em desenvolvimento.'
-                  : `${required.length - passed} verificações por resolver; ${checks.length - required.length} ainda sem automatização.`}
+                  ? 'Tudo justificado. Pode fechar o mês e gerar o Excel para a Factor M.'
+                  : `${blocking.length - passed} ${blocking.length - passed === 1 ? 'verificação' : 'verificações'} por resolver.`}
             </p>
           </div>
         </div>
+        {live && !server && !loadError && <p className="flex items-center gap-2 border-t border-zinc-100 px-6 py-4 text-sm text-zinc-500"><LoaderCircle className="h-4 w-4 animate-spin" aria-hidden /> A verificar o mês…</p>}
+        {loadError && <p className="border-t border-zinc-100 px-6 py-4 text-sm text-rose-700">{loadError}</p>}
         <ul className="divide-y divide-zinc-100 border-t border-zinc-100">
           {checks.map(check => (
             <li key={check.key} className="flex items-center gap-4 px-6 py-4">
               <span
                 className={cx(
-                  'flex h-8 w-8 shrink-0 items-center justify-center rounded-full',
+                  'flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-bold',
                   check.state === 'ok' && 'bg-emerald-500 text-white',
                   check.state === 'fail' && 'bg-white text-zinc-300 ring-2 ring-inset ring-zinc-200',
-                  check.state === 'pending' && 'bg-zinc-100 text-zinc-300',
+                  check.state === 'warn' && 'bg-orange-50 text-orange-600',
                 )}
                 aria-hidden
               >
-                <Check className="h-4 w-4" strokeWidth={3} />
+                {check.state === 'warn' ? '!' : <Check className="h-4 w-4" strokeWidth={3} />}
               </span>
               <div className="min-w-0 flex-1">
-                <p className={cx('text-sm font-medium', check.state === 'pending' ? 'text-zinc-400' : 'text-zinc-900')}>{check.label}</p>
+                <p className="text-sm font-medium text-zinc-900">{check.label}</p>
                 <p className={cx('text-[13px]', check.state === 'fail' ? 'text-orange-600' : 'text-zinc-500')}>{check.detail}</p>
               </div>
-              {check.state === 'fail' && check.goTo && (
+              {check.state === 'fail' && check.goTo && !closed && (
                 <Button size="sm" onClick={() => onGo(check.goTo!)}>
                   Resolver <ArrowRight className="h-3.5 w-3.5" aria-hidden />
                 </Button>
@@ -106,27 +178,91 @@ export default function FechoTab({
         </ul>
       </Card>
 
-      <Card className="flex h-fit flex-col gap-4 p-6">
-        <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-zinc-900 text-white" aria-hidden>
-          <FileSpreadsheet className="h-5 w-5" />
-        </span>
-        <div>
-          <h3 className="text-[15px] font-semibold text-zinc-900">Enviar ao contabilista</h3>
-          <p className="mt-1 text-sm text-zinc-500">
-            O fecho e o Excel para a Factor M ainda não estão disponíveis. Os movimentos continuam editáveis.
-          </p>
-        </div>
-        <Button
-          variant="dark"
-          size="lg"
-          disabled
-          title={readOnlyReason || 'O fecho do mês e a exportação ainda estão em desenvolvimento.'}
-        >
-          <Lock className="h-4 w-4" aria-hidden />
-          Fechar mês e gerar Excel
-        </Button>
-        <p className="text-center text-xs text-zinc-400">Ainda indisponível</p>
-      </Card>
+      <div className="flex flex-col gap-4">
+        <Card className="flex h-fit flex-col gap-4 p-6">
+          <span className={cx('flex h-11 w-11 items-center justify-center rounded-2xl text-white', closed ? 'bg-emerald-600' : 'bg-zinc-900')} aria-hidden>
+            {closed ? <Lock className="h-5 w-5" /> : <FileSpreadsheet className="h-5 w-5" />}
+          </span>
+          <div>
+            <h3 className="text-[15px] font-semibold text-zinc-900">{closed ? 'Enviado ao contabilista' : 'Enviar ao contabilista'}</h3>
+            <p className="mt-1 text-sm text-zinc-500">
+              {closed
+                ? 'O Excel guardado no fecho é o que a Factor M recebe. Reabrir só com motivo, que fica registado.'
+                : 'Ao fechar, o mês fica bloqueado e o Excel fica guardado. Pode descarregar um rascunho antes.'}
+            </p>
+          </div>
+
+          {live && (
+            <Button variant="secondary" disabled={busy !== null} onClick={() => void download()}>
+              {busy === 'download' ? <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden /> : <Download className="h-4 w-4" aria-hidden />}
+              {closed ? 'Descarregar Excel' : 'Descarregar rascunho'}
+            </Button>
+          )}
+
+          {!closed && (confirmingClose ? (
+            <div className="rounded-2xl bg-zinc-50 p-4">
+              <p className="text-sm text-zinc-800">Depois de fechado, nada de {formatPeriod(period)} pode ser alterado até alguém reabrir o mês com motivo.</p>
+              <div className="mt-3 flex gap-2">
+                <Button variant="ghost" className="flex-1" disabled={busy !== null} onClick={() => setConfirmingClose(false)}>Voltar</Button>
+                <Button variant="dark" className="flex-1" disabled={busy !== null} onClick={() => void act('close')}>
+                  {busy === 'close' ? <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden /> : <Lock className="h-4 w-4" aria-hidden />}
+                  Fechar
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <Button
+              variant="dark"
+              size="lg"
+              disabled={!live || !ready || !!readOnlyReason || busy !== null}
+              title={!live ? 'Disponível com os movimentos reais.' : !ready ? 'Resolva primeiro as verificações em falta.' : undefined}
+              onClick={() => setConfirmingClose(true)}
+            >
+              <Lock className="h-4 w-4" aria-hidden />
+              Fechar mês e gerar Excel
+            </Button>
+          ))}
+
+          {closed && live && (reopening ? (
+            <div className="space-y-2">
+              <textarea
+                autoFocus
+                value={reason}
+                onChange={event => setReason(event.target.value)}
+                rows={2}
+                placeholder="Porque é que este mês tem de ser reaberto?"
+                className="w-full resize-none rounded-xl bg-zinc-50 px-3.5 py-3 text-sm text-zinc-900 ring-1 ring-transparent transition placeholder:text-zinc-400 focus:bg-white focus:outline-none focus:ring-zinc-300"
+              />
+              <div className="flex gap-2">
+                <Button variant="ghost" className="flex-1" disabled={busy !== null} onClick={() => setReopening(false)}>Cancelar</Button>
+                <Button variant="secondary" className="flex-1" disabled={busy !== null || reason.trim().length < 5} onClick={() => void act('reopen')}>
+                  {busy === 'reopen' ? <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden /> : <LockOpen className="h-4 w-4" aria-hidden />}
+                  Reabrir
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <Button variant="ghost" disabled={busy !== null} onClick={() => setReopening(true)}>
+              <LockOpen className="h-4 w-4" aria-hidden /> Reabrir mês
+            </Button>
+          ))}
+        </Card>
+
+        {live && !!server?.history.length && (
+          <Card className="p-5">
+            <h3 className="text-[13px] font-semibold text-zinc-900">Histórico</h3>
+            <ul className="mt-2 space-y-2">
+              {server.history.map(event => (
+                <li key={`${event.action}-${event.created_at}`} className="text-[13px] text-zinc-600">
+                  <span className="font-medium text-zinc-900">{event.action === 'closed' ? 'Fechado' : 'Reaberto'}</span>{' '}
+                  por {event.actor} · {formatDay(event.created_at.slice(0, 10), true)}
+                  {event.reason && <span className="block text-zinc-500">«{event.reason}»</span>}
+                </li>
+              ))}
+            </ul>
+          </Card>
+        )}
+      </div>
     </div>
   );
 }
