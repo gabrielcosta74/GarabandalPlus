@@ -33,3 +33,26 @@ export function documentProblem(file: { name: string; size: number }): string | 
 export function documentStoragePath(period: string, movementId: string, sha256: string, extension: string): string {
   return `${period}/${movementId}/${sha256.slice(0, 32)}.${extension}`;
 }
+
+export const DOCUMENT_KINDS = ['fatura', 'comprovativo', 'proforma', 'recibo', 'outro'] as const;
+export type DocumentKind = (typeof DOCUMENT_KINDS)[number];
+
+export const DOCUMENT_KIND_LABELS: Record<DocumentKind, string> = {
+  fatura: 'Fatura',
+  comprovativo: 'Comprovativo',
+  proforma: 'Proforma',
+  recibo: 'Recibo',
+  outro: 'Outro',
+};
+
+export function isDocumentKind(value: unknown): value is DocumentKind {
+  return typeof value === 'string' && (DOCUMENT_KINDS as readonly string[]).includes(value);
+}
+
+/** A file name the accountant can read in a folder: date, who, amount, what. */
+export function archiveFileName(input: { date: string; who: string; amount: number; kind: string; extension: string; index?: number }): string {
+  const who = input.who.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^A-Za-z0-9 .-]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 40) || 'movimento';
+  const amount = Math.abs(input.amount).toFixed(2).replace('.', ',');
+  const suffix = input.index ? ` (${input.index})` : '';
+  return `${input.date} ${who} ${amount} EUR ${input.kind}${suffix}.${input.extension}`;
+}

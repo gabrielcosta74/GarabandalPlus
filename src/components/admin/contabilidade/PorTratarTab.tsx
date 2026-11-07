@@ -2,7 +2,7 @@
 
 import { AnimatePresence, motion } from 'framer-motion';
 import { useMemo, useState } from 'react';
-import { CheckCheck, FileCheck2, Link2, FileWarning, HandCoins, HelpCircle, PartyPopper, type LucideIcon } from 'lucide-react';
+import { Camera, CheckCheck, FileCheck2, Link2, FileWarning, HandCoins, HelpCircle, PartyPopper, type LucideIcon } from 'lucide-react';
 
 import { inboxGroup, type InboxGroup } from '../../../lib/ledger/categories';
 import MovementRow from './MovementRow';
@@ -76,12 +76,15 @@ export default function PorTratarTab({
   readOnlyReason,
   onOpen,
   onApprove,
+  onQuickCapture,
 }: {
   movements: LedgerMovement[];
   selectedId: string | null;
   readOnlyReason: string | null;
   onOpen: (movement: LedgerMovement) => void;
   onApprove: (rows: LedgerMovement[]) => void;
+  /** Opens the one-at-a-time photo mode for expenses missing their invoice. */
+  onQuickCapture?: () => void;
 }) {
   // An approved expense without its invoice is still work to do.
   const open = useMemo(() => movements.filter(movement => isOpen(movement) || missingDocument(movement)), [movements]);
@@ -135,6 +138,12 @@ export default function PorTratarTab({
                   <p className="mt-0.5 text-[13px] text-zinc-500">{section.hint}</p>
                 </div>
               </div>
+              {section.key === 'document' && onQuickCapture && (
+                <Button variant="primary" size="sm" className="shrink-0 whitespace-nowrap" onClick={onQuickCapture}>
+                  <Camera className="h-4 w-4" aria-hidden />
+                  Fotografar faturas
+                </Button>
+              )}
               {(section.key === 'safe' || section.key === 'linked' || section.key === 'manual') && (
                 <Button
                   variant="primary"

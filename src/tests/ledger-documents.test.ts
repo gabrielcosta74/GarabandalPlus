@@ -87,3 +87,29 @@ describe('attaching a document', () => {
     expect(mocks.remove).toHaveBeenCalledOnce();
   });
 });
+
+describe('documents in folders', () => {
+  it('names a file the way an accountant reads it', async () => {
+    const { archiveFileName } = await import('../lib/ledger/document-rules');
+    expect(archiveFileName({ date: '2026-10-06', who: 'Hôtel Évreux / Grupo', amount: -8276.1, kind: 'Proforma', extension: 'pdf' }))
+      .toBe('2026-10-06 Hotel Evreux Grupo 8276,10 EUR Proforma.pdf');
+  });
+
+  it('never gives two files the same place in the ZIP', async () => {
+    vi.doMock('../lib/ledger/server', () => ({ db: () => ({}) }));
+    const { archivePaths } = await import('../lib/ledger/document-archive');
+    const doc = (id: string) => ({
+      id, kind: 'fatura', kindLabel: 'Fatura', fileName: 'a.pdf', sizeBytes: 10, storagePath: `x/${id}.pdf`, createdAt: '',
+      movement: { id: 'm', date: '2026-10-06', period: '2026-10', who: 'Hotel', description: '', amount: -10, category: 'Alojamento e refeições' },
+    });
+    const paths = archivePaths([doc('1'), doc('2')]);
+    expect(paths.get('1')).toBe('Alojamento e refeições/2026-10-06 Hotel 10,00 EUR Fatura.pdf');
+    expect(paths.get('2')).toBe('Alojamento e refeições/2026-10-06 Hotel 10,00 EUR Fatura (1).pdf');
+  });
+
+  it('only accepts the known kinds', async () => {
+    const { isDocumentKind } = await import('../lib/ledger/document-rules');
+    expect(isDocumentKind('proforma')).toBe(true);
+    expect(isDocumentKind('nota')).toBe(false);
+  });
+});

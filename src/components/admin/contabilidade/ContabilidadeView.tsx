@@ -14,18 +14,21 @@ import MovementDrawer from './MovementDrawer';
 import MovimentosTab from './MovimentosTab';
 import Overview from './Overview';
 import AdminGuide from './AdminGuide';
+import DocumentosTab from './DocumentosTab';
 import PaymentsBankCheck from './PaymentsBankCheck';
 import PorTratarTab from './PorTratarTab';
 import { ToastProvider, useToast } from './Toasts';
 import type { LedgerMovement } from './types';
 import { adminFetch, useLedger } from './useLedger';
-import { ErrorState, LoadingRows, cx, isOpen, missingDocument } from './ui';
+import QuickCapture from './QuickCapture';
+import { Card, EmptyState, ErrorState, LoadingRows, cx, isOpen, missingDocument } from './ui';
 
-type Tab = 'por-tratar' | 'movimentos' | 'fecho';
+type Tab = 'por-tratar' | 'movimentos' | 'documentos' | 'fecho';
 
 const TABS: { key: Tab; label: string }[] = [
   { key: 'por-tratar', label: 'Por tratar' },
   { key: 'movimentos', label: 'Movimentos' },
+  { key: 'documentos', label: 'Documentos' },
   { key: 'fecho', label: 'Fecho do mês' },
 ];
 
@@ -76,6 +79,8 @@ function Contabilidade() {
   const [tab, setTab] = useState<Tab>('por-tratar');
   const [importOpen, setImportOpen] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  // A fixed list while photographing, so the queue does not jump as each one is saved.
+  const [captureList, setCaptureList] = useState<LedgerMovement[] | null>(null);
   const [bulkError, setBulkError] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
 
@@ -321,7 +326,12 @@ function Contabilidade() {
               readOnlyReason={ledger.readOnlyReason}
               onOpen={openMovement}
               onApprove={rows => void approve(rows)}
+              onQuickCapture={ledger.mode === 'live' && !ledger.readOnlyReason ? () => setCaptureList(ledger.movements.filter(missingDocument)) : undefined}
             />
+          ) : tab === 'documentos' ? (
+            ledger.mode === 'live'
+              ? <DocumentosTab period={ledger.period} onOpenMovement={(id, docPeriod) => { if (docPeriod !== ledger.period) ledger.setPeriod(docPeriod); setSelectedId(id); }} />
+              : <Card><EmptyState title="Os documentos aparecem com os movimentos reais" /></Card>
           ) : tab === 'movimentos' ? (
             <MovimentosTab movements={ledger.movements} selectedId={selectedId} onOpen={openMovement} monthBalance={ledger.monthBalance} />
           ) : (
@@ -339,6 +349,13 @@ function Contabilidade() {
           </motion.div>
         </>
       )}
+
+      <QuickCapture
+        open={!!captureList}
+        movements={captureList || []}
+        onClose={() => setCaptureList(null)}
+        onChanged={ledger.reload}
+      />
 
       <MovementDrawer
         movement={selected}

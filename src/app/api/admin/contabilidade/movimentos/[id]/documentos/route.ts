@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 
 import { logAdminAudit } from '../../../../../../../lib/admin-audit';
-import { MAX_DOCUMENT_BYTES, detectDocumentType, documentProblem, documentStoragePath } from '../../../../../../../lib/ledger/document-rules';
+import { MAX_DOCUMENT_BYTES, detectDocumentType, documentProblem, documentStoragePath, isDocumentKind } from '../../../../../../../lib/ledger/document-rules';
 import { db, requireAdmin } from '../../../../../../../lib/ledger/server';
 
 export const dynamic = 'force-dynamic';
@@ -22,14 +22,14 @@ export async function GET(req: Request, context: { params: Promise<{ id: string 
   if (!UUID.test(id)) return Response.json({ error: 'Movimento inválido.' }, { status: 400 });
 
   const { data, error } = await db().from('expense_documents')
-    .select('id, storage_path, file_name, mime_type, size_bytes, uploaded_by, created_at')
+    .select('id, storage_path, file_name, mime_type, size_bytes, uploaded_by, created_at, doc_kind')
     .eq('bank_transaction_id', id).order('created_at', { ascending: true });
   if (error) return Response.json({ error: error.message }, { status: 500 });
 
   const documents = await Promise.all((data || []).map(async document => {
     const { data: signed } = await db().storage.from(BUCKET).createSignedUrl(document.storage_path, LINK_SECONDS);
     return {
-      id: document.id, fileName: document.file_name, mimeType: document.mime_type, sizeBytes: document.size_bytes,
+      id: document.id, fileName: document.file_name, mimeType: document.mime_type, sizeBytes: document.size_bytes, kind: document.doc_kind,
       uploadedBy: document.uploaded_by, createdAt: document.created_at, url: signed?.signedUrl ?? null,
     };
   }));
@@ -50,6 +50,8 @@ export async function POST(req: Request, context: { params: Promise<{ id: string
     const form = await req.formData();
     const file = form.get('file');
     if (!file || typeof file === 'string') return Response.json({ error: 'Escolha um ficheiro.' }, { status: 400 });
+    const kind = form.get('kind');
+    if (kind !== null && !isDocumentKind(kind)) return Response.json({ error: 'Tipo de documento inválido.' }, { status: 400 });
     const problem = documentProblem(file);
     if (problem) return Response.json({ error: problem }, { status: 400 });
 
@@ -76,7 +78,7 @@ export async function POST(req: Request, context: { params: Promise<{ id: string
 
     const { data: saved, error: saveError } = await db().from('expense_documents').insert({
       bank_transaction_id: id, storage_path: path, file_name: file.name, mime_type: type.mime,
-      size_bytes: bytes.byteLength, sha256, uploaded_by: admin.email,
+      size_bytes: bytes.byteLength, sha256, uploaded_by: admin.email, doc_kind: kind || 'fatura',
     }).select('id').single();
     if (saveError) {
       // A closed month refuses the row: leave no orphan file behind.
