@@ -15,42 +15,42 @@
   color-scheme: dark;
 
   /* Surfaces: "white" becomes the raised dark surface. */
-  --color-white: #1a1a1f;
+  --color-white: #24242a;
 
   /* Neutral ink, inverted and biased brighter so secondary text stays legible. */
-  --color-zinc-50: #131316;
-  --color-zinc-100: #1c1c21;
-  --color-zinc-200: #2a2a30;
-  --color-zinc-300: #3d3d45;
-  --color-zinc-400: #77777f;
-  --color-zinc-500: #9d9da6;
-  --color-zinc-600: #bdbdc5;
-  --color-zinc-700: #d6d6dc;
-  --color-zinc-800: #e8e8ec;
-  --color-zinc-900: #f4f4f6;
+  --color-zinc-50: #1a1a1e;
+  --color-zinc-100: #24242a;
+  --color-zinc-200: #313138;
+  --color-zinc-300: #46464f;
+  --color-zinc-400: #8d8d97;
+  --color-zinc-500: #b1b1ba;
+  --color-zinc-600: #cacad1;
+  --color-zinc-700: #dcdce1;
+  --color-zinc-800: #ececf0;
+  --color-zinc-900: #f6f6f8;
   --color-zinc-950: #ffffff;
 
   /* The admin shell (sidebar, header) uses slate and gray: same ramp. */
-  --color-slate-50: #131316;
-  --color-slate-100: #1c1c21;
-  --color-slate-200: #2a2a30;
-  --color-slate-300: #3d3d45;
-  --color-slate-400: #77777f;
-  --color-slate-500: #9d9da6;
-  --color-slate-600: #bdbdc5;
-  --color-slate-700: #d6d6dc;
-  --color-slate-800: #e8e8ec;
-  --color-slate-900: #f4f4f6;
-  --color-gray-50: #08080a;
-  --color-gray-100: #1c1c21;
-  --color-gray-200: #2a2a30;
-  --color-gray-300: #3d3d45;
-  --color-gray-400: #77777f;
-  --color-gray-500: #9d9da6;
-  --color-gray-600: #bdbdc5;
-  --color-gray-700: #d6d6dc;
-  --color-gray-800: #e8e8ec;
-  --color-gray-900: #f4f4f6;
+  --color-slate-50: #1a1a1e;
+  --color-slate-100: #24242a;
+  --color-slate-200: #313138;
+  --color-slate-300: #46464f;
+  --color-slate-400: #8d8d97;
+  --color-slate-500: #b1b1ba;
+  --color-slate-600: #cacad1;
+  --color-slate-700: #dcdce1;
+  --color-slate-800: #ececf0;
+  --color-slate-900: #f6f6f8;
+  --color-gray-50: #141417;
+  --color-gray-100: #24242a;
+  --color-gray-200: #313138;
+  --color-gray-300: #46464f;
+  --color-gray-400: #8d8d97;
+  --color-gray-500: #b1b1ba;
+  --color-gray-600: #cacad1;
+  --color-gray-700: #dcdce1;
+  --color-gray-800: #ececf0;
+  --color-gray-900: #f6f6f8;
   --color-garabandal-dark: #f4f4f6;
 
   /* Semantic hues: soft tints become deep, inks become light. */
@@ -102,11 +102,11 @@
   --color-violet-50: #1d1533;
   --color-violet-600: #c4b5fd;
 
-  background-color: #08080a;
+  background-color: #141417;
 }
 
 .ledger-dark body {
-  background-color: #08080a;
+  background-color: #141417;
 }
 
 /* ------------------------------------------------------------------------ */
@@ -115,23 +115,23 @@
 
 /* A sheet of glass: content containers. */
 .lg-glass {
-  background: linear-gradient(180deg, rgb(255 255 255 / 0.055), rgb(255 255 255 / 0.025));
+  background: linear-gradient(180deg, rgb(255 255 255 / 0.085), rgb(255 255 255 / 0.05));
   -webkit-backdrop-filter: blur(28px) saturate(160%);
   backdrop-filter: blur(28px) saturate(160%);
-  border: 1px solid rgb(255 255 255 / 0.07);
+  border: 1px solid rgb(255 255 255 / 0.1);
   box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 0.07),
-    0 24px 48px -28px rgb(0 0 0 / 0.7);
+    inset 0 1px 0 rgb(255 255 255 / 0.1),
+    0 24px 48px -28px rgb(0 0 0 / 0.55);
 }
 
 /* Floating controls (toolbar capsules). Lighter than sheets: they are touched. */
 .lg-pill {
-  background: rgb(255 255 255 / 0.06);
+  background: rgb(255 255 255 / 0.09);
   -webkit-backdrop-filter: blur(24px) saturate(180%);
   backdrop-filter: blur(24px) saturate(180%);
-  border: 1px solid rgb(255 255 255 / 0.08);
+  border: 1px solid rgb(255 255 255 / 0.11);
   box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 0.09),
+    inset 0 1px 0 rgb(255 255 255 / 0.12),
     0 8px 24px -12px rgb(0 0 0 / 0.6);
 }
 
@@ -146,19 +146,19 @@
 
 /* Popovers, menus, drawer: thick glass over dimmed content. */
 .lg-float {
-  background: rgb(24 24 28 / 0.72);
+  background: rgb(40 40 46 / 0.8);
   -webkit-backdrop-filter: blur(40px) saturate(180%);
   backdrop-filter: blur(40px) saturate(180%);
-  border: 1px solid rgb(255 255 255 / 0.09);
+  border: 1px solid rgb(255 255 255 / 0.12);
   box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 0.08),
+    inset 0 1px 0 rgb(255 255 255 / 0.1),
     0 32px 64px -16px rgb(0 0 0 / 0.75);
 }
 
 /* Icon medallion: one neutral material for every category. */
 .lg-icon {
-  background: linear-gradient(180deg, rgb(255 255 255 / 0.13), rgb(255 255 255 / 0.04));
-  border: 1px solid rgb(255 255 255 / 0.08);
+  background: linear-gradient(180deg, rgb(255 255 255 / 0.17), rgb(255 255 255 / 0.07));
+  border: 1px solid rgb(255 255 255 / 0.1);
   box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.12);
 }
 
@@ -174,7 +174,7 @@
   .lg-glass, .lg-pill, .lg-float {
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
-    background: #18181c;
+    background: #26262c;
   }
 }
 

@@ -34,11 +34,11 @@ export default function MovementRow({
       onClick={() => onOpen(movement)}
       onKeyDown={event => { if (event.key === 'Enter') onOpen(movement); }}
       className={cx(
-        'group/row relative grid cursor-pointer grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-3.5 gap-y-1.5 px-4 py-3 outline-none',
+        'group/row relative grid cursor-pointer grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1.5 px-5 py-4 outline-none',
         'transition-colors duration-150 ease-out',
-        'md:grid-cols-[auto_minmax(0,1fr)_11rem_9rem_7.5rem_2rem] md:gap-x-4',
+        'md:grid-cols-[auto_minmax(0,1fr)_11rem_10rem_8rem_2.25rem] md:gap-x-5',
         // Inset hairline above every row but the first.
-        'before:pointer-events-none before:absolute before:left-[66px] before:right-0 before:top-0 before:h-px before:bg-zinc-900/[0.06]',
+        'before:pointer-events-none before:absolute before:left-[76px] before:right-0 before:top-0 before:h-px before:bg-zinc-900/[0.08]',
         'group-first/item:before:hidden',
         active ? 'bg-zinc-900/[0.045]' : 'hover:bg-zinc-900/[0.025] focus-visible:bg-zinc-900/[0.035]',
         movement.status === 'ignored' && 'opacity-55',
@@ -46,8 +46,8 @@ export default function MovementRow({
     >
       <IconTile code={code} dashed={tentative} />
       <div className="min-w-0">
-        <p className="truncate text-[14px] font-medium tracking-[-0.01em] text-zinc-900">{movementTitle(movement)}</p>
-        <p className="truncate text-[12.5px] text-zinc-400">
+        <p className="truncate text-[15px] font-medium tracking-[-0.012em] text-zinc-900">{movementTitle(movement)}</p>
+        <p className="mt-0.5 truncate text-[13px] text-zinc-400">
           {showDate && <span className="text-zinc-500">{formatDay(movement.bookingDate)}</span>}
           {showDate && ' · '}
           {movement.description}
@@ -55,8 +55,8 @@ export default function MovementRow({
       </div>
       <div className="hidden min-w-0 md:block"><CategoryPill code={code} tentative={tentative} /></div>
       <div className="hidden min-w-0 md:block"><RowBadge movement={movement} /></div>
-      <Amount value={movement.amount} className="text-right text-[14px]" />
-      <div className="col-span-3 flex items-center justify-between gap-2 pl-[50px] md:col-span-1 md:justify-end md:pl-0">
+      <Amount value={movement.amount} className="text-right text-[15px]" />
+      <div className="col-span-3 flex items-center justify-between gap-2 pl-[56px] md:col-span-1 md:justify-end md:pl-0">
         <div className="flex min-w-0 items-center gap-3 md:hidden">
           <CategoryPill code={code} tentative={tentative} />
           <RowBadge movement={movement} />

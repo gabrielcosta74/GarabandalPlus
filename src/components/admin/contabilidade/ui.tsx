@@ -52,7 +52,7 @@ export function Button({
         'inline-flex cursor-pointer select-none items-center justify-center gap-1.5 rounded-full font-medium tracking-[-0.005em] outline-none',
         'transition-[background-color,color,transform] duration-150 ease-out active:scale-[0.97]',
         'focus-visible:ring-[3px] focus-visible:ring-zinc-900/15 disabled:cursor-not-allowed disabled:active:scale-100',
-        size === 'sm' && 'h-8 px-3.5 text-[13px]',
+        size === 'sm' && 'h-9 px-4 text-[13.5px]',
         size === 'md' && 'h-9 px-4 text-sm',
         size === 'lg' && 'h-11 px-5 text-[15px]',
         VARIANTS[variant],
@@ -131,13 +131,13 @@ export function IconTile({ code, size = 'md', dashed = false }: { code: string |
         tone.soft,
         'rounded-full',
         size === 'sm' && 'h-7 w-7',
-        size === 'md' && 'h-9 w-9',
+        size === 'md' && 'h-10 w-10',
         size === 'lg' && 'h-12 w-12',
         dashed && 'opacity-60',
       )}
       aria-hidden
     >
-      <Icon className={cx(tone.ink, size === 'sm' ? 'h-3.5 w-3.5' : size === 'lg' ? 'h-5 w-5' : 'h-[15px] w-[15px]')} strokeWidth={1.75} />
+      <Icon className={cx(tone.ink, size === 'sm' ? 'h-3.5 w-3.5' : size === 'lg' ? 'h-5 w-5' : 'h-4 w-4')} strokeWidth={1.75} />
     </span>
   );
 }
@@ -146,7 +146,7 @@ export function CategoryPill({ code, tentative = false }: { code: string | null 
   if (!code) return <span className="text-[13px] text-zinc-400">Sem categoria</span>;
   return (
     <span
-      className={cx('block max-w-full truncate text-[13px]', tentative ? 'text-zinc-400 italic' : 'text-zinc-500')}
+      className={cx('block max-w-full truncate text-[13.5px]', tentative ? 'text-zinc-400 italic' : 'text-zinc-500')}
       title={tentative ? 'Sugestão do sistema — por confirmar' : undefined}
     >
       {categoryLabel(code)}{tentative ? '?' : ''}
@@ -164,13 +164,13 @@ export function rowState(movement: LedgerMovement): { state: RowState; label: st
   return { state: 'confirm', label: 'Por confirmar' };
 }
 
-export const BADGE = 'inline-flex h-6 max-w-full items-center gap-1 truncate whitespace-nowrap rounded-full px-2.5 text-[12px] font-medium';
+export const BADGE = 'inline-flex h-7 max-w-full items-center gap-1 truncate whitespace-nowrap rounded-full px-3 text-[12.5px] font-medium';
 
 export function StatePill({ movement }: { movement: LedgerMovement }) {
   const { state, label } = rowState(movement);
   if (state === 'complete') {
     return (
-      <span className="inline-flex h-6 items-center gap-1 whitespace-nowrap text-[12px] font-medium text-emerald-600">
+      <span className="inline-flex h-7 items-center gap-1 whitespace-nowrap text-[12.5px] font-medium text-emerald-600">
         <Check className="h-3.5 w-3.5" strokeWidth={2.75} aria-hidden />
         {label}
       </span>
