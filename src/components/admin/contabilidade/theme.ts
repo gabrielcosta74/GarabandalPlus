@@ -38,7 +38,7 @@ export type Tone = {
  * reserved for state (money in, needs attention). Keys kept so call sites and
  * the category map stay unchanged.
  */
-const NEUTRAL: Tone = { soft: 'lg-icon', ink: 'text-zinc-700', chart: 'rgb(255 255 255 / 0.7)' };
+const NEUTRAL: Tone = { soft: 'lg-icon', ink: 'text-zinc-700', chart: '#52525b' };
 const T = {
   rose: NEUTRAL, violet: NEUTRAL, sky: NEUTRAL, orange: NEUTRAL, emerald: NEUTRAL, indigo: NEUTRAL,
   teal: NEUTRAL, cyan: NEUTRAL, fuchsia: NEUTRAL, lime: NEUTRAL, slate: NEUTRAL, zinc: NEUTRAL,
@@ -83,7 +83,7 @@ export type RowState = 'complete' | 'missing' | 'confirm' | 'ignored';
 
 export const STATE_PILL: Record<RowState, string> = {
   complete: 'text-emerald-600',
-  missing: 'bg-orange-500/[0.12] text-orange-600',
+  missing: 'bg-orange-500/10 text-orange-700',
   confirm: 'bg-transparent !px-0 text-zinc-400',
   ignored: 'bg-zinc-900/[0.06] text-zinc-500',
 };

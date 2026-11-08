@@ -60,7 +60,7 @@ export default function Overview({
   return (
     <Card className="relative overflow-hidden">
       {/* A soft highlight across the top edge of the glass. */}
-      <span className="pointer-events-none absolute inset-x-10 top-0 h-px bg-gradient-to-r from-transparent via-[rgb(255_255_255/0.22)] to-transparent" aria-hidden />
+      <span className="pointer-events-none absolute inset-x-10 top-0 h-px bg-gradient-to-r from-transparent via-white to-transparent" aria-hidden />
       <div className="grid gap-y-6 p-6 sm:grid-cols-3 sm:p-7 lg:grid-cols-[minmax(0,1.5fr)_repeat(3,minmax(0,1fr))] lg:items-end">
         <div className="sm:col-span-3 lg:col-span-1">
           <p className="text-[13px] text-zinc-500">{monthBalance?.current ? 'Saldo no banco' : 'Saldo no fim do mês'}</p>
@@ -68,7 +68,7 @@ export default function Overview({
             <Money value={balance} />
           </p>
           <p className="mt-3 text-[13px] text-zinc-500">
-            <span className={cx('font-medium tabular-nums', result >= 0 ? 'text-emerald-500' : 'text-zinc-700')}>{formatEur(result, { signed: true })}</span>
+            <span className={cx('font-medium tabular-nums', result >= 0 ? 'text-emerald-600' : 'text-zinc-700')}>{formatEur(result, { signed: true })}</span>
             {' '}este mês
           </p>
         </div>
@@ -83,7 +83,7 @@ export default function Overview({
         >
           <span className="text-[13px] text-zinc-500">Por tratar</span>
           <span className="mt-2 flex items-baseline gap-1.5">
-            <span className={cx('text-[26px] font-semibold leading-none tracking-[-0.03em] tabular-nums', open ? 'text-zinc-900' : 'text-emerald-500')}>{open}</span>
+            <span className={cx('text-[26px] font-semibold leading-none tracking-[-0.03em] tabular-nums', open ? 'text-zinc-900' : 'text-emerald-600')}>{open}</span>
             <span className="text-[13px] tabular-nums text-zinc-400">de {movements.length}</span>
           </span>
           <Track done={treated} total={movements.length} />
@@ -169,7 +169,7 @@ function Breakdown({ title, items }: { title: string; items: Slice[] }) {
                     <div className="mt-1.5 flex items-center gap-2">
                       <span className="block h-[3px] flex-1 overflow-hidden rounded-full bg-zinc-900/[0.07]">
                         <motion.span
-                          className="block h-full rounded-full bg-zinc-700"
+                          className="block h-full rounded-full bg-zinc-800"
                           initial={{ width: 0 }}
                           animate={{ width: `${top ? (item.amount / top) * 100 : 0}%` }}
                           transition={SPRING}

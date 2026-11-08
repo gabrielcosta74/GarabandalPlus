@@ -26,9 +26,9 @@ export function useToast() {
 }
 
 const ICONS: Record<ToastTone, { icon: typeof CheckCircle2; className: string }> = {
-  success: { icon: CheckCircle2, className: 'text-emerald-400' },
-  error: { icon: AlertCircle, className: 'text-rose-400' },
-  info: { icon: Info, className: 'text-sky-300' },
+  success: { icon: CheckCircle2, className: 'text-emerald-600' },
+  error: { icon: AlertCircle, className: 'text-rose-600' },
+  info: { icon: Info, className: 'text-sky-600' },
 };
 
 /** Small dark toasts, bottom-centre, stacked; actions such as "Desfazer". */
@@ -89,7 +89,7 @@ function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: (id: number)
         <button
           type="button"
           onClick={() => { toast.action!.onClick(); onDismiss(toast.id); }}
-          className="h-8 shrink-0 cursor-pointer rounded-full px-3 text-sm font-semibold text-emerald-300 transition-colors duration-200 hover:bg-zinc-900/[0.08] hover:text-emerald-200"
+          className="h-8 shrink-0 cursor-pointer rounded-full px-3 text-sm font-semibold text-emerald-700 transition-colors duration-200 hover:bg-zinc-900/[0.06] hover:text-emerald-800"
         >
           {toast.action.label}
         </button>

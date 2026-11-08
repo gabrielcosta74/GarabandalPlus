@@ -9,7 +9,7 @@ const ledgerSans = Geist({ subsets: ['latin'], display: 'swap' });
 
 export default function AdminContabilidadePage() {
   return (
-    <AdminLayout title="Contabilidade" className="ledger-dark">
+    <AdminLayout title="Contabilidade">
       <div className={`${ledgerSans.className} antialiased [&_button:not(:disabled)]:cursor-pointer [&_[role=button]]:cursor-pointer [&_label:has(button)]:cursor-pointer`}>
         <ContabilidadeView />
       </div>

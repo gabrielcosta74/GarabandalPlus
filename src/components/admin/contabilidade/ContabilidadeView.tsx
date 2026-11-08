@@ -2,7 +2,7 @@
 
 import { Menu, MenuButton, MenuItem, MenuItems } from '@headlessui/react';
 import { AnimatePresence, MotionConfig, motion } from 'framer-motion';
-import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Check, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
 
 import { requiresDocument } from '../../../lib/ledger/categories';
@@ -185,17 +185,7 @@ export default function ContabilidadeView() {
   );
 }
 
-/** Dark theme for the whole page while it is open, portalled dialogs included. */
-function useLedgerTheme() {
-  useLayoutEffect(() => {
-    const root = document.documentElement;
-    root.classList.add('ledger-dark');
-    return () => root.classList.remove('ledger-dark');
-  }, []);
-}
-
 function Contabilidade() {
-  useLedgerTheme();
   const ledger = useLedger();
   const toast = useToast();
   const [tab, setTab] = useState<Tab>('por-tratar');
@@ -298,8 +288,8 @@ function Contabilidade() {
       <div
         className={cx(
           'relative z-30 -mx-6 -mt-6 px-6 pb-3 pt-6 md:sticky md:-top-5 md:-mx-8 md:-mt-8 md:px-8 md:pt-8',
-          'bg-gray-50/55 backdrop-blur-2xl backdrop-saturate-150',
-          'after:pointer-events-none after:absolute after:inset-x-0 after:top-full after:h-6 after:bg-gradient-to-b after:from-gray-50/55 after:to-transparent',
+          'bg-gray-50/70 backdrop-blur-2xl backdrop-saturate-150',
+          'after:pointer-events-none after:absolute after:inset-x-0 after:top-full after:h-6 after:bg-gradient-to-b after:from-gray-50/70 after:to-transparent',
         )}
       >
         <div className="flex flex-wrap items-center gap-x-3 gap-y-3">

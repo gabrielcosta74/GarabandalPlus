@@ -114,7 +114,7 @@ export default function MovimentosTab({
             value={query}
             onChange={event => setQuery(event.target.value)}
             placeholder="Procurar"
-            className="lg-pill h-9 w-full rounded-full pl-9 pr-3 text-[13.5px] text-zinc-900 transition-shadow duration-150 placeholder:text-zinc-400 focus:shadow-[0_0_0_4px_rgb(255_255_255/0.06)] focus:outline-none"
+            className="lg-pill h-9 w-full rounded-full pl-9 pr-3 text-[13.5px] text-zinc-900 transition-shadow duration-150 placeholder:text-zinc-400 focus:shadow-[0_0_0_4px_rgb(9_9_11/0.06)] focus:outline-none"
           />
         </label>
       </div>

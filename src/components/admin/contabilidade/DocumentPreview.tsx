@@ -118,7 +118,7 @@ export default function DocumentPreview({
 
   return (
     <Dialog open={!!doc} onClose={onClose} className="relative z-50">
-      <DialogBackdrop transition className="fixed inset-0 bg-black/55 transition-opacity duration-300 ease-out data-[closed]:opacity-0" />
+      <DialogBackdrop transition className="fixed inset-0 bg-zinc-950/25 transition-opacity duration-300 ease-out data-[closed]:opacity-0" />
       <div className="fixed inset-0 flex justify-end p-0 sm:p-3">
         <DialogPanel
           transition
