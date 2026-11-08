@@ -20,7 +20,7 @@ export type EditionPilgrimage = {
     current_vacancies?: number;
     confirmed_pax: number;
     effective_vacancies: number;
-    pricing_config?: { scarcity_fill_pct?: number } | null;
+    pricing_config?: { scarcity_fill_pct?: number; early_access?: unknown } | null;
 };
 
 export const remainingSpotsOf = (p: EditionPilgrimage) => {
