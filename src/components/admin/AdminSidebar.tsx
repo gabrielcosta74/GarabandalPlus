@@ -39,6 +39,7 @@ import {
     ShieldAlert,
     X,
     Landmark,
+    LineChart,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAdminNotifications } from '../../context/AdminNotificationContext';
@@ -122,6 +123,7 @@ export default function AdminSidebar({ onLogout, className, collapsed = false }:
         {
             label: 'Finanças',
             items: [
+                { label: 'Análise', icon: LineChart, href: '/admin/financas' },
                 { label: 'Contabilidade', icon: Landmark, href: '/admin/contabilidade' },
                 { label: 'Transações', icon: CreditCard, href: '/admin/transacoes' },
                 { label: 'Faturação', icon: ReceiptText, href: '/admin/faturacao', badge: counts.factpt },

@@ -396,6 +396,59 @@ export async function getAttachment(folder: string, uid: number, index: number) 
     return { filename: att.filename || `anexo-${index + 1}`, contentType: att.contentType, content: att.content };
 }
 
+export type MailSearch = Parameters<ImapFlow['search']>[0];
+
+type PdfNode = BodyNode & { dispositionParameters?: Record<string, string>; parameters?: Record<string, string> };
+/** Há um PDF em qualquer parte, anexo ou "inline" (alguns fornecedores enviam assim). */
+const hasPdf = (node?: PdfNode): boolean => {
+    if (!node) return false;
+    const name = node.dispositionParameters?.filename || node.parameters?.name || '';
+    if (node.type === 'application/pdf' || /\.pdf$/i.test(name)) return true;
+    return (node.childNodes as PdfNode[] | undefined || []).some(hasPdf);
+};
+
+/**
+ * Cabeçalhos das mensagens que respondem ao critério, das mais recentes para
+ * as mais antigas. Não as marca como lidas. Para tarefas automáticas.
+ */
+export async function searchMessages(folder: string, criteria: MailSearch, limit = 200): Promise<(MailSummary & { hasPdf: boolean })[]> {
+    return withImap(async (client) => {
+        const lock = await client.getMailboxLock(folder);
+        try {
+            const found = await client.search(criteria, { uid: true });
+            const uids = (found || []).sort((a, b) => b - a).slice(0, limit);
+            const messages: (MailSummary & { hasPdf: boolean })[] = [];
+            if (!uids.length) return messages;
+            for await (const msg of client.fetch(uids, { uid: true, envelope: true, flags: true, bodyStructure: true, size: true, internalDate: true }, { uid: true })) {
+                const flags = msg.flags || new Set<string>();
+                const date = msg.envelope?.date || msg.internalDate;
+                messages.push({
+                    uid: msg.uid,
+                    subject: msg.envelope?.subject || '',
+                    from: toAddresses(msg.envelope?.from),
+                    to: toAddresses(msg.envelope?.to),
+                    date: date ? new Date(date).toISOString() : null,
+                    seen: flags.has('\\Seen'),
+                    flagged: flags.has('\\Flagged'),
+                    answered: flags.has('\\Answered'),
+                    hasAttachments: hasAttachment(msg.bodyStructure as BodyNode | undefined),
+                    hasPdf: hasPdf(msg.bodyStructure as PdfNode | undefined),
+                    size: msg.size || 0,
+                });
+            }
+            return messages.sort((a, b) => b.uid - a.uid);
+        } finally {
+            lock.release();
+        }
+    });
+}
+
+/** Fonte completa (RFC 822) de uma mensagem, sem a marcar como lida. */
+export async function getRawMessage(folder: string, uid: number): Promise<Buffer> {
+    const { source } = await loadSource(folder, uid, false);
+    return source;
+}
+
 export type MailAction = 'seen' | 'unseen' | 'flag' | 'unflag' | 'trash' | 'move';
 
 export async function updateMessages(folder: string, uids: number[], action: MailAction, destination?: string) {

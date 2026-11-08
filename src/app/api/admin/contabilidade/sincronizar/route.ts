@@ -1,5 +1,6 @@
 import { syncMontepio } from '../../../../../lib/ledger/bank-sync';
 import { runLedgerFollowUps } from '../../../../../lib/ledger/follow-ups';
+import { runMailInvoices } from '../../../../../lib/ledger/mail-invoices';
 import { requireAdmin } from '../../../../../lib/ledger/server';
 
 export const dynamic = 'force-dynamic';
@@ -20,9 +21,10 @@ export async function POST(req: Request) {
     });
     // The admin is waiting: only the newest FACT.pt pages (one request per second).
     const { enriched } = await runLedgerFollowUps({ mirrorPages: 3 });
+    const invoices = await runMailInvoices({ force: true, actor: admin.email });
     const status = result.status === 'failed' ? 502
         : result.status === 'not_configured' || result.status === 'not_ready' || result.status === 'expired' ? 503 : 200;
-    return Response.json({ ...result, enriched }, { status, headers: { 'Cache-Control': 'no-store' } });
+    return Response.json({ ...result, enriched, invoices }, { status, headers: { 'Cache-Control': 'no-store' } });
   } catch {
     return Response.json({ error: 'Não foi possível sincronizar o Montepio. Tente novamente mais tarde.' }, { status: 500 });
   }
