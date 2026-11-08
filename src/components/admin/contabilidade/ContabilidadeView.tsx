@@ -39,25 +39,37 @@ function readTabFromUrl(): Tab {
   return TABS.some(tab => tab.key === value) ? (value as Tab) : 'por-tratar';
 }
 
-/** The page shows one month at a time; this keeps the others from being forgotten. */
+/** The page shows one month at a time; one quiet button keeps the others from being forgotten. */
 function OpenMonths({ counts, current, onPick }: { counts: Record<string, number>; current: string | null; onPick: (period: string) => void }) {
   const others = Object.entries(counts).filter(([period, count]) => period !== current && count > 0).sort(([a], [b]) => b.localeCompare(a));
   if (others.length === 0) return null;
+  const total = others.reduce((sum, [, count]) => sum + count, 0);
   return (
-    <div className="flex flex-wrap items-center gap-1.5 px-1">
-      <span className="mr-1 text-[12.5px] text-zinc-400">Também por tratar</span>
-      {others.map(([period, count]) => (
-        <button
-          key={period}
-          type="button"
-          onClick={() => onPick(period)}
-          className="lg-pill inline-flex h-7 items-center gap-1.5 rounded-full pl-3 pr-1.5 text-[12.5px] font-medium text-zinc-700 transition-transform duration-150 ease-out hover:text-zinc-900 active:scale-[0.97]"
-        >
-          {formatPeriod(period)}
-          <Count value={count} tone="attention" />
-        </button>
-      ))}
-    </div>
+    <Menu as="div" className="relative">
+      <MenuButton className="lg-pill flex h-9 items-center gap-2 rounded-full pl-3.5 pr-3 text-[14px] font-medium text-zinc-600 outline-none transition-colors duration-150 hover:text-zinc-900 focus-visible:ring-[3px] focus-visible:ring-zinc-900/15">
+        <span className="h-2 w-2 rounded-full bg-orange-500" aria-hidden />
+        <span className="tabular-nums">{total}</span> noutros meses
+        <ChevronDown className="h-3.5 w-3.5 text-zinc-400" aria-hidden />
+      </MenuButton>
+      <MenuItems
+        transition
+        anchor={{ to: 'bottom end', gap: 8 }}
+        className="lg-float z-50 w-60 origin-top-right rounded-2xl p-1.5 transition duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] focus:outline-none data-[closed]:scale-95 data-[closed]:opacity-0"
+      >
+        {others.map(([period, count]) => (
+          <MenuItem key={period}>
+            <button
+              type="button"
+              onClick={() => onPick(period)}
+              className="flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2.5 text-left text-[14px] text-zinc-900 transition-colors duration-100 data-[focus]:bg-zinc-900/[0.06]"
+            >
+              {formatPeriod(period)}
+              <Count value={count} tone="attention" />
+            </button>
+          </MenuItem>
+        ))}
+      </MenuItems>
+    </Menu>
   );
 }
 
@@ -353,10 +365,6 @@ function Contabilidade() {
             transition={SPRING}
             className="flex flex-col gap-5"
           >
-            {tab === 'por-tratar' && (
-              <OpenMonths counts={ledger.openByPeriod} current={ledger.period} onPick={ledger.setPeriod} />
-            )}
-            {tab === 'por-tratar' && ledger.mode === 'live' && <PaymentsBankCheck refreshKey={ledger.movements} />}
             {tab === 'por-tratar' ? (
               <PorTratarTab
                 movements={ledger.movements}
@@ -365,6 +373,8 @@ function Contabilidade() {
                 onOpen={openMovement}
                 onApprove={rows => void approve(rows)}
                 onQuickCapture={ledger.mode === 'live' && !ledger.readOnlyReason ? () => setCaptureList(ledger.movements.filter(missingDocument)) : undefined}
+                aside={<OpenMonths counts={ledger.openByPeriod} current={ledger.period} onPick={ledger.setPeriod} />}
+                notices={ledger.mode === 'live' ? <PaymentsBankCheck refreshKey={ledger.movements} /> : null}
               />
             ) : tab === 'documentos' ? (
               ledger.mode === 'live'
