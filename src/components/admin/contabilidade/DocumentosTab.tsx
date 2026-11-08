@@ -6,6 +6,7 @@ import { Download, ExternalLink, FileText, Folder, FolderOpen, LoaderCircle } fr
 import { formatDay, formatEur, formatPeriod } from '../../../lib/ledger/format';
 import { useToast } from './Toasts';
 import { adminFetch, downloadAdminFile } from './useLedger';
+import MailInvoicesCard from './MailInvoicesCard';
 import { Button, Card, EmptyState, cx } from './ui';
 
 type Doc = {
@@ -76,6 +77,8 @@ export default function DocumentosTab({ period, onOpenMovement }: { period: stri
   if (!documents) return <Card className="flex items-center gap-2 p-6 text-sm text-zinc-500"><LoaderCircle className="h-4 w-4 animate-spin" aria-hidden /> A ler os documentos…</Card>;
 
   return (
+    <div className="flex flex-col gap-4">
+    <MailInvoicesCard refreshKey={documents} />
     <div className="grid gap-4 lg:grid-cols-[16rem_minmax(0,1fr)]">
       <Card className="h-fit p-3">
         <p className="px-2 pb-2 pt-1 text-[13px] font-semibold text-zinc-900">{year}</p>
@@ -138,6 +141,7 @@ export default function DocumentosTab({ period, onOpenMovement }: { period: stri
           </ul>
         )}
       </Card>
+    </div>
     </div>
   );
 }
