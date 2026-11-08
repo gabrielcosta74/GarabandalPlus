@@ -150,8 +150,8 @@ export const pt = {
     },
     testimonials: 'Testemunhos de Peregrinos',
     gallery: {
-      title: 'Momentos Eternos',
-      subtitle: 'Memórias das nossas peregrinações anteriores de 2008 a 2025.',
+      title: 'Memórias',
+      subtitle: 'Das nossas peregrinações anteriores, de 2008 a 2025.',
     },
   },
 

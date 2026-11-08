@@ -606,7 +606,7 @@ export default function GlobalContentPage() {
                         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
                             <div className="mb-6">
                                 <h2 className="text-2xl font-bold font-serif text-slate-900">Galeria de Fotos</h2>
-                                <p className="text-slate-500">Imagens exibidas na secção "Momentos Eternos" da página de peregrinações.</p>
+                                <p className="text-slate-500">Imagens exibidas na secção "Memórias" da página de peregrinações.</p>
                             </div>
 
                             <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200">

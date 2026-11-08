@@ -1,0 +1,40 @@
+/* Página /peregrinacoes — paleta neutra (preto e branco premium).
+   O azul da marca fica reservado para os botões. Letra: Inter, como o site. */
+
+.pe-root {
+  --pe-bg: #f7f7f5;
+  --pe-ink: #0b0b0c;
+  --pe-line: #e6e6e3;
+  --pe-muted: #6b6b6b;
+  background: var(--pe-bg);
+  color: var(--pe-ink);
+  font-family: var(--font-inter), system-ui, sans-serif;
+}
+
+.pe-eyebrow {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+
+.pe-title {
+  font-weight: 600;
+  letter-spacing: -0.035em;
+}
+
+/* Faixas horizontais contínuas (testemunhos e galeria) */
+@keyframes pe-marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+.pe-marquee {
+  width: max-content;
+  animation: pe-marquee var(--pe-marquee-duration, 60s) linear infinite;
+}
+.pe-marquee-wrap:hover .pe-marquee {
+  animation-play-state: paused;
+}
+@media (prefers-reduced-motion: reduce) {
+  .pe-marquee { animation: none; }
+}

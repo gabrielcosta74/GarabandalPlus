@@ -150,8 +150,8 @@ export const en = {
     },
     testimonials: 'Pilgrim Testimonials',
     gallery: {
-      title: 'Eternal Moments',
-      subtitle: 'Memories from our previous pilgrimages from 2008 to 2025.',
+      title: 'Memories',
+      subtitle: 'From our previous pilgrimages, 2008 to 2025.',
     },
   },
 
