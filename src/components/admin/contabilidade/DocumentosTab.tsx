@@ -1,63 +1,124 @@
 "use client";
 
 import { useEffect, useMemo, useState } from 'react';
-import { Download, ExternalLink, FileText, Folder, FolderOpen, LoaderCircle } from 'lucide-react';
+import { ArrowUpRight, Camera, Download, FileText, Image as ImageIcon, LoaderCircle, Mail, Search, X } from 'lucide-react';
 
 import { formatDay, formatEur, formatPeriod } from '../../../lib/ledger/format';
+import DocumentPreview, { type PreviewDoc } from './DocumentPreview';
+import MailInvoicesCard from './MailInvoicesCard';
+import MovementRow from './MovementRow';
 import { useToast } from './Toasts';
+import type { LedgerMovement } from './types';
 import { adminFetch, downloadAdminFile } from './useLedger';
-import { Button, Card, Count, EmptyState, IconButton, cx } from './ui';
+import { BADGE, Button, Card, Count, EmptyState, Hint, IconButton, cx } from './ui';
 
-type Doc = {
-  id: string;
+type Doc = PreviewDoc & {
   kind: string;
-  kindLabel: string;
-  fileName: string | null;
   sizeBytes: number | null;
   createdAt: string;
-  movement: { id: string; date: string; period: string; who: string; description: string; amount: number; category: string };
+  movement: PreviewDoc['movement'] & { description: string };
 };
 
-/** Folders are only a way of looking: each file is stored once, tied to its payment. */
-export default function DocumentosTab({ period, onOpenMovement }: { period: string | null; onOpenMovement: (movementId: string, period: string) => void }) {
+const KIND_ORDER = ['fatura', 'recibo', 'comprovativo', 'proforma', 'outro'];
+const KIND_PLURAL: Record<string, string> = {
+  fatura: 'Faturas', recibo: 'Recibos', comprovativo: 'Comprovativos', proforma: 'Proformas', outro: 'Outros',
+};
+
+const normalize = (value: string) => value.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+
+/**
+ * Every file that justifies an expense, organised like the accountant's ZIP:
+ * month → category. What still needs the admin (expenses without a file)
+ * comes first; a click on a file previews it without leaving the page.
+ */
+export default function DocumentosTab({
+  period,
+  periods,
+  missing,
+  onPeriod,
+  onOpenMovement,
+  onCapture,
+}: {
+  /** Month loaded in the page; `missing` belongs to it. */
+  period: string | null;
+  periods: string[];
+  missing: LedgerMovement[];
+  onPeriod: (period: string) => void;
+  onOpenMovement: (movementId: string, period: string) => void;
+  onCapture?: () => void;
+}) {
   const year = (period || new Date().toISOString()).slice(0, 4);
   const [documents, setDocuments] = useState<Doc[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [month, setMonth] = useState<string | null>(period);
-  const [category, setCategory] = useState<string | null>(null);
+  const [kind, setKind] = useState<string | null>(null);
+  const [query, setQuery] = useState('');
+  const [previewIndex, setPreviewIndex] = useState<number | null>(null);
   const [zipping, setZipping] = useState(false);
+  const [reload, setReload] = useState(0);
   const toast = useToast();
 
+  useEffect(() => { setDocuments(null); }, [year]);
   useEffect(() => {
-    setDocuments(null);
     setError(null);
     adminFetch(`/api/admin/contabilidade/documentos?year=${year}`)
       .then((result: { documents: Doc[] }) => setDocuments(result.documents))
       .catch(loadError => setError(loadError instanceof Error ? loadError.message : 'Não foi possível ler os documentos.'));
-  }, [year]);
+  }, [year, reload]);
 
-  useEffect(() => { setMonth(period); setCategory(null); }, [period]);
+  // The page's month moves (another tab, a movement opened elsewhere): follow it.
+  useEffect(() => { setMonth(period); }, [period]);
+  // A file attached in the drawer shortens `missing` for the same month: read the list again.
+  const missingKey = `${period}|${missing.map(movement => movement.id).join(',')}`;
+  const [lastMissingKey, setLastMissingKey] = useState(missingKey);
+  useEffect(() => {
+    if (missingKey === lastMissingKey) return;
+    const samePeriod = missingKey.split('|')[0] === lastMissingKey.split('|')[0];
+    setLastMissingKey(missingKey);
+    if (samePeriod) setReload(value => value + 1);
+  }, [missingKey, lastMissingKey]);
 
-  const tree = useMemo(() => {
-    const months = new Map<string, Map<string, Doc[]>>();
-    for (const document of documents || []) {
-      const categories = months.get(document.movement.period) || new Map<string, Doc[]>();
-      categories.set(document.movement.category, [...(categories.get(document.movement.category) || []), document]);
-      months.set(document.movement.period, categories);
-    }
-    return [...months.entries()].sort((a, b) => b[0].localeCompare(a[0]));
-  }, [documents]);
+  const months = useMemo(() => {
+    const counts = new Map<string, number>();
+    periods.filter(item => item.startsWith(year)).forEach(item => counts.set(item, 0));
+    (documents || []).forEach(doc => counts.set(doc.movement.period, (counts.get(doc.movement.period) || 0) + 1));
+    return [...counts.entries()].sort((a, b) => b[0].localeCompare(a[0]));
+  }, [documents, periods, year]);
 
-  const shown = useMemo(() => (documents || []).filter(document =>
-    (!month || document.movement.period === month) && (!category || document.movement.category === category)), [documents, month, category]);
+  const inMonth = useMemo(() => (documents || []).filter(doc => !month || doc.movement.period === month), [documents, month]);
 
-  const open = async (document: Doc) => {
-    try {
-      const { url } = await adminFetch(`/api/admin/contabilidade/documentos/${document.id}`);
-      window.open(url, '_blank', 'noopener');
-    } catch (openError) {
-      toast({ tone: 'error', title: 'Não foi possível abrir', description: openError instanceof Error ? openError.message : undefined });
-    }
+  const kinds = useMemo(() => {
+    const counts = new Map<string, number>();
+    inMonth.forEach(doc => counts.set(doc.kind, (counts.get(doc.kind) || 0) + 1));
+    return KIND_ORDER.filter(item => counts.has(item)).map(item => ({ key: item, count: counts.get(item)! }));
+  }, [inMonth]);
+  useEffect(() => { if (kind && !kinds.some(item => item.key === kind)) setKind(null); }, [kind, kinds]);
+
+  const shown = useMemo(() => {
+    const words = normalize(query.trim()).split(/\s+/).filter(Boolean);
+    return inMonth.filter(doc => {
+      if (kind && doc.kind !== kind) return false;
+      if (!words.length) return true;
+      const haystack = normalize([
+        doc.movement.who, doc.movement.description, doc.movement.category, doc.fileName, doc.docNumber,
+        doc.kindLabel, formatEur(doc.movement.amount), doc.source === 'email' ? 'email' : '',
+      ].filter(Boolean).join(' '));
+      return words.every(word => haystack.includes(word));
+    });
+  }, [inMonth, kind, query]);
+
+  // Same order as on screen, so ← → in the preview walks the list as seen.
+  const groups = useMemo(() => {
+    const map = new Map<string, Doc[]>();
+    shown.forEach(doc => map.set(doc.movement.category, [...(map.get(doc.movement.category) || []), doc]));
+    return [...map.entries()].sort((a, b) => a[0].localeCompare(b[0], 'pt'));
+  }, [shown]);
+  const ordered = useMemo(() => groups.flatMap(([, list]) => list), [groups]);
+
+  const pickMonth = (next: string | null) => {
+    setMonth(next);
+    setPreviewIndex(null);
+    if (next && next !== period) onPeriod(next);
   };
 
   const downloadMonth = async () => {
@@ -75,74 +136,211 @@ export default function DocumentosTab({ period, onOpenMovement }: { period: stri
   if (error) return <Card><EmptyState title="Não foi possível ler os documentos">{error}</EmptyState></Card>;
   if (!documents) return <Card className="flex items-center gap-2 p-6 text-[13px] text-zinc-500"><LoaderCircle className="h-4 w-4 animate-spin" aria-hidden /> A ler os documentos…</Card>;
 
+  const missingHere = month && month === period ? missing : [];
+  const filtering = !!kind || !!query.trim();
+
   return (
-    <div className="grid gap-5 lg:grid-cols-[15rem_minmax(0,1fr)]">
-      <nav className="h-fit lg:sticky lg:top-24" aria-label="Pastas">
+    <div className="grid gap-5 lg:grid-cols-[13.5rem_minmax(0,1fr)]">
+      <nav className="h-fit lg:sticky lg:top-24" aria-label="Meses">
         <p className="px-3 pb-2 text-[12.5px] font-semibold text-zinc-500">{year}</p>
-        {tree.length === 0 && <p className="px-3 pb-2 text-[13px] text-zinc-400">Ainda sem documentos este ano.</p>}
-        <div className="flex flex-col gap-0.5">
-          {tree.map(([itemMonth, categories]) => {
-            const active = month === itemMonth;
-            const count = [...categories.values()].reduce((sum, list) => sum + list.length, 0);
-            return (
-              <div key={itemMonth}>
-                <button type="button" onClick={() => { setMonth(itemMonth); setCategory(null); }}
-                  className={cx('flex w-full items-center gap-2.5 rounded-[10px] px-3 py-1.5 text-left text-[13.5px] transition-colors duration-150', active && !category ? 'bg-white font-medium text-zinc-900 shadow-[0_0_0_1px_rgba(9,9,11,0.05),0_1px_2px_rgba(9,9,11,0.05)]' : 'text-zinc-600 hover:bg-zinc-900/[0.04]')}>
-                  {active ? <FolderOpen className="h-4 w-4 shrink-0 text-zinc-500" aria-hidden /> : <Folder className="h-4 w-4 shrink-0 text-zinc-400" aria-hidden />}
-                  <span className="flex-1 truncate">{formatPeriod(itemMonth)}</span>
-                  <span className="text-[12px] tabular-nums text-zinc-400">{count}</span>
-                </button>
-                {active && [...categories.entries()].sort((a, b) => a[0].localeCompare(b[0], 'pt')).map(([name, list]) => (
-                  <button key={name} type="button" onClick={() => setCategory(name)}
-                    className={cx('ml-4 mt-0.5 flex w-[calc(100%-1rem)] items-center gap-2 rounded-[9px] px-3 py-1 text-left text-[13px] transition-colors duration-150', category === name ? 'bg-white font-medium text-zinc-900 shadow-[0_0_0_1px_rgba(9,9,11,0.05),0_1px_2px_rgba(9,9,11,0.05)]' : 'text-zinc-500 hover:bg-zinc-900/[0.04]')}>
-                    <span className="flex-1 truncate">{name}</span>
-                    <span className="text-[12px] tabular-nums text-zinc-400">{list.length}</span>
-                  </button>
-                ))}
-              </div>
-            );
-          })}
+        <div className="flex gap-1 overflow-x-auto pb-1 [scrollbar-width:none] lg:flex-col lg:gap-0.5 lg:overflow-visible lg:pb-0">
+          <MonthButton label="Todo o ano" count={documents.length} active={month === null} onClick={() => pickMonth(null)} />
+          {months.map(([item, count]) => (
+            <MonthButton
+              key={item}
+              label={formatPeriod(item)}
+              count={count}
+              active={month === item}
+              attention={item === period && missing.length > 0}
+              onClick={() => pickMonth(item)}
+            />
+          ))}
         </div>
       </nav>
 
-      <div>
-        <header className="mb-2.5 flex min-h-8 flex-wrap items-center justify-between gap-3 px-1">
-          <h2 className="flex items-center gap-2 text-[14px] font-semibold tracking-[-0.01em] text-zinc-900">
-            {month ? formatPeriod(month) : 'Todos os meses'}{category ? ` · ${category}` : ''}
-            <Count value={shown.length} />
-          </h2>
-          {month && (
-            <Button size="sm" disabled={zipping || !shown.length} onClick={() => void downloadMonth()}>
-              {zipping ? <LoaderCircle className="h-3.5 w-3.5 animate-spin" aria-hidden /> : <Download className="h-3.5 w-3.5" aria-hidden />}
-              Descarregar ZIP
-            </Button>
-          )}
-        </header>
-        <Card className="overflow-hidden">
-          {shown.length === 0 ? (
-            <EmptyState title="Sem documentos aqui">Os ficheiros anexados às despesas aparecem nesta pasta.</EmptyState>
-          ) : (
-            <ul>
-              {shown.map(document => (
-                <li key={document.id} className="group/doc relative flex items-center gap-3.5 px-4 py-3 text-sm transition-colors duration-150 before:absolute before:left-[62px] before:right-0 before:top-0 before:h-px before:bg-zinc-900/[0.06] first:before:hidden hover:bg-zinc-900/[0.025]">
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[11px] bg-zinc-900/[0.05] text-zinc-500" aria-hidden>
-                    <FileText className="h-4 w-4" />
-                  </span>
-                  <button type="button" onClick={() => onOpenMovement(document.movement.id, document.movement.period)} className="min-w-0 flex-1 text-left outline-none">
-                    <span className="block truncate text-[14px] font-medium tracking-[-0.01em] text-zinc-900">{document.movement.who}</span>
-                    <span className="block truncate text-[12.5px] text-zinc-400">{formatDay(document.movement.date, true)} · {document.movement.category} · {document.fileName}</span>
-                  </button>
-                  <span className="hidden shrink-0 rounded-full bg-zinc-900/[0.05] px-2.5 py-0.5 text-[12px] font-medium text-zinc-600 sm:inline">{document.kindLabel}</span>
-                  <span className="w-24 shrink-0 text-right text-[14px] font-semibold tabular-nums text-zinc-900">{formatEur(document.movement.amount)}</span>
-                  <IconButton label={`Abrir ${document.fileName || 'documento'}`} className="h-8 w-8" onClick={() => void open(document)}>
-                    <ExternalLink className="h-4 w-4" aria-hidden />
-                  </IconButton>
-                </li>
+      <div className="flex min-w-0 flex-col gap-6">
+        {missingHere.length > 0 && (
+          <section>
+            <header className="mb-2.5 flex min-h-8 flex-wrap items-center justify-between gap-3 px-1">
+              <h2 className="flex items-center gap-2 text-[14px] font-semibold tracking-[-0.01em] text-zinc-900">
+                Falta documento
+                <Count value={missingHere.length} tone="attention" />
+              </h2>
+              {onCapture && (
+                <Button size="sm" onClick={onCapture}>
+                  <Camera className="h-3.5 w-3.5" aria-hidden /> Fotografar faturas
+                </Button>
+              )}
+            </header>
+            <Card className="overflow-hidden">
+              {missingHere.map(movement => (
+                <div key={movement.id} className="group/item">
+                  <MovementRow
+                    movement={movement}
+                    onOpen={target => onOpenMovement(target.id, target.period)}
+                    action={(
+                      <Button size="sm" onClick={event => { event.stopPropagation(); onOpenMovement(movement.id, movement.period); }}>
+                        Anexar
+                      </Button>
+                    )}
+                  />
+                </div>
               ))}
-            </ul>
+            </Card>
+          </section>
+        )}
+
+        <MailInvoicesCard refreshKey={documents} />
+
+        <section>
+          <header className="mb-2.5 flex flex-col gap-2.5 px-1 sm:flex-row sm:items-center sm:justify-between">
+            <h2 className="flex items-center gap-2 text-[14px] font-semibold tracking-[-0.01em] text-zinc-900">
+              {month ? formatPeriod(month) : `Todo o ${year}`}
+              <Count value={shown.length} />
+              <Hint>Clique num documento para o ver aqui. As pastas são as mesmas do ZIP que vai para o contabilista.</Hint>
+            </h2>
+            <div className="flex items-center gap-2">
+              <label className="relative min-w-0 flex-1 sm:w-56 sm:flex-none">
+                <span className="sr-only">Procurar documentos</span>
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" aria-hidden />
+                <input
+                  value={query}
+                  onChange={event => setQuery(event.target.value)}
+                  placeholder="Procurar"
+                  className="lg-pill h-8 w-full rounded-full pl-9 pr-8 text-[13px] text-zinc-900 outline-none placeholder:text-zinc-400 focus-visible:ring-[3px] focus-visible:ring-zinc-900/15"
+                />
+                {query && (
+                  <button type="button" onClick={() => setQuery('')} aria-label="Limpar pesquisa" className="absolute right-2 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-full text-zinc-400 hover:text-zinc-700">
+                    <X className="h-3.5 w-3.5" aria-hidden />
+                  </button>
+                )}
+              </label>
+              {month && (
+                <Button size="sm" disabled={zipping || !inMonth.length} onClick={() => void downloadMonth()} title="Todos os documentos do mês, em pastas por categoria">
+                  {zipping ? <LoaderCircle className="h-3.5 w-3.5 animate-spin" aria-hidden /> : <Download className="h-3.5 w-3.5" aria-hidden />}
+                  ZIP
+                </Button>
+              )}
+            </div>
+          </header>
+
+          {kinds.length > 1 && (
+            <div className="mb-3 flex flex-wrap gap-1.5 px-1" role="tablist" aria-label="Tipo de documento">
+              <KindChip label="Todos" count={inMonth.length} active={kind === null} onClick={() => setKind(null)} />
+              {kinds.map(item => (
+                <KindChip key={item.key} label={KIND_PLURAL[item.key] || item.key} count={item.count} active={kind === item.key} onClick={() => setKind(item.key)} />
+              ))}
+            </div>
           )}
-        </Card>
+
+          {shown.length === 0 ? (
+            <Card>
+              <EmptyState title={filtering ? 'Nada encontrado' : 'Sem documentos aqui'}>
+                {filtering ? 'Experimente outra palavra ou outro tipo.' : 'Os ficheiros anexados às despesas aparecem aqui.'}
+              </EmptyState>
+            </Card>
+          ) : (
+            <div className="flex flex-col gap-4">
+              {groups.map(([category, list]) => (
+                <div key={category}>
+                  <p className="mb-1.5 flex items-center gap-2 px-1 text-[12.5px] font-medium text-zinc-500">
+                    {category} <span className="tabular-nums text-zinc-400">{list.length}</span>
+                  </p>
+                  <Card className="overflow-hidden">
+                    <ul>
+                      {list.map(doc => (
+                        <DocumentRow
+                          key={doc.id}
+                          doc={doc}
+                          showMonth={!month}
+                          onPreview={() => setPreviewIndex(ordered.indexOf(doc))}
+                          onOpenMovement={() => onOpenMovement(doc.movement.id, doc.movement.period)}
+                        />
+                      ))}
+                    </ul>
+                  </Card>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
       </div>
+
+      <DocumentPreview
+        docs={ordered}
+        index={previewIndex}
+        onIndex={setPreviewIndex}
+        onClose={() => setPreviewIndex(null)}
+        onOpenMovement={doc => { setPreviewIndex(null); onOpenMovement(doc.movement.id, doc.movement.period); }}
+      />
     </div>
+  );
+}
+
+function MonthButton({ label, count, active, attention = false, onClick }: { label: string; count: number; active: boolean; attention?: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-current={active ? 'true' : undefined}
+      className={cx(
+        'flex shrink-0 items-center gap-2.5 rounded-full px-3 py-1.5 text-left text-[13.5px] outline-none transition-colors duration-150 focus-visible:ring-[3px] focus-visible:ring-zinc-900/15 lg:w-full',
+        active ? 'lg-thumb font-medium text-zinc-950' : 'text-zinc-600 hover:bg-zinc-900/[0.05]',
+      )}
+    >
+      <span className="flex-1 truncate">{label}</span>
+      {attention && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-orange-500" title="Há despesas sem documento" aria-label="Há despesas sem documento" />}
+      <span className={cx('text-[12px] tabular-nums', active ? 'text-zinc-600' : 'text-zinc-400')}>{count}</span>
+    </button>
+  );
+}
+
+function KindChip({ label, count, active, onClick }: { label: string; count: number; active: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      role="tab"
+      aria-selected={active}
+      onClick={onClick}
+      className={cx(
+        'inline-flex h-8 items-center gap-1.5 rounded-full px-3.5 text-[13px] font-medium outline-none transition-[background-color,color,transform] duration-150 ease-out active:scale-95 focus-visible:ring-[3px] focus-visible:ring-zinc-900/15',
+        active ? 'lg-thumb text-zinc-950' : 'lg-pill text-zinc-500 hover:text-zinc-900',
+      )}
+    >
+      {label}
+      <span className={cx('tabular-nums', active ? 'text-zinc-600' : 'text-zinc-400')}>{count}</span>
+    </button>
+  );
+}
+
+function DocumentRow({ doc, showMonth, onPreview, onOpenMovement }: { doc: Doc; showMonth: boolean; onPreview: () => void; onOpenMovement: () => void }) {
+  const image = (doc.mimeType || '').startsWith('image/');
+  const Icon = image ? ImageIcon : FileText;
+  return (
+    <li className="group/doc relative flex items-center gap-3.5 px-4 py-3 transition-colors duration-150 before:pointer-events-none before:absolute before:left-[66px] before:right-0 before:top-0 before:h-px before:bg-zinc-900/[0.06] first:before:hidden hover:bg-zinc-900/[0.025]">
+      <button type="button" onClick={onPreview} className="flex min-w-0 flex-1 items-center gap-3.5 text-left outline-none focus-visible:[&>span:last-child>span:first-child]:underline" aria-label={`Ver ${doc.fileName || 'documento'} de ${doc.movement.who}`}>
+        <span className="lg-icon flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-zinc-600" aria-hidden>
+          <Icon className="h-[15px] w-[15px]" strokeWidth={1.75} />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-[14px] font-medium tracking-[-0.01em] text-zinc-900">{doc.movement.who}</span>
+          <span className="block truncate text-[12.5px] text-zinc-400">
+            <span className="text-zinc-500">{formatDay(doc.movement.date, showMonth)}</span> · {doc.fileName || 'Documento'}
+          </span>
+        </span>
+      </button>
+      <span className="hidden shrink-0 items-center gap-1.5 sm:flex">
+        {doc.source === 'email' && (
+          <span className={cx(BADGE, 'bg-zinc-900/[0.05] px-2 text-zinc-500')} title="Chegou sozinho pela caixa geral@">
+            <Mail className="h-3 w-3" aria-hidden /> Email
+          </span>
+        )}
+        <span className={cx(BADGE, 'bg-zinc-900/[0.05] text-zinc-600')}>{doc.kindLabel}</span>
+      </span>
+      <span className="w-[5.5rem] shrink-0 text-right text-[14px] font-semibold tabular-nums text-zinc-900">{formatEur(doc.movement.amount)}</span>
+      <IconButton label="Ver movimento" className="h-8 w-8 opacity-70 group-hover/doc:opacity-100" onClick={onOpenMovement}>
+        <ArrowUpRight className="h-4 w-4" aria-hidden />
+      </IconButton>
+    </li>
   );
 }

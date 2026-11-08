@@ -368,7 +368,16 @@ function Contabilidade() {
               />
             ) : tab === 'documentos' ? (
               ledger.mode === 'live'
-                ? <DocumentosTab period={ledger.period} onOpenMovement={(id, docPeriod) => { if (docPeriod !== ledger.period) ledger.setPeriod(docPeriod); setSelectedId(id); }} />
+                ? (
+                  <DocumentosTab
+                    period={ledger.period}
+                    periods={ledger.periods}
+                    missing={ledger.movements.filter(missingDocument)}
+                    onPeriod={ledger.setPeriod}
+                    onOpenMovement={(id, docPeriod) => { if (docPeriod !== ledger.period) ledger.setPeriod(docPeriod); setSelectedId(id); }}
+                    onCapture={!ledger.readOnlyReason ? () => setCaptureList(ledger.movements.filter(missingDocument)) : undefined}
+                  />
+                )
                 : <Card><EmptyState title="Os documentos aparecem com os movimentos reais" /></Card>
             ) : tab === 'movimentos' ? (
               <MovimentosTab movements={ledger.movements} selectedId={selectedId} onOpen={openMovement} monthBalance={ledger.monthBalance} />

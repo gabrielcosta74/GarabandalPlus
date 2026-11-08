@@ -99,7 +99,8 @@ describe('documents in folders', () => {
     vi.doMock('../lib/ledger/server', () => ({ db: () => ({}) }));
     const { archivePaths } = await import('../lib/ledger/document-archive');
     const doc = (id: string) => ({
-      id, kind: 'fatura', kindLabel: 'Fatura', fileName: 'a.pdf', sizeBytes: 10, storagePath: `x/${id}.pdf`, createdAt: '',
+      id, kind: 'fatura', kindLabel: 'Fatura', fileName: 'a.pdf', sizeBytes: 10, mimeType: 'application/pdf', source: 'upload' as const, docNumber: null,
+      storagePath: `x/${id}.pdf`, createdAt: '',
       movement: { id: 'm', date: '2026-10-06', period: '2026-10', who: 'Hotel', description: '', amount: -10, category: 'Alojamento e refeições' },
     });
     const paths = archivePaths([doc('1'), doc('2')]);
