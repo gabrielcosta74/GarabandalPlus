@@ -78,18 +78,18 @@ function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: (id: number)
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
       role={toast.tone === 'error' ? 'alert' : 'status'}
-      className="pointer-events-auto flex w-full max-w-md items-center gap-3 rounded-2xl bg-zinc-900 py-3 pl-4 pr-2 text-white shadow-2xl shadow-zinc-900/25 ring-1 ring-white/10"
+      className="lg-float pointer-events-auto flex w-full max-w-md items-center gap-3 rounded-full py-2.5 pl-5 pr-2 text-zinc-900"
     >
       <Icon className={cx('h-5 w-5 shrink-0', className)} aria-hidden />
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-medium">{toast.title}</p>
-        {toast.description && <p className="truncate text-[13px] text-white/60">{toast.description}</p>}
+        {toast.description && <p className="truncate text-[13px] text-zinc-500">{toast.description}</p>}
       </div>
       {toast.action && (
         <button
           type="button"
           onClick={() => { toast.action!.onClick(); onDismiss(toast.id); }}
-          className="h-8 shrink-0 cursor-pointer rounded-lg px-3 text-sm font-semibold text-emerald-300 transition-colors duration-200 hover:bg-white/10 hover:text-emerald-200"
+          className="h-8 shrink-0 cursor-pointer rounded-full px-3 text-sm font-semibold text-emerald-300 transition-colors duration-200 hover:bg-zinc-900/[0.08] hover:text-emerald-200"
         >
           {toast.action.label}
         </button>
@@ -97,7 +97,7 @@ function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: (id: number)
       <button
         type="button"
         onClick={() => onDismiss(toast.id)}
-        className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-lg text-white/40 transition-colors duration-200 hover:bg-white/10 hover:text-white"
+        className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full text-zinc-400 transition-colors duration-200 hover:bg-zinc-900/[0.08] hover:text-zinc-900"
         aria-label="Fechar"
       >
         <X className="h-4 w-4" />

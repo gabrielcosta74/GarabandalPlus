@@ -5,11 +5,12 @@ import { ChevronRight } from 'lucide-react';
 
 import { formatDay } from '../../../lib/ledger/format';
 import type { LedgerMovement } from './types';
-import { Amount, CategoryPill, IconTile, StatePill, cx, effectiveCategory, movementTitle } from './ui';
+import { Amount, BADGE, CategoryPill, IconTile, StatePill, cx, effectiveCategory, movementTitle } from './ui';
 
 /**
- * One bank movement as a row: category icon, who/what, the bank's own words
- * in grey, the category pill, its state and the amount.
+ * One bank movement as a list row: icon, who/what with the bank's words in
+ * grey, category, state and amount. Hairlines are inset past the icon, so a
+ * list reads as one sheet rather than a stack of boxes.
  */
 export default function MovementRow({
   movement,
@@ -33,31 +34,34 @@ export default function MovementRow({
       onClick={() => onOpen(movement)}
       onKeyDown={event => { if (event.key === 'Enter') onOpen(movement); }}
       className={cx(
-        'group relative grid cursor-pointer grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-4 gap-y-2 px-5 py-3.5 outline-none transition-colors duration-200 ease-out',
-        'before:absolute before:inset-y-2 before:left-0 before:w-[3px] before:rounded-r-full before:bg-emerald-500 before:opacity-0 before:transition-opacity before:duration-200',
-        'focus-visible:before:opacity-100',
-        'md:grid-cols-[auto_minmax(0,1fr)_10.5rem_8.5rem_7.5rem_auto]',
-        active ? 'bg-zinc-50 before:opacity-100' : 'hover:bg-zinc-50/80 focus-visible:bg-zinc-50',
-        movement.status === 'ignored' && 'opacity-60',
+        'group/row relative grid cursor-pointer grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-3.5 gap-y-1.5 px-4 py-3 outline-none',
+        'transition-colors duration-150 ease-out',
+        'md:grid-cols-[auto_minmax(0,1fr)_11rem_9rem_7.5rem_2rem] md:gap-x-4',
+        // Inset hairline above every row but the first.
+        'before:pointer-events-none before:absolute before:left-[66px] before:right-0 before:top-0 before:h-px before:bg-zinc-900/[0.06]',
+        'group-first/item:before:hidden',
+        active ? 'bg-zinc-900/[0.045]' : 'hover:bg-zinc-900/[0.025] focus-visible:bg-zinc-900/[0.035]',
+        movement.status === 'ignored' && 'opacity-55',
       )}
     >
       <IconTile code={code} dashed={tentative} />
       <div className="min-w-0">
-        <p className="truncate text-sm font-medium text-zinc-900 transition-colors duration-200 group-hover:text-zinc-950">{movementTitle(movement)}</p>
-        <p className="truncate text-[13px] text-zinc-400">
-          {showDate && <>{formatDay(movement.bookingDate)} · </>}
+        <p className="truncate text-[14px] font-medium tracking-[-0.01em] text-zinc-900">{movementTitle(movement)}</p>
+        <p className="truncate text-[12.5px] text-zinc-400">
+          {showDate && <span className="text-zinc-500">{formatDay(movement.bookingDate)}</span>}
+          {showDate && ' · '}
           {movement.description}
         </p>
       </div>
       <div className="hidden min-w-0 md:block"><CategoryPill code={code} tentative={tentative} /></div>
-      <div className="hidden md:block"><RowBadge movement={movement} /></div>
-      <Amount value={movement.amount} className="text-right text-sm" />
-      <div className="col-span-3 flex items-center justify-between gap-2 md:col-span-1 md:justify-end">
-        <div className="flex items-center gap-2 md:hidden">
+      <div className="hidden min-w-0 md:block"><RowBadge movement={movement} /></div>
+      <Amount value={movement.amount} className="text-right text-[14px]" />
+      <div className="col-span-3 flex items-center justify-between gap-2 pl-[50px] md:col-span-1 md:justify-end md:pl-0">
+        <div className="flex min-w-0 items-center gap-3 md:hidden">
           <CategoryPill code={code} tentative={tentative} />
           <RowBadge movement={movement} />
         </div>
-        {action ?? <ChevronRight className="h-4 w-4 text-zinc-300 transition-all duration-200 ease-out group-hover:translate-x-0.5 group-hover:text-zinc-500" aria-hidden />}
+        {action ?? <ChevronRight className="h-4 w-4 shrink-0 text-zinc-300 transition-[transform,color] duration-150 ease-out group-hover/row:translate-x-0.5 group-hover/row:text-zinc-400" aria-hidden />}
       </div>
     </div>
   );
@@ -69,27 +73,28 @@ export default function MovementRow({
  */
 function RowBadge({ movement }: { movement: LedgerMovement }) {
   const open = movement.status === 'unreviewed' || movement.status === 'suggested';
-  const base = 'inline-flex max-w-full items-center gap-1 truncate whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-medium ring-1 ring-inset';
+  const good = cx(BADGE, 'bg-emerald-500/10 text-emerald-700');
+  const info = cx(BADGE, 'bg-sky-500/10 text-sky-700');
   if (open && movement.appInvoiceRef) {
-    return <span className={cx(base, 'bg-emerald-50 text-emerald-700 ring-emerald-600/10')} title="Ligada ao pagamento registado no site; a FR já foi emitida pela app.">{movement.appInvoiceRef} · app</span>;
+    return <span className={good} title="Ligada ao pagamento registado no site; a FR já foi emitida pela app.">{movement.appInvoiceRef} · app</span>;
   }
   if (open && movement.appInvoiceState === 'failed') {
-    return <span className={cx(base, 'bg-rose-50 text-rose-700 ring-rose-600/10')} title="A FR não foi emitida. Reveja-a em Faturação.">FR falhou</span>;
+    return <span className={cx(BADGE, 'bg-rose-500/10 text-rose-700')} title="A FR não foi emitida. Reveja-a em Faturação.">FR falhou</span>;
   }
   if (open && movement.appInvoiceState === 'processing') {
-    return <span className={cx(base, 'bg-sky-50 text-sky-700 ring-sky-600/10')} title="A FR sai dentro de minutos. Não a emita noutro sítio.">FR a ser emitida</span>;
+    return <span className={info} title="A FR sai dentro de minutos. Não a emita noutro sítio.">FR a ser emitida</span>;
   }
   if (open && movement.suggestion?.confidence === 'manual' && movement.suggestion.invoiceRef) {
-    return <span className={cx(base, 'bg-emerald-50 text-emerald-700 ring-emerald-600/10')} title={movement.suggestion.reason}>{movement.suggestion.invoiceRef}</span>;
+    return <span className={good} title={movement.suggestion.reason}>{movement.suggestion.invoiceRef}</span>;
   }
   if (open && movement.suggestion?.confidence === 'learned') {
-    return <span className={cx(base, 'bg-sky-50 text-sky-700 ring-sky-600/10')} title={movement.suggestion.reason}>Pagador conhecido</span>;
+    return <span className={info} title={movement.suggestion.reason}>Pagador conhecido</span>;
   }
   if (open && ['likely', 'manual_likely'].includes(movement.suggestion?.confidence || '') && movement.suggestion?.invoiceRef) {
-    return <span className={cx(base, 'bg-sky-50 text-sky-700 ring-sky-600/10')} title={movement.suggestion.reason}>Provável {movement.suggestion.invoiceRef}</span>;
+    return <span className={info} title={movement.suggestion.reason}>Provável {movement.suggestion.invoiceRef}</span>;
   }
   if (open && movement.suggestion?.confidence === 'ambiguous') {
-    return <span className={cx(base, 'bg-orange-50 text-orange-700 ring-orange-600/10')} title={movement.suggestion.reason}>{movement.suggestion.invoiceRefs.length} FRs possíveis</span>;
+    return <span className={cx(BADGE, 'bg-orange-500/10 text-orange-700')} title={movement.suggestion.reason}>{movement.suggestion.invoiceRefs.length} FRs possíveis</span>;
   }
   return <StatePill movement={movement} />;
 }

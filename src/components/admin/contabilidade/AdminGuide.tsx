@@ -1,85 +1,63 @@
 "use client";
 
-import { AnimatePresence, motion } from 'framer-motion';
-import { useEffect, useState, type ReactNode } from 'react';
-import { BookOpen, ChevronDown } from 'lucide-react';
+import { Popover, PopoverButton, PopoverPanel } from '@headlessui/react';
+import type { ReactNode } from 'react';
+import { CircleHelp } from 'lucide-react';
 
-import { Card, cx } from './ui';
-
-const STORAGE_KEY = 'ledger:guide:closed';
-
-function Step({ title, children }: { title: string; children: ReactNode }) {
+function Step({ n, title, children }: { n: string; title: string; children: ReactNode }) {
   return (
-    <div>
-      <p className="text-sm font-semibold text-zinc-900">{title}</p>
-      <div className="mt-1 space-y-1 text-[13px] leading-relaxed text-zinc-600">{children}</div>
+    <div className="flex gap-3">
+      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-zinc-900/[0.06] text-[11px] font-semibold tabular-nums text-zinc-600" aria-hidden>{n}</span>
+      <div>
+        <p className="text-[13px] font-semibold text-zinc-900">{title}</p>
+        <div className="mt-0.5 text-[12.5px] leading-relaxed text-zinc-600">{children}</div>
+      </div>
     </div>
   );
 }
 
-/** What the admin does with each kind of line, in the order the page shows them. */
+/** What the admin does with each kind of line. One click away, never in the way. */
 export default function AdminGuide({ issuing }: { issuing: boolean }) {
-  const [open, setOpen] = useState(true);
-  useEffect(() => {
-    try {
-      if (window.localStorage.getItem(STORAGE_KEY) === '1') setOpen(false);
-    } catch {
-      // Blocked storage: the guide just stays open.
-    }
-  }, []);
-  const toggle = () => {
-    setOpen(previous => {
-      try {
-        window.localStorage.setItem(STORAGE_KEY, previous ? '1' : '0');
-      } catch {
-        // Only a convenience.
-      }
-      return !previous;
-    });
-  };
-
   return (
-    <Card className="mb-4 overflow-hidden">
-      <button type="button" onClick={toggle} aria-expanded={open} className="flex w-full items-center justify-between gap-3 px-5 py-4 text-left transition-colors duration-200 hover:bg-zinc-50">
-        <span className="flex items-center gap-3">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-zinc-100 text-zinc-600" aria-hidden>
-            <BookOpen className="h-[18px] w-[18px]" />
-          </span>
-          <span>
-            <span className="block text-[15px] font-semibold text-zinc-900">Como tratar os movimentos</span>
-            <span className="block text-[13px] text-zinc-500">Cada movimento precisa de um motivo e da sua fatura ou documento. Assim o mês fecha certo.</span>
-          </span>
-        </span>
-        <ChevronDown className={cx('h-4 w-4 shrink-0 text-zinc-400 transition-transform duration-200', open && 'rotate-180')} aria-hidden />
-      </button>
-      <AnimatePresence initial={false}>
-        {open && (
-          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.22, ease: 'easeOut' }} className="overflow-hidden">
-            <div className="grid gap-5 border-t border-zinc-100 px-5 py-5 sm:grid-cols-2">
-              <Step title="1. Com FR já encontrada">
-                <p>Confira o nome e o valor e carregue em Aprovar. Não emite nada, só associa.</p>
-              </Step>
-              <Step title="2. Peregrinação por transferência">
-                <p>Abra o movimento e escolha a reserva, mesmo que outra pessoa tenha pago. O pagamento fica registado, a FR sai sozinha e o movimento fecha.</p>
-              </Step>
-              <Step title="3. Doação por transferência">
-                {issuing
-                  ? <p>Abra o movimento e emita a FR aqui. Sem dados da pessoa, até 100 € pode sair como Consumidor final; acima disso, peça os dados à pessoa. O movimento fecha sozinho.</p>
-                  : <p>Emita a FR na FACT.pt, como sempre. O sistema encontra-a na atualização seguinte e só falta aprovar.</p>}
-              </Step>
-              <Step title="4. Quota ou loja">
-                <p>Emita a FR na FACT.pt, como sempre. O sistema encontra-a na atualização seguinte; se não a encontrar, escreva o número no movimento.</p>
-              </Step>
-              <Step title="5. Despesas">
-                <p>Abra a despesa e anexe o PDF ou a fotografia da fatura. Se só existir em papel, marque «Fatura em papel» e guarde-a no dossier.</p>
-              </Step>
-              <Step title="A regra mais importante">
-                <p>Cada pagamento tem uma só FR: nunca a emita nos dois sítios. Se vir «FR a ser emitida», espere. Se vir «FR falhou», vá a Faturação antes de emitir outra.</p>
-              </Step>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </Card>
+    <Popover className="relative">
+      <PopoverButton
+        aria-label="Como tratar os movimentos"
+        title="Como tratar os movimentos"
+        className="lg-pill flex h-9 w-9 items-center justify-center rounded-full text-zinc-500 outline-none transition-[color,transform] duration-150 ease-out hover:text-zinc-900 active:scale-90 focus-visible:ring-[3px] focus-visible:ring-zinc-900/15 data-[open]:text-zinc-950"
+      >
+        <CircleHelp className="h-[18px] w-[18px]" aria-hidden />
+      </PopoverButton>
+      <PopoverPanel
+        transition
+        anchor={{ to: 'bottom end', gap: 8 }}
+        className="lg-float z-50 w-[min(40rem,calc(100vw-2rem))] origin-top-right rounded-[24px] p-6 transition duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] focus:outline-none data-[closed]:scale-95 data-[closed]:opacity-0"
+      >
+        <p className="text-[15px] font-semibold tracking-[-0.01em] text-zinc-900">Como tratar os movimentos</p>
+        <p className="mt-0.5 text-[12.5px] text-zinc-500">Cada movimento precisa de um motivo e do seu documento.</p>
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <Step n="1" title="Com FR já encontrada">
+            Confira o nome e o valor e aprove. Não emite nada, só associa.
+          </Step>
+          <Step n="2" title="Peregrinação por transferência">
+            Abra o movimento e escolha a reserva, mesmo que outra pessoa tenha pago. A FR sai sozinha.
+          </Step>
+          <Step n="3" title="Doação por transferência">
+            {issuing
+              ? 'Abra o movimento e emita a FR aqui. Sem dados da pessoa, até 100 € pode sair como Consumidor final.'
+              : 'Emita a FR na FACT.pt, como sempre. O sistema encontra-a e só falta aprovar.'}
+          </Step>
+          <Step n="4" title="Quota ou loja">
+            Emita a FR na FACT.pt. Se o sistema não a encontrar, escreva o número no movimento.
+          </Step>
+          <Step n="5" title="Despesas">
+            Anexe o PDF ou a fotografia da fatura. Se só existir em papel, marque «Fatura em papel».
+          </Step>
+        </div>
+        <div className="mt-5 rounded-2xl bg-zinc-900/[0.05] px-4 py-3 text-[12.5px] leading-relaxed text-zinc-600">
+          <span className="font-semibold text-orange-500">Regra de ouro:</span> cada pagamento tem uma só FR — nunca a emita nos dois sítios.
+          «FR a ser emitida» → espere. «FR falhou» → vá a Faturação antes de emitir outra.
+        </div>
+      </PopoverPanel>
+    </Popover>
   );
 }

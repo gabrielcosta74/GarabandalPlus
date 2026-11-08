@@ -2,61 +2,58 @@
 
 import { AnimatePresence, motion } from 'framer-motion';
 import { useMemo, useState } from 'react';
-import { Camera, CheckCheck, FileCheck2, Link2, FileWarning, HandCoins, HelpCircle, PartyPopper, type LucideIcon } from 'lucide-react';
+import { Camera, CheckCheck, Check } from 'lucide-react';
 
 import { inboxGroup, type InboxGroup } from '../../../lib/ledger/categories';
 import MovementRow from './MovementRow';
 import type { LedgerMovement } from './types';
-import { Button, Card, EmptyState, cx, isOpen, missingDocument } from './ui';
+import { Button, Card, Count, EmptyState, Hint, SPRING, isOpen, missingDocument } from './ui';
 
 const VISIBLE_PER_GROUP = 6;
 
 type Section = InboxGroup | 'linked' | 'manual';
 
-const SECTIONS: { key: Section; title: string; hint: string; icon: LucideIcon; tile: string }[] = [
+/** In the order the admin should work through them: quick approvals first. */
+const SECTIONS: { key: Section; title: string; hint: string; dot: string }[] = [
   {
     key: 'linked',
-    title: 'Já ligadas a uma fatura da app',
-    hint: 'Transferências que o sistema reconheceu com certeza (mesmo valor e mesmo nome). A FR já foi emitida; só falta confirmar.',
-    icon: Link2,
-    tile: 'bg-emerald-50 text-emerald-600',
+    title: 'Ligadas a uma FR da app',
+    hint: 'Transferências reconhecidas com certeza (mesmo valor e mesmo nome). A FR já foi emitida; só falta confirmar.',
+    dot: 'bg-emerald-500',
   },
   {
     key: 'manual',
     title: 'FR encontrada na FACT.pt',
     hint: 'Entradas com uma fatura-recibo emitida à mão, com o mesmo valor e o mesmo nome. Só falta confirmar; nada é emitido.',
-    icon: FileCheck2,
-    tile: 'bg-emerald-50 text-emerald-600',
-  },
-  {
-    key: 'income',
-    title: 'Entradas para confirmar',
-    hint: 'Transferências sem FR encontrada. Abra cada uma, diga o que é e emita a fatura.',
-    icon: HandCoins,
-    tile: 'bg-rose-50 text-rose-600',
-  },
-  {
-    key: 'review',
-    title: 'Precisam de uma decisão',
-    hint: 'O sistema não tem a certeza do que são.',
-    icon: HelpCircle,
-    tile: 'bg-sky-50 text-sky-600',
-  },
-  {
-    key: 'document',
-    title: 'Despesas sem documento',
-    hint: 'Abra cada uma e anexe a fatura, ou marque que está em papel. O mês só fecha com todas justificadas.',
-    icon: FileWarning,
-    tile: 'bg-orange-50 text-orange-600',
+    dot: 'bg-emerald-500',
   },
   {
     key: 'safe',
     title: 'Prontas a aprovar',
     hint: 'Comissões, imposto do selo e liquidações. Reconhecidas com certeza; não emitem faturas.',
-    icon: CheckCheck,
-    tile: 'bg-emerald-50 text-emerald-600',
+    dot: 'bg-emerald-500',
+  },
+  {
+    key: 'income',
+    title: 'Entradas para confirmar',
+    hint: 'Transferências sem FR encontrada. Abra cada uma, diga o que é e emita a fatura.',
+    dot: 'bg-rose-500',
+  },
+  {
+    key: 'review',
+    title: 'Precisam de uma decisão',
+    hint: 'O sistema não tem a certeza do que são.',
+    dot: 'bg-sky-500',
+  },
+  {
+    key: 'document',
+    title: 'Despesas sem documento',
+    hint: 'Abra cada uma e anexe a fatura, ou marque que está em papel. O mês só fecha com todas justificadas.',
+    dot: 'bg-orange-500',
   },
 ];
+
+const APPROVABLE: Section[] = ['safe', 'linked', 'manual'];
 
 export function groupFor(movement: LedgerMovement): Section {
   if (movement.linkedPaymentId && movement.appInvoiceRef) return 'linked';
@@ -98,7 +95,7 @@ export default function PorTratarTab({
   if (movements.length === 0) {
     return (
       <Card>
-        <EmptyState title="Ainda não há movimentos">Assim que a ligação ao banco estiver ativa, os movimentos aparecem aqui todos os dias.</EmptyState>
+        <EmptyState title="Ainda não há movimentos">Aparecem aqui assim que o banco os enviar.</EmptyState>
       </Card>
     );
   }
@@ -107,44 +104,46 @@ export default function PorTratarTab({
     return (
       <Card>
         <EmptyState
-          icon={<span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600"><PartyPopper className="h-6 w-6" /></span>}
+          icon={(
+            <motion.span
+              initial={{ scale: 0.6, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ type: 'spring', stiffness: 380, damping: 22 }}
+              className="flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500 text-white shadow-lg shadow-emerald-500/25"
+            >
+              <Check className="h-7 w-7" strokeWidth={3} />
+            </motion.span>
+          )}
           title="Está tudo tratado"
         >
-          Todos os movimentos deste mês estão confirmados. Pode avançar para o fecho do mês.
+          Pode avançar para o fecho do mês.
         </EmptyState>
       </Card>
     );
   }
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-7">
       {SECTIONS.map(section => {
         const rows = grouped.get(section.key) || [];
         if (rows.length === 0) return null;
         const visible = expanded.has(section.key) ? rows : rows.slice(0, VISIBLE_PER_GROUP);
-        const Icon = section.icon;
+        const approvable = APPROVABLE.includes(section.key);
         return (
-          <Card key={section.key} className="overflow-hidden">
-            <header className="flex flex-col gap-3 px-5 pb-3 pt-5 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex items-start gap-3">
-                <span className={cx('flex h-9 w-9 shrink-0 items-center justify-center rounded-xl', section.tile)} aria-hidden>
-                  <Icon className="h-[18px] w-[18px]" />
-                </span>
-                <div>
-                  <h2 className="flex items-center gap-2 text-[15px] font-semibold text-zinc-900">
-                    {section.title}
-                    <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium tabular-nums text-zinc-600">{rows.length}</span>
-                  </h2>
-                  <p className="mt-0.5 text-[13px] text-zinc-500">{section.hint}</p>
-                </div>
-              </div>
+          <section key={section.key} aria-label={section.title}>
+            <header className="mb-2.5 flex min-h-8 items-center justify-between gap-3 px-1">
+              <h2 className="flex items-center gap-2 text-[14px] font-semibold tracking-[-0.01em] text-zinc-900">
+                {section.title}
+                <Count value={rows.length} />
+                <Hint>{section.hint}</Hint>
+              </h2>
               {section.key === 'document' && onQuickCapture && (
-                <Button variant="primary" size="sm" className="shrink-0 whitespace-nowrap" onClick={onQuickCapture}>
-                  <Camera className="h-4 w-4" aria-hidden />
+                <Button size="sm" className="shrink-0 whitespace-nowrap" onClick={onQuickCapture}>
+                  <Camera className="h-3.5 w-3.5" aria-hidden />
                   Fotografar faturas
                 </Button>
               )}
-              {(section.key === 'safe' || section.key === 'linked' || section.key === 'manual') && (
+              {approvable && (
                 <Button
                   variant="primary"
                   size="sm"
@@ -153,55 +152,58 @@ export default function PorTratarTab({
                   title={readOnlyReason || undefined}
                   onClick={() => onApprove(rows)}
                 >
-                  <CheckCheck className="h-4 w-4" aria-hidden />
-                  Aprovar todas ({rows.length})
+                  <CheckCheck className="h-3.5 w-3.5" aria-hidden />
+                  {rows.length > 1 ? `Aprovar todas` : 'Aprovar'}
                 </Button>
               )}
             </header>
-            <div className="divide-y divide-zinc-100 border-t border-zinc-100">
+            <Card className="overflow-hidden">
               <AnimatePresence initial={false}>
-              {visible.map(m => (
-                <motion.div
-                  key={m.id}
-                  layout
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  exit={{ opacity: 0, height: 0, transition: { duration: 0.25, ease: [0.32, 0.72, 0, 1] } }}
-                  className="overflow-hidden"
-                >
-                <MovementRow
-                  key={m.id}
-                  movement={m}
-                  onOpen={onOpen}
-                  active={m.id === selectedId}
-                  action={section.key === 'safe' || section.key === 'linked' || section.key === 'manual' ? (
-                    <Button
-                      size="sm"
-                      disabled={!!readOnlyReason}
-                      onClick={event => { event.stopPropagation(); onApprove([m]); }}
-                    >
-                      Aprovar
-                    </Button>
-                  ) : undefined}
-                />
-                </motion.div>
-              ))}
+                {visible.map(m => (
+                  <motion.div
+                    key={m.id}
+                    layout="position"
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0, transition: { duration: 0.22, ease: [0.32, 0.72, 0, 1] } }}
+                    transition={SPRING}
+                    className="group/item overflow-hidden"
+                  >
+                    <MovementRow
+                      movement={m}
+                      onOpen={onOpen}
+                      active={m.id === selectedId}
+                      action={approvable ? (
+                        <button
+                          type="button"
+                          disabled={!!readOnlyReason}
+                          onClick={event => { event.stopPropagation(); onApprove([m]); }}
+                          aria-label="Aprovar"
+                          title="Aprovar"
+                          className="lg-icon flex h-8 w-8 items-center justify-center rounded-full text-zinc-500 outline-none transition-[background-color,color,transform] duration-150 ease-out hover:bg-zinc-900 hover:text-white active:scale-90 focus-visible:ring-[3px] focus-visible:ring-zinc-900/15 disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-zinc-500"
+                        >
+                          <Check className="h-4 w-4" strokeWidth={2.5} aria-hidden />
+                        </button>
+                      ) : undefined}
+                    />
+                  </motion.div>
+                ))}
               </AnimatePresence>
-            </div>
-            {rows.length > VISIBLE_PER_GROUP && (
-              <button
-                type="button"
-                onClick={() => setExpanded(prev => {
-                  const next = new Set(prev);
-                  if (next.has(section.key)) next.delete(section.key); else next.add(section.key);
-                  return next;
-                })}
-                className="w-full border-t border-zinc-100 px-5 py-3 text-center text-[13px] font-medium text-zinc-500 transition-colors duration-200 hover:bg-zinc-50 hover:text-zinc-900"
-              >
-                {expanded.has(section.key) ? 'Mostrar menos' : `Mostrar mais ${rows.length - VISIBLE_PER_GROUP}`}
-              </button>
-            )}
-          </Card>
+              {rows.length > VISIBLE_PER_GROUP && (
+                <button
+                  type="button"
+                  onClick={() => setExpanded(prev => {
+                    const next = new Set(prev);
+                    if (next.has(section.key)) next.delete(section.key); else next.add(section.key);
+                    return next;
+                  })}
+                  className="w-full border-t border-zinc-900/[0.06] px-4 py-2.5 text-center text-[13px] font-medium text-zinc-500 transition-colors duration-150 hover:bg-zinc-900/[0.02] hover:text-zinc-900"
+                >
+                  {expanded.has(section.key) ? 'Mostrar menos' : `Mais ${rows.length - VISIBLE_PER_GROUP}`}
+                </button>
+              )}
+            </Card>
+          </section>
         );
       })}
     </div>

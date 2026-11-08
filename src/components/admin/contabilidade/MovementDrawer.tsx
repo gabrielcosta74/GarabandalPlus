@@ -250,12 +250,12 @@ export default function MovementDrawer({ movement, readOnlyReason, onClose, onCh
     <Dialog open={!!movement} onClose={onClose} className="relative z-50">
       <DialogBackdrop
         transition
-        className="fixed inset-0 bg-zinc-950/20 backdrop-blur-[2px] transition-opacity duration-300 ease-out data-[closed]:opacity-0"
+        className="fixed inset-0 bg-black/55 transition-opacity duration-300 ease-out data-[closed]:opacity-0"
       />
       <div className="fixed inset-0 flex justify-end p-0 sm:p-3">
         <DialogPanel
           transition
-          className="flex h-full w-full max-w-[440px] flex-col overflow-hidden bg-white transition duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] data-[closed]:translate-x-12 data-[closed]:opacity-0 sm:rounded-3xl sm:shadow-2xl sm:shadow-zinc-900/10 sm:ring-1 sm:ring-zinc-900/5"
+          className="lg-float flex h-full w-full max-w-[460px] flex-col overflow-hidden transition duration-[380ms] ease-[cubic-bezier(0.32,0.72,0,1)] data-[closed]:translate-x-[105%] motion-reduce:data-[closed]:translate-x-0 motion-reduce:data-[closed]:opacity-0 sm:rounded-[24px] sm:shadow-[0_0_0_1px_rgba(9,9,11,0.05),0_24px_64px_-12px_rgba(9,9,11,0.25)]"
         >
           {view && (
             <>
@@ -275,7 +275,7 @@ export default function MovementDrawer({ movement, readOnlyReason, onClose, onCh
                     </span>
                     <span className="text-sm text-zinc-500">{KIND_LABELS[view.kind]}</span>
                   </div>
-                  <p className={cx('mt-4 flex items-center gap-2 text-[34px] font-semibold leading-none tracking-tight tabular-nums', view.amount > 0 ? 'text-emerald-600' : 'text-zinc-900')}>
+                  <p className={cx('mt-4 flex items-center gap-2 text-[36px] font-semibold leading-none tracking-[-0.035em] tabular-nums', view.amount > 0 ? 'text-emerald-600' : 'text-zinc-900')}>
                     {view.status === 'reconciled' && <CheckCircle2 className="h-7 w-7 text-emerald-500" aria-hidden />}
                     {formatEur(view.amount, { signed: true })}
                   </p>

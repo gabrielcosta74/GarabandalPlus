@@ -87,9 +87,9 @@ export default function QuickCapture({
 
   return (
     <Dialog open={open} onClose={close} className="relative z-50">
-      <DialogBackdrop transition className="fixed inset-0 bg-zinc-950/30 backdrop-blur-[2px] transition-opacity duration-300 data-[closed]:opacity-0" />
+      <DialogBackdrop transition className="fixed inset-0 bg-black/55 backdrop-blur-[3px] transition-opacity duration-300 data-[closed]:opacity-0" />
       <div className="fixed inset-0 flex items-end justify-center p-0 sm:items-center sm:p-4">
-        <DialogPanel transition className="w-full max-w-md rounded-t-3xl bg-white p-6 shadow-2xl transition duration-300 ease-out data-[closed]:translate-y-8 data-[closed]:opacity-0 sm:rounded-3xl">
+        <DialogPanel transition className="lg-float w-full max-w-md rounded-t-3xl p-6 transition duration-300 ease-out data-[closed]:translate-y-8 data-[closed]:opacity-0 sm:rounded-3xl">
           <div className="flex items-center justify-between">
             <DialogTitle className="text-[15px] font-semibold text-zinc-900">Fotografar faturas</DialogTitle>
             <button type="button" onClick={close} className="-mr-2 flex h-9 w-9 items-center justify-center rounded-full text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700" aria-label="Fechar">

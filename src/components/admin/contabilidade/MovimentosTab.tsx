@@ -5,6 +5,7 @@ import { Check, Search, TriangleAlert } from 'lucide-react';
 
 import { formatEur, sumAmounts } from '../../../lib/ledger/format';
 import MovementRow from './MovementRow';
+import { CategoryBreakdown } from './Overview';
 import type { LedgerMovement } from './types';
 import { Card, EmptyState, cx, isOpen, missingDocument, missingInvoice } from './ui';
 
@@ -83,95 +84,103 @@ export default function MovimentosTab({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-col gap-3 2xl:flex-row 2xl:items-center 2xl:justify-between">
-        <div className="flex flex-wrap gap-2" role="tablist" aria-label="Filtrar movimentos">
-          {FILTERS.map(item => (
-            <button
-              key={item.key}
-              type="button"
-              role="tab"
-              aria-selected={filter === item.key}
-              onClick={() => setFilter(item.key)}
-              className={cx(
-                'inline-flex h-8 items-center gap-1.5 rounded-full px-3.5 text-[13px] font-medium outline-none transition-all duration-200 ease-out active:scale-95 focus-visible:ring-2 focus-visible:ring-emerald-500/40',
-                filter === item.key ? 'bg-zinc-900 text-white shadow-sm' : 'bg-white text-zinc-600 ring-1 ring-zinc-200 hover:bg-zinc-50 hover:text-zinc-900 hover:ring-zinc-300',
-              )}
-            >
-              {item.label}
-              <span className={cx('tabular-nums', filter === item.key ? 'text-white/60' : 'text-zinc-400')}>{counts[item.key]}</span>
-            </button>
-          ))}
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-wrap gap-1.5" role="tablist" aria-label="Filtrar movimentos">
+          {FILTERS.map(item => {
+            const active = filter === item.key;
+            return (
+              <button
+                key={item.key}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                onClick={() => setFilter(item.key)}
+                className={cx(
+                  'inline-flex h-8 items-center gap-1.5 rounded-full px-3.5 text-[13px] font-medium outline-none transition-[background-color,color,transform] duration-150 ease-out active:scale-95 focus-visible:ring-[3px] focus-visible:ring-zinc-900/15',
+                  active ? 'lg-thumb text-zinc-950' : 'lg-pill text-zinc-500 hover:text-zinc-900',
+                  !active && counts[item.key] === 0 && 'opacity-50',
+                )}
+              >
+                {item.label}
+                <span className={cx('tabular-nums', active ? 'text-zinc-600' : 'text-zinc-400')}>{counts[item.key]}</span>
+              </button>
+            );
+          })}
         </div>
-        <label className="relative w-full 2xl:w-72">
+        <label className="relative w-full lg:w-64">
           <span className="sr-only">Procurar</span>
-          <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" aria-hidden />
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" aria-hidden />
           <input
             value={query}
             onChange={event => setQuery(event.target.value)}
-            placeholder="Procurar pessoa ou descrição"
-            className="h-10 w-full rounded-xl bg-white pl-10 pr-3 text-sm text-zinc-900 ring-1 ring-zinc-200 transition-shadow duration-200 placeholder:text-zinc-400 hover:ring-zinc-300 focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
+            placeholder="Procurar"
+            className="lg-pill h-9 w-full rounded-full pl-9 pr-3 text-[13.5px] text-zinc-900 transition-shadow duration-150 placeholder:text-zinc-400 focus:shadow-[0_0_0_4px_rgb(255_255_255/0.06)] focus:outline-none"
           />
         </label>
       </div>
 
-      <Card className="overflow-hidden">
-        {days.length === 0 ? (
-          <EmptyState title="Nada para mostrar">Nenhum movimento com este filtro.</EmptyState>
-        ) : (
-          days.map(([day, rows]) => {
-            const net = sumAmounts(rows.map(r => r.amount));
-            return (
-              <div key={day}>
-                <div className="flex items-center justify-between bg-zinc-50/80 px-5 py-2 text-xs font-medium text-zinc-500">
-                  <span className="first-letter:uppercase">{dayHeading(day)}</span>
-                  <span className="tabular-nums">{formatEur(net, { signed: true })}</span>
-                </div>
-                <div className="divide-y divide-zinc-100">
-                  {rows.map(m => (
-                    <MovementRow key={m.id} movement={m} onOpen={onOpen} active={m.id === selectedId} showDate={false} />
-                  ))}
-                </div>
-              </div>
-            );
-          })
-        )}
-      </Card>
-
       {balances && (
-        <Card className="flex flex-wrap items-center gap-x-5 gap-y-2 px-5 py-4 text-sm tabular-nums">
-          <Figure label="Saldo inicial" value={formatEur(balances.opening)} />
+        <Card className="flex flex-wrap items-center gap-x-6 gap-y-3 px-5 py-3.5 text-[13px] tabular-nums">
+          <Figure label="Inicial" value={formatEur(balances.opening)} />
           <Op>+</Op>
           <Figure label="Entradas" value={formatEur(balances.income)} tone="text-emerald-600" />
           <Op>−</Op>
           <Figure label="Saídas" value={formatEur(Math.abs(balances.expenses))} />
           <Op>=</Op>
-          <Figure label="Saldo final" value={formatEur(balances.closing)} />
+          <Figure label="Final" value={formatEur(balances.closing)} />
           <span className="ml-auto">
             {balances.matches ? (
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700">
+              <span className="inline-flex h-7 items-center gap-1.5 rounded-full bg-emerald-500/10 px-3 text-[12.5px] font-medium text-emerald-700">
                 <Check className="h-3.5 w-3.5" strokeWidth={3} aria-hidden /> Confere com o banco
               </span>
             ) : (
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-rose-50 px-3 py-1 text-xs font-medium text-rose-700">
+              <span className="inline-flex h-7 items-center gap-1.5 rounded-full bg-rose-500/10 px-3 text-[12.5px] font-medium text-rose-700">
                 <TriangleAlert className="h-3.5 w-3.5" aria-hidden /> Não confere · as contas dão {formatEur(balances.computed)}
               </span>
             )}
           </span>
         </Card>
       )}
+
+      {days.length === 0 ? (
+        <Card><EmptyState title="Nada para mostrar">Nenhum movimento com este filtro.</EmptyState></Card>
+      ) : (
+        <div className="flex flex-col gap-5">
+          {days.map(([day, rows]) => {
+            const net = sumAmounts(rows.map(r => r.amount));
+            return (
+              <section key={day}>
+                <div className="mb-1.5 flex items-baseline justify-between px-1 text-[12.5px]">
+                  <span className="font-semibold text-zinc-700 first-letter:uppercase">{dayHeading(day)}</span>
+                  <span className={cx('tabular-nums', net > 0 ? 'text-emerald-600' : 'text-zinc-400')}>{formatEur(net, { signed: true })}</span>
+                </div>
+                <Card className="overflow-hidden">
+                  {rows.map(m => (
+                    <div key={m.id} className="group/item">
+                      <MovementRow movement={m} onOpen={onOpen} active={m.id === selectedId} showDate={false} />
+                    </div>
+                  ))}
+                </Card>
+              </section>
+            );
+          })}
+        </div>
+      )}
+
+      {movements.length > 0 && <CategoryBreakdown movements={movements} />}
     </div>
   );
 }
 
 function Figure({ label, value, tone = 'text-zinc-900' }: { label: string; value: string; tone?: string }) {
   return (
-    <span className="flex flex-col">
-      <span className="text-xs text-zinc-500">{label}</span>
-      <span className={cx('font-semibold', tone)}>{value}</span>
+    <span className="flex flex-col gap-0.5">
+      <span className="text-[11.5px] text-zinc-400">{label}</span>
+      <span className={cx('text-[14px] font-semibold tracking-[-0.01em]', tone)}>{value}</span>
     </span>
   );
 }
 
 function Op({ children }: { children: string }) {
-  return <span className="text-lg text-zinc-300">{children}</span>;
+  return <span className="text-[15px] text-zinc-300" aria-hidden>{children}</span>;
 }

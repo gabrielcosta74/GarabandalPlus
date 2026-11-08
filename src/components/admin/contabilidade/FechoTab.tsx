@@ -1,5 +1,6 @@
 "use client";
 
+import { motion } from 'framer-motion';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ArrowRight, Check, Download, FileSpreadsheet, LoaderCircle, Lock, LockOpen } from 'lucide-react';
 
@@ -8,7 +9,7 @@ import { monthBalances } from './MovimentosTab';
 import { useToast } from './Toasts';
 import type { LedgerMovement } from './types';
 import { adminFetch, downloadAdminFile } from './useLedger';
-import { Button, Card, EmptyState, cx, isOpen, missingDocument, missingInvoice } from './ui';
+import { Button, Card, EmptyState, Hint, SPRING, cx, isOpen, missingDocument, missingInvoice } from './ui';
 
 type CheckItem = {
   key: string;
@@ -130,43 +131,43 @@ export default function FechoTab({
   };
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
+    <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_21rem]">
       <Card className="overflow-hidden">
         <div className="flex items-center gap-5 px-6 py-6">
-          <Ring value={passed} total={blocking.length} />
-          <div>
-            <p className="text-sm text-zinc-500">{formatPeriod(period)}</p>
-            <h2 className="text-xl font-semibold tracking-tight text-zinc-900">
-              {closed ? 'Mês fechado' : ready ? 'Pronto a fechar' : 'Fecho por preparar'}
+          <Ring value={passed} total={blocking.length} closed={!!closed} />
+          <div className="min-w-0">
+            <p className="text-[13px] text-zinc-500">{formatPeriod(period)}</p>
+            <h2 className="text-[22px] font-semibold leading-tight tracking-[-0.025em] text-zinc-900">
+              {closed ? 'Mês fechado' : ready ? 'Pronto a fechar' : 'Por preparar'}
             </h2>
-            <p className="mt-0.5 text-sm text-zinc-500">
+            <p className="mt-0.5 text-[13px] text-zinc-500">
               {closed
-                ? `Fechado por ${closed.closed_by} a ${formatDay(closed.closed_at.slice(0, 10), true)}. Nada deste mês pode ser alterado.`
+                ? `Por ${closed.closed_by} · ${formatDay(closed.closed_at.slice(0, 10), true)}`
                 : ready
-                  ? 'Tudo justificado. Pode fechar o mês e gerar o Excel para a Factor M.'
-                  : `${blocking.length - passed} ${blocking.length - passed === 1 ? 'verificação' : 'verificações'} por resolver.`}
+                  ? 'Tudo justificado.'
+                  : `Falta${blocking.length - passed === 1 ? '' : 'm'} ${blocking.length - passed} ${blocking.length - passed === 1 ? 'verificação' : 'verificações'}.`}
             </p>
           </div>
         </div>
-        {live && !server && !loadError && <p className="flex items-center gap-2 border-t border-zinc-100 px-6 py-4 text-sm text-zinc-500"><LoaderCircle className="h-4 w-4 animate-spin" aria-hidden /> A verificar o mês…</p>}
-        {loadError && <p className="border-t border-zinc-100 px-6 py-4 text-sm text-rose-700">{loadError}</p>}
-        <ul className="divide-y divide-zinc-100 border-t border-zinc-100">
+        {live && !server && !loadError && <p className="flex items-center gap-2 border-t border-zinc-900/[0.06] px-6 py-4 text-[13px] text-zinc-500"><LoaderCircle className="h-4 w-4 animate-spin" aria-hidden /> A verificar o mês…</p>}
+        {loadError && <p className="border-t border-zinc-900/[0.06] px-6 py-4 text-[13px] text-rose-700">{loadError}</p>}
+        <ul className="border-t border-zinc-900/[0.06]">
           {checks.map(check => (
-            <li key={check.key} className="flex items-center gap-4 px-6 py-4">
+            <li key={check.key} className="relative flex items-center gap-3.5 px-6 py-3.5 before:absolute before:left-[62px] before:right-0 before:top-0 before:h-px before:bg-zinc-900/[0.06] first:before:hidden">
               <span
                 className={cx(
-                  'flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-bold',
+                  'flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[12px] font-bold',
                   check.state === 'ok' && 'bg-emerald-500 text-white',
-                  check.state === 'fail' && 'bg-white text-zinc-300 ring-2 ring-inset ring-zinc-200',
-                  check.state === 'warn' && 'bg-orange-50 text-orange-600',
+                  check.state === 'fail' && 'text-transparent ring-[1.5px] ring-inset ring-zinc-300',
+                  check.state === 'warn' && 'bg-orange-500/10 text-orange-600',
                 )}
                 aria-hidden
               >
-                {check.state === 'warn' ? '!' : <Check className="h-4 w-4" strokeWidth={3} />}
+                {check.state === 'warn' ? '!' : <Check className="h-3.5 w-3.5" strokeWidth={3} />}
               </span>
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium text-zinc-900">{check.label}</p>
-                <p className={cx('text-[13px]', check.state === 'fail' ? 'text-orange-600' : 'text-zinc-500')}>{check.detail}</p>
+                <p className="text-[14px] font-medium tracking-[-0.01em] text-zinc-900">{check.label}</p>
+                <p className={cx('text-[12.5px]', check.state === 'fail' ? 'text-orange-600' : 'text-zinc-400')}>{check.detail}</p>
               </div>
               {check.state === 'fail' && check.goTo && !closed && (
                 <Button size="sm" onClick={() => onGo(check.goTo!)}>
@@ -178,30 +179,25 @@ export default function FechoTab({
         </ul>
       </Card>
 
-      <div className="flex flex-col gap-4">
-        <Card className="flex h-fit flex-col gap-4 p-6">
-          <span className={cx('flex h-11 w-11 items-center justify-center rounded-2xl text-white', closed ? 'bg-emerald-600' : 'bg-zinc-900')} aria-hidden>
-            {closed ? <Lock className="h-5 w-5" /> : <FileSpreadsheet className="h-5 w-5" />}
-          </span>
-          <div>
-            <h3 className="text-[15px] font-semibold text-zinc-900">{closed ? 'Enviado ao contabilista' : 'Enviar ao contabilista'}</h3>
-            <p className="mt-1 text-sm text-zinc-500">
-              {closed
-                ? 'O Excel guardado no fecho é o que a Factor M recebe. Reabrir só com motivo, que fica registado.'
-                : 'Ao fechar, o mês fica bloqueado e o Excel fica guardado. Pode descarregar um rascunho antes.'}
-            </p>
+      <div className="flex flex-col gap-5">
+        <Card className="flex h-fit flex-col gap-3 p-5">
+          <div className="flex items-center gap-3">
+            <span className={cx('flex h-10 w-10 items-center justify-center rounded-[12px]', closed ? 'bg-emerald-500 text-white' : 'bg-zinc-900 text-white')} aria-hidden>
+              {closed ? <Lock className="h-[18px] w-[18px]" /> : <FileSpreadsheet className="h-[18px] w-[18px]" />}
+            </span>
+            <div className="flex items-center gap-1.5">
+              <h3 className="text-[15px] font-semibold tracking-[-0.01em] text-zinc-900">{closed ? 'Enviado ao contabilista' : 'Enviar ao contabilista'}</h3>
+              <Hint align="right">
+                {closed
+                  ? 'O Excel guardado no fecho é o que a Factor M recebe. Reabrir só com motivo, que fica registado.'
+                  : 'Ao fechar, o mês fica bloqueado e o Excel fica guardado. Pode descarregar um rascunho antes.'}
+              </Hint>
+            </div>
           </div>
 
-          {live && (
-            <Button variant="secondary" disabled={busy !== null} onClick={() => void download()}>
-              {busy === 'download' ? <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden /> : <Download className="h-4 w-4" aria-hidden />}
-              {closed ? 'Descarregar Excel' : 'Descarregar rascunho'}
-            </Button>
-          )}
-
           {!closed && (confirmingClose ? (
-            <div className="rounded-2xl bg-zinc-50 p-4">
-              <p className="text-sm text-zinc-800">Depois de fechado, nada de {formatPeriod(period)} pode ser alterado até alguém reabrir o mês com motivo.</p>
+            <div className="rounded-2xl bg-zinc-900/[0.04] p-4">
+              <p className="text-[13px] text-zinc-700">Depois de fechado, nada de {formatPeriod(period)} pode ser alterado até alguém o reabrir com motivo.</p>
               <div className="mt-3 flex gap-2">
                 <Button variant="ghost" className="flex-1" disabled={busy !== null} onClick={() => setConfirmingClose(false)}>Voltar</Button>
                 <Button variant="dark" className="flex-1" disabled={busy !== null} onClick={() => void act('close')}>
@@ -223,6 +219,13 @@ export default function FechoTab({
             </Button>
           ))}
 
+          {live && (
+            <Button variant="secondary" disabled={busy !== null} onClick={() => void download()}>
+              {busy === 'download' ? <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden /> : <Download className="h-4 w-4" aria-hidden />}
+              {closed ? 'Descarregar Excel' : 'Descarregar rascunho'}
+            </Button>
+          )}
+
           {closed && live && (reopening ? (
             <div className="space-y-2">
               <textarea
@@ -231,7 +234,7 @@ export default function FechoTab({
                 onChange={event => setReason(event.target.value)}
                 rows={2}
                 placeholder="Porque é que este mês tem de ser reaberto?"
-                className="w-full resize-none rounded-xl bg-zinc-50 px-3.5 py-3 text-sm text-zinc-900 ring-1 ring-transparent transition placeholder:text-zinc-400 focus:bg-white focus:outline-none focus:ring-zinc-300"
+                className="w-full resize-none rounded-xl bg-zinc-900/[0.04] px-3.5 py-3 text-[13.5px] text-zinc-900 transition placeholder:text-zinc-400 focus:bg-white focus:shadow-[0_0_0_1px_rgba(9,9,11,0.08),0_0_0_4px_rgba(9,9,11,0.05)] focus:outline-none"
               />
               <div className="flex gap-2">
                 <Button variant="ghost" className="flex-1" disabled={busy !== null} onClick={() => setReopening(false)}>Cancelar</Button>
@@ -249,46 +252,50 @@ export default function FechoTab({
         </Card>
 
         {live && !!server?.history.length && (
-          <Card className="p-5">
-            <h3 className="text-[13px] font-semibold text-zinc-900">Histórico</h3>
-            <ul className="mt-2 space-y-2">
+          <div className="px-1">
+            <h3 className="mb-2 text-[12.5px] font-semibold text-zinc-500">Histórico</h3>
+            <ul className="space-y-2.5">
               {server.history.map(event => (
-                <li key={`${event.action}-${event.created_at}`} className="text-[13px] text-zinc-600">
-                  <span className="font-medium text-zinc-900">{event.action === 'closed' ? 'Fechado' : 'Reaberto'}</span>{' '}
-                  por {event.actor} · {formatDay(event.created_at.slice(0, 10), true)}
-                  {event.reason && <span className="block text-zinc-500">«{event.reason}»</span>}
+                <li key={`${event.action}-${event.created_at}`} className="flex gap-2.5 text-[12.5px] text-zinc-500">
+                  <span className={cx('mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full', event.action === 'closed' ? 'bg-emerald-500' : 'bg-orange-500')} aria-hidden />
+                  <span>
+                    <span className="font-medium text-zinc-900">{event.action === 'closed' ? 'Fechado' : 'Reaberto'}</span>{' '}
+                    por {event.actor} · {formatDay(event.created_at.slice(0, 10), true)}
+                    {event.reason && <span className="block text-zinc-400">«{event.reason}»</span>}
+                  </span>
                 </li>
               ))}
             </ul>
-          </Card>
+          </div>
         )}
       </div>
     </div>
   );
 }
 
-function Ring({ value, total }: { value: number; total: number }) {
+function Ring({ value, total, closed }: { value: number; total: number; closed: boolean }) {
   const radius = 26;
   const circumference = 2 * Math.PI * radius;
   const share = total ? value / total : 0;
   return (
     <div className="relative h-16 w-16 shrink-0">
       <svg viewBox="0 0 64 64" className="h-16 w-16 -rotate-90" aria-hidden>
-        <circle cx="32" cy="32" r={radius} fill="none" stroke="#f4f4f5" strokeWidth="7" />
-        <circle
+        <circle cx="32" cy="32" r={radius} fill="none" stroke="#f4f4f5" strokeWidth="6" />
+        <motion.circle
           cx="32"
           cy="32"
           r={radius}
           fill="none"
           stroke="#10b981"
-          strokeWidth="7"
+          strokeWidth="6"
           strokeLinecap="round"
-          strokeDasharray={`${share * circumference} ${circumference}`}
-          className="transition-[stroke-dasharray] duration-700"
+          initial={false}
+          animate={{ strokeDasharray: `${share * circumference} ${circumference}` }}
+          transition={SPRING}
         />
       </svg>
-      <span className="absolute inset-0 flex items-center justify-center text-sm font-semibold tabular-nums text-zinc-900">
-        {value}/{total}
+      <span className="absolute inset-0 flex items-center justify-center text-[13px] font-semibold tabular-nums text-zinc-900">
+        {closed ? <Lock className="h-4 w-4 text-emerald-600" aria-hidden /> : `${value}/${total}`}
       </span>
     </div>
   );

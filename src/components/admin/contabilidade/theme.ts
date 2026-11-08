@@ -24,13 +24,6 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 
-/*
- * Visual language of the Contabilidade module (its own, not the rest of the
- * admin): each category has one icon and one hue. The hue appears as a soft
- * tile behind the icon, as the pill tint, and as the slice in the charts, so a
- * category is recognised by colour + icon everywhere on the page.
- */
-
 export type Tone = {
   /** Icon tile and pill background. */
   soft: string;
@@ -40,19 +33,15 @@ export type Tone = {
   chart: string;
 };
 
+/*
+ * One material for every category: the icon carries the meaning, colour is
+ * reserved for state (money in, needs attention). Keys kept so call sites and
+ * the category map stay unchanged.
+ */
+const NEUTRAL: Tone = { soft: 'lg-icon', ink: 'text-zinc-700', chart: 'rgb(255 255 255 / 0.7)' };
 const T = {
-  rose: { soft: 'bg-rose-50', ink: 'text-rose-600', chart: '#f43f5e' },
-  violet: { soft: 'bg-violet-50', ink: 'text-violet-600', chart: '#8b5cf6' },
-  sky: { soft: 'bg-sky-50', ink: 'text-sky-600', chart: '#0ea5e9' },
-  orange: { soft: 'bg-orange-50', ink: 'text-orange-600', chart: '#f97316' },
-  emerald: { soft: 'bg-emerald-50', ink: 'text-emerald-600', chart: '#10b981' },
-  indigo: { soft: 'bg-indigo-50', ink: 'text-indigo-600', chart: '#6366f1' },
-  teal: { soft: 'bg-teal-50', ink: 'text-teal-600', chart: '#14b8a6' },
-  cyan: { soft: 'bg-cyan-50', ink: 'text-cyan-600', chart: '#06b6d4' },
-  fuchsia: { soft: 'bg-fuchsia-50', ink: 'text-fuchsia-600', chart: '#d946ef' },
-  lime: { soft: 'bg-lime-50', ink: 'text-lime-700', chart: '#84cc16' },
-  slate: { soft: 'bg-slate-100', ink: 'text-slate-500', chart: '#94a3b8' },
-  zinc: { soft: 'bg-zinc-100', ink: 'text-zinc-500', chart: '#a1a1aa' },
+  rose: NEUTRAL, violet: NEUTRAL, sky: NEUTRAL, orange: NEUTRAL, emerald: NEUTRAL, indigo: NEUTRAL,
+  teal: NEUTRAL, cyan: NEUTRAL, fuchsia: NEUTRAL, lime: NEUTRAL, slate: NEUTRAL, zinc: NEUTRAL,
 } satisfies Record<string, Tone>;
 
 export type CategoryVisual = { icon: LucideIcon; tone: Tone; group: string };
@@ -93,8 +82,8 @@ export function visualFor(code: string | null | undefined): CategoryVisual {
 export type RowState = 'complete' | 'missing' | 'confirm' | 'ignored';
 
 export const STATE_PILL: Record<RowState, string> = {
-  complete: 'bg-emerald-50 text-emerald-700 ring-emerald-600/10',
-  missing: 'bg-orange-50 text-orange-700 ring-orange-600/10',
-  confirm: 'bg-sky-50 text-sky-700 ring-sky-600/10',
-  ignored: 'bg-zinc-100 text-zinc-500 ring-zinc-500/10',
+  complete: 'text-emerald-600',
+  missing: 'bg-orange-500/[0.12] text-orange-600',
+  confirm: 'bg-transparent !px-0 text-zinc-400',
+  ignored: 'bg-zinc-900/[0.06] text-zinc-500',
 };

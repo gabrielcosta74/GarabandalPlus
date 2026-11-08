@@ -93,7 +93,7 @@ export default function ImportDialog({ open, onClose, onPreview, onImported }: P
 
   return (
     <Dialog open={open} onClose={close} className="relative z-50">
-      <DialogBackdrop transition className="fixed inset-0 bg-zinc-950/25 backdrop-blur-[2px] transition-opacity duration-300 ease-out data-[closed]:opacity-0" />
+      <DialogBackdrop transition className="fixed inset-0 bg-black/55 backdrop-blur-[3px] transition-opacity duration-300 ease-out data-[closed]:opacity-0" />
       <div className="fixed inset-0 overflow-y-auto">
         <div className="flex min-h-full items-start justify-center px-4 py-10 sm:py-16">
           <DialogPanel transition className="w-full max-w-xl rounded-3xl bg-zinc-50 p-6 shadow-2xl shadow-zinc-900/10 transition duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] data-[closed]:translate-y-4 data-[closed]:scale-[0.98] data-[closed]:opacity-0">

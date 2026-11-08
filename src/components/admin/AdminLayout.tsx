@@ -14,11 +14,13 @@ type AdminLayoutProps = {
     userEmail?: string | null;
     isLoading?: boolean;
     hideHeader?: boolean;
+    /** Extra classes on the layout root (e.g. a page-scoped theme). */
+    className?: string;
 };
 
 const SIDEBAR_STORAGE_KEY = 'admin:sidebar-collapsed';
 
-export default function AdminLayout({ children, title = "Dashboard", description, isLoading, hideHeader = false }: AdminLayoutProps) {
+export default function AdminLayout({ children, title = "Dashboard", description, isLoading, hideHeader = false, className }: AdminLayoutProps) {
     const [isMobileOpen, setIsMobileOpen] = useState(false);
     const [isCollapsed, setIsCollapsed] = useState(false);
     const router = useRouter();
@@ -65,7 +67,7 @@ export default function AdminLayout({ children, title = "Dashboard", description
     }
 
     return (
-        <div className="min-h-screen bg-gray-50 flex font-admin">
+        <div className={`min-h-screen bg-gray-50 flex font-admin${className ? ` ${className}` : ''}`}>
             {/* Sidebar Desktop */}
             <AdminSidebar onLogout={handleLogout} className="hidden lg:flex" collapsed={isCollapsed} />
 
