@@ -56,11 +56,11 @@ export function TestimonialsMarquee({ testimonials, isEn, title }: { testimonial
                             <li
                                 key={`${t.id}-${i}`}
                                 aria-hidden={i >= testimonials.length ? true : undefined}
-                                className={`group flex w-[300px] shrink-0 flex-col justify-between rounded-[28px] p-8 transition-transform duration-500 ease-out hover:-translate-y-1.5 sm:w-[420px] md:p-10 ${dark ? 'bg-[#0b0b0c] text-white' : 'border border-black/[0.06] bg-white'}`}
+                                className={`group flex w-[280px] shrink-0 flex-col justify-between rounded-[24px] p-7 transition-transform duration-500 ease-out hover:-translate-y-1.5 sm:w-[420px] md:rounded-[28px] md:p-10 ${dark ? 'bg-[#0b0b0c] text-white' : 'border border-black/[0.06] bg-white'}`}
                             >
                                 <div>
                                     <span aria-hidden className={`block text-5xl font-semibold leading-[0.5] ${dark ? 'text-white/25' : 'text-[#0b0b0c]/15'}`}>“</span>
-                                    <p className={`mt-6 text-xl font-medium leading-[1.45] tracking-[-0.01em] md:text-[1.4rem] ${dark ? 'text-white' : 'text-[#141414]'}`}>
+                                    <p className={`mt-5 text-[17px] font-medium leading-[1.5] tracking-[-0.01em] md:mt-6 md:text-[1.4rem] md:leading-[1.45] ${dark ? 'text-white' : 'text-[#141414]'}`}>
                                         {text}
                                     </p>
                                 </div>
@@ -94,7 +94,7 @@ function WhyUsCard({ point, index, image, progress, parallax }: { point: { title
         <motion.li style={{ y }} className={index === 1 ? 'md:mt-16' : ''}>
             <div className="group">
                 <motion.div
-                    className="relative aspect-[4/5] overflow-hidden rounded-[24px] bg-black/5"
+                    className="relative aspect-[4/3] overflow-hidden rounded-[20px] bg-black/5 md:aspect-[4/5] md:rounded-[24px]"
                     initial={reduce ? false : { clipPath: 'inset(100% 0% 0% 0%)' }}
                     whileInView={{ clipPath: 'inset(0% 0% 0% 0%)' }}
                     viewport={{ once: true, margin: '0px 0px -12% 0px' }}
@@ -169,9 +169,10 @@ export function WhyUs({ isEn, points, images }: { isEn: boolean; points: { title
 
 // Mosaico de 5 molduras, todas horizontais.
 // Desktop (6 colunas × 3 linhas): grande à esquerda (3×2), duas faixas à direita,
-// duas em baixo. Mobile (1 coluna × 6 linhas): a primeira ocupa 2 linhas.
+// duas em baixo. Mobile (2 colunas): a primeira ocupa a largura e 2 linhas, as
+// outras 4 ficam num mosaico 2×2 — todas horizontais.
 const COLLAGE_TILES = [
-    'row-span-2 md:col-span-3 md:row-span-2',
+    'col-span-2 row-span-2 md:col-span-3 md:row-span-2',
     'md:col-span-3',
     'md:col-span-3',
     'md:col-span-3',
@@ -253,8 +254,21 @@ export function GalleryCollage({ images, title, subtitle, isEn }: { images: stri
     if (tiles === 0) return null;
 
     return (
-        <section className="relative h-[100svh] min-h-[620px] overflow-hidden bg-[#0b0b0c]">
-            <ul className="grid h-full grid-cols-1 grid-rows-6 gap-1.5 md:grid-cols-6 md:grid-rows-3">
+        <section className="relative overflow-hidden bg-[#0b0b0c] md:h-[100svh] md:min-h-[620px]">
+            {/* Título: no mobile fica em cima da colagem; no desktop por cima das fotos, em baixo */}
+            <div className="relative z-10 pb-8 pt-20 text-white md:pointer-events-none md:absolute md:inset-x-0 md:bottom-0 md:pb-14 md:pt-0">
+                <div className="mx-auto flex max-w-6xl flex-wrap items-end justify-between gap-4 px-5 md:gap-6 md:px-8 lg:px-12">
+                    <Reveal>
+                        <p className="pe-eyebrow text-white/70">2008 — 2025</p>
+                        <h2 className="pe-title mt-3 text-5xl leading-none md:mt-4 md:text-8xl">{title}</h2>
+                    </Reveal>
+                    <Reveal delay={0.1}>
+                        <p className="max-w-xs text-base leading-7 text-white/70 md:text-right md:text-lg md:text-white/75">{subtitle}</p>
+                    </Reveal>
+                </div>
+            </div>
+
+            <ul className="grid auto-rows-[136px] grid-cols-2 gap-1.5 sm:auto-rows-[200px] md:h-full md:auto-rows-auto md:grid-cols-6 md:grid-rows-3">
                 {Array.from({ length: tiles }, (_, i) => (
                     <CollageTile
                         key={i}
@@ -267,19 +281,8 @@ export function GalleryCollage({ images, title, subtitle, isEn }: { images: stri
                 ))}
             </ul>
 
-            {/* Título por cima da colagem, sobre um escurecimento suave */}
-            <div aria-hidden className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-black/30" />
-            <div className="pointer-events-none absolute inset-x-0 bottom-0 pb-24 text-white md:pb-14">
-                <div className="mx-auto flex max-w-6xl flex-wrap items-end justify-between gap-6 px-5 md:px-8 lg:px-12">
-                    <Reveal>
-                        <p className="pe-eyebrow text-white/70">2008 — 2025</p>
-                        <h2 className="pe-title mt-4 text-6xl leading-none md:text-8xl">{title}</h2>
-                    </Reveal>
-                    <Reveal delay={0.1}>
-                        <p className="max-w-xs text-lg leading-7 text-white/75 md:text-right">{subtitle}</p>
-                    </Reveal>
-                </div>
-            </div>
+            {/* Escurecimento para o título (só desktop, onde o título fica por cima das fotos) */}
+            <div aria-hidden className="pointer-events-none absolute inset-0 hidden bg-gradient-to-t from-black/80 via-black/10 to-black/30 md:block" />
 
             <AnimatePresence>
                 {selected && (
@@ -314,21 +317,46 @@ export function GalleryCollage({ images, title, subtitle, isEn }: { images: stri
 /* Mais do que uma Viagem, uma Missão                                  */
 /* ------------------------------------------------------------------ */
 
+function MissionItem({ item, defaultOpen }: { item: { title: string; text: string }; defaultOpen: boolean }) {
+    const [open, setOpen] = useState(defaultOpen);
+    return (
+        <div className="py-5 first:pt-0 last:pb-0">
+            {/* Mobile: abre/fecha ao toque. Desktop: sempre aberto, como antes. */}
+            <dt>
+                <button
+                    type="button"
+                    onClick={() => setOpen((v) => !v)}
+                    aria-expanded={open}
+                    className="flex w-full items-center justify-between gap-4 text-left font-semibold md:pointer-events-none md:cursor-default"
+                >
+                    {item.title}
+                    <motion.span
+                        aria-hidden
+                        animate={{ rotate: open ? 45 : 0 }}
+                        transition={{ duration: 0.3, ease: EASE }}
+                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-black/10 text-lg leading-none md:hidden"
+                    >
+                        +
+                    </motion.span>
+                </button>
+            </dt>
+            <dd className={`mt-2 text-sm leading-7 text-[var(--pe-muted)] ${open ? 'block' : 'hidden'} md:block`}>{item.text}</dd>
+        </div>
+    );
+}
+
 export function Mission({ title, desc, items }: { title: string; desc: string; items: { title: string; text: string }[] }) {
     return (
         <section className="mx-auto max-w-6xl px-5 py-16 md:px-8 md:py-24 lg:px-12">
             <Reveal>
-                <div className="grid gap-10 rounded-[28px] border border-black/[0.06] bg-white p-7 md:grid-cols-[1.1fr_1fr] md:gap-14 md:p-12">
+                <div className="grid gap-8 rounded-[24px] border border-black/[0.06] bg-white p-6 md:grid-cols-[1.1fr_1fr] md:gap-14 md:rounded-[28px] md:p-12">
                     <div>
                         <h2 className="pe-title text-3xl leading-tight md:text-4xl">{title}</h2>
-                        <p className="mt-5 leading-8 text-[var(--pe-muted)]">{desc}</p>
+                        <p className="mt-4 text-[15px] leading-7 text-[var(--pe-muted)] md:mt-5 md:text-base md:leading-8">{desc}</p>
                     </div>
-                    <dl className="divide-y divide-[var(--pe-line)]">
+                    <dl className="divide-y divide-[var(--pe-line)] border-t border-[var(--pe-line)] pt-5 md:border-t-0 md:pt-0">
                         {items.map((item) => (
-                            <div key={item.title} className="py-5 first:pt-0 last:pb-0">
-                                <dt className="font-semibold">{item.title}</dt>
-                                <dd className="mt-2 text-sm leading-7 text-[var(--pe-muted)]">{item.text}</dd>
-                            </div>
+                            <MissionItem key={item.title} item={item} defaultOpen={false} />
                         ))}
                     </dl>
                 </div>

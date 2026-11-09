@@ -96,7 +96,7 @@ function Urgency({
     return (
         <motion.div
             ref={ref}
-            className="relative mt-10 overflow-hidden rounded-[22px] border backdrop-blur-md"
+            className="relative mt-7 overflow-hidden rounded-[22px] border backdrop-blur-md lg:mt-10"
             style={{ borderColor: 'rgba(255,90,54,0.35)', background: 'linear-gradient(135deg, rgba(255,90,54,0.14), rgba(255,255,255,0.04) 55%)' }}
             animate={reduce ? undefined : { boxShadow: ['0 0 0 0 rgba(255,90,54,0)', '0 0 48px -10px rgba(255,90,54,0.55)', '0 0 0 0 rgba(255,90,54,0)'] }}
             transition={{ duration: 3.2, repeat: Infinity, ease: 'easeInOut' }}
@@ -209,7 +209,7 @@ export function FeaturedDeparture({
             <div aria-hidden className="absolute inset-0 -z-10 bg-black/55" />
             <div aria-hidden className="absolute inset-0 -z-10 bg-gradient-to-r from-black/30 via-black/10 to-black/60" />
 
-            <div className="mx-auto grid w-full max-w-6xl items-center gap-12 px-5 py-24 md:px-8 md:py-20 lg:grid-cols-2 lg:gap-16 lg:px-12">
+            <div className="mx-auto grid w-full max-w-6xl items-center gap-9 px-5 pb-24 pt-20 md:px-8 md:py-20 lg:grid-cols-2 lg:gap-16 lg:px-12">
                 {/* Capa nítida, inteira */}
                 <motion.div style={{ y: posterY }} className="mx-auto w-full max-w-[420px] lg:max-w-[560px]">
                     <Link href={href} className="group block" aria-label={titleOf(pilgrimage, isEn)}>
@@ -235,7 +235,7 @@ export function FeaturedDeparture({
 
                 {/* Informação */}
                 <div>
-                    <Reveal y={16}>
+                    <Reveal y={16} className="hidden lg:block">
                         <p className="pe-eyebrow flex flex-wrap items-center gap-3 text-white/60">
                             {eyebrow}
                             <span aria-hidden className="h-px w-8 bg-white/30" />
@@ -250,12 +250,12 @@ export function FeaturedDeparture({
                     </Reveal>
 
                     <Reveal y={20} delay={0.08}>
-                        <h2 id="featured-title" className="pe-title mt-6 text-5xl leading-[0.98] md:text-6xl">{shortTitleOf(pilgrimage, isEn)}</h2>
-                        <p className="mt-4 text-white/60">{titleOf(pilgrimage, isEn)}</p>
+                        <h2 id="featured-title" className="pe-title sr-only mt-6 text-5xl leading-[0.98] md:text-6xl lg:not-sr-only lg:block">{shortTitleOf(pilgrimage, isEn)}</h2>
+                        <p className="mt-4 hidden text-white/60 lg:block">{titleOf(pilgrimage, isEn)}</p>
                     </Reveal>
 
                     <Reveal y={16} delay={0.16}>
-                        <p className="mt-8 flex flex-wrap items-baseline gap-x-3">
+                        <p className="flex flex-wrap items-baseline justify-center gap-x-3 text-center lg:mt-8 lg:justify-start lg:text-left">
                             <span className="text-2xl font-semibold tabular-nums md:text-3xl">{range.label}</span>
                             <span className="text-white/60">· {range.duration} {isEn ? 'days' : 'dias'}</span>
                         </p>
@@ -263,7 +263,7 @@ export function FeaturedDeparture({
 
                     <Urgency pilgrimage={pilgrimage} isEn={isEn} soldOutCount={soldOutCount} />
 
-                    <Reveal y={16} delay={0.3} className="mt-8 flex flex-wrap items-center gap-4">
+                    <Reveal y={16} delay={0.3} className="mt-8 flex flex-wrap items-center justify-center gap-4 lg:justify-start">
                         <Link
                             href={href}
                             className="group relative inline-flex min-h-14 items-center justify-center gap-3 rounded-full bg-brand px-8 text-base font-semibold text-white transition-colors hover:bg-brand-700"
