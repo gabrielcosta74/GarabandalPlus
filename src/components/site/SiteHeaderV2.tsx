@@ -50,6 +50,10 @@ const ICONS: Record<CategoryKey, typeof Scroll> = {
 
 type NavHighlights = Record<string, { href: string; items: { title: string; href: string }[] }>;
 
+// Slugs de 1 nível dentro de /peregrinacoes e /en/pilgrimages que não são
+// páginas de detalhe de uma peregrinação.
+const CINEMA_RESERVED_SLUGS = new Set(['minhas-inscricoes', 'my-registrations', 'inscricao', 'registration']);
+
 export default function SiteHeaderV2() {
   const pathname = usePathname();
   const router = useRouter();
@@ -153,10 +157,16 @@ export default function SiteHeaderV2() {
   // Transparent over the dark Hero only at the top of the homepage; turns into
   // the solid white glass bar once scrolled (or on any other page).
   const transparent = isHomePage && !scrolled;
+  // Página de detalhe da peregrinação (PT e EN): versão escura e minimalista,
+  // totalmente transparente no topo e em vidro escuro depois do scroll.
+  const cinemaMatch = pathname?.match(/^\/(?:peregrinacoes|en\/pilgrimages)\/([^/]+)\/?$/);
+  const cinema = !!cinemaMatch && !CINEMA_RESERVED_SLUGS.has(cinemaMatch[1]);
 
   // Shared styling for the circular cart and mobile-menu action buttons.
   // Dark text/icons on every state — the bar always sits on a light (glass) fill.
-  const circleBtn = transparent
+  const circleBtn = cinema
+    ? 'bg-white/10 hover:bg-white/20 text-white border border-white/15 backdrop-blur-md'
+    : transparent
     ? 'bg-white/50 hover:bg-white/70 text-slate-700 hover:text-garabandal-dark border border-white/50 backdrop-blur-md'
     : 'bg-slate-50 hover:bg-slate-100 text-slate-700 hover:text-garabandal-dark border border-slate-200 shadow-sm';
 
@@ -167,12 +177,12 @@ export default function SiteHeaderV2() {
       >
         <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8">
           <div
-            className={`flex items-center justify-between transition-all duration-500 ease-in-out rounded-[2rem] h-[4.5rem] px-4 sm:px-6 ${scrolled ? 'py-1' : 'py-2'} ${transparent ? 'bg-white/85 backdrop-blur-xl shadow-[0_8px_30px_rgb(0,0,0,0.06)] border border-transparent' : 'bg-white/90 backdrop-blur-xl shadow-[0_8px_30px_rgb(0,0,0,0.06)] border border-slate-200/50'}`}
+            className={`flex items-center justify-between transition-all duration-500 ease-in-out rounded-[2rem] ${cinema ? 'h-16' : 'h-[4.5rem]'} px-4 sm:px-6 ${scrolled ? 'py-1' : 'py-2'} ${cinema ? (scrolled ? 'bg-[rgb(12_12_12/0.55)] backdrop-blur-xl border border-white/10 shadow-[0_12px_40px_rgb(0,0,0,0.35)]' : 'bg-transparent border border-transparent shadow-none') : transparent ? 'bg-white/85 backdrop-blur-xl shadow-[0_8px_30px_rgb(0,0,0,0.06)] border border-transparent' : 'bg-white/90 backdrop-blur-xl shadow-[0_8px_30px_rgb(0,0,0,0.06)] border border-slate-200/50'}`}
           >
             {/* 1. Navigation (Desktop). "Início" is the first pill, same style as the rest. */}
             <nav className="hidden lg:flex items-center justify-start flex-1 gap-0.5 xl:gap-1">
-              <NavPill href={homeHref} label={locale === 'pt' ? 'Início' : 'Home'} active={pathname === '/' || pathname === '/en'} transparent={transparent} />
-              <NavPill href={aboutHref} label={locale === 'pt' ? 'Apostolado' : 'Apostolate'} active={pathname === aboutHref} transparent={transparent} />
+              <NavPill href={homeHref} label={locale === 'pt' ? 'Início' : 'Home'} active={pathname === '/' || pathname === '/en'} transparent={transparent} cinema={cinema} />
+              <NavPill href={aboutHref} label={locale === 'pt' ? 'Apostolado' : 'Apostolate'} active={pathname === aboutHref} transparent={transparent} cinema={cinema} />
 
               {/* Mega Dropdown for Content Categories */}
               <div
@@ -180,9 +190,9 @@ export default function SiteHeaderV2() {
                 onMouseEnter={() => setOpenDropdown('content')}
                 onMouseLeave={() => setOpenDropdown(null)}
               >
-                <button className={`cursor-pointer px-3.5 xl:px-4 py-2.5 rounded-full flex items-center gap-1.5 transition-colors duration-200 ${openDropdown === 'content' ? 'bg-slate-100 text-garabandal-dark' : 'text-slate-700 hover:text-garabandal-dark hover:bg-slate-100/80'}`}>
+                <button className={`cursor-pointer px-3.5 xl:px-4 py-2.5 rounded-full flex items-center gap-1.5 transition-colors duration-200 ${cinema ? (openDropdown === 'content' ? 'bg-white/10 text-white' : 'text-white/75 hover:text-white hover:bg-white/10') : openDropdown === 'content' ? 'bg-slate-100 text-garabandal-dark' : 'text-slate-700 hover:text-garabandal-dark hover:bg-slate-100/80'}`}>
                   {/* Text sizing lives on a span: the unlayered `button { font: inherit }` in globals.css beats utilities on the button itself. Keep in sync with NavPill. */}
-                  <span className="text-[15px] xl:text-base font-medium">{locale === 'pt' ? 'História' : 'The Message'}</span>
+                  <span className={`${cinema ? 'text-[14px] xl:text-[15px]' : 'text-[15px] xl:text-base'} font-medium`}>{locale === 'pt' ? 'História' : 'The Message'}</span>
                   <ChevronDown size={14} className={`transition-transform duration-300 opacity-50 ${openDropdown === 'content' ? 'rotate-180' : ''}`} />
                 </button>
 
@@ -221,12 +231,12 @@ export default function SiteHeaderV2() {
                 </AnimatePresence>
               </div>
 
-              <NavPill href={t.urls.pilgrimages} label={t.nav.pilgrimages} active={pathname === t.urls.pilgrimages} transparent={transparent} />
-              <NavPill href={t.urls.store} label={t.nav.store} active={pathname === t.urls.store} transparent={transparent} />
-              <NavPill href={t.urls.donations} label={t.nav.donations} active={pathname === t.urls.donations} transparent={transparent} />
+              <NavPill href={t.urls.pilgrimages} label={t.nav.pilgrimages} active={pathname === t.urls.pilgrimages} transparent={transparent} cinema={cinema} />
+              <NavPill href={t.urls.store} label={t.nav.store} active={pathname === t.urls.store} transparent={transparent} cinema={cinema} />
+              <NavPill href={t.urls.donations} label={t.nav.donations} active={pathname === t.urls.donations} transparent={transparent} cinema={cinema} />
 
               {/* Primary call to action, always blue with a slow shimmer + glow (see .btn-member in globals.css). */}
-              <Link href={membershipHref} className="btn-member ml-2 px-5 xl:px-6 py-2.5 rounded-full text-[15px] xl:text-base font-semibold whitespace-nowrap text-white">
+              <Link href={membershipHref} className={cinema ? 'ml-2 px-4 xl:px-5 py-2 rounded-full border border-white/25 text-[14px] xl:text-[15px] font-medium whitespace-nowrap text-white transition-colors hover:bg-white/10 hover:border-white/40' : 'btn-member ml-2 px-5 xl:px-6 py-2.5 rounded-full text-[15px] xl:text-base font-semibold whitespace-nowrap text-white'}>
                 <span>{hasMembership ? t.nav.memberArea : t.nav.becomeMember}</span>
               </Link>
             </nav>
@@ -239,13 +249,13 @@ export default function SiteHeaderV2() {
                 <button
                   type="button"
                   onClick={() => setLanguageMenuOpen((open) => !open)}
-                  className="relative z-50 inline-flex cursor-pointer items-center py-2 text-[13px] font-semibold text-slate-900 transition-colors duration-200 hover:text-brand-700 focus:outline-none focus-visible:rounded-sm focus-visible:ring-2 focus-visible:ring-brand/30"
+                  className={`relative z-50 inline-flex cursor-pointer items-center py-2 text-[13px] font-semibold transition-colors duration-200 ${cinema ? 'text-white/85 hover:text-white' : 'text-slate-900 hover:text-brand-700'} focus:outline-none focus-visible:rounded-sm focus-visible:ring-2 focus-visible:ring-brand/30`}
                   aria-label="Change language"
                   aria-expanded={languageMenuOpen}
                   aria-haspopup="menu"
                 >
                   <span>{locale === 'pt' ? 'PT' : 'EN'}</span>
-                  <ChevronDown size={13} strokeWidth={2.25} className={`text-slate-700 transition-transform duration-200 ${languageMenuOpen ? 'rotate-180' : ''}`} aria-hidden="true" />
+                  <ChevronDown size={13} strokeWidth={2.25} className={`${cinema ? 'text-white/70' : 'text-slate-700'} transition-transform duration-200 ${languageMenuOpen ? 'rotate-180' : ''}`} aria-hidden="true" />
                 </button>
                 <AnimatePresence>
                   {languageMenuOpen && (
@@ -297,13 +307,13 @@ export default function SiteHeaderV2() {
               {/* User/Auth */}
               {mounted && !loading && (
                 user ? (
-                  <UserPill user={user} memberData={memberData} isMember={isMember} open={userMenuOpen} setOpen={setUserMenuOpen} t={t} onLogout={handleLogout} />
+                  <UserPill user={user} memberData={memberData} isMember={isMember} open={userMenuOpen} setOpen={setUserMenuOpen} t={t} onLogout={handleLogout} cinema={cinema} />
                 ) : (
                   <div className="hidden lg:flex items-center gap-2">
-                    <Link href={t.urls.login} className="px-4 xl:px-5 py-2.5 rounded-full text-[15px] xl:text-base font-medium whitespace-nowrap transition-colors text-slate-700 hover:text-garabandal-dark hover:bg-slate-50">
+                    <Link href={t.urls.login} className={`px-4 xl:px-5 py-2.5 rounded-full font-medium whitespace-nowrap transition-colors ${cinema ? 'text-[14px] xl:text-[15px] text-white/80 hover:text-white hover:bg-white/10' : 'text-[15px] xl:text-base text-slate-700 hover:text-garabandal-dark hover:bg-slate-50'}`}>
                       {t.nav.signIn}
                     </Link>
-                    <Link href={t.urls.register} className="hidden xl:inline-flex px-6 py-2.5 rounded-full text-base font-semibold whitespace-nowrap border border-slate-300 text-garabandal-dark hover:border-garabandal-dark hover:bg-slate-50 transition-colors">
+                    <Link href={t.urls.register} className={cinema ? 'hidden' : 'hidden xl:inline-flex px-6 py-2.5 rounded-full text-base font-semibold whitespace-nowrap border border-slate-300 text-garabandal-dark hover:border-garabandal-dark hover:bg-slate-50 transition-colors'}>
                       {t.nav.createAccount}
                     </Link>
                   </div>
@@ -476,12 +486,15 @@ export default function SiteHeaderV2() {
 }
 
 function NavPill({
-  href, label, active,
-}: { href: string; label: string; active: boolean; transparent?: boolean }) {
+  href, label, active, cinema = false,
+}: { href: string; label: string; active: boolean; transparent?: boolean; cinema?: boolean }) {
+  const tone = cinema
+    ? `text-[14px] xl:text-[15px] ${active ? 'bg-white/10 text-white' : 'text-white/75 hover:text-white hover:bg-white/10'}`
+    : `text-[15px] xl:text-base ${active ? 'bg-slate-100 text-garabandal-dark' : 'text-slate-700 hover:text-garabandal-dark hover:bg-slate-100/80'}`;
   return (
     <Link
       href={href}
-      className={`px-3.5 xl:px-4 py-2.5 rounded-full text-[15px] xl:text-base font-medium inline-flex items-center transition-colors duration-200 ${active ? 'bg-slate-100 text-garabandal-dark' : 'text-slate-700 hover:text-garabandal-dark hover:bg-slate-100/80'}`}
+      className={`px-3.5 xl:px-4 py-2.5 rounded-full font-medium inline-flex items-center transition-colors duration-200 ${tone}`}
     >
       {label}
     </Link>
@@ -489,7 +502,7 @@ function NavPill({
 }
 
 function UserPill({
-  user, memberData, isMember, open, setOpen, t, onLogout,
+  user, memberData, isMember, open, setOpen, t, onLogout, cinema = false,
 }: any) {
   return (
     <div className="relative">
@@ -497,7 +510,7 @@ function UserPill({
         onClick={() => setOpen(!open)}
         aria-expanded={open}
         aria-haspopup="menu"
-        className="group flex h-11 min-w-[76px] cursor-pointer items-center justify-between gap-2 rounded-full border border-slate-200/90 bg-white py-1.5 pl-1.5 pr-3 text-slate-700 shadow-[0_2px_8px_rgba(15,23,42,0.06)] transition-all duration-200 hover:-translate-y-px hover:border-brand-200 hover:shadow-[0_8px_20px_rgba(53,99,233,0.14)] active:translate-y-0 active:scale-[0.98]"
+        className={`group flex h-11 min-w-[76px] cursor-pointer items-center justify-between gap-2 rounded-full py-1.5 pl-1.5 pr-3 transition-all duration-200 active:scale-[0.98] ${cinema ? 'border border-white/15 bg-white/10 text-white backdrop-blur-md hover:bg-white/20' : 'border border-slate-200/90 bg-white text-slate-700 shadow-[0_2px_8px_rgba(15,23,42,0.06)] hover:-translate-y-px hover:border-brand-200 hover:shadow-[0_8px_20px_rgba(53,99,233,0.14)] active:translate-y-0'}`}
       >
         <span className="relative flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-100 font-sans text-sm font-bold text-garabandal-dark ring-1 ring-slate-200/80 ring-offset-1 ring-offset-white transition-transform duration-200 group-hover:scale-105 group-active:scale-95">
           {memberData?.avatar_url ? (
@@ -506,7 +519,7 @@ function UserPill({
             user.email?.[0]?.toUpperCase()
           )}
         </span>
-        <ChevronDown size={15} strokeWidth={2.25} className={`shrink-0 text-slate-500 transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
+        <ChevronDown size={15} strokeWidth={2.25} className={`shrink-0 ${cinema ? 'text-white/70' : 'text-slate-500'} transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
       </button>
       <AnimatePresence>
         {open && (

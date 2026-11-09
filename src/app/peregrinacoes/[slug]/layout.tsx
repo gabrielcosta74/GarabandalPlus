@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import PilgrimageTypeScope from '../../../components/pilgrimage/cinema/PilgrimageTypeScope';
 import { APP_URL } from '../../../lib/config';
 import { richTextToPlain } from '../../../lib/rich-text';
 import { supabaseServer } from '../../../lib/supabase';
@@ -149,7 +150,7 @@ export default async function PeregrinacaoLayout({ children, params }: Props) {
 
   // No structured data for a not-found or private pre-launch pilgrimage.
   if (!pilgrimage || isPreLaunch(pilgrimage)) {
-    return children;
+    return <PilgrimageTypeScope>{children}</PilgrimageTypeScope>;
   }
 
   const pageUrl = `${APP_URL}/peregrinacoes/${slug}`;
@@ -275,7 +276,7 @@ export default async function PeregrinacaoLayout({ children, params }: Props) {
         // eslint-disable-next-line react/no-danger
         dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }}
       />
-      {children}
+      <PilgrimageTypeScope>{children}</PilgrimageTypeScope>
     </>
   );
 }

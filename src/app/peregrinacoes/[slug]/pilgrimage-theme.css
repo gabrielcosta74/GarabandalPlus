@@ -1,0 +1,273 @@
+/* ==========================================================================
+   Peregrinação · tema "a viagem como filme"
+
+   Tokens de cor, tipografia e motion da página de detalhe. Vivem em
+   .pilgrimage-detail (a página) e em .pg-scope (elementos em portal: painel
+   de inscrição e sheet do mobile), por isso o resto do site não muda.
+   - Escuro quente (night) para hero, caminho, paragens e fecho.
+   - Claro quente (paper/stone) para equipa e informação prática.
+   - O azul da marca (--color-brand) fica só nos botões de ação.
+   Fontes: --font-pg-display (Instrument Sans) e --font-pg-script (Allura, só
+   acentos curtos), de components/pilgrimage/cinema/fonts.ts. Texto e meta em Inter.
+   Sem amarelo/dourado: os detalhes finos usam --pg-highlight (branco quente).
+   CSS sem layer: ganha às utilities do Tailwind.
+   ========================================================================== */
+
+.pilgrimage-detail,
+.pg-scope {
+  /* Tipografia */
+  --pg-font-display: var(--font-pg-display), var(--font-inter), system-ui, sans-serif;
+  --pg-font-text: var(--font-inter), system-ui, sans-serif;
+  --pg-font-script: var(--font-pg-script), cursive;
+  --font-serif: var(--pg-font-display);
+  --font-sans: var(--pg-font-text);
+
+  /* Escala de tipo (mobile primeiro) */
+  --pg-text-hero: clamp(2.75rem, 4.4vw + 1rem, 6rem);
+  --pg-text-1: clamp(2.25rem, 4.2vw + 1rem, 5.5rem);
+  --pg-text-2: clamp(1.75rem, 2.2vw + 1rem, 3rem);
+  --pg-text-3: clamp(1.3rem, .9vw + 1rem, 1.7rem);
+  --pg-text-statement: clamp(1.6rem, 2.6vw + .9rem, 3.4rem);
+  --pg-text-body: clamp(1.0625rem, .25vw + 1rem, 1.1875rem); /* 17px → 19px */
+  --pg-text-meta: .875rem;
+  --pg-tracking-display: -.035em;
+  --pg-leading-display: 1;
+  --pg-leading-body: 1.7;
+
+  /* Escuro quente */
+  --pg-night: #0c0c0c;
+  --pg-night-2: #161616;
+  --pg-night-3: #232323;
+  --pg-on-night: #f2f2f0;
+  --pg-on-night-muted: rgb(242 242 240 / 66%);
+  --pg-on-night-faint: rgb(242 242 240 / 38%);
+  --pg-night-line: rgb(242 242 240 / 14%);
+
+  /* Claro quente */
+  --pg-paper: #ffffff;
+  --pg-stone: #f4f4f3;
+  --pg-stone-2: #e7e7e5;
+  --pg-ink: #141414;
+  --pg-ink-muted: #5c5c5a;
+  --pg-ink-faint: #9a9a97;
+  --pg-line: #e4e4e2;
+
+  /* Detalhes finos sobre escuro (linha do caminho, marcadores, progresso) */
+  --pg-highlight: #f2f2f0;
+
+  /* Ação: o único sítio com azul */
+  --pg-action: var(--color-brand);
+  --pg-action-ink: #fff;
+
+  /* Estado */
+  --pg-live: #46c486;
+
+  /* Forma */
+  --pg-radius-sm: .625rem;
+  --pg-radius: 1rem;
+  --pg-radius-lg: 1.5rem;
+  --pg-shadow-soft: 0 1px 2px rgb(20 20 20 / 4%), 0 12px 32px -18px rgb(20 20 20 / 18%);
+  --pg-shadow-lift: 0 2px 6px rgb(0 0 0 / 8%), 0 40px 80px -30px rgb(0 0 0 / 45%);
+
+  /* Espaço */
+  --pg-gutter: clamp(1.25rem, 4vw, 3.5rem);
+  --pg-section: clamp(5rem, 11vw, 10rem);
+  --pg-dock-w: 368px;
+
+  /* Motion: iguais a components/pilgrimage/cinema/motion.ts */
+  --pg-ease-out: cubic-bezier(.22, 1, .36, 1);
+  --pg-ease-cine: cubic-bezier(.76, 0, .24, 1);
+  --pg-ease-soft: cubic-bezier(.4, 0, .2, 1);
+  --pg-dur-fast: .25s;
+  --pg-dur: .6s;
+  --pg-dur-slow: 1.1s;
+  --pg-dur-cine: 1.6s;
+
+  font-family: var(--pg-font-text);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ---------- Utilitários ---------- */
+
+.pg-display {
+  font-family: var(--pg-font-display);
+  font-weight: 500;
+  font-stretch: 92%;
+  letter-spacing: var(--pg-tracking-display);
+  line-height: var(--pg-leading-display);
+  text-wrap: balance;
+}
+
+.pg-meta {
+  font-family: var(--pg-font-text);
+  font-size: var(--pg-text-meta);
+  font-weight: 500;
+  letter-spacing: -.005em;
+  line-height: 1.45;
+  font-variant-numeric: tabular-nums;
+}
+
+.pg-script {
+  font-family: var(--pg-font-script);
+  font-weight: 400;
+  letter-spacing: 0;
+  line-height: 1;
+}
+
+.pg-body {
+  font-size: var(--pg-text-body);
+  line-height: var(--pg-leading-body);
+  text-wrap: pretty;
+}
+
+.pg-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: .75rem;
+}
+.pg-eyebrow::before {
+  content: '';
+  width: 1.75rem;
+  height: 1px;
+  background: currentColor;
+  opacity: .55;
+}
+
+.pg-night {
+  --pg-ink: var(--pg-on-night);
+  --pg-ink-muted: var(--pg-on-night-muted);
+  --pg-ink-faint: var(--pg-on-night-faint);
+  --pg-line: var(--pg-night-line);
+  background: var(--pg-night);
+  color: var(--pg-on-night);
+}
+.pg-paper { background: var(--pg-paper); color: var(--pg-ink); }
+.pg-stone { background: var(--pg-stone); color: var(--pg-ink); }
+
+/* Grão de película, muito subtil, por cima das secções escuras */
+.pg-grain::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  opacity: .07;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* Botões */
+.pg-btn {
+  position: relative;
+  display: inline-flex;
+  min-height: 52px;
+  align-items: center;
+  justify-content: center;
+  gap: .7rem;
+  padding: .85rem 1.6rem;
+  border-radius: 999px;
+  font-family: var(--pg-font-text);
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -.01em;
+  line-height: 1.1;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: transform .45s var(--pg-ease-out), background-color var(--pg-dur-fast) var(--pg-ease-soft), box-shadow .6s var(--pg-ease-out), color var(--pg-dur-fast), filter .3s;
+}
+.pg-btn svg { flex: none; }
+.pg-btn:active { transform: scale(.97); transition-duration: .12s; }
+.pg-btn:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
+
+/* Principal: azul com relevo, brilho que atravessa no hover, seta que troca */
+.pg-btn-primary {
+  overflow: hidden;
+  isolation: isolate;
+  background: var(--pg-action);
+  background-image: linear-gradient(180deg, rgb(255 255 255 / 14%), rgb(255 255 255 / 0%) 55%);
+  color: var(--pg-action-ink) !important;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 22%), 0 1px 2px rgb(20 40 120 / 25%), 0 12px 28px -14px rgb(43 81 199 / 70%);
+}
+.pg-btn-primary::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(105deg, transparent 30%, rgb(255 255 255 / 30%) 50%, transparent 70%);
+  transform: translateX(-130%);
+  transition: transform .9s var(--pg-ease-out);
+  pointer-events: none;
+}
+.pg-btn-primary > * { position: relative; z-index: 1; }
+/* Onda do clique: nasce em --rx/--ry (ver CtaButton) */
+.pg-btn-primary::before {
+  content: '';
+  position: absolute;
+  left: var(--rx, 50%);
+  top: var(--ry, 50%);
+  z-index: 0;
+  width: 16px;
+  height: 16px;
+  margin: -8px 0 0 -8px;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 45%);
+  opacity: 0;
+  transform: scale(0);
+  pointer-events: none;
+}
+.pg-btn-primary[data-ripple]::before { animation: pg-ripple .7s var(--pg-ease-out); }
+@keyframes pg-ripple {
+  from { opacity: 1; transform: scale(0); }
+  to { opacity: 0; transform: scale(28); }
+}
+.pg-btn-primary:disabled { background: var(--pg-stone-2); background-image: none; color: var(--pg-ink-faint) !important; box-shadow: none; cursor: not-allowed; }
+.pg-btn-primary:disabled::after { display: none; }
+
+.pg-btn-arrow {
+  position: relative;
+  display: inline-block;
+  width: 17px;
+  height: 17px;
+  overflow: hidden;
+}
+.pg-btn-arrow svg {
+  position: absolute;
+  inset: 0;
+  transition: transform .5s var(--pg-ease-cine);
+}
+.pg-btn-arrow svg:last-child { transform: translateX(-150%); }
+
+.pg-btn-manage { background: #1f8a55; color: #fff !important; }
+.pg-btn-ghost { border: 1px solid var(--pg-line); color: var(--pg-ink) !important; background: transparent; }
+.pg-btn-ghost svg { transition: transform var(--pg-dur) var(--pg-ease-out); }
+
+@media (hover: hover) and (pointer: fine) {
+  .pg-btn-primary:not(:disabled):hover {
+    transform: translateY(-2px);
+    filter: brightness(1.06);
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 26%), 0 2px 4px rgb(20 40 120 / 20%), 0 22px 44px -16px rgb(43 81 199 / 80%);
+  }
+  .pg-btn-primary:not(:disabled):hover::after { transform: translateX(130%); }
+  /* Clique com o rato por cima: o botão "afunda" (antes o hover anulava isto) */
+  .pg-btn-primary:not(:disabled):hover:active {
+    transform: translateY(0) scale(.97);
+    transition-duration: .12s;
+    filter: brightness(.97);
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 18%), 0 1px 2px rgb(20 40 120 / 25%), 0 8px 18px -12px rgb(43 81 199 / 70%);
+  }
+  .pg-btn-ghost:hover:active { transform: scale(.97); }
+  .pg-btn-primary:not(:disabled):hover .pg-btn-arrow svg:first-child { transform: translateX(150%); }
+  .pg-btn-primary:not(:disabled):hover .pg-btn-arrow svg:last-child { transform: translateX(0); }
+  .pg-btn-ghost:hover { background: rgb(127 127 127 / 8%); }
+  .pg-btn-ghost:hover svg { transform: translateY(2px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pilgrimage-detail *, .pg-scope * {
+    scroll-behavior: auto !important;
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+  }
+}
