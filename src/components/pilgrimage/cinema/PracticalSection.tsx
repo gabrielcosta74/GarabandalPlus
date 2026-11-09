@@ -16,7 +16,7 @@ type Row = {
 export function PriceBlock({ summary, isEn, tone = 'light' }: { summary: BookingSummary; isEn: boolean; tone?: 'light' | 'night' }) {
     return (
         <div className={`pg-price ${tone === 'night' ? 'is-night' : ''}`}>
-            <p className="pg-meta text-[var(--pg-ink-muted)]">{isEn ? 'From / person · flight not included' : 'Desde / pessoa · voo não incluído'}</p>
+            <p className="pg-meta text-[var(--pg-ink-muted)]">{isEn ? 'Donation from / person · flight not included' : 'Doação desde / pessoa · voo não incluído'}</p>
             <p className="pg-price-row">
                 <span className="pg-display pg-price-value">{summary.startingEUR}</span>
                 {summary.startingConverted && <span className="pg-price-converted">≈ {summary.startingConverted}</span>}
@@ -25,14 +25,14 @@ export function PriceBlock({ summary, isEn, tone = 'light' }: { summary: Booking
                 {summary.baseEUR} {isEn ? 'land package' : 'terrestre'} + {summary.depositEUR} {isEn ? 'registration' : 'inscrição'}
             </p>
             <p className="pg-meta pg-price-terms">
-                <span>{isEn ? 'Contract price in EUR' : 'Preço contratual em EUR'}</span>
+                <span>{isEn ? 'Donation in EUR' : 'Doação em EUR'}</span>
                 {summary.startingConverted && <span>· {summary.currency} {isEn ? "today's rate" : 'câmbio do dia'}</span>}
                 <span aria-hidden>·</span>
                 <span className="text-[var(--pg-ink)]">{isEn ? `up to ${summary.maxInstallments} instalments` : `até ${summary.maxInstallments} prestações`}</span>
             </p>
             {summary.currency !== 'EUR' && (
                 <p className="pg-price-note">
-                    {isEn ? `* ${summary.currency} is indicative · contract price in EUR` : `* ${summary.currency} indicativo · preço contratual em EUR`}
+                    {isEn ? `* ${summary.currency} is indicative · donation in EUR` : `* ${summary.currency} indicativo · doação em EUR`}
                 </p>
             )}
         </div>
@@ -59,7 +59,7 @@ export default function PracticalSection({
         rows.push({
             label: isEn ? 'Included' : 'Incluído',
             value: isEn ? "What's included in the land package" : 'O que está incluído no terrestre',
-            hint: isEn ? 'What is and is not included in the price.' : 'Incluído e não incluído no valor.',
+            hint: isEn ? 'What is and is not included in the donation.' : 'Incluído e não incluído na doação.',
             onClick: summary.onOpenIncluded,
         });
     }
@@ -75,7 +75,7 @@ export default function PracticalSection({
     rows.push({
         label: isEn ? 'Payment' : 'Pagamento',
         value: isEn ? `Up to ${summary.maxInstallments} instalments` : `Até ${summary.maxInstallments} prestações`,
-        hint: isEn ? 'Contract price in EUR.' : 'Preço contratual em EUR.',
+        hint: isEn ? 'Donation in EUR.' : 'Doação em EUR.',
     });
     rows.push({ label: isEn ? 'Dates' : 'Datas', value: `${summary.departureLabel} — ${returnLabel}` });
     if (summary.deadlineLabel) {
@@ -89,7 +89,7 @@ export default function PracticalSection({
                     <p className="pg-meta pg-eyebrow text-[var(--pg-ink-muted)]">{isEn ? 'Before you go' : 'Antes de partir'}</p>
                 </Reveal>
                 <h2 id="pg-practical-heading" className="pg-display pg-section-title">
-                    <MaskText text={isEn ? 'Price and practical details.' : 'Preço e detalhes práticos.'} />
+                    <MaskText text={isEn ? 'Donation and practical details.' : 'Doação e detalhes práticos.'} />
                 </h2>
 
                 <Reveal className="pg-practical-price">

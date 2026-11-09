@@ -289,7 +289,7 @@ export default function CinemaStops({
                         {isEn ? 'The itinerary as you will live it. Scroll slowly.' : 'O roteiro, tal como o vai viver. Desça devagar.'}
                     </p>
                     <a href={skipHref} className="pg-route-link" data-track="pilgrimage_nav_clicked" data-track-target="pricing">
-                        {isEn ? 'Skip to price and details' : 'Saltar para preço e detalhes'} <ArrowDown size={15} aria-hidden />
+                        {isEn ? 'Skip to donation and details' : 'Saltar para doação e detalhes'} <ArrowDown size={15} aria-hidden />
                     </a>
                 </Reveal>
             </div>

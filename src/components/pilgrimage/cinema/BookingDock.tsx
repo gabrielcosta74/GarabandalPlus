@@ -66,7 +66,7 @@ function Details({ summary, isEn, onAction }: { summary: BookingSummary; isEn: b
                         <button type="button" className="pg-dock-link" onClick={open(summary.onOpenIncluded)}>
                             <span>
                                 <span className="pg-dock-link-title">{isEn ? "See what's included in the land package" : 'Ver o que está incluído no terrestre'}</span>
-                                <span className="pg-dock-link-hint">{isEn ? 'What is and is not included in the price above.' : 'Incluído e não incluído no valor acima.'}</span>
+                                <span className="pg-dock-link-hint">{isEn ? 'What is and is not included in the donation above.' : 'Incluído e não incluído na doação acima.'}</span>
                             </span>
                             <span className="pg-dock-link-icon" aria-hidden><ArrowUpRight size={15} /></span>
                         </button>
@@ -201,7 +201,7 @@ export default function BookingDock({
             {/* Desktop: cartão */}
             <AnimatePresence>
                 {showCard && (
-                    <motion.aside key="card" className="pg-dock-card" aria-label={isEn ? 'Price and booking' : 'Preço e inscrição'} {...cardMotion}>
+                    <motion.aside key="card" className="pg-dock-card" aria-label={isEn ? 'Donation and booking' : 'Doação e inscrição'} {...cardMotion}>
                         {peek && (
                             <button type="button" className="pg-dock-close" onClick={() => setPeek(false)} aria-label={isEn ? 'Collapse' : 'Recolher'}>
                                 <X size={16} aria-hidden />
@@ -218,8 +218,8 @@ export default function BookingDock({
             <AnimatePresence>
                 {showPill && (
                     <motion.div key="pill" className="pg-dock-pill" {...pillMotion}>
-                        <button type="button" className="pg-dock-pill-price" onClick={() => setPeek(true)} aria-label={isEn ? 'Show price details' : 'Ver detalhes do preço'}>
-                            <span className="pg-meta">{isEn ? 'From' : 'Desde'}</span>
+                        <button type="button" className="pg-dock-pill-price" onClick={() => setPeek(true)} aria-label={isEn ? 'Show donation details' : 'Ver detalhes da doação'}>
+                            <span className="pg-meta">{isEn ? 'Donation from' : 'Doação desde'}</span>
                             <span className="pg-display pg-dock-pill-value">{summary.startingEUR}</span>
                             <span className="pg-meta pg-dock-pill-more">{isEn ? 'Details' : 'Detalhes'} <ChevronUp size={13} aria-hidden /></span>
                         </button>
@@ -256,7 +256,7 @@ export default function BookingDock({
                         )}
                         <div className="pg-dock-bar-main">
                             <button type="button" className="pg-dock-bar-price" onClick={() => setSheetOpen(true)} aria-haspopup="dialog" aria-expanded={sheetOpen}>
-                                <span className="pg-dock-bar-label">{isEn ? 'From / person · no flight' : 'Desde / pessoa · sem voo'}</span>
+                                <span className="pg-dock-bar-label">{isEn ? 'Donation from / person · no flight' : 'Doação desde / pessoa · sem voo'}</span>
                                 <span className="pg-display pg-dock-bar-value">{summary.startingEUR}</span>
                                 <span className="pg-dock-bar-more">{isEn ? 'All details' : 'Todos os detalhes'} <ChevronUp size={12} aria-hidden /></span>
                             </button>
@@ -283,7 +283,7 @@ export default function BookingDock({
                             key="sheet"
                             role="dialog"
                             aria-modal="true"
-                            aria-label={isEn ? 'Price and booking' : 'Preço e inscrição'}
+                            aria-label={isEn ? 'Donation and booking' : 'Doação e inscrição'}
                             className="pg-sheet"
                             drag="y"
                             dragConstraints={{ top: 0, bottom: 0 }}

@@ -15,6 +15,10 @@ type PilgrimagePriceProps = {
     variableLabelClassName?: string;
     className?: string;
     showLabels?: boolean;
+    /** Substitui o rótulo do valor em EUR (por omissão "Preço fixo"). */
+    fixedLabel?: string;
+    /** Substitui o rótulo do valor convertido; recebe a moeda. */
+    variableLabel?: (currency: string) => string;
 };
 
 /**
@@ -32,6 +36,8 @@ export function PilgrimagePrice({
     variableLabelClassName,
     className,
     showLabels = true,
+    fixedLabel: fixedLabelOverride,
+    variableLabel: variableLabelOverride,
 }: PilgrimagePriceProps) {
     const { formatEUR, formatConverted, currency } = useCurrency();
     const { locale } = useLocale();
@@ -40,8 +46,8 @@ export function PilgrimagePrice({
     const fixed = formatEUR(amountInEur);
     const variable = formatConverted(amountInEur);
 
-    const fixedLabel = isEn ? 'Fixed price' : 'Preço fixo';
-    const variableLabel = isEn
+    const fixedLabel = fixedLabelOverride ?? (isEn ? 'Fixed price' : 'Preço fixo');
+    const variableLabel = variableLabelOverride ? variableLabelOverride(currency) : isEn
         ? `Variable price (${currency} — today's rate)`
         : `Preço variável (${currency} — câmbio do dia)`;
 

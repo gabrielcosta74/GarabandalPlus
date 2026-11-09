@@ -160,7 +160,7 @@ export default function PilgrimageInfoModal({
             ? (isEn ? 'Mandatory flight rules' : 'Regras obrigatórias dos voos')
             : (isEn ? 'Flight options' : 'Opções de voo');
     const subtitle = isIncludedMode
-        ? (isEn ? 'See exactly what is included in the advertised price before you continue.' : 'Veja exatamente o que está incluído no valor apresentado antes de avançar.')
+        ? (isEn ? 'See exactly what is included in the advertised donation before you continue.' : 'Veja exatamente o que está incluído na doação apresentada antes de avançar.')
         : (isEn ? 'See how the flights work and what is paid separately.' : 'Veja como funcionam os voos e o que é pago à parte.');
     const footerHint = isIncludedMode
         ? (isEn ? 'If it is clear, return to the form and continue with the registration.' : 'Se ficou claro, volte ao formulário e avance com a inscrição.')
@@ -218,7 +218,7 @@ export default function PilgrimageInfoModal({
                             <div className="pg-modal-notice">
                                 <p>
                                     <strong>{isEn ? 'To avoid doubts. ' : 'Para evitar dúvidas. '}</strong>
-                                    {isEn ? 'The main price of this pilgrimage is the land package. Flights are not included in this base price.' : 'O valor principal desta peregrinação é o valor do terrestre. O voo não está incluído nesse valor base.'}
+                                    {isEn ? 'The main donation for this pilgrimage is the land package. Flights are not included in this base donation.' : 'A doação principal desta peregrinação é o valor do terrestre. O voo não está incluído nessa doação base.'}
                                 </p>
                                 <p>
                                     <strong>{isEn ? 'Before paying. ' : 'Antes de pagar. '}</strong>
@@ -233,7 +233,7 @@ export default function PilgrimageInfoModal({
                                             <BlockTitle>{isEn ? 'Land package breakdown' : 'Cálculo do valor terrestre'}</BlockTitle>
                                             <dl className="pg-modal-sum">
                                                 <div>
-                                                    <dt>{isEn ? 'Base price' : 'Valor base'}</dt>
+                                                    <dt>{isEn ? 'Base donation' : 'Doação base'}</dt>
                                                     <dd><PilgrimagePrice amountInEur={basePrice} layout="compact" primaryClassName="text-[15px] font-medium text-[var(--pg-ink)]" secondaryClassName="text-[11px] text-[var(--pg-ink-muted)]" showLabels={false} /></dd>
                                                 </div>
                                                 <div>
@@ -242,7 +242,7 @@ export default function PilgrimageInfoModal({
                                                 </div>
                                                 <div className="is-total">
                                                     <dt>{isEn ? 'Total land package' : 'Valor total do terrestre'}</dt>
-                                                    <dd><PilgrimagePrice amountInEur={basePrice + depositValue} layout="stacked" primaryClassName="pg-display text-[1.9rem] text-[var(--pg-ink)]" secondaryClassName="text-xs font-medium text-[var(--pg-ink-muted)]" fixedLabelClassName="text-[11px] font-medium normal-case tracking-normal text-[var(--pg-ink-faint)]" variableLabelClassName="text-[11px] font-medium normal-case tracking-normal text-[var(--pg-ink-faint)]" /></dd>
+                                                    <dd><PilgrimagePrice amountInEur={basePrice + depositValue} layout="stacked" fixedLabel={isEn ? 'Donation in EUR' : 'Doação em EUR'} variableLabel={(c) => isEn ? `Indicative amount (${c} — today's rate)` : `Valor indicativo (${c} — câmbio do dia)`} primaryClassName="pg-display text-[1.9rem] text-[var(--pg-ink)]" secondaryClassName="text-xs font-medium text-[var(--pg-ink-muted)]" fixedLabelClassName="text-[11px] font-medium normal-case tracking-normal text-[var(--pg-ink-faint)]" variableLabelClassName="text-[11px] font-medium normal-case tracking-normal text-[var(--pg-ink-faint)]" /></dd>
                                                 </div>
                                             </dl>
                                         </section>
@@ -250,7 +250,7 @@ export default function PilgrimageInfoModal({
 
                                     <section className="pg-modal-block" aria-labelledby="land-package-contents-title">
                                         <BlockTitle>
-                                            <span id="land-package-contents-title">{isEn ? 'What the advertised price covers' : 'O que o valor apresentado inclui'}</span>
+                                            <span id="land-package-contents-title">{isEn ? 'What the donation covers' : 'O que a doação inclui'}</span>
                                         </BlockTitle>
                                         <p className="pg-modal-note">
                                             {isEn
@@ -260,7 +260,7 @@ export default function PilgrimageInfoModal({
                                         <div className="pg-modal-cols">
                                             <div className="pg-modal-card">
                                                 <BlockTitle aside={normalizedIncludedItems.length > 0 ? <span className="pg-modal-count">{normalizedIncludedItems.length}</span> : null}>
-                                                    {isEn ? 'Included in the price' : 'Incluído no valor'}
+                                                    {isEn ? 'Included in the donation' : 'Incluído na doação'}
                                                 </BlockTitle>
                                                 <ItemList items={normalizedIncludedItems} kind="yes" empty={isEn ? 'No additional details.' : 'Sem detalhes adicionais.'} />
                                             </div>
