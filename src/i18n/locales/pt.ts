@@ -128,7 +128,7 @@ export const pt = {
     noActive: 'Sem peregrinações ativas',
     noActiveDesc: 'De momento não temos inscrições abertas. Subscreva a newsletter para ser o primeiro a saber.',
     missionTitle: 'Mais do que uma Viagem, uma Missão',
-    missionDesc: 'O Apostolado de Garabandal é uma associação sem fins lucrativos. Realizamos peregrinações algumas vezes por ano, unindo oração, evangelização e vida em comunidade. Estas iniciativas também ajudam a angariar fundos para a recuperação da Casa do Apostolado.',
+    missionDesc: 'O Apostolado de Garabandal é uma associação sem fins lucrativos. As nossas peregrinações funcionam como um donativo para a obra principal do Apostolado: angariar fundos para a recuperação da Casa do Apostolado, que está ao serviço dos membros. Realizamo-las algumas vezes por ano, unindo oração, evangelização e vida em comunidade.',
     missionDonation: 'Informação para quem deseja participar',
     missionDonationDesc: 'Antes da inscrição, consulte em cada peregrinação o programa, os serviços incluídos e não incluídos, o valor a pagar e as condições de cancelamento. Pode também apoiar a missão com um donativo voluntário, separado da inscrição.',
     flightInfoTitle: 'Voos tratados à parte',

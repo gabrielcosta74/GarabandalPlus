@@ -128,7 +128,7 @@ export const en = {
     noActive: 'No active pilgrimages',
     noActiveDesc: 'We currently have no open registrations. Subscribe to the newsletter to be the first to know.',
     missionTitle: 'More than a Trip, a Mission',
-    missionDesc: 'The Apostolate of Garabandal is a non-profit association. We hold pilgrimages a few times a year, bringing together prayer, evangelisation and community. These initiatives also help raise funds to restore the House of the Apostolate.',
+    missionDesc: 'The Apostolate of Garabandal is a non-profit association. Our pilgrimages work as a donation to the Apostolate\'s main work: raising funds to restore the House of the Apostolate, which serves our members. We hold them a few times a year, bringing together prayer, evangelisation and community.',
     missionDonation: 'Information for those wishing to join',
     missionDonationDesc: 'Before registering, check each pilgrimage for its programme, included and excluded services, amount payable and cancellation conditions. You can also support the mission with a voluntary donation separate from registration.',
     flightInfoTitle: 'Flights arranged separately',
