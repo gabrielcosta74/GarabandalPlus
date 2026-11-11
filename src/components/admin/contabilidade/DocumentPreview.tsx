@@ -14,13 +14,17 @@ export type PreviewDoc = {
   kindLabel: string;
   fileName: string | null;
   mimeType: string | null;
-  source: 'email' | 'upload';
+  source: 'email' | 'upload' | 'arquivo';
   docNumber: string | null;
-  movement: { id: string; date: string; period: string; who: string; amount: number; category: string };
+  /** null while the file is not linked to any movement yet. */
+  movement: { id: string; date: string; period: string; who: string; amount: number; category: string } | null;
 };
 
 /** Signed links last 5 minutes on the server; ask again a little before. */
 const LINK_TTL_MS = 4 * 60_000;
+
+/** Word / Excel from the old archive: the browser can't show them, so they download. */
+const isOffice = (doc: PreviewDoc) => /officedocument|msword|ms-excel/.test(doc.mimeType || '') || /\.(docx?|xlsx?)$/i.test(doc.fileName || '');
 
 const isImage = (doc: PreviewDoc) => (doc.mimeType || '').startsWith('image/') || /\.(jpe?g|png|webp|heic)$/i.test(doc.fileName || '');
 
@@ -131,13 +135,19 @@ export default function DocumentPreview({
                   <X className="h-[18px] w-[18px]" aria-hidden />
                 </IconButton>
                 <div className="min-w-0 flex-1 pt-0.5">
-                  <DialogTitle className="truncate text-[16px] font-semibold tracking-[-0.01em] text-zinc-900">{view.movement.who}</DialogTitle>
+                  <DialogTitle className="truncate text-[16px] font-semibold tracking-[-0.01em] text-zinc-900">{view.movement ? view.movement.who : view.fileName || 'Documento'}</DialogTitle>
                   <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12.5px] text-zinc-500">
-                    <span>{formatDay(view.movement.date, true)}</span>
-                    <span aria-hidden>·</span>
-                    <span className="font-medium tabular-nums text-zinc-700">{formatEur(view.movement.amount)}</span>
-                    <span aria-hidden>·</span>
-                    <span>{view.movement.category}</span>
+                    {view.movement ? (
+                      <>
+                        <span>{formatDay(view.movement.date, true)}</span>
+                        <span aria-hidden>·</span>
+                        <span className="font-medium tabular-nums text-zinc-700">{formatEur(view.movement.amount)}</span>
+                        <span aria-hidden>·</span>
+                        <span>{view.movement.category}</span>
+                      </>
+                    ) : (
+                      <span className="font-medium text-amber-700">Ainda não está ligado a nenhum movimento</span>
+                    )}
                     <span className={cx(BADGE, 'h-5 bg-zinc-900/[0.06] px-2 text-[11.5px] text-zinc-600')}>{view.kindLabel}</span>
                     {view.source === 'email' && (
                       <span className={cx(BADGE, 'h-5 bg-zinc-900/[0.06] px-2 text-[11.5px] text-zinc-600')}><Mail className="h-3 w-3" aria-hidden /> Email</span>
@@ -166,6 +176,11 @@ export default function DocumentPreview({
                   <div className="flex h-full items-center justify-center gap-2 text-[13px] text-zinc-500">
                     <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden /> A abrir…
                   </div>
+                ) : isOffice(view) ? (
+                  <div className="flex h-full flex-col items-center justify-center gap-2 p-6 text-center">
+                    <FileWarning className="h-6 w-6 text-zinc-400" strokeWidth={1.75} aria-hidden />
+                    <p className="text-[13px] text-zinc-500">Ficheiros Word e Excel não se veem aqui. Use &quot;Descarregar&quot;.</p>
+                  </div>
                 ) : isImage(view) ? (
                   // eslint-disable-next-line @next/next/no-img-element -- signed, short-lived URL from private storage
                   <img key={view.id} src={url} alt={view.fileName || 'Documento'} className="h-full w-full object-contain" />
@@ -179,9 +194,11 @@ export default function DocumentPreview({
                   {view.fileName}{view.docNumber && !(view.fileName || '').includes(view.docNumber) ? ` · n.º ${view.docNumber}` : ''}
                 </p>
                 <div className="flex items-center gap-1.5">
-                  <Button size="sm" variant="ghost" onClick={() => onOpenMovement(view)}>
-                    <ArrowUpRight className="h-3.5 w-3.5" aria-hidden /> Ver movimento
-                  </Button>
+                  {view.movement && (
+                    <Button size="sm" variant="ghost" onClick={() => onOpenMovement(view)}>
+                      <ArrowUpRight className="h-3.5 w-3.5" aria-hidden /> Ver movimento
+                    </Button>
+                  )}
                   <Button size="sm" onClick={() => void openOutside()}>
                     <ExternalLink className="h-3.5 w-3.5" aria-hidden /> Abrir fora
                   </Button>

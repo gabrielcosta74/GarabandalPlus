@@ -1,6 +1,7 @@
 import { addDays } from './invoice-safety';
 import { nextPeriodStart, type CloseInvoice, type CloseMovement, type MonthData } from './month-close-rules';
 import { db } from './server';
+import { documentsByMovement } from './files';
 
 const REFUNDED = /refund|cancel|anul/i;
 const toRef = (number: string) => (number.startsWith('FR ') ? number : `FR ${number}`);
@@ -20,7 +21,7 @@ export async function loadMonthData(period: string): Promise<MonthData> {
 
   const [links, files, allLinks, connection, later] = await Promise.all([
     ids.length ? db().from('bank_transaction_links').select('bank_transaction_id, target_type, target_id').in('bank_transaction_id', ids) : Promise.resolve({ data: [], error: null }),
-    ids.length ? db().from('expense_documents').select('bank_transaction_id, file_name').in('bank_transaction_id', ids) : Promise.resolve({ data: [], error: null }),
+    documentsByMovement(ids).then(data => ({ data, error: null })),
     db().from('bank_transaction_links').select('target_id').eq('target_type', 'factpt_document'),
     db().from('bank_connections').select('last_balance, last_synced_at').limit(1).maybeSingle(),
     db().from('bank_transactions').select('amount').gt('period', period),
@@ -32,8 +33,8 @@ export async function loadMonthData(period: string): Promise<MonthData> {
     if (link.target_type !== 'factpt_document' || !link.target_id) continue;
     (invoiceRefs[link.bank_transaction_id] ||= []).push(String(link.target_id));
   }
-  const documents: Record<string, string[]> = {};
-  for (const file of files.data || []) (documents[file.bank_transaction_id] ||= []).push(file.file_name || 'documento');
+  // Every file linked to the movement, wherever it lives (folder, email, upload).
+  const documents: Record<string, string[]> = files.data || {};
 
   const linkedRefs = [...new Set(Object.values(invoiceRefs).flat())];
   const APP_COLUMNS = 'factpt_number, amount, payment_method, payment_confirmed_at, issued_at, status, fiscal_snapshot';

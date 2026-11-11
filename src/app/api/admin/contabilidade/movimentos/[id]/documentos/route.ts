@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 
 import { logAdminAudit } from '../../../../../../../lib/admin-audit';
 import { MAX_DOCUMENT_BYTES, detectDocumentType, documentProblem, documentStoragePath, isDocumentKind } from '../../../../../../../lib/ledger/document-rules';
+import { fileUrl, filesReady, listFiles } from '../../../../../../../lib/ledger/files';
 import { db, requireAdmin } from '../../../../../../../lib/ledger/server';
 
 export const dynamic = 'force-dynamic';
@@ -20,6 +21,22 @@ export async function GET(req: Request, context: { params: Promise<{ id: string 
   if (!admin.ok) return admin.response;
   const { id } = await context.params;
   if (!UUID.test(id)) return Response.json({ error: 'Movimento inválido.' }, { status: 400 });
+
+  try {
+    if (await filesReady()) {
+      // Every file linked to this movement, wherever it lives (folder, email, upload).
+      const files = await listFiles({ view: 'movement', movementId: id });
+      const documents = await Promise.all(files.map(async file => ({
+        id: file.id, fileName: file.fileName, mimeType: file.mimeType, sizeBytes: file.sizeBytes, kind: file.kind,
+        source: file.source, createdAt: file.createdAt, folderPath: file.folderPath,
+        otherMovements: file.links.filter(link => link.type === 'bank_transaction' && link.targetId !== id).length,
+        url: (await fileUrl(file.id).catch(() => null))?.url ?? null,
+      })));
+      return Response.json({ ready: true, documents }, { headers: { 'Cache-Control': 'no-store' } });
+    }
+  } catch (error) {
+    return Response.json({ error: error instanceof Error ? error.message : 'Não foi possível ler os documentos.' }, { status: 500 });
+  }
 
   const { data, error } = await db().from('expense_documents')
     .select('id, storage_path, file_name, mime_type, size_bytes, uploaded_by, created_at, doc_kind')

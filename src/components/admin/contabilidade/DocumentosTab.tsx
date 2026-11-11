@@ -5,7 +5,7 @@ import { ArrowUpRight, Camera, ChevronRight, Download, FileText, Folder, Image a
 
 import { formatDay, formatEur, formatPeriod } from '../../../lib/ledger/format';
 import DocumentPreview, { type PreviewDoc } from './DocumentPreview';
-import AccountingArchive from './AccountingArchive';
+import FilesBrowser from './FilesBrowser';
 import MailInvoicesCard from './MailInvoicesCard';
 import MovementRow from './MovementRow';
 import { useToast } from './Toasts';
@@ -24,6 +24,9 @@ const KIND_ORDER = ['fatura', 'recibo', 'comprovativo', 'proforma', 'outro'];
 const KIND_PLURAL: Record<string, string> = {
   fatura: 'Faturas', recibo: 'Recibos', comprovativo: 'Comprovativos', proforma: 'Proformas', outro: 'Outros',
 };
+
+/** Remembers whether the admin last looked at folders or months. */
+const MODE_KEY = 'ledger:documents-mode:v1';
 
 const normalize = (value: string) => value.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 
@@ -57,7 +60,10 @@ export default function DocumentosTab({
   const [previewIndex, setPreviewIndex] = useState<number | null>(null);
   const [zipping, setZipping] = useState(false);
   const [reload, setReload] = useState(0);
-  const [archiveOpen, setArchiveOpen] = useState(false);
+  const [mode, setMode] = useState<'pastas' | 'meses'>('pastas');
+  useEffect(() => {
+    try { if (window.localStorage.getItem(MODE_KEY) === 'meses') setMode('meses'); } catch { /* storage blocked */ }
+  }, []);
   const toast = useToast();
 
   useEffect(() => { setDocuments(null); }, [year]);
@@ -135,23 +141,41 @@ export default function DocumentosTab({
     }
   };
 
-  if (archiveOpen) return <AccountingArchive onBack={() => setArchiveOpen(false)} />;
-
-  const archiveEntry = (
-    <section aria-labelledby="accounting-downloads-title">
-      <h2 id="accounting-downloads-title" className="mb-2.5 px-1 text-[14px] font-semibold text-zinc-900">Downloads</h2>
-      <Card>
-        <button type="button" onClick={() => setArchiveOpen(true)} className="flex w-full items-center gap-3.5 rounded-xl p-4 text-left outline-none transition-colors hover:bg-zinc-900/[0.025] focus-visible:ring-[3px] focus-visible:ring-zinc-900/15">
-          <span className="lg-icon flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-zinc-600" aria-hidden><Folder className="h-5 w-5" /></span>
-          <span className="min-w-0 flex-1">
-            <span className="block break-words text-[14px] font-semibold text-zinc-900">contabilidade-apostolado</span>
-            <span className="block text-[12.5px] text-zinc-500">Arquivo privado da contabilidade, organizado por pastas</span>
-          </span>
-          <ChevronRight className="h-4 w-4 shrink-0 text-zinc-400" aria-hidden />
-        </button>
-      </Card>
-    </section>
+  const chooseMode = (next: 'pastas' | 'meses') => {
+    setMode(next);
+    try { window.localStorage.setItem(MODE_KEY, next); } catch { /* private window: keep it for this visit only */ }
+  };
+  const switcher = (
+    <div className="flex flex-wrap items-center justify-between gap-3 px-1">
+      <div className="lg-pill inline-flex rounded-full p-1" role="tablist" aria-label="Como ver os documentos">
+        {([['pastas', 'Pastas'], ['meses', 'Por mês']] as const).map(([key, label]) => (
+          <button
+            key={key}
+            type="button"
+            role="tab"
+            aria-selected={mode === key}
+            onClick={() => chooseMode(key)}
+            className={cx('h-8 rounded-full px-4 text-[13px] font-medium outline-none transition-colors focus-visible:ring-[3px] focus-visible:ring-zinc-900/15',
+              mode === key ? 'lg-thumb text-zinc-950' : 'text-zinc-500 hover:text-zinc-900')}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+      <p className="text-[12.5px] text-zinc-500">
+        {mode === 'pastas' ? 'As suas pastas. Cada ficheiro mostra a que movimento do banco está ligado.' : 'Os documentos de cada mês, como no ZIP para o contabilista.'}
+      </p>
+    </div>
   );
+  if (mode === 'pastas') {
+    return (
+      <div className="space-y-5">
+        {switcher}
+        <FilesBrowser missing={missing} period={period} onOpenMovement={onOpenMovement} />
+      </div>
+    );
+  }
+  const archiveEntry = switcher;
 
   if (error) return <div className="space-y-5">{archiveEntry}<Card><EmptyState title="Não foi possível ler os documentos">{error}</EmptyState></Card></div>;
   if (!documents) return <div className="space-y-5">{archiveEntry}<Card className="flex items-center gap-2 p-6 text-[13px] text-zinc-500"><LoaderCircle className="h-4 w-4 animate-spin" aria-hidden /> A ler os documentos…</Card></div>;
@@ -293,7 +317,7 @@ export default function DocumentosTab({
         index={previewIndex}
         onIndex={setPreviewIndex}
         onClose={() => setPreviewIndex(null)}
-        onOpenMovement={doc => { setPreviewIndex(null); onOpenMovement(doc.movement.id, doc.movement.period); }}
+        onOpenMovement={doc => { setPreviewIndex(null); if (doc.movement) onOpenMovement(doc.movement.id, doc.movement.period); }}
       />
       </div>
     </div>
