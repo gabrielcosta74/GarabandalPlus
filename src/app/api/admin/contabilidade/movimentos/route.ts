@@ -6,6 +6,7 @@ import {
   type LedgerMovement,
 } from '../../../../../lib/ledger/server';
 import { bankLiveConfigured, loadBankLive } from '../../../../../lib/ledger/bank-live';
+import { documentedMovementIds, documentsByMovement } from '../../../../../lib/ledger/files';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -73,9 +74,8 @@ export async function GET(req: Request) {
       throw periodError;
     }
     const periods = [...new Set((periodRows || []).map(row => row.period as string))];
-    const { data: documented, error: documentedError } = await db().from('expense_documents').select('bank_transaction_id');
-    if (documentedError) throw documentedError;
-    const withDocument = new Set((documented || []).map(row => row.bank_transaction_id as string));
+    // Through every file link, not only the old "main movement" column.
+    const withDocument = await documentedMovementIds();
     const openByPeriod: Record<string, number> = {};
     (periodRows || []).forEach(row => {
       const open = row.status === 'unreviewed' || row.status === 'suggested';
@@ -112,9 +112,7 @@ export async function GET(req: Request) {
       ids.length
         ? db().from('bank_transaction_links').select('bank_transaction_id, target_type, target_id, label, method').in('bank_transaction_id', ids)
         : Promise.resolve({ data: [], error: null }),
-      ids.length
-        ? db().from('expense_documents').select('bank_transaction_id').in('bank_transaction_id', ids)
-        : Promise.resolve({ data: [], error: null }),
+      documentsByMovement(ids),
       db().from('ledger_periods').select('status, closed_by, closed_at').eq('period', period).maybeSingle(),
     ]);
 
@@ -149,9 +147,7 @@ export async function GET(req: Request) {
       });
     }
     const documentCount = new Map<string, number>();
-    (documents.data || []).forEach((doc: { bank_transaction_id: string }) => {
-      documentCount.set(doc.bank_transaction_id, (documentCount.get(doc.bank_transaction_id) || 0) + 1);
-    });
+    Object.entries(documents).forEach(([movementId, names]) => documentCount.set(movementId, names.length));
 
     const movements: LedgerMovement[] = rows.map(row => ({
       id: row.id,

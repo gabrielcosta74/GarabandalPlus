@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Camera, ExternalLink, FileText, LoaderCircle, Trash2, UploadCloud } from 'lucide-react';
+import { Camera, ExternalLink, FileText, FolderOpen, LoaderCircle, Trash2, UploadCloud } from 'lucide-react';
+import ExistingFilePicker from './ExistingFilePicker';
 
 import { DOCUMENT_KINDS, DOCUMENT_KIND_LABELS, MAX_DOCUMENT_BYTES, type DocumentKind } from '../../../lib/ledger/document-rules';
 import { shrinkPhoto } from './compress-image';
@@ -9,7 +10,11 @@ import { adminFetch } from './useLedger';
 import { useToast } from './Toasts';
 import { cx } from './ui';
 
-type StoredDocument = { id: string; fileName: string | null; sizeBytes: number | null; url: string | null; kind: DocumentKind | null };
+type StoredDocument = {
+  id: string; fileName: string | null; sizeBytes: number | null; url: string | null; kind: DocumentKind | null;
+  /** With the folders migration: where the file lives and what else it justifies. */
+  folderPath?: string[]; otherMovements?: number;
+};
 
 const sizeLabel = (bytes: number | null) => (bytes ? `${Math.max(1, Math.round(bytes / 1024))} KB` : '');
 
@@ -64,6 +69,8 @@ export default function ExpenseDocumentsField({
   const [busy, setBusy] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [foldersReady, setFoldersReady] = useState(false);
+  const [choosing, setChoosing] = useState(false);
   const picker = useRef<HTMLInputElement>(null);
   const camera = useRef<HTMLInputElement>(null);
   const toast = useToast();
@@ -71,6 +78,7 @@ export default function ExpenseDocumentsField({
   const load = useCallback(async () => {
     const result = await adminFetch(`/api/admin/contabilidade/movimentos/${movementId}/documentos`);
     setDocuments(result.documents as StoredDocument[]);
+    setFoldersReady(result.ready === true);
   }, [movementId]);
 
   useEffect(() => {
@@ -115,10 +123,12 @@ export default function ExpenseDocumentsField({
     setBusy(true);
     setError(null);
     try {
-      await adminFetch(`/api/admin/contabilidade/movimentos/${movementId}/documentos/${document.id}`, { method: 'DELETE' });
+      const result = await adminFetch(`/api/admin/contabilidade/movimentos/${movementId}/documentos/${document.id}`, { method: 'DELETE' }) as { action?: string };
       await load();
       onChanged();
-      toast({ tone: 'info', title: 'Documento removido' });
+      toast(result.action === 'unlinked'
+        ? { tone: 'info', title: 'Tirado deste movimento', description: 'O ficheiro continua guardado em Documentos.' }
+        : { tone: 'info', title: 'Documento removido' });
     } catch (removeError) {
       setError(removeError instanceof Error ? removeError.message : 'Não foi possível remover o documento.');
     } finally {
@@ -131,7 +141,15 @@ export default function ExpenseDocumentsField({
       {documents?.map(document => (
         <div key={document.id} className="flex items-center gap-2 rounded-xl bg-emerald-50 px-3 py-2.5 text-sm text-emerald-900">
           <FileText className="h-4 w-4 shrink-0 text-emerald-600" aria-hidden />
-          <span className="min-w-0 flex-1 truncate" title={document.fileName || undefined}>{document.fileName || 'Documento'}</span>
+          <span className="min-w-0 flex-1">
+            <span className="block truncate" title={document.fileName || undefined}>{document.fileName || 'Documento'}</span>
+            {(!!document.folderPath?.length || !!document.otherMovements) && (
+              <span className="block truncate text-[11.5px] text-emerald-700/80">
+                {[document.folderPath?.length ? `Pasta: ${document.folderPath.join(' / ')}` : '',
+                  document.otherMovements ? `também noutro${document.otherMovements > 1 ? 's' : ''} ${document.otherMovements} movimento${document.otherMovements > 1 ? 's' : ''}` : ''].filter(Boolean).join(' · ')}
+              </span>
+            )}
+          </span>
           <select
             value={document.kind || 'fatura'}
             disabled={disabled || busy}
@@ -147,7 +165,8 @@ export default function ExpenseDocumentsField({
               <ExternalLink className="h-4 w-4" aria-hidden />
             </a>
           )}
-          <button type="button" disabled={disabled || busy} onClick={() => void remove(document)} aria-label={`Remover ${document.fileName || 'documento'}`} className="rounded-lg p-1 text-emerald-700 transition-colors duration-200 hover:bg-emerald-100 disabled:opacity-50">
+          <button type="button" disabled={disabled || busy} onClick={() => void remove(document)} aria-label={document.folderPath?.length || document.otherMovements ? `Tirar ${document.fileName || 'documento'} deste movimento` : `Remover ${document.fileName || 'documento'}`}
+            title={document.folderPath?.length || document.otherMovements ? 'Tirar deste movimento (o ficheiro fica guardado)' : 'Remover'} className="rounded-lg p-1 text-emerald-700 transition-colors duration-200 hover:bg-emerald-100 disabled:opacity-50">
             <Trash2 className="h-4 w-4" aria-hidden />
           </button>
         </div>
@@ -185,7 +204,29 @@ export default function ExpenseDocumentsField({
           Escolher ficheiro
         </button>
       </div>
+      {foldersReady && (
+        <button
+          type="button"
+          disabled={disabled || busy}
+          onClick={() => setChoosing(true)}
+          className="flex w-full items-center justify-center gap-2 rounded-xl bg-zinc-900/[0.05] px-3 py-2.5 text-sm font-medium text-zinc-800 transition-colors duration-200 hover:bg-zinc-900/[0.09] disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          <FolderOpen className="h-4 w-4 text-zinc-500" aria-hidden />
+          Escolher um ficheiro que já está nas pastas
+        </button>
+      )}
       <p className="text-xs text-zinc-500">PDF ou fotografia, até 9 MB. Pode arrastar ficheiros para o botão.</p>
+      <ExistingFilePicker
+        open={choosing}
+        movementId={movementId}
+        onClose={() => setChoosing(false)}
+        onLinked={async name => {
+          setChoosing(false);
+          await load().catch(() => undefined);
+          onChanged();
+          toast({ title: 'Ficheiro ligado', description: name });
+        }}
+      />
       <input ref={picker} type="file" multiple accept="application/pdf,image/*" className="hidden" onChange={event => { if (event.target.files?.length) void upload(event.target.files); }} />
       <input ref={camera} type="file" accept="image/*" capture="environment" className="hidden" onChange={event => { if (event.target.files?.length) void upload(event.target.files); }} />
 

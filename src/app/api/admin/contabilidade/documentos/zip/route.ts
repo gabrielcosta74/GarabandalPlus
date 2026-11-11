@@ -25,7 +25,7 @@ export async function GET(req: Request) {
     const zip = new JSZip();
     const paths = archivePaths(documents);
     for (const document of documents) {
-      const { data, error } = await db().storage.from('ledger-documents').download(document.storagePath);
+      const { data, error } = await db().storage.from(document.storageBucket || 'ledger-documents').download(document.storagePath);
       if (error || !data) throw error || new Error(`Falta o ficheiro ${document.fileName}.`);
       zip.file(paths.get(document.id)!, new Uint8Array(await data.arrayBuffer()));
     }
