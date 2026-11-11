@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { BedDouble, FileText, Link2Off, LoaderCircle, Plus, Upload } from 'lucide-react';
+import { BedDouble, FileText, Link2Off, LoaderCircle, Pencil, Plus, Upload } from 'lucide-react';
 
 import { agreementState, type AgreementSummary } from '../../../lib/ledger/agreement-rules';
 import { formatEur } from '../../../lib/ledger/format';
@@ -38,7 +38,9 @@ export function AgreementProgress({ agreement }: { agreement: AgreementSummary }
   );
 }
 
-function AgreementCard({ agreement, action }: { agreement: AgreementSummary; action?: React.ReactNode }) {
+function AgreementCard({ agreement, action, onEdit, disabled }: {
+  agreement: AgreementSummary; action?: React.ReactNode; onEdit?: () => void; disabled?: boolean;
+}) {
   return (
     <div className="rounded-2xl bg-zinc-50 p-4">
       <div className="flex items-start gap-3">
@@ -47,6 +49,11 @@ function AgreementCard({ agreement, action }: { agreement: AgreementSummary; act
           <p className="truncate text-sm font-semibold text-zinc-900">{agreement.supplier}</p>
           <p className="truncate text-[13px] text-zinc-500">{agreement.pilgrimageTitle}{agreement.logisticsLabel ? ` · ${agreement.logisticsLabel}` : ''}</p>
         </div>
+        {onEdit && (
+          <button type="button" disabled={disabled} onClick={onEdit} className="rounded-lg p-1.5 text-zinc-400 transition-colors duration-200 hover:bg-white hover:text-zinc-700 disabled:opacity-50" aria-label="Corrigir o acordo" title="Corrigir o acordo">
+            <Pencil className="h-4 w-4" aria-hidden />
+          </button>
+        )}
         {action}
       </div>
       <div className="mt-3"><AgreementProgress agreement={agreement} /></div>
@@ -73,11 +80,16 @@ export default function AgreementField({
   const [linked, setLinked] = useState<AgreementSummary | null>(null);
   const [creating, setCreating] = useState(false);
   const [picking, setPicking] = useState(false);
+  const [editing, setEditing] = useState<AgreementSummary | null>(null);
   const [busy, setBusy] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  /** The agreement a payment could not be tied to: usually its total is short. */
+  const [failedId, setFailedId] = useState<string | null>(null);
   const toast = useToast();
 
   const load = useCallback(async () => {
+    setLoadError(null);
     setError(null);
     if (linkedAgreementId) {
       const result = await adminFetch(`/api/admin/contabilidade/acordos/${linkedAgreementId}`);
@@ -91,12 +103,15 @@ export default function AgreementField({
   useEffect(() => {
     setCreating(false);
     setPicking(false);
-    load().catch(loadError => setError(loadError instanceof Error ? loadError.message : 'Não foi possível ler os acordos.'));
+    setEditing(null);
+    setFailedId(null);
+    load().catch(failure => setLoadError(failure instanceof Error ? failure.message : 'Não foi possível ler os acordos.'));
   }, [load]);
 
   const link = async (agreementId: string) => {
     setBusy(true);
     setError(null);
+    setFailedId(null);
     try {
       await adminFetch(`/api/admin/contabilidade/movimentos/${movementId}/acordo`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ agreementId }),
@@ -105,6 +120,7 @@ export default function AgreementField({
       onChanged();
     } catch (linkError) {
       setError(linkError instanceof Error ? linkError.message : 'Não foi possível ligar.');
+      setFailedId(agreementId);
     } finally {
       setBusy(false);
     }
@@ -124,19 +140,51 @@ export default function AgreementField({
     }
   };
 
-  if (error) return <p className="rounded-xl bg-rose-50 px-3.5 py-3 text-sm text-rose-700">{error}</p>;
+  if (loadError) return <p className="rounded-xl bg-rose-50 px-3.5 py-3 text-sm text-rose-700">{loadError}</p>;
+  const failed = failedId ? data?.agreements.find(agreement => agreement.id === failedId) ?? null : null;
+  const errorNote = error ? (
+    <div className="rounded-xl bg-rose-50 px-3.5 py-3 text-sm text-rose-700">
+      <p>{error}</p>
+      {failed && failed.status === 'open' && (
+        <button type="button" onClick={() => setEditing(failed)} className="mt-1.5 font-semibold underline-offset-2 hover:underline">
+          Corrigir o acordo «{failed.supplier}»
+        </button>
+      )}
+    </div>
+  ) : null;
+
+  if (editing) {
+    return (
+      <AgreementForm
+        agreement={editing}
+        disabled={disabled}
+        onCancel={() => setEditing(null)}
+        onSaved={async message => {
+          setEditing(null);
+          toast({ title: message, description: 'A logística foi atualizada.' });
+          await load().catch(() => undefined);
+          onChanged();
+        }}
+      />
+    );
+  }
 
   if (linkedAgreementId) {
     if (!linked) return <p className="flex items-center gap-2 text-sm text-zinc-500"><LoaderCircle className="h-4 w-4 animate-spin" aria-hidden /> A ler o acordo…</p>;
     return (
+      <div className="space-y-2">
+      {errorNote}
       <AgreementCard
         agreement={linked}
+        disabled={disabled || busy}
+        onEdit={() => setEditing(linked)}
         action={(
           <button type="button" disabled={disabled || busy} onClick={() => void unlink()} className="rounded-lg p-1.5 text-zinc-400 transition-colors duration-200 hover:bg-white hover:text-zinc-700 disabled:opacity-50" aria-label="Desligar deste acordo" title="Desligar deste acordo">
             <Link2Off className="h-4 w-4" aria-hidden />
           </button>
         )}
       />
+      </div>
     );
   }
 
@@ -148,7 +196,7 @@ export default function AgreementField({
 
   if (creating) {
     return (
-      <NewAgreementForm
+      <AgreementForm
         pilgrimages={data.pilgrimages}
         amount={amount}
         disabled={disabled}
@@ -160,9 +208,10 @@ export default function AgreementField({
 
   return (
     <div className="space-y-2">
+      {errorNote}
       {suggested.length > 0 && <p className="text-[13px] text-zinc-500">Parece ser um pagamento de:</p>}
       {suggested.map(agreement => (
-        <AgreementCard key={agreement.id} agreement={agreement}
+        <AgreementCard key={agreement.id} agreement={agreement} disabled={disabled || busy} onEdit={() => setEditing(agreement)}
           action={<Button size="sm" variant="primary" disabled={disabled || busy} onClick={() => void link(agreement.id)}>Ligar</Button>} />
       ))}
 
@@ -196,77 +245,119 @@ export default function AgreementField({
   );
 }
 
-function NewAgreementForm({
-  pilgrimages, amount, disabled, onCancel, onCreated,
+/** Plain number for an input that the admin reads in Portuguese: 13000,5. */
+const asInput = (value: number) => (value ? String(value).replace('.', ',') : '');
+
+/**
+ * Creates an agreement (from a payment) or corrects one. Correcting keeps the
+ * pilgrimage fixed; everything else, including the logistics line, can change.
+ */
+function AgreementForm({
+  agreement, pilgrimages = [], amount, disabled, onCancel, onCreated, onSaved,
 }: {
-  pilgrimages: Pilgrimage[];
-  amount: number;
+  /** Present when correcting an existing agreement. */
+  agreement?: AgreementSummary;
+  pilgrimages?: Pilgrimage[];
+  amount?: number;
   disabled: boolean;
   onCancel: () => void;
-  onCreated: (id: string) => Promise<void>;
+  onCreated?: (id: string) => Promise<void>;
+  onSaved?: (message: string) => Promise<void>;
 }) {
-  const [pilgrimageId, setPilgrimageId] = useState('');
+  const editing = !!agreement;
+  const [pilgrimageId, setPilgrimageId] = useState(agreement?.pilgrimageId ?? '');
   const [lines, setLines] = useState<LogisticsLine[] | null>(null);
-  const [lineKey, setLineKey] = useState('');
-  const [supplier, setSupplier] = useState('');
-  const [total, setTotal] = useState('');
-  const [outside, setOutside] = useState('');
+  const [lineKey, setLineKey] = useState(agreement?.logisticsKey ?? '');
+  const [supplier, setSupplier] = useState(agreement?.supplier ?? '');
+  const [total, setTotal] = useState(agreement ? asInput(agreement.total) : '');
+  const [outside, setOutside] = useState(agreement ? asInput(agreement.paidOutsideBank) : '');
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
+  const [confirmCancel, setConfirmCancel] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const picker = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setLines(null);
-    setLineKey('');
+    if (!editing) setLineKey('');
     if (!pilgrimageId) return;
     adminFetch(`/api/admin/contabilidade/acordos/logistica?pilgrimageId=${pilgrimageId}`)
       .then(result => setLines(result.lines))
       .catch(() => setLines([]));
-  }, [pilgrimageId]);
+  }, [pilgrimageId, editing]);
 
   const number = (value: string) => Number(value.replace(/\./g, '').replace(',', '.'));
   const totalValue = number(total);
+  const outsideValue = outside ? number(outside) : 0;
   const ready = pilgrimageId && supplier.trim() && totalValue > 0 && !busy;
+  const alreadyPaid = agreement ? agreement.paidByBank + outsideValue : 0;
+  const belowPaid = editing && totalValue > 0 && totalValue + 0.005 < alreadyPaid;
+
+  const uploadProforma = async (agreementId: string) => {
+    if (!file) return;
+    const form = new FormData();
+    form.append('file', await shrinkPhoto(file));
+    form.append('kind', 'proforma');
+    await adminFetch(`/api/admin/contabilidade/acordos/${agreementId}/documentos`, { method: 'POST', body: form });
+  };
 
   const submit = async () => {
     setBusy(true);
     setError(null);
     try {
       const [type, id] = lineKey.split(':');
-      const created = await adminFetch('/api/admin/contabilidade/acordos', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          pilgrimageId, supplier: supplier.trim(), totalAmount: totalValue,
-          paidOutsideBank: outside ? number(outside) : 0,
-          hotelStayId: type === 'stay' ? id : null, costId: type === 'cost' ? id : null,
-        }),
-      });
-      if (file) {
-        const form = new FormData();
-        form.append('file', await shrinkPhoto(file));
-        form.append('kind', 'proforma');
-        await adminFetch(`/api/admin/contabilidade/acordos/${created.id}/documentos`, { method: 'POST', body: form });
+      const payload = {
+        supplier: supplier.trim(), totalAmount: totalValue, paidOutsideBank: outsideValue,
+        hotelStayId: type === 'stay' ? id : null, costId: type === 'cost' ? id : null,
+      };
+      if (agreement) {
+        await adminFetch(`/api/admin/contabilidade/acordos/${agreement.id}`, {
+          method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...payload, description: agreement.description }),
+        });
+        await uploadProforma(agreement.id);
+        await onSaved?.('Acordo corrigido');
+        return;
       }
-      await onCreated(created.id);
+      const created = await adminFetch('/api/admin/contabilidade/acordos', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pilgrimageId, ...payload }),
+      });
+      await uploadProforma(created.id);
+      await onCreated?.(created.id);
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : 'Não foi possível criar o acordo.');
+      setError(submitError instanceof Error ? submitError.message : 'Não foi possível gravar o acordo.');
       setBusy(false);
+    }
+  };
+
+  const cancelAgreement = async () => {
+    if (!agreement) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await adminFetch(`/api/admin/contabilidade/acordos/${agreement.id}`, { method: 'DELETE' });
+      await onSaved?.('Acordo cancelado');
+    } catch (cancelError) {
+      setError(cancelError instanceof Error ? cancelError.message : 'Não foi possível cancelar o acordo.');
+      setBusy(false);
+      setConfirmCancel(false);
     }
   };
 
   const input = 'h-10 w-full rounded-xl bg-zinc-50 px-3 text-sm text-zinc-900 outline-none ring-1 ring-transparent transition placeholder:text-zinc-400 focus:bg-white focus:ring-zinc-300';
   return (
     <div className="space-y-3 rounded-2xl bg-zinc-50 p-4">
-      <p className="text-sm font-semibold text-zinc-900">Nova proforma</p>
-      <label className="block">
-        <span className="mb-1 block text-xs font-medium text-zinc-600">Peregrinação</span>
-        <select value={pilgrimageId} onChange={event => setPilgrimageId(event.target.value)} className={cx(input, 'bg-white')} disabled={disabled || busy}>
-          <option value="">Escolha…</option>
-          {pilgrimages.map(pilgrimage => <option key={pilgrimage.id} value={pilgrimage.id}>{pilgrimage.title}</option>)}
-        </select>
-      </label>
+      <p className="text-sm font-semibold text-zinc-900">{editing ? 'Corrigir acordo' : 'Nova proforma'}</p>
+      {editing ? (
+        <p className="text-[13px] text-zinc-500">{agreement.pilgrimageTitle}</p>
+      ) : (
+        <label className="block">
+          <span className="mb-1 block text-xs font-medium text-zinc-600">Peregrinação</span>
+          <select value={pilgrimageId} onChange={event => setPilgrimageId(event.target.value)} className={cx(input, 'bg-white')} disabled={disabled || busy}>
+            <option value="">Escolha…</option>
+            {pilgrimages.map(pilgrimage => <option key={pilgrimage.id} value={pilgrimage.id}>{pilgrimage.title}</option>)}
+          </select>
+        </label>
+      )}
       {pilgrimageId && (
         <label className="block">
           <span className="mb-1 block text-xs font-medium text-zinc-600">Hotel ou serviço na logística (opcional)</span>
@@ -281,7 +372,12 @@ function NewAgreementForm({
             disabled={disabled || busy || !lines}
           >
             <option value="">{lines === null ? 'A ler…' : lines.length ? 'Sem ligação à logística' : 'Esta peregrinação ainda não tem hotéis na logística'}</option>
-            {lines?.map(line => <option key={line.id} value={`${line.type}:${line.id}`} disabled={line.taken}>{line.label}{line.taken ? ' (já tem acordo)' : ''}</option>)}
+            {lines?.map(line => {
+              const key = `${line.type}:${line.id}`;
+              // The line this agreement already holds is "taken" by itself, not by another one.
+              const takenByOther = line.taken && key !== agreement?.logisticsKey;
+              return <option key={key} value={key} disabled={takenByOther}>{line.label}{takenByOther ? ' (já tem acordo)' : ''}</option>;
+            })}
           </select>
         </label>
       )}
@@ -292,28 +388,54 @@ function NewAgreementForm({
       <div className="grid grid-cols-2 gap-2">
         <label className="block">
           <span className="mb-1 block text-xs font-medium text-zinc-600">Total da proforma (€)</span>
-          <input inputMode="decimal" value={total} onChange={event => setTotal(event.target.value)} placeholder="24.828,30" className={cx(input, 'bg-white tabular-nums')} disabled={disabled || busy} />
+          <input inputMode="decimal" value={total} onChange={event => setTotal(event.target.value)} placeholder="24.828,30" className={cx(input, 'bg-white tabular-nums', belowPaid && 'ring-rose-300')} disabled={disabled || busy} />
         </label>
         <label className="block">
           <span className="mb-1 block text-xs font-medium text-zinc-600">Já pago antes (€)</span>
           <input inputMode="decimal" value={outside} onChange={event => setOutside(event.target.value)} placeholder="0" className={cx(input, 'bg-white tabular-nums')} disabled={disabled || busy} />
         </label>
       </div>
-      <p className="text-xs text-zinc-500">«Já pago antes» é o que foi pago antes de agosto ou fora desta conta. Este pagamento ({formatEur(Math.abs(amount))}) liga-se a seguir.</p>
+      {editing ? (
+        <p className={cx('text-xs', belowPaid ? 'text-rose-600' : 'text-zinc-500')}>
+          {agreement.paidByBank > 0
+            ? `Já há ${formatEur(agreement.paidByBank)} pagos pelo banco${belowPaid ? '. O total não pode ficar abaixo do que já foi pago.' : '. Os pagamentos ligados mantêm-se.'}`
+            : 'Ainda não há pagamentos do banco ligados a este acordo.'}
+          {' '}Se a proforma mudou (por exemplo, a taxa turística passa a ir por transferência), corrija aqui o total.
+        </p>
+      ) : (
+        <p className="text-xs text-zinc-500">«Já pago antes» é o que foi pago antes de agosto ou fora desta conta. Este pagamento ({formatEur(Math.abs(amount ?? 0))}) liga-se a seguir.</p>
+      )}
       <button type="button" onClick={() => picker.current?.click()} disabled={disabled || busy}
         className="flex w-full items-center gap-2 rounded-xl border border-dashed border-zinc-300 bg-white px-3 py-2.5 text-left text-sm text-zinc-700 transition-colors duration-200 hover:border-zinc-400">
         {file ? <FileText className="h-4 w-4 text-emerald-600" aria-hidden /> : <Upload className="h-4 w-4 text-zinc-400" aria-hidden />}
-        <span className="truncate">{file ? file.name : 'Anexar a proforma (PDF ou fotografia)'}</span>
+        <span className="truncate">{file ? file.name : editing && agreement.hasProforma ? 'Juntar outra versão da proforma (opcional)' : 'Anexar a proforma (PDF ou fotografia)'}</span>
       </button>
       <input ref={picker} type="file" accept="application/pdf,image/*" className="hidden" onChange={event => setFile(event.target.files?.[0] || null)} />
       {error && <p className="rounded-xl bg-rose-50 px-3.5 py-3 text-sm text-rose-700">{error}</p>}
       <div className="flex gap-2">
-        <Button variant="ghost" className="flex-1" disabled={busy} onClick={onCancel}>Cancelar</Button>
-        <Button variant="primary" className="flex-1" disabled={!ready} onClick={() => void submit()}>
-          {busy ? <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden /> : <Plus className="h-4 w-4" aria-hidden />}
-          Criar e ligar
+        <Button variant="ghost" className="flex-1" disabled={busy} onClick={onCancel}>Voltar</Button>
+        <Button variant="primary" className="flex-1" disabled={!ready || belowPaid} onClick={() => void submit()}>
+          {busy ? <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden /> : editing ? <Pencil className="h-4 w-4" aria-hidden /> : <Plus className="h-4 w-4" aria-hidden />}
+          {editing ? 'Guardar' : 'Criar e ligar'}
         </Button>
       </div>
+      {editing && agreement.paid === 0 && (
+        <div className="border-t border-zinc-200/70 pt-3">
+          {confirmCancel ? (
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-[13px] text-zinc-600">Cancelar este acordo? A linha da logística fica livre.</p>
+              <div className="flex shrink-0 gap-2">
+                <Button size="sm" variant="ghost" disabled={busy} onClick={() => setConfirmCancel(false)}>Não</Button>
+                <Button size="sm" disabled={busy} onClick={() => void cancelAgreement()} className="!text-rose-600">Sim, cancelar</Button>
+              </div>
+            </div>
+          ) : (
+            <button type="button" disabled={busy || disabled} onClick={() => setConfirmCancel(true)} className="text-[13px] font-medium text-rose-600 hover:text-rose-700 disabled:opacity-50">
+              Cancelar acordo (criado por engano)
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }

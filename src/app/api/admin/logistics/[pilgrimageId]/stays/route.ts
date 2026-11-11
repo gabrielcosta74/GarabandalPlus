@@ -78,6 +78,27 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ pilgri
         return NextResponse.json({ error: 'Nada para actualizar.' }, { status: 400 });
     }
 
+    // Com acordo na Contabilidade, o pago vem dos movimentos do banco
+    // (ledger_sync_agreement). Escrevê-lo aqui à mão desalinhava as duas áreas.
+    if ('paid_amount' in values) {
+        const { data: agreement, error: agreementError } = await supabaseServer!
+            .from('supplier_agreements')
+            .select('id')
+            .eq('hotel_stay_id', id)
+            .eq('status', 'open')
+            .maybeSingle();
+        const missingTable = agreementError && /does not exist|schema cache/i.test(agreementError.message || '');
+        if (agreementError && !missingTable) {
+            return NextResponse.json({ error: agreementError.message }, { status: 500 });
+        }
+        if (agreement) {
+            return NextResponse.json(
+                { error: 'Este hotel tem acordo na Contabilidade: o pago vem dos movimentos do banco.' },
+                { status: 409 },
+            );
+        }
+    }
+
     // O filtro por pilgrimage_id impede editar uma estadia de outra peregrinação.
     const { data, error } = await supabaseServer!
         .from('pilgrimage_hotel_stays')

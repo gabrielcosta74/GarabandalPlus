@@ -61,6 +61,7 @@ export async function listAgreements(filter: { pilgrimageId?: string; ids?: stri
       pilgrimageTitle: pilgrimage.get(row.pilgrimage_id)?.title || 'Peregrinação',
       pilgrimageStart: pilgrimage.get(row.pilgrimage_id)?.start_date || null,
       supplier: row.supplier, description: row.description, logisticsLabel,
+      logisticsKey: row.hotel_stay_id ? `stay:${row.hotel_stay_id}` : row.cost_id ? `cost:${row.cost_id}` : null,
       total: Number(row.total_amount), paidOutsideBank: Number(row.paid_outside_bank),
       paidByBank: bank.sum / 100, paid, remaining: Math.max(0, (cents(row.total_amount) - cents(paid)) / 100),
       payments: bank.count, hasProforma: set.has('proforma'), hasFinalInvoice: set.has('fatura') || set.has('recibo'),
