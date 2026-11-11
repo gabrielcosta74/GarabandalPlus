@@ -48,10 +48,10 @@ export function samePerson(bankName: string | null, customerName: string | null)
 
 /**
  * How well a bank name points at one person. Banks cut names at ~22
- * characters, so the last word may be a stub ("Mafalda Zaidan de Oliv").
+ * characters, so the last word may be a stub ("Joana Marques de Alm").
  * "exact": every word of the bank name is in the candidate's name.
- * "partial": only two words in common, as "Maria Helena Francisca" and
- * "Maria Helena Vitor Schmidt" — a different person until the admin says so.
+ * "partial": only two words in common, as "Ana Lucia Ferreira" and
+ * "Ana Lucia Pinto Rocha" — a different person until the admin says so.
  */
 export function payerNameMatch(bankName: string | null, candidateName: string | null): 'exact' | 'partial' | null {
   if (!samePerson(bankName, candidateName)) return null;

@@ -218,7 +218,7 @@ export function candidateFromRemoteClient(client: RemoteClientLike, match: Donor
 /**
  * Everyone the bank name may belong to, best first. Nothing is chosen for the
  * admin unless exactly one FACT.pt client (or, failing that, one person) has
- * every word of the bank name: two people sharing "Maria Helena" are never
+ * every word of the bank name: two people sharing "Ana Lucia" are never
  * taken for one another.
  */
 export function rankDonorCandidates(payer: string | null, sources: {
