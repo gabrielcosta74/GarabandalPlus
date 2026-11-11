@@ -1,4 +1,5 @@
-import { addDays, pickSamePayerInvoice, samePerson } from './invoice-safety';
+import { normalizeForMatch } from './classify';
+import { addDays, payerNameMatch, pickSamePayerInvoice, samePerson } from './invoice-safety';
 
 /*
  * Rules for the read-only copy of FACT.pt documents. The copy lets the system
@@ -173,4 +174,107 @@ export function missingDonorFields(donor: Partial<DonorIdentity>): string[] {
   const nif = String(donor.nif || '').replace(/[\s.-]/g, '');
   if (nif && !/^\d{5,15}$/.test(nif)) missing.push('NIF válido');
   return missing;
+}
+
+/** One person the donation may belong to, for the admin to pick. */
+export type DonorCandidate = DonorIdentity & {
+  key: string;
+  /** FACT.pt: an existing client there (the fiscal record). Donation: typed on the site. */
+  source: 'factpt' | 'donation';
+  factptClientId: string | null;
+  lastInvoice: string | null;
+  lastDate: string | null;
+  /** How the bank name compares; "search" when the admin looked the client up. */
+  match: 'exact' | 'partial' | 'search';
+};
+
+export type PastDonationRow = {
+  donor_name: string | null; donor_email: string | null; donor_nif: string | null; donor_address: string | null;
+  donor_zip: string | null; donor_city: string | null; donor_country: string | null; created_at: string | null;
+};
+export type MirrorClientRow = {
+  number: string | null; doc_date: string | null; client_id: string | number | null; client_name: string | null;
+  client_snapshot: Partial<Record<keyof DonorIdentity, string | null>> | null;
+};
+export type RemoteClientLike = {
+  id: string | number; name?: string; tin?: string; email?: string; address?: string;
+  zip?: string; city?: string; country?: string; isFinalConsumer?: boolean;
+};
+
+const text = (value: unknown) => String(value ?? '').trim();
+const digits = (value: unknown) => String(value ?? '').replace(/\D/g, '');
+const better = (a: DonorCandidate['match'], b: 'exact' | 'partial'): 'exact' | 'partial' => (a === 'exact' || b === 'exact' ? 'exact' : 'partial');
+
+/** A FACT.pt client as the donation form needs it. Final consumers carry no tax number of their own. */
+export function candidateFromRemoteClient(client: RemoteClientLike, match: DonorCandidate['match'] = 'search'): DonorCandidate {
+  return {
+    key: `factpt:${client.id}`, source: 'factpt', factptClientId: String(client.id),
+    name: text(client.name), email: text(client.email), nif: client.isFinalConsumer ? null : digits(client.tin) || null,
+    address: text(client.address), zip: text(client.zip), city: text(client.city), country: text(client.country).toUpperCase(),
+    lastInvoice: null, lastDate: null, match,
+  };
+}
+
+/**
+ * Everyone the bank name may belong to, best first. Nothing is chosen for the
+ * admin unless exactly one FACT.pt client (or, failing that, one person) has
+ * every word of the bank name: two people sharing "Ana Lucia" are never
+ * taken for one another.
+ */
+export function rankDonorCandidates(payer: string | null, sources: {
+  donations: PastDonationRow[]; mirror: MirrorClientRow[];
+}): { candidates: DonorCandidate[]; suggestedKey: string | null } {
+  if (!payer) return { candidates: [], suggestedKey: null };
+
+  const factpt = new Map<string, DonorCandidate>();
+  for (const row of sources.mirror) {
+    const match = payerNameMatch(payer, row.client_name);
+    if (!match || !row.client_snapshot) continue;
+    const id = row.client_id === null || row.client_id === undefined ? null : String(row.client_id);
+    const key = id ? `factpt:${id}` : `factpt-name:${normalizeForMatch(text(row.client_name))}`;
+    const known = factpt.get(key);
+    if (known && (known.lastDate || '') >= text(row.doc_date)) { known.match = better(known.match, match); continue; }
+    const snapshot = row.client_snapshot;
+    factpt.set(key, {
+      key, source: 'factpt', factptClientId: id,
+      name: text(snapshot.name) || text(row.client_name), email: text(snapshot.email), nif: digits(snapshot.nif) || null,
+      address: text(snapshot.address), zip: text(snapshot.zip), city: text(snapshot.city), country: text(snapshot.country).toUpperCase(),
+      lastInvoice: row.number ? `FR ${row.number}` : null, lastDate: text(row.doc_date) || null,
+      match: known ? better(known.match, match) : match,
+    });
+  }
+
+  const donations = new Map<string, DonorCandidate>();
+  for (const row of sources.donations) {
+    const match = payerNameMatch(payer, row.donor_name);
+    if (!match) continue;
+    const email = text(row.donor_email).toLowerCase();
+    const key = `donation:${email || normalizeForMatch(text(row.donor_name))}`;
+    const known = donations.get(key);
+    const date = text(row.created_at).slice(0, 10);
+    if (known && (known.lastDate || '') >= date) { known.match = better(known.match, match); continue; }
+    donations.set(key, {
+      key, source: 'donation', factptClientId: null,
+      name: text(row.donor_name), email: text(row.donor_email), nif: digits(row.donor_nif) || null,
+      address: text(row.donor_address), zip: text(row.donor_zip), city: text(row.donor_city), country: (text(row.donor_country) || 'PT').toUpperCase(),
+      lastInvoice: null, lastDate: date || null,
+      match: known ? better(known.match, match) : match,
+    });
+  }
+
+  // A site donation already known to FACT.pt is the same person: FACT.pt wins.
+  const clients = [...factpt.values()];
+  const sameAsClient = (candidate: DonorCandidate) => clients.some(client =>
+    (candidate.email && client.email.toLowerCase() === candidate.email.toLowerCase())
+    || (candidate.nif && client.nif === candidate.nif)
+    || normalizeForMatch(client.name) === normalizeForMatch(candidate.name));
+  const rank = (candidate: DonorCandidate) => (candidate.match === 'exact' ? 0 : 2) + (candidate.source === 'factpt' ? 0 : 1);
+  const candidates = [...clients, ...[...donations.values()].filter(candidate => !sameAsClient(candidate))]
+    .sort((a, b) => rank(a) - rank(b) || (b.lastDate || '').localeCompare(a.lastDate || ''))
+    .slice(0, 8);
+
+  const exactClients = candidates.filter(candidate => candidate.match === 'exact' && candidate.source === 'factpt');
+  const exact = candidates.filter(candidate => candidate.match === 'exact');
+  const suggested = exactClients.length === 1 ? exactClients[0] : exactClients.length === 0 && exact.length === 1 ? exact[0] : null;
+  return { candidates, suggestedKey: suggested?.key || null };
 }

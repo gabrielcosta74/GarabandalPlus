@@ -1,6 +1,6 @@
 import { logAdminAudit } from '../../../../../../../lib/admin-audit';
 import { learnCounterparty } from '../../../../../../../lib/ledger/aliases';
-import { clientConflict, donationGate, donorPrefill, genericClientExists } from '../../../../../../../lib/ledger/donation-issue';
+import { clientConflict, donationGate, donorCandidates, genericClientExists, searchFactptClients } from '../../../../../../../lib/ledger/donation-issue';
 import { syncFactptMirror } from '../../../../../../../lib/ledger/factpt-mirror';
 import { closeWhenInvoiced } from '../../../../../../../lib/ledger/finish-confirmed';
 import { missingDonorFields, type DonorIdentity } from '../../../../../../../lib/ledger/factpt-mirror-rules';
@@ -40,10 +40,15 @@ export async function GET(req: Request, context: { params: Promise<{ id: string 
   try {
     const movement = await loadMovement(id);
     if (!movement || movement.amount <= 0) return Response.json({ error: 'Movimento indisponível.' }, { status: 404 });
+    // The admin looks another client up in FACT.pt itself (read only).
+    const search = new URL(req.url).searchParams.get('procurar');
+    if (search !== null) {
+      return Response.json({ results: await searchFactptClients(search) }, { headers: { 'Cache-Control': 'no-store' } });
+    }
     const gate = await donationGate(movement);
-    const prefill = gate.available ? await donorPrefill(movement.counterparty_name) : null;
+    const choices = gate.available ? await donorCandidates(movement.counterparty_name) : { candidates: [], suggestedKey: null };
     const genericAllowed = gate.available && movement.amount <= FACTPT_GENERIC_CONSUMER_LIMIT;
-    return Response.json({ ...gate, prefill, genericAllowed }, { headers: { 'Cache-Control': 'no-store' } });
+    return Response.json({ ...gate, ...choices, payerName: movement.counterparty_name, genericAllowed }, { headers: { 'Cache-Control': 'no-store' } });
   } catch (error) {
     return Response.json({ error: error instanceof Error ? error.message : 'Falha ao verificar a emissão.' }, { status: 500 });
   }

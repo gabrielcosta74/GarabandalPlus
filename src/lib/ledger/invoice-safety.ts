@@ -31,7 +31,7 @@ export function validateInvoiceRef(value: string, category: string, bookingDate:
   return normalized;
 }
 
-function nameTokens(value: string): string[] {
+export function nameTokens(value: string): string[] {
   return normalizeForMatch(value)
     .replace(/[^A-Z0-9 ]/g, ' ')
     .split(/\s+/)
@@ -44,6 +44,23 @@ export function samePerson(bankName: string | null, customerName: string | null)
   const customer = nameTokens(customerName);
   const shared = customer.filter(token => bank.has(token));
   return shared.length >= 2 && shared.length >= Math.min(2, customer.length);
+}
+
+/**
+ * How well a bank name points at one person. Banks cut names at ~22
+ * characters, so the last word may be a stub ("Joana Marques de Alm").
+ * "exact": every word of the bank name is in the candidate's name.
+ * "partial": only two words in common, as "Ana Lucia Ferreira" and
+ * "Ana Lucia Pinto Rocha" — a different person until the admin says so.
+ */
+export function payerNameMatch(bankName: string | null, candidateName: string | null): 'exact' | 'partial' | null {
+  if (!samePerson(bankName, candidateName)) return null;
+  const bank = nameTokens(String(bankName));
+  const candidate = nameTokens(String(candidateName));
+  const exact = bank.every((token, index) => index === bank.length - 1
+    ? candidate.some(word => word.startsWith(token))
+    : candidate.includes(token));
+  return exact ? 'exact' : 'partial';
 }
 
 /**

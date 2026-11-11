@@ -5,7 +5,7 @@ vi.mock('../lib/ledger/server', () => ({
   db: () => ({ from: mocks.from, rpc: mocks.rpc }),
   requireAdmin: async () => ({ ok: true, email: 'admin@example.com', userId: '33333333-3333-4333-8333-333333333333' }),
 }));
-vi.mock('../lib/ledger/donation-issue', () => ({ donationGate: mocks.gate, donorPrefill: mocks.prefill, clientConflict: mocks.conflict, genericClientExists: mocks.generic }));
+vi.mock('../lib/ledger/donation-issue', () => ({ donationGate: mocks.gate, donorCandidates: mocks.prefill, searchFactptClients: vi.fn(), clientConflict: mocks.conflict, genericClientExists: mocks.generic }));
 vi.mock('../lib/ledger/factpt-mirror', () => ({ syncFactptMirror: mocks.mirror }));
 vi.mock('../lib/ledger/aliases', () => ({ learnCounterparty: mocks.learn }));
 vi.mock('../lib/ledger/finish-confirmed', () => ({ closeWhenInvoiced: async () => undefined }));
