@@ -475,26 +475,20 @@ const loadStoreSnapshot = async (
   };
 };
 
-const loadPilgrimageSnapshot = async (
+/** How the fiscal customer of a pilgrimage payment was found. */
+export type PilgrimageHolderBasis = 'payment' | 'account' | 'pilgrim' | 'none';
+
+/**
+ * The fiscal customer of a pilgrimage payment, exactly as the FR will carry
+ * it. A payment with billing data typed at checkout uses that; otherwise the
+ * booking account holder (member profile, else their own pilgrim record).
+ */
+const resolvePilgrimageCustomer = async (
   supabase: SupabaseServiceClient,
-  sourceId: string,
-): Promise<FactPtSourceSnapshot> => {
-  const { data: payment, error } = await supabase
-    .from('pilgrimage_payments')
-    .select('*')
-    .eq('id', sourceId)
-    .maybeSingle();
-  if (error) throw error;
-  if (!payment) throw new Error('Pagamento de peregrinação não encontrado.');
-
-  const { data: booking, error: bookingError } = await supabase
-    .from('bookings')
-    .select('id, user_id, pilgrimage_id, notes, pilgrimages(title, start_date)')
-    .eq('id', payment.booking_id)
-    .maybeSingle();
-  if (bookingError) throw bookingError;
-  if (!booking) throw new Error('Reserva da peregrinação não encontrada.');
-
+  booking: { id: string; user_id: string | null },
+  payment: Record<string, unknown> | null,
+): Promise<{ customer: FactPtSourceCustomer; basis: PilgrimageHolderBasis }> => {
+  payment = payment || {};
   // The booking account holder is always the fiscal customer and email recipient.
   const accountHolderId = clean(booking.user_id);
   const member = await loadMember(supabase, accountHolderId);
@@ -525,6 +519,102 @@ const loadPilgrimageSnapshot = async (
   const holderEmail = hasBillingSnapshot
     ? requireEmail(payment.billing_email, 'pilgrimage')
     : currentHolderEmail;
+  const basis: PilgrimageHolderBasis = hasBillingSnapshot
+    ? 'payment'
+    : clean(member?.nome) ? 'account' : clean(accountPilgrim?.full_name) ? 'pilgrim' : 'none';
+  return {
+    basis,
+    customer: {
+      userId: accountHolderId,
+      name: hasBillingSnapshot
+        ? clean(payment.billing_name) || 'Responsável da reserva'
+        : clean(member?.nome) || clean(accountPilgrim?.full_name) || 'Responsável da reserva',
+      email: holderEmail,
+      nif: hasBillingSnapshot
+        ? (
+            payment.billing_tax_id_requested
+              ? normalizeNif(payment.billing_nif)
+              : null
+          )
+        : normalizeNif(member?.nif) || normalizeNif(accountPilgrim?.cpf_nif),
+      address: hasBillingSnapshot
+        ? clean(payment.billing_address)
+        : clean(member?.address) || clean(accountPilgrim?.address),
+      zip: hasBillingSnapshot
+        ? clean(payment.billing_postal_code)
+        : clean(member?.postal_code) || clean(accountPilgrim?.postal_code),
+      city: hasBillingSnapshot
+        ? clean(payment.billing_city)
+        : clean(member?.city) || clean(accountPilgrim?.city),
+      country: hasBillingSnapshot
+        ? clean(payment.billing_country)
+        : clean(member?.country) || clean(accountPilgrim?.country),
+      phone: clean(member?.telefone) || clean(accountPilgrim?.phone),
+    },
+  };
+};
+
+/**
+ * Read only: who the FR of a new (or chosen pending) payment of this booking
+ * would go to, or why it cannot be issued. Same rules as the FR itself.
+ */
+export const previewPilgrimageCustomer = async (
+  supabase: SupabaseServiceClient,
+  bookingId: string,
+  paymentId: string | null,
+): Promise<{ customer: FactPtSourceCustomer | null; basis: PilgrimageHolderBasis; problem: string | null }> => {
+  const { data: booking, error: bookingError } = await supabase
+    .from('bookings').select('id, user_id').eq('id', bookingId).maybeSingle();
+  if (bookingError) throw bookingError;
+  if (!booking) return { customer: null, basis: 'none', problem: 'Reserva não encontrada.' };
+  let payment: Record<string, unknown> | null = null;
+  if (paymentId) {
+    const { data, error } = await supabase
+      .from('pilgrimage_payments').select('*').eq('id', paymentId).eq('booking_id', bookingId).maybeSingle();
+    if (error) throw error;
+    payment = data;
+  }
+  try {
+    const { customer, basis } = await resolvePilgrimageCustomer(supabase, booking, payment);
+    if (basis === 'none') {
+      return { customer, basis, problem: 'A conta da reserva não tem nome no perfil e nenhum peregrino usa o email da conta.' };
+    }
+    return { customer, basis, problem: null };
+  } catch (cause) {
+    const message = cause instanceof Error ? cause.message : String(cause);
+    return {
+      customer: null,
+      basis: 'none',
+      problem: /Email real/.test(message)
+        ? (payment && Object.keys(payment).some(key => key.startsWith('billing_') && clean(payment?.[key]))
+          ? 'Os dados de faturação deste pagamento não têm um email válido.'
+          : 'A conta que fez a reserva não tem um email válido. A FR é enviada para esse email.')
+        : message,
+    };
+  }
+};
+
+const loadPilgrimageSnapshot = async (
+  supabase: SupabaseServiceClient,
+  sourceId: string,
+): Promise<FactPtSourceSnapshot> => {
+  const { data: payment, error } = await supabase
+    .from('pilgrimage_payments')
+    .select('*')
+    .eq('id', sourceId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!payment) throw new Error('Pagamento de peregrinação não encontrado.');
+
+  const { data: booking, error: bookingError } = await supabase
+    .from('bookings')
+    .select('id, user_id, pilgrimage_id, notes, pilgrimages(title, start_date)')
+    .eq('id', payment.booking_id)
+    .maybeSingle();
+  if (bookingError) throw bookingError;
+  if (!booking) throw new Error('Reserva da peregrinação não encontrada.');
+
+  const { customer } = await resolvePilgrimageCustomer(supabase, booking, payment);
   const trip = Array.isArray(booking.pilgrimages)
     ? booking.pilgrimages[0]
     : booking.pilgrimages;
@@ -567,33 +657,7 @@ const loadPilgrimageSnapshot = async (
       payment.notes,
     ),
     paymentDate: toPaymentDate(payment.verified_at, payment.updated_at, payment.created_at),
-    customer: {
-      userId: accountHolderId,
-      name: hasBillingSnapshot
-        ? clean(payment.billing_name) || 'Responsável da reserva'
-        : clean(member?.nome) || clean(accountPilgrim?.full_name) || 'Responsável da reserva',
-      email: holderEmail,
-      nif: hasBillingSnapshot
-        ? (
-            payment.billing_tax_id_requested
-              ? normalizeNif(payment.billing_nif)
-              : null
-          )
-        : normalizeNif(member?.nif) || normalizeNif(accountPilgrim?.cpf_nif),
-      address: hasBillingSnapshot
-        ? clean(payment.billing_address)
-        : clean(member?.address) || clean(accountPilgrim?.address),
-      zip: hasBillingSnapshot
-        ? clean(payment.billing_postal_code)
-        : clean(member?.postal_code) || clean(accountPilgrim?.postal_code),
-      city: hasBillingSnapshot
-        ? clean(payment.billing_city)
-        : clean(member?.city) || clean(accountPilgrim?.city),
-      country: hasBillingSnapshot
-        ? clean(payment.billing_country)
-        : clean(member?.country) || clean(accountPilgrim?.country),
-      phone: clean(member?.telefone) || clean(accountPilgrim?.phone),
-    },
+    customer,
     items: [{
       reference: FACTPT_DONATION_ITEM_REFERENCE,
       description: FACTPT_DONATION_ITEM_DESCRIPTION,

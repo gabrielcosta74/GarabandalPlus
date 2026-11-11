@@ -1,7 +1,10 @@
 import 'server-only';
 
 import { factptReadClient, mirrorFreshness, loadManualInvoices } from './factpt-mirror';
-import { matchManualInvoice, type DonorIdentity } from './factpt-mirror-rules';
+import {
+  candidateFromRemoteClient, matchManualInvoice, rankDonorCandidates,
+  type DonorCandidate, type DonorIdentity, type MirrorClientRow, type PastDonationRow,
+} from './factpt-mirror-rules';
 import { assessInvoice } from './invoice-assessment';
 import { addDays, samePerson } from './invoice-safety';
 import { db } from './server';
@@ -95,34 +98,43 @@ async function takenInvoiceRefs(): Promise<Set<string>> {
   return new Set((data || []).map(link => String(link.target_id)));
 }
 
-type Prefill = Partial<DonorIdentity> & { source: 'donation' | 'factpt' | null };
+export type DonorChoices = { candidates: DonorCandidate[]; suggestedKey: string | null };
 
-/** The person's data from a past donation or a past FACT.pt client, for the admin to confirm. */
-export async function donorPrefill(payer: string | null): Promise<Prefill> {
-  const empty: Prefill = { name: payer || '', source: null };
-  if (!payer) return empty;
-
-  const { data: donations, error } = await db().from('donations')
-    .select('donor_name, donor_email, donor_nif, donor_address, donor_zip, donor_city, donor_country')
-    .not('donor_name', 'is', null).not('donor_address', 'is', null)
-    .order('created_at', { ascending: false }).limit(1000);
+/**
+ * Everyone the bank name may belong to — FACT.pt clients first, then people
+ * who donated on the site — for the admin to pick. Read only.
+ */
+export async function donorCandidates(payer: string | null): Promise<DonorChoices> {
+  if (!payer) return { candidates: [], suggestedKey: null };
+  const [{ data: donations, error }, { data: mirror, error: mirrorError }] = await Promise.all([
+    db().from('donations')
+      .select('donor_name, donor_email, donor_nif, donor_address, donor_zip, donor_city, donor_country, created_at')
+      .not('donor_name', 'is', null).not('donor_address', 'is', null)
+      .order('created_at', { ascending: false }).limit(1000),
+    db().from('factpt_remote_documents')
+      .select('number, doc_date, client_id, client_name, client_snapshot').not('client_snapshot', 'is', null)
+      .order('doc_date', { ascending: false }).limit(2000),
+  ]);
   if (error) throw error;
-  const past = (donations || []).find(row => samePerson(payer, row.donor_name));
-  if (past) {
-    return {
-      name: past.donor_name, email: past.donor_email || '', nif: past.donor_nif || null, address: past.donor_address || '',
-      zip: past.donor_zip || '', city: past.donor_city || '', country: past.donor_country || 'PT', source: 'donation',
-    };
-  }
+  return rankDonorCandidates(payer, {
+    donations: (donations || []) as PastDonationRow[],
+    // Without the FACT.pt copy the site donations still help.
+    mirror: mirrorError ? [] : (mirror || []) as MirrorClientRow[],
+  });
+}
 
-  const { data: remote, error: remoteError } = await db().from('factpt_remote_documents')
-    .select('client_name, client_snapshot').not('client_snapshot', 'is', null)
-    .order('doc_date', { ascending: false }).limit(1000);
-  if (remoteError) return empty;
-  const client = (remote || []).find(row => samePerson(payer, row.client_name))?.client_snapshot as Partial<DonorIdentity> | undefined;
-  if (!client) return empty;
-  return {
-    name: client.name || payer, email: client.email || '', nif: client.nif || null, address: client.address || '',
-    zip: client.zip || '', city: client.city || '', country: (client.country || 'PT').toUpperCase(), source: 'factpt',
-  };
+/** Read only: the admin looks a client up in FACT.pt by name, email or NIF. */
+export async function searchFactptClients(term: string): Promise<DonorCandidate[]> {
+  const query = term.trim().slice(0, 80);
+  if (query.length < 3) return [];
+  const nif = query.replace(/[\s.-]/g, '');
+  const client = factptReadClient();
+  const found = /^\d{5,15}$/.test(nif) ? await client.findClientsByTin(nif) : await client.findClients(query);
+  const seen = new Set<string>();
+  return found
+    .filter(remote => remote.id && !seen.has(String(remote.id)) && seen.add(String(remote.id)))
+    // The account's own anonymous "Consumidor final" is offered by its own button.
+    .filter(remote => !(remote.isFinalConsumer && !remote.email?.trim() && !remote.address?.trim()))
+    .slice(0, 10)
+    .map(remote => candidateFromRemoteClient(remote));
 }
