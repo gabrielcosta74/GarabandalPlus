@@ -69,12 +69,15 @@ export default function AgreementField({
   linkedAgreementId,
   disabled,
   onChanged,
+  onLinkedHotel,
 }: {
   movementId: string;
   amount: number;
   linkedAgreementId: string | null;
   disabled: boolean;
   onChanged: () => void;
+  /** Called after a payment is tied to a hotel's agreement, so the category can follow. */
+  onLinkedHotel?: () => void;
 }) {
   const [data, setData] = useState<{ ready: boolean; agreements: AgreementSummary[]; suggested: string[]; pilgrimages: Pilgrimage[] } | null>(null);
   const [linked, setLinked] = useState<AgreementSummary | null>(null);
@@ -108,7 +111,7 @@ export default function AgreementField({
     load().catch(failure => setLoadError(failure instanceof Error ? failure.message : 'Não foi possível ler os acordos.'));
   }, [load]);
 
-  const link = async (agreementId: string) => {
+  const link = async (agreementId: string, hotelHint?: boolean) => {
     setBusy(true);
     setError(null);
     setFailedId(null);
@@ -117,6 +120,8 @@ export default function AgreementField({
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ agreementId }),
       });
       toast({ title: 'Pagamento ligado ao acordo', description: 'O «já pago» da logística foi atualizado.' });
+      const target = data?.agreements.find(agreement => agreement.id === agreementId);
+      if (hotelHint ?? target?.logisticsKey?.startsWith('stay:')) onLinkedHotel?.();
       onChanged();
     } catch (linkError) {
       setError(linkError instanceof Error ? linkError.message : 'Não foi possível ligar.');
@@ -201,7 +206,7 @@ export default function AgreementField({
         amount={amount}
         disabled={disabled}
         onCancel={() => setCreating(false)}
-        onCreated={async id => { setCreating(false); await link(id); }}
+        onCreated={async (id, hotel) => { setCreating(false); await link(id, hotel); }}
       />
     );
   }
@@ -261,7 +266,7 @@ function AgreementForm({
   amount?: number;
   disabled: boolean;
   onCancel: () => void;
-  onCreated?: (id: string) => Promise<void>;
+  onCreated?: (id: string, hotel: boolean) => Promise<void>;
   onSaved?: (message: string) => Promise<void>;
 }) {
   const editing = !!agreement;
@@ -322,7 +327,7 @@ function AgreementForm({
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pilgrimageId, ...payload }),
       });
       await uploadProforma(created.id);
-      await onCreated?.(created.id);
+      await onCreated?.(created.id, type === 'stay');
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : 'Não foi possível gravar o acordo.');
       setBusy(false);

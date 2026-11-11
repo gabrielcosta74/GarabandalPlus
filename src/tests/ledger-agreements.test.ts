@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { agreementState, isRoundShare, rankAgreements, type AgreementSummary } from '../lib/ledger/agreement-rules';
+import { agreementState, isRoundShare, nightsLabel, rankAgreements, type AgreementSummary } from '../lib/ledger/agreement-rules';
 
 const agreement = (over: Partial<AgreementSummary> = {}): AgreementSummary => ({
   id: 'meridiana',
@@ -64,5 +64,14 @@ describe('agreementState', () => {
   it('waits for the final invoice once everything is paid', () => {
     expect(agreementState({ total: 13000, paid: 13000, hasFinalInvoice: false, status: 'open' })).toBe('paid_waiting_invoice');
     expect(agreementState({ total: 13000, paid: 3900, hasFinalInvoice: false, status: 'open' })).toBe('paying');
+  });
+});
+
+describe('nightsLabel', () => {
+  it('tells apart two lines of the same hotel', () => {
+    expect(nightsLabel('2027-04-10', '2027-04-11')).toBe('10 → 11 abr');
+    expect(nightsLabel('2027-04-11', '2027-04-12')).toBe('11 → 12 abr');
+    expect(nightsLabel('2027-03-30', '2027-04-02')).toBe('30 mar → 2 abr');
+    expect(nightsLabel(null, '2027-04-02')).toBe('sem datas');
   });
 });

@@ -16,7 +16,24 @@ export async function POST(req: Request, context: { params: Promise<{ id: string
   const { error } = await db().rpc('ledger_link_agreement_payment', { p_transaction_id: id, p_agreement_id: body.agreementId, p_actor: admin.email });
   if (error) return Response.json({ error: error.message }, { status: error.code === 'P0001' ? 409 : 500 });
   await logAdminAudit({ adminEmail: admin.email, action: 'ledger.link_agreement', details: { bank_transaction_id: id, agreement_id: body.agreementId } });
+  await suggestLodging(id, body.agreementId).catch(() => undefined);
   return Response.json({ ok: true });
+}
+
+/**
+ * A payment to a hotel's agreement is lodging. Leaves it as a suggestion (the
+ * same place the classifier writes to) so the admin still confirms it, and only
+ * when nobody chose a category yet. Best effort: the link above already stands.
+ */
+async function suggestLodging(movementId: string, agreementId: string) {
+  const { data: agreement } = await db().from('supplier_agreements').select('hotel_stay_id').eq('id', agreementId).maybeSingle();
+  if (!agreement?.hotel_stay_id) return;
+  const { data: movement } = await db().from('bank_transactions').select('category_code, raw').eq('id', movementId).maybeSingle();
+  if (!movement || movement.category_code) return;
+  const raw = movement.raw && typeof movement.raw === 'object' ? movement.raw as Record<string, unknown> : {};
+  if (raw.suggested_category) return;
+  await db().from('bank_transactions').update({ raw: { ...raw, suggested_category: 'alojamento' } })
+    .eq('id', movementId).is('category_code', null);
 }
 
 export async function DELETE(req: Request, context: { params: Promise<{ id: string }> }) {

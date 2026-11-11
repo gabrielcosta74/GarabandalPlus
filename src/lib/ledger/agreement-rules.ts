@@ -68,3 +68,17 @@ export function rankAgreements(movement: { text: string; amount: number }, agree
     .sort((a, b) => b.score - a.score)
     .map(item => item.agreement);
 }
+
+const MONTHS = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+
+/** "10 → 12 abr" or "30 mar → 2 abr". */
+export function nightsLabel(checkIn: string | null, checkOut: string | null): string {
+  const a = checkIn ? new Date(`${checkIn}T00:00:00Z`) : null;
+  const b = checkOut ? new Date(`${checkOut}T00:00:00Z`) : null;
+  if (!a || !b || Number.isNaN(a.getTime()) || Number.isNaN(b.getTime())) return 'sem datas';
+  const day = (d: Date) => d.getUTCDate();
+  const month = (d: Date) => MONTHS[d.getUTCMonth()];
+  return a.getUTCMonth() === b.getUTCMonth()
+    ? `${day(a)} → ${day(b)} ${month(b)}`
+    : `${day(a)} ${month(a)} → ${day(b)} ${month(b)}`;
+}

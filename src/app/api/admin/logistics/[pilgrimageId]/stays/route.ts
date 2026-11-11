@@ -120,6 +120,24 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ pilgr
     const id = new URL(req.url).searchParams.get('id');
     if (!id) return NextResponse.json({ error: 'Falta o id da estadia.' }, { status: 400 });
 
+    // Um hotel com acordo tem pagamentos e proforma na Contabilidade. Apagá-lo
+    // deixava o acordo solto e tirava o custo das contas sem ninguém dar por isso.
+    const { data: agreement, error: agreementError } = await supabaseServer!
+        .from('supplier_agreements')
+        .select('id')
+        .eq('hotel_stay_id', id)
+        .eq('status', 'open')
+        .maybeSingle();
+    if (agreementError && !/does not exist|schema cache/i.test(agreementError.message || '')) {
+        return NextResponse.json({ error: agreementError.message }, { status: 500 });
+    }
+    if (agreement) {
+        return NextResponse.json(
+            { error: 'Este hotel tem acordo na Contabilidade. Cancele ou mude o acordo para outro hotel antes de o apagar.' },
+            { status: 409 },
+        );
+    }
+
     const { error } = await supabaseServer!
         .from('pilgrimage_hotel_stays')
         .delete()
