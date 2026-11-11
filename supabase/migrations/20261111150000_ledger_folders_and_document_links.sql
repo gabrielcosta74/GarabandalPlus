@@ -230,7 +230,7 @@ cross join lateral (
   select id from public.ledger_folders where parent_id is null and lower(name) = 'contabilidade-apostolado'
 ) root
 where not exists (
-  select 1 from public.ledger_folders x where x.parent_id = root.id and lower(x.name) = lower(f.folder_name)
+  select 1 from public.ledger_folders x where x.parent_id = root.id and x.name = f.folder_name
 );
 
 insert into public.expense_documents (
@@ -247,7 +247,8 @@ select 'accounting-archive', a.name, a.file_name, a.metadata ->> 'mimetype',
 from ledger_archive_import a
 join public.ledger_folders root on root.parent_id is null and lower(root.name) = 'contabilidade-apostolado'
 join public.ledger_folders folder on folder.parent_id = root.id
-  and lower(folder.name) = lower(btrim(translate(a.folder_name, '/\', '--')))
+  -- Exact name: lower() on text decoded from Storage does not fold accented capitals (É, Ç).
+  and folder.name = btrim(translate(a.folder_name, '/\', '--'))
 where not exists (select 1 from public.expense_documents d where d.storage_path = a.name);
 
 drop table ledger_archive_import;
