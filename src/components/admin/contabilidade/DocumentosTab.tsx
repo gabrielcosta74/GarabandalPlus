@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowUpRight, Camera, Download, FileText, Image as ImageIcon, LoaderCircle, Mail, Search, X } from 'lucide-react';
+import { ArrowUpRight, Camera, ChevronRight, Download, FileText, Folder, Image as ImageIcon, LoaderCircle, Mail, Search, X } from 'lucide-react';
 
 import { formatDay, formatEur, formatPeriod } from '../../../lib/ledger/format';
 import DocumentPreview, { type PreviewDoc } from './DocumentPreview';
+import AccountingArchive from './AccountingArchive';
 import MailInvoicesCard from './MailInvoicesCard';
 import MovementRow from './MovementRow';
 import { useToast } from './Toasts';
@@ -56,6 +57,7 @@ export default function DocumentosTab({
   const [previewIndex, setPreviewIndex] = useState<number | null>(null);
   const [zipping, setZipping] = useState(false);
   const [reload, setReload] = useState(0);
+  const [archiveOpen, setArchiveOpen] = useState(false);
   const toast = useToast();
 
   useEffect(() => { setDocuments(null); }, [year]);
@@ -133,14 +135,34 @@ export default function DocumentosTab({
     }
   };
 
-  if (error) return <Card><EmptyState title="Não foi possível ler os documentos">{error}</EmptyState></Card>;
-  if (!documents) return <Card className="flex items-center gap-2 p-6 text-[13px] text-zinc-500"><LoaderCircle className="h-4 w-4 animate-spin" aria-hidden /> A ler os documentos…</Card>;
+  if (archiveOpen) return <AccountingArchive onBack={() => setArchiveOpen(false)} />;
+
+  const archiveEntry = (
+    <section aria-labelledby="accounting-downloads-title">
+      <h2 id="accounting-downloads-title" className="mb-2.5 px-1 text-[14px] font-semibold text-zinc-900">Downloads</h2>
+      <Card>
+        <button type="button" onClick={() => setArchiveOpen(true)} className="flex w-full items-center gap-3.5 rounded-xl p-4 text-left outline-none transition-colors hover:bg-zinc-900/[0.025] focus-visible:ring-[3px] focus-visible:ring-zinc-900/15">
+          <span className="lg-icon flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-zinc-600" aria-hidden><Folder className="h-5 w-5" /></span>
+          <span className="min-w-0 flex-1">
+            <span className="block break-words text-[14px] font-semibold text-zinc-900">contabilidade-apostolado</span>
+            <span className="block text-[12.5px] text-zinc-500">Arquivo privado da contabilidade, organizado por pastas</span>
+          </span>
+          <ChevronRight className="h-4 w-4 shrink-0 text-zinc-400" aria-hidden />
+        </button>
+      </Card>
+    </section>
+  );
+
+  if (error) return <div className="space-y-5">{archiveEntry}<Card><EmptyState title="Não foi possível ler os documentos">{error}</EmptyState></Card></div>;
+  if (!documents) return <div className="space-y-5">{archiveEntry}<Card className="flex items-center gap-2 p-6 text-[13px] text-zinc-500"><LoaderCircle className="h-4 w-4 animate-spin" aria-hidden /> A ler os documentos…</Card></div>;
 
   const missingHere = month && month === period ? missing : [];
   const filtering = !!kind || !!query.trim();
 
   return (
-    <div className="grid gap-5 lg:grid-cols-[13.5rem_minmax(0,1fr)]">
+    <div className="space-y-5">
+      {archiveEntry}
+      <div className="grid gap-5 lg:grid-cols-[13.5rem_minmax(0,1fr)]">
       <nav className="h-fit lg:sticky lg:top-24" aria-label="Meses">
         <p className="px-3 pb-2 text-[12.5px] font-semibold text-zinc-500">{year}</p>
         <div className="flex gap-1 overflow-x-auto pb-1 [scrollbar-width:none] lg:flex-col lg:gap-0.5 lg:overflow-visible lg:pb-0">
@@ -273,6 +295,7 @@ export default function DocumentosTab({
         onClose={() => setPreviewIndex(null)}
         onOpenMovement={doc => { setPreviewIndex(null); onOpenMovement(doc.movement.id, doc.movement.period); }}
       />
+      </div>
     </div>
   );
 }
