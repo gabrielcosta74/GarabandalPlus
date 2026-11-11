@@ -160,7 +160,14 @@ export type HotelStayRow = {
     paidAmount: number;
     dueDate: string | null;
     notes: string | null;
+    /**
+     * Acordo (proforma) da Contabilidade ligado a esta estadia. Quando existe,
+     * o total é o da proforma e o pago vem dos movimentos do banco.
+     */
+    agreement: StayAgreement | null;
 };
+
+export type StayAgreement = { id: string; supplier: string; total: number };
 
 export const eur = (v: number) =>
     new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR', maximumFractionDigits: 2 }).format(v);
@@ -180,6 +187,9 @@ export const STATUS_LABEL: Record<LogisticsStatus, string> = {
     confirmed: 'Confirmada',
     paid: 'Paga',
 };
+
+const isMissingTable = (error: { code?: string; message?: string }) =>
+    error.code === '42P01' || error.code === 'PGRST205' || /does not exist|schema cache/i.test(error.message || '');
 
 const num = (v: unknown) => {
     const n = Number(v);
@@ -205,6 +215,7 @@ const mapStay = (row: any): HotelStayRow => ({
     paidAmount: num(row.paid_amount),
     dueDate: row.due_date || null,
     notes: row.notes || null,
+    agreement: null,
 });
 
 export const nightsBetween = (checkIn: string, checkOut: string) => {
@@ -218,6 +229,9 @@ export const nightsBetween = (checkIn: string, checkOut: string) => {
  *
  * `paxShared`/`paxSingle` a null seguem a distribuição real das inscrições —
  * é isto que faz o orçamento acompanhar quem muda de tipologia.
+ *
+ * Com acordo na Contabilidade manda a proforma: `total` passa a ser o valor
+ * acordado com o hotel e a fórmula fica só como `estimate`, para comparar.
  */
 export function stayCostOf(stay: HotelStayRow, mix: { shared: number; single: number }) {
     const nights = nightsBetween(stay.checkIn, stay.checkOut);
@@ -230,8 +244,13 @@ export function stayCostOf(stay: HotelStayRow, mix: { shared: number; single: nu
     const cityTax = stay.cityTaxPerPersonNight * pax * nights;
     const freeRooms = stay.freePerN > 0 ? Math.floor(pax / stay.freePerN) : 0;
     const freeValue = freeRooms * stay.sharedPricePerNight * nights;
-    const total = accommodation + cityTax - freeValue;
-    return { nights, pax, accommodation, cityTax, freeRooms, freeValue, total, due: total - stay.paidAmount };
+    const estimate = accommodation + cityTax - freeValue;
+    const fromProforma = !!stay.agreement;
+    const total = stay.agreement ? stay.agreement.total : estimate;
+    return {
+        nights, pax, accommodation, cityTax, freeRooms, freeValue,
+        estimate, fromProforma, total, due: total - stay.paidAmount,
+    };
 }
 
 const hotelTotals = (rows: HotelStayRow[], shared: number, single: number) => {
@@ -317,6 +336,16 @@ export async function getPilgrimageAccounts(
         .eq('pilgrimage_id', pilgrimageId)
         .order('display_order');
     if (rErr) throw rErr;
+
+    // Acordos da Contabilidade. Antes da migração dos acordos a tabela não
+    // existe: a logística continua a funcionar só com a fórmula.
+    const { data: agreementRows, error: aErr } = await supabase
+        .from('supplier_agreements')
+        .select('id,hotel_stay_id,supplier,total_amount')
+        .eq('pilgrimage_id', pilgrimageId)
+        .eq('status', 'open')
+        .not('hotel_stay_id', 'is', null);
+    if (aErr && !isMissingTable(aErr)) throw aErr;
 
     const { data: quoteRows, error: qErr } = await supabase
         .from('pilgrimage_hotel_quotes')
@@ -414,7 +443,16 @@ export async function getPilgrimageAccounts(
     }
 
     const beds = paying.length + courtesy.length + held.length;
-    const mappedStays = (stays || []).map(mapStay);
+    const agreementByStay = new Map<string, StayAgreement>(
+        ((aErr ? [] : agreementRows || []) as { id: string; hotel_stay_id: string; supplier: string | null; total_amount: number | string }[]).map(a => [
+            String(a.hotel_stay_id),
+            { id: a.id, supplier: a.supplier || '', total: num(a.total_amount) },
+        ]),
+    );
+    const mappedStays = (stays || []).map(mapStay).map((stay: HotelStayRow) => ({
+        ...stay,
+        agreement: agreementByStay.get(stay.id) ?? null,
+    }));
     const costs: CostRow[] = (costRows || []).map((c: any) => ({
         id: c.id,
         kind: c.kind,

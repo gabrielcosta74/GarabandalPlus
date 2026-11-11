@@ -231,7 +231,15 @@ export default function MovementDrawer({ movement, readOnlyReason, onClose, onCh
   // Hotels and restaurants are paid in instalments of a proforma.
   const agreementField = view && view.amount < 0 && view.status !== 'ignored' && !onLocalChange ? (
     <Field label="Proforma do fornecedor">
-      <AgreementField movementId={view.id} amount={view.amount} linkedAgreementId={view.agreementId ?? null} disabled={locked} onChanged={onChanged} />
+      <AgreementField
+        movementId={view.id}
+        amount={view.amount}
+        linkedAgreementId={view.agreementId ?? null}
+        disabled={locked}
+        onChanged={onChanged}
+        // A payment to a hotel is lodging: pre-fill it while nothing was chosen yet.
+        onLinkedHotel={() => setCategory(current => current || 'alojamento')}
+      />
     </Field>
   ) : null;
 
