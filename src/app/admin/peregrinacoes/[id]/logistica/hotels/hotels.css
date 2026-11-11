@@ -1,0 +1,86 @@
+/*
+ * Logística › Hotéis — materiais "liquid glass".
+ *
+ * Só materiais. A tinta é zinc; a cor só aparece com significado:
+ * verde = pago, âmbar = vence em 7 dias, vermelho = em atraso.
+ */
+
+.hg-canvas {
+  background:
+    radial-gradient(60% 50% at 8% 0%, rgb(201 168 106 / 0.16), transparent 70%),
+    radial-gradient(50% 45% at 92% 6%, rgb(120 150 230 / 0.14), transparent 70%),
+    radial-gradient(70% 60% at 50% 100%, rgb(160 200 190 / 0.12), transparent 75%),
+    #f6f5f2;
+}
+
+.hg-glass {
+  background: linear-gradient(180deg, rgb(255 255 255 / 0.78), rgb(255 255 255 / 0.58));
+  -webkit-backdrop-filter: blur(28px) saturate(180%);
+  backdrop-filter: blur(28px) saturate(180%);
+  border: 1px solid rgb(255 255 255 / 0.7);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.95),
+    inset 0 0 0 1px rgb(9 9 11 / 0.04),
+    0 1px 2px rgb(9 9 11 / 0.04),
+    0 18px 44px -26px rgb(9 9 11 / 0.22);
+}
+
+.hg-sheet {
+  background: linear-gradient(180deg, rgb(255 255 255 / 0.94), rgb(250 250 249 / 0.9));
+  -webkit-backdrop-filter: blur(48px) saturate(180%);
+  backdrop-filter: blur(48px) saturate(180%);
+  border: 1px solid rgb(255 255 255 / 0.8);
+  box-shadow:
+    inset 0 1px 0 #ffffff,
+    0 40px 90px -30px rgb(9 9 11 / 0.45),
+    0 2px 8px rgb(9 9 11 / 0.06);
+}
+
+.hg-pill {
+  background: rgb(255 255 255 / 0.66);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgb(9 9 11 / 0.06);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.95), 0 4px 14px -10px rgb(9 9 11 / 0.25);
+}
+
+.hg-thumb {
+  background: linear-gradient(180deg, #ffffff, #f6f6f7);
+  border: 1px solid rgb(9 9 11 / 0.07);
+  box-shadow: inset 0 1px 0 #ffffff, 0 1px 3px rgb(9 9 11 / 0.1), 0 6px 14px -8px rgb(9 9 11 / 0.2);
+}
+
+.hg-well {
+  background: rgb(9 9 11 / 0.035);
+  box-shadow: inset 0 1px 2px rgb(9 9 11 / 0.05);
+}
+
+.hg-scrim {
+  background: rgb(24 24 27 / 0.28);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+}
+
+.hg-input {
+  background: transparent;
+  border-radius: 10px;
+  transition: background-color 160ms ease, box-shadow 160ms ease;
+}
+.hg-input:hover { background: rgb(9 9 11 / 0.035); }
+.hg-input:focus {
+  outline: none;
+  background: #ffffff;
+  box-shadow: 0 0 0 1px rgb(9 9 11 / 0.12), 0 4px 12px -8px rgb(9 9 11 / 0.3);
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .hg-glass, .hg-sheet, .hg-pill, .hg-scrim {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+  .hg-glass, .hg-sheet, .hg-pill { background: #ffffff; }
+}
+
+@media (prefers-contrast: more) {
+  .hg-glass, .hg-sheet, .hg-pill, .hg-thumb { border-color: rgb(9 9 11 / 0.3); }
+}

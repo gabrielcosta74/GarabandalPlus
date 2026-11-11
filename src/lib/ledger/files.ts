@@ -449,7 +449,38 @@ export async function movementCandidates(input: { q?: string | null; period?: st
  * File names behind each movement, through every link (not only the old
  * "main movement" column). Falls back to the old column before the migration.
  */
+/**
+ * Movements that pay an agreement which already has its proforma. A deposit
+ * to a hotel is documented by the proforma until the final invoice arrives;
+ * the agreement itself keeps asking for that final invoice.
+ */
+async function proformaCoveredMovements(ids?: string[]): Promise<Set<string>> {
+  let query = db().from('bank_transaction_links').select('bank_transaction_id, target_id').eq('target_type', 'agreement');
+  if (ids) query = query.in('bank_transaction_id', ids.length ? ids : ['00000000-0000-0000-0000-000000000000']);
+  const { data: links, error } = await query.limit(50000);
+  if (error) {
+    if (isMissingTableError(error)) return new Set();
+    raise(error);
+  }
+  const agreementIds = [...new Set((links || []).map(link => String(link.target_id)))];
+  if (!agreementIds.length) return new Set();
+  const { data: proformas, error: proformaError } = await db().from('expense_documents')
+    .select('agreement_id').eq('doc_kind', 'proforma').in('agreement_id', agreementIds);
+  if (proformaError) {
+    if (isMissingTableError(proformaError)) return new Set();
+    raise(proformaError);
+  }
+  const withProforma = new Set((proformas || []).map(row => String(row.agreement_id)));
+  return new Set((links || []).filter(link => withProforma.has(String(link.target_id))).map(link => String(link.bank_transaction_id)));
+}
+
 export async function documentsByMovement(ids: string[]): Promise<Record<string, string[]>> {
+  const result = await ownDocumentsByMovement(ids);
+  for (const id of await proformaCoveredMovements(ids)) if (!result[id]?.length) result[id] = ['Proforma do acordo'];
+  return result;
+}
+
+async function ownDocumentsByMovement(ids: string[]): Promise<Record<string, string[]>> {
   const result: Record<string, string[]> = {};
   if (!ids.length) return result;
   if (await filesReady()) {
@@ -479,7 +510,9 @@ export async function documentedMovementIds(): Promise<Set<string>> {
     ? await db().from('ledger_document_links').select('bank_transaction_id').not('bank_transaction_id', 'is', null).limit(50000)
     : await db().from('expense_documents').select('bank_transaction_id').limit(50000);
   if (error) raise(error);
-  return new Set((data || []).map(row => row.bank_transaction_id as string).filter(Boolean));
+  const ids = new Set((data || []).map(row => row.bank_transaction_id as string).filter(Boolean));
+  for (const id of await proformaCoveredMovements()) ids.add(id);
+  return ids;
 }
 
 export { FILE_TARGET_TYPES };

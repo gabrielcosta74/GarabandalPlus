@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { agreementState, isRoundShare, nightsLabel, rankAgreements, type AgreementSummary } from '../lib/ledger/agreement-rules';
+import { agreementState, isRoundShare, nightsLabel, rankAgreements, rankPaymentsForAgreement, type AgreementSummary } from '../lib/ledger/agreement-rules';
 
 const agreement = (over: Partial<AgreementSummary> = {}): AgreementSummary => ({
   id: 'meridiana',
@@ -73,5 +73,26 @@ describe('nightsLabel', () => {
     expect(nightsLabel('2027-04-11', '2027-04-12')).toBe('11 → 12 abr');
     expect(nightsLabel('2027-03-30', '2027-04-02')).toBe('30 mar → 2 abr');
     expect(nightsLabel(null, '2027-04-02')).toBe('sem datas');
+  });
+});
+
+describe('rankPaymentsForAgreement', () => {
+  const debit = (id: string, amount: number, description = 'ORD.PAG. SEPA 1', bookingDate = '2026-11-05') =>
+    ({ id, amount, description, bookingDate, counterparty: null });
+
+  it('puts the 30 % deposit first, with the reason, and drops what does not fit', () => {
+    const ranked = rankPaymentsForAgreement(agreement(), [
+      debit('fuel', -48.2, 'COMPRA GALP', '2026-11-09'),
+      debit('deposit', -3900),
+      debit('too-big', -20000),
+      debit('income', 3900),
+    ]);
+    expect(ranked.map(m => m.id)).toEqual(['deposit', 'fuel']);
+    expect(ranked[0].reason).toBe('É 30 % da proforma');
+  });
+
+  it('a bank line with the hotel name wins over a round amount', () => {
+    const ranked = rankPaymentsForAgreement(agreement(), [debit('round', -6500), debit('named', -1234, 'TRF LA MERIDIANA PERUGIA')]);
+    expect(ranked[0]).toMatchObject({ id: 'named', reason: 'Tem o nome do fornecedor' });
   });
 });

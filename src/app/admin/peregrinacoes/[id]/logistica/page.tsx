@@ -14,7 +14,7 @@ import type { LogisticsAccounts } from '../../../../../lib/logistics-accounts';
 import OverviewTab from './components/OverviewTab';
 import CollectionsTab from './components/CollectionsTab';
 import RoomsTab from './components/RoomsTab';
-import HotelsTab from './components/HotelsTab';
+import HotelsBoard from './hotels/HotelsBoard';
 import ServicesTab from './components/ServicesTab';
 import AccountsTab from './components/AccountsTab';
 
@@ -22,7 +22,7 @@ const TABS = [
     { id: 'overview', label: 'Painel', icon: LayoutDashboard, hint: 'Estado geral e alertas' },
     { id: 'collections', label: 'Cobranças', icon: HandCoins, hint: 'Quem falta pagar e notas' },
     { id: 'rooms', label: 'Quartos', icon: BedDouble, hint: 'Quem fica com quem' },
-    { id: 'hotels', label: 'Hotéis', icon: Hotel, hint: 'Estadias, preços e orçamentos' },
+    { id: 'hotels', label: 'Hotéis', icon: Hotel, hint: 'Proformas, prestações e avisos de pagamento' },
     { id: 'services', label: 'Serviços', icon: Utensils, hint: 'Restaurantes, autocarros, voos' },
     { id: 'accounts', label: 'Contas', icon: Wallet, hint: 'Receita, despesa e saldo' },
 ];
@@ -177,7 +177,7 @@ export default function PilgrimageLogisticsPage() {
                                 <RoomsTab accounts={accounts} pilgrimageId={id} onChanged={reload} error={accountsError} />
                             )}
                             {activeTab === 'hotels' && (
-                                <HotelsTab
+                                <HotelsBoard
                                     accounts={accounts}
                                     pilgrimageId={id}
                                     onChanged={reload}
