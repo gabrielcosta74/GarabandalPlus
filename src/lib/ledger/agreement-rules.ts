@@ -82,3 +82,39 @@ export function nightsLabel(checkIn: string | null, checkOut: string | null): st
     ? `${day(a)} → ${day(b)} ${month(b)}`
     : `${day(a)} ${month(a)} → ${day(b)} ${month(b)}`;
 }
+
+export type PaymentCandidate = {
+  id: string;
+  bookingDate: string;
+  amount: number;
+  description: string;
+  counterparty: string | null;
+};
+
+/**
+ * The other way round: which bank debits most likely pay this agreement.
+ * Only debits that still fit what is left. A round share of the proforma
+ * (30 %, 50 %…), the exact balance or the supplier's name in the bank line
+ * rank first; the rest follow by date, newest first.
+ */
+export function rankPaymentsForAgreement(
+  agreement: Pick<AgreementSummary, 'supplier' | 'logisticsLabel' | 'total' | 'remaining'>,
+  movements: PaymentCandidate[],
+): Array<PaymentCandidate & { reason: string | null }> {
+  const theirs = words(`${agreement.supplier} ${agreement.logisticsLabel || ''}`);
+  return movements
+    .filter(movement => movement.amount < 0 && cents(Math.abs(movement.amount)) <= cents(agreement.remaining))
+    .map(movement => {
+      const paid = cents(Math.abs(movement.amount));
+      const mine = words(`${movement.description} ${movement.counterparty || ''}`);
+      const named = [...theirs].some(word => mine.has(word));
+      const balance = paid === cents(agreement.remaining);
+      const share = isRoundShare(movement.amount, agreement.total);
+      const percent = share ? Math.round((paid * 100) / cents(agreement.total)) : null;
+      const score = (named ? 10 : 0) + (balance ? 4 : 0) + (share ? 3 : 0);
+      const reason = named ? 'Tem o nome do fornecedor' : balance ? 'É o valor que falta' : percent ? `É ${percent} % da proforma` : null;
+      return { ...movement, reason, score };
+    })
+    .sort((a, b) => b.score - a.score || b.bookingDate.localeCompare(a.bookingDate))
+    .map(({ score, ...rest }) => { void score; return rest; });
+}

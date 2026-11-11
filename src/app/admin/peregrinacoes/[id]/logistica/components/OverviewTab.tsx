@@ -2,8 +2,9 @@
 
 import { Users, Coins, TrendingUp, BedDouble, ArrowRight, Hotel, Utensils, Wallet } from 'lucide-react';
 import {
-    type LogisticsAccounts, eur, eur0, costTotalOf, stayCostOf,
+    type LogisticsAccounts, eur, eur0, costTotalOf,
 } from '../../../../../../lib/logistics-accounts';
+import { buildBoard } from '../hotels/model';
 import StatCard from '../../../../../../components/admin/ui/StatCard';
 import { Surface, Row, EmptyState, ROLE_TONE, RESULT, DATA_BLUE, dataBlue, type Role } from './kit';
 
@@ -32,18 +33,29 @@ export default function OverviewTab({
     const nothingPaid = people.filter(p => p.kind === 'pilgrim' && p.paidAmount <= 0.005 && p.totalAmount > 0);
     const openStays = stays.filter(s => s.status === 'idea' || s.status === 'requested');
     const openCosts = costs.filter(c => c.kind !== 'flight' && c.status === 'idea');
-    const overdue = [
-        ...stays.filter(s => s.dueDate && stayCostOf(s, roomMix).due > 0.5 && new Date(s.dueDate) < new Date()),
-        ...costs.filter(c => c.dueDate && costTotalOf(c, beds) - c.paidAmount > 0.5 && new Date(c.dueDate) < new Date()),
-    ];
+    // Os hotéis têm avisos próprios (prestações, 7 dias antes, proforma).
+    const overdue = costs.filter(c => c.dueDate && costTotalOf(c, beds) - c.paidAmount > 0.5 && new Date(c.dueDate) < new Date());
+    const hotelWarnings = buildBoard(accounts).alerts.filter(a => a.level !== 'neutral');
 
     const alerts: { role: Role; title: string; detail: string; tab: string; action: string }[] = [];
 
+    for (const warning of hotelWarnings.slice(0, 4)) alerts.push({
+        role: warning.level === 'alert' ? 'alert' : 'waiting',
+        title: warning.title,
+        detail: warning.detail,
+        tab: 'hotels', action: 'Abrir',
+    });
+    if (hotelWarnings.length > 4) alerts.push({
+        role: 'waiting',
+        title: `Mais ${hotelWarnings.length - 4} avisos nos hotéis`,
+        detail: 'Prazos de pagamento e reservas.',
+        tab: 'hotels', action: 'Ver hotéis',
+    });
     if (overdue.length) alerts.push({
         role: 'alert',
         title: `${overdue.length} ${overdue.length === 1 ? 'pagamento com prazo ultrapassado' : 'pagamentos com prazo ultrapassado'}`,
-        detail: overdue.map((x: any) => x.hotel || x.location).join(', '),
-        tab: 'hotels', action: 'Ver',
+        detail: overdue.map(c => c.location || c.supplier || 'sem nome').join(', '),
+        tab: 'services', action: 'Ver',
     });
     if (overfilled.length) alerts.push({
         role: 'alert',

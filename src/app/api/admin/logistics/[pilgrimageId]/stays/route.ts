@@ -21,6 +21,7 @@ const FIELDS = new Set([
     'shared_price_per_night', 'single_supplement_per_night',
     'pax_shared', 'pax_single', 'city_tax_per_person_night',
     'free_per_n', 'paid_amount', 'due_date', 'notes', 'display_order',
+    'contact_name', 'contact_email', 'contact_phone', 'option_until', 'rooming_list_due',
 ]);
 
 const STATUSES = new Set(['idea', 'requested', 'prebooked', 'confirmed', 'paid']);

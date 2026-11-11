@@ -1,3 +1,5 @@
+import { linesSummary, type HotelInstallment, type HotelLine } from './logistics/hotel-rules';
+
 /**
  * Contas e cobranças de uma peregrinação, lidas da base de dados.
  *
@@ -42,6 +44,8 @@ export type LogisticsAccounts = {
         basePrice: number;
         depositValue: number;
         singleSupplement: number;
+        startDate: string | null;
+        endDate: string | null;
     };
     people: LogisticsPerson[];
     revenue: {
@@ -165,9 +169,24 @@ export type HotelStayRow = {
      * o total é o da proforma e o pago vem dos movimentos do banco.
      */
     agreement: StayAgreement | null;
+    /** Linhas da proforma, escritas pelo admin. Vazio = ainda só a fórmula. */
+    lines: HotelLine[];
+    /** Plano de pagamentos ao hotel. O estado de cada uma vem do pago. */
+    installments: HotelInstallment[];
+    contactName: string | null;
+    contactEmail: string | null;
+    contactPhone: string | null;
+    optionUntil: string | null;
+    roomingListDue: string | null;
 };
 
-export type StayAgreement = { id: string; supplier: string; total: number };
+export type StayAgreement = {
+    id: string;
+    supplier: string;
+    total: number;
+    hasProforma: boolean;
+    hasFinalInvoice: boolean;
+};
 
 export const eur = (v: number) =>
     new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR', maximumFractionDigits: 2 }).format(v);
@@ -216,6 +235,13 @@ const mapStay = (row: any): HotelStayRow => ({
     dueDate: row.due_date || null,
     notes: row.notes || null,
     agreement: null,
+    lines: [],
+    installments: [],
+    contactName: row.contact_name || null,
+    contactEmail: row.contact_email || null,
+    contactPhone: row.contact_phone || null,
+    optionUntil: row.option_until || null,
+    roomingListDue: row.rooming_list_due || null,
 });
 
 export const nightsBetween = (checkIn: string, checkOut: string) => {
@@ -227,11 +253,12 @@ export const nightsBetween = (checkIn: string, checkOut: string) => {
 /**
  * Custo de uma estadia.
  *
- * `paxShared`/`paxSingle` a null seguem a distribuição real das inscrições —
- * é isto que faz o orçamento acompanhar quem muda de tipologia.
- *
- * Com acordo na Contabilidade manda a proforma: `total` passa a ser o valor
- * acordado com o hotel e a fórmula fica só como `estimate`, para comparar.
+ * Por ordem de confiança:
+ *   1. acordo na Contabilidade: o total da proforma (o que se transfere);
+ *   2. linhas escritas pelo admin a partir da proforma;
+ *   3. a fórmula (preço por pessoa × inscrições), só como estimativa.
+ * O que se paga no hotel (linhas `payOnSite`) soma-se ao custo mas fica fora
+ * do que se transfere.
  */
 export function stayCostOf(stay: HotelStayRow, mix: { shared: number; single: number }) {
     const nights = nightsBetween(stay.checkIn, stay.checkOut);
@@ -245,11 +272,20 @@ export function stayCostOf(stay: HotelStayRow, mix: { shared: number; single: nu
     const freeRooms = stay.freePerN > 0 ? Math.floor(pax / stay.freePerN) : 0;
     const freeValue = freeRooms * stay.sharedPricePerNight * nights;
     const estimate = accommodation + cityTax - freeValue;
+
+    const lines = stay.lines ?? [];
+    const fromLines = lines.length > 0;
+    const summary = linesSummary(lines);
     const fromProforma = !!stay.agreement;
-    const total = stay.agreement ? stay.agreement.total : estimate;
+    const transferTotal = stay.agreement ? stay.agreement.total : fromLines ? summary.transfer : estimate;
+    const onSite = fromLines ? summary.onSite : 0;
+    const total = transferTotal + onSite;
     return {
         nights, pax, accommodation, cityTax, freeRooms, freeValue,
-        estimate, fromProforma, total, due: total - stay.paidAmount,
+        estimate, fromProforma, fromLines,
+        linesTransfer: fromLines ? summary.transfer : null,
+        transferTotal, onSite, total,
+        due: total - stay.paidAmount,
     };
 }
 
@@ -275,91 +311,123 @@ export async function getPilgrimageAccounts(
     supabase: any,
     pilgrimageId: string,
 ): Promise<LogisticsAccounts> {
-    const { data: pilgrimage, error: pErr } = await supabase
-        .from('pilgrimages')
-        .select('id,title,status,total_vacancies,current_vacancies,base_price,deposit_value,pricing_config')
-        .eq('id', pilgrimageId)
-        .single();
+    // Duas rondas em paralelo em vez de catorze consultas seguidas: o ecrã dos
+    // hotéis recarrega isto depois de cada gravação.
+    const none = { data: [], error: null };
+    const [
+        { data: pilgrimage, error: pErr },
+        { data: bookings, error: bErr },
+        { data: seats, error: sErr },
+        { data: stays, error: stErr },
+        { data: costRows, error: cErr },
+        { data: roomRows, error: rErr },
+        { data: agreementRows, error: aErr },
+        { data: quoteRows, error: qErr },
+        { data: noteRows, error: nErr },
+    ] = await Promise.all([
+        supabase.from('pilgrimages')
+            .select('id,title,status,total_vacancies,current_vacancies,base_price,deposit_value,pricing_config,start_date,end_date')
+            .eq('id', pilgrimageId).single(),
+        supabase.from('bookings')
+            .select('id,status,total_amount,paid_amount,notes,created_at')
+            .eq('pilgrimage_id', pilgrimageId).neq('status', 'cancelled'),
+        supabase.from('pilgrimage_seats')
+            .select('id,kind,full_name,role,room_type,amount_due,hold_until,hold_reason,notes')
+            .eq('pilgrimage_id', pilgrimageId).order('display_order'),
+        supabase.from('pilgrimage_hotel_stays')
+            .select('*').eq('pilgrimage_id', pilgrimageId).order('check_in').order('display_order'),
+        supabase.from('pilgrimage_costs')
+            .select('*').eq('pilgrimage_id', pilgrimageId).order('kind').order('display_order'),
+        supabase.from('pilgrimage_rooms')
+            .select('id,label,room_type,capacity,notes,display_order,pilgrimage_room_members(pilgrim_id,seat_id,position)')
+            .eq('pilgrimage_id', pilgrimageId).order('display_order'),
+        // Acordos da Contabilidade. Antes da migração dos acordos a tabela não
+        // existe: a logística continua a funcionar só com a fórmula.
+        supabase.from('supplier_agreements')
+            .select('id,hotel_stay_id,supplier,total_amount')
+            .eq('pilgrimage_id', pilgrimageId).eq('status', 'open').not('hotel_stay_id', 'is', null),
+        supabase.from('pilgrimage_hotel_quotes')
+            .select('*').eq('pilgrimage_id', pilgrimageId).order('city').order('display_order'),
+        supabase.from('pilgrimage_collection_notes')
+            .select('pilgrim_id,seat_id,note').eq('pilgrimage_id', pilgrimageId),
+    ]);
     if (pErr) throw pErr;
-
-    const { data: bookings, error: bErr } = await supabase
-        .from('bookings')
-        .select('id,status,total_amount,paid_amount,notes,created_at')
-        .eq('pilgrimage_id', pilgrimageId)
-        .neq('status', 'cancelled');
     if (bErr) throw bErr;
+    if (sErr) throw sErr;
+    if (stErr) throw stErr;
+    if (cErr) throw cErr;
+    if (rErr) throw rErr;
+    if (aErr && !isMissingTable(aErr)) throw aErr;
+    if (qErr) throw qErr;
+    if (nErr) throw nErr;
 
     const bookingIds = (bookings || []).map((b: any) => b.id);
+    const agreementIds = (aErr ? [] : agreementRows || []).map((a: { id: string }) => a.id);
+    const stayIds = (stays || []).map((row: { id: string }) => row.id);
 
-    const { data: pilgrims, error: piErr } = bookingIds.length
-        ? await supabase
-            .from('pilgrims')
-            .select('id,booking_id,full_name,email,country,room_type,dietary_restrictions,allergies,notes')
-            .in('booking_id', bookingIds)
-        : { data: [], error: null };
+    // Linhas e prestações: antes da migração as tabelas não existem, e os
+    // hotéis continuam com a fórmula e sem plano.
+    const [
+        { data: pilgrims, error: piErr },
+        { data: payments, error: payErr },
+        { data: agreementDocs, error: adErr },
+        { data: lineRows, error: lErr },
+        { data: installmentRows, error: iErr },
+    ] = await Promise.all([
+        bookingIds.length
+            ? supabase.from('pilgrims')
+                .select('id,booking_id,full_name,email,country,room_type,dietary_restrictions,allergies,notes')
+                .in('booking_id', bookingIds)
+            : none,
+        bookingIds.length
+            ? supabase.from('pilgrimage_payments').select('booking_id,amount,status,deleted').in('booking_id', bookingIds)
+            : none,
+        agreementIds.length
+            ? supabase.from('expense_documents').select('agreement_id,doc_kind').in('agreement_id', agreementIds)
+            : none,
+        stayIds.length ? supabase.from('pilgrimage_hotel_lines').select('*').in('stay_id', stayIds).order('display_order') : none,
+        stayIds.length ? supabase.from('pilgrimage_hotel_installments').select('*').in('stay_id', stayIds).order('due_date') : none,
+    ]);
     if (piErr) throw piErr;
-
-    const { data: payments, error: payErr } = bookingIds.length
-        ? await supabase
-            .from('pilgrimage_payments')
-            .select('booking_id,amount,status,deleted')
-            .in('booking_id', bookingIds)
-        : { data: [], error: null };
     if (payErr) throw payErr;
+    if (adErr && !isMissingTable(adErr)) throw adErr;
+    if (lErr && !isMissingTable(lErr)) throw lErr;
+    if (iErr && !isMissingTable(iErr)) throw iErr;
 
-    const { data: seats, error: sErr } = await supabase
-        .from('pilgrimage_seats')
-        .select('id,kind,full_name,role,room_type,amount_due,hold_until,hold_reason,notes')
-        .eq('pilgrimage_id', pilgrimageId)
-        .order('display_order');
-    if (sErr) throw sErr;
+    const docKinds = new Map<string, Set<string>>();
+    for (const doc of (adErr ? [] : agreementDocs || []) as { agreement_id: string; doc_kind: string }[]) {
+        const set = docKinds.get(doc.agreement_id) || new Set<string>();
+        set.add(doc.doc_kind);
+        docKinds.set(doc.agreement_id, set);
+    }
 
-    const { data: stays, error: stErr } = await supabase
-        .from('pilgrimage_hotel_stays')
-        .select('*')
-        .eq('pilgrimage_id', pilgrimageId)
-        .order('check_in')
-        .order('display_order');
-    if (stErr) throw stErr;
-
-    const { data: costRows, error: cErr } = await supabase
-        .from('pilgrimage_costs')
-        .select('*')
-        .eq('pilgrimage_id', pilgrimageId)
-        .order('kind')
-        .order('display_order');
-    if (cErr) throw cErr;
-
-    const { data: roomRows, error: rErr } = await supabase
-        .from('pilgrimage_rooms')
-        .select('id,label,room_type,capacity,notes,display_order,pilgrimage_room_members(pilgrim_id,seat_id,position)')
-        .eq('pilgrimage_id', pilgrimageId)
-        .order('display_order');
-    if (rErr) throw rErr;
-
-    // Acordos da Contabilidade. Antes da migração dos acordos a tabela não
-    // existe: a logística continua a funcionar só com a fórmula.
-    const { data: agreementRows, error: aErr } = await supabase
-        .from('supplier_agreements')
-        .select('id,hotel_stay_id,supplier,total_amount')
-        .eq('pilgrimage_id', pilgrimageId)
-        .eq('status', 'open')
-        .not('hotel_stay_id', 'is', null);
-    if (aErr && !isMissingTable(aErr)) throw aErr;
-
-    const { data: quoteRows, error: qErr } = await supabase
-        .from('pilgrimage_hotel_quotes')
-        .select('*')
-        .eq('pilgrimage_id', pilgrimageId)
-        .order('city')
-        .order('display_order');
-    if (qErr) throw qErr;
-
-    const { data: noteRows, error: nErr } = await supabase
-        .from('pilgrimage_collection_notes')
-        .select('pilgrim_id,seat_id,note')
-        .eq('pilgrimage_id', pilgrimageId);
-    if (nErr) throw nErr;
+    const linesByStay = new Map<string, HotelLine[]>();
+    for (const row of (lErr ? [] : lineRows || []) as Record<string, unknown>[]) {
+        const list = linesByStay.get(String(row.stay_id)) || [];
+        list.push({
+            id: String(row.id),
+            kind: (['room', 'supplement', 'discount', 'tax', 'other'].includes(String(row.kind)) ? row.kind : 'other') as HotelLine['kind'],
+            label: String(row.label || ''),
+            qty: num(row.qty),
+            nights: num(row.nights),
+            unitPrice: num(row.unit_price),
+            payOnSite: !!row.pay_on_site,
+            notes: (row.notes as string) || null,
+        });
+        linesByStay.set(String(row.stay_id), list);
+    }
+    const installmentsByStay = new Map<string, HotelInstallment[]>();
+    for (const row of (iErr ? [] : installmentRows || []) as Record<string, unknown>[]) {
+        const list = installmentsByStay.get(String(row.stay_id)) || [];
+        list.push({
+            id: String(row.id),
+            label: String(row.label || ''),
+            dueDate: String(row.due_date),
+            amount: num(row.amount),
+            notes: (row.notes as string) || null,
+        });
+        installmentsByStay.set(String(row.stay_id), list);
+    }
 
     // --- Pagamentos por reserva -------------------------------------------
     const verifiedBy = new Map<string, number>();
@@ -446,12 +514,18 @@ export async function getPilgrimageAccounts(
     const agreementByStay = new Map<string, StayAgreement>(
         ((aErr ? [] : agreementRows || []) as { id: string; hotel_stay_id: string; supplier: string | null; total_amount: number | string }[]).map(a => [
             String(a.hotel_stay_id),
-            { id: a.id, supplier: a.supplier || '', total: num(a.total_amount) },
+            {
+                id: a.id, supplier: a.supplier || '', total: num(a.total_amount),
+                hasProforma: !!docKinds.get(a.id)?.has('proforma'),
+                hasFinalInvoice: !!(docKinds.get(a.id)?.has('fatura') || docKinds.get(a.id)?.has('recibo')),
+            },
         ]),
     );
     const mappedStays = (stays || []).map(mapStay).map((stay: HotelStayRow) => ({
         ...stay,
         agreement: agreementByStay.get(stay.id) ?? null,
+        lines: linesByStay.get(stay.id) ?? [],
+        installments: installmentsByStay.get(stay.id) ?? [],
     }));
     const costs: CostRow[] = (costRows || []).map((c: any) => ({
         id: c.id,
@@ -498,6 +572,8 @@ export async function getPilgrimageAccounts(
             basePrice: num(pilgrimage.base_price),
             depositValue: num(pilgrimage.deposit_value),
             singleSupplement: num(config?.room_supplements?.single),
+            startDate: pilgrimage.start_date || null,
+            endDate: pilgrimage.end_date || null,
         },
         people,
         revenue: {
