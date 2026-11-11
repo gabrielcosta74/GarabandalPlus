@@ -6,15 +6,18 @@ vi.mock('../lib/ledger/server', () => ({
   requireAdmin: async () => ({ ok: true, email: 'admin@example.com', userId: '33333333-3333-4333-8333-333333333333' }),
 }));
 vi.mock('../lib/ledger/invoice-assessment', () => ({ assessInvoice: mocks.assess }));
-vi.mock('../lib/ledger/aliases', () => ({ learnCounterparty: async () => undefined, forgetConfirmation: async () => undefined }));
-vi.mock('../lib/ledger/factpt-mirror', () => ({ findMirrorAmount: async () => null }));
-vi.mock('../lib/ledger/finish-confirmed', () => ({ closeWhenInvoiced: async () => undefined, closeInvoicedMovements: async () => ({ closed: 0 }) }));
 vi.mock('../lib/admin-audit', () => ({ logAdminAudit: mocks.audit }));
+vi.mock('../lib/ledger/aliases', () => ({ learnCounterparty: vi.fn().mockResolvedValue(undefined) }));
+vi.mock('../lib/ledger/finish-confirmed', () => ({
+  closeWhenInvoiced: vi.fn().mockResolvedValue(undefined),
+  closeInvoicedMovements: vi.fn().mockResolvedValue(undefined),
+}));
 
 import { POST } from '../app/api/admin/contabilidade/movimentos/[id]/peregrinacao/route';
 
 const id = '11111111-1111-4111-8111-111111111111';
 const bookingId = '22222222-2222-4222-8222-222222222222';
+const paymentId = '55555555-5555-4555-8555-555555555555';
 const context = { params: Promise.resolve({ id }) };
 const request = (body: unknown) => new Request(`http://localhost/api/admin/contabilidade/movimentos/${id}/peregrinacao`, {
   method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
@@ -50,6 +53,49 @@ describe('register a pilgrimage bank transfer', () => {
     const response = await POST(request({ bookingId }), context);
     expect(response.status).toBe(409);
     expect(mocks.rpc).not.toHaveBeenCalled();
+  });
+
+  it('allows the admin to choose one of several equal pending instalments when no FR is a candidate', async () => {
+    mocks.assess.mockResolvedValue({ issued: null, pending: null, ambiguous: true,
+      manualPendingPaymentIds: [paymentId], nearbyIssuedCount: 0 });
+    const response = await POST(request({ bookingId, paymentId }), context);
+    expect(response.status).toBe(200);
+    expect(mocks.rpc).toHaveBeenCalledWith('ledger_register_pilgrimage_transfer',
+      expect.objectContaining({ p_payment_id: paymentId }));
+  });
+
+  it('links a paid instalment with its existing FR without registering a new payment', async () => {
+    mocks.from.mockImplementation((table: string) => ({
+      select() { return this; }, eq() { return this; },
+      async maybeSingle() {
+        return { data: table === 'bank_transactions'
+          ? { id, amount: 50, booking_date: '2026-10-18', counterparty_name: 'Maria Costa', status: 'suggested' }
+          : table === 'pilgrimage_payments' ? { booking_id: bookingId, status: 'verified' }
+            : table === 'bank_transaction_links' ? null
+              : { auto_enabled: false }, error: null };
+      },
+    }));
+    mocks.assess.mockResolvedValue({ issued: { sourceId: paymentId }, pending: null, ambiguous: false, nearbyIssuedCount: 1 });
+    const response = await POST(request({ bookingId, paymentId }), context);
+    expect(response.status).toBe(200);
+    expect((await response.json()).linkedExisting).toBe(true);
+    expect(mocks.rpc).toHaveBeenCalledWith('ledger_register_pilgrimage_transfer',
+      expect.objectContaining({ p_payment_id: paymentId }));
+  });
+
+  it('still rejects creating a new payment when equal pending instalments are ambiguous', async () => {
+    mocks.assess.mockResolvedValue({ issued: null, pending: null, ambiguous: true,
+      manualPendingPaymentIds: [paymentId], nearbyIssuedCount: 0 });
+    const response = await POST(request({ bookingId }), context);
+    expect(response.status).toBe(409);
+    expect(mocks.rpc).not.toHaveBeenCalled();
+  });
+
+  it('explains when the database function has not been installed', async () => {
+    mocks.rpc.mockResolvedValue({ data: null, error: { code: 'PGRST202', message: 'function not found' } });
+    const response = await POST(request({ bookingId }), context);
+    expect(response.status).toBe(409);
+    expect((await response.json()).error).toMatch(/ainda não está ativa/);
   });
 
   it('treats a retry for the same reservation as success without creating another payment', async () => {

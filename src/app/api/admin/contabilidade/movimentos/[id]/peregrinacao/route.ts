@@ -67,7 +67,8 @@ export async function POST(req: Request, context: { params: Promise<{ id: string
 
   const assessment = await assessInvoice(movement, 'peregrinacao');
   const issuedForOther = !!assessment.issued && assessment.issued.sourceId !== body.paymentId;
-  if (linkingExisting ? issuedForOther || assessment.ambiguous : (assessment.issued || assessment.ambiguous
+  const chosenAmbiguousPayment = !!body.paymentId && !!assessment.manualPendingPaymentIds?.includes(body.paymentId);
+  if (linkingExisting ? issuedForOther || assessment.ambiguous : (assessment.issued || assessment.ambiguous && !chosenAmbiguousPayment
       || assessment.pending?.type === 'factpt_document'
       || assessment.pending && assessment.pending.id !== body.paymentId)) {
     return Response.json({ error: 'Há um pagamento ou uma FR possível para esta transferência. Reveja a associação antes de criar ou verificar outro pagamento.' }, { status: 409 });
@@ -86,8 +87,10 @@ export async function POST(req: Request, context: { params: Promise<{ id: string
   if (error) {
     const message = error.code === '23505'
       ? 'Este pagamento já está ligado a outro movimento do banco.'
-      : error.message;
-    return Response.json({ error: message }, { status: error.code === 'P0001' || error.code === '23505' ? 409 : 500 });
+      : error.code === 'PGRST202'
+        ? 'A associação de transferências a reservas ainda não está ativa na base de dados. Contacte a equipa técnica.'
+        : error.message;
+    return Response.json({ error: message }, { status: error.code === 'P0001' || error.code === '23505' || error.code === 'PGRST202' ? 409 : 500 });
   }
   try {
     await logAdminAudit({ adminEmail: admin.email, action: 'ledger.register_pilgrimage_transfer', details: { bank_transaction_id: id, booking_id: body.bookingId, payment_id: paymentId } });

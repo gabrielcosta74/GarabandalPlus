@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { LoaderCircle } from 'lucide-react';
 import { formatEur } from '../../../lib/ledger/format';
 import { normalizeForMatch } from '../../../lib/ledger/classify';
@@ -11,14 +11,15 @@ type Suggestion = {
   pilgrimageId: string; pilgrimageTitle: string; bookingId: string; holderName: string | null; pilgrims: string[];
   paymentId: string | null; paymentStatus: string | null; confidence: 'certain' | 'likely' | 'possible'; reason: string;
 };
-type Payment = { id: string; amount: number; method: string; status: string; createdAt: string; deleted: boolean; billingName: string | null };
+type Payment = { id: string; amount: number; method: string; status: string; createdAt: string; deleted: boolean; billingName: string | null; linkedToBankMovement: boolean };
 type Booking = {
   id: string; status: string; holderName: string | null; totalAmount: number; paidAmount: number;
   pilgrims: { id: string; full_name: string }[]; payments: Payment[];
 };
 
-export default function PilgrimageTransferField({ movementId, amount, disabled, nearbyIssuedCount, onRegistered }: {
-  movementId: string; amount: number; disabled: boolean; nearbyIssuedCount: number;
+export default function PilgrimageTransferField({ movementId, amount, disabled, blockedReason, expectedPaymentId, manualPendingPaymentIds, nearbyIssuedCount, onRegistered }: {
+  movementId: string; amount: number; disabled: boolean; blockedReason: string | null;
+  expectedPaymentId: string | null; manualPendingPaymentIds: string[]; nearbyIssuedCount: number;
   onRegistered: () => void;
 }) {
   const [pilgrimages, setPilgrimages] = useState<Pilgrimage[]>([]);
@@ -33,7 +34,7 @@ export default function PilgrimageTransferField({ movementId, amount, disabled, 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
-  const [pick, setPick] = useState<Suggestion | null>(null);
+  const pickRef = useRef<Suggestion | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -62,21 +63,22 @@ export default function PilgrimageTransferField({ movementId, amount, disabled, 
     let active = true;
     setLoading(true);
     setError(null);
-    void adminFetch(`/api/admin/contabilidade/peregrinacoes?pilgrimageId=${encodeURIComponent(pilgrimageId)}`)
+    void adminFetch(`/api/admin/contabilidade/peregrinacoes?pilgrimageId=${encodeURIComponent(pilgrimageId)}&amount=${encodeURIComponent(amount)}`)
       .then(body => {
         if (!active) return;
         setBookings(body.bookings || []);
         // A suggestion was clicked: select its booking and payment once loaded.
+        const pick = pickRef.current;
         if (pick && pick.pilgrimageId === pilgrimageId) {
           setBookingId(pick.bookingId);
           setPaymentId(pick.paymentId || 'new');
-          setPick(null);
+          pickRef.current = null;
         }
       })
       .catch(cause => { if (active) setError(cause instanceof Error ? cause.message : 'Falha ao carregar reservas.'); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, [pilgrimageId]);
+  }, [pilgrimageId, amount]);
 
   const visiblePilgrimages = useMemo(() => pilgrimages.filter(item =>
     normalizeForMatch(item.title).includes(normalizeForMatch(pilgrimageSearch)),
@@ -89,17 +91,24 @@ export default function PilgrimageTransferField({ movementId, amount, disabled, 
   const sameAmount = (booking?.payments || []).filter(payment =>
     !payment.deleted && payment.method === 'bank_transfer' && Math.round(payment.amount * 100) === Math.round(amount * 100),
   );
-  const pending = sameAmount.filter(payment => ['pending', 'pending_verification', 'verifying'].includes(payment.status));
+  const unlinked = sameAmount.filter(payment => !payment.linkedToBankMovement);
+  const pending = unlinked.filter(payment => ['pending', 'pending_verification', 'verifying'].includes(payment.status));
   // Registered on the pilgrimage page already (FR issued there): only link it.
-  const registered = sameAmount.filter(payment => ['verified', 'manual', 'succeeded', 'paid'].includes(payment.status));
+  const registered = unlinked.filter(payment => ['verified', 'manual', 'succeeded', 'paid'].includes(payment.status));
+  const linkedEarlier = sameAmount.filter(payment => payment.linkedToBankMovement);
+  const unlinkedOther = unlinked.filter(payment => !pending.includes(payment) && !registered.includes(payment));
   const selectedRegistered = registered.find(payment => payment.id === paymentId);
   const selectedPending = pending.find(payment => payment.id === paymentId);
   const fiscalName = selectedPending?.billingName || booking?.holderName;
-  const canLink = !!booking && !!selectedRegistered && !disabled && !saving;
-  const canRegister = canLink || (!!booking && booking.status !== 'canceled'
+  const chosenExpectedPayment = !expectedPaymentId || paymentId === expectedPaymentId;
+  const chosenAmbiguousPayment = !manualPendingPaymentIds.length || manualPendingPaymentIds.includes(paymentId);
+  const activeBooking = !!booking && !['canceled', 'cancelled'].includes(booking.status.toLowerCase());
+  const canLink = activeBooking && !!selectedRegistered && chosenExpectedPayment && chosenAmbiguousPayment && !disabled && !saving;
+  const canRegister = canLink || (activeBooking
     && !!fiscalName
     && (booking.totalAmount <= 0 || booking.paidAmount + amount <= booking.totalAmount + 0.01)
-    && (paymentId === 'new' ? sameAmount.length === 0 : pending.some(payment => payment.id === paymentId))
+    && (paymentId === 'new' ? unlinked.length === 0 : pending.some(payment => payment.id === paymentId))
+    && chosenExpectedPayment && chosenAmbiguousPayment
     && (!nearbyIssuedCount || acknowledgeNearby) && !disabled && !saving);
 
   const register = async () => {
@@ -123,12 +132,12 @@ export default function PilgrimageTransferField({ movementId, amount, disabled, 
 
   return (
     <div className="space-y-3 rounded-2xl bg-zinc-50 p-4 text-sm text-zinc-700">
-      <p className="font-semibold text-zinc-900">Associar à reserva</p>
+      <p className="font-semibold text-zinc-900">1. Encontre a reserva</p>
       {suggestions.length > 0 && <div className="space-y-2">
         <p className="text-xs font-medium text-zinc-500">Sugestões</p>
         {suggestions.map(item => (
           <button key={`${item.bookingId}-${item.paymentId || 'new'}`} type="button" disabled={disabled}
-            onClick={() => { setPick(item); setPilgrimageSearch(''); setSearch(''); setPilgrimageId(item.pilgrimageId); if (item.pilgrimageId === pilgrimageId) { setBookingId(item.bookingId); setPaymentId(item.paymentId || 'new'); } }}
+            onClick={() => { pickRef.current = item; setPilgrimageSearch(''); setSearch(''); setPilgrimageId(item.pilgrimageId); if (item.pilgrimageId === pilgrimageId) { setBookingId(item.bookingId); setPaymentId(item.paymentId || 'new'); pickRef.current = null; } }}
             className="flex w-full cursor-pointer flex-col items-start gap-0.5 rounded-xl bg-white p-3 text-left ring-1 ring-zinc-200 transition-all duration-200 hover:ring-emerald-300 hover:shadow-sm active:scale-[0.99]">
             <span className="flex w-full items-center justify-between gap-2">
               <span className="font-medium text-zinc-900">{item.holderName || item.pilgrims[0] || 'Reserva'}</span>
@@ -144,7 +153,7 @@ export default function PilgrimageTransferField({ movementId, amount, disabled, 
         ))}
         <p className="pt-1 text-xs text-zinc-400">Ou procure manualmente:</p>
       </div>}
-      <p className="text-xs leading-relaxed text-zinc-500">Escolha a peregrinação e a reserva. A FR fica em nome do titular fiscal da reserva; o pagador no banco pode ser outra pessoa.</p>
+      <p className="text-xs leading-relaxed text-zinc-500">Pesquise a peregrinação e depois o titular ou um peregrino. O nome no extrato pode ser diferente do titular fiscal.</p>
       <input value={pilgrimageSearch} onChange={event => { setPilgrimageSearch(event.target.value); setPilgrimageId(''); }}
         placeholder="Procurar peregrinação" className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-emerald-500/30" />
       <select value={pilgrimageId} onChange={event => setPilgrimageId(event.target.value)} disabled={disabled || loading}
@@ -152,35 +161,43 @@ export default function PilgrimageTransferField({ movementId, amount, disabled, 
         <option value="">Escolher peregrinação</option>
         {visiblePilgrimages.map(item => <option key={item.id} value={item.id}>{item.title}{item.start_date ? ` · ${item.start_date.slice(0, 10)}` : ''}</option>)}
       </select>
+      {!loading && pilgrimageSearch && visiblePilgrimages.length === 0 && <p className="text-xs text-orange-700">Nenhuma peregrinação encontrada. Experimente outro termo.</p>}
       {pilgrimageId && <>
         <input value={search} onChange={event => { setSearch(event.target.value); setBookingId(''); setPaymentId(''); }} placeholder="Procurar titular ou peregrino"
           className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-emerald-500/30" />
         <select value={bookingId} onChange={event => { setBookingId(event.target.value); setPaymentId(''); }} disabled={disabled || loading}
           className="w-full cursor-pointer rounded-xl border border-zinc-200 bg-white px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-emerald-500/30">
           <option value="">Escolher reserva ({visible.length})</option>
-          {visible.map(row => <option key={row.id} value={row.id}>{row.holderName || row.pilgrims[0]?.full_name || 'Sem nome'} · {row.pilgrims.map(person => person.full_name).join(', ') || row.id.slice(0, 8)}</option>)}
+          {visible.map(row => <option key={row.id} value={row.id}>{row.holderName || row.pilgrims[0]?.full_name || 'Sem nome'} · {row.pilgrims.map(person => person.full_name).join(', ') || 'sem peregrinos'} · reserva {row.id.slice(0, 8)}</option>)}
         </select>
+        {!loading && search && visible.length === 0 && <p className="text-xs text-orange-700">Nenhuma reserva encontrada nesta peregrinação. Experimente o nome de outro peregrino.</p>}
       </>}
       {booking && <div className="space-y-2 rounded-xl border border-zinc-200 bg-white p-3">
+        <p className="font-semibold text-zinc-900">2. Escolha o pagamento desta transferência</p>
         <p><strong>Titular fiscal da FR:</strong> {fiscalName || 'Falta nome no perfil da reserva'}</p>
         {!fiscalName && <p className="text-xs text-orange-700">Complete a identificação fiscal do titular na reserva antes de criar o pagamento.</p>}
         <p><strong>Peregrinos:</strong> {booking.pilgrims.map(person => person.full_name).join(', ') || '—'}</p>
         <p><strong>Pago:</strong> {formatEur(booking.paidAmount)} de {formatEur(booking.totalAmount)}</p>
+        <p><strong>Movimento bancário:</strong> {formatEur(amount)}</p>
         <p className="text-xs text-zinc-500">Escolha o pagamento que esta transferência liquida. A opção de criar novo exige uma escolha explícita.</p>
         {booking.totalAmount > 0 && booking.paidAmount + amount > booking.totalAmount + 0.01 &&
           <p className="text-xs text-orange-700">Este movimento excede o saldo da reserva. Reveja o valor antes de faturar.</p>}
         {registered.map(payment => <label key={payment.id} className="flex cursor-pointer items-start gap-2 rounded-lg bg-emerald-50 p-2.5 text-emerald-800">
-          <input type="radio" name={`payment-${movementId}`} checked={paymentId === payment.id} onChange={() => setPaymentId(payment.id)} />
+          <input type="radio" name={`payment-${movementId}`} checked={paymentId === payment.id} onChange={() => setPaymentId(payment.id)} disabled={disabled || !!expectedPaymentId && expectedPaymentId !== payment.id || manualPendingPaymentIds.length > 0} />
           <span>Associar ao pagamento já registado de {formatEur(payment.amount)} · {payment.createdAt.slice(0, 10)} <span className="text-emerald-700/80">(FR emitida pela página da peregrinação; não cria nada novo)</span></span>
         </label>)}
         {pending.map(payment => <label key={payment.id} className="flex cursor-pointer items-start gap-2 rounded-lg bg-blue-50 p-2.5 text-blue-800">
-          <input type="radio" name={`payment-${movementId}`} checked={paymentId === payment.id} onChange={() => setPaymentId(payment.id)} />
-          <span>Verificar pagamento pendente de {formatEur(payment.amount)} · {payment.createdAt.slice(0, 10)}</span>
+          <input type="radio" name={`payment-${movementId}`} checked={paymentId === payment.id} onChange={() => setPaymentId(payment.id)} disabled={disabled || !!expectedPaymentId && expectedPaymentId !== payment.id || manualPendingPaymentIds.length > 0 && !manualPendingPaymentIds.includes(payment.id)} />
+          <span>Confirmar pagamento pendente de {formatEur(payment.amount)} · criado em {payment.createdAt.slice(0, 10)}{expectedPaymentId === payment.id ? ' · correspondência provável' : ''}</span>
         </label>)}
         <label className="flex cursor-pointer items-start gap-2 rounded-lg bg-zinc-50 p-2.5">
-          <input type="radio" name={`payment-${movementId}`} checked={paymentId === 'new'} onChange={() => setPaymentId('new')} disabled={sameAmount.length > 0} />
-          <span>Novo pagamento por transferência{sameAmount.length ? ' · já existe um pagamento igual nesta reserva' : ''}</span>
+          <input type="radio" name={`payment-${movementId}`} checked={paymentId === 'new'} onChange={() => setPaymentId('new')} disabled={disabled || unlinked.length > 0 || !!expectedPaymentId || manualPendingPaymentIds.length > 0} />
+          <span>Registar novo pagamento de {formatEur(amount)}</span>
         </label>
+        {linkedEarlier.length > 0 && <p className="text-xs text-zinc-500">{linkedEarlier.length} pagamento(s) do mesmo valor já associado(s) a outros movimentos. Pode registar uma nova prestação.</p>}
+        {unlinkedOther.length > 0 && <p className="text-xs text-orange-700">Há outro registo de pagamento deste valor ainda sem movimento bancário associado. Reveja esse registo antes de criar outro.</p>}
+        {expectedPaymentId && !unlinked.some(payment => payment.id === expectedPaymentId) && <p className="text-xs text-orange-700">Foi encontrado um pagamento provável noutra reserva. Confirme a reserva antes de avançar.</p>}
+        {manualPendingPaymentIds.length > 0 && <p className="text-xs text-blue-700">Há várias prestações pendentes semelhantes. Selecione a que corresponde a este movimento; a escolha será confirmada pelo ID do pagamento.</p>}
 
       </div>}
       {!!nearbyIssuedCount && <label className="flex cursor-pointer items-start gap-2 text-xs text-orange-800">
@@ -191,6 +208,7 @@ export default function PilgrimageTransferField({ movementId, amount, disabled, 
         </span>
       </label>}
       {error && <p className="text-sm text-rose-700">{error}</p>}
+      {blockedReason && <p className="text-sm text-orange-700">{blockedReason}</p>}
       <button type="button" disabled={!canRegister} onClick={() => void register()}
         className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50">
         {saving && <LoaderCircle className="h-4 w-4 animate-spin" />}

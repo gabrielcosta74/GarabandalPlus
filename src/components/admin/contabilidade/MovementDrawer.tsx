@@ -29,11 +29,12 @@ type Props = {
 };
 
 type InvoiceAssessment = {
-  issued: { number: string | null } | null;
+  issued: { number: string | null; sourceId: string } | null;
   pending: { type: 'donation' | 'pilgrimage_payment' | 'quota' | 'factpt_document'; id: string } | null;
   ambiguous: boolean;
   nearbyIssuedCount: number;
   linkedPaymentId?: string | null;
+  manualPendingPaymentIds?: string[];
 };
 
 /** The FR found by hand in FACT.pt, ready to confirm, when its series fits the category. */
@@ -212,6 +213,18 @@ export default function MovementDrawer({ movement, readOnlyReason, onClose, onCh
       && (!invoiceAssessment?.nearbyIssuedCount || !!invoiceAssessment.issued || acknowledgeNearby));
   const canApprove = open && !locked && !busy && !!category && invoiceReady && !issuingDonation
     && (category !== 'peregrinacao' || pilgrimageMode === 'issued');
+  const manualPendingAllowed = !!invoiceAssessment?.manualPendingPaymentIds?.length;
+  const transferBlocked = locked || busy || checkingInvoice || !!invoiceCheckError
+    || !!invoiceAssessment?.ambiguous && !manualPendingAllowed
+    || invoiceAssessment?.pending?.type === 'factpt_document'
+    || invoiceAssessment?.pending?.type === 'donation'
+    || invoiceAssessment?.pending?.type === 'quota';
+  const transferBlockReason = checkingInvoice ? 'A verificar pagamentos e faturas-recibo da app…'
+    : invoiceCheckError ? `Não foi possível verificar as faturas-recibo: ${invoiceCheckError}`
+      : invoiceAssessment?.pending?.type === 'factpt_document' ? 'A FR já está em processamento. Resolva-a em Faturação antes de avançar.'
+        : invoiceAssessment?.ambiguous && !manualPendingAllowed ? 'Há vários pagamentos ou documentos possíveis. Reveja-os antes de criar uma FR.'
+          : invoiceAssessment?.pending?.type === 'donation' || invoiceAssessment?.pending?.type === 'quota'
+            ? 'Há outro pagamento pendente provável para este movimento. Reveja-o antes de avançar.' : null;
   const visual = visualFor(category || null);
   const Icon = visual.icon;
 
@@ -390,7 +403,10 @@ export default function MovementDrawer({ movement, readOnlyReason, onClose, onCh
                         ? <p className="rounded-xl bg-blue-50 p-4 text-sm text-blue-800">Pagamento associado à reserva. {invoiceAssessment.ambiguous ? 'O valor do documento não coincide com o movimento. Reveja-o em Faturação antes de fechar.' : invoiceAssessment.issued ? 'A FR já foi emitida; escolha «FR já emitida» para fechar o movimento.' : <>A FR está a ser processada em <Link href="/admin/faturacao" className="font-semibold underline">Faturação</Link>. Este movimento não criará outro pagamento.</>}</p>
                         : onLocalChange
                         ? <p className="rounded-xl bg-zinc-50 p-4 text-sm text-zinc-600">A associação à reserva e a emissão da FR ficam disponíveis depois de os movimentos serem guardados na base de dados.</p>
-                        : <PilgrimageTransferField movementId={view.id} amount={view.amount} disabled={locked || busy || checkingInvoice || !!invoiceCheckError || !!invoiceAssessment?.issued || !!invoiceAssessment?.ambiguous || invoiceAssessment?.pending?.type === 'factpt_document'} nearbyIssuedCount={invoiceAssessment?.nearbyIssuedCount || 0}
+                        : <PilgrimageTransferField movementId={view.id} amount={view.amount} disabled={transferBlocked} blockedReason={transferBlockReason}
+                            expectedPaymentId={invoiceAssessment?.issued?.sourceId || invoiceAssessment?.pending?.type === 'pilgrimage_payment' && invoiceAssessment.pending.id || null}
+                            manualPendingPaymentIds={invoiceAssessment?.manualPendingPaymentIds || []}
+                            nearbyIssuedCount={invoiceAssessment?.nearbyIssuedCount || 0}
                             onRegistered={() => { onChanged(); onClose(); toast({ title: 'Movimento associado à reserva', description: 'A fatura-recibo fica ligada a este movimento.' }); }} />)}
                     </div>}
 

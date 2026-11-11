@@ -16,6 +16,7 @@ export type InvoiceAssessment = {
   ambiguous: boolean;
   nearbyIssuedCount: number;
   linkedPaymentId?: string | null;
+  manualPendingPaymentIds?: string[];
 };
 
 const LINKED_SOURCES: Record<string, { linkType: 'pilgrimage_payment' | 'donation'; table: string } | undefined> = {
@@ -70,9 +71,31 @@ export async function assessInvoice(movement: Movement, category: string): Promi
     .lt('payment_confirmed_at', to);
   if (documentError) throw documentError;
 
+  // A document already reconciled with another bank movement is not a
+  // candidate for this movement, even when amount, date and payer match.
+  const takenDocumentIds = new Set<string>();
+  if ((documents || []).length) {
+    const possibleIds = [...new Set((documents || []).flatMap(document => [document.id, document.source_id]).filter(Boolean))];
+    const batches = Array.from({ length: Math.ceil(possibleIds.length / 100) }, (_, index) =>
+      possibleIds.slice(index * 100, (index + 1) * 100));
+    const results = await Promise.all(batches.map(batch => db().from('bank_transaction_links')
+      .select('target_type, target_id').in('target_id', batch).neq('bank_transaction_id', movement.id)));
+    const linkError = results.find(result => result.error)?.error;
+    if (linkError) throw linkError;
+    for (const link of results.flatMap(result => result.data || [])) {
+      for (const document of documents || []) {
+        if (link.target_type === 'factpt_document' && link.target_id === document.id
+            || (link.target_type === 'donation' || link.target_type === 'pilgrimage_payment')
+              && link.target_id === document.source_id) {
+          takenDocumentIds.add(document.id);
+        }
+      }
+    }
+  }
+
   const sourceType = category === 'doacao' ? 'donation' : category === 'peregrinacao' ? 'pilgrimage' : category === 'quota' ? 'quota' : 'store';
   const candidates: InvoiceCandidate[] = (documents || [])
-    .filter(row => row.source_type === sourceType)
+    .filter(row => row.source_type === sourceType && !takenDocumentIds.has(row.id))
     .map(row => ({
       id: row.id,
       number: row.factpt_number,
@@ -162,24 +185,7 @@ export async function assessInvoice(movement: Movement, category: string): Promi
     }
   }
 
-  // An FR already tied to another bank movement cannot be this one's: it must not
-  // ask the admin to rule it out.
   const nearbyDocs = (documents || []).filter(document => document.factpt_number && ['issued', 'email_failed'].includes(document.status));
-  const takenNearby = new Set<string>();
-  if (nearbyDocs.length) {
-    const { data: taken, error: takenError } = await db().from('bank_transaction_links')
-      .select('bank_transaction_id, target_type, target_id')
-      .or(`target_id.in.(${nearbyDocs.map(document => document.source_id).join(',')}),target_type.eq.factpt_document`)
-      .neq('bank_transaction_id', movement.id);
-    if (takenError) throw takenError;
-    for (const link of taken || []) {
-      if (link.target_type === 'factpt_document') takenNearby.add(String(link.target_id));
-      else if (link.target_type === 'donation' || link.target_type === 'pilgrimage_payment') {
-        const owner = nearbyDocs.find(document => document.source_id === link.target_id);
-        if (owner) takenNearby.add(owner.factpt_number);
-      }
-    }
-  }
 
   return {
     issued: issued.length === 1 && matched.length === 1 && pendingRows.length === 0 && !competingBankMovement ? issued[0] : null,
@@ -187,8 +193,11 @@ export async function assessInvoice(movement: Movement, category: string): Promi
       ? { type: 'factpt_document', id: queued[0].id }
       : pendingRows.length === 1 && matched.length === 0 ? pendingRows[0] : null,
     ambiguous: matched.length + pendingRows.length > 1 || competingBankMovement,
+    manualPendingPaymentIds: category === 'peregrinacao' && matched.length === 0
+      && pendingRows.length > 1 && pendingRows.every(row => row.type === 'pilgrimage_payment')
+      ? pendingRows.map(row => row.id) : [],
     nearbyIssuedCount: nearbyDocs.filter(document =>
-      !takenNearby.has(document.factpt_number)
+      !takenDocumentIds.has(document.id)
       && (category === 'doacao' || category === 'peregrinacao'
         ? ['donation', 'pilgrimage'].includes(document.source_type)
         : document.source_type === sourceType)
