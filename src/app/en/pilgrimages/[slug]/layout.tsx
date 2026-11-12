@@ -67,7 +67,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     const descriptionSource = data?.description_en || data?.description;
 
     const title = titleSource
-      ? `${titleSource} | Catholic Marian Pilgrimage 2026`
+      ? `${titleSource} | Catholic Marian Pilgrimage`
       : fallbackTitle;
     const description = truncateMetaDescription(descriptionSource, fallbackDescription, 158);
 
@@ -86,13 +86,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       description,
       keywords: [
         titleSource || 'Garabandal pilgrimage',
-        'Garabandal pilgrimage 2026',
+        'Garabandal pilgrimage',
         'Catholic Marian pilgrimage',
         'pilgrimage to Garabandal Spain',
         'Our Lady of Garabandal pilgrimage',
         'Garabandal Apostolate',
         'Marian pilgrimage Spain Portugal',
-        'Catholic pilgrimage Europe 2026',
+        'Catholic pilgrimage Europe',
         'organised Catholic pilgrimage',
         'Garabandal Cantabria Spain',
       ],
@@ -187,7 +187,7 @@ export default async function EnPilgrimageLayout({ children, params }: Props) {
       '@type': 'Audience',
       audienceType: 'Catholic pilgrims and devotees of Our Lady of Garabandal',
     },
-    keywords: 'Catholic Marian pilgrimage, Garabandal, Our Lady, Fatima, apostolate, pilgrimage 2026',
+    keywords: 'Catholic Marian pilgrimage, Garabandal, Our Lady, Fatima, apostolate',
     about: [
       'Our Lady of Garabandal',
       'Catholic Marian pilgrimages',

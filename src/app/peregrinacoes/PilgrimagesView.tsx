@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from 'react';
+import Link from 'next/link';
 import '../../components/pilgrimage/editorial/editorial.css';
 import { useLocale } from '../../contexts/LocaleContext';
 import { useAuth } from '../../contexts/AuthContext';
@@ -100,6 +101,20 @@ export default function PilgrimagesView({ initialPilgrimages, editorial }: { ini
                         withAnchor={!featured}
                     />
                 </>
+            )}
+
+            {isEn && (
+                <section aria-labelledby="pilgrimage-planning-heading" className="mx-auto max-w-6xl px-5 py-16 md:px-8 lg:px-12">
+                    <h2 id="pilgrimage-planning-heading" className="pe-title text-3xl">Planning a visit to Garabandal?</h2>
+                    <p className="mt-3 max-w-2xl leading-relaxed text-[var(--pe-muted)]">
+                        Explore practical information for your journey, including places to visit and where to stay near the village.
+                    </p>
+                    <nav aria-label="Garabandal visitor guides" className="mt-5 flex flex-wrap gap-x-6 gap-y-3 text-sm font-medium">
+                        <Link href="/en/l/planning-pilgrimage-garabandal" className="text-brand underline underline-offset-4">Plan a pilgrimage to Garabandal</Link>
+                        <Link href="/en/locais-a-visitar" className="text-brand underline underline-offset-4">Places to visit in Garabandal</Link>
+                        <Link href="/en/alojamento" className="text-brand underline underline-offset-4">Accommodation near Garabandal</Link>
+                    </nav>
+                </section>
             )}
 
             <TestimonialsMarquee testimonials={editorial.testimonials} isEn={isEn} title={p.testimonials} />
