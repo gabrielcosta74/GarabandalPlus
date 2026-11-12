@@ -74,7 +74,7 @@ export default async function MigratedPage({ params }: { params: Promise<Params>
     ]),
     // Person + FAQPage for the handful of pages that are entity hubs;
     // an empty array for every other slug.
-    ...entityJsonLd('page', 'pt', slug),
+    ...entityJsonLd('page', 'pt', slug, page.content_html),
   ];
 
   return (

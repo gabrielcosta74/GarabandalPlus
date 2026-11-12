@@ -10,9 +10,8 @@ import type { ContentLocale } from './queries';
  *
  * Keyed by slug because the slug is shared across locales in this CMS.
  *
- * Google requires FAQ structured data to mirror Q&A that is visible on the
- * page. Every question and answer below is written verbatim from the rendered
- * copy — if you edit one, edit the other.
+ * FAQ markup is emitted only while the CMS page still contains the matching
+ * question and answer. This fails closed when editorial copy changes.
  */
 
 type FaqItem = { q: string; a: string };
@@ -82,6 +81,30 @@ const ENTITIES: Record<string, EntityDefinition> = {
   },
 };
 
+function normalizeVisibleText(value: string): string {
+  return value
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&nbsp;|&#160;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&(?:apos|#39|#x27);/gi, "'")
+    .replace(/&(?:rsquo|lsquo|#8217|#8216);/gi, "'")
+    .replace(/[‘’]/g, "'")
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+// Be conservative: only accept a heading followed by its answer paragraph.
+// If the CMS uses a different structure, omit FAQ markup rather than publish
+// stale or unverifiable answers. Person markup remains available separately.
+function hasVisibleFaq(html: string | null | undefined, items: FaqItem[]): boolean {
+  if (!html) return false;
+  const pairs = [...html.matchAll(/<h[2-6]\b[^>]*>([\s\S]*?)<\/h[2-6]>\s*<p\b[^>]*>([\s\S]*?)<\/p>/gi)]
+    .map((match) => [normalizeVisibleText(match[1]), normalizeVisibleText(match[2])]);
+  return items.every(({ q, a }) => pairs.some(([heading, answer]) =>
+    heading === normalizeVisibleText(q) && answer === normalizeVisibleText(a),
+  ));
+}
+
 /**
  * Structured-data blocks to append to a content page's JSON-LD, or an empty
  * array when the slug is not an entity hub.
@@ -90,6 +113,7 @@ export function entityJsonLd(
   kind: 'page' | 'post',
   locale: ContentLocale,
   slug: string,
+  contentHtml?: string | null,
 ): object[] {
   if (kind !== 'page') return [];
   const entity = ENTITIES[slug];
@@ -111,7 +135,7 @@ export function entityJsonLd(
   }
 
   const faq = entity.faq?.[locale];
-  if (faq?.length) {
+  if (faq?.length && hasVisibleFaq(contentHtml, faq)) {
     blocks.push({
       '@context': 'https://schema.org',
       '@type': 'FAQPage',

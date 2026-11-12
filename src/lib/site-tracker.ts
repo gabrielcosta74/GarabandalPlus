@@ -1,6 +1,7 @@
 "use client";
 
 import { hasAnalyticsConsent } from './cookie-consent';
+import { getPublicLocaleFromPathname } from './locale-routing';
 
 /**
  * Tracking próprio (first-party) do site. Envia lotes para /api/m, que grava
@@ -159,8 +160,6 @@ const deviceType = () => {
   return 'desktop';
 };
 
-const localeFromPath = (path: string) => (path === '/en' || path.startsWith('/en/') ? 'en' : path.startsWith('/es') ? 'es' : 'pt');
-
 const cleanProps = (props: TrackProperties = {}) =>
   Object.fromEntries(
     Object.entries(props)
@@ -186,7 +185,7 @@ const flush = (useBeacon = false) => {
       id: getSessionId(),
       ...getSessionSource(),
       device: deviceType(),
-      locale: localeFromPath(path),
+      locale: getPublicLocaleFromPathname(path),
     },
     events,
   });
