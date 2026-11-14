@@ -68,27 +68,37 @@ export type FirstPrayerOutcome =
 
 const isEnglish = (locale: string | null) => (locale || '').toLowerCase().startsWith('en');
 
-function excerpt(text: string, max = 70) {
-    const clean = text.replace(/\s+/g, ' ').trim();
-    return clean.length > max ? `${clean.slice(0, max - 1).trimEnd()}…` : clean;
+/** Só o primeiro nome, para o título caber; sem nome usável, "Alguém". */
+export function firstName(value: string | null | undefined): string | null {
+    const cleaned = (value || '')
+        .replace(/[\u0000-\u001f\u007f-\u009f\u202a-\u202e\u2066-\u2069]/g, ' ')
+        .replace(/\s+/g, ' ').trim();
+    const first = cleaned.split(' ')[0] || '';
+    return first && Array.from(first).length <= 14 ? first : null;
 }
 
-function firstCopy(locale: string | null, text: string) {
+/**
+ * Título curto com quem rezou (a app já mostra esse nome no cartão do pedido);
+ * o corpo nunca cita o texto da intenção, que ficaria no ecrã bloqueado.
+ * A app fala português do Brasil ("você").
+ */
+export function firstCopy(locale: string | null, prayerName: string | null = null) {
+    const name = firstName(prayerName);
     return isEnglish(locale)
-        ? { title: 'Someone prayed for you', body: `A member of the community prayed for your intention: “${excerpt(text)}”` }
-        : { title: 'Alguém rezou por si', body: `Um membro da comunidade rezou pela sua intenção: “${excerpt(text)}”` };
+        ? { title: name ? `${name} prayed for you` : 'Someone prayed for you', body: 'For the intention you shared.' }
+        : { title: name ? `${name} rezou por você` : 'Alguém rezou por você', body: 'Pela intenção que você publicou.' };
 }
 
-function dailyCopy(locale: string | null, count: number) {
+export function dailyCopy(locale: string | null, count: number) {
     if (isEnglish(locale)) {
         return {
-            title: 'Prayers for your intention',
-            body: count === 1 ? '1 person prayed for your intention today.' : `${count} people prayed for your intention today.`,
+            title: count === 1 ? '1 person prayed for you' : `${count} people prayed for you`,
+            body: 'Today, for your intention. See who.',
         };
     }
     return {
-        title: 'Rezaram pela sua intenção',
-        body: count === 1 ? '1 pessoa rezou hoje pela sua intenção.' : `${count} pessoas rezaram hoje pela sua intenção.`,
+        title: count === 1 ? '1 pessoa rezou por você' : `${count} pessoas rezaram por você`,
+        body: 'Hoje, pela sua intenção. Veja quem foi.',
     };
 }
 
@@ -189,6 +199,22 @@ async function loadIntention(supabase: SupabaseClient, intentionId: string) {
     return (data as IntentionRow | null) ?? null;
 }
 
+/** Nome curto de quem rezou por último (sem ser o autor); null se não houver. */
+async function latestPrayerName(supabase: SupabaseClient, intention: IntentionRow): Promise<string | null> {
+    const { data } = await supabase
+        .from('novena_intention_prayers')
+        .select('user_id')
+        .eq('intention_id', intention.id)
+        .neq('user_id', intention.user_id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+    const prayerId = (data as { user_id?: string } | null)?.user_id;
+    if (!prayerId) return null;
+    const { data: name, error } = await supabase.rpc('person_short_name', { p_user: prayerId });
+    return error || typeof name !== 'string' ? null : name;
+}
+
 /** Orações de outros membros (a do proprio autor nunca conta). */
 async function prayersByOthers(supabase: SupabaseClient, intention: IntentionRow, since?: string | null) {
     let query = supabase
@@ -223,7 +249,7 @@ export async function notifyFirstPrayer(
         supabase,
         recordId,
         devices,
-        firstCopy(device?.locale ?? null, intention.intention),
+        firstCopy(device?.locale ?? null, await latestPrayerName(supabase, intention).catch(() => null)),
         '/pray/intentions/mine',
         'intention-first-prayer',
     );

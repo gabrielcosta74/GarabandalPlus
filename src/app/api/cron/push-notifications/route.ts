@@ -32,6 +32,7 @@ import { supabaseServer } from '../../../../lib/supabase';
 import { localHourFor, sendExpoPush, type ExpoPushMessage } from '../../../../lib/expo-push';
 import { processIntentionNotifications } from '../../../../lib/intention-notifications';
 import { processCommunityPush } from '../../../../lib/community-push';
+import { reactivationCopy, requestsSince, REQUESTS_WINDOW_DAYS, usesRequestsCount, type RequestRow } from '../../../../lib/reactivation-copy';
 import {
     getReactivationAutomation,
     processScheduledPushCampaigns,
@@ -165,6 +166,20 @@ export async function GET(request: Request) {
         (recentPushes || []).map((row: { user_id: string }) => row.user_id),
     );
 
+    // Os pedidos de oração do mural, uma só consulta, só se o texto os usa.
+    let requests: RequestRow[] | null = null;
+    if (usesRequestsCount({ title: automation.title_pt, body: automation.body_pt })
+        || usesRequestsCount({ title: automation.title_en, body: automation.body_en })) {
+        const { data: requestRows, error: requestsError } = await supabaseServer
+            .from('novena_intentions')
+            .select('user_id, created_at')
+            .eq('visibility', 'community')
+            .eq('is_hidden', false)
+            .gte('created_at', daysAgo(REQUESTS_WINDOW_DAYS).toISOString());
+        // Sem a contagem, o texto cai na versão sem número; não trava o envio.
+        requests = requestsError ? null : ((requestRows || []) as RequestRow[]);
+    }
+
     for (const [userId, userDevices] of byUser) {
         if (activeRecently.has(userId)) {
             // Abriu uma oracao ou uma novena; `last_seen_at` e que ficou para tras.
@@ -186,9 +201,13 @@ export async function GET(request: Request) {
         if (hour !== automation.send_hour_local) continue;
 
         const english = localeOf(newest.locale) === 'en';
-        const copy = english
-            ? { title: automation.title_en, body: automation.body_en }
-            : { title: automation.title_pt, body: automation.body_pt };
+        const copy = reactivationCopy(
+            english
+                ? { title: automation.title_en, body: automation.body_en }
+                : { title: automation.title_pt, body: automation.body_pt },
+            english,
+            requests ? requestsSince(requests, userId, newest.last_seen_at, now) : null,
+        );
         const tokens = [
             ...new Set(
                 userDevices
