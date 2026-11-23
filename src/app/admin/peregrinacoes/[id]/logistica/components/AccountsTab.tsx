@@ -307,7 +307,7 @@ export default function AccountsTab({
                                             kind="Hotel"
                                             color={dataBlue(expenses.findIndex(e => e.label === 'Hotéis'))}
                                             name={`${stay.hotel || 'Sem nome'} · ${stay.city}`}
-                                            note={`${c.nights}n · ${c.pax} pax`}
+                                            note={`${c.nights}n · ${c.pax} pax${c.fromProforma ? ' · proforma' : ''}`}
                                             total={c.total}
                                             paid={stay.paidAmount}
                                         />

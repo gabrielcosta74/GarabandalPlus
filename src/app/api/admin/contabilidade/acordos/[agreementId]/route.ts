@@ -1,8 +1,65 @@
+import { logAdminAudit } from '../../../../../../lib/admin-audit';
 import { listAgreements } from '../../../../../../lib/ledger/agreements';
 import { db, requireAdmin } from '../../../../../../lib/ledger/server';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
+
+const UUID = /^[0-9a-f-]{36}$/i;
+
+/** Text from the admin's own number input: accepts "13.000,50" and "13000.50". */
+const amountOf = (value: unknown) => {
+  if (typeof value === 'number') return value;
+  const text = String(value ?? '').trim();
+  if (!text) return NaN;
+  return Number(text.includes(',') ? text.replace(/\./g, '').replace(',', '.') : text);
+};
+
+/**
+ * Corrects an agreement: supplier, total, what was paid outside the bank and the
+ * logistics line. The database refuses a total below what was already paid.
+ */
+export async function PATCH(req: Request, context: { params: Promise<{ agreementId: string }> }) {
+  const admin = await requireAdmin(req);
+  if (!admin.ok) return admin.response;
+  const { agreementId } = await context.params;
+  const body = await req.json().catch(() => null) as Record<string, unknown> | null;
+  if (!UUID.test(agreementId) || !body) return Response.json({ error: 'Pedido inválido.' }, { status: 400 });
+
+  const supplier = typeof body.supplier === 'string' ? body.supplier.trim() : '';
+  const total = amountOf(body.totalAmount);
+  const outside = body.paidOutsideBank === undefined || body.paidOutsideBank === '' ? 0 : amountOf(body.paidOutsideBank);
+  const description = typeof body.description === 'string' ? body.description : null;
+  const hotelStayId = typeof body.hotelStayId === 'string' && UUID.test(body.hotelStayId) ? body.hotelStayId : null;
+  const costId = typeof body.costId === 'string' && UUID.test(body.costId) ? body.costId : null;
+  if (!supplier) return Response.json({ error: 'Escreva o fornecedor.' }, { status: 400 });
+  if (!Number.isFinite(total) || total <= 0) return Response.json({ error: 'Indique o valor total da proforma.' }, { status: 400 });
+  if (!Number.isFinite(outside) || outside < 0) return Response.json({ error: 'O valor já pago fora do banco não é válido.' }, { status: 400 });
+
+  const { error } = await db().rpc('ledger_update_agreement', {
+    p_agreement_id: agreementId, p_supplier: supplier, p_description: description,
+    p_total: Math.round(total * 100) / 100, p_paid_outside_bank: Math.round(outside * 100) / 100,
+    p_hotel_stay_id: hotelStayId, p_cost_id: costId,
+  });
+  if (error) return Response.json({ error: error.message }, { status: error.code === 'P0001' ? 409 : 500 });
+  await logAdminAudit({
+    adminEmail: admin.email, action: 'ledger.update_agreement',
+    details: { agreement_id: agreementId, supplier, total, paid_outside_bank: outside, hotel_stay_id: hotelStayId, cost_id: costId },
+  });
+  return Response.json({ ok: true });
+}
+
+/** Cancels an agreement with nothing paid. Agreements with payments are corrected, never removed. */
+export async function DELETE(req: Request, context: { params: Promise<{ agreementId: string }> }) {
+  const admin = await requireAdmin(req);
+  if (!admin.ok) return admin.response;
+  const { agreementId } = await context.params;
+  if (!UUID.test(agreementId)) return Response.json({ error: 'Pedido inválido.' }, { status: 400 });
+  const { error } = await db().rpc('ledger_cancel_agreement', { p_agreement_id: agreementId });
+  if (error) return Response.json({ error: error.message }, { status: error.code === 'P0001' ? 409 : 500 });
+  await logAdminAudit({ adminEmail: admin.email, action: 'ledger.cancel_agreement', details: { agreement_id: agreementId } });
+  return Response.json({ ok: true });
+}
 
 /** Read only. One agreement with its payments and its documents. */
 export async function GET(req: Request, context: { params: Promise<{ agreementId: string }> }) {

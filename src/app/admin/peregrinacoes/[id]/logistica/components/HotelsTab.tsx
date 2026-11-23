@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { supabaseBrowser } from '../../../../../../lib/supabase-browser';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -306,10 +307,16 @@ function StayRow({
                         <span className="truncate">{stay.city || 'sem cidade'}</span>
                         <span className="text-slate-300">·</span>
                         <span className="truncate">{stay.board}</span>
-                        {c.freeRooms > 0 && (
+                        {c.freeRooms > 0 && !c.fromProforma && (
                             <>
                                 <span className="text-slate-300">·</span>
                                 <span className="whitespace-nowrap font-medium text-emerald-600">{c.freeRooms} grátis</span>
+                            </>
+                        )}
+                        {c.fromProforma && (
+                            <>
+                                <span className="text-slate-300">·</span>
+                                <span className="whitespace-nowrap font-medium text-slate-700">proforma</span>
                             </>
                         )}
                     </div>
@@ -389,21 +396,37 @@ function StayRow({
                             </EditorColumn>
 
                             <EditorColumn title="Conta">
-                                <div className="space-y-2">
-                                    <LedgerLine label={`Alojamento · ${c.pax} pax × ${c.nights}n`} value={eur(c.accommodation)} />
-                                    {c.cityTax > 0 && <LedgerLine label="Taxa turística" value={eur(c.cityTax)} />}
-                                    {c.freeRooms > 0 && (
-                                        <LedgerLine
-                                            label={`${c.freeRooms} ${c.freeRooms === 1 ? 'quarto grátis' : 'quartos grátis'} (1 em cada ${stay.freePerN})`}
-                                            value={`−${eur(c.freeValue)}`}
-                                            role="done"
-                                        />
-                                    )}
-                                    <LedgerLine label="Total" value={eur(c.total)} strong />
-                                </div>
+                                {c.fromProforma ? (
+                                    <div className="space-y-2">
+                                        <LedgerLine label="Total da proforma · Contabilidade" value={eur(c.total)} strong />
+                                        <LedgerLine label={`Estimativa pela fórmula · ${c.pax} pax × ${c.nights}n`} value={eur(c.estimate)} />
+                                        {Math.abs(c.estimate - c.total) > 1 && (
+                                            <p className="text-[12.5px] text-slate-500">
+                                                A fórmula difere {eur(Math.abs(c.estimate - c.total))} da proforma. Manda a proforma.
+                                            </p>
+                                        )}
+                                    </div>
+                                ) : (
+                                    <div className="space-y-2">
+                                        <LedgerLine label={`Alojamento · ${c.pax} pax × ${c.nights}n`} value={eur(c.accommodation)} />
+                                        {c.cityTax > 0 && <LedgerLine label="Taxa turística" value={eur(c.cityTax)} />}
+                                        {c.freeRooms > 0 && (
+                                            <LedgerLine
+                                                label={`${c.freeRooms} ${c.freeRooms === 1 ? 'quarto grátis' : 'quartos grátis'} (1 em cada ${stay.freePerN})`}
+                                                value={`−${eur(c.freeValue)}`}
+                                                role="done"
+                                            />
+                                        )}
+                                        <LedgerLine label="Total" value={eur(c.total)} strong />
+                                    </div>
+                                )}
 
                                 <div className="grid grid-cols-2 gap-3 border-t border-slate-200/70 pt-4">
-                                    <NumberField label="Já pago" hint="sinal ou total" value={stay.paidAmount} onCommit={v => onChange({ paid_amount: v })} suffix="€" step={0.5} />
+                                    {c.fromProforma ? (
+                                        <ReadOnlyField label="Já pago" hint="do banco" value={eur(stay.paidAmount)} suffix="" />
+                                    ) : (
+                                        <NumberField label="Já pago" hint="sinal ou total" value={stay.paidAmount} onCommit={v => onChange({ paid_amount: v })} suffix="€" step={0.5} />
+                                    )}
                                     <DateField
                                         label="Pagar até"
                                         value={stay.dueDate || ''}
@@ -415,7 +438,14 @@ function StayRow({
 
                                 <LedgerLine label="Falta pagar" value={eur(c.due)} role={role} />
 
-                                {!settled && (
+                                {c.fromProforma ? (
+                                    <Link
+                                        href="/admin/contabilidade"
+                                        className="block text-[12.5px] font-medium text-slate-500 underline-offset-2 hover:text-slate-900 hover:underline"
+                                    >
+                                        Pagamentos ligados na Contabilidade, ao movimento do banco →
+                                    </Link>
+                                ) : !settled && (
                                     <Button variant="primary" onClick={() => onChange({ paid_amount: c.total })} className="w-full">
                                         Marcar como pago
                                     </Button>
