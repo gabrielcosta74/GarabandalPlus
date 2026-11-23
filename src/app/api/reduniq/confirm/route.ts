@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { reduniqClient } from '../../../../lib/reduniq/client';
 import { supabaseServer } from '../../../../lib/supabase';
+import { checkRateLimit } from '../../../../lib/rate-limit';
+import { isRecentStoreOrder } from '../../../../lib/store-files';
 import {
   handleDonationSuccess,
   handleMembershipSuccess,
@@ -329,10 +331,15 @@ export async function POST(request: Request) {
 
       if (isSuccess) {
         const storeResult = await handleStoreSuccess(ctx);
+        // Withhold the details instead of refusing, so the payment is still confirmed.
+        const showBuyerDetails = isRecentStoreOrder(storeOrder.created_at)
+          && checkRateLimit(request, { keyPrefix: 'store-confirm-details', windowMs: 60_000, max: 10 }).allowed;
         if (storeResult) {
           storePayload = {
-            digitalDownloadLinks: storeResult.digitalDownloadLinks || [],
-            buyerEmail: storeResult.buyerEmail,
+            ...(showBuyerDetails ? {
+              digitalDownloadLinks: storeResult.digitalDownloadLinks || [],
+              buyerEmail: storeResult.buyerEmail,
+            } : {}),
             accountExists: storeResult.accountExists,
             hasDigital: storeResult.hasDigital,
             hasPhysical: storeResult.hasPhysical,

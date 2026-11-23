@@ -15,7 +15,6 @@ type LibraryItem = {
   qty: number;
   purchaseCount: number;
   orderCount: number;
-  fileUrl: string | null;
   downloadUrl?: string | null;
   createdAt: string;
   firstPurchasedAt?: string;
@@ -204,9 +203,9 @@ export default function BibliotecaPage() {
                       {isEn ? 'First purchase' : 'Primeira compra'}: {formatShortDate(item.firstPurchasedAt || item.createdAt)} · {isEn ? 'Last purchase' : 'Última compra'}: {formatShortDate(item.lastPurchasedAt || item.createdAt)}
                     </p>
                     <div className="mt-auto pt-4">
-                      {(item.downloadUrl || item.fileUrl) ? (
+                      {item.downloadUrl ? (
                         <a
-                          href={item.downloadUrl || item.fileUrl || '#'}
+                          href={item.downloadUrl}
                           target="_blank"
                           rel="noreferrer"
                           className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-garabandal-mist text-garabandal-dark font-bold rounded-xl hover:bg-garabandal-gold hover:text-white transition-all group/btn"

@@ -103,7 +103,6 @@ export default function ProductClient({ product, relatedProducts }: ProductClien
         typeId: product.type_id,
         category: product.category,
         name: product.name,
-        digitalUrl: (product as any).digitalUrl,
     });
     const productMode: 'digital' | 'clothing' | 'physical' =
         isDigital ? 'digital' : isClothing ? 'clothing' : 'physical';

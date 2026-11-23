@@ -79,7 +79,6 @@ export async function GET(
             tag: typeText.tag,
             format: typeText.format,
             isPhysical,
-            digitalUrl: productData.digital_url || null,
             stock: isPhysical && typeof productData.stock === 'number' ? productData.stock : null,
             allowedCountries: productData.allowed_countries || [],
             taxRate: productData.tax_rate ?? 0.23,

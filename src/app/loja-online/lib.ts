@@ -35,7 +35,6 @@ export async function getProduct(id: string): Promise<Product | null> {
             tag: isPhysical ? 'Físico' : 'Digital',
             format: isPhysical ? 'Produto físico' : 'PDF digital',
             isPhysical,
-            digitalUrl: data.digital_url || null,
             stock: isPhysical && typeof data.stock === 'number' ? data.stock : null,
             allowedCountries: data.allowed_countries || [],
         };

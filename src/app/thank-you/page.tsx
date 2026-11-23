@@ -442,7 +442,7 @@ export default function ThankYouPage() {
                     </p>
                   )}
                   <p className="text-sm text-white/40 leading-relaxed mb-4">
-                    {isEn ? <>You can download your files now or access them later in your <strong className="text-white/70">Digital Library</strong> from your personal area.<strong className="block mt-1 text-white/60">These links expire in 7 days.</strong></> : <>Pode descarregar os seus ficheiros agora ou aceder mais tarde na <strong className="text-white/70">Biblioteca Digital</strong> da sua área pessoal.<strong className="block mt-1 text-white/60">Estes links expiram em 7 dias.</strong></>}
+                    {isEn ? <>You can download your files now or access them later in your <strong className="text-white/70">Digital Library</strong> from your personal area.</> : <>Pode descarregar os seus ficheiros agora ou aceder mais tarde na <strong className="text-white/70">Biblioteca Digital</strong> da sua área pessoal.</>}
                   </p>
                   <div className="mb-4 flex flex-wrap gap-2">
                     <Link href={libraryPath} className="px-3 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs font-bold transition-colors">

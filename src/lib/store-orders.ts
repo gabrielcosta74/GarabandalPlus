@@ -240,7 +240,7 @@ export const processPaidStoreOrder = async ({
       return {
         order_ref: orderRef,
         product_id: item.product_id,
-        buyer_email: existingOrder.buyer_email || buyerEmail || '',
+        buyer_email: buyerEmailResolved,
         user_id: resolvedBuyerUserId,
         status: 'available',
         qty: item.qty,
