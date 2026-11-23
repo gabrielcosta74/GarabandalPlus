@@ -5,15 +5,20 @@
 
 export type AnalysisMovement = { date: string; amount: number; category: string | null };
 export type HistoryDay = { day: string; inflow: number; outflow: number; closing: number };
+export type ForecastCostLine = { amount: number; paid: number; dueDate: string | null };
 export type AnalysisTripInput = {
   id: string;
   title: string;
   start: string;
+  end: string;
   totalDue: number;
   paid: number;
+  pendingBookingValue: number;
   /** Supplier costs registered in Logística, and how much of them is already paid. */
   knownCost: number;
   knownCostPaid: number;
+  hotelCost: number;
+  costLines: ForecastCostLine[];
 };
 
 export type AnalysisInput = {
@@ -35,11 +40,9 @@ export type ForecastInputs = {
   balance: number;
   donationsMonthly: number;
   fixedMonthly: number;
-  tripSpendSoFar: number;
-  noise: number;
   quotaValue: number;
   quotaRenewals: { month: string; count: number }[];
-  trips: { start: string; totalDue: number; remaining: number; knownCost: number; knownCostPaid: number }[];
+  trips: { start: string; end: string; ongoing: boolean; totalDue: number; remaining: number; knownCost: number; knownCostPaid: number; costLines: ForecastCostLine[] }[];
 };
 
 export type ForecastPoint = { date: string; balance: number; low: number; high: number };
@@ -59,19 +62,26 @@ export type Analysis = {
     title: string;
     shortTitle: string;
     start: string;
+    ongoing: boolean;
     daysToStart: number;
     totalDue: number;
     paid: number;
     remaining: number;
     advance: number;
+    knownCost: number;
+    knownCostPaid: number;
+    hotelCost: number;
   }[];
   committed: number;
   free: number | null;
   receivable: number;
+  pendingBookingValue: number;
   pace: { inflow: number; outflow: number; typicalInflow: number | null; elapsed: number; share: number | null };
   fixedMonthly: number;
   runwayMonths: number | null;
   pilgrimageShare: number | null;
+  bankTripOutflow: number;
+  unclassifiedOutflow: number;
   forecast: ForecastInputs | null;
 };
 
@@ -244,21 +254,26 @@ export function buildAnalysis(input: AnalysisInput): Analysis {
   const pilgrimageFlow = flow.sources.find(item => item.key === 'pilgrimages')?.amount || 0;
 
   const trips = input.trips
-    .filter(trip => trip.start >= input.today)
+    .filter(trip => trip.end >= input.today)
     .sort((a, b) => a.start.localeCompare(b.start))
     .map(trip => ({
       id: trip.id,
       title: trip.title,
       shortTitle: shortTripTitle(trip.title),
       start: trip.start,
+      ongoing: trip.start < input.today,
       daysToStart: Math.round((toMs(trip.start) - toMs(input.today)) / dayMs),
       totalDue: round2(trip.totalDue),
       paid: round2(trip.paid),
       remaining: round2(Math.max(trip.totalDue - trip.paid, 0)),
-      advance: round2(Math.max(trip.paid - trip.knownCostPaid, 0)),
+      advance: trip.start < input.today ? 0 : round2(Math.max(trip.paid - trip.knownCostPaid, 0)),
+      knownCost: round2(trip.knownCost),
+      knownCostPaid: round2(trip.knownCostPaid),
+      hotelCost: round2(trip.hotelCost),
     }));
   const committed = sum(trips.map(trip => trip.advance));
   const receivable = sum(trips.map(trip => trip.remaining));
+  const pendingBookingValue = sum(input.trips.filter(trip => trip.end >= input.today).map(trip => trip.pendingBookingValue));
   const free = input.balance === null ? null : round2(input.balance - committed);
 
   // Running costs and donations come only from whole months read from the bank,
@@ -298,6 +313,7 @@ export function buildAnalysis(input: AnalysisInput): Analysis {
     committed,
     free,
     receivable,
+    pendingBookingValue,
     pace: {
       inflow: paceInflow,
       outflow: monthRows[0]?.outflow || 0,
@@ -308,25 +324,30 @@ export function buildAnalysis(input: AnalysisInput): Analysis {
     fixedMonthly,
     runwayMonths: free !== null && free > 0 && fixedMonthly > 0 ? Math.floor(free / fixedMonthly) : null,
     pilgrimageShare: flowIn > 0 ? pilgrimageFlow / flowIn : null,
+    bankTripOutflow: sum(input.movements
+      .filter(row => row.amount < 0 && row.category !== null && TRIP_CATEGORIES.has(row.category))
+      .map(row => -row.amount)),
+    unclassifiedOutflow: sum(input.movements
+      .filter(row => row.amount < 0 && row.category === null)
+      .map(row => -row.amount)),
     forecast: input.balance === null ? null : {
       today: input.today,
       balance: input.balance,
       donationsMonthly,
       fixedMonthly,
-      tripSpendSoFar: sum(input.movements
-        .filter(row => row.amount < 0 && row.category !== null && TRIP_CATEGORIES.has(row.category))
-        .map(row => -row.amount)),
-      noise: Math.max(3000, (donationsMonthly + fixedMonthly) * 0.5),
       quotaValue: QUOTA_VALUE,
       quotaRenewals: input.quotaRenewals,
       trips: trips.map(trip => {
         const source = input.trips.find(item => item.id === trip.id)!;
         return {
           start: trip.start,
+          end: source.end,
+          ongoing: trip.ongoing,
           totalDue: trip.totalDue,
           remaining: trip.remaining,
           knownCost: source.knownCost,
           knownCostPaid: source.knownCostPaid,
+          costLines: source.costLines,
         };
       }),
     },
@@ -337,13 +358,17 @@ export function buildAnalysis(input: AnalysisInput): Analysis {
  * Explainable month-by-month sum, no model:
  * balance + instalments + donations + quotas − running costs − trip costs.
  *
- * Bank outflows are not linked to trips yet, so hotel and transport already paid
- * are credited to the nearest trip first. `costPct` is an assumption the admin
- * controls on the page, and registered supplier costs act as its minimum.
+ * The bank balance already includes past outflows. Only supplier payments explicitly
+ * recorded in Logística reduce future trip costs; unrelated bank outflows cannot be
+ * assigned to the nearest trip. Registered costs are a floor for the slider estimate.
  */
-export function projectBalance(inputs: ForecastInputs, costPct: number): ForecastPoint[] {
+function projectBalanceAtCost(inputs: ForecastInputs, costPct: number): { date: string; balance: number }[] {
   const firstIndex = monthIndex(monthOf(inputs.today));
-  const lastTrip = inputs.trips.reduce((max, trip) => Math.max(max, monthIndex(monthOf(trip.start))), firstIndex + 5);
+  const lastTrip = inputs.trips.reduce((max, trip) => Math.max(
+    max,
+    monthIndex(monthOf(trip.end)),
+    ...trip.costLines.filter(line => line.dueDate).map(line => monthIndex(monthOf(line.dueDate!))),
+  ), firstIndex + 5);
   const count = lastTrip - firstIndex + 1;
   const deltas = new Array<number>(count).fill(0);
   const put = (index: number, amount: number) => { deltas[Math.min(Math.max(index, 0), count - 1)] += amount; };
@@ -358,35 +383,58 @@ export function projectBalance(inputs: ForecastInputs, costPct: number): Forecas
     if (index >= 0 && index < count) deltas[index] += members * inputs.quotaValue;
   });
 
-  let spendPool = inputs.tripSpendSoFar;
   [...inputs.trips].sort((a, b) => a.start.localeCompare(b.start)).forEach(trip => {
     const startIndex = monthIndex(monthOf(trip.start)) - firstIndex;
-    // Instalments end one month before the trip, as the payment plans state.
+    // Spread outstanding confirmed bookings until the month before departure.
+    // Individual payment-plan dates are not yet used in this aggregate forecast.
     const lastInstalment = Math.max(startIndex - 1, 0);
     const instalment = trip.remaining / (lastInstalment + 1);
     for (let i = 0; i <= lastInstalment; i += 1) put(i, instalment);
 
-    const estimate = Math.max(trip.knownCost, trip.totalDue * (costPct / 100));
-    const credited = Math.min(Math.max(estimate - trip.knownCostPaid, 0), spendPool);
-    spendPool -= credited;
-    const outstanding = Math.max(estimate - trip.knownCostPaid - credited, 0);
-    put(startIndex - 1, -outstanding * 0.4);
-    put(startIndex, -outstanding * 0.6);
+    // A trip already underway has no meaningful percentage estimate for work
+    // already paid. Keep its recorded unpaid costs and remaining receivables.
+    const estimate = trip.ongoing ? trip.knownCost : Math.max(trip.knownCost, trip.totalDue * (costPct / 100));
+    const knownDue = Math.max(trip.knownCost - trip.knownCostPaid, 0);
+    const scheduleNearTrip = (amount: number) => {
+      if (amount <= 0) return;
+      if (trip.ongoing) put(0, -amount);
+      else {
+        put(startIndex - 1, -amount * 0.4);
+        put(startIndex, -amount * 0.6);
+      }
+    };
+    let datedDue = 0;
+    trip.costLines.filter(line => line.dueDate && line.amount > line.paid).forEach(line => {
+      const due = Math.min(Math.max(line.amount - line.paid, 0), Math.max(knownDue - datedDue, 0));
+      datedDue += due;
+      put(monthIndex(monthOf(line.dueDate!)) - firstIndex, -due);
+    });
+    scheduleNearTrip(Math.max(knownDue - datedDue, 0));
+    scheduleNearTrip(Math.max(estimate - trip.knownCost, 0));
   });
 
-  const points: ForecastPoint[] = [{ date: inputs.today, balance: inputs.balance, low: inputs.balance, high: inputs.balance }];
+  const points = [{ date: inputs.today, balance: inputs.balance }];
   let balance = inputs.balance;
   deltas.forEach((delta, i) => {
     balance += delta;
-    const spread = inputs.noise * Math.sqrt(i + 1);
     points.push({
       date: monthEnd(monthFromIndex(firstIndex + i)),
       balance: round2(balance),
-      low: round2(balance - spread),
-      high: round2(balance + spread),
     });
   });
   return points;
+}
+
+/** The ribbon shows the slider's actual 40–95% cost scenarios, not a statistical interval. */
+export function projectBalance(inputs: ForecastInputs, costPct: number): ForecastPoint[] {
+  const chosen = projectBalanceAtCost(inputs, costPct);
+  const cheapest = projectBalanceAtCost(inputs, 40);
+  const dearest = projectBalanceAtCost(inputs, 95);
+  return chosen.map((point, index) => ({
+    ...point,
+    low: Math.min(cheapest[index].balance, dearest[index].balance),
+    high: Math.max(cheapest[index].balance, dearest[index].balance),
+  }));
 }
 
 export { monthOf, toMs, toIso, addDays };

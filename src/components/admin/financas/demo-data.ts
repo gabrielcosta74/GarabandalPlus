@@ -43,9 +43,9 @@ export function demoAnalysis({ withHistory = true }: { withHistory?: boolean } =
     movements,
     history: withHistory ? history : [],
     trips: [
-      { id: 'demo-a', title: 'Peregrinação a Fátima - Caminho da Luz - Exemplo', start: addDays(today, 24), totalDue: 90000, paid: 84000, knownCost: 0, knownCostPaid: 0 },
-      { id: 'demo-b', title: 'Peregrinação a Roma e Assis - Exemplo', start: addDays(today, 165), totalDue: 150000, paid: 76000, knownCost: 14000, knownCostPaid: 500 },
-      { id: 'demo-c', title: 'Peregrinação a Lourdes - Caminho Azul - Exemplo', start: addDays(today, 340), totalDue: 72000, paid: 15000, knownCost: 0, knownCostPaid: 0 },
+      { id: 'demo-a', title: 'Peregrinação a Fátima - Caminho da Luz - Exemplo', start: addDays(today, 24), end: addDays(today, 31), totalDue: 90000, paid: 84000, pendingBookingValue: 0, knownCost: 0, knownCostPaid: 0, hotelCost: 0, costLines: [] },
+      { id: 'demo-b', title: 'Peregrinação a Roma e Assis - Exemplo', start: addDays(today, 165), end: addDays(today, 175), totalDue: 150000, paid: 76000, pendingBookingValue: 0, knownCost: 14000, knownCostPaid: 500, hotelCost: 12000, costLines: [{ amount: 14000, paid: 500, dueDate: null }] },
+      { id: 'demo-c', title: 'Peregrinação a Lourdes - Caminho Azul - Exemplo', start: addDays(today, 340), end: addDays(today, 350), totalDue: 72000, paid: 15000, pendingBookingValue: 0, knownCost: 0, knownCostPaid: 0, hotelCost: 0, costLines: [] },
     ],
     quotaRenewals: [{ month: `${year + 1}-01`, count: 120 }],
     cardPayments: { pilgrimage: 92, donation: 6, other: 2 },

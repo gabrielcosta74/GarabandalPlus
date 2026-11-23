@@ -229,6 +229,11 @@
 .stat:first-child { padding-left: 0; border-left: 0; }
 .stat b { display: block; margin-top: 12px; font-size: clamp(26px, 3.1cqw, 40px); font-weight: 300; letter-spacing: -0.035em; white-space: nowrap; }
 .stat small { display: block; margin-top: 8px; font-size: 12.5px; color: var(--t3); }
+.forecastBasis { margin-top: 32px; padding: clamp(20px, 3cqw, 36px); }
+.forecastFacts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; margin-top: 20px; }
+.forecastFacts span { color: var(--t2); font-size: 13px; }
+.forecastFacts b { display: block; margin-top: 6px; color: var(--t1); font-size: clamp(19px, 2cqw, 27px); font-weight: 400; }
+.forecastBasis p { margin: 18px 0 0; color: var(--t3); font-size: 12.5px; line-height: 1.5; }
 
 /* Sections */
 .section { margin-top: clamp(72px, 9cqw, 128px); }
@@ -397,6 +402,7 @@
   .stat:nth-child(odd) { padding-left: 0; border-left: 0; }
 }
 @container (max-width: 560px) {
+  .forecastFacts { grid-template-columns: minmax(0, 1fr); gap: 14px; }
   .reads { grid-template-columns: minmax(0, 1fr); }
   .capsule { height: 84px; }
   .dock { width: 100%; }

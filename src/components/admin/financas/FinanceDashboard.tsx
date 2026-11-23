@@ -64,6 +64,10 @@ export default function FinanceDashboard({ data, demo = false }: { data: Analysi
   const ahead = forecast.slice(1);
   const peak = ahead.reduce<typeof ahead[number] | null>((best, point) => (!best || point.balance > best.balance ? point : best), null);
   const last = ahead[ahead.length - 1] || null;
+  const hotelsBudget = data.trips.reduce((total, trip) => total + trip.hotelCost, 0);
+  const supplierBudget = data.trips.reduce((total, trip) => total + trip.knownCost, 0);
+  const supplierDue = data.trips.reduce((total, trip) => total + Math.max(trip.knownCost - trip.knownCostPaid, 0), 0);
+  const missingBudgets = data.trips.filter(trip => trip.totalDue > 0 && trip.knownCost <= 0);
 
   const heroLine = () => {
     if (scrub !== null) return longDate(new Date(scrub).toISOString());
@@ -160,6 +164,21 @@ export default function FinanceDashboard({ data, demo = false }: { data: Analysi
               </div>
             </Reveal>
 
+            <Glass className={styles.forecastBasis}>
+              <div className={styles.label}>Base dos custos da previsão</div>
+              <div className={styles.forecastFacts}>
+                <span>Hotéis na logística <b>{euro(hotelsBudget)} €</b></span>
+                <span>Orçamento de fornecedores <b>{euro(supplierBudget)} €</b></span>
+                <span>Orçamento sem pagamento <b>{euro(supplierDue)} €</b></span>
+              </div>
+              {missingBudgets.length > 0 && (
+                <p>{missingBudgets.length === 1 ? 'Há 1 viagem' : `Há ${missingBudgets.length} viagens`} sem orçamento de fornecedores. O valor final depende do custo escolhido no controlo acima; para viagens já iniciadas só entram custos registados por pagar.</p>
+              )}
+              {data.pendingBookingValue > 0 && <p>Reservas ainda pendentes: {euro(data.pendingBookingValue)} €. Este valor só entrará na previsão após confirmação.</p>}
+              <p>Saídas bancárias classificadas como alojamento e viagem: {euro(data.bankTripOutflow)} €. Já estão no saldo de hoje e não são abatidas automaticamente aos custos futuros.</p>
+              <p>O orçamento inclui estadias e serviços ainda em fase de ideia, pedido ou pré-reserva; estes valores podem mudar.</p>
+            </Glass>
+
             {data.free !== null && (
               <section className={`${styles.section} ${styles.twoUp}`}>
                 <Reveal><BalanceCapsule trips={data.trips} free={data.free} /></Reveal>
@@ -209,8 +228,11 @@ export default function FinanceDashboard({ data, demo = false }: { data: Analysi
             </section>
 
             <p className={styles.foot}>
-              A previsão soma prestações em falta, doações e quotas, e subtrai custos fixos e custos das viagens.
-              O custo das viagens é um pressuposto: as saídas ainda não estão ligadas a cada peregrinação.
+              A previsão soma valores por receber, doações e renovações previstas, e subtrai despesas correntes e custos de fornecedores por pagar.
+              Os orçamentos da logística são o mínimo; a percentagem escolhida acrescenta uma margem para custos ainda não registados.
+              A faixa do gráfico mostra os cenários de custo de 40% a 95%, não um intervalo estatístico.
+              As cobranças em falta são distribuídas até ao mês anterior à partida; as datas individuais das prestações ainda não entram neste cálculo.
+              {data.unclassifiedOutflow > 0 && <> Há {euro(data.unclassifiedOutflow)} € de saídas bancárias por classificar.</>}
             </p>
           </div>
         </div>

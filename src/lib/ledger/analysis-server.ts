@@ -10,9 +10,9 @@ import {
   type HistoryDay,
 } from './analysis';
 import { db, getMontepioAccount, isMissingTableError } from './server';
+import { costTotalOf, getPilgrimageAccounts, stayCostOf } from '../logistics-accounts';
 
 const PAGE = 1000;
-const CANCELLED = new Set(['canceled', 'cancelled']);
 const PAID_PAYMENT = ['verified', 'succeeded', 'paid', 'manual'];
 
 /** PostgREST caps each response, so long tables are read in pages. */
@@ -73,44 +73,45 @@ async function loadBalance() {
 
 async function loadTrips(today: string): Promise<AnalysisTripInput[]> {
   const { data: pilgrimages, error } = await db().from('pilgrimages')
-    .select('id, title, start_date')
-    .gte('start_date', today)
+    .select('id, title, start_date, end_date')
+    .gte('end_date', today)
     .order('start_date', { ascending: true });
   if (error) throw error;
   // Internal test and store-review trips have a bracketed title.
   const real = (pilgrimages || []).filter(trip => !String(trip.title || '').trim().startsWith('['));
-  const ids = real.map(trip => trip.id as string);
-  if (!ids.length) return [];
-
-  const [bookings, costs] = await Promise.all([
-    readAll<{ pilgrimage_id: string; total_amount: number | string | null; paid_amount: number | string | null; status: string | null }>((from, to) =>
-      db().from('bookings')
-        .select('id, pilgrimage_id, total_amount, paid_amount, status')
-        .in('pilgrimage_id', ids)
-        .order('id', { ascending: true })
-        .range(from, to)),
-    readAll<{ pilgrimage_id: string; unit_price: number | string | null; pax: number | null; discount: number | string | null; paid_amount: number | string | null }>((from, to) =>
-      db().from('pilgrimage_costs')
-        .select('id, pilgrimage_id, unit_price, pax, discount, paid_amount')
-        .in('pilgrimage_id', ids)
-        .order('id', { ascending: true })
-        .range(from, to)),
-  ]);
-
-  return real.map(trip => {
-    const tripBookings = bookings.filter(row => row.pilgrimage_id === trip.id && !CANCELLED.has(String(row.status || '').toLowerCase()));
-    const tripCosts = costs.filter(row => row.pilgrimage_id === trip.id);
+  return Promise.all(real.map(async trip => {
+    // The same read-only calculation powers Logística → Contas: room mix,
+    // complimentary rooms, restaurants per person and paid supplier amounts.
+    const accounts = await getPilgrimageAccounts(db(), trip.id as string);
+    const confirmed = accounts.people.filter(person => person.kind === 'pilgrim' && person.bookingStatus === 'confirmed');
+    const totalDue = confirmed.reduce((total, person) => total + person.totalAmount, 0);
+    const paid = confirmed.reduce((total, person) => total + person.paidAmount, 0);
+    const costLines = [
+      ...accounts.stays.map(stay => ({
+        amount: stayCostOf(stay, accounts.roomMix).total,
+        paid: stay.paidAmount,
+        dueDate: stay.dueDate,
+      })),
+      ...accounts.costs.filter(cost => cost.kind !== 'flight').map(cost => ({
+        amount: costTotalOf(cost, accounts.revenue.beds),
+        paid: cost.paidAmount,
+        dueDate: cost.dueDate,
+      })),
+    ];
     return {
       id: trip.id as string,
       title: String(trip.title),
       start: String(trip.start_date).slice(0, 10),
-      totalDue: tripBookings.reduce((total, row) => total + Number(row.total_amount || 0), 0),
-      paid: tripBookings.reduce((total, row) => total + Number(row.paid_amount || 0), 0),
-      knownCost: tripCosts.reduce((total, row) =>
-        total + Math.max(Number(row.unit_price || 0) * Number(row.pax ?? 1) - Number(row.discount || 0), 0), 0),
-      knownCostPaid: tripCosts.reduce((total, row) => total + Number(row.paid_amount || 0), 0),
+      end: String(trip.end_date).slice(0, 10),
+      totalDue,
+      paid,
+      pendingBookingValue: Math.max(accounts.revenue.expected - totalDue, 0),
+      knownCost: accounts.expenses.total,
+      knownCostPaid: accounts.expenses.paid,
+      hotelCost: accounts.hotels.total,
+      costLines,
     };
-  });
+  }));
 }
 
 async function loadQuotaRenewals(today: string) {

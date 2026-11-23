@@ -101,7 +101,7 @@ export function ReceivableTubes({ trips, receivable }: { trips: Analysis['trips'
                 <div className={styles.tubePct}>{Math.round(share * 100)}%</div>
               </div>
               <div className={styles.tubeName}>{trip.shortTitle}</div>
-              <div className={styles.tubeMeta}>{trip.daysToStart} dias</div>
+              <div className={styles.tubeMeta}>{trip.ongoing ? 'Em curso' : `${trip.daysToStart} dias`}</div>
             </div>
           );
         })}

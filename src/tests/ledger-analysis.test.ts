@@ -79,7 +79,7 @@ describe('buildAnalysis: balance', () => {
 });
 
 describe('buildAnalysis: money that is already spoken for', () => {
-  const trip = { id: 'a', title: 'Peregrinação a Itália e Medjugorje -  Abril 2027', start: '2027-04-05', totalDue: 1000, paid: 600, knownCost: 0, knownCostPaid: 100 };
+  const trip = { id: 'a', title: 'Peregrinação a Itália e Medjugorje -  Abril 2027', start: '2027-04-05', end: '2027-04-17', totalDue: 1000, paid: 600, pendingBookingValue: 0, knownCost: 100, knownCostPaid: 100, hotelCost: 0, costLines: [{ amount: 100, paid: 100, dueDate: null }] };
 
   it('separates advances from free money, net of supplier payments on record', () => {
     const analysis = buildAnalysis({ ...base, balance: 1000, trips: [trip] });
@@ -89,10 +89,22 @@ describe('buildAnalysis: money that is already spoken for', () => {
     expect(analysis.trips[0].daysToStart).toBe(149);
   });
 
-  it('leaves out trips that already started', () => {
-    const analysis = buildAnalysis({ ...base, trips: [{ ...trip, start: '2026-11-01' }] });
-    expect(analysis.trips).toEqual([]);
+  it('keeps pending bookings outside receivables', () => {
+    const analysis = buildAnalysis({ ...base, trips: [{ ...trip, pendingBookingValue: 15850 }] });
+    expect(analysis.receivable).toBe(400);
+    expect(analysis.pendingBookingValue).toBe(15850);
+  });
+
+  it('keeps receivables for an ongoing trip without reserving its past advances again', () => {
+    const analysis = buildAnalysis({ ...base, trips: [{ ...trip, start: '2026-11-01', end: '2026-11-12' }] });
+    expect(analysis.trips[0].ongoing).toBe(true);
     expect(analysis.committed).toBe(0);
+    expect(analysis.receivable).toBe(400);
+  });
+
+  it('leaves out trips that have ended', () => {
+    const analysis = buildAnalysis({ ...base, trips: [{ ...trip, start: '2026-10-01', end: '2026-11-06' }] });
+    expect(analysis.trips).toEqual([]);
   });
 });
 
@@ -159,7 +171,7 @@ describe('buildAnalysis: running costs and pace', () => {
     const analysis = buildAnalysis({ ...base, balance: 3000, movements });
     expect(analysis.fixedMonthly).toBe(300);
     expect(analysis.forecast?.donationsMonthly).toBe(2000);
-    expect(analysis.forecast?.tripSpendSoFar).toBe(9000);
+    expect(analysis.bankTripOutflow).toBe(9000);
     expect(analysis.runwayMonths).toBe(10);
   });
 
@@ -178,11 +190,9 @@ describe('projectBalance', () => {
     balance: 100000,
     donationsMonthly: 0,
     fixedMonthly: 0,
-    tripSpendSoFar: 0,
-    noise: 3000,
     quotaValue: 25,
     quotaRenewals: [],
-    trips: [{ start: '2027-04-05', totalDue: 200000, remaining: 100000, knownCost: 0, knownCostPaid: 0 }],
+    trips: [{ start: '2027-04-05', end: '2027-04-17', ongoing: false, totalDue: 200000, remaining: 100000, knownCost: 0, knownCostPaid: 0, costLines: [] }],
   };
 
   it('collects what is due before the trip and pays the estimated cost around it', () => {
@@ -204,9 +214,39 @@ describe('projectBalance', () => {
     expect(projectBalance(recorded, 50).at(-1)!.balance).toBeCloseTo(200000 - 190000, 1);
   });
 
-  it('does not charge twice for hotels already paid from the bank', () => {
-    const paid = { ...inputs, tripSpendSoFar: 140000 };
-    expect(projectBalance(paid, 70).at(-1)!.balance).toBeCloseTo(200000, 1);
+  it('subtracts only supplier payments recorded against the trip', () => {
+    const paid = { ...inputs, trips: [{ ...inputs.trips[0], knownCost: 140000, knownCostPaid: 10000, costLines: [{ amount: 140000, paid: 10000, dueDate: null }] }] };
+    expect(projectBalance(paid, 70).at(-1)!.balance).toBeCloseTo(70000, 1);
+  });
+
+  it('does not credit historic bank spending to a future hotel budget', () => {
+    const analysis = buildAnalysis({
+      ...base,
+      movements: [{ date: '2026-09-05', amount: -110449.56, category: 'alojamento' }],
+      trips: [{
+        id: 'italy', title: 'Itália', start: '2027-04-05', end: '2027-04-17',
+        totalDue: 188550, paid: 110461.80, pendingBookingValue: 0, knownCost: 119475, knownCostPaid: 307.58,
+        hotelCost: 87375, costLines: [{ amount: 119475, paid: 307.58, dueDate: null }],
+      }],
+    });
+    expect(analysis.bankTripOutflow).toBe(110449.56);
+    const final = projectBalance(analysis.forecast!, 70).at(-1)!.balance;
+    expect(final).toBeCloseTo(1000 + 78088.20 - 131677.42, 1);
+  });
+
+  it('uses hotel and service budgets as the minimum and honours their due dates', () => {
+    const trip = { ...inputs.trips[0], knownCost: 190000, knownCostPaid: 10000, costLines: [
+      { amount: 150000, paid: 10000, dueDate: '2027-01-15' },
+      { amount: 40000, paid: 0, dueDate: null },
+    ] };
+    const points = projectBalance({ ...inputs, trips: [trip] }, 40);
+    expect(points.find(point => point.date === '2027-01-31')?.balance).toBeCloseTo(160000 - 140000, 1);
+    expect(points.at(-1)?.balance).toBeCloseTo(20000, 1);
+  });
+
+  it('does not re-estimate costs already spent on a trip in progress', () => {
+    const trip = { ...inputs.trips[0], start: '2026-11-01', ongoing: true, knownCost: 3000, knownCostPaid: 1000, costLines: [{ amount: 3000, paid: 1000, dueDate: null }] };
+    expect(projectBalance({ ...inputs, trips: [trip] }, 70).at(-1)?.balance).toBeCloseTo(198000, 1);
   });
 
   it('adds expected quota renewals in their month', () => {
@@ -215,11 +255,11 @@ describe('projectBalance', () => {
     expect(delta).toBeCloseTo(4000, 1);
   });
 
-  it('widens the uncertainty band with time', () => {
+  it('shows the full slider range as the forecast band', () => {
     const points = projectBalance(inputs, 70);
-    const spread = (i: number) => points[i].high - points[i].low;
-    expect(spread(0)).toBe(0);
-    expect(spread(5)).toBeGreaterThan(spread(1));
+    expect(points[0].low).toBe(points[0].high);
+    expect(points.at(-1)?.low).toBeCloseTo(projectBalance(inputs, 95).at(-1)!.balance, 1);
+    expect(points.at(-1)?.high).toBeCloseTo(projectBalance(inputs, 40).at(-1)!.balance, 1);
   });
 });
 
