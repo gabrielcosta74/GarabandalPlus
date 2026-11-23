@@ -1,6 +1,7 @@
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { isExpoPushToken, sendExpoPush, type ExpoPushMessage } from './expo-push';
+import { storePushTickets } from './push-receipts';
 import { supabaseServer } from './supabase';
 
 export const DEFAULT_REACTIVATION_AUTOMATION = {
@@ -131,6 +132,7 @@ export async function sendPushCampaign(
     });
 
     const outcome = await sendExpoPush(messages);
+    await storePushTickets(client, 'campaign', outcome.tickets);
 
     if (outcome.invalidTokens.length > 0) {
         await client

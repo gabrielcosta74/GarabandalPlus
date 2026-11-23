@@ -39,7 +39,12 @@ export type ExpoPushMessage = {
     badge?: number;
     /** iOS: deixa a extensão de notificações da app mexer no aviso antes de aparecer. */
     mutableContent?: boolean;
+    /** Android: imagem do aviso (a foto de quem interagiu). */
+    richContent?: { image: string };
 };
+
+/** Um envio aceite e o token a que foi: é o que se usa para ler o recibo mais tarde. */
+export type ExpoPushTicket = { id: string; token: string };
 
 export type ExpoPushResult = {
     delivered: number;
@@ -48,6 +53,7 @@ export type ExpoPushResult = {
     invalidTokens: string[];
     /** IDs dos tickets aceites, para consultar os receipts mais tarde. */
     ticketIds: string[];
+    tickets: ExpoPushTicket[];
 };
 
 /**
@@ -80,6 +86,7 @@ export async function sendExpoPush(messages: ExpoPushMessage[]): Promise<ExpoPus
         failed: messages.length - valid.length,
         invalidTokens: [],
         ticketIds: [],
+        tickets: [],
     };
 
     if (valid.length === 0) return result;
@@ -116,7 +123,11 @@ export async function sendExpoPush(messages: ExpoPushMessage[]): Promise<ExpoPus
             tickets.forEach((ticket, index) => {
                 if (ticket?.status === 'ok') {
                     result.delivered += 1;
-                    if (ticket.id) result.ticketIds.push(ticket.id);
+                    if (ticket.id) {
+                        result.ticketIds.push(ticket.id);
+                        const token = batch[index]?.to;
+                        if (token) result.tickets.push({ id: ticket.id, token });
+                    }
                     return;
                 }
 

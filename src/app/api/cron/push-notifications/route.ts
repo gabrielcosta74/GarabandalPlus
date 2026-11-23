@@ -32,6 +32,7 @@ import { supabaseServer } from '../../../../lib/supabase';
 import { localHourFor, sendExpoPush, type ExpoPushMessage } from '../../../../lib/expo-push';
 import { processIntentionNotifications } from '../../../../lib/intention-notifications';
 import { processCommunityPush } from '../../../../lib/community-push';
+import { processPushReceipts, storePushTickets } from '../../../../lib/push-receipts';
 import { reactivationCopy, requestsSince, REQUESTS_WINDOW_DAYS, usesRequestsCount, type RequestRow } from '../../../../lib/reactivation-copy';
 import {
     getReactivationAutomation,
@@ -86,6 +87,9 @@ export async function GET(request: Request) {
     const url = new URL(request.url);
     const dryRun = url.searchParams.get('dryRun') === '1';
 
+    // Antes de enviar mais: os recibos dos envios anteriores tiram os tokens mortos.
+    const receipts = dryRun ? null : await processPushReceipts(supabaseServer);
+
     // O mesmo ciclo horário trata primeiro os broadcasts que o admin deixou
     // agendados. Em dry-run não se reclama nem altera nenhuma campanha.
     const scheduled = dryRun
@@ -103,7 +107,7 @@ export async function GET(request: Request) {
 
     const automation = await getReactivationAutomation(supabaseServer);
     if (!automation.enabled) {
-        return NextResponse.json({ ok: true, automation: 'paused', scheduled, intentions, community, dryRun });
+        return NextResponse.json({ ok: true, automation: 'paused', scheduled, intentions, community, receipts, dryRun });
     }
 
     const dormantBefore = daysAgo(automation.inactivity_days);
@@ -128,7 +132,7 @@ export async function GET(request: Request) {
     const results: Array<{ userId: string; action: string; success: boolean }> = [];
 
     if (rows.length === 0) {
-        return NextResponse.json({ ok: true, processed: 0, sent: 0, details: [], scheduled, intentions, community, dryRun });
+        return NextResponse.json({ ok: true, processed: 0, sent: 0, details: [], scheduled, intentions, community, receipts, dryRun });
     }
 
     // Um membro pode ter mais do que um telefone. A decisao e por PESSOA — o
@@ -271,6 +275,7 @@ export async function GET(request: Request) {
         }));
 
         const outcome = await sendExpoPush(messages);
+        await storePushTickets(supabaseServer, NOTIFICATION_TYPE, outcome.tickets);
 
         if (outcome.invalidTokens.length > 0) {
             // App desinstalada ou token rodado. Se ficassem, todas as corridas
@@ -303,6 +308,7 @@ export async function GET(request: Request) {
         scheduled,
         intentions,
         community,
+        receipts,
         dryRun,
         details: results,
     });

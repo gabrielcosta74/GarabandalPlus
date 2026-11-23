@@ -15,8 +15,13 @@ describe('first prayer notification privacy', () => {
 });
 
 describe('daily prayer summary', () => {
+  it('names a single person when the name may be shown', () => {
+    expect(dailyCopy('pt-BR', 1, 'Ana Gomes')).toEqual({ title: 'Ana rezou por você', body: 'Pela sua intenção.' });
+    expect(dailyCopy('pt-BR', 2, 'Ana Gomes').title).toBe('2 pessoas rezaram por você');
+  });
+
   it('puts the count in a short title', () => {
-    expect(dailyCopy('pt-BR', 3)).toEqual({ title: '3 pessoas rezaram por você', body: 'Hoje, pela sua intenção. Veja quem foi.' });
+    expect(dailyCopy('pt-BR', 3)).toEqual({ title: '3 pessoas rezaram por você', body: 'Pela sua intenção. Veja quem foi.' });
     expect(dailyCopy('pt-BR', 1).title).toBe('1 pessoa rezou por você');
     expect(dailyCopy('en', 2).title).toBe('2 people prayed for you');
   });

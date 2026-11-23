@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { chooseCommunityPush, communityPushCopy, communityPushData } from '../lib/community-push';
+import { chooseCommunityPush, communityPushCopy, communityPushData, communitySenderBody } from '../lib/community-push';
 
 const userId = '11111111-1111-4111-8111-111111111111';
 const time = new Date('2026-10-22T12:00:00Z');
@@ -137,14 +137,21 @@ describe('community push destination data', () => {
       intentionId: choice.activity.intention_id,
     });
   });
+});
 
-  it('adds the sender photo for the iOS circle only when it is a public https link', () => {
-    const choice = { kind: 'comment' as const, activity: activity('comment', '2026-10-22T11:00:00Z'), reference: 'comment' };
-    const actor = '44444444-4444-4444-8444-444444444444';
-    expect(communityPushData(choice, actor, { name: 'Rui', avatar: 'https://example.com/a.jpg' }))
-      .toMatchObject({ senderName: 'Rui', senderAvatar: 'https://example.com/a.jpg' });
-    expect(communityPushData(choice, actor, { name: 'Rui', avatar: 'http://example.com/a.jpg' }))
-      .not.toHaveProperty('senderAvatar');
-    expect(communityPushData(choice, actor, { name: 'Rui', avatar: null })).not.toHaveProperty('senderName');
+describe('grouped friend pushes', () => {
+  it('says there is more than one request in a single push', () => {
+    expect(communityPushCopy('friend_request', false, 'Ana G.', true)).toEqual({
+      title: 'Pedidos de amizade', body: 'Ana G. e mais pessoas querem ser seus amigos.',
+    });
+    expect(communityPushCopy('friend_accept', true, 'Ana G.', true).body).toBe('Ana G. and others accepted your friend request.');
+  });
+});
+
+describe('iOS sender body', () => {
+  it('drops the name that the system already shows as the title', () => {
+    expect(communitySenderBody('Ana G. curtiu sua publicação.', 'Ana G.', false)).toBe('Curtiu sua publicação.');
+    expect(communitySenderBody('Ana G. e mais pessoas curtiram.', 'Ana G.', true)).toBe('Ana G. e mais pessoas curtiram.');
+    expect(communitySenderBody('Alguém curtiu.', 'Ana G.', false)).toBe('Alguém curtiu.');
   });
 });

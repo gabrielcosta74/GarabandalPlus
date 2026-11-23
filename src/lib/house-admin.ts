@@ -8,6 +8,7 @@
 import { createHash, randomInt } from 'crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { sendExpoPush, type ExpoPushMessage } from './expo-push';
+import { storePushTickets } from './push-receipts';
 
 /** Sem letras nem números que se confundam (0/O, 1/I/L). */
 const CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
@@ -91,6 +92,7 @@ export async function notifyHouseDecision(
             data: { kind: 'house-booking', url: `/member-area/house/${booking.id}` },
         }));
         const outcome = await sendExpoPush(messages);
+        await storePushTickets(supabase, 'house_booking', outcome.tickets);
         if (outcome.invalidTokens.length > 0) {
             await supabase.from('member_devices').delete().in('expo_push_token', outcome.invalidTokens);
         }

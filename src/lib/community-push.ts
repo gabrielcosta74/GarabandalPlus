@@ -1,5 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { isExpoPushToken, localHourFor, sendExpoPush, type ExpoPushMessage } from './expo-push';
+import { storePushTickets } from './push-receipts';
+import { loadPushSender, senderPhotoFields } from './push-sender';
 
 type CommunityKind = 'comment' | 'friend_request' | 'gathering_invite' | 'gathering_join' | 'friend_accept' | 'like';
 
@@ -18,6 +20,7 @@ type Device = {
     expo_push_token: string | null;
     timezone: string | null;
     locale: string | null;
+    platform: string | null;
     last_seen_at: string;
 };
 
@@ -25,16 +28,7 @@ type SentPush = { user_id: string; reference: string | null; sent_at: string };
 
 type PushChoice = { kind: CommunityKind; activity: Activity; reference: string };
 
-type Sender = { name: string; avatar: string | null };
-
-/** Only public https photos; the iOS extension downloads them before showing the push. */
-function safeAvatar(value: string | null | undefined): string | null {
-    const url = (value || '').trim();
-    return url.startsWith('https://') && url.length <= 1000 ? url : null;
-}
-
-export function communityPushData(choice: PushChoice, actorId: string, sender?: Sender) {
-    const avatar = safeAvatar(sender?.avatar);
+export function communityPushData(choice: PushChoice, actorId: string) {
     return {
         kind: 'community-activity',
         // Older app releases understand this safe fallback; newer ones use the IDs below.
@@ -42,8 +36,6 @@ export function communityPushData(choice: PushChoice, actorId: string, sender?: 
         activityType: choice.kind,
         activityId: choice.activity.id,
         actorId,
-        // The app's iOS notification extension shows this photo in a circle, like Instagram.
-        ...(sender && avatar ? { senderName: sender.name, senderAvatar: avatar } : {}),
         ...(choice.activity.post_id ? { postId: choice.activity.post_id } : {}),
         ...(choice.activity.intention_id ? { intentionId: choice.activity.intention_id } : {}),
         ...(choice.activity.gathering_id ? { gatheringId: choice.activity.gathering_id } : {}),
@@ -110,26 +102,40 @@ export function communityPushCopy(kind: CommunityKind, english: boolean, actorNa
     const pt = {
         comment: { title: grouped ? 'Novos comentários' : 'Novo comentário',
             body: grouped ? `${name} e mais pessoas comentaram.` : `${name} comentou sua publicação.` },
-        friend_request: { title: 'Pedido de amizade', body: `${name} enviou um pedido de amizade para você.` },
+        friend_request: { title: grouped ? 'Pedidos de amizade' : 'Pedido de amizade',
+            body: grouped ? `${name} e mais pessoas querem ser seus amigos.` : `${name} enviou um pedido de amizade para você.` },
         gathering_invite: { title: 'Convite para rezar', body: `${name} convidou você para rezar.` },
         gathering_join: { title: 'Vão rezar com você',
             body: grouped ? `${name} e mais pessoas entraram no seu grupo de oração.` : `${name} entrou no seu grupo de oração.` },
-        friend_accept: { title: 'Pedido aceito', body: `${name} aceitou seu pedido de amizade.` },
+        friend_accept: { title: grouped ? 'Pedidos aceitos' : 'Pedido aceito',
+            body: grouped ? `${name} e mais pessoas aceitaram seu pedido de amizade.` : `${name} aceitou seu pedido de amizade.` },
         like: { title: grouped ? 'Novas curtidas' : 'Nova curtida',
             body: grouped ? `${name} e mais pessoas curtiram.` : `${name} curtiu sua publicação.` },
     };
     const en = {
         comment: { title: grouped ? 'New comments' : 'New comment',
             body: grouped ? `${name} and others commented.` : `${name} commented on your post.` },
-        friend_request: { title: 'Friend request', body: `${name} wants to be friends.` },
+        friend_request: { title: grouped ? 'Friend requests' : 'Friend request',
+            body: grouped ? `${name} and others want to be friends.` : `${name} wants to be friends.` },
         gathering_invite: { title: 'Prayer invitation', body: `${name} invited you to pray.` },
         gathering_join: { title: 'Praying with you',
             body: grouped ? `${name} and others joined your prayer group.` : `${name} joined your prayer group.` },
-        friend_accept: { title: 'Request accepted', body: `${name} accepted your request.` },
+        friend_accept: { title: grouped ? 'Requests accepted' : 'Request accepted',
+            body: grouped ? `${name} and others accepted your friend request.` : `${name} accepted your friend request.` },
         like: { title: grouped ? 'New likes' : 'New like',
             body: grouped ? `${name} and others liked your posts.` : `${name} liked your post.` },
     };
     return (english ? en : pt)[kind];
+}
+
+/**
+ * On iOS the system replaces the title with the sender's name, so the body drops
+ * it ("Curtiu sua publicação."). Grouped texts ("Ana e mais pessoas…") stay whole.
+ */
+export function communitySenderBody(body: string, name: string, grouped: boolean): string {
+    if (grouped || !body.startsWith(`${name} `)) return body;
+    const rest = body.slice(name.length + 1);
+    return rest.charAt(0).toUpperCase() + rest.slice(1);
 }
 
 const inviteReference = (userId: string, gatheringId: string) => `${userId}:gathering_invite:${gatheringId}`;
@@ -214,7 +220,7 @@ export async function processCommunityPush(
     const userIds = [...new Set(activities.map((item) => item.recipient_id))];
     const [{ data: deviceData, error: deviceError }, { data: sentData, error: sentError }] = await Promise.all([
         supabase.from('member_devices')
-            .select('user_id, expo_push_token, timezone, locale, last_seen_at')
+            .select('user_id, expo_push_token, timezone, locale, platform, last_seen_at')
             .in('user_id', userIds)
             .eq('push_enabled', true)
             .eq('community_push_enabled', true)
@@ -236,9 +242,11 @@ export async function processCommunityPush(
             .sort((a, b) => new Date(b.last_seen_at).getTime() - new Date(a.last_seen_at).getTime());
         const timezone = userDevices[0]?.timezone;
         if (!timezone) continue;
-        const tokens = [...new Set(userDevices.map((item) => item.expo_push_token)
-            .filter((token): token is string => isExpoPushToken(token)))];
-        if (tokens.length === 0) continue;
+        const targets = [...new Map(userDevices
+            .filter((item) => isExpoPushToken(item.expo_push_token))
+            .map((item) => [item.expo_push_token as string, item.platform] as const)
+            .reverse())]; // The most recent row of a repeated token wins.
+        if (targets.length === 0) continue;
 
         const choice = chooseCommunityPush(
             activities.filter((item) => item.recipient_id === userId),
@@ -268,28 +276,42 @@ export async function processCommunityPush(
             .maybeSingle();
         if (actorError) throw new Error(`Community push actor: ${actorError.message}`);
         if (!actor) continue;
-        const [{ data: actorName, error: nameError }, { data: actorAvatar, error: avatarError }] = await Promise.all([
-            supabase.rpc('person_short_name', { p_user: actor.actor_id }),
-            supabase.rpc('person_avatar', { p_user: actor.actor_id }),
-        ]);
-        if (nameError) throw new Error(`Community push actor name: ${nameError.message}`);
-        // A missing photo only costs the circle, never the push.
-        const avatar = avatarError ? null : safeAvatar(actorAvatar as string | null);
+        const sender = await loadPushSender(supabase, actor.actor_id);
 
-        const grouped = (choice.kind === 'like' || choice.kind === 'comment' || choice.kind === 'gathering_join') && activities.some((item) =>
+        const others = choice.kind === 'gathering_invite' ? [] : activities.filter((item) =>
             item.recipient_id === userId && item.kind === choice.kind && item.id !== choice.activity.id &&
             new Date(item.created_at).getTime() >= new Date(choice.activity.created_at).getTime() &&
             now.getTime() - new Date(item.created_at).getTime() >= DELAY_MS[choice.kind]);
+        // "Ana e mais pessoas" only when someone else is there, not two likes from Ana.
+        let grouped = false;
+        if (others.length > 0) {
+            const { data: otherActors, error: othersError } = await supabase
+                .from('community_activity')
+                .select('actor_id')
+                .eq('recipient_id', userId)
+                .in('id', others.map((item) => item.id));
+            grouped = !othersError && ((otherActors || []) as { actor_id: string }[])
+                .some((item) => item.actor_id !== actor.actor_id);
+        }
         const english = (userDevices[0].locale || '').toLowerCase().startsWith('en');
-        const message = communityPushCopy(choice.kind, english, actorName, grouped);
-        const sender = { name: shortActorName(actorName, english), avatar };
-        const messages: ExpoPushMessage[] = tokens.map((token) => ({
-            to: token, title: message.title, body: message.body,
-            channelId: CHANNEL, sound: 'default',
-            ...(avatar ? { mutableContent: true } : {}),
-            data: communityPushData(choice, actor.actor_id, sender),
-        }));
+        const message = communityPushCopy(choice.kind, english, sender.name, grouped);
+        const senderName = shortActorName(sender.name, english);
+        const photoOf = {
+            name: senderName, avatar: sender.avatar,
+            body: communitySenderBody(message.body, senderName, grouped),
+        };
+        const data = communityPushData(choice, actor.actor_id);
+        const messages: ExpoPushMessage[] = targets.map(([token, platform]) => {
+            const photo = senderPhotoFields(platform, photoOf);
+            return {
+                ...photo,
+                to: token, title: message.title, body: message.body,
+                channelId: CHANNEL, sound: 'default',
+                data: { ...data, ...photo.data },
+            };
+        });
         const outcome = await sendExpoPush(messages);
+        await storePushTickets(supabase, TYPE, outcome.tickets);
         if (config.test_user_id === userId) {
             result.testTicketIds.push(...outcome.ticketIds);
         }
