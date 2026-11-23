@@ -35,7 +35,6 @@ const ProductCard = React.forwardRef<HTMLDivElement, ProductCardProps>(({
         typeId: product.type_id,
         category: product.category,
         name: product.name,
-        digitalUrl: (product as any).digitalUrl,
     });
 
     const totalVariantStock = product.variants?.reduce((acc: number, v: any) => acc + (v.stock || 0), 0) || 0;

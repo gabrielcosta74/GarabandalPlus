@@ -124,7 +124,6 @@ export default function ProductDetailsClient({ initialProduct }: { initialProduc
                 typeId: productData.type_id,
                 category: productData.category,
                 name: productData.name,
-                digitalUrl: (productData as any).digitalUrl,
             });
             productData.type = isDigital ? 'digital' : 'fisico';
             setProduct(productData);
@@ -274,7 +273,6 @@ export default function ProductDetailsClient({ initialProduct }: { initialProduc
         typeId: product.type_id,
         category: product.category,
         name: product.name,
-        digitalUrl: (product as any).digitalUrl,
     });
     const productMode: 'digital' | 'clothing' | 'physical' =
         isDigital ? 'digital' : isClothing ? 'clothing' : 'physical';

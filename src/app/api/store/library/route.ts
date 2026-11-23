@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { supabaseServer } from '../../../../lib/supabase';
-import { products as catalogProducts } from '../../../../lib/store-catalog';
 import { createDigitalAccessToken } from '../../../../lib/store-access';
+import { PAID_STORE_ORDER_STATUSES } from '../../../../lib/store-files';
 import { normalizeEmail } from '../../../../lib/normalize';
 
 export const runtime = 'nodejs';
@@ -39,49 +39,74 @@ export async function GET(request: Request) {
       .from('store_digital_access')
       .update({ user_id: userId })
       .is('user_id', null)
-      .ilike('buyer_email', email);
+      .eq('buyer_email', email);
   } catch (err) {
     console.warn('Não foi possível associar acessos digitais ao utilizador:', err);
   }
 
-  const { data: accessRows, error: accessError } = await supabaseServer
-    .from('store_digital_access')
-    .select('id, order_ref, product_id, status, qty, file_url, created_at, last_access_at, download_count')
-    .or(`user_id.eq.${userId},buyer_email.ilike.${email}`)
-    .order('created_at', { ascending: false });
+  // Emails are compared exactly: in a pattern match, "_" or "%" in an address would
+  // reach other people's purchases.
+  const accessFields = 'id, order_ref, product_id, status, qty, created_at, last_access_at, download_count';
+  const [byUser, byEmail] = await Promise.all([
+    supabaseServer.from('store_digital_access').select(accessFields).eq('user_id', userId),
+    supabaseServer.from('store_digital_access').select(accessFields).eq('buyer_email', email),
+  ]);
 
-  if (accessError) {
-    console.error('Erro ao listar biblioteca:', accessError);
+  if (byUser.error || byEmail.error) {
+    console.error('Erro ao listar biblioteca:', byUser.error || byEmail.error);
     return NextResponse.json({ message: 'Erro ao carregar biblioteca.' }, { status: 500 });
   }
 
-  const productIds = (accessRows || []).map((row) => row.product_id);
+  const ownedRows = Array.from(
+    new Map([...(byUser.data || []), ...(byEmail.data || [])].map((row) => [row.id, row])).values(),
+  ).filter((row) => row.status === 'available');
+
+  // Only paid orders give access, the same rule as the download itself.
+  const ownedRefs = Array.from(new Set(ownedRows.map((row) => row.order_ref)));
+  const { data: paidRows, error: paidError } = ownedRefs.length
+    ? await supabaseServer
+        .from('store_orders')
+        .select('order_ref')
+        .in('order_ref', ownedRefs)
+        .in('status', PAID_STORE_ORDER_STATUSES)
+    : { data: [], error: null };
+
+  if (paidError) {
+    console.error('Erro ao validar compras da biblioteca:', paidError);
+    return NextResponse.json({ message: 'Erro ao carregar biblioteca.' }, { status: 500 });
+  }
+
+  const paidAccessRefs = new Set((paidRows || []).map((row) => row.order_ref));
+  const accessRows = ownedRows.filter((row) => paidAccessRefs.has(row.order_ref));
+
+  const productIds = accessRows.map((row) => row.product_id);
   const { data: productRows } = productIds.length
     ? await supabaseServer
         .from('store_products')
-        .select('product_id, name, image_url, digital_url, is_physical')
+        .select('product_id, name, image_url, is_physical')
         .in('product_id', productIds)
     : { data: [] };
 
   const productMap = new Map(
     (productRows || []).map((row) => [row.product_id, row]),
   );
-  const catalogMap = new Map(
-    (catalogProducts || []).map((p) => [p.id, p]),
-  );
 
   // Count purchases from paid orders (source of truth), not only from access rows.
-  const paidStatuses = ['paid', 'pago', 'succeeded'];
   let paidOrderQtyByProduct = new Map<string, number>();
   let paidOrderCountByProduct = new Map<string, number>();
   try {
-    const { data: paidOrders } = await supabaseServer
+    const paidOrders = () => supabaseServer!
       .from('store_orders')
       .select('order_ref')
-      .or(`buyer_user_id.eq.${userId},buyer_email.ilike.${email}`)
-      .in('status', paidStatuses);
+      .in('status', PAID_STORE_ORDER_STATUSES);
+    const [ordersByUser, ordersByEmail] = await Promise.all([
+      paidOrders().eq('buyer_user_id', userId),
+      paidOrders().eq('buyer_email', email),
+    ]);
 
-    const paidRefs = Array.from(new Set((paidOrders || []).map((row) => row.order_ref).filter(Boolean)));
+    const paidRefs = Array.from(new Set(
+      [...(ordersByUser.data || []), ...(ordersByEmail.data || [])].map((row) => row.order_ref).filter(Boolean),
+    ));
     if (paidRefs.length) {
       const { data: paidItems } = await supabaseServer
         .from('store_order_items')
@@ -107,7 +132,7 @@ export async function GET(request: Request) {
   }
 
   const rowsByProduct = new Map<string, typeof accessRows>();
-  for (const row of accessRows || []) {
+  for (const row of accessRows) {
     const key = row.product_id;
     const bucket = rowsByProduct.get(key) || [];
     bucket.push(row);
@@ -123,7 +148,6 @@ export async function GET(request: Request) {
     const latest = sorted[0];
     const earliest = sorted[sorted.length - 1];
     const product = productMap.get(productId);
-    const catalogProduct = catalogMap.get(productId);
     const purchaseCountFromAccess = rows.reduce((sum, row) => sum + Math.max(1, Number(row.qty || 1)), 0);
     const orderCountFromAccess = new Set(rows.map((row) => row.order_ref)).size;
     const purchaseCount = paidOrderQtyByProduct.get(productId) || purchaseCountFromAccess;
@@ -151,8 +175,6 @@ export async function GET(request: Request) {
       qty: purchaseCount,
       purchaseCount,
       orderCount,
-      // Product digital_url is source of truth; per-access file_url may contain stale legacy values.
-      fileUrl: product?.digital_url || latest.file_url || catalogProduct?.digitalUrl || null,
       downloadUrl,
       createdAt: earliest.created_at,
       firstPurchasedAt: earliest.created_at,
@@ -175,5 +197,5 @@ export async function GET(request: Request) {
 
   const sortedItems = items.sort((a, b) => new Date(b.lastPurchasedAt || 0).getTime() - new Date(a.lastPurchasedAt || 0).getTime());
 
-  return NextResponse.json({ items: sortedItems });
+  return NextResponse.json({ items: sortedItems }, { headers: { 'Cache-Control': 'private, no-store' } });
 }

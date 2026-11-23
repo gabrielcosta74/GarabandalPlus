@@ -48,7 +48,6 @@ export default function StorePageClient({ initialProducts = [], initialLocale }:
             typeId: (product as any).type_id,
             category: (product as any).category,
             name: product.name,
-            digitalUrl: (product as any).digitalUrl,
         });
     };
 

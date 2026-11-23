@@ -52,9 +52,12 @@ export const fetchProductForPage = async (param: string, locale: AppLocale = 'pt
     const localized = localizeStoreProductText(best, locale);
     const typeText = getStoreProductTypeText(isPhysical, locale);
 
+    // This object is serialised into the page, so the file address stays here.
+    const { digital_url: _fileAddress, ...publicProduct } = best;
+
     // Normalise to match Product type expected by client component
     return {
-      ...best,
+      ...publicProduct,
       id: best.product_id,
       name: localized.name,
       name_pt: best.name,
@@ -65,7 +68,6 @@ export const fetchProductForPage = async (param: string, locale: AppLocale = 'pt
       isPhysical,
       allowedCountries: best.allowed_countries || [],
       taxRate: best.tax_rate,
-      digitalUrl: best.digital_url,
       variants: best.variants || [],
       type: best.type_id,
       tag: typeText.tag,

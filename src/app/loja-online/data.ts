@@ -10,7 +10,6 @@ export type Product = {
   description: string;
   format: string;
   isPhysical: boolean;
-  digitalUrl?: string | null;
   stock?: number | null;
   allowedCountries?: string[] | null;
   taxRate?: number;

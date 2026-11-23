@@ -15,7 +15,6 @@ export type StoreProductView = {
   description: string;
   format: string;
   isPhysical: boolean;
-  digitalUrl?: string | null;
   stock?: number | null;
   allowedCountries?: string[] | null;
   taxRate?: number;
@@ -91,7 +90,6 @@ export const mapStoreProductRecord = (
     tag: typeText.tag,
     format: typeText.format,
     isPhysical,
-    digitalUrl: productData.digital_url || null,
     stock: isPhysical && typeof productData.stock === 'number' ? productData.stock : null,
     allowedCountries: productData.allowed_countries || [],
     taxRate: productData.tax_rate ?? 0.23,

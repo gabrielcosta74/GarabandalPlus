@@ -42,7 +42,7 @@ export async function GET(request: Request) {
         claim_source: 'auto_login',
       })
       .is('buyer_user_id', null)
-      .ilike('buyer_email', email);
+      .eq('buyer_email', email);
   } catch (err) {
     console.warn('Nao foi possivel associar pedidos ao utilizador:', err);
   }
@@ -56,7 +56,7 @@ export async function GET(request: Request) {
     supabaseServer
       .from('store_orders')
       .select('*')
-      .ilike('buyer_email', email)
+      .eq('buyer_email', email)
       .order('created_at', { ascending: false }),
   ]);
 
