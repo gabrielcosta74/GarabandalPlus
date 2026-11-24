@@ -31,7 +31,7 @@ export default function TermosPage() {
             Termos e Condições
           </h1>
           <p className="text-sm text-slate-500">
-            Última atualização: 3 de setembro de 2026
+            Última atualização: 24 de novembro de 2026
           </p>
           <p className="text-slate-600 leading-relaxed">
             Ao utilizar o website, a web app ou a aplicação móvel para membros do Apostolado de
@@ -43,17 +43,19 @@ export default function TermosPage() {
           <h2 className="text-xl font-semibold text-slate-900">1. Objeto e âmbito</h2>
           <p className="text-slate-600 leading-relaxed">
             Estes Termos regulam o acesso e utilização do website, web app, aplicação móvel, área de
-            membro, inscrição em peregrinações, doações, pagamentos de quotas e loja online.
+            membro, subscrição digital Rezar+, inscrição em peregrinações, doações, pagamentos de quotas e loja online.
           </p>
           <p className="text-slate-600 leading-relaxed">
             A plataforma é operada pela Associação do Apostolado de Garabandal, NIPC 517582023,
-            com sede no Largo da Igreja, n.º 36, 4535-275 Paços de Brandão, Portugal.
+            com sede no Largo da Igreja, n.º 36, 4535-275 Paços de Brandão, Portugal. Contactos:
+            geral@apostoladodegarabandal.com e +351 915 206 815.
           </p>
         </section>
 
         <section className="space-y-3">
           <h2 className="text-xl font-semibold text-slate-900">2. Conta de utilizador</h2>
           <ul className="list-disc pl-6 text-slate-600 leading-relaxed space-y-2">
+            <li>Parte da aplicação pode ser usada sem conta. A comunidade, as reservas e a subscrição Rezar+ exigem conta.</li>
             <li>O utilizador é responsável pela veracidade dos dados fornecidos e pela segurança da conta.</li>
             <li>Não é permitida utilização abusiva, fraudulenta ou que viole legislação aplicável.</li>
             <li>Podemos suspender acessos em caso de risco de segurança ou incumprimento destes Termos.</li>
@@ -66,9 +68,10 @@ export default function TermosPage() {
             3. Conteúdo publicado por utilizadores
           </h2>
           <p className="text-slate-600 leading-relaxed">
-            A aplicação móvel inclui um mural de intenções onde os membros podem partilhar pedidos
-            de oração. Ao publicar, o utilizador declara que o conteúdo é da sua autoria e aceita as
-            regras seguintes.
+            A aplicação móvel inclui uma comunidade onde as pessoas com conta podem partilhar pedidos de
+            oração, graças, reflexões, fotografias, comentários, encontros de oração e mensagens no chat
+            da missa em direto. Ao publicar, o utilizador declara que o conteúdo é da sua autoria ou que
+            tem direito a partilhá-lo e aceita as regras seguintes.
           </p>
           <ul className="list-disc pl-6 text-slate-600 leading-relaxed space-y-2">
             <li>
@@ -78,21 +81,24 @@ export default function TermosPage() {
               pessoais de terceiros.
             </li>
             <li>
-              Qualquer membro pode denunciar uma intenção e bloquear o respetivo autor a partir da
-              própria aplicação. O bloqueio é imediato e pode ser gerido no Perfil.
+              Qualquer pessoa com conta pode denunciar publicações, comentários, encontros ou perfis e
+              bloquear outras pessoas a partir da própria aplicação. O bloqueio é imediato e pode ser
+              gerido no Perfil.
             </li>
             <li>
-              As denúncias são analisadas no prazo máximo de 24 horas. Conteúdo que viole estas
-              regras é removido e as contas responsáveis podem ser suspensas ou eliminadas, sem
-              aviso prévio e sem direito a reembolso de quotas.
+              As denúncias são analisadas pela equipa com a maior brevidade possível. Conteúdo que viole
+              estas regras é ocultado ou removido e as contas responsáveis podem ter o acesso à
+              comunidade restringido ou a conta suspensa. Pode pedir a revisão de uma decisão pelos
+              contactos indicados acima.
             </li>
             <li>
-              Uma intenção denunciada por vários membros é ocultada automaticamente enquanto aguarda
+              Conteúdo denunciado por várias pessoas pode ser ocultado automaticamente enquanto aguarda
               análise.
             </li>
             <li>
-              O Apostolado de Garabandal não subscreve nem verifica previamente o conteúdo
-              publicado pelos utilizadores, mas reserva-se o direito de o remover a qualquer momento.
+              Antes da publicação, o texto e as fotografias são verificados automaticamente pela OpenAI,
+              após autorização expressa. A verificação não substitui a revisão humana. O Apostolado não
+              subscreve o conteúdo publicado pelos utilizadores e pode retirá-lo a qualquer momento.
             </li>
           </ul>
         </section>
@@ -113,7 +119,9 @@ export default function TermosPage() {
             <li>Doações e quotas são registadas para controlo administrativo, contabilístico e fiscal.</li>
             <li>Quando aplicável, o estado do pagamento depende da confirmação do operador de pagamento.</li>
             <li>A quota é uma obrigação estatutária de membro da associação e não uma compra de conteúdo digital da aplicação.</li>
-            <li>A aplicação móvel não processa pagamentos nem recolhe dados de cartão.</li>
+            <li>A subscrição digital Rezar+, quando disponível, é vendida na aplicação através da App Store ou do Google Play. O preço, o período de renovação e eventuais ofertas são apresentados pela loja antes da compra; a renovação automática, o cancelamento e o reembolso seguem as regras da loja utilizada.</li>
+            <li>Rezar+ dá acesso à pesquisa e às perguntas na Bíblia e no Catecismo, ao terço em conversa e ao exame de consciência guiado. Não atribui qualidade de associado, número de membro nem direitos associativos. Os membros com quota ativa já têm estas funções incluídas.</li>
+            <li>As compras digitais podem ser restauradas na aplicação e a subscrição é gerida na respetiva loja. A aplicação não recolhe dados de cartão.</li>
             <li>Os donativos são voluntários, não desbloqueiam funcionalidades ou conteúdo digital e, quando iniciados na aplicação, são concluídos fora da aplicação no navegador do dispositivo.</li>
           </ul>
         </section>
@@ -128,10 +136,22 @@ export default function TermosPage() {
         </section>
 
         <section className="space-y-3">
-          <h2 className="text-xl font-semibold text-slate-900">7. Propriedade intelectual</h2>
+          <h2 className="text-xl font-semibold text-slate-900">7. Propriedade intelectual e serviços de terceiros</h2>
           <p className="text-slate-600 leading-relaxed">
             Conteúdos, marcas, elementos gráficos, textos, vídeos e demais materiais da plataforma
             estão protegidos por direitos de propriedade intelectual, salvo indicação em contrário.
+          </p>
+          <p className="text-slate-600 leading-relaxed">
+            A secção Vídeos da aplicação usa os serviços da API do YouTube. Ao usá-la, aceita também os{' '}
+            <a href="https://www.youtube.com/t/terms" target="_blank" rel="noopener noreferrer" className="underline hover:text-slate-900">
+              Termos de Serviço do YouTube
+            </a>
+            . Os vídeos pertencem aos respetivos canais.
+          </p>
+          <p className="text-slate-600 leading-relaxed">
+            As respostas dos assistentes de inteligência artificial podem conter erros e não substituem o
+            Magistério da Igreja, um sacerdote ou a direção espiritual. Pode denunciar uma resposta na
+            própria aplicação.
           </p>
         </section>
 
